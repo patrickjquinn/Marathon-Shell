@@ -14,6 +14,7 @@
   "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
   "deepLinks": {},
   "backgroundCapabilities": ["active-navigation", "location-tracking"],
-  "requiresQtModules": ["webengine"]
+  "requiresQtModules": ["webengine"],
+  "chromiumFlags": "--use-gl=egl --use-cmd-decoder=validating --disable-webgl2 --disable-features=Vulkan,UseSkiaRenderer,WebGL2 --ignore-gpu-blocklist"
 }
 

@@ -47,13 +47,26 @@ namespace {
     // the GPU command-buffer with kFatalFailure "ES3 is blocklisted/disabled/
     // unsupported by driver" (observed 2026-06-25 Maps + Browser viewport).
     // Drop ANGLE (which insists on ES3) in favour of native EGL/GLES2, and
-    // explicitly disable WebGL/WebGL2 so the renderer doesn't try to set up
-    // an ES3 context at all. Maps WebGL tiles + canvas-heavy pages won't
-    // render but at least the page parses and the simple DOM paints.
+    // explicitly disable WebGL2 so the renderer doesn't try to set up
+    // an ES3 context at all.
+    //
+    // WebGL 1.0 is intentionally left enabled. It maps to GLES2 + GLSL ES
+    // 1.0 which etnaviv DOES expose (verified on r234 device 2026-06-26
+    // via `eglinfo`: "OpenGL ES profile version: OpenGL ES 2.0 Mesa
+    // 26.1.1 ... GLSL ES 1.0.16"). Killing WebGL globally was the previous
+    // policy but it black-holed Maps (MapLibre GL JS is WebGL-only — no
+    // canvas2D fallback for vector tiles; the viewport stays at the
+    // marathon-dark background colour with no tiles ever painting). The
+    // ES3 abort that motivated the original disable is a WebGL2 probe
+    // failure, not WebGL1 — so keeping WebGL2 disabled is sufficient.
+    //
+    // Per-app overrides via the manifest `chromiumFlags` string field
+    // still take precedence if a future app needs a different shape
+    // (e.g. forcing software GL for a known-broken page).
     constexpr const char *kDefaultChromiumFlags =
         "--use-gl=egl --use-cmd-decoder=validating "
-        "--disable-webgl --disable-webgl2 "
-        "--disable-features=Vulkan,UseSkiaRenderer,WebGL,WebGL2 "
+        "--disable-webgl2 "
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
         "--ignore-gpu-blocklist";
 }
 
@@ -469,6 +482,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
     QStringList permissions = app.value("permissions").toStringList();
     QStringList requiresQt  = app.value("requiresQtModules").toStringList();
+    QString     manifestChromiumFlags;
     // resolveAppObject populates only id/name/icon/type/exec/permissions
     // from the App model -- the model never exposed requiresQtModules, so
     // every map that reaches this path has an empty requiresQt. The
@@ -478,14 +492,26 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // SIGTRAP deep in libQt6WebEngineCore.so. Until the App model is
     // extended, fall back to a manifest read for the appId so the
     // sandbox shape matches what Chromium can survive.
-    if (requiresQt.isEmpty()) {
+    //
+    // Same lookup also pulls the optional `chromiumFlags` string (one
+    // line, space-separated --foo=bar tokens). Apps with WebGL-only
+    // content (Maps via MapLibre GL JS) need flags that re-enable WebGL
+    // on top of the device-wide etnaviv-safe baseline; the manifest
+    // value lets an app declare exactly what shape it needs without
+    // the shell having to special-case appIds.
+    if (requiresQt.isEmpty() || manifestChromiumFlags.isEmpty()) {
         const QString appId = app.value("id").toString();
         QFile         mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
         if (mf.open(QIODevice::ReadOnly)) {
-            QJsonDocument doc = QJsonDocument::fromJson(mf.readAll());
-            const auto    arr = doc.object().value(QStringLiteral("requiresQtModules")).toArray();
-            for (const auto &v : arr)
-                requiresQt << v.toString();
+            QJsonDocument     doc  = QJsonDocument::fromJson(mf.readAll());
+            const QJsonObject root = doc.object();
+            if (requiresQt.isEmpty()) {
+                const auto arr = root.value(QStringLiteral("requiresQtModules")).toArray();
+                for (const auto &v : arr)
+                    requiresQt << v.toString();
+            }
+            manifestChromiumFlags =
+                root.value(QStringLiteral("chromiumFlags")).toString().trimmed();
         }
     }
     const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
@@ -498,6 +524,15 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // EGL — the only combination that initialises cleanly on this hardware.
     // Applied only to apps that declare webengine in requiresQtModules so
     // native QML apps don't pay the GLES2 cap.
+    // Per-app chromium flags resolution: shell env (operator override) →
+    // manifest "chromiumFlags" → device-wide default. Kept as a local so
+    // both the un-sandboxed env.insert and the bwrap --setenv path below
+    // emit the same value.
+    const QString effectiveChromiumFlags = qEnvironmentVariable(
+        "QTWEBENGINE_CHROMIUM_FLAGS",
+        manifestChromiumFlags.isEmpty() ? QString::fromLatin1(kDefaultChromiumFlags) :
+                                          manifestChromiumFlags);
+
     if (usesWebEngine) {
         env.insert("MESA_LOADER_DRIVER_OVERRIDE",
                    qEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE", "etnaviv"));
@@ -507,8 +542,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                    qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0"));
         env.insert("MESA_GL_VERSION_OVERRIDE",
                    qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1"));
-        env.insert("QTWEBENGINE_CHROMIUM_FLAGS",
-                   qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultChromiumFlags));
+        env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
     }
 
     if (permissions.contains("network")) {
@@ -709,10 +743,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // --use-gl=angle" and the WebEngine app fails to launch (Maps
             // crash, observed 2026-06-25 r223). The chromium flags value
             // doesn't contain any double quotes itself so wrapping is safe.
-            const QString chromiumFlags =
-                qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultChromiumFlags);
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
-                      << QStringLiteral("\"") + chromiumFlags + QStringLiteral("\"");
+                      << QStringLiteral("\"") + effectiveChromiumFlags + QStringLiteral("\"");
         }
 
         cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
