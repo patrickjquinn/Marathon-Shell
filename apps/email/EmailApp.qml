@@ -312,7 +312,7 @@ MApp {
                     anchors.fill: parent
                     visible: emailApp.serviceAvailable && inboxPage.accountCount > 0
 
-                    Row {
+                    RowLayout {
                         id: captionRow
                         anchors {
                             top: parent.top
@@ -342,12 +342,10 @@ MApp {
                             font.capitalization: Font.AllUppercase
                         }
                         Item {
-                            width: 1
-                            height: 1
                             Layout.fillWidth: true
+                            Layout.preferredHeight: 1
                         }
                         Text {
-                            anchors.right: parent.right
                             text: "Sort: Newest"
                             color: MColors.marathonTealBright
                             font.family: MTypography.fontFamily
