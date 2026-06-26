@@ -33,6 +33,30 @@
 #include <QtWaylandCompositor/QWaylandXdgToplevel>
 #endif
 
+namespace {
+    // QtWebEngine's bundled Chromium on Alpine is built WITHOUT the wayland
+    // ozone backend; passing --ozone-platform=wayland or --enable-features=
+    // UseOzonePlatform crashes the render process with FATAL "Invalid ozone
+    // platform: wayland" (Browser + Maps, observed 2026-06-25). Qt WebEngine
+    // renders into a Qt-side GL texture and Qt handles wayland presentation,
+    // so Chromium itself doesn't need a wayland ozone — let it pick its
+    // built-in default.
+    //
+    // The i.MX 8M Quad GC7000Lite (etnaviv) on the Librem 5 only exposes
+    // partial GLES3 — Chromium probes for ES3 to set up WebGL2 and aborts
+    // the GPU command-buffer with kFatalFailure "ES3 is blocklisted/disabled/
+    // unsupported by driver" (observed 2026-06-25 Maps + Browser viewport).
+    // Drop ANGLE (which insists on ES3) in favour of native EGL/GLES2, and
+    // explicitly disable WebGL/WebGL2 so the renderer doesn't try to set up
+    // an ES3 context at all. Maps WebGL tiles + canvas-heavy pages won't
+    // render but at least the page parses and the simple DOM paints.
+    constexpr const char *kDefaultChromiumFlags =
+        "--use-gl=egl --use-cmd-decoder=validating "
+        "--disable-webgl --disable-webgl2 "
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL,WebGL2 "
+        "--ignore-gpu-blocklist";
+}
+
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
     : QObject(parent)
     , m_appModel(appModel)
@@ -483,13 +507,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                    qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0"));
         env.insert("MESA_GL_VERSION_OVERRIDE",
                    qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1"));
-        env.insert(
-            "QTWEBENGINE_CHROMIUM_FLAGS",
-            qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS",
-                                 "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
-                                 "--use-cmd-decoder=passthrough "
-                                 "--disable-features=Vulkan,UseSkiaRenderer "
-                                 "--enable-features=UseOzonePlatform --ignore-gpu-blocklist"));
+        env.insert("QTWEBENGINE_CHROMIUM_FLAGS",
+                   qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultChromiumFlags));
     }
 
     if (permissions.contains("network")) {
@@ -691,11 +710,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // crash, observed 2026-06-25 r223). The chromium flags value
             // doesn't contain any double quotes itself so wrapping is safe.
             const QString chromiumFlags =
-                qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS",
-                                     "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
-                                     "--use-cmd-decoder=passthrough "
-                                     "--disable-features=Vulkan,UseSkiaRenderer "
-                                     "--enable-features=UseOzonePlatform --ignore-gpu-blocklist");
+                qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultChromiumFlags);
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
                       << QStringLiteral("\"") + chromiumFlags + QStringLiteral("\"");
         }
