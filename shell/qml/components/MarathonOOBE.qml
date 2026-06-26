@@ -1312,15 +1312,15 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: Math.round((passcodePage.isCompact ? 32 : 56) * Constants.scaleFactor)
+                anchors.topMargin: Math.round((passcodePage.isCompact ? 20 : 28) * Constants.scaleFactor)
                 anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
                 anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
-                spacing: Math.round((passcodePage.isCompact ? 14 : 22) * Constants.scaleFactor)
+                spacing: Math.round((passcodePage.isCompact ? 8 : 10) * Constants.scaleFactor)
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
                     name: "lock"
-                    size: Math.round((passcodePage.isCompact ? 36 : 48) * Constants.scaleFactor)
+                    size: Math.round((passcodePage.isCompact ? 28 : 36) * Constants.scaleFactor)
                     color: MColors.marathonTealBright
                 }
 
