@@ -85,23 +85,39 @@ namespace {
     //    it does NOT clamp the eglCreateContext attribute list Chromium
     //    asks for. Cargo-cult flag.
     //
-    // Working configuration (Morph on Ubuntu Touch, Sailfish, Plasma
-    // Mobile Angelfish on Vivante-class ARM all converge on it): software
-    // GL via llvmpipe under Mesa, Qt Quick on the software backend so
-    // QRhiGles2 doesn't fight chromium for a context, chromium with GPU
-    // entirely disabled and in-process so its sandbox doesn't try to
-    // nest CLONE_NEW{USER,PID} inside our bwrap.
+    // The Chromium-130 GL allowlist accepts exactly two implementations
+    // on Linux: (gl=egl-angle, angle=default) and (gl=disabled, none).
+    // `--use-gl=angle` puts us inside the allowlist. ANGLE then needs a
+    // backend; on a board with no Vulkan and a working etnaviv GLES2
+    // EGL, ANGLE's "gl" backend translates its GL API calls down to
+    // native libGL (mesa-egl + etnaviv). This is the path that keeps
+    // hardware acceleration on Vivante-class boards working — the
+    // angle=swiftshader path we tried earlier is pure CPU and the
+    // angle=vulkan path is a non-starter without a Vulkan ICD.
+    //
+    // `--no-sandbox` because chromium's namespace sandbox tries to
+    // CLONE_NEW{USER,PID,IPC} inside our bwrap and EPERMs (NXP i.MX
+    // family + bwrap thread). `--disable-dev-shm-usage` because
+    // /dev/shm inside the sandbox is a 16M tmpfs and chromium SIGTRAPs
+    // when it runs out. `--in-process-gpu` skips chromium's GPU child
+    // process (one less namespace clone), keeping GL context creation
+    // in the runner's address space where Qt has already wired EGL.
+    //
+    // WebGL2 stays disabled — etnaviv exposes GLES 2.0 only, MapLibre
+    // and most modern WebGL workloads use GL1 (which ANGLE happily
+    // satisfies on top of GLES2). UseSkiaRenderer is the new chrome
+    // rasteriser; on an embedded SoC the older raster path is more
+    // stable.
     constexpr const char *kDefaultChromiumFlags =
-        "--disable-gpu "
-        "--in-process-gpu "
+        "--use-gl=angle "
+        "--use-angle=gl "
         "--no-sandbox "
+        "--in-process-gpu "
         "--disable-dev-shm-usage "
-        "--disable-gpu-compositing "
-        "--num-raster-threads=2 "
-        "--enable-viewport "
-        "--main-frame-resizes-are-orientation-changes "
-        "--disable-composited-antialiasing "
-        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2";
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
+        "--ignore-gpu-blocklist "
+        "--enable-features=VaapiVideoDecoder "
+        "--num-raster-threads=2";
 }
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
@@ -550,32 +566,6 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     }
     const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
 
-    // Containment for the published unsolved Qt 6.9+/Chromium 130/etnaviv
-    // GLES 2 wall (NXP i.MX 8M Plus BSP thread, Christian Gmeiner GLES3
-    // status, all referenced in kDefaultChromiumFlags comment above):
-    // QtWebEngine cannot bring up a GPU on the GC7000Lite without either
-    // pinning Qt 6.5 / Chromium 108 or waiting for etnaviv GLES3. Until
-    // one of those lands, *any* WebEngine launch attempt crashes either
-    // the runner (SIGTRAP in libQt6WebEngineCore Chrome_InProcGp thread)
-    // or the shell (FATAL "EGLFS: OpenGL windows cannot be mixed with
-    // others" when the runner's wayland buffer arrives at the compositor).
-    // Refuse the launch up-front so neither process dies. The decision is
-    // gated on an env var so a future QtWebEngine release can re-enable
-    // these apps without a code change.
-    const bool allowWebEngine = qEnvironmentVariableIntValue("MARATHON_ALLOW_WEBENGINE") == 1;
-    if (usesWebEngine && !allowWebEngine) {
-        qWarning() << "[AppLaunchService] Refusing to launch WebEngine app" << appId
-                   << "— QtWebEngine on etnaviv (GC7000Lite) is broken upstream "
-                      "(Qt 6.9+/Chromium 130 dropped native GLES2 from its GL allowlist, "
-                      "and etnaviv has no GLES3). Set MARATHON_ALLOW_WEBENGINE=1 to attempt "
-                      "anyway.";
-        emit appLaunchFailed(appId, name,
-                             QStringLiteral("This app needs a GPU feature your phone doesn't "
-                                            "support yet. Try again after a system update."));
-        m_launchingApps.remove(appId);
-        return false;
-    }
-
     // WebEngine on etnaviv GC7000Lite: Mesa 24+ picks Zink (GL-on-Vulkan)
     // by default and etnaviv has no Vulkan ICD, so vkEnumeratePhysicalDevices
     // returns nothing and Chromium falls back to llvmpipe (or worse, dies).
@@ -612,20 +602,13 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0")));
 
     if (usesWebEngine) {
-        // Software path. See kDefaultChromiumFlags comment for the why.
-        // QT_QUICK_BACKEND=software stops QRhiGles2 from trying to bring
-        // up a GL context (it can't — etnaviv only exposes GLES 2.0, Qt
-        // RHI wants GLES 3.x; the failure cascade is the "Failed to
-        // create temporary context" we used to see). With the software
-        // backend Qt Quick rasterises on CPU, the WebEngineView's surface
-        // is a CPU buffer, and chromium runs --disable-gpu in-process —
-        // no eglCreateContext is attempted anywhere.
-        env.insert("QT_QUICK_BACKEND", qEnvironmentVariable("QT_QUICK_BACKEND", "software"));
-        // LIBGL_ALWAYS_SOFTWARE=1 forces Mesa to use llvmpipe even when
-        // /dev/dri is reachable. Belt-and-braces alongside QT_QUICK_BACKEND
-        // because some Qt code paths call eglGetDisplay() before checking
-        // the QSG backend.
-        env.insert("LIBGL_ALWAYS_SOFTWARE", qEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE", "1"));
+        // Hardware path via ANGLE→native libGL→etnaviv. See
+        // kDefaultChromiumFlags comment for the why. Qt RHI on the
+        // runner side comes up as GLES 2 (etnaviv's max) — that satisfies
+        // Qt Quick scenegraph for the WebEngineView shell; chromium's
+        // in-process GPU runs under ANGLE which translates to the same
+        // GLES2 context.
+        env.insert("QT_OPENGL", qEnvironmentVariable("QT_OPENGL", "es2"));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
         env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
     }
@@ -824,17 +807,14 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LANG")
                   << qEnvironmentVariable("LANG", "en_US.UTF-8");
 
-        // WebEngine software-GL shape — see kDefaultChromiumFlags + the
-        // un-sandboxed env block above for the full reasoning. The two
-        // setenvs (QT_QUICK_BACKEND + LIBGL_ALWAYS_SOFTWARE) belong here
-        // because they affect process-startup behaviour inside the
-        // sandbox; the chromium flag string is consumed when chromium's
-        // GPU subprocess inits.
+        // WebEngine GPU shape — see kDefaultChromiumFlags + the
+        // un-sandboxed env block above for the full reasoning. QT_OPENGL
+        // pins Qt's GL context request to GLES2 (etnaviv's only profile)
+        // so QRhi comes up cleanly; ANGLE→native libGL handles the same
+        // underneath for chromium.
         if (usesWebEngine) {
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_QUICK_BACKEND")
-                      << qEnvironmentVariable("QT_QUICK_BACKEND", "software");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LIBGL_ALWAYS_SOFTWARE")
-                      << qEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE", "1");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_OPENGL")
+                      << qEnvironmentVariable("QT_OPENGL", "es2");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
                       << QStringLiteral("1");
             // The chromium flags value contains spaces (multiple --foo=bar
