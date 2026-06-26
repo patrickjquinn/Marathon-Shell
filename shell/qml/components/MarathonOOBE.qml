@@ -1317,13 +1317,6 @@ Item {
                 anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
                 spacing: Math.round((passcodePage.isCompact ? 8 : 10) * Constants.scaleFactor)
 
-                Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    name: "lock"
-                    size: Math.round((passcodePage.isCompact ? 28 : 36) * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
-                }
-
                 Text {
                     Layout.alignment: Qt.AlignHCenter
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
