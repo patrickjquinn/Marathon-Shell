@@ -350,100 +350,117 @@ Rectangle {
             height: 10
         }
 
-        ListView {
+        Item {
+            id: agendaArea
             width: parent.width
             height: parent.height - height_above()
             function height_above() {
                 return 96 + 44 + 28 + 56 * 6 + 14 + 24 + 10;
             }
-            clip: true
-            spacing: 8
-            model: calendarGridPage.selectedEvents()
 
-            // Agenda re-fetches when month/day/events change.
-            Connections {
-                target: calendarApp
-                function onEventsChanged() {
-                    calendarGridPage.modelStale = !calendarGridPage.modelStale;
-                }
+            MEmptyState {
+                anchors.centerIn: parent
+                width: parent.width - 48
+                visible: agendaList.count === 0
+                iconName: "calendar"
+                iconSize: 48
+                title: "No events"
+                message: "Tap + to add one for this day"
             }
 
-            delegate: Rectangle {
-                width: ListView.view.width - 40
-                anchors.left: parent ? parent.left : undefined
-                anchors.leftMargin: 20
-                height: 70
-                radius: MRadius.md
-                color: MColors.elev2
-                border.width: 1
-                border.color: MColors.whiteOverlay04
+            ListView {
+                id: agendaList
+                anchors.fill: parent
+                visible: count > 0
+                clip: true
+                spacing: 8
+                model: calendarGridPage.selectedEvents()
 
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    spacing: 12
-
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 60
-                        spacing: 2
-                        Text {
-                            text: modelData.time || ""
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeSubhead
-                            font.weight: Font.Bold
-                            font.features: ({
-                                    "tnum": 1
-                                })
-                        }
-                        Text {
-                            text: modelData.duration || ""
-                            color: MColors.textTertiary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                            font.features: ({
-                                    "tnum": 1
-                                })
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 2
-                        height: 46
-                        color: MColors.marathonTealBright
-                    }
-
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 60 - 2 - parent.spacing * 2
-                        spacing: 2
-                        Text {
-                            width: parent.width
-                            text: modelData.title || ""
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeBody
-                            font.weight: Font.Medium
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            width: parent.width
-                            text: modelData.category || ""
-                            color: MColors.textSecondary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                            elide: Text.ElideRight
-                            visible: text.length > 0
-                        }
+                // Agenda re-fetches when month/day/events change.
+                Connections {
+                    target: calendarApp
+                    function onEventsChanged() {
+                        calendarGridPage.modelStale = !calendarGridPage.modelStale;
                     }
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: calendarApp.openEventDetail(modelData)
+                delegate: Rectangle {
+                    width: ListView.view.width - 40
+                    anchors.left: parent ? parent.left : undefined
+                    anchors.leftMargin: 20
+                    height: 70
+                    radius: MRadius.md
+                    color: MColors.elev2
+                    border.width: 1
+                    border.color: MColors.whiteOverlay04
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
+                        spacing: 12
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 60
+                            spacing: 2
+                            Text {
+                                text: modelData.time || ""
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeSubhead
+                                font.weight: Font.Bold
+                                font.features: ({
+                                        "tnum": 1
+                                    })
+                            }
+                            Text {
+                                text: modelData.duration || ""
+                                color: MColors.textTertiary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                font.features: ({
+                                        "tnum": 1
+                                    })
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 2
+                            height: 46
+                            color: MColors.marathonTealBright
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 60 - 2 - parent.spacing * 2
+                            spacing: 2
+                            Text {
+                                width: parent.width
+                                text: modelData.title || ""
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                width: parent.width
+                                text: modelData.category || ""
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                elide: Text.ElideRight
+                                visible: text.length > 0
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: calendarApp.openEventDetail(modelData)
+                    }
                 }
             }
         }
