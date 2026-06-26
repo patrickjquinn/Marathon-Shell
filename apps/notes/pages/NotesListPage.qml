@@ -316,10 +316,13 @@ Page {
                         }
                     }
 
-                    // TODAY section header
+                    // TODAY section header. Hidden when the empty state is
+                    // showing — otherwise we render both "TODAY" and
+                    // "No Notes Yet" simultaneously, which reads as a bug.
                     Item {
+                        visible: notesApp.notes.length > listPage.pinnedNotes().length
                         width: parent.width
-                        height: 36
+                        height: visible ? 36 : 0
                         Text {
                             anchors.left: parent.left
                             anchors.leftMargin: 16
