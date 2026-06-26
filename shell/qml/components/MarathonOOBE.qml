@@ -1251,7 +1251,7 @@ Item {
 
             readonly property bool isCompact: oobeRoot.compactLayout
             readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
-            readonly property real keySize: isCompact ? 56 : 70
+            readonly property real keySize: isCompact ? 78 : 96
             // Scaled size for cell-container Items (the spacer at row 4 col 0
             // and the +/-/dot keys). Must be ≥ MCircularIconButton's full
             // chrome size (buttonSize × sf + halo), so the layout reserves
