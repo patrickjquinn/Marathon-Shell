@@ -194,7 +194,7 @@ Page {
                 MSettingsListItem {
                     title: "Notifications"
                     iconName: "bell"
-                    value: SystemStatusStore.notificationCount > 0 ? SystemStatusStore.notificationCount + " unread" : ""
+                    value: (typeof SystemStatusStore !== "undefined" && SystemStatusStore && SystemStatusStore.notificationCount > 0) ? SystemStatusStore.notificationCount + " unread" : ""
                     onSettingClicked: mainPage.navigateToPage("notifications")
                 }
 

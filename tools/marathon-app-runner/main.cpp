@@ -784,13 +784,19 @@ int main(int argc, char *argv[]) {
     // (lightweight, no IPC, no permissions).
     ctx->setContextProperty("WorldClockHelper", new WorldClockHelper(&app));
 
-    ctx->setContextProperty("PermissionManager", new PermissionClient(&app));
+    auto *permissionClient = new PermissionClient(&app);
+    ctx->setContextProperty("PermissionManager", permissionClient);
+    qmlRegisterSingletonInstance<PermissionClient>("MarathonOS.Shell", 1, 0, "PermissionManager",
+                                                   permissionClient);
 
     // Lifecycle client is unconditional — any app might need to declare
     // an active background task. Whether the claim is accepted depends on
     // the manifest's backgroundCapabilities (gated shell-side), so it's
     // safe to expose without a permission probe.
-    ctx->setContextProperty("AppLifecycle", new AppLifecycleClient(&app));
+    auto *appLifecycleClient = new AppLifecycleClient(&app);
+    ctx->setContextProperty("AppLifecycle", appLifecycleClient);
+    qmlRegisterSingletonInstance<AppLifecycleClient>("MarathonOS.Shell", 1, 0,
+                                                     "AppLifecycleManager", appLifecycleClient);
 
     if (hasPerm("contacts"))
         ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
