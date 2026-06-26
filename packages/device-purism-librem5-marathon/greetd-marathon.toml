@@ -2,6 +2,68 @@
 vt = 1
 
 [default_session]
-command = "/usr/bin/marathon-shell-session"
+# Qt EGLFS_KMS device pinning + MSAA disable for Librem 5.
+#
+# QT_QPA_EGLFS_KMS_CONFIG points Qt at the JSON specifying card1
+# (mxsfb/DSI panel). Without it Qt opens card0 (etnaviv, render-only)
+# and aborts on "no screens available".
+#
+# QSG_SAMPLES=0 disables Qt scenegraph multisampling. marathon-shell's
+# main.cpp sets a 4× MSAA QSurfaceFormat globally — every QML layer
+# inherits that and tries to allocate a 4-sample renderbuffer. The
+# etnaviv GC7000Lite on i.MX 8M Quad has zero MSAA support, so each
+# attempt fails (spamming "Layer requested 4 samples but multisample
+# renderbuffers are not supported") and falls through to a slow path.
+# Observed effect on the L5: ~0.5fps, 30s touch latency, log flood.
+# QSG_SAMPLES env wins over the surface format for layer FBOs.
+#
+# Qt EGLFS_KMS device pinning for Librem 5: /dev/dri/card0 is etnaviv
+# (GPU-only render node, zero CRTCs); card1 is mxsfb+nwl-dsi with the
+# Mantix DSI-1 panel — what we need. Qt's libudev auto-detect picks
+# card0 and aborts with FATAL "no screens available".
+#
+# Qt only honors QT_QPA_EGLFS_KMS_CONFIG (a path to a JSON file with
+# {"device": "..."}). We tried setting it via the greetd.service
+# systemd drop-in's Environment=, but greetd uses execve() with the
+# PAM environment list (pam_getenvlist()) — it discards its own
+# process env including anything from systemd Environment=. Confirmed
+# in greetd source (slatecave.net/blog/a-look-at-greetd/). The only
+# clean way to inject env into the session is to put it in the
+# command itself.
+# Why dbus-run-session wraps marathon-shell-session: even when
+# /run/user/1000/bus exists and DBUS_SESSION_BUS_ADDRESS is exported by
+# the wrapper, the marathon-shell-bin process launched via
+# `systemd-run --user --scope` ends up not seeing it (race or scope-
+# inherited env quirk we couldn't pin down without on-device gdb).
+# dbus-run-session spawns a guaranteed private bus, sets the address
+# in the child's env, then exec's the wrapper — the shell always has
+# a working session bus to register org.marathonos.Shell on.
+#
+# MARATHON_FORCE_DPI=287 — pin scaleFactor (=dpi/160) to 1.79 explicitly
+# for the L5 Mantix DSI-1 720x1440 5.7" panel. Without the override Qt
+# derives DPI from the panel's EDID/physical-size and on mainline imx8mq
+# the nwl-dsi bridge tends to advertise a physical size that yields a
+# wrong scale — see [[feedback_force_dpi_for_visual_validation]] and
+# screenmetrics.cpp::computeDpi. 287 DPI matches the actual panel
+# pitch (720px / (5.7" * sqrt(1+(1440/720)^2)/sqrt(5)) ≈ 287 dpi) and
+# lands the UI at iOS-like @2x scale on this hardware. Real-hardware
+# QScreen->physicalDotsPerInch is the source of the OOBE overflow
+# the user reported on r11.
+#
+# IMPORTANT: do NOT wrap with `/usr/bin/dbus-run-session --` here.
+# marathon-shell-session execs into `systemd-run --user --scope` to
+# enter marathon.slice for the cgroup freezer. systemd-run quickly
+# registers the scope under systemd-user-instance and exits — at that
+# point dbus-run-session's IMMEDIATE child (the bash session script)
+# has died, so dbus-run-session tears down the session bus. The shell,
+# now living under the scope, then tries to connect to a dead socket
+# and every D-Bus call times out at the 25 s default — LocationManager
+# hangs init, ShellIpcServer can't register, the shell wedges on each
+# sync call, framerate collapses to ~2 fps.
+#
+# Fix: marathon-shell-session itself spawns dbus-run-session as the
+# innermost wrapper around marathon-shell-bin (inside the scope). The
+# bus then lives for the lifetime of the shell process, not the bash
+# session.
+command = "/usr/bin/env QT_QPA_EGLFS_KMS_CONFIG=/etc/marathon/eglfs-kms.json MESA_LOADER_DRIVER_OVERRIDE=kmsro MARATHON_FORCE_DPI=287 MARATHON_LAYER_SAMPLES=0 QT_IM_MODULE=none /usr/bin/marathon-shell-session"
 user = "user"
-
