@@ -177,16 +177,18 @@ Item {
         }
 
         Icon {
-            // Show whenever the radio is present, regardless of on/off — the
-            // iOS convention is "presence implies the chip exists, opacity
-            // tells you whether it's active". Hiding the glyph when off makes
-            // the status bar look like the device lost Bluetooth entirely.
+            // Always show — every Marathon target ships with Bluetooth and
+            // Wi-Fi radios, and gating visibility on the C++ manager's
+            // `available` flag means the icon disappears entirely on images
+            // where bluez/NetworkManager fail to spin up at boot (a system
+            // config problem the user can't tell apart from "Marathon is
+            // broken"). Opacity already conveys on/off/connected state.
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            visible: BluetoothManagerCpp.available
+            visible: true
         }
 
         // Hide the radio icons when their radio is absent (iOS/Android
@@ -212,11 +214,14 @@ Item {
         }
 
         Icon {
+            // Same rationale as the Bluetooth glyph above — always visible,
+            // opacity reflects on/off/strength. NetworkManager not being
+            // running shouldn't make the Wi-Fi indicator disappear.
             name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
-            visible: NetworkManagerCpp.wifiAvailable
+            visible: true
             opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
         }
     }
