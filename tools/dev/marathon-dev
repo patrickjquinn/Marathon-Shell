@@ -84,21 +84,45 @@ cmd_close() {
 }
 
 cmd_screenshot() {
+    # The shell's SIGUSR1 handler writes to $MARATHON_SCREENSHOT_PATH
+    # (default /tmp/marathon-shot.png) — that's the shell's env at startup,
+    # not the path we want to deliver to. Capture there, then move.
     path="${1:-/tmp/marathon-shot.png}"
     pid="$(pidof marathon-shell-bin)"
     if [ -z "$pid" ]; then
         echo "marathon-dev screenshot: marathon-shell-bin not running" >&2
         exit 1
     fi
+    shell_path="$(tr '\0' '\n' </proc/"$pid"/environ 2>/dev/null \
+        | sed -n 's/^MARATHON_SCREENSHOT_PATH=//p')"
+    shell_path="${shell_path:-/tmp/marathon-shot.png}"
+    # Clear any stale file so we can detect a fresh write.
+    rm -f "$shell_path" 2>/dev/null || true
     kill -USR1 "$pid"
-    # Wait briefly for the file to land.
-    sleep 1
-    if [ -s "$path" ]; then
-        echo "captured: $path"
-    else
-        echo "marathon-dev screenshot: $path empty or missing" >&2
+    # Wait for the file to appear, then wait for two consecutive same-size
+    # samples to confirm the write has finished (Qt's QImage::save isn't
+    # atomic; cp/scp racing the writer produces truncated PNGs).
+    for _ in 1 2 3 4 5 6 7 8; do
+        [ -s "$shell_path" ] && break
+        sleep 0.5
+    done
+    last=-1
+    for _ in 1 2 3 4 5 6; do
+        cur=$(stat -c %s "$shell_path" 2>/dev/null || echo 0)
+        if [ "$cur" -gt 0 ] && [ "$cur" = "$last" ]; then
+            break
+        fi
+        last=$cur
+        sleep 0.4
+    done
+    if [ ! -s "$shell_path" ]; then
+        echo "marathon-dev screenshot: $shell_path empty or missing" >&2
         exit 1
     fi
+    if [ "$shell_path" != "$path" ]; then
+        cp "$shell_path" "$path"
+    fi
+    echo "captured: $path"
 }
 
 case "${1:-}" in
