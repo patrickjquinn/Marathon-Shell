@@ -207,6 +207,10 @@ Rectangle {
         }
 
         // ── Weekday headers — single-letter M T W T F S S ────
+        // Use textSecondary (not textTertiary) so the header letters are
+        // visually distinct from the next-month days in the grid — those
+        // also render at tertiary, which made the M T W T F S S row read
+        // as more "greyed out" days rather than as a column header.
         Row {
             width: parent.width
             Repeater {
@@ -217,10 +221,11 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: modelData
-                        color: MColors.textTertiary
+                        color: MColors.textSecondary
                         font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
-                        font.weight: Font.Medium
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Bold
+                        font.letterSpacing: MTypography.trackingEyebrow
                     }
                 }
             }
