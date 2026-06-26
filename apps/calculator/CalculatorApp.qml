@@ -25,6 +25,9 @@ MApp {
     property real currentValue: 0
     property string currentOperator: ""
     property bool newNumber: true
+    // Recent expressions, oldest first. Capped at 8 to bound memory and to
+    // keep the on-screen history list short enough to read at a glance.
+    property var history: []
 
     function fmt(n) {
         // Thousands separator. Strip trailing zeros after a decimal so
@@ -89,6 +92,17 @@ MApp {
         }
         lastExpression = fmt(currentValue) + " " + currentOperator + " " + fmt(value);
         lastResult = "= " + fmt(result);
+        // Push to history. Reassigning the array (not .push) is what makes
+        // QML's binding system notice — in-place mutation doesn't trigger
+        // historyChanged.
+        const next = history.slice();
+        next.push({
+            "expression": lastExpression,
+            "result": lastResult
+        });
+        if (next.length > 8)
+            next.shift();
+        history = next;
         display = String(result);
         currentOperator = "";
         newNumber = true;
@@ -98,6 +112,7 @@ MApp {
         display = "0";
         lastExpression = "";
         lastResult = "";
+        history = [];
         currentValue = 0;
         currentOperator = "";
         newNumber = true;
@@ -188,6 +203,54 @@ MApp {
                 anchors.bottom: parent.bottom
                 height: 1
                 color: MColors.whiteOverlay04
+            }
+        }
+
+        // ── Expression history ─────────────────────────────
+        // Fills the gap between the top bar and the bottom-anchored
+        // display column with prior calculations, oldest at top.
+        // Newest sticks to the bottom (verticalLayoutDirection)
+        // so it reads as a paper-tape descending into the current
+        // result without an explicit positionViewAt call.
+        ListView {
+            id: historyList
+            anchors.top: topBar.bottom
+            anchors.bottom: displayCol.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            anchors.topMargin: 8
+            anchors.bottomMargin: 8
+            verticalLayoutDirection: ListView.BottomToTop
+            clip: true
+            spacing: 6
+            model: calcApp.history
+
+            delegate: Column {
+                width: ListView.view.width
+                spacing: 1
+                Text {
+                    anchors.right: parent.right
+                    text: modelData.expression
+                    color: MColors.textTertiary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeFootnote
+                    font.features: ({
+                            "tnum": 1
+                        })
+                }
+                Text {
+                    anchors.right: parent.right
+                    text: modelData.result
+                    color: MColors.textSecondary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeSubhead
+                    font.weight: Font.Medium
+                    font.features: ({
+                            "tnum": 1
+                        })
+                }
             }
         }
 
