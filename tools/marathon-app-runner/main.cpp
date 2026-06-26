@@ -793,8 +793,14 @@ int main(int argc, char *argv[]) {
     // an active background task. Whether the claim is accepted depends on
     // the manifest's backgroundCapabilities (gated shell-side), so it's
     // safe to expose without a permission probe.
+    // Two names: "AppLifecycle" for code that uses the runner-friendly
+    // alias, "AppLifecycleManager" for code that does the bare
+    // `typeof AppLifecycleManager !== 'undefined'` probe (MApp.qml does
+    // this -- it doesn't `import MarathonOS.Shell`, so the singleton
+    // registration alone isn't reachable from a bare identifier).
     auto *appLifecycleClient = new AppLifecycleClient(&app);
     ctx->setContextProperty("AppLifecycle", appLifecycleClient);
+    ctx->setContextProperty("AppLifecycleManager", appLifecycleClient);
     qmlRegisterSingletonInstance<AppLifecycleClient>("MarathonOS.Shell", 1, 0,
                                                      "AppLifecycleManager", appLifecycleClient);
 

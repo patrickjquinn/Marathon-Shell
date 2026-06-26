@@ -23,5 +23,5 @@
   ],
   "deepLinks": {},
   "requiresQtModules": ["webengine"],
-  "chromiumFlags": "--use-gl=angle --use-angle=swiftshader --use-cmd-decoder=validating --disable-webgl2 --disable-features=Vulkan,UseSkiaRenderer,WebGL2 --ignore-gpu-blocklist"
+  "chromiumFlags": "--disable-gpu --use-gl=swiftshader --use-cmd-decoder=validating --disable-webgl2 --disable-features=Vulkan,UseSkiaRenderer,WebGL2 --ignore-gpu-blocklist"
 }
