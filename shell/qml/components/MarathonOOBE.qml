@@ -1403,15 +1403,14 @@ Item {
                         Item {
                             required property string modelData
 
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.maximumWidth: passcodePage.scaledKeyCell
-                            Layout.maximumHeight: passcodePage.scaledKeyCell
+                            Layout.alignment: Qt.AlignCenter
+                            Layout.preferredWidth: passcodePage.scaledKeyCell
+                            Layout.preferredHeight: passcodePage.scaledKeyCell
 
                             MCircularIconButton {
                                 anchors.centerIn: parent
-                                width: Math.min(parent.width, parent.height)
-                                height: width
+                                width: passcodePage.scaledKeyCell
+                                height: passcodePage.scaledKeyCell
                                 text: modelData
                                 buttonSize: passcodePage.keySize
                                 iconSize: passcodePage.isCompact ? 22 : 28
@@ -1423,22 +1422,20 @@ Item {
                     }
 
                     Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.maximumWidth: passcodePage.scaledKeyCell
-                        Layout.maximumHeight: passcodePage.scaledKeyCell
+                        Layout.alignment: Qt.AlignCenter
+                        Layout.preferredWidth: passcodePage.scaledKeyCell
+                        Layout.preferredHeight: passcodePage.scaledKeyCell
                     }
 
                     Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.maximumWidth: passcodePage.scaledKeyCell
-                        Layout.maximumHeight: passcodePage.scaledKeyCell
+                        Layout.alignment: Qt.AlignCenter
+                        Layout.preferredWidth: passcodePage.scaledKeyCell
+                        Layout.preferredHeight: passcodePage.scaledKeyCell
 
                         MCircularIconButton {
                             anchors.centerIn: parent
-                            width: Math.min(parent.width, parent.height)
-                            height: width
+                            width: passcodePage.scaledKeyCell
+                            height: passcodePage.scaledKeyCell
                             text: "0"
                             buttonSize: passcodePage.keySize
                             iconSize: passcodePage.isCompact ? 22 : 28
@@ -1449,15 +1446,14 @@ Item {
                     }
 
                     Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.maximumWidth: passcodePage.scaledKeyCell
-                        Layout.maximumHeight: passcodePage.scaledKeyCell
+                        Layout.alignment: Qt.AlignCenter
+                        Layout.preferredWidth: passcodePage.scaledKeyCell
+                        Layout.preferredHeight: passcodePage.scaledKeyCell
 
                         MCircularIconButton {
                             anchors.centerIn: parent
-                            width: Math.min(parent.width, parent.height)
-                            height: width
+                            width: passcodePage.scaledKeyCell
+                            height: passcodePage.scaledKeyCell
                             iconName: "delete"
                             buttonSize: passcodePage.keySize
                             iconSize: passcodePage.isCompact ? 20 : 24
