@@ -115,16 +115,21 @@ namespace {
     // WebGL2 disabled — needs GLES3. WebGL1 stays enabled (works on
     // GLES2). Vulkan disabled — etnaviv has no Vulkan ICD.
     constexpr const char *kDefaultChromiumFlags =
-        "--use-gl=egl "
-        "--use-cmd-decoder=passthrough "
-        "--disable-es3-gl-context "
-        "--disable-es3-apis "
+        // gl=disabled is the second value the Chromium 130 allowlist
+        // accepts on this build (the first, egl-angle, is unusable
+        // because Alpine's chromium has no ANGLE). It tells chromium
+        // to skip GL init entirely — no eglCreateContext call, no
+        // dri2_create_context failure, no surface format the shell's
+        // eglfs can choke on. WebGL stops working; the rest of the
+        // page renders via Skia's CPU rasteriser.
+        "--use-gl=disabled "
+        "--disable-gpu "
         "--no-sandbox "
-        "--in-process-gpu "
         "--disable-dev-shm-usage "
-        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
-        "--ignore-gpu-blocklist "
-        "--num-raster-threads=2";
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL,WebGL2 "
+        "--num-raster-threads=2 "
+        "--enable-viewport "
+        "--main-frame-resizes-are-orientation-changes";
 }
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
@@ -609,12 +614,13 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0")));
 
     if (usesWebEngine) {
-        // Hardware path via ANGLE→native libGL→etnaviv. See
-        // kDefaultChromiumFlags comment for the why. Qt RHI on the
-        // runner side comes up as GLES 2 (etnaviv's max) — that satisfies
-        // Qt Quick scenegraph for the WebEngineView shell; chromium's
-        // in-process GPU runs under ANGLE which translates to the same
-        // GLES2 context.
+        // chromium GPU is fully disabled; Qt Quick's scenegraph still
+        // needs a GL context for the runner's QML chrome (URL bar, tabs,
+        // etc). QT_OPENGL=es2 + Wayland QPA means Qt opens a wayland-egl
+        // context that etnaviv satisfies with GLES2 — that's a separate
+        // EGL surface from anything chromium would have asked for, so
+        // the dri2_create_context errors that killed launches above
+        // simply don't happen.
         env.insert("QT_OPENGL", qEnvironmentVariable("QT_OPENGL", "es2"));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
         env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
