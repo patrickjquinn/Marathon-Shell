@@ -143,17 +143,28 @@ case "$MODE" in
 
         # Compose the SDP → Fastboot uuu script (canonical pmaports
         # flash_script.lst for purism-librem5).
-        SCRIPT="$(mktemp --suffix=.lst)"
-        trap 'rm -f "$SCRIPT" "${RAW:-/dev/null}.tmp"' EXIT
-        cat > "$SCRIPT" <<EOF
+        #
+        # uuu's filemap resolves script-referenced paths *relative to the .lst's
+        # directory*, then concatenates absolute paths naively (giving
+        # `/tmp//abs/path`). Stage the .lst, phone-boot.img, and raw image in a
+        # single workdir and refer to them by basename to sidestep that bug.
+        UUU_DIR="$(mktemp -d --suffix=.uuu)"
+        trap 'rm -rf "$UUU_DIR"' EXIT
+        cp -- "$UBOOT" "$UUU_DIR/phone-boot.img"
+        # Hardlink the raw when possible (avoids copying multi-GB); fall back to
+        # symlink across filesystems.
+        ln -- "$RAW" "$UUU_DIR/marathon.raw" 2>/dev/null || \
+            ln -s -- "$RAW" "$UUU_DIR/marathon.raw"
+        SCRIPT="$UUU_DIR/flash_script.lst"
+        cat > "$SCRIPT" <<'EOF'
 uuu_version 1.0.1
-SDP:  boot -f $UBOOT
+SDP:  boot -f phone-boot.img
 SDPV: delay 1000
-SDPV: write -f $UBOOT -skipspl
+SDPV: write -f phone-boot.img -skipspl
 SDPV: jump
 FB:   ucmd setenv fastboot_buffer 0x60000000
 FB:   ucmd mmc dev 0
-FB:   flash -raw2sparse mmc0 $RAW
+FB:   flash -raw2sparse mmc0 marathon.raw
 FB:   ucmd mmc rescan
 FB:   done
 EOF
