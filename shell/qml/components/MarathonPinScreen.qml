@@ -23,7 +23,7 @@ Item {
     // via Constants.isSquareScreen + a height-based fallback and shrink
     // the keypad to fit.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    readonly property real keyButtonSize: compactLayout ? 80 : 96
+    readonly property real keyButtonSize: compactLayout ? 44 : 56
     readonly property real keyCellPadding: compactLayout ? 8 : 12
     readonly property real keypadRowSpacing: compactLayout ? 8 : 12
     readonly property real keypadColumnSpacing: compactLayout ? 14 : 16
