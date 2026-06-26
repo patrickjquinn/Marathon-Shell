@@ -255,6 +255,13 @@ int main(int argc, char *argv[]) {
     // app launch was creating a second native window in the shell
     // process and abort-ing.)
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
+    // Force every QML Popup / Menu to Popup.Item rendering (not Popup.Window).
+    // QQuickMenu honours this attribute at qquickmenu.cpp:323; without it,
+    // any future Qt Controls component (or third-party QML) that opts into
+    // Popup.Window would create a host-side top-level QWindow with the
+    // wrong surfaceType and trip qeglfswindow.cpp:79 ("OpenGL windows
+    // cannot be mixed with others").
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuWindows);
 
     // Baseline scenegraph defaults — sRGB blending, vsync, 24/8 depth+stencil.
     // MSAA samples are chosen AFTER QGuiApplication constructs the QPA plugin
