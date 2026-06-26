@@ -246,16 +246,41 @@ int main(int argc, char *argv[]) {
     // (reproduced in duranium r49 QEMU). Set it explicitly here so the
     // attribute stays even when the shell never imports WebEngine.
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    // EGLFS allows exactly one top-level QWindow with one surface format
+    // at a time. Any secondary QWindow with a different format triggers
+    // "EGLFS: OpenGL windows cannot be mixed with others." → SIGABRT and
+    // the shell dies. Suppress native sibling creation for QWidget-like
+    // children (popups, tooltips, drag indicators) so the shell only
+    // ever has the one main QQuickWindow. (Observed: every WebEngine
+    // app launch was creating a second native window in the shell
+    // process and abort-ing.)
+    QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
 
     // Baseline scenegraph defaults — sRGB blending, vsync, 24/8 depth+stencil.
     // MSAA samples are chosen AFTER QGuiApplication constructs the QPA plugin
     // (needs an EGLDisplay to probe). See the probe block below.
+    //
+    // RenderableType: OpenGLES, not OpenGL. Etnaviv (GC7000Lite on i.MX 8M
+    // Quad) only exposes a GLES profile; if Qt asks EGLFS for a desktop
+    // OpenGL context it fails eglChooseConfig and falls back to a
+    // different EGLConfig than every secondary surface — which is what
+    // tripped "windows cannot be mixed" on every WebEngine launch.
+    // Explicit major/minor + GLES profile pins the EGLConfig so both
+    // the main shell window AND any internal surface Qt creates use
+    // the same config.
     {
         QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
-        fmt.setRenderableType(QSurfaceFormat::OpenGL);
+        fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+        fmt.setMajorVersion(2);
+        fmt.setMinorVersion(0);
+        fmt.setProfile(QSurfaceFormat::NoProfile);
         fmt.setColorSpace(QColorSpace::SRgb);
         fmt.setSamples(0);
         fmt.setSwapInterval(1);
+        fmt.setRedBufferSize(8);
+        fmt.setGreenBufferSize(8);
+        fmt.setBlueBufferSize(8);
+        fmt.setAlphaBufferSize(8);
         fmt.setDepthBufferSize(24);
         fmt.setStencilBufferSize(8);
         QSurfaceFormat::setDefaultFormat(fmt);

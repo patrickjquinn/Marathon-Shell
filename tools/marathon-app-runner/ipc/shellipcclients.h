@@ -1434,6 +1434,18 @@ class AppLifecycleClient : public QObject {
     Q_INVOKABLE bool        endBackgroundTask(quint32 handle);
     Q_INVOKABLE QStringList currentCapabilities();
 
+    // Shell-side AppLifecycleManager exposes registerApp(appId, root) /
+    // unregisterApp(appId). MApp.qml's Component.onCompleted calls
+    // AppLifecycleManager.registerApp() before knowing whether it's
+    // running shell-side or runner-side, so the runner-side client has
+    // to accept the call to keep the splash → revealReady chain alive.
+    // No-op stubs: the runner sends a register signal over D-Bus via
+    // requestRegister already (see MApp.qml), so duplicating that here
+    // would be redundant. These exist purely so the QML call resolves
+    // without "is not a function" and MApp.onCompleted runs to its end.
+    Q_INVOKABLE void registerApp(const QString &appId, QObject *root = nullptr);
+    Q_INVOKABLE void unregisterApp(const QString &appId);
+
   private:
     QDBusInterface m_iface;
 };
