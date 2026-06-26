@@ -10,11 +10,12 @@ Item {
     // DS section labels (.m-row groups in Settings, Display, etc.) use a
     // small-caps tracked eyebrow above the card — 11/700 uppercase with
     // 1.4 tracking, secondary colour, NO subtitle. The Title-3 + subtitle
-    // variant we used before reads as content, not as a navigational
-    // section heading. Opt-in via `eyebrow: true`; default stays Title-3
-    // for backward-compatibility with surfaces that have already adopted
-    // the heavier treatment intentionally.
-    property bool eyebrow: false
+    // variant reads as content, not as a navigational section heading —
+    // settings sub-pages were rendering headers visually heavier than
+    // their own row labels because the default was Title-3. Default is
+    // now eyebrow; the Title-3 + subtitle variant is opt-out via
+    // `eyebrow: false` (used by Calendar's EventListPage).
+    property bool eyebrow: true
     default property alias content: contentColumn.children
 
     function updateDividers() {
