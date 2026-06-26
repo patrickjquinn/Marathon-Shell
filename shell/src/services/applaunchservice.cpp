@@ -567,6 +567,18 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         manifestChromiumFlags.isEmpty() ? QString::fromLatin1(kDefaultChromiumFlags) :
                                           manifestChromiumFlags);
 
+    // The runner is a Wayland CLIENT of the shell's compositor. Without
+    // QT_QPA_PLATFORM=wayland Qt falls back to eglfs, which (a) fights
+    // the shell's eglfs over the same DRM master and (b) hits the same
+    // "OpenGL windows cannot be mixed" FATAL the moment WebEngineView
+    // wants a second offscreen surface. Force every runner to use the
+    // wayland QPA so it connects to the shell's compositor socket.
+    env.insert("QT_QPA_PLATFORM", qEnvironmentVariable("QT_QPA_PLATFORM", "wayland"));
+    env.insert("WAYLAND_DISPLAY",
+               qEnvironmentVariable(
+                   "WAYLAND_DISPLAY",
+                   qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0")));
+
     if (usesWebEngine) {
         // Software path. See kDefaultChromiumFlags comment for the why.
         // QT_QUICK_BACKEND=software stops QRhiGles2 from trying to bring
@@ -755,6 +767,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << QString::number(dpi, 'f', 1);
         }
 
+        // QT_QPA_PLATFORM=wayland makes the sandboxed runner connect to
+        // the shell's compositor socket as a Wayland client. Without it
+        // Qt falls back to eglfs, fights the shell over DRM master, and
+        // FATALs as soon as WebEngineView wants a second EGL surface.
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_QPA_PLATFORM")
+                  << qEnvironmentVariable("QT_QPA_PLATFORM", "wayland");
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WAYLAND_DISPLAY")
+                  << qEnvironmentVariable(
+                         "WAYLAND_DISPLAY",
+                         qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0"));
         // QT_IM_MODULE=wayland for clients — not qtvirtualkeyboard (see
         // unsandboxed path above for the reasoning). Layer MSAA suppression
         // + GPU HDR + vertex-AA propagation as before.

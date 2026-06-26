@@ -3272,3 +3272,13 @@ QStringList AppLifecycleClient::currentCapabilities() {
         return {};
     return r.value();
 }
+
+void AppLifecycleClient::registerApp(const QString &appId, QObject *root) {
+    Q_UNUSED(appId);
+    Q_UNUSED(root);
+    // No-op stub. See the declaration comment in shellipcclients.h.
+}
+
+void AppLifecycleClient::unregisterApp(const QString &appId) {
+    Q_UNUSED(appId);
+}
