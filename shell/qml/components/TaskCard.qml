@@ -310,14 +310,16 @@ Item {
                                     }
                                 }
 
-                                Timer {
-                                    id: livePreviewRefreshTimer
-
-                                    interval: 200
-                                    repeat: true
-                                    running: taskCard.taskSwitcherVisible && previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
-                                    onTriggered: liveSnapshot.scheduleUpdate()
-                                }
+                                // Periodic 200 ms snapshot refresh REMOVED — it was
+                                // causing visible flicker when entering card mode.
+                                // The card-mode-enter animation transforms the live
+                                // app surface mid-capture, and re-snapshotting every
+                                // 200 ms during that animation produced inconsistent
+                                // textures (a frame of mid-transform, then the next
+                                // frame, etc.) that read as flashing. Snapshot is
+                                // now taken once when the switcher becomes visible
+                                // and when grid moving/dragging stops (see
+                                // Connections above), iOS-style frozen preview.
 
                                 Loader {
                                     id: nativeSurfaceLoader
