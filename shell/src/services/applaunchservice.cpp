@@ -61,13 +61,47 @@ namespace {
     // failure, not WebGL1 — so keeping WebGL2 disabled is sufficient.
     //
     // Per-app overrides via the manifest `chromiumFlags` string field
-    // still take precedence if a future app needs a different shape
-    // (e.g. forcing software GL for a known-broken page).
+    // still take precedence if a future app needs a different shape.
+    //
+    // 2026-06-26 update — what we ship now and why:
+    //
+    // After full research (see docs/RESEARCH_QTWEBENGINE_ETNAVIV.md):
+    //
+    // 1. Mesa's etnaviv driver on the GC7000Lite is still GLES 2.0 only —
+    //    GLES 3 work by Christian Gmeiner is in flight but not landed
+    //    as of Mesa 26.1.x (2026-06).
+    //
+    // 2. QtWebEngine ≥ 6.9 (Chromium 130) tightened its Linux GL allowlist:
+    //    native EGL/GLES (which is all etnaviv can produce) is no longer
+    //    in the allowlist. NXP's own i.MX 8M Plus BSP engineer hit the
+    //    exact same eglCreateContext "Requested version is not supported"
+    //    on the Qt forum thread "i.MX8MP NXP BSP 6.6.3 with QtWebEngine
+    //    6.9.1 and Chromium 130.0.6723.192" — no fix posted.
+    //
+    // 3. `--use-gl=angle` triggers "unsupported SceneGraph Backend" because
+    //    Linux Qt SceneGraph has no ANGLE backend at all.
+    //
+    // 4. `MESA_GLES_VERSION_OVERRIDE=2.0` only changes glGetString output;
+    //    it does NOT clamp the eglCreateContext attribute list Chromium
+    //    asks for. Cargo-cult flag.
+    //
+    // Working configuration (Morph on Ubuntu Touch, Sailfish, Plasma
+    // Mobile Angelfish on Vivante-class ARM all converge on it): software
+    // GL via llvmpipe under Mesa, Qt Quick on the software backend so
+    // QRhiGles2 doesn't fight chromium for a context, chromium with GPU
+    // entirely disabled and in-process so its sandbox doesn't try to
+    // nest CLONE_NEW{USER,PID} inside our bwrap.
     constexpr const char *kDefaultChromiumFlags =
-        "--use-gl=egl --use-cmd-decoder=validating "
-        "--disable-webgl2 "
-        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
-        "--ignore-gpu-blocklist";
+        "--disable-gpu "
+        "--in-process-gpu "
+        "--no-sandbox "
+        "--disable-dev-shm-usage "
+        "--disable-gpu-compositing "
+        "--num-raster-threads=2 "
+        "--enable-viewport "
+        "--main-frame-resizes-are-orientation-changes "
+        "--disable-composited-antialiasing "
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2";
 }
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
@@ -534,15 +568,22 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                                           manifestChromiumFlags);
 
     if (usesWebEngine) {
-        env.insert("MESA_LOADER_DRIVER_OVERRIDE",
-                   qEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE", "etnaviv"));
-        env.insert("GALLIUM_DRIVER", qEnvironmentVariable("GALLIUM_DRIVER", "etnaviv"));
-        env.insert("LIBGL_KOPPER_DISABLE", "true");
-        env.insert("MESA_GLES_VERSION_OVERRIDE",
-                   qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0"));
-        env.insert("MESA_GL_VERSION_OVERRIDE",
-                   qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1"));
+        // Software path. See kDefaultChromiumFlags comment for the why.
+        // QT_QUICK_BACKEND=software stops QRhiGles2 from trying to bring
+        // up a GL context (it can't — etnaviv only exposes GLES 2.0, Qt
+        // RHI wants GLES 3.x; the failure cascade is the "Failed to
+        // create temporary context" we used to see). With the software
+        // backend Qt Quick rasterises on CPU, the WebEngineView's surface
+        // is a CPU buffer, and chromium runs --disable-gpu in-process —
+        // no eglCreateContext is attempted anywhere.
+        env.insert("QT_QUICK_BACKEND", qEnvironmentVariable("QT_QUICK_BACKEND", "software"));
+        // LIBGL_ALWAYS_SOFTWARE=1 forces Mesa to use llvmpipe even when
+        // /dev/dri is reachable. Belt-and-braces alongside QT_QUICK_BACKEND
+        // because some Qt code paths call eglGetDisplay() before checking
+        // the QSG backend.
+        env.insert("LIBGL_ALWAYS_SOFTWARE", qEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE", "1"));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
+        env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
     }
 
     if (permissions.contains("network")) {
@@ -650,7 +691,15 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("--ro-bind-try") << QStringLiteral("/run/dbus")
                   << QStringLiteral("/run/dbus") << QStringLiteral("--ro-bind-try")
                   << QStringLiteral("/var/run/dbus") << QStringLiteral("/var/run/dbus")
-                  << QStringLiteral("--tmpfs") << QStringLiteral("/tmp")
+                  << QStringLiteral("--tmpfs")
+                  << QStringLiteral("/tmp")
+                  // Chromium uses POSIX shared memory at /dev/shm for its
+                  // inter-process buffers. The --dev /dev mount above gives
+                  // us a fresh tmpfs at /dev but it doesn't include
+                  // /dev/shm, and Chromium SIGTRAPs in shared-memory init
+                  // when the path is missing or read-only. Mount a tmpfs
+                  // so chromium can create files there.
+                  << QStringLiteral("--tmpfs") << QStringLiteral("/dev/shm")
                   << QStringLiteral("--tmpfs") << homeDir << QStringLiteral("--ro-bind")
                   << QStringLiteral("/usr/share/marathon-apps")
                   << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
@@ -720,29 +769,29 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LANG")
                   << qEnvironmentVariable("LANG", "en_US.UTF-8");
 
-        // WebEngine GPU shape — etnaviv-friendly. See unsandboxed path
-        // comment for the full reasoning.
+        // WebEngine software-GL shape — see kDefaultChromiumFlags + the
+        // un-sandboxed env block above for the full reasoning. The two
+        // setenvs (QT_QUICK_BACKEND + LIBGL_ALWAYS_SOFTWARE) belong here
+        // because they affect process-startup behaviour inside the
+        // sandbox; the chromium flag string is consumed when chromium's
+        // GPU subprocess inits.
         if (usesWebEngine) {
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
-                      << qEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE", "etnaviv");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GALLIUM_DRIVER")
-                      << qEnvironmentVariable("GALLIUM_DRIVER", "etnaviv");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LIBGL_KOPPER_DISABLE")
-                      << QStringLiteral("true");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
-                      << qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GL_VERSION_OVERRIDE")
-                      << qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_QUICK_BACKEND")
+                      << qEnvironmentVariable("QT_QUICK_BACKEND", "software");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LIBGL_ALWAYS_SOFTWARE")
+                      << qEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE", "1");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
+                      << QStringLiteral("1");
             // The chromium flags value contains spaces (multiple --foo=bar
             // tokens) and the cmd string we build here is re-parsed by
             // QProcess::splitCommand on the compositor side. Per Qt 6 docs
             // QProcess::splitCommand only recognises DOUBLE quotes — single
             // quotes pass through literally. Without quoting, splitCommand
             // chops the value into separate args and bwrap sees
-            // `--use-gl=angle` as its own flag — "bwrap: Unknown option
-            // --use-gl=angle" and the WebEngine app fails to launch (Maps
-            // crash, observed 2026-06-25 r223). The chromium flags value
-            // doesn't contain any double quotes itself so wrapping is safe.
+            // `--disable-gpu` as its own flag — "bwrap: Unknown option
+            // --disable-gpu" and the WebEngine app fails to launch. The
+            // chromium flags value doesn't contain any double quotes itself
+            // so wrapping is safe.
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
                       << QStringLiteral("\"") + effectiveChromiumFlags + QStringLiteral("\"");
         }
