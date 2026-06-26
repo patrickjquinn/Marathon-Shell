@@ -22,6 +22,5 @@
     "online"
   ],
   "deepLinks": {},
-  "requiresQtModules": ["webengine"],
-  "chromiumFlags": "--disable-gpu --use-gl=swiftshader --use-cmd-decoder=validating --disable-webgl2 --disable-features=Vulkan,UseSkiaRenderer,WebGL2 --ignore-gpu-blocklist"
+  "requiresQtModules": ["webengine"]
 }
