@@ -28,23 +28,20 @@ MApp {
                 appRouter.updateNavigationDepth();
             }
 
+            // Drop the parallel opacity animation — running it alongside
+            // the x slide forces a full-stack opacity composite on every
+            // frame, which on the L5 etnaviv path turns a 160 ms slide
+            // into a perceptibly mushy ~250 ms. Pure x-slide on a
+            // decelerate curve at MMotion.fast (150 ms) matches the iOS
+            // Settings push and stays inside one fbo per frame.
             pushEnter: Transition {
                 NumberAnimation {
                     property: "x"
                     from: navigationStack.width
                     to: 0
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.9
-                    to: 1
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
+                    duration: MMotion.fast
+                    easing.type: MMotion.easingDecelerate
+                    easing.bezierCurve: MMotion.easingDecelerateCurve
                 }
             }
 
@@ -53,18 +50,9 @@ MApp {
                     property: "x"
                     from: 0
                     to: -navigationStack.width * MMotion.pageParallaxOffset
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0.9
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
+                    duration: MMotion.fast
+                    easing.type: MMotion.easingDecelerate
+                    easing.bezierCurve: MMotion.easingDecelerateCurve
                 }
             }
 
@@ -73,18 +61,9 @@ MApp {
                     property: "x"
                     from: -navigationStack.width * MMotion.pageParallaxOffset
                     to: 0
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.9
-                    to: 1
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
+                    duration: MMotion.fast
+                    easing.type: MMotion.easingDecelerate
+                    easing.bezierCurve: MMotion.easingDecelerateCurve
                 }
             }
 
@@ -93,18 +72,9 @@ MApp {
                     property: "x"
                     from: 0
                     to: navigationStack.width
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0.9
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
+                    duration: MMotion.fast
+                    easing.type: MMotion.easingDecelerate
+                    easing.bezierCurve: MMotion.easingDecelerateCurve
                 }
             }
         }
