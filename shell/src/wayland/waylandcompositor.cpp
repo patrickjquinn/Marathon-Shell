@@ -1264,10 +1264,13 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
             continue;
         auto *candidate =
             xdgSurface->surface()->property("xdgToplevel").value<QWaylandXdgToplevel *>();
-        if (candidate) {
-            toplevel = candidate;
-            foundId  = it.key();
-        }
+        if (!candidate)
+            continue;
+        toplevel = candidate;
+        // clang-analyzer can't see the qInfo() << foundId read through QDebug's
+        // stream operator, so it flags this store as dead. The qInfo line below
+        // is the read; the value is genuinely used.
+        foundId = it.key(); // NOLINT(clang-analyzer-deadcode.DeadStores)
         break;
     }
     if (!toplevel)
