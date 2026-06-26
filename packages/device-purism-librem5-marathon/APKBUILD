@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 — Marathon OS port"
 pkgver=1.0.0
-pkgrel=19
+pkgrel=21
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
