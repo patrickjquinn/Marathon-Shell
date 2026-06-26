@@ -39,9 +39,12 @@ Text {
 
     renderType: Text.QtRendering
 
-    // Array-of-strings form per the guide §08 Gap 7 — works on Qt 6.6.0
-    // (some builds reject the object-literal form), and 6.6.1+. Safer
-    // baseline given Marathon's 6.7 LTS target with downstream packagers
-    // that may patch back.
-    font.features: tnum ? ["tnum on"] : []
+    // font.features is QHash<QString, quint32> on Qt 6.7+; pass an object
+    // literal in parens (the parens stop QML from treating the braces as a
+    // binding block). The array-of-strings form used to be here silently
+    // assigned a QVariantList where a QVariantMap was expected — qmllint
+    // flagged the type mismatch and the feature didn't take.
+    font.features: tnum ? ({
+            "tnum": 1
+        }) : ({})
 }
