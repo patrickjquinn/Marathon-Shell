@@ -177,12 +177,16 @@ Item {
         }
 
         Icon {
+            // Show whenever the radio is present, regardless of on/off — the
+            // iOS convention is "presence implies the chip exists, opacity
+            // tells you whether it's active". Hiding the glyph when off makes
+            // the status bar look like the device lost Bluetooth entirely.
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            visible: BluetoothManagerCpp.available && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
+            visible: BluetoothManagerCpp.available
         }
 
         // Hide the radio icons when their radio is absent (iOS/Android
