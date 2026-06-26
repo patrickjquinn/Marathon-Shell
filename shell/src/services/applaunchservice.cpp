@@ -573,11 +573,17 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // "OpenGL windows cannot be mixed" FATAL the moment WebEngineView
     // wants a second offscreen surface. Force every runner to use the
     // wayland QPA so it connects to the shell's compositor socket.
-    env.insert("QT_QPA_PLATFORM", qEnvironmentVariable("QT_QPA_PLATFORM", "wayland"));
-    env.insert("WAYLAND_DISPLAY",
-               qEnvironmentVariable(
-                   "WAYLAND_DISPLAY",
-                   qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0")));
+    // Hard-set (no qEnvironmentVariable fallback) because the shell
+    // process is launched under greetd with QT_QPA_PLATFORM=eglfs in
+    // its own env — if we inherited, every runner would also come up
+    // on eglfs. WAYLAND_DISPLAY needs to point at the shell's
+    // compositor socket name (MARATHON_WL_SOCKET_NAME, default
+    // "marathon-wayland-0"), not whatever the shell's own
+    // WAYLAND_DISPLAY happened to be when greetd launched it.
+    env.insert("QT_QPA_PLATFORM", QStringLiteral("wayland"));
+    env.insert(
+        "WAYLAND_DISPLAY",
+        qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0")));
 
     if (usesWebEngine) {
         // Software path. See kDefaultChromiumFlags comment for the why.
@@ -768,15 +774,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         }
 
         // QT_QPA_PLATFORM=wayland makes the sandboxed runner connect to
-        // the shell's compositor socket as a Wayland client. Without it
-        // Qt falls back to eglfs, fights the shell over DRM master, and
-        // FATALs as soon as WebEngineView wants a second EGL surface.
+        // the shell's compositor socket as a Wayland client. Hard-set
+        // (no fallback) because the shell itself runs under
+        // QT_QPA_PLATFORM=eglfs from greetd's env — inheriting that
+        // would land every runner back on eglfs and re-trigger the
+        // "OpenGL windows cannot be mixed" FATAL.
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_QPA_PLATFORM")
-                  << qEnvironmentVariable("QT_QPA_PLATFORM", "wayland");
+                  << QStringLiteral("wayland");
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WAYLAND_DISPLAY")
-                  << qEnvironmentVariable(
-                         "WAYLAND_DISPLAY",
-                         qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0"));
+                  << qEnvironmentVariable("MARATHON_WL_SOCKET_NAME",
+                                          QStringLiteral("marathon-wayland-0"));
         // QT_IM_MODULE=wayland for clients — not qtvirtualkeyboard (see
         // unsandboxed path above for the reasoning). Layer MSAA suppression
         // + GPU HDR + vertex-AA propagation as before.
