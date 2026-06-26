@@ -95,12 +95,14 @@ QtObject {
     readonly property real statusBarHeight: Math.round(28 * scaleFactor)
     // 64 × scaleFactor = 128 px on the L5. Lower the design value so the
     // combined dock + navBar doesn't dominate the bottom of the panel.
-    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 56) * scaleFactor)
-    // 70 × scaleFactor pushes the dock to 140 px on the L5 (scaleFactor 2)
-    // — combined with the 128 px navBar that's 19% of the panel just for
-    // bottom chrome. Lower the design value to keep proportions sensible
-    // at high DPI.
-    readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 48 : 56) * scaleFactor)
+    // On the Librem 5 (1440×720, scaleFactor ≈ 1.8) a 56 design-px nav
+    // bar lands ≈ 100 actual-px, which combined with the bottomBar reads
+    // as too much bottom chrome. Drop to 48 — still ≥ 44 px touch target
+    // even at scaleFactor 1.0 (so OOBE on small screens stays tappable).
+    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 48) * scaleFactor)
+    // Same DPI math as navBarHeight — 56 design-px × 1.8 scale = 100 actual.
+    // 44 lands ≈ 80 actual, restoring iOS-like dock proportions on the L5.
+    readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 44) * scaleFactor)
     readonly property real safeAreaTop: statusBarHeight
     readonly property real safeAreaBottom: navBarHeight
     readonly property real safeAreaLeft: 0
