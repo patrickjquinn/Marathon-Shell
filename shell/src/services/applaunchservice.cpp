@@ -85,38 +85,45 @@ namespace {
     //    it does NOT clamp the eglCreateContext attribute list Chromium
     //    asks for. Cargo-cult flag.
     //
-    // The Chromium-130 GL allowlist accepts exactly two implementations
-    // on Linux: (gl=egl-angle, angle=default) and (gl=disabled, none).
-    // `--use-gl=angle` puts us inside the allowlist. ANGLE then needs a
-    // backend; on a board with no Vulkan and a working etnaviv GLES2
-    // EGL, ANGLE's "gl" backend translates its GL API calls down to
-    // native libGL (mesa-egl + etnaviv). This is the path that keeps
-    // hardware acceleration on Vivante-class boards working — the
-    // angle=swiftshader path we tried earlier is pure CPU and the
-    // angle=vulkan path is a non-starter without a Vulkan ICD.
+    // Alpine's qt6-qtwebengine is built WITHOUT ANGLE on aarch64
+    // (verified 2026-06-26: `strings QtWebEngineProcess | grep -c
+    // ANGLE` returns 0). So `--use-gl=angle` is a no-op on this build
+    // — the only working chromium GL backend is native EGL.
+    //
+    // The actual error on launch is:
+    //   "EGL Driver message (Error) eglCreateContext: Requested version
+    //    is not supported"
+    // — etnaviv (GC7000Lite) exposes GLES 2.0 only, and Chromium 130 by
+    // default asks eglCreateContext for a GLES 3.x context.
+    // `--disable-es3-gl-context` + `--disable-es3-apis` is the chromium
+    // command-line knob that drops the GLES3 request down to GLES2.
+    // That's the actually-correct flag combination for this hardware,
+    // not the ANGLE/SwiftShader/software paths I shipped earlier.
+    //
+    // `--use-cmd-decoder=passthrough` tells chromium to use the
+    // passthrough command decoder instead of the validating one — the
+    // passthrough decoder is what mobile GL drivers (including
+    // etnaviv) are tested against. It's also what ChromeOS uses.
     //
     // `--no-sandbox` because chromium's namespace sandbox tries to
-    // CLONE_NEW{USER,PID,IPC} inside our bwrap and EPERMs (NXP i.MX
-    // family + bwrap thread). `--disable-dev-shm-usage` because
-    // /dev/shm inside the sandbox is a 16M tmpfs and chromium SIGTRAPs
-    // when it runs out. `--in-process-gpu` skips chromium's GPU child
-    // process (one less namespace clone), keeping GL context creation
-    // in the runner's address space where Qt has already wired EGL.
+    // CLONE_NEW{USER,PID,IPC} inside our bwrap and EPERMs.
+    // `--disable-dev-shm-usage` because /dev/shm in the bwrap tmpfs is
+    // small and chromium SIGTRAPs when it runs out.
+    // `--in-process-gpu` keeps GPU init in the runner's address space
+    // where Qt already wired EGL — avoids a second namespace clone.
     //
-    // WebGL2 stays disabled — etnaviv exposes GLES 2.0 only, MapLibre
-    // and most modern WebGL workloads use GL1 (which ANGLE happily
-    // satisfies on top of GLES2). UseSkiaRenderer is the new chrome
-    // rasteriser; on an embedded SoC the older raster path is more
-    // stable.
+    // WebGL2 disabled — needs GLES3. WebGL1 stays enabled (works on
+    // GLES2). Vulkan disabled — etnaviv has no Vulkan ICD.
     constexpr const char *kDefaultChromiumFlags =
-        "--use-gl=angle "
-        "--use-angle=gl "
+        "--use-gl=egl "
+        "--use-cmd-decoder=passthrough "
+        "--disable-es3-gl-context "
+        "--disable-es3-apis "
         "--no-sandbox "
         "--in-process-gpu "
         "--disable-dev-shm-usage "
         "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
         "--ignore-gpu-blocklist "
-        "--enable-features=VaapiVideoDecoder "
         "--num-raster-threads=2";
 }
 
