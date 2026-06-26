@@ -48,8 +48,12 @@ Page {
     //
     // First connected bluetooth device name, if any. Falls back to
     // "On"/"Off" (still real state) when no device is connected.
+    // SystemStatusStore is a sandboxed IPC client in the runner — older
+    // builds of the client don't expose bluetoothDevices/storageTotal/
+    // isCharging, which threw "Cannot read property 'length' of undefined"
+    // at every render and broke the page. Guard each access.
     readonly property string btConnectedName: {
-        const devs = SystemStatusStore.bluetoothDevices;
+        const devs = SystemStatusStore.bluetoothDevices || [];
         for (let i = 0; i < devs.length; i++) {
             const d = devs[i];
             if (d && d.connected)
@@ -60,14 +64,20 @@ Page {
     readonly property string btSummary: !SystemControlStore.isBluetoothOn ? "Off" : (btConnectedName !== "" ? btConnectedName : "On")
 
     readonly property string storageSummary: {
-        const t = SystemStatusStore.storageTotal;
+        const t = SystemStatusStore.storageTotal || 0;
         if (!(t > 0))
             return "";
-        const free = Math.max(0, t - SystemStatusStore.storageUsed);
+        const used = SystemStatusStore.storageUsed || 0;
+        const free = Math.max(0, t - used);
         return free.toFixed(0) + " GB free";
     }
 
-    readonly property string batterySummary: SystemStatusStore.batteryLevel >= 0 ? (SystemStatusStore.isCharging ? SystemStatusStore.batteryLevel + "% · Charging" : SystemStatusStore.batteryLevel + "%") : ""
+    readonly property string batterySummary: {
+        const lvl = SystemStatusStore.batteryLevel;
+        if (typeof lvl !== "number" || lvl < 0)
+            return "";
+        return SystemStatusStore.isCharging ? lvl + "% · Charging" : lvl + "%";
+    }
 
     readonly property string securitySummary: {
         const pin = SecurityManagerCpp.hasQuickPIN ? "PIN set" : "No PIN";
