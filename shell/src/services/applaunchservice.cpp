@@ -550,6 +550,32 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     }
     const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
 
+    // Containment for the published unsolved Qt 6.9+/Chromium 130/etnaviv
+    // GLES 2 wall (NXP i.MX 8M Plus BSP thread, Christian Gmeiner GLES3
+    // status, all referenced in kDefaultChromiumFlags comment above):
+    // QtWebEngine cannot bring up a GPU on the GC7000Lite without either
+    // pinning Qt 6.5 / Chromium 108 or waiting for etnaviv GLES3. Until
+    // one of those lands, *any* WebEngine launch attempt crashes either
+    // the runner (SIGTRAP in libQt6WebEngineCore Chrome_InProcGp thread)
+    // or the shell (FATAL "EGLFS: OpenGL windows cannot be mixed with
+    // others" when the runner's wayland buffer arrives at the compositor).
+    // Refuse the launch up-front so neither process dies. The decision is
+    // gated on an env var so a future QtWebEngine release can re-enable
+    // these apps without a code change.
+    const bool allowWebEngine = qEnvironmentVariableIntValue("MARATHON_ALLOW_WEBENGINE") == 1;
+    if (usesWebEngine && !allowWebEngine) {
+        qWarning() << "[AppLaunchService] Refusing to launch WebEngine app" << appId
+                   << "— QtWebEngine on etnaviv (GC7000Lite) is broken upstream "
+                      "(Qt 6.9+/Chromium 130 dropped native GLES2 from its GL allowlist, "
+                      "and etnaviv has no GLES3). Set MARATHON_ALLOW_WEBENGINE=1 to attempt "
+                      "anyway.";
+        emit appLaunchFailed(appId, name,
+                             QStringLiteral("This app needs a GPU feature your phone doesn't "
+                                            "support yet. Try again after a system update."));
+        m_launchingApps.remove(appId);
+        return false;
+    }
+
     // WebEngine on etnaviv GC7000Lite: Mesa 24+ picks Zink (GL-on-Vulkan)
     // by default and etnaviv has no Vulkan ICD, so vkEnumeratePhysicalDevices
     // returns nothing and Chromium falls back to llvmpipe (or worse, dies).
