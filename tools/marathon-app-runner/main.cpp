@@ -495,6 +495,33 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Pin QSurfaceFormat::defaultFormat() to OpenGLES 2.0 AFTER
+    // QtWebEngineQuick::initialize() (it sets its own defaultFormat to
+    // desktop OpenGL for the Chromium GPU process shared context) and
+    // BEFORE QGuiApplication (QRhi's probe reads defaultFormat during
+    // platform plugin init). QRhi's temp-context probe (the path that
+    // prints "QRhiGles2: Failed to create temporary context") asks for
+    // EGL_OPENGL_API by default. On Mesa stacks where the EGL display
+    // advertises EGL_OPENGL_ES_BIT only (etnaviv on GC7000Lite/HALTI0,
+    // lima, v3d), Mesa returns __DRI_CTX_ERROR_BAD_VERSION → EGL_BAD_MATCH
+    // and QRhi gives up — Qt does NOT walk down ES versions like GTK4
+    // does. Setting format explicitly to GLES 2.0 here resolves Qt's
+    // RHI request to EGL_OPENGL_ES_API + EGL_OPENGL_ES2_BIT and the
+    // probe succeeds. Verified against egl_dri2.c#L1180 and
+    // qrhigles2.cpp.
+    {
+        QSurfaceFormat fmt;
+        fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+        fmt.setMajorVersion(2);
+        fmt.setMinorVersion(0);
+        fmt.setProfile(QSurfaceFormat::NoProfile);
+        fmt.setDepthBufferSize(24);
+        fmt.setStencilBufferSize(8);
+        fmt.setSamples(0);
+        fmt.setSwapInterval(1);
+        QSurfaceFormat::setDefaultFormat(fmt);
+    }
+
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");

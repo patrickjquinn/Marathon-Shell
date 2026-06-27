@@ -1,6 +1,7 @@
 #include "src/wayland/waylandcompositor.h"
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
+#include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/textinputv3.h"
 #include <QDebug>
@@ -134,6 +135,14 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // Tracked but not yet enforced at present time — see committimingv1.h
     // for the honesty note on the public-API constraint.
     m_commitTimingManager = new CommitTimingManagerV1(this);
+
+    // zwp_linux_dmabuf_v1 v4 — Marathon's own implementation that
+    // advertises the v4 feedback layer (main_device + tranche_*) on
+    // top of Qt's existing v3 plugin. Chromium binds the higher
+    // version for feedback events; Qt's v3 plugin handles actual buffer
+    // import. See linuxdmabufv1.h for the scope honesty and the
+    // hypothesis the spike is testing.
+    m_linuxDmabufManager = new LinuxDmabufManagerV1(this);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
