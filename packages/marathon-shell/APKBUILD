@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=201
+pkgrel=252
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -95,7 +95,7 @@ makedepends="
 install="$pkgname.post-install"
 subpackages="$pkgname-doc"
 source="
-	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
+	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/ux-overhaul.tar.gz
 	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	marathon-shell-session
 	marathon-touchctl
