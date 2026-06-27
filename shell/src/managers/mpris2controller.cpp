@@ -170,9 +170,14 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
 
     m_positionTimer->start();
 
-    QTimer *metadataTimer = new QTimer(this);
-    connect(metadataTimer, &QTimer::timeout, this, &MPRIS2Controller::updateMetadata);
-    metadataTimer->start(2000);
+    // No metadata-refresh timer. The PropertiesChanged subscription set
+    // up at the top of this function delivers every title / artist /
+    // album / artwork change push-style (mandated by the MPRIS2 spec).
+    // The previous 2-second poll was burning ~43200 D-Bus calls/day per
+    // player for a property set that, in steady state, doesn't change
+    // for the duration of the track. If a player ships a broken
+    // PropertiesChanged emitter, that's an upstream bug to fix in the
+    // player — not a justification to poll forever in every host.
 
     emit activePlayerChanged();
 }
