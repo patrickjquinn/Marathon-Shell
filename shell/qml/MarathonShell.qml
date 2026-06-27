@@ -1927,9 +1927,14 @@ Item {
     // inert — only surfaces when something calls
     // lockScreenNetworkAgent.show(ssid, security). r201+ will wire it
     // to NetworkManagerCpp's secret-needed signal.
+    //
+    // The component self-gates on `agent.active` (visible: active).
+    // Do NOT add an outer `visible:` binding here — it overrides the
+    // internal one and surfaces the scrim + card permanently whenever
+    // the lock screen is visible, which is the regression filed by the
+    // user against r253 ("sign into wifi" dialog stuck on lock).
     MarathonLockScreenNetworkAgent {
         id: lockScreenNetworkAgent
-        visible: lockScreen.visible
     }
 
     MarathonOOBE {
