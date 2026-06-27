@@ -831,17 +831,43 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<AppLifecycleClient>("MarathonOS.Shell", 1, 0,
                                                      "AppLifecycleManager", appLifecycleClient);
 
-    if (hasPerm("contacts"))
-        ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
-    if (hasPerm("telephony") || hasPerm("phone"))
-        ctx->setContextProperty("CallHistoryManager", new CallHistoryClient(&app));
-    if (hasPerm("telephony") || hasPerm("phone"))
-        ctx->setContextProperty("TelephonyService", new TelephonyClient(appId, &app));
-    if (hasPerm("sms") || hasPerm("telephony"))
-        ctx->setContextProperty("SMSService", new SmsClient(appId, &app));
+    // Same singleton-mirror pattern as SettingsManagerCpp / Display /
+    // Bluetooth below: apps compiled against the shell module see these
+    // names as QML_SINGLETON in the qmlcache bytecode, so a bare
+    // setContextProperty fails at runtime with "X was a singleton at
+    // compile time, but is not a singleton anymore". Phone in particular
+    // hits this immediately on PhoneApp.qml:14 (ContactsManager.contacts)
+    // and the entire root never paints. Register both ways.
+    if (hasPerm("contacts")) {
+        auto *contactsClient = new ContactsClient(&app);
+        ctx->setContextProperty("ContactsManager", contactsClient);
+        qmlRegisterSingletonInstance<ContactsClient>("MarathonOS.Shell", 1, 0, "ContactsManager",
+                                                     contactsClient);
+    }
+    if (hasPerm("telephony") || hasPerm("phone")) {
+        auto *callHistoryClient = new CallHistoryClient(&app);
+        ctx->setContextProperty("CallHistoryManager", callHistoryClient);
+        qmlRegisterSingletonInstance<CallHistoryClient>("MarathonOS.Shell", 1, 0,
+                                                        "CallHistoryManager", callHistoryClient);
+    }
+    if (hasPerm("telephony") || hasPerm("phone")) {
+        auto *telephonyClient = new TelephonyClient(appId, &app);
+        ctx->setContextProperty("TelephonyService", telephonyClient);
+        qmlRegisterSingletonInstance<TelephonyClient>("MarathonOS.Shell", 1, 0, "TelephonyService",
+                                                      telephonyClient);
+    }
+    if (hasPerm("sms") || hasPerm("telephony")) {
+        auto *smsClient = new SmsClient(appId, &app);
+        ctx->setContextProperty("SMSService", smsClient);
+        qmlRegisterSingletonInstance<SmsClient>("MarathonOS.Shell", 1, 0, "SMSService", smsClient);
+    }
 
-    if (hasPerm("storage"))
-        ctx->setContextProperty("MediaLibraryManager", new MediaLibraryClient(appId, &app));
+    if (hasPerm("storage")) {
+        auto *mediaLibraryClient = new MediaLibraryClient(appId, &app);
+        ctx->setContextProperty("MediaLibraryManager", mediaLibraryClient);
+        qmlRegisterSingletonInstance<MediaLibraryClient>("MarathonOS.Shell", 1, 0,
+                                                         "MediaLibraryManager", mediaLibraryClient);
+    }
 
     // Qt 6.10+ qmlcache compiles singleton lookups into bytecode at app build
     // time. Apps are built against the shell's MarathonOS.Shell module where
