@@ -78,10 +78,25 @@ Item {
     }
 
     function descriptionText() {
-        if (!permission)
+        // The current single permission is the legacy single-prompt path.
+        // Modern callers (Browser cold-start, Maps first-launch) batch
+        // permission requests via currentPermissions — show all of them
+        // by name so the body matches the inline list above instead of
+        // mentioning only the first item and looking truncated.
+        const list = allPermissions && allPermissions.length > 0 ? allPermissions : (permission ? [permission] : []);
+        if (list.length === 0)
             return "";
 
-        return appName + " is requesting access to " + permissionTitle(permission).toLowerCase() + ".";
+        const titles = list.map(p => permissionTitle(p).toLowerCase());
+        let phrase;
+        if (titles.length === 1) {
+            phrase = titles[0];
+        } else if (titles.length === 2) {
+            phrase = titles[0] + " and " + titles[1];
+        } else {
+            phrase = titles.slice(0, -1).join(", ") + ", and " + titles[titles.length - 1];
+        }
+        return appName + " is requesting access to " + phrase + ".";
     }
 
     anchors.fill: parent
