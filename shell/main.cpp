@@ -609,6 +609,12 @@ int main(int argc, char *argv[]) {
     auto *displayManager  = new DisplayManagerCpp(powerManager, rotationManager, &app);
     qmlRegisterSingletonInstance<DisplayManagerCpp>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
                                                     displayManager);
+    // Lazy-claim the orientation sensor: only run it while the panel
+    // is actually on. RotationManager keeps the sensor stopped until
+    // this signal flips it true; lsm6dsx (or whatever backend) sees
+    // zero traffic with the screen off.
+    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, rotationManager,
+                     &RotationManager::setScreenOn);
     auto *audioManager = new AudioManagerCpp(&app);
     qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
                                                   audioManager);

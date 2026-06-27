@@ -31,7 +31,14 @@ class RotationManager : public QObject {
         return m_currentRotation;
     }
 
-    void             setAutoRotateEnabled(bool enabled);
+    void setAutoRotateEnabled(bool enabled);
+
+    // Wired in main.cpp to displayManager->screenStateChanged so the
+    // accelerometer drops off the power budget the moment the panel
+    // goes dark (Phosh-pattern lazy sensor claim). Without this we
+    // were holding lsm6dsx live 24/7 — pointless when the screen is
+    // off and the device can't rotate anyway.
+    void             setScreenOn(bool on);
 
     Q_INVOKABLE void lockOrientation(const QString &orientation);
     Q_INVOKABLE void unlockOrientation();
@@ -45,11 +52,18 @@ class RotationManager : public QObject {
     void onOrientationReadingChanged();
 
   private:
-    int                 orientationToRotation(QOrientationReading::Orientation o);
-    QString             orientationToString(QOrientationReading::Orientation o);
+    int     orientationToRotation(QOrientationReading::Orientation o);
+    QString orientationToString(QOrientationReading::Orientation o);
+
+    // Apply the (autoRotate && screenOn) gate: starts the sensor
+    // when both are true, stops it otherwise. Idempotent — safe to
+    // call on every transition.
+    void                _evaluateSensorState();
 
     bool                m_available;
     bool                m_autoRotateEnabled;
+    bool                m_screenOn      = true;
+    bool                m_sensorRunning = false;
 
     QString             m_currentOrientation;
     int                 m_currentRotation;
