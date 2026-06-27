@@ -138,6 +138,16 @@ Item {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
             compositor.userActivity.connect(PowerManagerService.updateActivity);
+            // Also reset the idle-screen-off timer when the compositor
+            // sees ANY input — without this the timer only resets on
+            // events that bubble up to the shell's own cursorTracker
+            // MouseArea, which never fires while an app's wayland
+            // surface holds input focus. Result before this line: the
+            // device blanks + locks after exactly screenTimeout ms of
+            // inactivity in the shell *coordinate space* regardless of
+            // how much the user is actively typing/scrolling inside the
+            // foreground app. Was task #338.
+            compositor.userActivity.connect(idleScreenTimer.restart);
         }
         // xdg-shell v6 suspend: BgIdle (3) or Frozen (4) → suspended;
         // Foreground (1) / BgActive (2) → not suspended. Co-operating
