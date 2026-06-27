@@ -1226,8 +1226,15 @@ bool WaylandCompositor::checkIdleInhibitors() {
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
     if (watched == m_window) {
         const auto type = event->type();
-        if (type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
-            type == QEvent::KeyPress) {
+        // Emit userActivity() on any human-input signal — not just the
+        // edge-triggered Begin/Press events. Without TouchUpdate /
+        // MouseMove we miss "user is scrolling / dragging in the
+        // foreground app" which is the dominant interaction pattern;
+        // the idle-screen-off timer then fires mid-gesture. Wheel +
+        // KeyRelease are belt-and-braces for kbd-only paths.
+        if (type == QEvent::TouchBegin || type == QEvent::TouchUpdate ||
+            type == QEvent::MouseButtonPress || type == QEvent::MouseMove ||
+            type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             emit userActivity();
         }
 
