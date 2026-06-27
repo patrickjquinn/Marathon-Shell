@@ -247,13 +247,27 @@ MApp {
             }
         }
 
+        // Empty state when zero working cameras are detected. There are two
+        // valid reasons we land here:
+        //
+        //   1. The device genuinely has no camera (QEMU dev image, dock).
+        //   2. The camera exists but Marathon never asked for permission,
+        //      or the user denied it earlier. The Permission Manager
+        //      re-prompts on requestPermission() so the CTA either opens
+        //      the dialog fresh or surfaces the already-denied state.
+        //
+        // Either way, giving the user a tap target out of the dead end
+        // beats showing a bare apology — same pattern as the system-wide
+        // empty state work in #405 (Hub / Phone Recents / Phone Favorites).
         MEmptyState {
             anchors.centerIn: parent
             width: parent.width - MSpacing.xl * 2
             visible: cameraController.cameraCount === 0
             iconName: "camera-off"
             title: "Camera unavailable"
-            message: "We couldn't find a camera. Your device may not have a working camera, or the system needs camera permission."
+            message: "We couldn't find a working camera. If your device has one, Marathon may not have permission yet."
+            actionText: "Grant camera access"
+            onActionClicked: PermissionManager.requestPermission(cameraApp.appId, "camera")
         }
 
         Rectangle {
