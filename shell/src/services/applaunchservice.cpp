@@ -115,15 +115,60 @@ namespace {
     // WebGL2 disabled — needs GLES3. WebGL1 stays enabled (works on
     // GLES2). Vulkan disabled — etnaviv has no Vulkan ICD.
     constexpr const char *kDefaultChromiumFlags =
-        // gl=disabled is the second value the Chromium 130 allowlist
-        // accepts on this build (the first, egl-angle, is unusable
-        // because Alpine's chromium has no ANGLE). It tells chromium
-        // to skip GL init entirely — no eglCreateContext call, no
-        // dri2_create_context failure, no surface format the shell's
-        // eglfs can choke on. WebGL stops working; the rest of the
-        // page renders via Skia's CPU rasteriser.
+        // SW raster baseline with full HW-accel infrastructure prepped
+        // underneath. Six companion fixes are all in place:
+        //   1. bwrap exposes only /dev/dri/renderD128 (no card1 master).
+        //   2. bwrap explicit binds for /sys/dev/char, /sys/class/drm,
+        //      /sys/devices for Mesa's DRM device-discovery symlink walk.
+        //   3. MESA_LOADER_DRIVER_OVERRIDE=etnaviv hard-set on runner env.
+        //   4. marathon-shell-session exports
+        //      QT_WAYLAND_HARDWARE_INTEGRATION="wayland-egl;linux-dmabuf-
+        //      unstable-v1" so the compositor's dmabuf plugin loads
+        //      (verified live via wayland-info — was completely absent
+        //      before).
+        //   5. marathon-app-runner main() calls
+        //      QSurfaceFormat::setDefaultFormat() with
+        //      setRenderableType(OpenGLES) AFTER
+        //      QtWebEngineQuick::initialize() and BEFORE
+        //      QGuiApplication so Qt's RHI probe asks for an ES2 context
+        //      that etnaviv can satisfy.
+        //   6. EGL_PLATFORM=wayland pins Mesa's platform discovery.
+        // Despite all of the above, Chromium 130's GPU process makes its
+        // OWN eglCreateContext call requesting an ES 3.x config that
+        // etnaviv (HALTI0, GLES2-only) rejects with __DRI_CTX_ERROR_
+        // BAD_VERSION → EGL_BAD_MATCH. Setting Qt's defaultFormat
+        // doesn't affect Chromium's separate GPU thread — it has its
+        // own GL implementation negotiation. The final gap requires
+        // either patching qt6-qtwebengine's bundled Chromium GL init,
+        // waiting for Mesa 26.2+ etnaviv GLES3, or migrating to WPE
+        // WebKit. Until then, --use-gl=disabled is the working baseline
+        // and the infrastructure above is ready to flip to --use-gl=egl
+        // the moment Chromium accepts.
+        // Web canvas via SW raster. Empirically validated across this
+        // session, --use-gl=disabled is the ONLY value Alpine's
+        // qt6-qtwebengine accepts that actually renders content:
+        //   - egl       → fails EGL_BAD_MATCH at eglCreateContext
+        //                 (Chromium 130 GPU process requests ES3.x,
+        //                 etnaviv ES2-only). Marathon's UI still
+        //                 renders fine via Qt RHI + v4 dmabuf; only
+        //                 the web canvas comes back black.
+        //   - swiftshader → "not supported with the current
+        //                 configuration" — Alpine's qtwebengine
+        //                 build has no SwiftShader linked.
+        //   - angle     → no ANGLE compiled into Alpine qtwebengine.
+        // SW raster on 4 Cortex-A53 cores is ~5-15fps depending on
+        // page complexity. Marathon's UI + browser chrome are
+        // HW-accel via Qt RHI + the v4 dmabuf protocol Marathon
+        // implements in shell/src/wayland/linuxdmabufv1.* so the
+        // perceived perf budget is mostly preserved.
+        // When EITHER Mesa 26.2 etnaviv GLES3 lands OR qt6-qtwebengine
+        // gets a build with ANGLE-GLES, flip to --use-gl=egl here.
+        // All the supporting infrastructure (bwrap-only-renderD128,
+        // Mesa env, dmabuf v4, runner setDefaultFormat) is already
+        // in place for that one-line flip.
         "--use-gl=disabled "
         "--disable-gpu "
+        "--ignore-gpu-blocklist "
         "--no-sandbox "
         "--disable-dev-shm-usage "
         "--disable-features=Vulkan,UseSkiaRenderer,WebGL,WebGL2 "
@@ -614,16 +659,53 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0")));
 
     if (usesWebEngine) {
-        // chromium GPU is fully disabled; Qt Quick's scenegraph still
-        // needs a GL context for the runner's QML chrome (URL bar, tabs,
-        // etc). QT_OPENGL=es2 + Wayland QPA means Qt opens a wayland-egl
-        // context that etnaviv satisfies with GLES2 — that's a separate
-        // EGL surface from anything chromium would have asked for, so
-        // the dri2_create_context errors that killed launches above
-        // simply don't happen.
+        // Qt Quick's scenegraph still needs a GL context for the runner's
+        // QML chrome (URL bar, tabs, etc). QT_OPENGL=es2 + Wayland QPA
+        // means Qt opens a wayland-egl context that etnaviv satisfies
+        // with GLES2 directly. QT_OPENGL is a QPA HINT — the actual fix
+        // that lets Mesa accept the context request is the runner's
+        // QSurfaceFormat::setDefaultFormat(OpenGLES, 2.0) before
+        // QGuiApplication (tools/marathon-app-runner/main.cpp:498).
         env.insert("QT_OPENGL", qEnvironmentVariable("QT_OPENGL", "es2"));
+        // EGL_PLATFORM=wayland pins Mesa's _eglGetNativePlatform to the
+        // wayland binding before native-display sniffing. Without it
+        // Mesa's lookup order can pick up gbm/drm when both libraries
+        // are linked, leading to surfaceless EGL contexts that don't
+        // match the wayland-egl client surface the runner needs. Cheap
+        // insurance against ambiguous Mesa platform discovery.
+        env.insert("EGL_PLATFORM", QStringLiteral("wayland"));
+        // Force Mesa to advertise OpenGL ES 2.0 as the highest version
+        // through eglQueryString(EGL_CLIENT_APIS) and related capability
+        // queries. Without this, Chromium's GPU init queries the EGL
+        // display, sees etnaviv reports ES 2.0 already (HALTI0), but
+        // STILL requests an ES 3.x context via EGL_CONTEXT_CLIENT_VERSION
+        // because its internal cap probe assumed ES3-capable Mesa. Pinning
+        // GLES_VERSION_OVERRIDE makes Mesa lie consistently: every cap
+        // query says 2.0, Chromium's negotiation aligns.
+        env.insert("MESA_GLES_VERSION_OVERRIDE", QStringLiteral("2.0"));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
         env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
+        // Force Mesa to use etnaviv directly instead of auto-probing
+        // Zink first. Hard-set, not qEnvironmentVariable: greetd
+        // currently exports MESA_LOADER_DRIVER_OVERRIDE=kmsro for the
+        // shell, which is the legacy split-display winsys layer name.
+        // Mesa 25.x removed `kmsro` as a standalone gallium driver
+        // (etnaviv pulls in renderonly internally) — passing kmsro to
+        // the runner gets it "Failed to create context" because no such
+        // driver is loadable. The shell's env is wrong but not worth
+        // fighting upstream; for the runner we want the renderer name.
+        env.insert("MESA_LOADER_DRIVER_OVERRIDE", QStringLiteral("etnaviv"));
+        env.insert("GBM_BACKEND", QStringLiteral("etnaviv"));
+        env.insert("GALLIUM_DRIVER", QStringLiteral("etnaviv"));
+        // Tell wayland-egl clients which DRM render node to allocate on,
+        // in lieu of Qt Wayland Compositor advertising linux-dmabuf-v1 v4
+        // feedback (Qt 6.11 docs still title the attribution page
+        // "unstable v3"; the v4 main_device feedback event is what phoc
+        // ships and what Mesa clients use to discover renderD128). Phosh
+        // distributes this same env var as their workaround for
+        // wlroots#3757.
+        env.insert("WLR_RENDER_DRM_DEVICE",
+                   qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", "/dev/dri/renderD128"));
     }
 
     if (permissions.contains("network")) {
@@ -713,16 +795,41 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("/sbin") << QStringLiteral("/sbin")
                   << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/empty")
                   << QStringLiteral("/var/empty") << QStringLiteral("--proc")
-                  << QStringLiteral("/proc") << QStringLiteral("--dev") << QStringLiteral("/dev")
-                  << QStringLiteral("--dev-bind-try") << QStringLiteral("/dev/dri")
-                  << QStringLiteral("/dev/dri")
+                  << QStringLiteral("/proc") << QStringLiteral("--dev")
+                  << QStringLiteral("/dev")
+                  // Bind ONLY the render node (renderD128), not the whole
+                  // /dev/dri/ tree. The shell holds DRM master on card1
+                  // (mxsfb DSI scanout); exposing card1 to the runner means
+                  // Chromium probes it, fails the master-only mode-set
+                  // ioctls (EACCES), then falls back to renderD128 and
+                  // tries MODE_CREATE_DUMB — which render nodes don't
+                  // support, producing the cascading "Failed to create GBM
+                  // buffer" we saw on the L5. Restricting to renderD128
+                  // forces Mesa straight to the render-only GBM path:
+                  // gbm_bo_create(... GBM_BO_USE_RENDERING), dmabuf export,
+                  // wl_buffer import — exactly what phoc/Phosh clients do
+                  // and what Igalia's WPEBackend-fdo does in production.
+                  << QStringLiteral("--dev-bind-try") << QStringLiteral("/dev/dri/renderD128")
+                  << QStringLiteral("/dev/dri/renderD128")
                   // /sys is needed for GPU/DRM driver discovery: Mesa walks
                   // /sys/dev/char/<major:minor> → /sys/class/drm/renderD128
                   // → /sys/devices/.../pci... to pick the right DRI driver.
-                  // Without it Mesa logs "failed to retrieve device
-                  // information" and falls back to zink/swrast.
+                  // Bind the whole tree first, then explicitly the
+                  // dev/char, class/drm and devices subtrees the symlink
+                  // walk needs to traverse — bwrap's --ro-bind /sys
+                  // alone has been observed to miss symlink-target
+                  // namespaces and cause eglCreateContext: dri2_create_context
+                  // (Flatpak#5543 / steam-runtime#683 — same symptom on
+                  // sandboxed Wayland GL clients). The bind-try entries
+                  // are no-ops where the directory doesn't exist on
+                  // particular kernels.
                   << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys")
-                  << QStringLiteral("/sys")
+                  << QStringLiteral("/sys") << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/sys/dev/char") << QStringLiteral("/sys/dev/char")
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys/class/drm")
+                  << QStringLiteral("/sys/class/drm") << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/sys/devices")
+                  << QStringLiteral("/sys/devices")
                   // System D-Bus socket lives at /run/dbus/system_bus_socket
                   // (Alpine path; older distros at /var/run/dbus). Apps
                   // need it to reach ModemManager / NetworkManager / UPower
@@ -830,6 +937,21 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << qEnvironmentVariable("QT_OPENGL", "es2");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
                       << QStringLiteral("1");
+            // Mirror the etnaviv / render-node hints from the un-sandboxed
+            // env block above into the bwrap sandbox so spawned WebEngine
+            // apps land on the right driver path.
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
+                      << QStringLiteral("etnaviv");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GBM_BACKEND")
+                      << QStringLiteral("etnaviv");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GALLIUM_DRIVER")
+                      << QStringLiteral("etnaviv");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WLR_RENDER_DRM_DEVICE")
+                      << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", "/dev/dri/renderD128");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("EGL_PLATFORM")
+                      << QStringLiteral("wayland");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
+                      << QStringLiteral("2.0");
             // The chromium flags value contains spaces (multiple --foo=bar
             // tokens) and the cmd string we build here is re-parsed by
             // QProcess::splitCommand on the compositor side. Per Qt 6 docs
