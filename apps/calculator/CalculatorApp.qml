@@ -254,6 +254,42 @@ MApp {
             }
         }
 
+        // Empty-state hint when history hasn't been populated yet.
+        // The historyList occupies ~700 design-px between the top bar
+        // and the result column; first-launch users saw that gap as
+        // an unstyled void. A faint two-line glyph + caption makes it
+        // read as a tape that's just waiting for input.
+        //
+        // Tied to historyList's exact anchor frame so it lives in the
+        // same dead zone — no double-positioning math elsewhere.
+        Item {
+            anchors.fill: historyList
+            visible: calcApp.history.length === 0
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 6
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "="
+                    color: MColors.textTertiary
+                    opacity: 0.4
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeTitle1
+                    font.weight: MTypography.weightThin
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Your calculations will appear here"
+                    color: MColors.textTertiary
+                    opacity: 0.6
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeFootnote
+                }
+            }
+        }
+
         // ── Display — right-aligned column ──────────────────
         // Anchor BOTTOM to the function-chip row instead of TOP to the
         // app-bar. iOS Calculator positions the digits flush against the
