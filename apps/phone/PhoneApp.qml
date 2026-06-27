@@ -222,6 +222,17 @@ MApp {
 
             // App header — "Phone" title + search · menu actions per JSX
             // screens-apps-1.jsx:PhoneDialer (TopBar).
+            //
+            // The Icons each get a MouseArea with -10 px margins so the
+            // 22 px glyphs hit a 42 px tap target (matches Messages /
+            // Notes / Mail patterns and clears the 44 px iOS HIG floor
+            // with scaleFactor headroom). Without these the icons
+            // rendered as decoration only — the user could never reach
+            // them. Search lands a haptic placeholder until the slide-
+            // in search row is wired (same shape as Messages); the
+            // kebab opens a not-yet-implemented context menu so for
+            // now it's a no-op haptic too — the buttons FEEL alive
+            // even when the destinations are still empty.
             MTopBar {
                 id: topBar
                 width: parent.width
@@ -231,11 +242,23 @@ MApp {
                         name: "search"
                         size: 22
                         color: MColors.textSecondary
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -10
+                            onClicked: HapticService.light()
+                        }
                     },
                     Icon {
                         name: "ellipsis-vertical"
                         size: 22
                         color: MColors.textSecondary
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -10
+                            onClicked: HapticService.light()
+                        }
                     }
                 ]
             }
