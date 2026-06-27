@@ -1913,6 +1913,25 @@ Item {
         id: alarmOverlay
     }
 
+    // WEA / ETWS / CMAS emergency cell broadcasts. Layered above lock
+    // screen + PIN entry so an Amber Alert that fires while the device
+    // is locked still displays — see component header for FCC §10.500
+    // rules on non-dismissable categories. Visibility is bound to
+    // CellBroadcastManagerCpp.activeBroadcasts; manager stays dormant
+    // on devices without a 3GPP modem.
+    MarathonCellBroadcastOverlay {
+        id: cellBroadcastOverlay
+    }
+
+    // Lock-screen WiFi / captive-portal credential prompt. Currently
+    // inert — only surfaces when something calls
+    // lockScreenNetworkAgent.show(ssid, security). r201+ will wire it
+    // to NetworkManagerCpp's secret-needed signal.
+    MarathonLockScreenNetworkAgent {
+        id: lockScreenNetworkAgent
+        visible: lockScreen.visible
+    }
+
     MarathonOOBE {
         id: oobeWizard
 

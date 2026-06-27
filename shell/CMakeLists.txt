@@ -68,6 +68,8 @@ set(SOURCES
     src/managers/audiomanagercpp.cpp
     src/managers/modemmanagercpp.h
     src/managers/modemmanagercpp.cpp
+    src/managers/cellbroadcastmanager.h
+    src/managers/cellbroadcastmanager.cpp
     src/managers/sensormanagercpp.h
     src/managers/sensormanagercpp.cpp
     src/managers/settingsmanager.h
@@ -252,6 +254,8 @@ set(QML_FILES
     qml/components/ConnectionToast.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
+    qml/components/MarathonCellBroadcastOverlay.qml
+    qml/components/MarathonLockScreenNetworkAgent.qml
     qml/components/MarathonOOBE.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/BluetoothPairDialog.qml

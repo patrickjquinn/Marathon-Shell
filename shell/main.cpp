@@ -55,6 +55,7 @@
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
+#include "src/managers/cellbroadcastmanager.h"
 #include "src/managers/modemmanagercpp.h"
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
@@ -611,7 +612,11 @@ int main(int argc, char *argv[]) {
     auto *audioManager = new AudioManagerCpp(&app);
     qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
                                                   audioManager);
-    auto *modemManager  = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *modemManager         = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *cellBroadcastManager = new CellBroadcastManager(&app);
+    ctx->setContextProperty("CellBroadcastManagerCpp", cellBroadcastManager);
+    qmlRegisterSingletonInstance<CellBroadcastManager>(
+        "MarathonOS.Shell", 1, 0, "CellBroadcastManagerCpp", cellBroadcastManager);
     auto *sensorManager = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
     displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
