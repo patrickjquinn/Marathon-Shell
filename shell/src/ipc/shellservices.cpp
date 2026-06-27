@@ -96,16 +96,41 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     if (shellPid <= 0 || pid <= 0)
         return unresolved();
 
-    // Confirm the caller is a marathon-app-runner whose parent is this shell --
-    // i.e. one we ourselves launched and just haven't registered yet.
-    QFile statFile(QStringLiteral("/proc/%1/stat").arg(pid));
-    if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return unresolved();
-    const QByteArray statLine = statFile.readAll();
-    const qsizetype  closeIdx = statLine.lastIndexOf(')');
-    const QByteArray afterCmd = closeIdx < 0 ? QByteArray() : statLine.mid(closeIdx + 1).trimmed();
-    const QList<QByteArray> parts = afterCmd.split(' ');
-    if (parts.size() < 2 || parts.at(1).toLongLong() != shellPid)
+    // Confirm the caller is a marathon-app-runner whose ANCESTOR is this
+    // shell. The direct parent is almost never the shell — the launch
+    // chain is shell → marathon-sandbox → bwrap (outer) → bwrap (inner)
+    // → marathon-app-runner, so the immediate PPID is a bwrap helper.
+    // Walk up the /proc PPID chain looking for the shell's PID; cap at
+    // 8 hops so we don't churn on a runaway ancestor list. Without this
+    // every D-Bus call from a sandboxed app fails the requireSystem /
+    // requirePermission gate because the appId resolution falls through
+    // to "unknown caller" — most visible as Settings reading brightness
+    // = 0 % even when sysfs reports 100 %, but it breaks every IPC
+    // surface (battery readback, system store, lifecycle manager).
+    auto ppidOf = [](qint64 p) -> qint64 {
+        QFile statFile(QStringLiteral("/proc/%1/stat").arg(p));
+        if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            return -1;
+        const QByteArray statLine = statFile.readAll();
+        const qsizetype  closeIdx = statLine.lastIndexOf(')');
+        const QByteArray afterCmd =
+            closeIdx < 0 ? QByteArray() : statLine.mid(closeIdx + 1).trimmed();
+        const QList<QByteArray> parts = afterCmd.split(' ');
+        if (parts.size() < 2)
+            return -1;
+        return parts.at(1).toLongLong();
+    };
+
+    bool   ancestorIsShell = false;
+    qint64 cursor          = ppidOf(pid);
+    for (int hop = 0; hop < 8 && cursor > 1; ++hop) {
+        if (cursor == shellPid) {
+            ancestorIsShell = true;
+            break;
+        }
+        cursor = ppidOf(cursor);
+    }
+    if (!ancestorIsShell)
         return unresolved();
 
     QFile cmdFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
