@@ -31,6 +31,16 @@ class SensorManagerCpp : public QObject {
         return m_ambientLight;
     }
 
+    // Phosh-pattern lazy claim. Wired in main.cpp:
+    //   - setProximityActive(bool) ← PowerPolicyController::hasActiveCallsChanged
+    //   - setLightActive(bool)     ← SettingsManager::autoBrightnessChanged
+    // The sensor backends connect at construction but the sensors only
+    // start polling while their respective consumer wants them. Without
+    // this both run forever, holding the I²C bus and waking the CPU on
+    // every reading, with no consumer paying attention.
+    void setProximityActive(bool active);
+    void setLightActive(bool active);
+
   private slots:
     void onProximityChanged();
     void onLightChanged();
@@ -42,10 +52,19 @@ class SensorManagerCpp : public QObject {
     void ambientLightChanged();
 
   private:
-    bool              m_available;
-    bool              m_proximityAvailable;
-    bool              m_proximityNear;
-    int               m_ambientLight;
+    bool m_available;
+    bool m_proximityAvailable;
+    bool m_proximityNear;
+    int  m_ambientLight;
+
+    // Backend availability (was true at construction in the old code).
+    bool m_proximityBackend = false;
+    bool m_lightBackend     = false;
+    // Requested-active vs actually-running. Idempotency guards.
+    bool              m_proximityActive  = false;
+    bool              m_lightActive      = false;
+    bool              m_proximityRunning = false;
+    bool              m_lightRunning     = false;
 
     QProximitySensor *m_proximity;
     QLightSensor     *m_light;

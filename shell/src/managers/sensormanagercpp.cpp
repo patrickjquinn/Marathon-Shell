@@ -12,36 +12,79 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
     m_proximity = new QProximitySensor(this);
     m_light     = new QLightSensor(this);
 
-    bool ok1 = m_proximity->connectToBackend();
-    bool ok2 = m_light->connectToBackend();
+    m_proximityBackend = m_proximity->connectToBackend();
+    m_lightBackend     = m_light->connectToBackend();
 
-    m_available = ok1 || ok2;
+    m_available = m_proximityBackend || m_lightBackend;
     emit availableChanged();
 
-    if (ok1 && m_proximity->start()) {
+    if (m_proximityBackend) {
         connect(m_proximity, &QProximitySensor::readingChanged, this,
                 &SensorManagerCpp::onProximityChanged);
+        // proximityAvailable advertises "we *can* report" even when
+        // we're not currently polling — TelephonyIntegrationCpp gates
+        // its screen-off-during-call behaviour on this flag, and that
+        // gating logic doesn't care whether the sensor happens to be
+        // running right now. Reflect "backend wired" here; runtime
+        // activation is decoupled via setProximityActive().
         m_proximityAvailable = true;
         emit proximityAvailableChanged();
-        qInfo() << "[SensorManagerCpp] Proximity sensor active";
+        qInfo() << "[SensorManagerCpp] Proximity sensor backend connected (idle)";
     } else {
-        // Either no backend, or backend won't actually start a measurement.
-        // Without a working sensor we MUST NOT report any proximity events --
-        // callers (e.g. TelephonyIntegrationCpp) gate screen-off on this and
-        // will leave the user with a dark screen they can't recover from if
-        // we lie about "near".
-        if (ok1)
-            m_proximity->stop();
-        qInfo() << "[SensorManagerCpp] No working proximity sensor backend";
+        qInfo() << "[SensorManagerCpp] No proximity sensor backend";
     }
 
-    if (ok2 && m_light->start()) {
+    if (m_lightBackend) {
         connect(m_light, &QLightSensor::readingChanged, this, &SensorManagerCpp::onLightChanged);
-        qInfo() << "[SensorManagerCpp] Ambient light sensor active";
+        qInfo() << "[SensorManagerCpp] Ambient light sensor backend connected (idle)";
     } else {
-        if (ok2)
-            m_light->stop();
-        qInfo() << "[SensorManagerCpp] No working ambient light backend";
+        qInfo() << "[SensorManagerCpp] No ambient light backend";
+    }
+}
+
+void SensorManagerCpp::setProximityActive(bool active) {
+    if (m_proximityActive == active)
+        return;
+    m_proximityActive = active;
+    if (!m_proximityBackend)
+        return;
+    if (active && !m_proximityRunning) {
+        if (m_proximity->start()) {
+            m_proximityRunning = true;
+            qInfo() << "[SensorManagerCpp] Proximity sensor started (in-call)";
+        } else {
+            qWarning() << "[SensorManagerCpp] Proximity sensor refused to start";
+        }
+    } else if (!active && m_proximityRunning) {
+        m_proximity->stop();
+        m_proximityRunning = false;
+        // Stale "near" reading must not stick around past the call —
+        // callers read proximityNear == false to mean "OK to wake".
+        if (m_proximityNear) {
+            m_proximityNear = false;
+            emit proximityNearChanged();
+        }
+        qInfo() << "[SensorManagerCpp] Proximity sensor stopped (call ended)";
+    }
+}
+
+void SensorManagerCpp::setLightActive(bool active) {
+    if (m_lightActive == active)
+        return;
+    m_lightActive = active;
+    if (!m_lightBackend)
+        return;
+    if (active && !m_lightRunning) {
+        if (m_light->start()) {
+            m_lightRunning = true;
+            qInfo() << "[SensorManagerCpp] Ambient light sensor started (auto-brightness on)";
+        } else {
+            qWarning() << "[SensorManagerCpp] Ambient light sensor refused to start";
+        }
+    } else if (!active && m_lightRunning) {
+        m_light->stop();
+        m_lightRunning = false;
+        qInfo() << "[SensorManagerCpp] Ambient light sensor stopped (auto-brightness off)";
     }
 }
 

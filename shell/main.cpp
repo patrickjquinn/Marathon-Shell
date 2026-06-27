@@ -675,6 +675,20 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<PowerPolicyController>(
         "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
+    // Phosh-pattern lazy sensor claim. Proximity runs only during active
+    // voice calls; ambient light runs only while auto-brightness is on.
+    // Push initial state once, then let the signal wires keep it in sync.
+    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
+                     sensorManager, [sensorManager, powerPolicyController]() {
+                         sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
+                     });
+    sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
+    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, sensorManager,
+                     [sensorManager, settingsManager]() {
+                         sensorManager->setLightActive(settingsManager->autoBrightness());
+                     });
+    sensorManager->setLightActive(settingsManager->autoBrightness());
+
     auto *displayPolicyController =
         new DisplayPolicyController(displayManager, settingsManager, &app);
     qmlRegisterSingletonInstance<DisplayPolicyController>(
