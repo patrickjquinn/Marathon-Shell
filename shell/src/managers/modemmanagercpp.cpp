@@ -107,6 +107,33 @@ void ModemManagerCpp::setupDBusConnections() {
     }
 }
 
+void ModemManagerCpp::attachModemPropertySubscriptions() {
+    if (m_modemPath.isEmpty())
+        return;
+
+    // Per-interface PropertiesChanged. Path-scoped so we don't catch
+    // unrelated PropertiesChanged on every sibling object the daemon
+    // emits — the system bus argument-path match keeps this cheap.
+    QDBusConnection bus     = QDBusConnection::systemBus();
+    const QString   props   = QStringLiteral("org.freedesktop.DBus.Properties");
+    const QString   changed = QStringLiteral("PropertiesChanged");
+
+    bus.connect("org.freedesktop.ModemManager1", m_modemPath, props, changed, this,
+                SLOT(onModemPropertiesChanged()));
+
+    qDebug() << "[ModemManagerCpp] Subscribed to PropertiesChanged on" << m_modemPath;
+}
+
+void ModemManagerCpp::onModemPropertiesChanged() {
+    // The 60s safety-net stays armed (queryModemState fires it via the
+    // m_stateMonitor timer) — this push-driven path just makes us
+    // react instantly on real changes instead of waiting up to a
+    // minute for the next poll. queryModemState is idempotent and
+    // cheap (six property fetches against an already-cached daemon
+    // path), so we don't bother filtering by changed_props here.
+    queryModemState();
+}
+
 void ModemManagerCpp::discoverModem() {
     if (!m_hasModemManager)
         return;
@@ -151,6 +178,7 @@ void ModemManagerCpp::discoverModem() {
             emit modemAvailableChanged();
             qInfo() << "[ModemManagerCpp] Modem found:" << m_modemPath;
 
+            attachModemPropertySubscriptions();
             queryModemState();
             return;
         }
