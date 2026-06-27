@@ -109,9 +109,15 @@ class ModemManagerCpp : public QObject {
     void discoverModem();
     void queryModemState();
     void retryDBusConnection();
+    // PropertiesChanged on any of the three modem D-Bus interfaces
+    // (Modem, Modem.Signal, Modem.Modem3gpp) refreshes our cached
+    // state immediately — without this we'd wait up to 60s for the
+    // safety-net poll to notice e.g. a signal-bar change.
+    void onModemPropertiesChanged();
 
   private:
     void            setupDBusConnections();
+    void            attachModemPropertySubscriptions();
     void            initializeDBusConnection();
     QString         networkTypeFromAccessTech(uint accessTech);
 
