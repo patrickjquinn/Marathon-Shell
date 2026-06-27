@@ -171,7 +171,17 @@ namespace {
         "--ignore-gpu-blocklist "
         "--no-sandbox "
         "--disable-dev-shm-usage "
-        "--disable-features=Vulkan,UseSkiaRenderer,WebGL,WebGL2 "
+        // WebGL kept enabled: the comment at the top of this block
+        // promised "WebGL1 stays enabled (works on GLES2)" but the
+        // disable-features list was banning both versions, leaving
+        // Maps's MapLibre GL JS unable to initialize and rendering
+        // a blank map canvas. Chromium's SW WebGL path (Skia/Ganesh
+        // CPU pipeline) handles WebGL1 even with --use-gl=disabled;
+        // it just hands the texture upload back through the dmabuf
+        // path that Marathon already wires for the rest of the
+        // WebEngine surface. WebGL2 stays disabled — needs GLES3
+        // which etnaviv (HALTI0) doesn't expose.
+        "--disable-features=Vulkan,UseSkiaRenderer,WebGL2 "
         "--num-raster-threads=2 "
         "--enable-viewport "
         "--main-frame-resizes-are-orientation-changes";
