@@ -704,9 +704,25 @@ MApp {
 
         interval: 16
         repeat: true
+        // 30 retries × 16 ms ≈ 480 ms — enough for the URL input's Loader
+        // to come up and the scene graph to mount it on a cold launch.
+        // Beyond that, focus isn't landing because something else owns
+        // it (modal, focus scope, hidden surface) and burning frames at
+        // 60 fps polling forceActiveFocus() won't unstick that. The
+        // earlier 100-retry budget (1.6 s) just delayed the warning
+        // without ever recovering — same dead end, slower.
+        readonly property int maxAttempts: 30
         onTriggered: {
             var item = browserApp._focusRetryItem;
             if (!item) {
+                stop();
+                return;
+            }
+            // Bail early when the target can't possibly take focus —
+            // forceActiveFocus on an invisible item is a guaranteed no-op
+            // and just keeps the timer spinning until the budget runs out.
+            if (!item.visible) {
+                Logger.debug("BrowserApp", "focus target invisible — abandoning retry");
                 stop();
                 return;
             }
@@ -719,11 +735,11 @@ MApp {
             }
             item.forceActiveFocus();
             browserApp._focusRetryAttempts++;
-            if (browserApp._focusRetryAttempts >= 100) {
+            if (browserApp._focusRetryAttempts >= focusRetryTimer.maxAttempts) {
                 if (browserApp._focusRetrySelectAll)
                     item.selectAll();
 
-                Logger.warn("BrowserApp", "Failed to focus address bar after retries");
+                Logger.info("BrowserApp", "address-bar focus didn't land in " + focusRetryTimer.maxAttempts + " frames — leaving for user tap");
                 stop();
             }
         }
