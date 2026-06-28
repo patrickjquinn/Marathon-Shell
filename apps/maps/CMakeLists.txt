@@ -58,9 +58,12 @@ else()
     message(STATUS "Maps: voice client disabled (install qt6-qtspeech-devel to enable)")
 endif()
 
-# Web assets (MapLibre GL JS, CSS, style spec, HTML harness, license)
-# are loaded by WebEngineView from the app's install root via
+# Web assets (Leaflet JS/CSS, marker PNGs, HTML harness, license) are
+# loaded by WebEngineView from the app's install root via
 # MARATHON_APP_PATH. They live under <app>/web/ at install time.
+# Switched from MapLibre GL JS to Leaflet 1.9 because QtWebEngine on
+# Librem 5 / etnaviv has --use-gl=disabled (no Mesa etnaviv_gbm, no
+# SwiftShader) so WebGL is unavailable. Leaflet renders to Canvas2D.
 install(DIRECTORY web
     DESTINATION "${MARATHON_APPS_DIR}/${APP_NAME}"
     FILES_MATCHING
@@ -68,4 +71,5 @@ install(DIRECTORY web
         PATTERN "*.js"
         PATTERN "*.css"
         PATTERN "*.json"
+        PATTERN "*.png"
         PATTERN "*.txt")
