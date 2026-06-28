@@ -223,6 +223,22 @@ add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
 add_subdirectory(tools/marathon-sandbox)
 
+# Optional WPE WebKit runner. Phase 2 of project_wpe_webview_plan —
+# only built if wpe-webkit-2.0 + wpebackend-fdo-1.0 are available
+# (Marathon's main/wpewebkit aport ships them). On dev hosts without
+# those headers the runner is silently skipped so the rest of the
+# shell still builds.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(_WPE_PROBE QUIET wpe-webkit-2.0 wpebackend-fdo-1.0)
+    if(_WPE_PROBE_FOUND)
+        message(STATUS "Marathon: building marathon-webview-runner (WPE WebKit found)")
+        add_subdirectory(tools/marathon-webview-runner)
+    else()
+        message(STATUS "Marathon: skipping marathon-webview-runner (no wpe-webkit-2.0)")
+    endif()
+endif()
+
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
