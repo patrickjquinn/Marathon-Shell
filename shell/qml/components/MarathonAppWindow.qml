@@ -254,6 +254,24 @@ Rectangle {
         }
     }
 
+    // Watchdog: if the splash sits for 20 s without a surface arriving
+    // (X11-only app on a Wayland-only stack, runner crash before
+    // attaching, missing flatpak runtime, etc.), surface the error
+    // state so the user isn't trapped on a forever-loading screen.
+    Timer {
+        id: launchTimeout
+
+        interval: 20000
+        repeat: false
+        running: appWindow.isLoadingComponent && !appWindow.hasError
+        onTriggered: {
+            Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
+            appWindow.isLoadingComponent = false;
+            appWindow.hasError = true;
+            appWindow.loadError = "The app didn't open in time. It may require X11 (which Marathon doesn't ship), or its runtime failed to start.";
+        }
+    }
+
     Rectangle {
         id: loadingSplash
 

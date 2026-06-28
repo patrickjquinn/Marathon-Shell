@@ -137,6 +137,25 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
         return QVariantMap();
     }
 
+    // Marathon is Wayland-only — there's no X server, so X-only apps
+    // would just spin forever on the loading splash. Skip them at
+    // discovery time so they never reach the home grid.
+    static const QSet<QString> kX11OnlyBinaries{
+        "xterm",    "uxterm",  "xclock", "xcalc", "xeyes",  "xlogo",    "xev",    "xinit",   "xrdb",
+        "xfontsel", "xkbcomp", "xkill",  "xset",  "xsetbg", "xsetroot", "xrandr", "xdpyinfo"};
+    const QStringList execTokens = app["exec"].toString().split(' ', Qt::SkipEmptyParts);
+    QString           binaryName;
+    for (const QString &tok : execTokens) {
+        if (tok.startsWith('-'))
+            continue;
+        binaryName = QFileInfo(tok).fileName();
+        break;
+    }
+    if (kX11OnlyBinaries.contains(binaryName)) {
+        qDebug() << "[DesktopFileParser] Skipping X11-only app:" << binaryName;
+        return QVariantMap();
+    }
+
     QFileInfo fileInfo(filePath);
     QString   id = fileInfo.completeBaseName();
     app["id"]    = id;
