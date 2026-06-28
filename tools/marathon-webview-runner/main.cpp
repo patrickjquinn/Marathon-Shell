@@ -468,6 +468,40 @@ int main(int argc, char **argv) {
     wl_surface_commit(r.surface);
     wl_display_roundtrip(r.wlDisplay); // wait for initial configure
 
+    // wl_egl_window + EGL surface + makeCurrent. Read directly from
+    // WPE's MiniBrowser source (Tools/wpe/backends/fdo/WindowViewBackend.cpp
+    // constructor lines 695-708). WPE-fdo's exportable EGL backend
+    // expects the HOST PROCESS to maintain a current EGL context — the
+    // WebProcess synchronises GL state through it. Without a current
+    // context the WebProcess wedges in its IPC pipe waiting for "GL
+    // ready" from the host (this was the r260-r265 wedge).
+    auto *eglWindow = wl_egl_window_create(r.surface, r.width, r.height);
+    if (!eglWindow) {
+        g_critical("[marathon-webview-runner] wl_egl_window_create failed");
+        return 1;
+    }
+    auto createPlatformWindowSurface = reinterpret_cast<PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC>(
+        eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT"));
+    EGLSurface eglSurface = EGL_NO_SURFACE;
+    if (createPlatformWindowSurface) {
+        eglSurface = createPlatformWindowSurface(r.eglDisplay, r.eglConfig, eglWindow, nullptr);
+    }
+    if (eglSurface == EGL_NO_SURFACE) {
+        eglSurface = eglCreateWindowSurface(
+            r.eglDisplay, r.eglConfig, reinterpret_cast<EGLNativeWindowType>(eglWindow), nullptr);
+    }
+    if (eglSurface == EGL_NO_SURFACE) {
+        g_critical("[marathon-webview-runner] eglCreate{Platform,}WindowSurface failed; "
+                   "error 0x%x",
+                   eglGetError());
+        return 1;
+    }
+    if (!eglMakeCurrent(r.eglDisplay, eglSurface, eglSurface, r.eglContext)) {
+        g_critical("[marathon-webview-runner] eglMakeCurrent failed; error 0x%x", eglGetError());
+        return 1;
+    }
+    g_message("[marathon-webview-runner] EGL context current (surface=%p)", eglSurface);
+
     // Build the exportable + WebKitWebViewBackend wrapper.
     r.exportable = wpe_view_backend_exportable_fdo_egl_create(
         &kExportableEglClient, &r, static_cast<uint32_t>(r.width), static_cast<uint32_t>(r.height));
