@@ -4,19 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Marathon Maps</title>
-<link rel="stylesheet" href="maplibre-gl.css">
+<link rel="stylesheet" href="leaflet.css">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #0a1814; overflow: hidden; font-family: Sora, sans-serif; }
-  #map { position: absolute; inset: 0; }
-  /* Hide default MapLibre attribution + ctrl chrome — Marathon overlays its own */
-  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { display: none !important; }
-  /* Style the "you are here" dot to match JSX: 16 px teal w/ 3 px white border + radial halo */
+  #map { position: absolute; inset: 0; background: #0a1814; }
+  /* Marathon dark filter on tiles — recolours OSM raster to the dark teal palette */
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(190deg) brightness(0.85) contrast(0.95) saturate(0.6); }
+  /* Hide default Leaflet attribution chrome — Marathon shows its own credit elsewhere */
+  .leaflet-control-attribution, .leaflet-control-zoom { display: none !important; }
+  /* User dot styling matches old MapLibre: 16px teal w/ white border + radial halo */
   .marathon-user-dot {
     width: 16px; height: 16px; border-radius: 50%;
     background: #00bfa5;
     border: 3px solid #fff;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 30px rgba(0,191,165,0.65);
-    cursor: default;
+    pointer-events: none;
     position: relative;
   }
   .marathon-user-dot::after {
@@ -26,120 +28,122 @@
   }
   /* Destination pin (teal SVG, dark center hole) */
   .marathon-pin { width: 34px; height: 44px; display: block; pointer-events: none; }
+  .marathon-pin-wrap { background: transparent; border: none; }
 </style>
 </head>
 <body>
 <div id="map"></div>
-<script src="maplibre-gl.js"></script>
+<script src="leaflet.js"></script>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script>
   "use strict";
 
-  // ──────────────────────────────────────────────────────────────────
-  // MapLibre map setup using the Marathon Dark style we author beside.
-  // ──────────────────────────────────────────────────────────────────
-  const map = new maplibregl.Map({
-    container: "map",
-    style: "marathon-dark.json",
-    center: [-6.1778, 53.3015],   // Dublin until QML sets a real fix
+  // Leaflet map. QtWebEngine on etnaviv L5 has --use-gl=disabled +
+  // --disable-gpu (Mesa etnaviv_gbm.so missing, no SwiftShader linked),
+  // so WebGL is impossible. Leaflet renders to Canvas2D using raster
+  // PNG tiles — works everywhere without GL.
+  const map = L.map("map", {
+    center: [53.3015, -6.1778],  // Dublin until QML sets a real fix
     zoom: 13,
-    pitch: 0,
-    bearing: 0,
+    zoomControl: false,
     attributionControl: false,
-    cooperativeGestures: false,
-    dragRotate: false,
-    pitchWithRotate: false,
-    touchPitch: false,
-    fadeDuration: 200
+    fadeAnimation: true,
+    zoomAnimation: true,
+    markerZoomAnimation: true,
+    // Touch — let Marathon's gestures bubble through where reasonable.
+    tap: true,
+    tapTolerance: 15
   });
 
-  // Route layer + pin marker bookkeeping. Created lazily once style is
-  // loaded so we never race the layer-add against the GL context.
-  let routeAdded = false;
-  const pins = new Map();      // id → maplibregl.Marker
+  // OpenStreetMap raster tiles. CC-BY-SA 2.0 by OSM contributors.
+  // We could swap to a vector / styled raster source later (Stamen,
+  // Carto Dark, Thunderforest) once a vector renderer is viable.
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    minZoom: 2,
+    crossOrigin: true,
+    tileSize: 256,
+    // OSM tile-usage policy asks all clients to identify themselves.
+    // Marathon maps surface is small (single visible viewport) so we
+    // stay well inside the courtesy traffic ceiling.
+    attribution: ""
+  }).addTo(map);
+
+  // Bookkeeping for pins, the user dot, and the route polyline.
+  const pins = new Map();      // id → L.marker
   let userMarker = null;
-
-  function ensureRouteLayer() {
-    if (routeAdded) return;
-    map.addSource("marathon-route", {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] }
-    });
-    map.addLayer({
-      id: "marathon-route-casing",
-      type: "line",
-      source: "marathon-route",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": "#0d2620",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 12]
-      }
-    });
-    map.addLayer({
-      id: "marathon-route-line",
-      type: "line",
-      source: "marathon-route",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": "#00bfa5",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 16, 6]
-      }
-    });
-    routeAdded = true;
-  }
-
-  map.on("style.load", () => {
-    ensureRouteLayer();
-    if (window.MarathonBridge) window.MarathonBridge.notifyReady();
-  });
+  let routeLayer = null;
 
   map.on("click", (e) => {
     if (window.MarathonBridge && window.MarathonBridge.onMapClicked)
-      window.MarathonBridge.onMapClicked(e.lngLat.lat, e.lngLat.lng);
+      window.MarathonBridge.onMapClicked(e.latlng.lat, e.latlng.lng);
+  });
+
+  // Tile errors bubble up so we see network/firewall trouble in
+  // Marathon's stderr stream rather than silently showing a blank map.
+  let tileErrorReported = false;
+  map.on("tileerror", (e) => {
+    if (tileErrorReported) return;
+    tileErrorReported = true;
+    console.warn("MAPS_TILE_ERROR:", e.tile && e.tile.src);
   });
 
   // ──────────────────────────────────────────────────────────────────
-  // Bridge surface exposed BACK to QML. We attach it as window methods
-  // so QML can call them via runJavaScript directly. The
-  // QWebChannel-published `marathonBridge` object is the inbound
-  // (QML→JS) signal path; this side is the outbound (JS→QML) path.
+  // Bridge surface exposed back to QML — same names as the old
+  // MapLibre bridge so MapsApp.qml does not need API changes.
   // ──────────────────────────────────────────────────────────────────
+  // Guard helper — QML occasionally calls these before a GPS fix is in
+  // hand, passing NaN. Leaflet throws "Invalid LatLng" hard if we let
+  // those reach it, which kills the map.
+  function isValidLatLng(lat, lon) {
+    return typeof lat === "number" && typeof lon === "number"
+      && !Number.isNaN(lat) && !Number.isNaN(lon)
+      && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+  }
+
   window.MarathonMaps = {
     setCenter(lat, lon, zoom) {
-      const opts = { center: [lon, lat] };
-      if (typeof zoom === "number" && !Number.isNaN(zoom)) opts.zoom = zoom;
-      map.flyTo({ ...opts, speed: 1.2, curve: 1.4 });
+      if (!isValidLatLng(lat, lon)) return;
+      if (typeof zoom === "number" && !Number.isNaN(zoom))
+        map.flyTo([lat, lon], zoom, { duration: 1.2 });
+      else
+        map.panTo([lat, lon]);
     },
 
     setUserLocation(lat, lon) {
+      if (!isValidLatLng(lat, lon)) return;
+      const icon = L.divIcon({
+        className: "marathon-pin-wrap",
+        html: '<div class="marathon-user-dot"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
       if (!userMarker) {
-        const el = document.createElement("div");
-        el.className = "marathon-user-dot";
-        userMarker = new maplibregl.Marker({ element: el, anchor: "center" })
-          .setLngLat([lon, lat])
-          .addTo(map);
+        userMarker = L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(map);
       } else {
-        userMarker.setLngLat([lon, lat]);
+        userMarker.setLatLng([lat, lon]);
       }
     },
 
-    addPin(id, lat, lon, kind /* "destination" | "result" */) {
+    addPin(id, lat, lon /*, kind */) {
+      if (!isValidLatLng(lat, lon)) return;
       this.removePin(id);
-      const el = document.createElement("div");
-      el.innerHTML = `
-        <svg class="marathon-pin" viewBox="0 0 34 44">
-          <path d="M17 0a14 14 0 0 1 14 14c0 11-14 28-14 28S3 25 3 14A14 14 0 0 1 17 0z"
-                fill="#1de9b6" stroke="#040404" stroke-width="1.5"/>
-          <circle cx="17" cy="14" r="5" fill="#040404"/>
-        </svg>`;
-      el.style.cursor = "pointer";
-      el.addEventListener("click", () => {
+      const svg =
+        '<svg class="marathon-pin" viewBox="0 0 34 44">' +
+        '<path d="M17 0a14 14 0 0 1 14 14c0 11-14 28-14 28S3 25 3 14A14 14 0 0 1 17 0z" fill="#1de9b6" stroke="#040404" stroke-width="1.5"/>' +
+        '<circle cx="17" cy="14" r="5" fill="#040404"/>' +
+        '</svg>';
+      const icon = L.divIcon({
+        className: "marathon-pin-wrap",
+        html: svg,
+        iconSize: [34, 44],
+        iconAnchor: [17, 44]
+      });
+      const m = L.marker([lat, lon], { icon }).addTo(map);
+      m.on("click", () => {
         if (window.MarathonBridge && window.MarathonBridge.onPinTapped)
           window.MarathonBridge.onPinTapped(id);
       });
-      const m = new maplibregl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([lon, lat])
-        .addTo(map);
       pins.set(id, m);
     },
 
@@ -154,28 +158,35 @@
     },
 
     setRouteGeoJSON(json) {
-      ensureRouteLayer();
-      const src = map.getSource("marathon-route");
-      if (src) src.setData(typeof json === "string" ? JSON.parse(json) : json);
+      if (routeLayer) { routeLayer.remove(); routeLayer = null; }
+      const data = typeof json === "string" ? JSON.parse(json) : json;
+      routeLayer = L.geoJSON(data, {
+        style: { color: "#00bfa5", weight: 4, opacity: 0.9, lineCap: "round", lineJoin: "round" },
+        interactive: false
+      }).addTo(map);
     },
 
     fitBounds(west, south, east, north, padding) {
-      map.fitBounds([[west, south], [east, north]], { padding: padding || 60, duration: 600 });
+      map.fitBounds([[south, west], [north, east]], { padding: [padding || 60, padding || 60] });
     },
 
-    setBearing(deg) { map.setBearing(deg || 0); },
-    setPitch(deg)   { map.setPitch(deg || 0); }
+    // Leaflet is 2D — bearing/pitch are no-ops. Kept for QML API parity
+    // so MapsApp.qml does not have to special-case the backend.
+    setBearing(/* deg */) { /* no-op */ },
+    setPitch(/* deg */)   { /* no-op */ }
   };
 
-  // ──────────────────────────────────────────────────────────────────
-  // Wire QWebChannel. The QML side registers an object named
-  // "marathonBridge" — we get a JS proxy with the same signal/method
-  // surface. Outbound (JS→QML) calls go through the proxy's signals;
-  // inbound (QML→JS) calls hit window.MarathonMaps.* via runJavaScript.
-  // ──────────────────────────────────────────────────────────────────
+  // Tell QML we are alive as soon as the first tile begins loading —
+  // this is the "style.load" analogue for the old MapLibre bridge.
+  map.whenReady(() => {
+    if (window.MarathonBridge && window.MarathonBridge.notifyReady)
+      window.MarathonBridge.notifyReady();
+  });
+
+  // Wire QWebChannel for QML→JS calls (same as the MapLibre version).
   new QWebChannel(qt.webChannelTransport, function(channel) {
     window.MarathonBridge = channel.objects.marathonBridge;
-    if (map.isStyleLoaded() && window.MarathonBridge && window.MarathonBridge.notifyReady)
+    if (window.MarathonBridge && window.MarathonBridge.notifyReady)
       window.MarathonBridge.notifyReady();
   });
 </script>
