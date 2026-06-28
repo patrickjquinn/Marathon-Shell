@@ -442,6 +442,12 @@ int main(int argc, char **argv) {
     if (!initEgl(r))
         return 1;
 
+    // libwpe loads its backend impl dynamically and otherwise defaults
+    // to libWPEBackend-default.so (which doesn't exist on Alpine).
+    // Point it at FDO before any WPE call. This is the same trick
+    // Cog uses in launcher/cog-launcher.c.
+    wpe_loader_init("libWPEBackend-fdo-1.0.so.1");
+
     // EGL must be live before WPE's fdo init — that call wires the
     // engine's image-export machinery against this EGL display.
     wpe_fdo_initialize_for_egl_display(r.eglDisplay);
