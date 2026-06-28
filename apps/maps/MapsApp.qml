@@ -352,7 +352,11 @@ MApp {
             id: webMap
 
             anchors.fill: parent
-            visible: mapLoaded
+            // Always render — gating on mapLoaded created a chicken-and-egg:
+            // the GL surface is only allocated when visible, so the page
+            // could never load. The overlay Rectangle below sits on top
+            // until mapLoaded flips, so users still see the spinner.
+            visible: true
             webChannel: webChannel
             backgroundColor: "#0a1814"
             settings.javascriptEnabled: true
