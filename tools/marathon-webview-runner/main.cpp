@@ -539,29 +539,61 @@ int main(int argc, char **argv) {
     signal(SIGINT, onTerm);
     signal(SIGTERM, onTerm);
 
-    // Wayland pumping: minimal model. r263 showed even the non-blocking
-    // dispatch via g_unix_fd_add kept WebKit's IPC GSources starved —
-    // WPEWebProcess stayed in wchan=pipe_write. Hypothesis: any extra
-    // fd-readable source on the default GMainContext is racing WebKit's
-    // own monitors. Drop the fd watcher entirely; rely on the 16ms
-    // timer below to drain + flush. The TIMER source is independent of
-    // IPC fd readiness so WebKit's IPC sources get scheduled normally
-    // when their own sockets become readable.
-    wl_display_flush(r.wlDisplay);
-
-    // 16ms timer flushes any queued requests + drains pending events
-    // even if the fd-readable callback hasn't fired (covers the case
-    // where WPE-side code generated wayland requests during a non-IO
-    // GSource).
-    g_timeout_add(
-        16,
-        [](gpointer ud) -> gboolean {
-            auto *rr = static_cast<Runner *>(ud);
-            wl_display_dispatch_pending(rr->wlDisplay);
-            wl_display_flush(rr->wlDisplay);
-            return G_SOURCE_CONTINUE;
+    // Wayland pumping via custom GSource (canonical pattern, mirrors
+    // WPE's MiniBrowser Tools/wpe/backends/fdo/WindowViewBackend.cpp:91).
+    //
+    // The key insight from MiniBrowser source: `prepare` MUST call
+    // dispatch_pending + flush before each main-loop poll cycle. This
+    // is what drains wayland requests queued by other GSource callbacks
+    // (notably WebKit's IPC handlers that call into WPE-fdo). Without
+    // this, frame callbacks never reach the compositor, frame_complete
+    // never fires back to WPE, the WebProcess IPC pipe fills up, and
+    // WPEWebProcess ends in wchan=pipe_write. This was the r260-r264
+    // failure mode.
+    struct WlSource {
+        GSource     source;
+        GPollFD     pfd;
+        wl_display *display;
+    };
+    static GSourceFuncs s_wlSourceFuncs = {
+        // prepare: drain pending + flush before main loop blocks on poll.
+        [](GSource *base, gint *timeout) -> gboolean {
+            auto *src = reinterpret_cast<WlSource *>(base);
+            *timeout  = -1;
+            wl_display_dispatch_pending(src->display);
+            wl_display_flush(src->display);
+            return FALSE;
         },
-        &r);
+        // check: dispatch only if poll(2) signalled fd-readable.
+        [](GSource *base) -> gboolean {
+            auto *src = reinterpret_cast<WlSource *>(base);
+            return !!src->pfd.revents;
+        },
+        // dispatch: read events from fd (safe — check confirmed readiness).
+        [](GSource *base, GSourceFunc, gpointer) -> gboolean {
+            auto *src = reinterpret_cast<WlSource *>(base);
+            if (src->pfd.revents & G_IO_IN)
+                wl_display_dispatch(src->display);
+            if (src->pfd.revents & (G_IO_ERR | G_IO_HUP))
+                return FALSE;
+            src->pfd.revents = 0;
+            return TRUE;
+        },
+        nullptr,
+        nullptr,
+        nullptr,
+    };
+    GSource *wlSource = g_source_new(&s_wlSourceFuncs, sizeof(WlSource));
+    auto    *wls      = reinterpret_cast<WlSource *>(wlSource);
+    wls->display      = r.wlDisplay;
+    wls->pfd.fd       = wl_display_get_fd(r.wlDisplay);
+    wls->pfd.events   = G_IO_IN | G_IO_ERR | G_IO_HUP;
+    wls->pfd.revents  = 0;
+    g_source_add_poll(wlSource, &wls->pfd);
+    g_source_set_priority(wlSource, G_PRIORITY_DEFAULT);
+    g_source_set_can_recurse(wlSource, TRUE);
+    g_source_attach(wlSource, nullptr);
+    wl_display_flush(r.wlDisplay);
 
     g_main_loop_run(gMainLoop);
 
