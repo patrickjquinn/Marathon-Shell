@@ -352,7 +352,12 @@ MApp {
             id: webMap
 
             anchors.fill: parent
-            visible: mapLoaded
+            // Always render — gating on mapLoaded created a chicken-and-egg:
+            // QtWebEngine's GL surface is only allocated when visible, so the
+            // page can never load to flip mapLoaded if visibility gates on it.
+            // The overlay Rectangle below sits on top until mapLoaded, so the
+            // user still sees the spinner.
+            visible: true
             webChannel: webChannel
             backgroundColor: "#0a1814"
             settings.javascriptEnabled: true
