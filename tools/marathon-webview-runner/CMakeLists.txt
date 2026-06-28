@@ -29,6 +29,9 @@ find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
 set(_xdg_xml "${WAYLAND_PROTOCOLS_DATADIR}/stable/xdg-shell/xdg-shell.xml")
 set(_xdg_header "${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h")
 set(_xdg_source "${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c")
+set(_dmabuf_xml "${WAYLAND_PROTOCOLS_DATADIR}/stable/linux-dmabuf/linux-dmabuf-v1.xml")
+set(_dmabuf_header "${CMAKE_CURRENT_BINARY_DIR}/linux-dmabuf-v1-client-protocol.h")
+set(_dmabuf_source "${CMAKE_CURRENT_BINARY_DIR}/linux-dmabuf-v1-protocol.c")
 
 add_custom_command(
     OUTPUT  "${_xdg_header}"
@@ -42,10 +45,24 @@ add_custom_command(
     DEPENDS "${_xdg_xml}"
     VERBATIM)
 
+add_custom_command(
+    OUTPUT  "${_dmabuf_header}"
+    COMMAND "${WAYLAND_SCANNER}" client-header "${_dmabuf_xml}" "${_dmabuf_header}"
+    DEPENDS "${_dmabuf_xml}"
+    VERBATIM)
+
+add_custom_command(
+    OUTPUT  "${_dmabuf_source}"
+    COMMAND "${WAYLAND_SCANNER}" private-code "${_dmabuf_xml}" "${_dmabuf_source}"
+    DEPENDS "${_dmabuf_xml}"
+    VERBATIM)
+
 add_executable(marathon-webview-runner
     main.cpp
     "${_xdg_source}"
     "${_xdg_header}"
+    "${_dmabuf_source}"
+    "${_dmabuf_header}"
 )
 
 target_include_directories(marathon-webview-runner PRIVATE
