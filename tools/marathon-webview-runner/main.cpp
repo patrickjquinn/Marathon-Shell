@@ -484,6 +484,23 @@ int main(int argc, char **argv) {
     g_signal_connect(r.webView, "load-changed", G_CALLBACK(onLoadChanged), nullptr);
     g_signal_connect(r.webView, "load-failed", G_CALLBACK(onLoadFailed), nullptr);
 
+    // WPE-fdo's exportable does NOT render until the view backend is
+    // marked visible + focused. Marathon's xdg_surface configure flow
+    // alone won't trigger this — WPE has no concept of xdg_shell.
+    // r260 protocol trace confirmed the runner reached
+    // ack_configure(720x1440) but never produced an export image; the
+    // WebProcess was idle because the backend was never woken.
+    {
+        struct wpe_view_backend *vb =
+            wpe_view_backend_exportable_fdo_get_view_backend(r.exportable);
+        wpe_view_backend_dispatch_set_size(vb, static_cast<uint32_t>(r.width),
+                                           static_cast<uint32_t>(r.height));
+        wpe_view_backend_add_activity_state(vb,
+                                            wpe_view_activity_state_visible |
+                                                wpe_view_activity_state_focused |
+                                                wpe_view_activity_state_in_window);
+    }
+
     webkit_web_view_load_uri(r.webView, url);
 
     gMainLoop = g_main_loop_new(nullptr, FALSE);
