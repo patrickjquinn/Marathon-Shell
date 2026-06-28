@@ -1111,6 +1111,15 @@ Item {
 
         Connections {
             function onCurrentAppIdChanged() {
+                // If the foreground app changed and the active permission
+                // dialog was for the PREVIOUS foreground app, drop it.
+                // Otherwise the dialog leaks across apps — e.g. Browser
+                // launched, asked for system access, user navigated to
+                // Messages without answering, and the prompt kept rendering
+                // on top of Messages (audit on r269 hit this).
+                if (PermissionManager.promptActive && PermissionManager.currentAppId && PermissionManager.currentAppId !== UIStore.currentAppId) {
+                    PermissionManager.dismissForApp(PermissionManager.currentAppId);
+                }
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
                     if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
                         Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
