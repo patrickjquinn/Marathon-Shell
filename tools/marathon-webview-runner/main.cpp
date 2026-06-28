@@ -539,38 +539,14 @@ int main(int argc, char **argv) {
     signal(SIGINT, onTerm);
     signal(SIGTERM, onTerm);
 
-    // Wayland pumping using the non-blocking pattern. r262 trace caught
-    // WPEWebProcess stuck in wchan=pipe_write — its IPC sockets were
-    // never serviced because wl_display_dispatch can block, starving
-    // every other GSource on the default GMainContext (including
-    // WebKit's IPC sources).
-    //
-    // Canonical pattern (libwayland docs): prepare_read → flush → main
-    // loop iteration → on G_IO_IN: read_events + dispatch_pending. None
-    // of these block; the GMainContext keeps round-robining all
-    // sources.
-    g_unix_fd_add(
-        wl_display_get_fd(r.wlDisplay), static_cast<GIOCondition>(G_IO_IN | G_IO_ERR | G_IO_HUP),
-        [](gint /*fd*/, GIOCondition cond, gpointer ud) -> gboolean {
-            auto *rr = static_cast<Runner *>(ud);
-            if (cond & (G_IO_ERR | G_IO_HUP)) {
-                g_warning("[marathon-webview-runner] wayland fd closed");
-                g_main_loop_quit(gMainLoop);
-                return G_SOURCE_REMOVE;
-            }
-            // We're about to read; finalise the prepare_read started in
-            // the previous main-loop tick.
-            if (wl_display_prepare_read(rr->wlDisplay) == 0) {
-                wl_display_read_events(rr->wlDisplay);
-            } else {
-                wl_display_dispatch_pending(rr->wlDisplay);
-            }
-            wl_display_dispatch_pending(rr->wlDisplay);
-            wl_display_flush(rr->wlDisplay);
-            return G_SOURCE_CONTINUE;
-        },
-        &r);
-    // Flush once at start so the queued requests reach the compositor.
+    // Wayland pumping: minimal model. r263 showed even the non-blocking
+    // dispatch via g_unix_fd_add kept WebKit's IPC GSources starved —
+    // WPEWebProcess stayed in wchan=pipe_write. Hypothesis: any extra
+    // fd-readable source on the default GMainContext is racing WebKit's
+    // own monitors. Drop the fd watcher entirely; rely on the 16ms
+    // timer below to drain + flush. The TIMER source is independent of
+    // IPC fd readiness so WebKit's IPC sources get scheduled normally
+    // when their own sockets become readable.
     wl_display_flush(r.wlDisplay);
 
     // 16ms timer flushes any queued requests + drains pending events
