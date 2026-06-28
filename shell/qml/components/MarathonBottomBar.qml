@@ -44,10 +44,11 @@ Item {
         id: phoneShortcut
 
         anchors.left: parent.left
-        // Tightened from spacingLarge — at scaleFactor 2 the Phone glyph
-        // floats 40 px in from the panel edge, breaking the iOS-like
-        // edge-hugging shortcut feel.
-        anchors.leftMargin: Constants.spacingMedium
+        // Edge-hugging shortcut. Earlier tightening (spacingLarge → spacingMedium)
+        // still left the glyph ~26 px inset from the panel edge at scale 1.
+        // spacingXSmall puts the visible icon ~15 px from the screen edge,
+        // matching the iOS Lock-Screen quick-action position.
+        anchors.leftMargin: Constants.spacingXSmall
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
@@ -324,8 +325,8 @@ Item {
         id: cameraShortcut
 
         anchors.right: parent.right
-        // Symmetric with phoneShortcut.leftMargin tightening.
-        anchors.rightMargin: Constants.spacingMedium
+        // Symmetric with phoneShortcut.leftMargin — edge-hugging.
+        anchors.rightMargin: Constants.spacingXSmall
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
