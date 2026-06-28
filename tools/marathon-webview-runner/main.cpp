@@ -468,13 +468,37 @@ int main(int argc, char **argv) {
     wl_surface_commit(r.surface);
     wl_display_roundtrip(r.wlDisplay); // wait for initial configure
 
-    // wl_egl_window + EGL surface + makeCurrent. Read directly from
-    // WPE's MiniBrowser source (Tools/wpe/backends/fdo/WindowViewBackend.cpp
-    // constructor lines 695-708). WPE-fdo's exportable EGL backend
-    // expects the HOST PROCESS to maintain a current EGL context — the
-    // WebProcess synchronises GL state through it. Without a current
-    // context the WebProcess wedges in its IPC pipe waiting for "GL
-    // ready" from the host (this was the r260-r265 wedge).
+    // Build the exportable BEFORE the wl_egl_window/eglMakeCurrent —
+    // matches WindowViewBackend constructor order: initialize()
+    // (creates exportable) runs before the surface→toplevel→activity
+    // _state→wl_egl_window→eglMakeCurrent chain. (We don't follow the
+    // exact order — exportable needs to exist before activity_state
+    // dispatches against it.)
+    r.exportable = wpe_view_backend_exportable_fdo_egl_create(
+        &kExportableEglClient, &r, static_cast<uint32_t>(r.width), static_cast<uint32_t>(r.height));
+    if (!r.exportable) {
+        g_critical("[marathon-webview-runner] wpe_view_backend_exportable_fdo_egl_create failed");
+        return 1;
+    }
+
+    // Wake the backend (visible|in_window — matching WindowViewBackend
+    // line 691; NOT focused). Set size + scale factor. Do this BEFORE
+    // constructing the WebKitWebView so the WebProcess starts with the
+    // correct state from the first IPC handshake.
+    {
+        struct wpe_view_backend *vb =
+            wpe_view_backend_exportable_fdo_get_view_backend(r.exportable);
+        wpe_view_backend_dispatch_set_device_scale_factor(vb, 1.0f);
+        wpe_view_backend_dispatch_set_size(vb, static_cast<uint32_t>(r.width),
+                                           static_cast<uint32_t>(r.height));
+        wpe_view_backend_add_activity_state(
+            vb, wpe_view_activity_state_visible | wpe_view_activity_state_in_window);
+    }
+
+    // wl_egl_window + eglMakeCurrent — host EGL context must be current
+    // before the WebProcess starts. Read directly from WPE's
+    // MiniBrowser source (Tools/wpe/backends/fdo/WindowViewBackend.cpp
+    // constructor lines 695-708).
     auto *eglWindow = wl_egl_window_create(r.surface, r.width, r.height);
     if (!eglWindow) {
         g_critical("[marathon-webview-runner] wl_egl_window_create failed");
@@ -502,14 +526,6 @@ int main(int argc, char **argv) {
     }
     g_message("[marathon-webview-runner] EGL context current (surface=%p)", eglSurface);
 
-    // Build the exportable + WebKitWebViewBackend wrapper.
-    r.exportable = wpe_view_backend_exportable_fdo_egl_create(
-        &kExportableEglClient, &r, static_cast<uint32_t>(r.width), static_cast<uint32_t>(r.height));
-    if (!r.exportable) {
-        g_critical("[marathon-webview-runner] wpe_view_backend_exportable_fdo_egl_create failed");
-        return 1;
-    }
-
     WebKitWebViewBackend *wkBackend = webkit_web_view_backend_new(
         wpe_view_backend_exportable_fdo_get_view_backend(r.exportable), nullptr, nullptr);
 
@@ -519,24 +535,6 @@ int main(int argc, char **argv) {
 
     g_signal_connect(r.webView, "load-changed", G_CALLBACK(onLoadChanged), nullptr);
     g_signal_connect(r.webView, "load-failed", G_CALLBACK(onLoadFailed), nullptr);
-
-    // WPE-fdo's exportable does NOT render until the view backend is
-    // marked visible + focused. Marathon's xdg_surface configure flow
-    // alone won't trigger this — WPE has no concept of xdg_shell.
-    // r260 protocol trace confirmed the runner reached
-    // ack_configure(720x1440) but never produced an export image; the
-    // WebProcess was idle because the backend was never woken.
-    {
-        struct wpe_view_backend *vb =
-            wpe_view_backend_exportable_fdo_get_view_backend(r.exportable);
-        wpe_view_backend_dispatch_set_device_scale_factor(vb, 1.0f);
-        wpe_view_backend_dispatch_set_size(vb, static_cast<uint32_t>(r.width),
-                                           static_cast<uint32_t>(r.height));
-        wpe_view_backend_add_activity_state(vb,
-                                            wpe_view_activity_state_visible |
-                                                wpe_view_activity_state_focused |
-                                                wpe_view_activity_state_in_window);
-    }
 
     // Decide load mode by URL scheme. Plain "about:blank" / "http(s)://" go
     // through load_uri; an inline HTML probe ("inline:") rules out network +
