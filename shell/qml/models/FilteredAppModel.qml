@@ -32,7 +32,10 @@ Item {
         var apps = [];
         // Pinned mode: lookup each id in the source model and emit in order.
         // Drop entries that don't resolve so we don't render empty cells
-        // when a built-in app is missing from this build.
+        // when a built-in app is missing from this build. Then append any
+        // remaining discovered apps (flatpaks, native packages) in
+        // alphabetical order so installed third-party apps still surface
+        // on later pages of the home grid.
         if (pinnedMode && pinnedAppIds && pinnedAppIds.length > 0) {
             var indexById = {};
             for (var k = 0; k < sourceModel.count; k++) {
@@ -40,15 +43,33 @@ Item {
                 if (src && src.id)
                     indexById[src.id] = src;
             }
+            var pinnedIdSet = {};
             for (var j = 0; j < pinnedAppIds.length; j++) {
                 var id = pinnedAppIds[j];
+                pinnedIdSet[id] = true;
                 var hit = indexById[id];
                 if (hit && hiddenApps.indexOf(id) < 0)
                     apps.push(hit);
             }
+            var extras = [];
+            for (var m = 0; m < sourceModel.count; m++) {
+                var ex = sourceModel.getAppAtIndex(m);
+                if (!ex || !ex.id)
+                    continue;
+                if (pinnedIdSet[ex.id])
+                    continue;
+                if (hiddenApps.indexOf(ex.id) >= 0)
+                    continue;
+                extras.push(ex);
+            }
+            extras.sort(function (a, b) {
+                return a.name.localeCompare(b.name);
+            });
+            for (var n = 0; n < extras.length; n++)
+                apps.push(extras[n]);
             filteredApps = apps;
             dataChanged();
-            Logger.info("FilteredAppModel", "Rebuilt (pinned): " + filteredApps.length + " of " + pinnedAppIds.length + " requested (source has " + sourceModel.count + ")");
+            Logger.info("FilteredAppModel", "Rebuilt (pinned): " + filteredApps.length + " total (" + (apps.length - extras.length) + " pinned + " + extras.length + " extras, source has " + sourceModel.count + ")");
             return;
         }
         for (var i = 0; i < sourceModel.count; i++) {
