@@ -4,23 +4,28 @@
 // this runner is a Wayland client. Pipeline:
 //
 //   WebProcess renders → EGLImage → host export_fdo_egl_image callback
-//   → eglCreateWaylandBufferFromImageWL → wl_surface_attach + damage +
-//   commit → Marathon's compositor adopts the xdg_toplevel.
+//   → eglExportDMABUFImageMESA (per-plane fd/stride/offset) →
+//   zwp_linux_dmabuf_v1.create_params + add + create_immed → wl_buffer
+//   → wl_surface_attach + damage + commit → Marathon's compositor
+//   adopts the xdg_toplevel.
 //
-// The EGL-image bridge is the same one Cog uses
-// (platform/wayland/cog-view-wl.c). It is much simpler than raw dmabuf
-// plumbing — no zwp_linux_dmabuf_v1.create_params traffic on the wire,
-// no modifier negotiation, no plane accounting. Mesa etnaviv's
-// EGL_WL_create_wayland_buffer_from_image extension does the work
-// host-side.
+// The dmabuf-export path is the only client-side option on etnaviv:
+// EGL_WL_create_wayland_buffer_from_image (Cog's preferred entrypoint)
+// is a SERVER-side extension and absent in Mesa's etnaviv client
+// driver. Cog gets away with it because its WebProcess connects to
+// Cog's own nested compositor — Cog is a Wayland server in that
+// direction. The runner is a pure Wayland client to Marathon's
+// compositor and cannot use the server-side EGL_WL extension.
 //
 // References — see project_wpe_phase_2_validated memory + the report
-// the Phase 2.1 research agent produced.
+// the Phase 2.1 research agent produced + EGL_MESA_image_dma_buf_export
+// spec.
 
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unistd.h>
 
 #include <wayland-client.h>
 #include <wayland-egl.h>
@@ -35,6 +40,7 @@
 #include <glib.h>
 
 #include "xdg-shell-client-protocol.h"
+#include "linux-dmabuf-v1-client-protocol.h"
 
 namespace {
 
@@ -49,19 +55,29 @@ namespace {
     // thread until something exits.
     GMainLoop *gMainLoop = nullptr;
 
-    // EGL function pointers loaded via eglGetProcAddress at startup. The
-    // wayland-buffer-from-image extension is core to the Cog pattern.
-    using PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWL = struct wl_buffer *(EGLAPIENTRYP)(EGLDisplay,
-                                                                                  EGLImageKHR);
+    // EGL extension function pointers — loaded via eglGetProcAddress at
+    // startup. The Mesa dmabuf export path is the only one that works
+    // client-side on etnaviv (EGL_WL_create_wayland_buffer_from_image is
+    // a SERVER-side extension and is absent in Mesa's etnaviv client
+    // driver).
+    using PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC = EGLBoolean(EGLAPIENTRYP)(EGLDisplay, EGLImageKHR,
+                                                                          int          *fourcc,
+                                                                          int          *num_planes,
+                                                                          EGLuint64KHR *modifiers);
+    using PFNEGLEXPORTDMABUFIMAGEMESAPROC      = EGLBoolean(EGLAPIENTRYP)(EGLDisplay, EGLImageKHR,
+                                                                     int *fds, EGLint *strides,
+                                                                     EGLint *offsets);
 
-    PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWL egl_create_wl_buffer_from_image = nullptr;
+    PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC egl_export_dmabuf_query = nullptr;
+    PFNEGLEXPORTDMABUFIMAGEMESAPROC      egl_export_dmabuf       = nullptr;
 
     struct Runner {
         // Wayland globals — bound in registry.global handler.
-        wl_display    *wlDisplay  = nullptr;
-        wl_registry   *registry   = nullptr;
-        wl_compositor *compositor = nullptr;
-        xdg_wm_base   *xdgWmBase  = nullptr;
+        wl_display          *wlDisplay   = nullptr;
+        wl_registry         *registry    = nullptr;
+        wl_compositor       *compositor  = nullptr;
+        xdg_wm_base         *xdgWmBase   = nullptr;
+        zwp_linux_dmabuf_v1 *linuxDmabuf = nullptr;
 
         // Surface chain. xdg_toplevel is the window Marathon's
         // compositor adopts.
@@ -173,13 +189,64 @@ namespace {
     }
     const wl_buffer_listener kBufferListener = {onBufferRelease};
 
+    // ---- Build a wl_buffer from an EGLImage via Mesa's dmabuf export
+    // path. Returns nullptr on failure; caller must release the WPE
+    // image back to the engine in that case. fds returned by Mesa are
+    // owned by us until create_params consumes them. ----
+    wl_buffer *buildBufferFromImage(Runner *r, EGLImageKHR egl_image) {
+        int          fourcc     = 0;
+        int          num_planes = 0;
+        EGLuint64KHR modifier   = 0;
+        if (!egl_export_dmabuf_query(r->eglDisplay, egl_image, &fourcc, &num_planes, &modifier)) {
+            g_warning("[marathon-webview-runner] eglExportDMABUFImageQueryMESA failed; "
+                      "EGL error 0x%x",
+                      eglGetError());
+            return nullptr;
+        }
+        if (num_planes < 1 || num_planes > 4) {
+            g_warning("[marathon-webview-runner] dmabuf query reported %d planes", num_planes);
+            return nullptr;
+        }
+
+        int    fds[4]     = {-1, -1, -1, -1};
+        EGLint strides[4] = {0};
+        EGLint offsets[4] = {0};
+        if (!egl_export_dmabuf(r->eglDisplay, egl_image, fds, strides, offsets)) {
+            g_warning("[marathon-webview-runner] eglExportDMABUFImageMESA failed; "
+                      "EGL error 0x%x",
+                      eglGetError());
+            return nullptr;
+        }
+
+        zwp_linux_buffer_params_v1 *params = zwp_linux_dmabuf_v1_create_params(r->linuxDmabuf);
+        const uint32_t              mod_hi = static_cast<uint32_t>(modifier >> 32);
+        const uint32_t              mod_lo = static_cast<uint32_t>(modifier & 0xffffffff);
+        for (int i = 0; i < num_planes; ++i) {
+            zwp_linux_buffer_params_v1_add(params, fds[i], i, static_cast<uint32_t>(offsets[i]),
+                                           static_cast<uint32_t>(strides[i]), mod_hi, mod_lo);
+        }
+
+        wl_buffer *buffer = zwp_linux_buffer_params_v1_create_immed(
+            params, r->width, r->height, static_cast<uint32_t>(fourcc), 0);
+
+        zwp_linux_buffer_params_v1_destroy(params);
+
+        // create_immed dup()s the fds during params.add, so we close ours.
+        for (int i = 0; i < num_planes; ++i) {
+            if (fds[i] >= 0)
+                close(fds[i]);
+        }
+
+        if (!buffer)
+            g_warning("[marathon-webview-runner] zwp_linux_buffer_params_v1_create_immed failed");
+        return buffer;
+    }
+
     // ---- Export callback from WPE: an EGLImage just landed. Convert to
     // wl_buffer and present. ----
     void onExportFdoEglImage(void *data, wpe_fdo_egl_exported_image *image) {
         auto *r = static_cast<Runner *>(data);
-        if (!image || !r->surface || !egl_create_wl_buffer_from_image) {
-            // Drop the image straight back to WPE — it'll wait and try
-            // again next frame.
+        if (!image || !r->surface || !r->linuxDmabuf || !egl_export_dmabuf) {
             if (image && r->exportable)
                 wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(r->exportable,
                                                                                     image);
@@ -187,11 +254,8 @@ namespace {
         }
 
         EGLImageKHR egl_image = wpe_fdo_egl_exported_image_get_egl_image(image);
-        wl_buffer  *buffer    = egl_create_wl_buffer_from_image(r->eglDisplay, egl_image);
+        wl_buffer  *buffer    = buildBufferFromImage(r, egl_image);
         if (!buffer) {
-            g_warning("[marathon-webview-runner] eglCreateWaylandBufferFromImageWL failed; "
-                      "EGL error 0x%x",
-                      eglGetError());
             wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(r->exportable,
                                                                                 image);
             return;
@@ -235,6 +299,12 @@ namespace {
             r->xdgWmBase = static_cast<xdg_wm_base *>(
                 wl_registry_bind(registry, name, &xdg_wm_base_interface, std::min(version, 4u)));
             xdg_wm_base_add_listener(r->xdgWmBase, &kWmBaseListener, r);
+        } else if (std::strcmp(iface, zwp_linux_dmabuf_v1_interface.name) == 0) {
+            // Bind v3. Qt's bundled global supports v3 (create_params +
+            // buffer creation), and our v4 spike falls back to v3 for
+            // create_params. v3 gives us everything we need.
+            r->linuxDmabuf = static_cast<zwp_linux_dmabuf_v1 *>(wl_registry_bind(
+                registry, name, &zwp_linux_dmabuf_v1_interface, std::min(version, 3u)));
         }
     }
     void                       onRegistryGlobalRemove(void *, wl_registry *, uint32_t) {}
@@ -324,15 +394,18 @@ namespace {
             return false;
         }
 
-        // Load the wayland-buffer-from-image entrypoint — Mesa's
-        // EGL_WL_create_wayland_buffer_from_image extension.
-        egl_create_wl_buffer_from_image = reinterpret_cast<PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWL>(
-            eglGetProcAddress("eglCreateWaylandBufferFromImageWL"));
-        if (!egl_create_wl_buffer_from_image) {
-            g_critical("[marathon-webview-runner] missing "
-                       "eglCreateWaylandBufferFromImageWL — Mesa "
-                       "EGL_WL_create_wayland_buffer_from_image absent. "
-                       "EGL extensions: %s",
+        // Load the dmabuf-export entrypoints — Mesa's
+        // EGL_MESA_image_dma_buf_export extension. This is the
+        // CLIENT-side path that etnaviv exposes
+        // (EGL_WL_create_wayland_buffer_from_image is server-side and
+        // absent in the etnaviv client driver).
+        egl_export_dmabuf_query = reinterpret_cast<PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC>(
+            eglGetProcAddress("eglExportDMABUFImageQueryMESA"));
+        egl_export_dmabuf = reinterpret_cast<PFNEGLEXPORTDMABUFIMAGEMESAPROC>(
+            eglGetProcAddress("eglExportDMABUFImageMESA"));
+        if (!egl_export_dmabuf_query || !egl_export_dmabuf) {
+            g_critical("[marathon-webview-runner] missing EGL_MESA_image_dma_buf_export "
+                       "entrypoints. EGL extensions: %s",
                        eglQueryString(r.eglDisplay, EGL_EXTENSIONS));
             return false;
         }
@@ -359,10 +432,10 @@ int main(int argc, char **argv) {
     wl_registry_add_listener(r.registry, &kRegistryListener, &r);
     wl_display_roundtrip(r.wlDisplay);
 
-    if (!r.compositor || !r.xdgWmBase) {
+    if (!r.compositor || !r.xdgWmBase || !r.linuxDmabuf) {
         g_critical("[marathon-webview-runner] missing required globals: "
-                   "compositor=%p xdg_wm_base=%p",
-                   r.compositor, r.xdgWmBase);
+                   "compositor=%p xdg_wm_base=%p linux-dmabuf=%p",
+                   r.compositor, r.xdgWmBase, r.linuxDmabuf);
         return 1;
     }
 
@@ -464,6 +537,8 @@ int main(int argc, char **argv) {
         eglTerminate(r.eglDisplay);
     if (r.xdgWmBase)
         xdg_wm_base_destroy(r.xdgWmBase);
+    if (r.linuxDmabuf)
+        zwp_linux_dmabuf_v1_destroy(r.linuxDmabuf);
     if (r.compositor)
         wl_compositor_destroy(r.compositor);
     if (r.registry)
