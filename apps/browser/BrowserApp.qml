@@ -1034,7 +1034,7 @@ MApp {
                 id: urlBar
 
                 width: parent.width
-                height: Constants.touchTargetMedium + MSpacing.sm
+                height: Constants.touchTargetSmall + MSpacing.sm
                 color: isPrivateMode ? Qt.rgba(0.45, 0, 0.45, 0.6) : MColors.glassTitlebar
 
                 Rectangle {
