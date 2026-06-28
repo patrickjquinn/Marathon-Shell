@@ -245,6 +245,7 @@ namespace {
     // ---- Export callback from WPE: an EGLImage just landed. Convert to
     // wl_buffer and present. ----
     void onExportFdoEglImage(void *data, wpe_fdo_egl_exported_image *image) {
+        g_message("[marathon-webview-runner] export_fdo_egl_image fired image=%p", image);
         auto *r = static_cast<Runner *>(data);
         if (!image || !r->surface || !r->linuxDmabuf || !egl_export_dmabuf) {
             if (image && r->exportable)
@@ -493,6 +494,7 @@ int main(int argc, char **argv) {
     {
         struct wpe_view_backend *vb =
             wpe_view_backend_exportable_fdo_get_view_backend(r.exportable);
+        wpe_view_backend_dispatch_set_device_scale_factor(vb, 1.0f);
         wpe_view_backend_dispatch_set_size(vb, static_cast<uint32_t>(r.width),
                                            static_cast<uint32_t>(r.height));
         wpe_view_backend_add_activity_state(vb,
@@ -501,7 +503,36 @@ int main(int argc, char **argv) {
                                                 wpe_view_activity_state_in_window);
     }
 
-    webkit_web_view_load_uri(r.webView, url);
+    // Decide load mode by URL scheme. Plain "about:blank" / "http(s)://" go
+    // through load_uri; an inline HTML probe ("inline:") rules out network +
+    // resource-loader issues and proves the WebProcess + backend pipeline.
+    if (std::strncmp(url, "inline:", 7) == 0) {
+        const char *html = "<html><body style='background:#0a8'>"
+                           "<h1 style='color:white;font:64px sans-serif'>Marathon WPE</h1>"
+                           "</body></html>";
+        g_message("[marathon-webview-runner] load_html (inline)");
+        webkit_web_view_load_html(r.webView, html, nullptr);
+    } else {
+        g_message("[marathon-webview-runner] load_uri %s", url);
+        webkit_web_view_load_uri(r.webView, url);
+    }
+
+    // Periodic diagnostic — once per second, log is-loading + estimated
+    // load progress so we can see whether the WebView even thinks a load
+    // is happening.
+    g_timeout_add_seconds(
+        1,
+        [](gpointer ud) -> gboolean {
+            auto *rr = static_cast<Runner *>(ud);
+            if (!rr->webView)
+                return G_SOURCE_REMOVE;
+            g_message("[marathon-webview-runner] tick is_loading=%d progress=%.2f uri=%s",
+                      webkit_web_view_is_loading(rr->webView),
+                      webkit_web_view_get_estimated_load_progress(rr->webView),
+                      webkit_web_view_get_uri(rr->webView));
+            return G_SOURCE_CONTINUE;
+        },
+        &r);
 
     gMainLoop = g_main_loop_new(nullptr, FALSE);
     signal(SIGINT, onTerm);
