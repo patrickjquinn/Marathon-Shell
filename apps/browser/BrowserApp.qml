@@ -521,6 +521,7 @@ MApp {
 
         var currentTab = getCurrentTab();
         u.text = currentTab ? currentTab.url : "";
+        u.cursorPosition = 0;
     }
 
     function focusAddressBar(selectAllText) {
@@ -1246,6 +1247,7 @@ MApp {
                                     urlInput.inlineTypedPrefix = "";
                                     urlInput.userTypedSinceFocus = false;
                                     _clearAddressSuggestions();
+                                    urlInput.cursorPosition = 0;
                                 }
                             }
                             Component.onCompleted: {
@@ -1357,15 +1359,19 @@ MApp {
                                 function onTabsChanged() {
                                     if (!urlInput.activeFocus) {
                                         var currentTab = getCurrentTab();
-                                        if (currentTab && currentTab.url !== urlInput.text)
+                                        if (currentTab && currentTab.url !== urlInput.text) {
                                             urlInput.text = currentTab.url;
+                                            urlInput.cursorPosition = 0;
+                                        }
                                     }
                                 }
 
                                 function onCurrentTabIndexChanged() {
                                     var currentTab = getCurrentTab();
-                                    if (!urlInput.activeFocus)
+                                    if (!urlInput.activeFocus) {
                                         urlInput.text = currentTab ? currentTab.url : "";
+                                        urlInput.cursorPosition = 0;
+                                    }
 
                                     browserApp._syncAddressBarFromCurrentTab();
                                     if (currentTab && currentTab.isNewTab)
