@@ -4,7 +4,6 @@
 #include <QFile>
 #include <QSocketNotifier>
 #include <QStringList>
-#include <QTextStream>
 
 #include <cerrno>
 #include <cstring>
@@ -103,18 +102,25 @@ QStringList PowerKeyListener::discoverPowerKeyDevices() const {
         keyWords.clear();
     };
 
-    QTextStream in(&f);
-    while (!in.atEnd()) {
-        const QString line = in.readLine();
+    // QTextStream::atEnd() consults QIODevice::size(), which is 0 for /proc
+    // virtual files even though they stream content. The earlier version
+    // bailed on the very first iteration and reported "no input device
+    // advertises KEY_POWER" on every boot, leaving the shell unable to
+    // observe power-button presses. readAll() works because QFile drains
+    // the device until read() returns 0.
+    const QString content = QString::fromUtf8(f.readAll());
+    f.close();
+    const QStringList lines = content.split(QLatin1Char('\n'));
+    for (const QString &raw : lines) {
+        const QString line = raw.trimmed();
         if (line.isEmpty()) {
             flush();
             continue;
         }
         if (line.startsWith(QLatin1String("N: Name="))) {
             name = line.mid(8).trimmed();
-            if (name.startsWith(QLatin1Char('"')) && name.endsWith(QLatin1Char('"'))) {
+            if (name.startsWith(QLatin1Char('"')) && name.endsWith(QLatin1Char('"')))
                 name = name.mid(1, name.size() - 2);
-            }
         } else if (line.startsWith(QLatin1String("H: Handlers="))) {
             const QStringList tokens = line.mid(12).split(QLatin1Char(' '), Qt::SkipEmptyParts);
             for (const QString &t : tokens) {
