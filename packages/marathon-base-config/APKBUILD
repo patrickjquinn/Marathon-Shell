@@ -40,13 +40,13 @@ depends="
 	font-noto
 	ttf-dejavu
         greetd
-	# callaudiod handles modem-to-codec voice routing on phones. The
-	# Marathon-Image/packages/callaudiod APKBUILD vendors mobian's
-	# callaudiod from upstream because Alpine doesn't ship it. Without
-	# this dep no voice audio reaches the other end on Librem 5 (only
-	# HiFi UCM verb is shipped for the wm8962 codec). Once the APK is
-	# built into the local repo, uncomment this line.
-	# callaudiod
+	# callaudiod handles modem-to-codec voice routing on phones.
+	# Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
+	# Alpine doesn't ship it. Without this dep no voice audio reaches
+	# the other end on Librem 5 (only HiFi UCM verb is shipped for the
+	# wm8962 codec). callaudiod's baked-in L5 mixer route does what
+	# the missing verb would do.
+	callaudiod
 "
 install="$pkgname.post-install"
 options="!check"

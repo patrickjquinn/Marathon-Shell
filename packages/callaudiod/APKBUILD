@@ -34,20 +34,27 @@ makedepends="
 	ninja
 	dbus-dev
 	pulseaudio-dev
+	alsa-lib-dev
 	glib-dev
-	gtk-doc
 "
 
-subpackages="$pkgname-dev $pkgname-doc"
+# callaudiod-doc would require gtk_doc=true at meson configure time;
+# we disable it because Alpine doesn't ship the right doc toolchain
+# version and the daemon is a leaf service. Keep -dev so other apps
+# can build against libcallaudio if needed (Marathon shell doesn't,
+# but it's idiomatic).
+subpackages="$pkgname-dev"
 
 source="$pkgname-$pkgver.tar.gz::https://gitlab.com/mobian1/callaudiod/-/archive/$pkgver/callaudiod-$pkgver.tar.gz"
 builddir="$srcdir/$pkgname-$pkgver"
 options="!check"
 
 build() {
+	# 0.1.10 only exposes -Dgtk_doc; libalsa and libpulse are auto-detected
+	# from dependency probes. Disabling gtk-doc keeps build deps to the
+	# core meson + dbus + pulse + alsa + glib.
 	abuild-meson \
-		-Dgtk_doc=true \
-		-Dlibalsa=enabled \
+		-Dgtk_doc=false \
 		. output
 	meson compile -C output
 }
