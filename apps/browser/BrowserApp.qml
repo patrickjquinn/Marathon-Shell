@@ -1240,6 +1240,7 @@ MApp {
                                     var currentTab = getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
                                     selectAll();
+                                    urlInput.cursorPosition = 0;
                                     _clearAddressSuggestions();
                                 } else {
                                     browserApp.isEditingAddress = false;
