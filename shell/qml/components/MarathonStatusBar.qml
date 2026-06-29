@@ -204,6 +204,20 @@ Item {
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
+        // Network-tech label (5G/LTE/4G/3G/E/G). iOS- and Android-style, sits
+        // immediately right of the signal bars. Hidden when the modem isn't
+        // available or hasn't reported a tech yet ("Unknown").
+        Text {
+            text: SystemStatusStore.dataType
+            color: MColors.textPrimary
+            font.family: MTypography.fontFamily
+            font.pixelSize: Math.round(10 * Constants.scaleFactor)
+            font.weight: Font.DemiBold
+            anchors.verticalCenter: parent.verticalCenter
+            visible: ModemManagerCpp.modemAvailable && SystemStatusStore.dataType !== "" && SystemStatusStore.dataType !== "Unknown"
+            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
+        }
+
         Icon {
             name: "cable"
             color: MColors.textPrimary
