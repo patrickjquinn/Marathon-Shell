@@ -539,36 +539,37 @@ void SMSService::processIncomingSMS(const QString &modemPath, const QString &sms
     checkQuery.addBindValue(timestamp);
     checkQuery.addBindValue(text);
 
-    if (checkQuery.exec() && checkQuery.next()) {
-        if (checkQuery.value(0).toInt() > 0) {
+    bool isDuplicate = false;
+    if (checkQuery.exec() && checkQuery.next())
+        isDuplicate = checkQuery.value(0).toInt() > 0;
 
-            return;
-        }
+    if (!isDuplicate) {
+        Message msg;
+        msg.conversationId = generateConversationId(sender);
+        msg.sender         = sender;
+        msg.recipient      = "me";
+        msg.text           = text;
+        msg.timestamp      = timestamp;
+        msg.isRead         = false;
+        msg.isOutgoing     = false;
+
+        storeMessage(msg);
+        loadConversations();
+        emit messageReceived(sender, text, timestamp);
+        qInfo() << "[SMSService] New SMS received from:" << sender;
     }
 
-    Message msg;
-    msg.conversationId = generateConversationId(sender);
-    msg.sender         = sender;
-    msg.recipient      = "me";
-    msg.text           = text;
-    msg.timestamp      = timestamp;
-    msg.isRead         = false;
-    msg.isOutgoing     = false;
-
-    storeMessage(msg);
-    loadConversations();
-
-    emit messageReceived(sender, text, timestamp);
-
-    qInfo() << "[SMSService] New SMS received from:" << sender;
-
-    // ModemManager's system D-Bus policy does not expose Sms.Delete on the
-    // SMS object path -- only Modem.Messaging.Delete(sms_path) on the modem
-    // is accepted. Calling Sms.Delete here returns
+    // Always drain the SMS from modem storage, even on dedup. The earlier code
+    // returned early on duplicate detection, so re-discovered messages sat in
+    // modem RAM forever -- checkForNewMessages re-read + de-duped + skipped the
+    // same SMS on every 5 s poll, burning CPU and keeping the modem queue full
+    // so no fresh SMS could land.
+    //
+    // ModemManager's system D-Bus policy does not expose Sms.Delete on the SMS
+    // object path -- only Modem.Messaging.Delete(sms_path) on the modem is
+    // accepted. Calling Sms.Delete here returned
     //   "security policy denied :1.N to send method call ... Sms.Delete"
-    // and the SMS sits in modem storage forever, so checkForNewMessages
-    // picks it up + dedupes it + skips it on every 5 s poll, burning CPU
-    // and making it impossible to receive any new SMS that aren't dupes.
+    // which was silently swallowed before this fix.
     QDBusInterface messagingDelete("org.freedesktop.ModemManager1", modemPath,
                                    "org.freedesktop.ModemManager1.Modem.Messaging",
                                    QDBusConnection::systemBus());
@@ -578,6 +579,8 @@ void SMSService::processIncomingSMS(const QString &modemPath, const QString &sms
         if (!r.isValid())
             qWarning() << "[SMSService] Messaging.Delete(" << smsPath
                        << ") failed:" << r.error().message();
+        else
+            qWarning() << "[SMSService] drained" << smsPath << "(dup=" << isDuplicate << ")";
     }
 }
 
