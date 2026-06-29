@@ -3,6 +3,12 @@
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
 
+#include <QDBusConnection>
+#include <QDBusError>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QHash>
 #include <QString>
 
@@ -153,6 +159,31 @@ void AudioRoutingManager::startCallAudio() {
     m_isInCall = true;
     emit inCallChanged(true);
 
+    // org.mobian_project.CallAudio.SelectMode(1) — switches the platform
+    // audio routing into voice-call mode. On Librem 5 this is the ONLY
+    // path that works: alsa-ucm-conf ships no VoiceCall verb for the
+    // wm8962 codec, so a bare wpctl set-profile is inert. callaudiod
+    // (mobian) carries the L5-specific mixer routes and is launched via
+    // DBus activation when this call lands.
+    QDBusMessage selectCall = QDBusMessage::createMethodCall(
+        "org.mobian_project.CallAudio", "/org/mobian_project/CallAudio",
+        "org.mobian_project.CallAudio", "SelectMode");
+    selectCall << QVariant::fromValue<uint>(1);
+    auto *callWatcher =
+        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(selectCall), this);
+    QObject::connect(
+        callWatcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
+            QDBusPendingReply<bool> reply = *w;
+            if (reply.isError()) {
+                qWarning() << "[AudioRoutingManager] callaudiod SelectMode(VoiceCall) failed:"
+                           << reply.error().message();
+            } else {
+                qInfo() << "[AudioRoutingManager] callaudiod SelectMode(VoiceCall) ok:"
+                        << reply.value();
+            }
+            w->deleteLater();
+        });
+
     switchProfile("VoiceCall");
 
     if (!m_isSpeakerphoneEnabled) {
@@ -170,6 +201,28 @@ void AudioRoutingManager::stopCallAudio() {
 
     m_isInCall = false;
     emit inCallChanged(false);
+
+    // SelectMode(0) returns callaudiod to default audio mode -- speakers/
+    // headphones for media playback. The call leaves callaudiod alive in
+    // the background; cheap, idle.
+    QDBusMessage selectDefault = QDBusMessage::createMethodCall(
+        "org.mobian_project.CallAudio", "/org/mobian_project/CallAudio",
+        "org.mobian_project.CallAudio", "SelectMode");
+    selectDefault << QVariant::fromValue<uint>(0);
+    auto *defaultWatcher =
+        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(selectDefault), this);
+    QObject::connect(
+        defaultWatcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
+            QDBusPendingReply<bool> reply = *w;
+            if (reply.isError()) {
+                qWarning() << "[AudioRoutingManager] callaudiod SelectMode(Default) failed:"
+                           << reply.error().message();
+            } else {
+                qInfo() << "[AudioRoutingManager] callaudiod SelectMode(Default) ok:"
+                        << reply.value();
+            }
+            w->deleteLater();
+        });
 
     switchProfile(m_previousProfile.isEmpty() ? "HiFi" : m_previousProfile);
 
