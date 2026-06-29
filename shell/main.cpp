@@ -695,26 +695,16 @@ int main(int argc, char *argv[]) {
         "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
 
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
-    // the power button. PowerKeyListener watches every /dev/input/event*
-    // that advertises KEY_POWER and emits on key-down; we route the press
-    // into the same wake path marathon-dev wake uses.
+    // the power button. PowerKeyListener exists so the shell sees power-key
+    // events even when the focused QML window happens not to be the root
+    // (apps can claim focus). The canonical wake/blank decision lives in
+    // PowerBatteryHandler, invoked from MarathonShell.qml's Keys.onReleased
+    // handler — that's the one place that owns session-locked + screen-on
+    // policy, so we don't add a second toggle here. Doing so would race
+    // (press-down wakes, key-release blanks) and present as "the screen
+    // flickers on then goes black the moment I lift my finger."
     auto *powerKeyListener = new PowerKeyListener(&app);
-    QObject::connect(
-        powerKeyListener, &PowerKeyListener::powerKeyPressed, displayManager, [displayManager]() {
-            // Read the real hardware state on every press instead of
-            // tracking a cached bool — Qt eglfs_kms and the kernel
-            // backlight class can desync (sysfs writes, idle blanks,
-            // DPMS recovery glitches), and a stale cache leaves the
-            // device unwakable. /sys/class/backlight/.../bl_power
-            // is the ground truth: 4 = FB_BLANK_POWERDOWN, 0 = ON.
-            bool  hardwareIsOn = true;
-            QFile blPower(QStringLiteral("/sys/class/backlight/backlight-dsi/bl_power"));
-            if (blPower.open(QIODevice::ReadOnly)) {
-                const int v  = blPower.readAll().trimmed().toInt();
-                hardwareIsOn = (v == 0);
-            }
-            displayManager->setScreenState(!hardwareIsOn);
-        });
+    Q_UNUSED(powerKeyListener);
     createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
                                          displayPolicyController, displayManager, hapticManager,
                                          &app);
