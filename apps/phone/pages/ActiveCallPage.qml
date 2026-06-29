@@ -52,69 +52,79 @@ Rectangle {
         }
     }
 
+    // Three anchored regions instead of a centered Column. The old layout
+    // used `anchors.centerIn: parent + spacing: MSpacing.xl * 2` with an
+    // avatar that was 3× iconSizeXLarge — total column height routinely
+    // exceeded the parent surface height, so the avatar got clipped by the
+    // status bar at the top AND the end-call button got clipped by the
+    // home-indicator at the bottom. Splitting into top / center / bottom
+    // anchored regions guarantees nothing escapes the available area no
+    // matter what the action-grid size or duration text dimensions do.
+
     Column {
-        anchors.centerIn: parent
-        spacing: MSpacing.xl * 2
+        id: callerInfo
+        anchors.top: parent.top
+        anchors.topMargin: MSpacing.xl
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: MSpacing.md
         width: parent.width * 0.8
 
-        Column {
+        Rectangle {
+            width: Constants.iconSizeXLarge * 2
+            height: Constants.iconSizeXLarge * 2
+            radius: width / 2
+            color: MColors.surface
+            border.width: Constants.borderWidthThick
+            border.color: MColors.accent
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: MSpacing.lg
 
-            Rectangle {
-                width: Constants.iconSizeXLarge * 3
-                height: Constants.iconSizeXLarge * 3
-                radius: width / 2
-                color: MColors.surface
-                border.width: Constants.borderWidthThick
-                border.color: MColors.accent
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Text {
-                    anchors.centerIn: parent
-                    text: callName.charAt(0).toUpperCase()
-                    font.pixelSize: MTypography.sizeXLarge * 3
-                    font.weight: Font.Bold
-                    color: MColors.accent
-                }
-            }
-
-            Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: MSpacing.sm
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: callName
-                    font.pixelSize: MTypography.sizeXLarge
-                    font.weight: Font.Bold
-                    color: MColors.text
-                    Accessible.role: Accessible.Heading
-                    Accessible.name: text
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: callNumber
-                    font.pixelSize: MTypography.sizeLarge
-                    color: MColors.textSecondary
-                    Accessible.role: Accessible.StaticText
-                    Accessible.name: text
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: formatDuration(callDuration)
-                    font.pixelSize: MTypography.sizeBody
-                    color: MColors.accent
-                    Accessible.role: Accessible.StaticText
-                    Accessible.name: qsTr("Call duration %1").arg(text)
-                }
+            Text {
+                anchors.centerIn: parent
+                text: callName.charAt(0).toUpperCase()
+                font.pixelSize: MTypography.sizeXLarge * 2
+                font.weight: Font.Bold
+                color: MColors.accent
             }
         }
 
-        Grid {
+        Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            text: callName
+            font.pixelSize: MTypography.sizeXLarge
+            font.weight: Font.Bold
+            color: MColors.text
+            Accessible.role: Accessible.Heading
+            Accessible.name: text
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: callNumber
+            font.pixelSize: MTypography.sizeLarge
+            color: MColors.textSecondary
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: formatDuration(callDuration)
+            font.pixelSize: MTypography.sizeBody
+            color: MColors.accent
+            Accessible.role: Accessible.StaticText
+            Accessible.name: qsTr("Call duration %1").arg(text)
+        }
+    }
+
+    Item {
+        id: actionGridRegion
+        anchors.top: callerInfo.bottom
+        anchors.bottom: endCallContainer.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+
+        Grid {
+            anchors.centerIn: parent
             columns: 3
             spacing: MSpacing.lg
 
@@ -228,14 +238,20 @@ Rectangle {
             }
         }
 
+    Item {
+        id: endCallContainer
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: MSpacing.xl + MSpacing.md
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Constants.touchTargetLarge * 1.5
+        height: Constants.touchTargetLarge * 1.5
+
         Rectangle {
-            width: Constants.touchTargetLarge * 1.5
-            height: Constants.touchTargetLarge * 1.5
+            anchors.fill: parent
             radius: width / 2
             color: "#E74C3C"
             border.width: Constants.borderWidthThick
             border.color: "#C0392B"
-            anchors.horizontalCenter: parent.horizontalCenter
 
             Accessible.role: Accessible.Button
             Accessible.name: qsTr("End call")

@@ -240,23 +240,23 @@ MApp {
                 actions: [
                     Icon {
                         name: "search"
-                        size: 22
+                        size: 28
                         color: MColors.textSecondary
 
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -10
+                            anchors.margins: -12
                             onClicked: HapticService.light()
                         }
                     },
                     Icon {
                         name: "ellipsis-vertical"
-                        size: 22
+                        size: 28
                         color: MColors.textSecondary
 
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -10
+                            anchors.margins: -12
                             onClicked: HapticService.light()
                         }
                     }
@@ -336,10 +336,18 @@ MApp {
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: dialedNumber.length > 0 ? dialedNumber : ""
-                                    color: MColors.textPrimary
+                                    // Empty-state placeholder: the JSX canvas
+                                    // hides this region when no number is
+                                    // entered, but on a 720×1480 device that
+                                    // leaves ~70 px of dead air above the dial
+                                    // pad and the user has no anchor for where
+                                    // their digits will land. A dimmed
+                                    // placeholder keeps the visual rhythm and
+                                    // hints at the input affordance.
+                                    text: dialedNumber.length > 0 ? dialedNumber : qsTr("Enter number")
+                                    color: dialedNumber.length > 0 ? MColors.textPrimary : MColors.textTertiary
                                     font.family: MTypography.fontFamily
-                                    font.pixelSize: 36
+                                    font.pixelSize: dialedNumber.length > 0 ? 36 : 24
                                     font.weight: MTypography.weightExtraLight   // 200 per JSX
                                     font.letterSpacing: 1
                                 }
@@ -361,13 +369,16 @@ MApp {
                             Layout.alignment: Qt.AlignHCenter
 
                             // Key diameter scales with the available width
-                            // (parent column width minus 24 px side padding
-                            // minus 2 × 18 px gaps). JSX shows ~92 px keys at
-                            // 390 px canvas; mapped to 540 px that's ~127 px.
-                            // Hard-clamped at 110 logical px so 4 rows fit
-                            // between the dialed-number display and the
-                            // action-row FAB without overlap on tall scales.
-                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), 124)
+                            // (parent column width minus 2 × 18 px gaps).
+                            // Was hard-clamped at 124, which on a 720 px
+                            // device (≈672 px content width after the 24 px
+                            // side padding) shrank the keys to ~140 px when
+                            // there was room for ~212 px each. Now caps at
+                            // 180 so they're chunky on phone-class screens
+                            // but still leave headroom for the 4×3 grid +
+                            // dial-number display + action row on the 1140
+                            // logical-px canvas (~960 px tall content area).
+                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), 180)
 
                             columns: 3
                             rowSpacing: 14
@@ -517,7 +528,7 @@ MApp {
                         anchors.leftMargin: 24
                         anchors.rightMargin: 24
                         anchors.bottomMargin: 56
-                        height: 76
+                        height: 96
 
                         Row {
                             anchors.fill: parent
@@ -525,13 +536,24 @@ MApp {
                             Item {
                                 width: parent.width / 3
                                 height: parent.height
-                                Icon {
+                                Rectangle {
                                     anchors.centerIn: parent
-                                    name: "user"
-                                    size: 22
-                                    color: MColors.textTertiary
+                                    width: 56
+                                    height: 56
+                                    radius: width / 2
+                                    color: contactsArea.pressed ? MColors.surface : "transparent"
+                                    border.width: 1
+                                    border.color: MColors.borderGlass
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "user"
+                                        size: 28
+                                        color: MColors.textSecondary
+                                    }
                                 }
                                 MouseArea {
+                                    id: contactsArea
                                     anchors.fill: parent
                                     onClicked: dialerPane.parent.parent.currentIndex = 2
                                 }
@@ -543,8 +565,8 @@ MApp {
                                 Rectangle {
                                     id: callButton
                                     anchors.centerIn: parent
-                                    width: 64
-                                    height: 64
+                                    width: 84
+                                    height: 84
                                     radius: width / 2
                                     border.width: 1
                                     border.color: MColors.tealBorder
@@ -571,7 +593,7 @@ MApp {
                                     Icon {
                                         anchors.centerIn: parent
                                         name: "phone"
-                                        size: 28
+                                        size: 36
                                         color: "#000000"
                                     }
 
@@ -598,18 +620,34 @@ MApp {
                             Item {
                                 width: parent.width / 3
                                 height: parent.height
-                                Icon {
+                                Rectangle {
                                     anchors.centerIn: parent
-                                    name: "x"
-                                    size: 22
-                                    color: dialedNumber.length > 0 ? MColors.textSecondary : MColors.textTertiary
+                                    width: 56
+                                    height: 56
+                                    radius: width / 2
+                                    color: backspaceArea.pressed ? MColors.surface : "transparent"
+                                    border.width: 1
+                                    border.color: dialedNumber.length > 0 ? MColors.borderGlass : "transparent"
+                                    opacity: dialedNumber.length > 0 ? 1 : 0.35
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "delete"
+                                        size: 28
+                                        color: MColors.textSecondary
+                                    }
                                 }
                                 MouseArea {
+                                    id: backspaceArea
                                     anchors.fill: parent
                                     enabled: dialedNumber.length > 0
                                     onClicked: {
                                         HapticService.light();
                                         deleteDigit();
+                                    }
+                                    onPressAndHold: {
+                                        HapticService.medium();
+                                        dialedNumber = "";
                                     }
                                 }
                             }

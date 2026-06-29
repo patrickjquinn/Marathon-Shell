@@ -402,6 +402,28 @@ void TelephonyService::monitorIncomingCalls() {
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", m_modemPath,
                                          "org.freedesktop.ModemManager1.Modem.Voice", "CallAdded",
                                          this, SLOT(onCallAdded(QDBusObjectPath)));
+    // CallDeleted fires when the modem retires a Call object -- happens when
+    // the remote party hangs up, the call drops, or the local side ends it
+    // and the modem garbage-collects the path. Without this subscription, a
+    // remote hangup left the ActiveCallPage on-screen with the duration
+    // ticker still running (PropertiesChanged on a deleted object never
+    // arrives because the object is gone).
+    QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", m_modemPath,
+                                         "org.freedesktop.ModemManager1.Modem.Voice", "CallDeleted",
+                                         this, SLOT(onCallDeleted(QDBusObjectPath)));
+}
+
+void TelephonyService::onCallDeleted(const QDBusObjectPath &callPath) {
+    const QString path = callPath.path();
+    qInfo() << "[TelephonyService] CallDeleted:" << path << "(active=" << m_activeCallPath << ")";
+    if (path != m_activeCallPath)
+        return;
+    releaseCallInhibit();
+    m_activeCallPath.clear();
+    m_activeNumber.clear();
+    m_callState = "idle";
+    emit callStateChanged("idle");
+    emit activeNumberChanged(QString());
 }
 
 void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
