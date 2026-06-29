@@ -7,6 +7,7 @@ set(EFFECTS_QML_FILES
     MGlass.qml
     MShadow.qml
     MGlow.qml
+    MEntrance.qml
     WallpaperSlateAurora.qml
 )
 

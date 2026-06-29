@@ -20,10 +20,20 @@ Item {
     property Item source
 
     property real blurAmount: 1.0
-    property real blurMax: 48
+    // Cap default at 24. The Qt docs document blurMax ≤ 32 as the Snapdragon
+    // ceiling; the L5's etnaviv GC7000Lite is materially weaker, and the
+    // wider the kernel the more fillrate it costs per vsync. blurMultiplier
+    // gives back perceived strength without raising the sample radius.
+    property real blurMax: 24
+    property real blurMultiplier: 1.0
     property real saturation: 0.5
     property real brightness: -0.1
     property color tint: Qt.rgba(0, 0, 0, 0.2)
+    // When the backdrop is a frozen app surface (Lock screen sitting over
+    // a paused Phone, QS shade pulled down over a static home) the source
+    // texture does not change. Callers set live: false so the GPU samples
+    // the backdrop ONCE then reuses the cached snapshot.
+    property bool live: true
 
     visible: source !== null
 
@@ -32,7 +42,7 @@ Item {
 
         anchors.fill: parent
         sourceItem: root.source
-        live: root.visible && root.source !== null
+        live: root.live && root.visible && root.source !== null
         hideSource: false
         recursive: false
         // RGBA16F keeps the colour chain linear-precise across the blur
@@ -62,7 +72,7 @@ Item {
         blurEnabled: true
         blur: root.blurAmount
         blurMax: root.blurMax
-        blurMultiplier: 1
+        blurMultiplier: root.blurMultiplier
         saturation: root.saturation
         brightness: root.brightness
     }

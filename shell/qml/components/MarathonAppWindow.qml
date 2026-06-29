@@ -367,28 +367,56 @@ Rectangle {
         }
     }
 
-    NumberAnimation {
+    // Open + close: opacity AND scale, not opacity alone. A pure fade
+    // reads as "a panel appeared"; pairing it with a 0.92→1.0 scale
+    // reads as "the app emerged" — iOS Spotlight-style. The scale axis
+    // is compositor-only (no relayout), and the curve is the canonical
+    // "modal" role from MMotion so the open feels coherent with the
+    // rest of the system's modals.
+    ParallelAnimation {
         id: slideIn
 
-        target: appWindow
-        property: "opacity"
-        from: 0
-        to: 1
-        duration: 300
-        easing.type: Easing.OutCubic
+        NumberAnimation {
+            target: appWindow
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: MMotion.durationFor("modal")
+            easing.type: Easing.OutQuad
+        }
+        NumberAnimation {
+            target: appWindow
+            property: "scale"
+            from: 0.92
+            to: 1.0
+            duration: MMotion.durationFor("modal")
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingCurveFor("modal")
+        }
     }
 
-    NumberAnimation {
+    ParallelAnimation {
         id: slideOut
 
-        target: appWindow
-        property: "opacity"
-        from: 1
-        to: 0
-        duration: 300
-        easing.type: Easing.InCubic
+        NumberAnimation {
+            target: appWindow
+            property: "opacity"
+            from: 1
+            to: 0
+            duration: MMotion.durationFor("nav")
+            easing.type: Easing.InQuad
+        }
+        NumberAnimation {
+            target: appWindow
+            property: "scale"
+            from: 1.0
+            to: 0.96
+            duration: MMotion.durationFor("nav")
+            easing.type: Easing.InCubic
+        }
         onFinished: {
             appWindow.visible = false;
+            appWindow.scale = 1.0;
             if (appWindow.isClosing) {
                 appWindow.isClosing = false;
                 closed();

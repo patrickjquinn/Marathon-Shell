@@ -81,7 +81,7 @@ Rectangle {
                         opacity: 0
 
                         SequentialAnimation on scale {
-                            running: callOverlay.isRinging
+                            running: MMotion.gate(callOverlay.isRinging)
                             loops: Animation.Infinite
 
                             PauseAnimation {
@@ -109,7 +109,7 @@ Rectangle {
                 }
 
                 SequentialAnimation on scale {
-                    running: callOverlay.isRinging
+                    running: MMotion.gate(callOverlay.isRinging)
                     loops: Animation.Infinite
 
                     NumberAnimation {

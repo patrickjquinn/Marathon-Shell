@@ -52,7 +52,12 @@ Item {
     // host extends off-screen).
     property rect sourceRect: Qt.rect(x, y, width, height)
 
-    property bool live: true
+    // Default false: most chrome (status bar, nav bar, dock, tab bar) sits
+    // over a backdrop that is static at idle. Live-sampling every vsync
+    // burns render-thread CPU for no visual difference. Call sites whose
+    // backdrop genuinely animates (a sheet sliding over a video) opt in
+    // with `live: true`.
+    property bool live: false
 
     ShaderEffectSource {
         id: snap
