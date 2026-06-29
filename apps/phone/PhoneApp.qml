@@ -655,92 +655,111 @@ MApp {
                     }
                 }
 
-                ListView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    topMargin: MSpacing.md
-                    model: callHistory
+                Rectangle {
+                    color: MColors.background
 
-                    delegate: Item {
-                        width: ListView.view.width
-                        height: card.height + MSpacing.md
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: !callHistory || callHistory.length === 0
+                        iconName: "clock"
+                        title: "No recent calls"
+                        message: "Calls you make or receive will appear here."
+                    }
 
-                        MCard {
-                            id: card
+                    ListView {
+                        anchors.fill: parent
+                        clip: true
+                        topMargin: MSpacing.md
+                        visible: callHistory && callHistory.length > 0
+                        model: callHistory
 
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: MSpacing.md
-                            anchors.rightMargin: MSpacing.md
-                            elevation: 1
-                            interactive: true
-                            onClicked: {
-                                dialedNumber = historyField(modelData, "number", "");
-                                parent.parent.parent.parent.currentIndex = 0;
-                            }
+                        delegate: Item {
+                            width: ListView.view.width
+                            height: card.height + MSpacing.md
 
-                            Row {
-                                width: parent.parent.width - MSpacing.md * 2
-                                height: MSpacing.touchTargetLarge
-                                spacing: MSpacing.md
+                            MCard {
+                                id: card
 
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
-                                    size: 20
-                                    color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                elevation: 1
+                                interactive: true
+                                onClicked: {
+                                    dialedNumber = historyField(modelData, "number", "");
+                                    parent.parent.parent.parent.currentIndex = 0;
                                 }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - parent.spacing * 2 - 20 * 2
-                                    spacing: MSpacing.xs
+                                Row {
+                                    // MSpacing.touchTargetLarge does not exist --
+                                    // MSpacing only carries spacing tokens (xs, sm,
+                                    // md, lg, xl). The undefined value collapsed
+                                    // the row to height 0, which is why the recents
+                                    // card rendered as a bare "Unknown" label with
+                                    // no icon, number, duration, or timestamp.
+                                    width: parent.parent.width - MSpacing.md * 2
+                                    height: Constants.touchTargetLarge
+                                    spacing: MSpacing.md
+
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
+                                        size: 20
+                                        color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - parent.spacing * 2 - 20 * 2
+                                        spacing: MSpacing.xs
+
+                                        Text {
+                                            width: parent.width
+                                            text: historyField(modelData, "contactName", "Unknown")
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.weight: MTypography.weightDemiBold
+                                            font.family: MTypography.fontFamily
+                                            color: MColors.text
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Row {
+                                            spacing: MSpacing.sm
+
+                                            Text {
+                                                text: historyField(modelData, "number", "")
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                            }
+
+                                            Text {
+                                                text: "•"
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                                visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
+                                            }
+
+                                            Text {
+                                                text: formatDuration(historyField(modelData, "duration", 0))
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                                visible: text !== ""
+                                            }
+                                        }
+                                    }
 
                                     Text {
-                                        width: parent.width
-                                        text: historyField(modelData, "contactName", "Unknown")
-                                        font.pixelSize: MTypography.sizeBody
-                                        font.weight: MTypography.weightDemiBold
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: formatTimestamp(historyField(modelData, "timestamp", 0))
+                                        font.pixelSize: MTypography.sizeSmall
                                         font.family: MTypography.fontFamily
-                                        color: MColors.text
-                                        elide: Text.ElideRight
+                                        color: MColors.textTertiary
                                     }
-
-                                    Row {
-                                        spacing: MSpacing.sm
-
-                                        Text {
-                                            text: historyField(modelData, "number", "")
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                        }
-
-                                        Text {
-                                            text: "•"
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                            visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
-                                        }
-
-                                        Text {
-                                            text: formatDuration(historyField(modelData, "duration", 0))
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                            visible: text !== ""
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: formatTimestamp(historyField(modelData, "timestamp", 0))
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textTertiary
                                 }
                             }
                         }
@@ -748,7 +767,17 @@ MApp {
                 }
 
                 Rectangle {
+                    id: contactsPane
                     color: MColors.background
+
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: !contacts || contacts.length === 0
+                        iconName: "user"
+                        title: "No contacts yet"
+                        message: "Tap the + button below to add your first contact. You can also import from a SIM or vCard."
+                    }
 
                     ListView {
                         id: contactsList
@@ -756,6 +785,7 @@ MApp {
                         anchors.fill: parent
                         clip: true
                         topMargin: MSpacing.md
+                        visible: contacts && contacts.length > 0
                         model: contacts
 
                         delegate: Item {
@@ -780,8 +810,13 @@ MApp {
                                 }
 
                                 Row {
+                                    // Same bug as the Recents card row -- the
+                                    // undefined MSpacing.touchTargetLarge
+                                    // collapsed each contact tile to height 0,
+                                    // so contacts rendered as ghosts even when
+                                    // the model had entries.
                                     width: parent.parent.width - MSpacing.md * 2
-                                    height: MSpacing.touchTargetLarge
+                                    height: Constants.touchTargetLarge
                                     spacing: MSpacing.md
 
                                     Icon {
