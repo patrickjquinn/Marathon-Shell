@@ -36,10 +36,25 @@ if id user >/dev/null 2>&1; then
 			adduser user "$group" 2>/dev/null || true
 		fi
 	done
-	
+
 	# Enable linger (loginctl doesn't work during package install)
 	mkdir -p /var/lib/systemd/linger
 	touch /var/lib/systemd/linger/user
+fi
+
+# Patch /etc/pam.d/greetd to include pam_systemd. The upstream Alpine
+# greetd package ships /etc/pam.d/greetd with only base-{auth,account,
+# password,session} — base-session does NOT pull in pam_systemd on
+# Alpine, so greetd's auto-login session never triggers the user
+# systemd manager, the user D-Bus broker never starts, and
+# /run/user/$UID/bus is missing. marathon-shell-session falls back to
+# `dbus-run-session --` which spawns an isolated bus the rest of the
+# user session can't reach.
+# Fix: add `session optional pam_systemd.so` so pam_open_session()
+# wakes user@$UID.service. Idempotent: skip if already present.
+if [ -f /etc/pam.d/greetd ] && ! grep -q pam_systemd /etc/pam.d/greetd; then
+	echo "Patching /etc/pam.d/greetd: adding pam_systemd.so..."
+	sed -i '/^session.*include.*base-session/a session   optional   pam_systemd.so' /etc/pam.d/greetd
 fi
 
 echo "Marathon OS base configuration complete."

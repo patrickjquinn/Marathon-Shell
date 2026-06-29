@@ -109,9 +109,16 @@ cp -r packages/marathon-boot-logo "$PMAPORTS_DIR/main/"
 
 # device/main/
 rm -rf "$PMAPORTS_DIR/device/main/linux-marathon" \
-       "$PMAPORTS_DIR/device/main/device-oneplus-enchilada-marathon"
+       "$PMAPORTS_DIR/device/main/device-oneplus-enchilada-marathon" \
+       "$PMAPORTS_DIR/device/main/linux-purism-librem5-marathon" \
+       "$PMAPORTS_DIR/device/main/device-purism-librem5-marathon"
 cp -r packages/linux-marathon "$PMAPORTS_DIR/device/main/"
 cp -r packages/device-oneplus-enchilada-marathon "$PMAPORTS_DIR/device/main/"
+# Librem 5 kernel fork carries the kCFI fix for the out-of-tree RS9116
+# redpine driver (rsi_{tx,coex,sdio_rx}_thread signature mismatch). Drop
+# this fork the moment pmaports' linux-purism-librem5 carries the patch.
+cp -r packages/linux-purism-librem5-marathon "$PMAPORTS_DIR/device/main/"
+cp -r packages/device-purism-librem5-marathon "$PMAPORTS_DIR/device/main/"
 
 echo "Refreshing checksums for marathon-shell (source tarballs track moving branches)..."
 # Clear distfiles so we don't accidentally reuse cached tarballs (always build latest).

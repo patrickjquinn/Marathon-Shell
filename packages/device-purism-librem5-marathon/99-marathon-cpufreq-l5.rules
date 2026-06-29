@@ -1,0 +1,18 @@
+# Marathon Librem 5 CPU governor override
+#
+# marathon-base-config ships 60-marathon-cpufreq.rules which sets
+# `schedutil` on every CPU. On i.MX 8M Quad with mainline kernel,
+# schedutil's PELT-based ramp is too slow for Marathon's startup load
+# spike (shell + Wayland compositor + WebEngine + 30 services racing
+# to D-Bus) — CPUs sit at 200-400 MHz when they should be at 1.5 GHz,
+# producing the ~2 fps / 30 s touch latency the user reported on r11.
+#
+# Phosh works smoothly on the same hardware under schedutil because
+# GTK + phoc is roughly 3× lighter than Qt6 + Marathon's Wayland
+# compositor + WebEngine pre-warm. Marathon needs the headroom.
+#
+# udev rules fire in lexicographic order and RUN+= both runs — the
+# LAST write to scaling_governor wins. 99- runs after 60-, so this
+# leaves the governor at `performance`.
+ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
+  RUN+="/bin/sh -c 'echo performance > /sys/devices/system/cpu/%k/cpufreq/scaling_governor'"

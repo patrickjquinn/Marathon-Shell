@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 
 pkgname=device-purism-librem5-marathon
-pkgdesc="Purism Librem 5 — Marathon OS port"
+pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
 pkgrel=21
 url="https://github.com/patrickjquinn/Marathon-Image"
