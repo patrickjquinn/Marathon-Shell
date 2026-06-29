@@ -32,7 +32,18 @@ ModemManagerCpp::ModemManagerCpp(QObject *parent)
     // may have missed. 5s here was burning ~17280 D-Bus calls/day for
     // properties that change on the minute-scale.
     m_stateMonitor->setInterval(60000);
-    connect(m_stateMonitor, &QTimer::timeout, this, &ModemManagerCpp::queryModemState);
+    connect(m_stateMonitor, &QTimer::timeout, this, [this]() {
+        // If we lost the race with ModemManager at shell startup, the
+        // initial discoverModem() returned no objects and InterfacesAdded
+        // never fired (modem was already there from MM's perspective).
+        // Retry discovery on every tick until we latch on; this is what
+        // makes the cellular icon appear after a cold boot where the
+        // shell came up before ModemManager finished publishing the
+        // Modem object path on the system bus.
+        if (m_hasModemManager && !m_modemAvailable)
+            discoverModem();
+        queryModemState();
+    });
 
     m_dbusRetryTimer = new QTimer(this);
     m_dbusRetryTimer->setSingleShot(true);
