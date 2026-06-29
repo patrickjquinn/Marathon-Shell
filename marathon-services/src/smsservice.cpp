@@ -495,13 +495,13 @@ void SMSService::checkForNewMessages() {
                        << "messages on" << path;
 
             for (const QDBusObjectPath &smsPath : smsList) {
-                processIncomingSMS(smsPath.path());
+                processIncomingSMS(path, smsPath.path());
             }
         }
     }
 }
 
-void SMSService::processIncomingSMS(const QString &smsPath) {
+void SMSService::processIncomingSMS(const QString &modemPath, const QString &smsPath) {
     QDBusInterface smsInterface("org.freedesktop.ModemManager1", smsPath,
                                 "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
 
@@ -562,12 +562,22 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
 
     qInfo() << "[SMSService] New SMS received from:" << sender;
 
-    QDBusInterface smsDeleteInterface("org.freedesktop.ModemManager1", smsPath,
-                                      "org.freedesktop.ModemManager1.Sms",
-                                      QDBusConnection::systemBus());
-
-    if (smsDeleteInterface.isValid()) {
-        smsDeleteInterface.call("Delete");
+    // ModemManager's system D-Bus policy does not expose Sms.Delete on the
+    // SMS object path -- only Modem.Messaging.Delete(sms_path) on the modem
+    // is accepted. Calling Sms.Delete here returns
+    //   "security policy denied :1.N to send method call ... Sms.Delete"
+    // and the SMS sits in modem storage forever, so checkForNewMessages
+    // picks it up + dedupes it + skips it on every 5 s poll, burning CPU
+    // and making it impossible to receive any new SMS that aren't dupes.
+    QDBusInterface messagingDelete("org.freedesktop.ModemManager1", modemPath,
+                                   "org.freedesktop.ModemManager1.Modem.Messaging",
+                                   QDBusConnection::systemBus());
+    if (messagingDelete.isValid()) {
+        QDBusReply<void> r =
+            messagingDelete.call("Delete", QVariant::fromValue(QDBusObjectPath(smsPath)));
+        if (!r.isValid())
+            qWarning() << "[SMSService] Messaging.Delete(" << smsPath
+                       << ") failed:" << r.error().message();
     }
 }
 

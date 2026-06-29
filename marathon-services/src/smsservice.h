@@ -70,7 +70,7 @@ class SMSService : public QObject {
     void                loadConversations();
     void                storeMessage(const Message &msg);
     void                connectToModemManager();
-    void                processIncomingSMS(const QString &smsPath);
+    void                processIncomingSMS(const QString &modemPath, const QString &smsPath);
     QString             resolveContactName(const QString &number) const;
 
     QList<Conversation> m_conversations;

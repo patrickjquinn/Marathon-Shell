@@ -2331,14 +2331,17 @@ void SmsClient::setConversations(const QVariantList &v) {
 }
 
 void SmsClient::refresh() {
-    if (!ensurePermission())
-        return;
-    QDBusReply<QVariantList> r = m_iface.call("GetConversations");
-    if (!r.isValid()) {
-        if (r.error().type() != QDBusError::AccessDenied)
-            qWarning() << "[SmsClient] GetConversations failed:" << r.error().message();
+    if (!ensurePermission()) {
+        qWarning() << "[SmsClient] refresh: permission gate failed for" << m_appId;
         return;
     }
+    QDBusReply<QVariantList> r = m_iface.call("GetConversations");
+    if (!r.isValid()) {
+        qWarning() << "[SmsClient] GetConversations failed:" << r.error().type()
+                   << r.error().message();
+        return;
+    }
+    qWarning() << "[SmsClient] refresh -> conversations:" << r.value().size();
     setConversations(r.value());
 }
 

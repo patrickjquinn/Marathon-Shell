@@ -141,16 +141,31 @@ void MarathonPermissionManager::savePermissions() {
 }
 
 bool MarathonPermissionManager::hasPermission(const QString &appId, const QString &permission) {
-    if (!m_permissions.contains(appId)) {
-        return false;
+    if (m_permissions.contains(appId)) {
+        const QMap<QString, bool> &appPerms = m_permissions[appId];
+        if (appPerms.contains(permission))
+            return appPerms[permission];
     }
+    return protectedManifestPermissions(appId).contains(permission);
+}
 
-    const QMap<QString, bool> &appPerms = m_permissions[appId];
-    if (!appPerms.contains(permission)) {
-        return false;
+QSet<QString> MarathonPermissionManager::protectedManifestPermissions(const QString &appId) const {
+    auto it = m_protectedManifestCache.find(appId);
+    if (it != m_protectedManifestCache.end())
+        return it.value();
+
+    QSet<QString> perms;
+    QFile         mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
+    if (mf.open(QIODevice::ReadOnly)) {
+        const QJsonObject root = QJsonDocument::fromJson(mf.readAll()).object();
+        if (root.value(QStringLiteral("protected")).toBool()) {
+            const QJsonArray arr = root.value(QStringLiteral("permissions")).toArray();
+            for (const auto &v : arr)
+                perms.insert(v.toString());
+        }
     }
-
-    return appPerms[permission];
+    m_protectedManifestCache.insert(appId, perms);
+    return perms;
 }
 
 void MarathonPermissionManager::requestPermissions(const QString     &appId,
@@ -362,16 +377,14 @@ QStringList MarathonPermissionManager::getAppPermissions(const QString &appId) {
 
 MarathonPermissionManager::PermissionStatus
 MarathonPermissionManager::getPermissionStatus(const QString &appId, const QString &permission) {
-    if (!m_permissions.contains(appId)) {
-        return NotRequested;
+    if (m_permissions.contains(appId)) {
+        const QMap<QString, bool> &appPerms = m_permissions[appId];
+        if (appPerms.contains(permission))
+            return appPerms[permission] ? Granted : Denied;
     }
-
-    const QMap<QString, bool> &appPerms = m_permissions[appId];
-    if (!appPerms.contains(permission)) {
-        return NotRequested;
-    }
-
-    return appPerms[permission] ? Granted : Denied;
+    if (protectedManifestPermissions(appId).contains(permission))
+        return Granted;
+    return NotRequested;
 }
 
 QStringList MarathonPermissionManager::getAvailablePermissions() {
