@@ -3,12 +3,6 @@
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
 
-#include <QDBusConnection>
-#include <QDBusError>
-#include <QDBusMessage>
-#include <QDBusPendingCall>
-#include <QDBusPendingCallWatcher>
-#include <QDBusPendingReply>
 #include <QHash>
 #include <QString>
 
@@ -159,31 +153,10 @@ void AudioRoutingManager::startCallAudio() {
     m_isInCall = true;
     emit inCallChanged(true);
 
-    // org.mobian_project.CallAudio.SelectMode(1) — switches the platform
-    // audio routing into voice-call mode. On Librem 5 this is the ONLY
-    // path that works: alsa-ucm-conf ships no VoiceCall verb for the
-    // wm8962 codec, so a bare wpctl set-profile is inert. callaudiod
-    // (mobian) carries the L5-specific mixer routes and is launched via
-    // DBus activation when this call lands.
-    QDBusMessage selectCall = QDBusMessage::createMethodCall(
-        "org.mobian_project.CallAudio", "/org/mobian_project/CallAudio",
-        "org.mobian_project.CallAudio", "SelectMode");
-    selectCall << QVariant::fromValue<uint>(1);
-    auto *callWatcher =
-        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(selectCall), this);
-    QObject::connect(
-        callWatcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
-            QDBusPendingReply<bool> reply = *w;
-            if (reply.isError()) {
-                qWarning() << "[AudioRoutingManager] callaudiod SelectMode(VoiceCall) failed:"
-                           << reply.error().message();
-            } else {
-                qInfo() << "[AudioRoutingManager] callaudiod SelectMode(VoiceCall) ok:"
-                        << reply.value();
-            }
-            w->deleteLater();
-        });
-
+    // Direct UCM-profile switch on the L5 wm8962 — no callaudiod indirection.
+    // Picks HiFi (Handset1, Handset2) which programs the codec mixer for
+    // earpiece-out + modem-PCM-in (the SoC SAI links bm818<->wm8962 at the
+    // kernel level so flipping the codec mixer is the whole job).
     switchProfile("VoiceCall");
 
     if (!m_isSpeakerphoneEnabled) {
@@ -202,29 +175,7 @@ void AudioRoutingManager::stopCallAudio() {
     m_isInCall = false;
     emit inCallChanged(false);
 
-    // SelectMode(0) returns callaudiod to default audio mode -- speakers/
-    // headphones for media playback. The call leaves callaudiod alive in
-    // the background; cheap, idle.
-    QDBusMessage selectDefault = QDBusMessage::createMethodCall(
-        "org.mobian_project.CallAudio", "/org/mobian_project/CallAudio",
-        "org.mobian_project.CallAudio", "SelectMode");
-    selectDefault << QVariant::fromValue<uint>(0);
-    auto *defaultWatcher =
-        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(selectDefault), this);
-    QObject::connect(
-        defaultWatcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
-            QDBusPendingReply<bool> reply = *w;
-            if (reply.isError()) {
-                qWarning() << "[AudioRoutingManager] callaudiod SelectMode(Default) failed:"
-                           << reply.error().message();
-            } else {
-                qInfo() << "[AudioRoutingManager] callaudiod SelectMode(Default) ok:"
-                        << reply.value();
-            }
-            w->deleteLater();
-        });
-
-    switchProfile(m_previousProfile.isEmpty() ? "HiFi" : m_previousProfile);
+    switchProfile(m_previousProfile.isEmpty() ? "Default" : m_previousProfile);
 
     if (m_isMuted) {
         setMuted(false);
@@ -245,7 +196,9 @@ void AudioRoutingManager::setSpeakerphone(bool enabled) {
     emit speakerphoneChanged(enabled);
 
     if (m_isInCall) {
-        selectAudioDevice(enabled ? "speaker" : "earpiece");
+        // Both modes still source the mic from the modem PCM (Handset2);
+        // toggle picks earpiece vs loud speaker for the output side.
+        switchProfile(enabled ? "Speakerphone" : "VoiceCall");
     }
 }
 
@@ -295,19 +248,32 @@ void AudioRoutingManager::selectAudioDevice(const QString &device) {
 }
 
 void AudioRoutingManager::switchProfile(const QString &profileName) {
-    if (m_audioCardId.isEmpty()) {
-        qWarning() << "[AudioRoutingManager] Audio card ID not detected, cannot switch profile";
+    if (m_audioCardName.isEmpty()) {
+        qWarning() << "[AudioRoutingManager] Audio card name not detected, cannot switch profile";
         return;
     }
 
-    qInfo() << "[AudioRoutingManager] Switching to profile:" << profileName << "on card"
-            << m_audioCardId;
-
+    // Marathon's logical names → concrete UCM profile strings exposed by the
+    // L5 wm8962 card. The legacy mobian model assumed a single "VoiceCall"
+    // PulseAudio profile that doesn't exist here; this card exposes per-
+    // device combinations (Handset1=earpiece, Handset2=modem mic, Speaker,
+    // Mic, Headphones). Fix is platform-aware mapping, not callaudiod.
+    QString platformProfile;
     if (profileName == "VoiceCall") {
-        m_previousProfile = "HiFi";
+        platformProfile   = "HiFi (Handset1, Handset2)"; // earpiece + modem mic
+        m_previousProfile = "Default";
+    } else if (profileName == "Speakerphone") {
+        platformProfile = "HiFi (Handset2, Speaker)"; // loud speaker + modem mic
+    } else {
+        // "Default" / "HiFi" / anything else → media-playback profile
+        platformProfile = "HiFi (Mic, Speaker)";
     }
 
-    runWpctlCommand("wpctl", QStringList() << "set-profile" << m_audioCardId << profileName);
+    qInfo() << "[AudioRoutingManager] Switching to profile:" << profileName << "->"
+            << platformProfile << "on card" << m_audioCardName;
+
+    runWpctlCommand("pactl",
+                    QStringList() << "set-card-profile" << m_audioCardName << platformProfile);
 }
 
 void AudioRoutingManager::setDefaultSink(const QString &sinkId) {
@@ -351,10 +317,20 @@ void AudioRoutingManager::onWpctlFinished(int exitCode, QProcess::ExitStatus exi
 void AudioRoutingManager::onPwGlobalAdded(quint32 id, const QString &type, const QString &nodeName,
                                           const QString &deviceName, const QString &mediaClass) {
     if (type.contains(QStringLiteral("Interface:Device"))) {
-        if (deviceName.contains(QStringLiteral("alsa_card")) && m_audioCardId.isEmpty()) {
+        // Prefer the on-board codec (platform-sound) over HDMI/USB cards;
+        // pactl set-card-profile keys off device.name so cache that too.
+        if (deviceName.contains(QStringLiteral("alsa_card.platform-sound")) &&
+            !deviceName.contains(QStringLiteral("hdmi")) && m_audioCardId.isEmpty()) {
             m_audioCardId   = QString::number(id);
+            m_audioCardName = deviceName;
             m_pw->kinds[id] = QStringLiteral("card");
             qInfo() << "[AudioRoutingManager] Found audio card:" << id << deviceName;
+
+            // Card boots to profile=off on this platform — no audio at all
+            // until something selects a profile. Default to media (speaker +
+            // built-in mic); switchProfile will flip to voice on call start.
+            QMetaObject::invokeMethod(
+                this, [this] { switchProfile(QStringLiteral("Default")); }, Qt::QueuedConnection);
         }
         return;
     }
