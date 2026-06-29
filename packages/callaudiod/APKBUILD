@@ -1,0 +1,60 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=callaudiod
+pkgver=0.1.10
+pkgrel=0
+pkgdesc="Daemon that routes voice-call audio to the codec on phones (Mobian)"
+url="https://gitlab.com/mobian1/callaudiod"
+arch="aarch64 armv7"
+license="GPL-3.0-or-later"
+
+# callaudiod owns the canonical audio routing on Librem 5 / PinePhone /
+# OnePlus 6 etc. It subscribes to ModemManager's Modem.Voice.CallAdded /
+# CallDeleted signals and applies the device-specific mixer routes that
+# wire the modem's PCM through the codec to the speaker/headphone path
+# (and the mic back the other direction). On L5 specifically the
+# alsa-ucm-conf bundled with Alpine ships ONLY a HiFi verb for the
+# wm8962 codec -- there is no VoiceCall verb -- so a UCM-only switch
+# leaves the modem path muted. callaudiod's baked-in L5 config does the
+# direct mixer cset that the missing verb would have done.
+#
+# We import the upstream tarball from gitlab (no Alpine package yet).
+# meson + gobject + gtk-doc would be the natural Alpine build chain;
+# fill in once the source tree is in place and the device tests
+# confirm the L5 mixer route still matches their config.
+
+depends="
+	dbus
+	pulseaudio
+	modemmanager
+"
+
+makedepends="
+	meson
+	ninja
+	dbus-dev
+	pulseaudio-dev
+	glib-dev
+	gtk-doc
+"
+
+subpackages="$pkgname-dev $pkgname-doc"
+
+source="$pkgname-$pkgver.tar.gz::https://gitlab.com/mobian1/callaudiod/-/archive/$pkgver/callaudiod-$pkgver.tar.gz"
+builddir="$srcdir/$pkgname-$pkgver"
+options="!check"
+
+build() {
+	abuild-meson \
+		-Dgtk_doc=true \
+		-Dlibalsa=enabled \
+		. output
+	meson compile -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+
+# sha256sums populated by `abuild checksum`.
+sha256sums=""

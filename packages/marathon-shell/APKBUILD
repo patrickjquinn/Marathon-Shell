@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=252
+pkgrel=253
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -110,9 +110,15 @@ options="!check"
 prepare() {
 	default_prepare
 
-	# Extract asyncfuture submodule
+	# Extract asyncfuture submodule.
+	# When pmbootstrap --src copies the host repo, third-party/asyncfuture/
+	# is already populated from the git submodule, so the tarball unpack
+	# is skipped by abuild — in that case the cp would fail. Only copy
+	# when the submodule slot is empty.
 	mkdir -p "$builddir/third-party/asyncfuture"
-	cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
+	if [ -z "$(ls -A "$builddir/third-party/asyncfuture" 2>/dev/null)" ]; then
+		cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
+	fi
 
 	# Note: do NOT inject NO_CACHEGEN into qt6_add_qml_module() blocks.
 	# r184 and earlier did, to save peak build RAM, but that ships the

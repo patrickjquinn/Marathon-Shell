@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=29
+pkgrel=30
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -40,6 +40,13 @@ depends="
 	font-noto
 	ttf-dejavu
         greetd
+	# callaudiod handles modem-to-codec voice routing on phones. The
+	# Marathon-Image/packages/callaudiod APKBUILD vendors mobian's
+	# callaudiod from upstream because Alpine doesn't ship it. Without
+	# this dep no voice audio reaches the other end on Librem 5 (only
+	# HiFi UCM verb is shipped for the wm8962 codec). Once the APK is
+	# built into the local repo, uncomment this line.
+	# callaudiod
 "
 install="$pkgname.post-install"
 options="!check"
