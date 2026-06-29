@@ -230,15 +230,37 @@ void ModemManagerCpp::queryModemState() {
         emit modemEnabledChanged();
     }
 
+    // Primary source: Modem.SignalQuality — a (ub) tuple of (percentage,
+    // recent). ModemManager keeps this updated from extended URC parsing
+    // without needing Setup() on the Signal interface, so we get a real
+    // number out of the box.
+    QVariant sqVar = modem.property("SignalQuality");
+    if (sqVar.isValid()) {
+        const QDBusArgument arg    = sqVar.value<QDBusArgument>();
+        uint                pct    = 0;
+        bool                recent = false;
+        arg.beginStructure();
+        arg >> pct >> recent;
+        arg.endStructure();
+        int strength = qBound(0, static_cast<int>(pct), 100);
+        if (m_signalStrength != strength) {
+            m_signalStrength = strength;
+            emit signalStrengthChanged();
+        }
+    }
+
+    // Secondary: Modem.Signal.Rssi — only populated if userspace called
+    // Setup(rate). Phosh / Calls do this; Marathon currently does not.
+    // If the value is present we prefer it (it's higher-frequency); the
+    // SignalQuality path above keeps us from showing zero bars when
+    // nothing has called Setup yet.
     QDBusInterface modemSignal("org.freedesktop.ModemManager1", m_modemPath,
                                "org.freedesktop.ModemManager1.Modem.Signal",
                                QDBusConnection::systemBus());
-
     if (modemSignal.isValid()) {
         QVariant signalVar = modemSignal.property("Rssi");
-        if (signalVar.isValid()) {
-            int rssi = signalVar.toInt();
-
+        if (signalVar.isValid() && signalVar.toDouble() != 0.0) {
+            int rssi     = signalVar.toInt();
             int strength = qBound(0, (rssi + 100) * 2, 100);
             if (m_signalStrength != strength) {
                 m_signalStrength = strength;
