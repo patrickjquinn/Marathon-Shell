@@ -36,15 +36,19 @@ QString StatusBarIconServiceCpp::getBatterySemanticColor(int level, bool isCharg
 }
 
 QString StatusBarIconServiceCpp::getSignalIcon(int strength) const {
+    // Phosphor glyph names (matches marathon-ui/Core/PhosphorGlyphs.js). The
+    // earlier 'signal-*' / 'signal-zero' names resolved to no glyph at all,
+    // so the cellular status-bar icon never rendered even with a registered
+    // modem and a known RSSI. PhosphorGlyphs only ships cell-signal-{low,
+    // medium,high} — zero-strength reuses 'low' at reduced opacity (handled
+    // by getSignalOpacity).
     if (strength == 0)
-        return "signal-zero";
-    if (strength <= 25)
-        return "signal-low";
-    if (strength <= 50)
-        return "signal-medium";
-    if (strength <= 75)
-        return "signal";
-    return "signal-high";
+        return "cell-signal-low";
+    if (strength <= 33)
+        return "cell-signal-low";
+    if (strength <= 66)
+        return "cell-signal-medium";
+    return "cell-signal-high";
 }
 
 qreal StatusBarIconServiceCpp::getSignalOpacity(int strength) const {
