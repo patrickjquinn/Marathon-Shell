@@ -123,6 +123,17 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
         emit unlockRequested();
     }
 
+    // Force-wake on call-end: proximity may have blanked the screen while we
+    // were on the call; once the call is over the proximity gate stops
+    // firing (handleProximityChanged checks m_hasActiveCall) and a stale
+    // "near" reading would otherwise leave the device unwakable.
+    if (state == "idle" || state == "terminated") {
+        if (m_displayPolicy)
+            m_displayPolicy->turnScreenOn();
+        else if (m_displayManager)
+            m_displayManager->setScreenState(true);
+    }
+
     setLastCallState(state);
 }
 
