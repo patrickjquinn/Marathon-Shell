@@ -12,7 +12,8 @@ Rectangle {
         currentAlarm = alarm;
         visible = true;
         swipeUpText.opacity = 1;
-        swipeAnimation.start();
+        if (!MMotion.reduceMotion)
+            swipeAnimation.start();
     }
 
     function dismiss() {

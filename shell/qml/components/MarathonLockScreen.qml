@@ -204,10 +204,18 @@ Item {
             anchors.fill: parent
             source: lockScreen.appBackdrop
             blurAmount: 1.0
-            blurMax: 64
+            // 24 instead of 64 — see AppBackdropBlur.qml. A wider kernel
+            // is invisible past ~24 on a 540×1140 screen but quadruples
+            // fillrate on etnaviv.
+            blurMax: 24
+            blurMultiplier: 1.4
             saturation: 0.4
             brightness: -0.15
             tint: Qt.rgba(0, 0, 0, 0.25)
+            // The lock screen sits over an app that has been frozen by
+            // AppLifecycleManager — its surface texture does not change.
+            // Sample once, then stop.
+            live: false
         }
 
         MarathonStatusBar {
@@ -896,7 +904,7 @@ Item {
                     // graph at the animation rate even when the lock screen is
                     // hidden, which under software rasterization keeps all four
                     // LLVMpipe threads + QSGRenderThread busy at idle.
-                    running: lockScreen.visible
+                    running: MMotion.gate(lockScreen.visible)
                     loops: Animation.Infinite
 
                     NumberAnimation {

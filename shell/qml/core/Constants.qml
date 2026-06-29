@@ -1,5 +1,8 @@
 pragma Singleton
 import QtQuick
+// MarathonUI.Theme is on the import path in both the shell and the
+// marathon-app-runner; MMotion is the canonical motion table.
+import MarathonUI.Theme
 
 QtObject {
     id: constants
@@ -71,12 +74,17 @@ QtObject {
     readonly property real gestureSwipeShort: Math.round(80 * scaleFactor)
     readonly property real gestureSwipeLong: Math.round(150 * scaleFactor)
     readonly property real quickSettingsDismissThreshold: 0.3
-    readonly property int animationFast: 150
-    readonly property int animationNormal: 200
-    readonly property int animationSlow: 300
-    readonly property int animationDurationFast: 150
-    readonly property int animationDurationNormal: 250
-    readonly property int animationDurationSlow: 400
+    // Animation durations delegate to MMotion roles so the whole shell
+    // shares one tuning surface. Existing call sites keep working —
+    // animationFast is now "hover" semantics, animationNormal is "nav",
+    // animationSlow is "panel". Prefer MMotion.durationFor("role") in
+    // new code.
+    readonly property int animationFast: MMotion.durationFor("hover")
+    readonly property int animationNormal: MMotion.durationFor("nav")
+    readonly property int animationSlow: MMotion.durationFor("panel")
+    readonly property int animationDurationFast: MMotion.durationFor("hover")
+    readonly property int animationDurationNormal: MMotion.durationFor("modal")
+    readonly property int animationDurationSlow: MMotion.durationFor("sheet")
     readonly property int sessionTimeout: 600000
     property bool performanceMode: false
     readonly property bool enableAnimations: !performanceMode

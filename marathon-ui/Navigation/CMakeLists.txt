@@ -12,6 +12,7 @@ qt6_add_qml_module(marathon-ui-navigation
         MSwipeView.qml
         MPageIndicator.qml
         MAppRouter.qml
+        MStackView.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Navigation
 )
 
@@ -31,6 +32,7 @@ if(QMLLINT_AVAILABLE)
         MSwipeView.qml
         MPageIndicator.qml
         MAppRouter.qml
+        MStackView.qml
     )
 endif()
 
@@ -54,5 +56,6 @@ install(FILES
     MSwipeView.qml
     MPageIndicator.qml
     MAppRouter.qml
+    MStackView.qml
     DESTINATION ${MARATHON_UI_DIR}/Navigation
 )

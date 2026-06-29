@@ -84,10 +84,24 @@ Item {
             model: appGrid.pageItemCount
 
             Item {
+                id: iconCell
+
                 readonly property var appData: appGrid.appModel ? appGrid.appModel.getAppAtIndex(appGrid.startIndex + index) : null
 
                 width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
                 height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.spacing) / appGrid.rows
+
+                // Staggered entrance — every home grid icon fades up in a
+                // light wave on first paint. Index-based delay means the
+                // top-left icon arrives first, the rest cascade. The cost
+                // is one ParallelAnimation per cell that runs ONCE then
+                // never again; cells reused on page change keep their
+                // already-played state.
+                MEntrance {
+                    target: iconCell
+                    index: index
+                    stagger: MMotion.staggerMicro
+                }
                 transform: [
                     Scale {
                         origin.x: width / 2
@@ -99,8 +113,8 @@ Item {
                             enabled: Constants.enableAnimations
 
                             NumberAnimation {
-                                duration: 120
-                                easing.type: Easing.OutCubic
+                                duration: MMotion.durationFor("microPress")
+                                easing.type: MMotion.easingFor("microPress")
                             }
                         }
 
@@ -108,8 +122,8 @@ Item {
                             enabled: Constants.enableAnimations
 
                             NumberAnimation {
-                                duration: 120
-                                easing.type: Easing.OutCubic
+                                duration: MMotion.durationFor("microPress")
+                                easing.type: MMotion.easingFor("microPress")
                             }
                         }
                     },
@@ -120,8 +134,8 @@ Item {
                             enabled: Constants.enableAnimations
 
                             NumberAnimation {
-                                duration: 120
-                                easing.type: Easing.OutCubic
+                                duration: MMotion.durationFor("microPress")
+                                easing.type: MMotion.easingFor("microPress")
                             }
                         }
                     }

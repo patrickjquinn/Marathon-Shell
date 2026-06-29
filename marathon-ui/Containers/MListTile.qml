@@ -22,6 +22,7 @@ Rectangle {
     width: parent ? parent.width : 400
     height: Math.round(56 * scaleFactor)
     color: mouseArea.pressed ? MColors.highlightSubtle : "transparent"
+    scale: (root.clickable && mouseArea.pressed) ? 0.97 : 1.0
     clip: true
 
     Accessible.role: clickable ? Accessible.Button : Accessible.ListItem
@@ -38,6 +39,27 @@ Rectangle {
     Behavior on color {
         ColorAnimation {
             duration: MMotion.sm
+        }
+    }
+
+    // Staggered entrance — wired through MEntrance so list rows fade
+    // up with a subtle indexed delay. animationIndex has been a
+    // declared-but-unconsumed property for many revisions; this is
+    // the consumer.
+    MEntrance {
+        target: root
+        index: root.animationIndex
+    }
+
+    // Subtle press scale on clickable rows. Compositor-only — no
+    // layout reflow. Spring tuned to the microPress role.
+    transformOrigin: Item.Center
+    Behavior on scale {
+        enabled: root.clickable && !MMotion.reduceMotion
+        SpringAnimation {
+            spring: MMotion.springFor("microPress")
+            damping: MMotion.dampingFor("microPress")
+            epsilon: MMotion.epsilon
         }
     }
 

@@ -32,10 +32,14 @@ Item {
         anchors.fill: parent
         source: quickSettings.appBackdrop
         blurAmount: 1.0
-        blurMax: 48
+        blurMax: 24
+        blurMultiplier: 1.4
         saturation: 0.5
         brightness: -0.1
         tint: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.55)
+        // QS shade is pulled over a snapshot — the underlying app is
+        // either frozen or the wallpaper. Either way, no per-frame work.
+        live: false
     }
 
     Rectangle {
