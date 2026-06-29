@@ -1134,7 +1134,11 @@ MApp {
                             size: Constants.iconSizeSmall
                             color: {
                                 var currentTab = getCurrentTab();
-                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textTertiary;
+                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textSecondary;
+                            }
+                            opacity: {
+                                var currentTab = getCurrentTab();
+                                return (currentTab && currentTab.canGoBack) ? 1.0 : 0.35;
                             }
                         }
 
@@ -1476,12 +1480,13 @@ MApp {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
                                 color: "transparent"
+                                visible: !urlInput.activeFocus
 
                                 Icon {
                                     anchors.centerIn: parent
                                     name: {
                                         var currentTab = getCurrentTab();
-                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "x" : "refresh-cw";
+                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "square" : "refresh-cw";
                                     }
                                     size: Constants.iconSizeSmall * 0.8
                                     color: MColors.text
