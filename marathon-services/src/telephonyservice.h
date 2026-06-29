@@ -48,6 +48,7 @@ class TelephonyService : public QObject {
                                          const QStringList &invalidated);
     void checkModemStatus();
     void onCallAdded(const QDBusObjectPath &callPath);
+    void onCallDeleted(const QDBusObjectPath &callPath);
 
   private:
     void    connectToModemManager();
