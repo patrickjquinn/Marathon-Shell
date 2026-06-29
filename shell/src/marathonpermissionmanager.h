@@ -3,10 +3,12 @@
 class QQmlEngine;
 class QJSEngine;
 
+#include <QHash>
+#include <QMap>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
-#include <QMap>
 #include <QVariantMap>
 #include <qqml.h>
 
@@ -89,22 +91,30 @@ class MarathonPermissionManager : public QObject {
     void processPendingRequests();
 
   private:
-    void                               loadPermissions();
-    void                               savePermissions();
-    QString                            getPermissionsFilePath();
-    void                               checkQueue();
+    void    loadPermissions();
+    void    savePermissions();
+    QString getPermissionsFilePath();
+    void    checkQueue();
+    // Protected built-in apps (manifest "protected": true) get the permissions
+    // they declare in their manifest pre-granted on first lookup. Without this
+    // the system Messages/Phone/Camera nag the user with a permission popup the
+    // very first time they're opened — for capabilities those apps cannot
+    // possibly function without. Cached per appId after the first manifest
+    // read; revocation still flows through m_permissions and wins.
+    QSet<QString>                         protectedManifestPermissions(const QString &appId) const;
 
-    QMap<QString, QMap<QString, bool>> m_permissions;
+    QMap<QString, QMap<QString, bool>>    m_permissions;
+    mutable QHash<QString, QSet<QString>> m_protectedManifestCache;
 
-    bool                               m_promptActive;
-    QString                            m_currentAppId;
-    QString                            m_currentPermission;
-    QStringList                        m_currentPermissions;
+    bool                                  m_promptActive;
+    QString                               m_currentAppId;
+    QString                               m_currentPermission;
+    QStringList                           m_currentPermissions;
 
-    QMap<QString, QString>             m_permissionDescriptions;
+    QMap<QString, QString>                m_permissionDescriptions;
 
-    class PortalManager               *m_portalManager;
-    class QTimer                      *m_batchTimer;
+    class PortalManager                  *m_portalManager;
+    class QTimer                         *m_batchTimer;
 
     struct PendingRequest {
         QString appId;

@@ -5,7 +5,7 @@
   "entryPoint": "MessagesApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["notifications"],
+  "permissions": ["sms", "phone", "contacts", "notifications"],
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Communication"],

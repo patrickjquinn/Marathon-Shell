@@ -85,9 +85,17 @@ QStringList PowerKeyListener::discoverPowerKeyDevices() const {
     QStringList keyWords;
 
     auto        flush = [&]() {
-        if (!handler.isEmpty() && deviceAdvertisesKey(keyWords, kKeyPower)) {
+        if (handler.isEmpty()) {
+            name.clear();
+            handler.clear();
+            keyWords.clear();
+            return;
+        }
+        const bool advertises = deviceAdvertisesKey(keyWords, kKeyPower);
+        qWarning() << "[PowerKeyListener] scan:" << name << handler << "keyWords=" << keyWords
+                   << "advertisesPower=" << advertises;
+        if (advertises) {
             const QString path = QStringLiteral("/dev/input/") + handler;
-            qInfo() << "[PowerKeyListener] Candidate:" << path << "(" << name << ")";
             result.append(path);
         }
         name.clear();

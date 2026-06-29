@@ -1540,7 +1540,10 @@ SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
 QVariantList SmsObject::GetConversations() {
     if (!requireSms())
         return {};
-    return m_sms->conversations();
+    const QVariantList list = m_sms->conversations();
+    qWarning() << "[SmsObject] GetConversations -> caller=" << callerAppIdOrEmpty()
+               << "count=" << list.size();
+    return list;
 }
 
 QVariantList SmsObject::GetMessages(const QString &conversationId) {
