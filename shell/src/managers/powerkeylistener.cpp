@@ -174,7 +174,6 @@ void PowerKeyListener::onFdReadable(int fd) {
         if (n == (ssize_t)sizeof(ev)) {
             if (ev.type == EV_KEY && ev.code == kKeyPower) {
                 if (ev.value == 1) {
-                    qInfo() << "[PowerKeyListener] KEY_POWER down on fd" << fd;
                     emit powerKeyPressed();
                 } else if (ev.value == 0) {
                     emit powerKeyReleased();

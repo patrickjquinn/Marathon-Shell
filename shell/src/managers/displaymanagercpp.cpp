@@ -381,53 +381,45 @@ void DisplayManagerCpp::setScreenState(bool on) {
     // Suspend the compositor's render thread before powering the CRTC down,
     // and bring the CRTC back up before resuming the compositor.
 
+    // Backlight-only blank. Qt eglfs_kms's setPowerState path uses the
+    // legacy drmModeConnectorSetProperty(DPMS_property) — known broken
+    // on i.MX8MQ + mxsfb-dsi: the kernel panel driver doesn't reliably
+    // re-issue prepare/enable callbacks on Off→On, so the panel wedges
+    // dark even though the DRM state machine reports it as On. Phoc
+    // works around it by using atomic modeset with ALLOW_MODESET via
+    // wlroots; we don't have that path from Qt without forking the QPA.
+    //
+    // The simpler and more reliable approach for a user-facing
+    // screen-off is to leave the DRM CRTC running and just power the
+    // backlight LED driver down via the backlight class. The compositor
+    // keeps drawing — invisible, slightly more power than DPMS-off —
+    // and pressing power restores the backlight instantly with zero
+    // DRM negotiation. bl_power requires the udev rule that chmods it
+    // 0666 (udev/70-marathon-shell.rules).
+    if (!m_backlightDevice.isEmpty()) {
+        QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+        if (blPower.open(QIODevice::WriteOnly)) {
+            // 0 = FB_BLANK_UNBLANK (on), 4 = FB_BLANK_POWERDOWN (off).
+            blPower.write(on ? "0\n" : "4\n");
+            blPower.close();
+        } else {
+            qWarning() << "[DisplayManagerCpp] cannot open" << blPower.fileName()
+                       << "for write — udev rule missing? Falling back to DRM DPMS.";
 #if MARATHON_HAVE_QT_GUI_PRIVATE
-    QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
-
-    if (on) {
-        // Qt eglfs_kms tracks its own copy of the power state. After a
-        // setPowerState(Off) → idle → setPowerState(On) cycle, Qt's cache
-        // can desync from the DRM driver's actual DPMS state (the driver
-        // dropped to Off, Qt thinks it's still On, or vice versa). The
-        // second call then short-circuits because Qt sees "no transition
-        // needed" — the user presses power and nothing happens.
-        //
-        // Force-cycle Off→On so the driver always sees a real transition
-        // edge regardless of what Qt's cache claims. The Off step is a
-        // no-op for Qt if it's already off, and the immediate On step
-        // pushes the panel through a fresh modeset.
-        if (platformScreen) {
-            platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
-            platformScreen->setPowerState(QPlatformScreen::PowerStateOn);
-        }
-        // Belt-and-braces: the backlight class node is independent of DRM
-        // DPMS. If anything (sysfs poke, kernel idle, our own earlier
-        // setScreenState(false)) left bl_power at FB_BLANK_POWERDOWN (4),
-        // the panel stays dark even when DPMS is On. Drive it back to 0
-        // (FB_BLANK_UNBLANK) here too.
-        if (!m_backlightDevice.isEmpty()) {
-            QFile blPower(
-                QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
-            if (blPower.open(QIODevice::WriteOnly)) {
-                blPower.write("0\n");
-                blPower.close();
+            QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
+            if (platformScreen) {
+                if (on) {
+                    platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
+                    platformScreen->setPowerState(QPlatformScreen::PowerStateOn);
+                } else {
+                    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+                    platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
+                }
             }
-        }
-        emit screenStateChanged(true);
-    } else {
-        // Notify the compositor first so it can hide its window and release
-        // scene-graph resources, then drain any pending events on the GUI
-        // thread so the render thread has actually stopped before we cut
-        // the CRTC's power.
-        emit screenStateChanged(false);
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-        if (platformScreen) {
-            platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
+#endif
         }
     }
-#else
     emit screenStateChanged(on);
-#endif
 
     if (m_powerManager) {
         if (on) {
