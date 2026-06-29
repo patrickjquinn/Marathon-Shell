@@ -39,7 +39,7 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_dndEnabled(false)
     , m_vibrationEnabled(true)
     , m_audioProfile("normal")
-    , m_screenTimeout(120000)
+    , m_screenTimeout(300000)
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
@@ -248,7 +248,7 @@ void SettingsManager::load() {
     m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
     m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
-    m_screenTimeout  = m_settings.value("display/screenTimeout", 120000).toInt();
+    m_screenTimeout  = m_settings.value("display/screenTimeout", 300000).toInt();
     m_autoBrightness = m_settings.value("display/autoBrightness", false).toBool();
     m_statusBarClockPosition =
         m_settings.value("display/statusBarClockPosition", "center").toString();

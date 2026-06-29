@@ -704,13 +704,14 @@ int main(int argc, char *argv[]) {
                      [screenIsOn](bool on) { *screenIsOn = on; });
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, displayManager,
                      [displayManager, screenIsOn]() {
-                         if (*screenIsOn) {
-                             qInfo() << "[MarathonShell] Power key pressed while screen ON "
-                                        "— ignored (wake-only first pass)";
-                             return;
-                         }
-                         qInfo() << "[MarathonShell] Power key pressed — waking display";
-                         displayManager->setScreenState(true);
+                         // Toggle: any press while ON blanks, any press while OFF wakes.
+                         // setScreenState is idempotent so even if screenIsOn is stale
+                         // (out-of-sync with hardware DPMS state), the next press will
+                         // converge — never leaves the device unrecoverable.
+                         const bool on = *screenIsOn;
+                         qInfo() << "[MarathonShell] Power key pressed (was on=" << on
+                                 << ") — flipping screen state";
+                         displayManager->setScreenState(!on);
                      });
     createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
                                          displayPolicyController, displayManager, hapticManager,
