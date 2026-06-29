@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=30
+pkgrel=31
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -40,14 +40,19 @@ depends="
 	font-noto
 	ttf-dejavu
         greetd
-	# callaudiod handles modem-to-codec voice routing on phones.
-	# Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
-	# Alpine doesn't ship it. Without this dep no voice audio reaches
-	# the other end on Librem 5 (only HiFi UCM verb is shipped for the
-	# wm8962 codec). callaudiod's baked-in L5 mixer route does what
-	# the missing verb would do.
 	callaudiod
 "
+# callaudiod handles modem-to-codec voice routing on phones.
+# Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
+# Alpine doesn't ship it. Without this dep no voice audio reaches
+# the other end on Librem 5 (only HiFi UCM verb is shipped for the
+# wm8962 codec). callaudiod's baked-in L5 mixer route does what the
+# missing verb would do. Comments must live outside the depends="..."
+# string -- abuild splits the whole quoted block on whitespace and
+# turns `# callaudiod handles modem-to-codec` into separate fake
+# package names (`#`, `handles`, `modem-to-codec`), which then make
+# the apk solver either skip them silently (mkosi build) or refuse
+# to install (apk add). r30 shipped with that bug; r31 corrects it.
 install="$pkgname.post-install"
 options="!check"
 source="
