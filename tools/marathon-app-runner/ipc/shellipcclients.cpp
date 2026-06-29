@@ -762,10 +762,10 @@ void SettingsClient::refresh() {
         return;
     m_refreshInFlight = true;
 
-    if (!ensureSystemPermission()) {
-        m_refreshInFlight = false;
-        return;
-    }
+    // GetState is a read — it returns userScaleFactor, wallpaperPath,
+    // timeFormat, theme tokens etc. that every app needs to size its UI.
+    // It does NOT require a permission, so don't pre-prompt the user.
+    // Writes (setProp) still gate on ensureSystemPermission below.
 
     m_iface.setTimeout(2000);
 

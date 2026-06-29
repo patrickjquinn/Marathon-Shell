@@ -262,8 +262,18 @@ bool SettingsObject::isAppScopedKey(const QString &key) const {
 }
 
 QVariantMap SettingsObject::GetState() {
-    if (!requireSystem())
+    // GetState is a READ of the global settings snapshot — userScaleFactor,
+    // wallpaperPath, timeFormat, theme tokens etc. Every app reads these to
+    // size its UI correctly. Gating on "system" forced every app launch to
+    // prompt the user for a permission whose dialog itself says it can't
+    // be granted (it's "restricted to system apps"), which created a no-op
+    // trap: Music, Gallery, Notes, Calendar, Clock all hit the dialog,
+    // user denies / dismisses, app then renders at the wrong scale.
+    // Writes (SetProperty / Set) keep the gate.
+    if (!checkRateLimit(*this, "Settings.GetState")) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return {};
+    }
 
     return {
         {"userScaleFactor", m_settings->userScaleFactor()},

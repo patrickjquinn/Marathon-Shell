@@ -1,5 +1,12 @@
 import QtQuick
 import QtQuick.Controls
+// Constants is the shell's scale/DPI singleton — sibling MListTile
+// imports it the same way. Without this, every MScrollView usage
+// raises "ReferenceError: Constants is not defined" at scene load and
+// silently downgrades the scroll bar width + edge scroll affordance
+// to 0, breaking scrolling visuals app-wide (Calendar, Settings,
+// Mail, etc.).
+import MarathonOS.Shell
 
 Flickable {
     id: root
