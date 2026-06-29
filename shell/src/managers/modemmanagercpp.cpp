@@ -377,7 +377,7 @@ void ModemManagerCpp::enableData() {
     qDebug() << "[ModemManagerCpp] Enabling mobile data";
 
     if (!m_hasModemManager || !m_modemAvailable || m_modemPath.isEmpty()) {
-        qWarning() << "[ModemManagerCpp] Cannot enable data: no modem available";
+        qDebug() << "[ModemManagerCpp] Cannot enable data: no modem available";
         return;
     }
 
@@ -405,7 +405,7 @@ void ModemManagerCpp::enableData() {
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] Mobile data enabled";
+    qWarning() << "[ModemManagerCpp] Mobile data enabled";
 }
 
 void ModemManagerCpp::disableData() {
@@ -434,11 +434,11 @@ void ModemManagerCpp::disableData() {
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] Mobile data disabled";
+    qWarning() << "[ModemManagerCpp] Mobile data disabled";
 }
 
 void ModemManagerCpp::setApn(const QString &apn, const QString &username, const QString &password) {
-    qInfo() << "[ModemManagerCpp] Setting APN:" << apn;
+    qWarning() << "[ModemManagerCpp] Setting APN:" << apn;
 
     m_apn         = apn;
     m_apnUsername = username;
