@@ -699,20 +699,22 @@ int main(int argc, char *argv[]) {
     // that advertises KEY_POWER and emits on key-down; we route the press
     // into the same wake path marathon-dev wake uses.
     auto *powerKeyListener = new PowerKeyListener(&app);
-    auto  screenIsOn       = std::make_shared<bool>(true);
-    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, &app,
-                     [screenIsOn](bool on) { *screenIsOn = on; });
-    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, displayManager,
-                     [displayManager, screenIsOn]() {
-                         // Toggle: any press while ON blanks, any press while OFF wakes.
-                         // setScreenState is idempotent so even if screenIsOn is stale
-                         // (out-of-sync with hardware DPMS state), the next press will
-                         // converge — never leaves the device unrecoverable.
-                         const bool on = *screenIsOn;
-                         qInfo() << "[MarathonShell] Power key pressed (was on=" << on
-                                 << ") — flipping screen state";
-                         displayManager->setScreenState(!on);
-                     });
+    QObject::connect(
+        powerKeyListener, &PowerKeyListener::powerKeyPressed, displayManager, [displayManager]() {
+            // Read the real hardware state on every press instead of
+            // tracking a cached bool — Qt eglfs_kms and the kernel
+            // backlight class can desync (sysfs writes, idle blanks,
+            // DPMS recovery glitches), and a stale cache leaves the
+            // device unwakable. /sys/class/backlight/.../bl_power
+            // is the ground truth: 4 = FB_BLANK_POWERDOWN, 0 = ON.
+            bool  hardwareIsOn = true;
+            QFile blPower(QStringLiteral("/sys/class/backlight/backlight-dsi/bl_power"));
+            if (blPower.open(QIODevice::ReadOnly)) {
+                const int v  = blPower.readAll().trimmed().toInt();
+                hardwareIsOn = (v == 0);
+            }
+            displayManager->setScreenState(!hardwareIsOn);
+        });
     createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
                                          displayPolicyController, displayManager, hapticManager,
                                          &app);

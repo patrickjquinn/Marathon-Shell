@@ -385,12 +385,35 @@ void DisplayManagerCpp::setScreenState(bool on) {
     QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
 
     if (on) {
-        // CRTC must be live before the scene-graph queues its next flip.
+        // Qt eglfs_kms tracks its own copy of the power state. After a
+        // setPowerState(Off) → idle → setPowerState(On) cycle, Qt's cache
+        // can desync from the DRM driver's actual DPMS state (the driver
+        // dropped to Off, Qt thinks it's still On, or vice versa). The
+        // second call then short-circuits because Qt sees "no transition
+        // needed" — the user presses power and nothing happens.
+        //
+        // Force-cycle Off→On so the driver always sees a real transition
+        // edge regardless of what Qt's cache claims. The Off step is a
+        // no-op for Qt if it's already off, and the immediate On step
+        // pushes the panel through a fresh modeset.
         if (platformScreen) {
+            platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
             platformScreen->setPowerState(QPlatformScreen::PowerStateOn);
         }
+        // Belt-and-braces: the backlight class node is independent of DRM
+        // DPMS. If anything (sysfs poke, kernel idle, our own earlier
+        // setScreenState(false)) left bl_power at FB_BLANK_POWERDOWN (4),
+        // the panel stays dark even when DPMS is On. Drive it back to 0
+        // (FB_BLANK_UNBLANK) here too.
+        if (!m_backlightDevice.isEmpty()) {
+            QFile blPower(
+                QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+            if (blPower.open(QIODevice::WriteOnly)) {
+                blPower.write("0\n");
+                blPower.close();
+            }
+        }
         emit screenStateChanged(true);
-        qDebug() << "[DisplayManagerCpp] Screen ON via QPlatformScreen::setPowerState";
     } else {
         // Notify the compositor first so it can hide its window and release
         // scene-graph resources, then drain any pending events on the GUI
@@ -401,11 +424,9 @@ void DisplayManagerCpp::setScreenState(bool on) {
         if (platformScreen) {
             platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
         }
-        qDebug() << "[DisplayManagerCpp] Screen OFF via QPlatformScreen::setPowerState";
     }
 #else
     emit screenStateChanged(on);
-    qDebug() << "[DisplayManagerCpp] Screen power control disabled (Qt GuiPrivate not enabled)";
 #endif
 
     if (m_powerManager) {
