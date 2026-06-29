@@ -3,6 +3,7 @@
 #include <QDBusReply>
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
+#include <QDBusVariant>
 #include <QRandomGenerator>
 
 ModemManagerCpp::ModemManagerCpp(QObject *parent)
@@ -234,18 +235,30 @@ void ModemManagerCpp::queryModemState() {
     // recent). ModemManager keeps this updated from extended URC parsing
     // without needing Setup() on the Signal interface, so we get a real
     // number out of the box.
-    QVariant sqVar = modem.property("SignalQuality");
-    if (sqVar.isValid()) {
-        const QDBusArgument arg    = sqVar.value<QDBusArgument>();
-        uint                pct    = 0;
-        bool                recent = false;
-        arg.beginStructure();
-        arg >> pct >> recent;
-        arg.endStructure();
-        int strength = qBound(0, static_cast<int>(pct), 100);
-        if (m_signalStrength != strength) {
-            m_signalStrength = strength;
-            emit signalStrengthChanged();
+    //
+    // QDBusInterface::property() refuses to read this without an explicit
+    // qDBusRegisterMetaType<…>() because (ub) isn't a Qt-native type. Make
+    // the raw Properties.Get call and unpack the wrapped QDBusArgument by
+    // hand — no metatype registration required.
+    {
+        QDBusMessage getSq = QDBusMessage::createMethodCall(
+            "org.freedesktop.ModemManager1", m_modemPath, "org.freedesktop.DBus.Properties", "Get");
+        getSq << QStringLiteral("org.freedesktop.ModemManager1.Modem")
+              << QStringLiteral("SignalQuality");
+        QDBusMessage rsq = QDBusConnection::systemBus().call(getSq);
+        if (rsq.type() != QDBusMessage::ErrorMessage && !rsq.arguments().isEmpty()) {
+            QDBusVariant        inner  = rsq.arguments().at(0).value<QDBusVariant>();
+            const QDBusArgument arg    = inner.variant().value<QDBusArgument>();
+            uint                pct    = 0;
+            bool                recent = false;
+            arg.beginStructure();
+            arg >> pct >> recent;
+            arg.endStructure();
+            int strength = qBound(0, static_cast<int>(pct), 100);
+            if (m_signalStrength != strength) {
+                m_signalStrength = strength;
+                emit signalStrengthChanged();
+            }
         }
     }
 
