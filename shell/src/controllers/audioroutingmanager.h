@@ -76,6 +76,7 @@ class AudioRoutingManager : public QObject {
     QString   m_currentAudioDevice;
 
     QString   m_audioCardId;
+    QString   m_audioCardName;
     QString   m_earpieceSinkId;
     QString   m_speakerSinkId;
     QString   m_bluetoothSinkId;
