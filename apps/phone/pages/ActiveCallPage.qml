@@ -237,6 +237,7 @@ Rectangle {
                 }
             }
         }
+    }
 
     Item {
         id: endCallContainer
