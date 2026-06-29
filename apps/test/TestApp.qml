@@ -366,17 +366,29 @@ MApp {
                 height: testApp.height - 100 - 70
                 currentIndex: tabBar.activeTab
 
-                TelephonyTestsPage {}
+                TelephonyTestsPage {
+                    testApp: testApp
+                }
 
-                NotificationTestsPage {}
+                NotificationTestsPage {
+                    testApp: testApp
+                }
 
-                AlarmTestsPage {}
+                AlarmTestsPage {
+                    testApp: testApp
+                }
 
-                MediaTestsPage {}
+                MediaTestsPage {
+                    testApp: testApp
+                }
 
-                SystemTestsPage {}
+                SystemTestsPage {
+                    testApp: testApp
+                }
 
-                SensorTestsPage {}
+                SensorTestsPage {
+                    testApp: testApp
+                }
             }
 
             MTabBar {

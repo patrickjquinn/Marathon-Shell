@@ -6,6 +6,7 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var testApp
     property var audioManager: typeof AudioManagerCpp !== "undefined" ? AudioManagerCpp : null
 
     Flickable {

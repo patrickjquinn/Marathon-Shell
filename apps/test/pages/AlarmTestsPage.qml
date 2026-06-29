@@ -6,6 +6,7 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var testApp
     property var alarmService: typeof AlarmService !== "undefined" ? AlarmService : null
     property string lastAlarmId: ""
 

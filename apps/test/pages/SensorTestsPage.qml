@@ -6,6 +6,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var testApp
+
     Flickable {
         anchors.fill: parent
         contentHeight: sensorColumn.height
