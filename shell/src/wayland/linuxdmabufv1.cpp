@@ -132,14 +132,44 @@ LinuxDmabufManagerV1::LinuxDmabufManagerV1(QWaylandCompositor *compositor)
     m_formatTableSize    = kFormatTableSize;
     m_formatTableEntries = kFormatTableEntries;
 
+    // ── v4 global advertisement gated by env opt-in ──────────────
+    //
+    // The v4 spike originally registered unconditionally to fix
+    // QRhi/null-texture failures via feedback events. Live regression
+    // on 2026-06-30: Mesa's wayland-egl client binds the HIGHEST
+    // advertised dmabuf-v1 version (ours, v4), then pipelines
+    // create_params → add → create_immed → params.destroy → surface.attach
+    // in one batch. Our v4 implementation can't synthesise a Qt-tracked
+    // wl_buffer for create_immed without re-implementing Qt's v3 plugin
+    // internals, so attach either fails (buffer destroyed too early) or
+    // crashes Qt's WaylandEglClientBufferIntegration (orphan buffer with
+    // no integration user_data). Qt's own v3 plugin handles allocation
+    // correctly; clients that bind v3 work end-to-end.
+    //
+    // Until the v4 buffer path is wired through Qt's HW integration,
+    // gate the v4 advertisement on MARATHON_DMABUF_V4=1 so:
+    //   - default: Qt's v3 plugin is the only dmabuf-v1 advertised;
+    //     all Qt-EGL clients allocate successfully via v3.
+    //   - opt-in:  set the env to advertise v4 too — only when the
+    //     consumer (Chromium/WPE) genuinely needs feedback events.
+    //
+    // The feedback-events fix that justified the original spike was
+    // load-bearing for clients that need main_device discovery to
+    // pick a renderD path. Currently no production client requires
+    // that — WebEngine is disabled on etnaviv pending Mesa 26.2 and
+    // WPE is in Phase 2 validation. Re-enable v4 alongside the WPE
+    // production cutover (and with a real create_params impl).
+    const bool enableV4 = qEnvironmentVariableIntValue("MARATHON_DMABUF_V4") == 1;
+    if (!enableV4) {
+        qInfo()
+            << "[LinuxDmabufV1] v4 advertisement DISABLED (set MARATHON_DMABUF_V4=1 to enable). "
+               "Qt's v3 plugin remains active and handles all dmabuf imports.";
+        return;
+    }
+
     auto *display = static_cast<struct wl_display *>(m_compositor->display());
-    // Register at version 4. Qt's existing v3 plugin (loaded via
-    // QT_WAYLAND_HARDWARE_INTEGRATION="...;linux-dmabuf-unstable-v1")
-    // registers a SEPARATE wl_global at v3. Wayland-server allows the
-    // same interface name at multiple versions; clients (Chromium)
-    // bind to the highest they support.
-    m_global = wl_global_create(display, &zwp_linux_dmabuf_v1_interface, 4, this,
-                                &LinuxDmabufManagerV1::bindManager);
+    m_global      = wl_global_create(display, &zwp_linux_dmabuf_v1_interface, 4, this,
+                                     &LinuxDmabufManagerV1::bindManager);
     if (!m_global) {
         qWarning() << "[LinuxDmabufV1] wl_global_create failed";
     } else {
