@@ -1205,12 +1205,12 @@ Item {
         z: Constants.zIndexAppWindow
         scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale * backScale : backScale)
         opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? Math.min(currentGestureOpacity, backOpacity) : backOpacity)
-        // Predictive back: horizontal nudge so the page visibly "leans"
-        // toward the leading edge as the user pulls. Clamped via
-        // backEdgeClampDp so it never overshoots the chrome.
-        transform: Translate {
-            x: -MMotion.backSharedShiftX(appWindowContainer.width) * navBar.backProgress
-        }
+        // Predictive back signals via scale + opacity only. A horizontal
+        // lean via Item.x would conflict with anchors.fill, and a
+        // `transform: Translate {...}` on this in-process compositor
+        // landed the appWindowContainer in a black-render state on
+        // dmabuf-backed Wayland textures (likely a texture-coord
+        // transform mismatch). scale + opacity carry the signal.
 
         Connections {
             function onCurrentAppIdChanged() {
