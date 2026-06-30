@@ -156,17 +156,25 @@ case "$MODE" in
         ln -- "$RAW" "$UUU_DIR/marathon.raw" 2>/dev/null || \
             ln -s -- "$RAW" "$UUU_DIR/marathon.raw"
         SCRIPT="$UUU_DIR/flash_script.lst"
+        # Canonical pmaports purism-librem5 sequence. The script we
+        # shipped previously was missing the SDPU + SDPS stages — without
+        # those u-boot loads via SDPV but defaults to UMS (USB mass
+        # storage) instead of fastboot, so every FB: command silently
+        # noop'd. See pmaports/device/main/device-purism-librem5/
+        # flash_script.lst.
         cat > "$SCRIPT" <<'EOF'
 uuu_version 1.0.1
 SDP:  boot -f phone-boot.img
+SDPU: delay 1000
+SDPU: write -f phone-boot.img -offset 0x57c00
+SDPU: jump
 SDPV: delay 1000
 SDPV: write -f phone-boot.img -skipspl
 SDPV: jump
-FB:   ucmd setenv fastboot_buffer 0x60000000
+SDPS: boot -f phone-boot.img
 FB:   ucmd mmc dev 0
 FB:   flash -raw2sparse mmc0 marathon.raw
-FB:   ucmd mmc rescan
-FB:   done
+FB:   Done
 EOF
 
         cat <<'STEPS'
