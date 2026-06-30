@@ -216,7 +216,7 @@ Item {
             shadowColor: Qt.rgba(0, 0, 0, 0.6)
             shadowVerticalOffset: 4
             shadowBlur: 0.6
-            blurMax: 16
+            blurMax: MBlur.md
             paddingRect: Qt.rect(0, 0, 0, 20)
         }
 
