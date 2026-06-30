@@ -70,8 +70,13 @@ class AppLifecycleManager : public QObject {
     Q_INVOKABLE void removeCapability(const QString &appId, const QString &capability);
 
     // Debounce window between BackgroundIdle entry and Frozen transition.
-    // Default 10s. Settable for tests.
+    // Default 10s. Settable for tests + the Doze entry path (which pins
+    // it to 0 so background apps freeze immediately when the screen
+    // goes off, then restores the saved value on Doze exit).
     Q_INVOKABLE void setIdleFreezeDebounceMs(int ms);
+    Q_INVOKABLE int  idleFreezeDebounceMs() const {
+        return m_idleFreezeDebounceMs;
+    }
 
   signals:
     void appRegistered(const QString &appId, QObject *appInstance);
