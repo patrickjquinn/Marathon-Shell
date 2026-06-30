@@ -405,7 +405,13 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
         return false;
     }
     if (appId.isEmpty() || name.isEmpty()) {
-        qWarning() << "[AppLaunchService] Invalid app object";
+        // Surface the input type + the partial resolution so the
+        // next reproduction tells us whether the bad variant came
+        // from a QString id (AppModel cache miss), a QML object
+        // literal (missing name property), or a stale QVariantMap.
+        qWarning() << "[AppLaunchService] Invalid app object — appId:" << appId << "name:" << name
+                   << "type:" << type << "inputType:" << app.typeName()
+                   << "resolved keys:" << appObj.keys();
         emit appLaunchFailed(appId, name, "Invalid app object");
         return false;
     }
