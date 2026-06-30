@@ -1359,14 +1359,12 @@ Item {
 
         function startWithVelocity(v) {
             velocity = v;
-            var velocityFactor = Math.min(2, Math.abs(v) / 1000);
-            // Tightened from [150, 350] → [120, 260] to feel snappier
-            // on small screens. The scaleAnim still picks up enough
-            // duration at low velocity to read as deliberate, but a
-            // confident swipe completes ~30% faster.
-            var duration = Math.max(120, 260 - (velocityFactor * 80));
-            scaleAnim.duration = duration;
-            opacityAnim.duration = duration;
+            // Spring-driven scale settles at finalScale based on physics,
+            // not a hand-tuned duration. The velocity feeds into the
+            // spring's initial impulse so a confident swipe still feels
+            // faster than a slow one. Opacity stays time-based (effects
+            // family per M3 Expressive — colour/opacity must not ring).
+            opacityAnim.duration = Math.max(120, 260 - (Math.min(2, Math.abs(v) / 1000) * 80));
             Router.goToFrames();
             start();
         }
@@ -1384,14 +1382,21 @@ Item {
             shell.isTransitioningToActiveFrames = false;
         }
 
-        NumberAnimation {
+        // Spring-driven scale — replaces the old 300ms NumberAnimation+
+        // OutCubic. Uses the "panel" role from MMotion (Low stiffness,
+        // underdamped) so the snap settles with the iOS-style "the app
+        // lands in its grid slot" feel rather than the duration-driven
+        // ease curve. Per the world-class-design audit P2.4.
+        SpringAnimation {
             id: scaleAnim
 
             target: appWindowContainer
             property: "scale"
             to: appWindowContainer.finalScale
-            duration: 300
-            easing.type: Easing.OutCubic
+            velocity: snapIntoGridAnimation.velocity / 1000
+            spring: MMotion.stiffnessSpatialFor("panel")
+            damping: MMotion.dampingSpatialFor("panel")
+            epsilon: MMotion.epsilon
         }
 
         NumberAnimation {
@@ -1401,7 +1406,8 @@ Item {
             property: "opacity"
             to: 1
             duration: 300
-            easing.type: Easing.OutCubic
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.predictiveBackCurve
         }
     }
 
@@ -1507,73 +1513,25 @@ Item {
         }
     }
 
+    // Dim area beneath the QS shade. iOS Control Center + Android 16
+    // both treat this surface as TAP-ONLY: tap to dismiss, never
+    // drag-to-resize. The old behaviour mutated quickSettingsHeight
+    // 1:1 with the cursor, so dragging up in the dim area "scrolled"
+    // the shade off the top of the screen pixel-by-pixel — read as a
+    // Flickable, not a panel collapsing. Drag-to-close lives on the
+    // shade itself (MarathonQuickSettings DragHandler) and on the nav
+    // bar's swipe-up handler; the dim area's only job is the tap.
     MouseArea {
         id: quickSettingsOverlay
-
-        property real startY: 0
-        property real lastY: 0
-        property real lastTime: 0
-        property real velocityY: 0
 
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight + UIStore.quickSettingsHeight
         z: Constants.zIndexQuickSettingsOverlay
         enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
         visible: enabled
-        onPressed: mouse => {
-            startY = mouse.y;
-            lastY = mouse.y;
-            lastTime = Date.now();
-            velocityY = 0;
-            UIStore.quickSettingsDragging = true;
-            Logger.gesture("QuickSettings", "overlayDragStart", {
-                "y": startY
-            });
-        }
-        onPositionChanged: mouse => {
-            var dragDistance = mouse.y - startY;
-            var newHeight = UIStore.quickSettingsHeight + dragDistance;
-            UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight));
-            var now = Date.now();
-            var dt = now - lastTime;
-            if (dt > 0)
-                velocityY = (mouse.y - lastY) / dt * 1000;
-
-            lastY = mouse.y;
-            lastTime = now;
-            startY = mouse.y;
-        }
-        onReleased: mouse => {
-            UIStore.quickSettingsDragging = false;
-            var isFlingUp = velocityY < -500;
-            // Tap-outside: if release point barely moved from press point,
-            // treat it as a tap on the dimmed area below the panel and
-            // dismiss — matches iOS Control Center + Android shade. The
-            // ~10 px tolerance covers shaky thumbs.
-            var dragDistance = Math.abs(mouse.y - startY);
-            if (isFlingUp || UIStore.quickSettingsHeight < shell.quickSettingsThreshold || dragDistance < 10)
-                UIStore.closeQuickSettings();
-            else
-                UIStore.openQuickSettings();
-            startY = 0;
-            lastY = 0;
-            velocityY = 0;
-            Logger.gesture("QuickSettings", "overlayDragEnd", {
-                "height": UIStore.quickSettingsHeight,
-                "velocity": velocityY,
-                "fling": isFlingUp
-            });
-        }
-        onCanceled: {
-            UIStore.quickSettingsDragging = false;
-            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
-                UIStore.openQuickSettings();
-            else
-                UIStore.closeQuickSettings();
-            startY = 0;
-            Logger.gesture("QuickSettings", "overlayDragCanceled", {
-                "height": UIStore.quickSettingsHeight
-            });
+        onClicked: {
+            Logger.gesture("QuickSettings", "dimAreaTapClose", {});
+            UIStore.closeQuickSettings();
         }
 
         Rectangle {
