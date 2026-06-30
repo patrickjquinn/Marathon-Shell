@@ -162,6 +162,161 @@ QtObject {
     // migrate to weightLight.
     readonly property int weightUltraLight: 300
 
+    // ── Emphasized tier · M3 Expressive additive ──────────────
+    // World-class shells (Material 3 Expressive) ship 30 type
+    // styles total: 15 baseline + 15 emphasized. The emphasized
+    // tier is ADDITIVE — use it selectively for selection states,
+    // alerts, headlines that demand authority — not as a wholesale
+    // replacement for the baseline.
+    //
+    // Caller pattern:
+    //   font.weight: MTypography.weightFor("body", isSelected)
+    //
+    // This replaces the inline ternaries components currently
+    // hand-roll (font.weight: selected ? weightBold : weightRegular).
+    //
+    // Default weights below MUST match the role defaults documented
+    // around line 137 of this file. If you change one, change both.
+    function defaultWeightFor(role) {
+        switch (role) {
+        case "display":
+            return weightExtraLight;   // 200
+        case "titleL":
+            return weightExtraLight;   // 200
+        case "title1":
+            return weightExtraLight;   // 200
+        case "title2":
+            return weightLight;        // 300
+        case "title3":
+            return weightMedium;       // 500
+        case "headline":
+            return weightDemiBold;     // 600
+        case "body":
+            return weightRegular;      // 400
+        case "callout":
+            return weightRegular;      // 400
+        case "subhead":
+            return weightMedium;       // 500
+        case "footnote":
+            return weightRegular;      // 400
+        case "caption":
+            return weightMedium;       // 500
+        case "eyebrow":
+            return weightBold;         // 700
+        case "mono":
+            return weightMedium;       // 500
+        }
+        return weightRegular;
+    }
+
+    // Emphasized weights pull each role one step heavier on the
+    // Sora axis. Calibrated so the contrast between baseline and
+    // emphasized is legible at the role's size — display gets
+    // +200 (200→400, double in axis units), body gets +200 too
+    // (400→600), eyebrow already heavy stays bold at +100 (700→800).
+    function emphasizedWeightFor(role) {
+        switch (role) {
+        case "display":
+            return weightRegular;      // 200 → 400
+        case "titleL":
+            return weightRegular;      // 200 → 400
+        case "title1":
+            return weightRegular;      // 200 → 400
+        case "title2":
+            return weightMedium;       // 300 → 500
+        case "title3":
+            return weightDemiBold;     // 500 → 600
+        case "headline":
+            return weightBold;         // 600 → 700
+        case "body":
+            return weightDemiBold;     // 400 → 600
+        case "callout":
+            return weightDemiBold;     // 400 → 600
+        case "subhead":
+            return weightDemiBold;     // 500 → 600
+        case "footnote":
+            return weightDemiBold;     // 400 → 600
+        case "caption":
+            return weightDemiBold;     // 500 → 600
+        case "eyebrow":
+            return weightBlack;        // 700 → 800
+        case "mono":
+            return weightBold;         // 500 → 700
+        }
+        return weightDemiBold;
+    }
+
+    function weightFor(role, emphasized) {
+        return emphasized ? emphasizedWeightFor(role) : defaultWeightFor(role);
+    }
+
+    // Size accessor for symmetry with weightFor. Lets callers
+    // bind both size and weight from the role name without
+    // repeating the role string at multiple property bindings.
+    function sizeFor(role) {
+        switch (role) {
+        case "display":
+            return sizeDisplay;
+        case "titleL":
+            return sizeTitleL;
+        case "title1":
+            return sizeTitle1;
+        case "title2":
+            return sizeTitle2;
+        case "title3":
+            return sizeTitle3;
+        case "headline":
+            return sizeHeadline;
+        case "body":
+            return sizeBody;
+        case "callout":
+            return sizeCallout;
+        case "subhead":
+            return sizeSubhead;
+        case "footnote":
+            return sizeFootnote;
+        case "caption":
+            return sizeCaption;
+        case "eyebrow":
+            return sizeEyebrow;
+        case "mono":
+            return sizeMono;
+        }
+        return sizeBody;
+    }
+
+    function trackingFor(role) {
+        switch (role) {
+        case "display":
+            return trackingDisplay;
+        case "titleL":
+            return trackingTitleL;
+        case "title1":
+            return trackingTitle1;
+        case "title2":
+            return trackingTitle2;
+        case "title3":
+            return trackingTitle3;
+        case "headline":
+            return trackingHeadline;
+        case "body":
+            return trackingBody;
+        case "callout":
+            return trackingCallout;
+        case "subhead":
+            return trackingSubhead;
+        case "footnote":
+            return trackingFootnote;
+        case "caption":
+            return trackingCaption;
+        case "eyebrow":
+            return trackingEyebrow;
+        case "mono":
+            return trackingMono;
+        }
+        return trackingBody;
+    }
+
     // ── Legacy aliases (kept while components migrate) ───────
     // Map old abstract sizes to the nearest semantic role.
     // Remove once every consumer references the role names.
