@@ -1,254 +1,176 @@
-# Marathon UI Design System
+# Marathon Design System — Baseline
 
-The visual language of Marathon Shell: a BB10-inspired, OLED-first dark theme optimised for 60fps on ARM embedded hardware (Pi 4, HackBerry Pi, Droidian phones).
+The canonical reference for Marathon's fluid design language. This is the
+load-bearing document for the dev cycle: every new component, motion
+choice, chrome treatment, or gesture wires back here.
 
-This document mirrors the code in `marathon-ui/`. Where it disagrees with the code, the code wins; update this file.
+When this doc disagrees with the code: **the code wins** — update this
+file. When this doc disagrees with someone's opinion in a PR review: the
+doc wins until the next baseline revision (which is a Bigger Decision
+than the PR).
 
-## Philosophy
+Source of truth for token values: `marathon-ui/Theme/*.qml`. Numbers
+quoted here are the base before `Constants.scaleFactor`.
 
-- **OLED-black background, near-black surfaces.** Pure `#040404` (`bb10Black`) at the floor, six steps up to `#353536`.
-- **Teal accent.** `#00bfa5` (`marathonTeal`) plus a dark/bright/glow ladder. Used sparingly — primary action, focus indicator, active tab.
-- **Depth from borders, not shadows.** Every elevated surface has an outer dark border (shadow edge) and inner light border (highlight). FBO-based drop shadows are banned per the performance rules below.
-- **Sharp by default.** Border radius is 2–8px scaled. 999 reserved for pills/circles.
-- **Spring physics over linear curves** for press/hover state changes; explicit Bezier curves elsewhere.
-- **Opaque rendering.** Alpha-blended pixels are 2–3× more expensive on the target GPUs. Translucency is the exception (overlays, ripples, hover tints).
+---
 
-## Layering
+## 0. Charter
 
-The codebase has two color systems that coexist, intentionally:
+Marathon is a Qt6/QML mobile shell + in-process Wayland compositor for
+the Librem 5, Raspberry Pi 5, and any pmOS-class Linux phone. Its design
+mandate isn't to ship a Linux phone that's *adequate*; it's to ship one
+people pick up at the table and ask about. The bar to beat is iOS 18+,
+Android 16 (Material 3 Expressive), and OneUI 7 — not phosh/Plasma
+Mobile.
 
-- **`MColors`** — semantic names (`background`, `surface`, `elevated`, `accent`, `text`, `border…`, glass tints). What apps use day-to-day.
-- **`MElevation`** — numeric `getSurface(0–5)` / `getBorderOuter(0–5)` / `getBorderInner(0–5)` for components that take an `elevation:` prop and need to interpolate.
+Three non-negotiable commitments structure the system:
 
-Components that nest may use either — `MCard`, `MLayer`, `MSettingsListItem` go through `MElevation`; everything else picks a `MColors` semantic surface. They are not interchangeable: `MColors.surface` (`#0d0d0e`) is between `MElevation` levels 1 and 2.
+1. **Coherence over surface variety.** One color, one motion ladder, one
+   chrome language across lockscreen, home, apps, modals, sheets,
+   notifications. A user should never wonder if a screen "belongs" to
+   Marathon.
+2. **Motion is functional, not decorative.** Every microinteraction
+   makes the user's mental model correct. No animation that exists just
+   because animations are nice. Every spring + curve is selected from a
+   role-tagged table (`MMotion.roles`), not freehanded.
+3. **In-process compositor is a feature.** Shell + compositor + every
+   app surface live in one Qt scenegraph. That gives us iOS-grade
+   sub-frame chrome+app coherence that wlroots-based stacks (phosh,
+   gnome-shell) physically cannot do. The system is designed to *use*
+   that — not to hide it for portability.
 
-## Design tokens
+---
 
-All values are from `marathon-ui/Theme/`. `MSpacing`, `MRadius`, `MTypography` multiply their base by `Constants.scaleFactor` (singleton in `MarathonOS.Shell`), so the numbers below are the base before scaling.
+## 1. The 2026 world-class mobile bar — distilled
 
-### Colors (`Theme/MColors.qml`)
+What "sensational" looks like in 2025-2026, condensed from iOS 18+,
+Material 3 Expressive (Google I/O 2025), OneUI 7, and the post-mortems
+of webOS, BB10, and Windows Phone Metro. Each row is a principle plus
+how Marathon expresses it.
 
-**Base palette (BB10 grays):**
+| Principle | What the best mobile OSes do | Marathon's realisation |
+|---|---|---|
+| **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
+| **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
+| **Glass / blur with discipline** | iOS 26 Liquid Glass, M3 Expressive's tinted scrim, OneUI 7's translucent shade | `MGlass` primitive: `ShaderEffectSource + MultiEffect` blur of the live framebuffer behind the chrome. `MBlur` role map (`chrome=lg`, `sheet=lg`, `dropdown=sm`, `halo=sm`, `hairline=xxs`). Always opt-out via `MMotion.reduceBlur` |
+| **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
+| **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
+| **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
+| **Tactile coupling** | iOS Taptic Engine, OneUI 7 micro-rumbles on every flick | `MHaptics` singleton; every gesture threshold + state-change has a haptic tier (`light/medium/heavy/selection/success/error`). Springs and haptics fire together, never apart |
+| **Accessibility as primitive** | iOS Reduce Motion + Reduce Transparency (separate toggles), Android Talkback-tested per release | `MMotion.reduceMotion` + `MMotion.reduceBlur` + `MMotion.translucencyLevel` (0..1 slider). Every component routes through `dur()`/`ease()`/blur token APIs so the toggles are uniform |
+| **Density that scales with palm size** | iOS Display Zoom, Android display density | `Constants.scaleFactor` multiplies `MSpacing`, `MRadius`, `MTypography` from a single DPI signal. Breakpoint helpers in `MBreakpoints`/`MResponsive` for phone/tablet/desktop split |
 
-| Token | Hex |
-|---|---|
-| `bb10Black` | `#040404` |
-| `bb10Deep` | `#070707` |
-| `bb10Surface` | `#0d0d0e` |
-| `bb10Elevated` | `#161718` |
-| `bb10Card` | `#1a1b1c` |
+The non-obvious shared idea: **the best mobile OSes feel alive without
+ever feeling decorative**. Every spring serves a perception goal
+(arriving, returning, settling, attending). Marathon's mandate is the
+same — and the role-based motion table (§4) is how we enforce it.
 
-**Semantic aliases:** `background = bb10Black`, `surface = bb10Surface`, `elevated = bb10Elevated`, `backgroundLight = bb10Elevated`, `textInverse = bb10Black`.
+---
+
+## 2. Identity
+
+### 2.1 Color
+
+The Marathon palette is OLED-first dark with a single saturated accent.
+There is no light theme — the surface ladder + accent IS the identity.
+
+**Surface ladder (`MColors` + `MElevation`):**
+
+| Step | Token | Hex | Use |
+|---|---|---|---|
+| 0 (floor) | `bb10Black` / `background` | `#040404` | Screen background, OLED-true black |
+| 0.5 | `bb10Deep` | `#070707` | Lockscreen tint, status-bar inactive |
+| 1 | `bb10Surface` / `surface` | `#0d0d0e` | Cards, panels, list rows |
+| 2 | `bb10Elevated` / `elevated` | `#161718` | Raised cards, hovered surface |
+| 3 | `bb10Card` | `#1a1b1c` | Modals, sheets, popovers |
+| 4 | — | `#282829` | Floating menus, picker overlays |
+| 5 | — | `#353536` | Tooltips, transient popovers |
+
+Numeric access via `MElevation.getSurface(0..5)`, `getBorderOuter(level)`,
+`getBorderInner(level)`. Use semantic `MColors` names in everyday QML;
+reach for `MElevation` when a component takes an `elevation:` prop and
+needs to interpolate (`MCard`, `MLayer`, `MSettingsListItem`).
 
 **Accent (teal ladder):**
 
-| Token | Hex |
-|---|---|
-| `marathonTealDarkest` | `#006b5d` |
-| `marathonTealDark` | `#00897b` |
-| `marathonTeal` (= `accent`) | `#00bfa5` |
-| `marathonTealBright` (= `accentBright`) | `#1de9b6` |
-| `marathonTealGlow` | `#5dffdc` |
-
-Plus tinted overlays for hover/press/glow gradients (`marathonTealHoverGradient` 3%, `marathonTealPressGradient` 12%, `marathonTealGlowTop/Mid/Bottom` 18/10/2%, `marathonTealBorder` 35%, `marathonTealBorderHover` 40%).
-
-**Text:**
-
-| Token | Hex |
-|---|---|
-| `textPrimary` (= `text`) | `#f5f5f5` |
-| `textSecondary` | `#6a6a6a` |
-| `textTertiary` | `#4a4a4a` |
-| `textHint` | `#2a2a2a` |
-| `textOnAccent` | `#ffffff` |
-
-**Status:**
-
-| Token | Hex |
-|---|---|
-| `success` / `successDim` | `#10B981` / `#059669` |
-| `warning` / `warningDim` | `#F59E0B` / `#D97706` |
-| `error` / `errorDim` | `#EF4444` / `#DC2626` |
-| `info` / `infoDim` | `#3B82F6` / `#2563EB` |
-
-**Glass surfaces** (high-opacity translucents used for system chrome):
-
-| Token | Value |
-|---|---|
-| `glassTitlebar` | `rgba(13,13,14, 0.72)` |
-| `glassTabbar` | `rgba(16,16,17, 0.78)` |
-| `glassActionbar` | `rgba(11,11,12, 0.82)` |
-| `glassHeader` | `rgba(18,18,19, 0.85)` |
-
-**Borders / interaction:**
-
-| Token | Value |
-|---|---|
-| `borderGlass` (= `border`) | `rgba(1,1,1, 0.08)` |
-| `borderSubtle` | `rgba(1,1,1, 0.05)` |
-| `borderDark` | `rgba(0,0,0, 0.7)` |
-| `highlightSubtle` / `highlightMedium` | `rgba(1,1,1, 0.03)` / `0.06` |
-| `hover` | `rgba(1,1,1, 0.04)` |
-| `pressed` | `rgba(0,0,0, 0.1)` |
-| `ripple` | `rgba(0, 0.749, 0.647, 0.12)` (teal-tinted, not white) |
-| `overlay` / `overlayLight` | `rgba(0,0,0, 0.85)` / `0.7` |
-| `shadowDefault` / `shadowStrong` / `shadowHeavy` | `rgba(0,0,0, 0.4)` / `0.6` / `0.7` |
-
-There are also numbered overlay helpers (`whiteOverlay02…40`, `blackOverlay15/40`) for cases where you'd otherwise inline `Qt.rgba`.
-
-### Elevation (`Theme/MElevation.qml`)
-
-Functions, not constants — pass a level 0–5.
-
-| Level | `getSurface` | `getBorderOuter` | `getBorderInner` | Use |
-|---|---|---|---|---|
-| 0 | `#040404` | `rgba(0,0,0,0.90)` | `rgba(1,1,1,0.00)` | Background, base |
-| 1 | `#0a0a0b` | `rgba(0,0,0,1.00)` | `rgba(1,1,1,0.04)` | Cards, panels |
-| 2 | `#121213` | `rgba(0,0,0,1.00)` | `rgba(1,1,1,0.06)` | Raised cards |
-| 3 | `#1c1c1d` | `rgba(0,0,0,0.95)` | `rgba(1,1,1,0.09)` | Modals, sheets |
-| 4 | `#282829` | `rgba(0,0,0,0.90)` | `rgba(1,1,1,0.12)` | Floating menus |
-| 5 | `#353536` | `rgba(0,0,0,0.85)` | `rgba(1,1,1,0.15)` | Tooltips, popovers |
-
-Default fallback (any other level) returns level-2 values.
-
-### Motion (`Theme/MMotion.qml`)
-
-**Duration tokens (ms):**
-
-| Token | ms | Aliases |
+| Token | Hex | Role |
 |---|---|---|
-| `instant` | 0 | — |
-| `fast` | 150 | `xs` |
-| `normal` | 200 | `sm` |
-| `slow` | 300 | `md` |
-| `slower` | 400 | `lg` |
-| `micro` | 80 | — |
-| `quick` | 160 | — |
-| `moderate` | 240 | — |
+| `marathonTealDarkest` | `#006b5d` | Pressed accent surfaces |
+| `marathonTealDark` | `#00897b` | Disabled accent state |
+| `marathonTeal` / `accent` | `#00bfa5` | Default accent (icons, indicators) |
+| `marathonTealBright` / `accentBright` | `#1de9b6` | **Primary brand mark, focus glow** |
+| `marathonTealGlow` | `#5dffdc` | Halo / pulse highlights |
 
-**Spring physics:**
+Plus tinted overlays (`marathonTealHover/Press/Glow*`, border tints
+35-40%) — never inline `Qt.rgba()` with the teal; reach for the named
+overlay token.
 
-| Token | Spring / Damping | Use |
-|---|---|---|
-| Light | `1.5` / `0.15` | Bouncy — cards, buttons |
-| Medium | `2.0` / `0.25` | Balanced — sheets, modals |
-| Heavy | `3.0` / `0.4` | Firm — toggles, sliders |
+**Status colors** (mailbox indicators, toast banners, validation):
+`success #10B981`, `warning #F59E0B`, `error #EF4444`, `info #3B82F6`
+(each with a `*Dim` sibling for borders/secondary fills).
 
-`epsilon: 0.01` for spring stopping threshold.
+**Text ladder:**
+`textPrimary #f5f5f5` → `textSecondary #6a6a6a` → `textTertiary #4a4a4a`
+→ `textHint #2a2a2a` → `textOnAccent #ffffff`. Three secondary tiers
+sounds like a lot; on OLED with 720x1440 it's the difference between
+"label", "metadata", and "placeholder" being legible without being loud.
 
-**Easing (Bezier control points):**
+### 2.2 Typography
 
-| Token | Curve |
-|---|---|
-| `easingStandard` | `[0.2, 0, 0.2, 1]` |
-| `easingDecelerate` | `[0, 0, 0.2, 1]` |
-| `easingAccelerate` | `[0.4, 0, 1, 1]` |
-| `easingSpring` | `[0.34, 1.56, 0.64, 1]` |
+- **Slate** — UI sans (variable weight, geometric, condensed for status
+  chrome). Aliased as `MTypography.fontFamily`.
+- **JetBrains Mono** — monospace, code/timestamps/PIN/secret reveal.
+  `fontFamilyMono` / `fontMonospace`.
 
-Each is exposed as a pair (`easing<Name>` = `Easing.Bezier` enum, `easing<Name>Curve` = `[c1, c2, c3, c4]`) for `Behavior on … { NumberAnimation { easing.type: …; easing.bezierCurve: … } }`.
+Scale (base px, multiplied by `scaleFactor`):
+`XSmall 12 · Small 14 · Body 16 · Large 18 · XLarge 24 · XXLarge 32 ·
+Display 40 · Huge 48 · Gigantic 96`.
 
-**Stagger (ms between siblings):** `staggerMicro 20`, `staggerShort 50`, `staggerMedium 80`, `staggerLong 120`.
+Weights map to `Font.*` (`Light`, `Regular`, `Medium`, `DemiBold`,
+`Bold`, `Black`). Heading hierarchy uses DemiBold/Bold; body always
+Regular; chrome (clock, badges) uses Medium for the small-but-legible
+sweet spot.
 
-**Page transitions:** `pageParallaxOffset 0.3`, `pageScaleOut 0.92`.
+### 2.3 Geometry
 
-**Ripple:** `rippleDuration = slow (300)`, `rippleMaxRadius 2.5`, `rippleOpacity 0.12`.
+**Spacing** (`MSpacing`, base px × scaleFactor):
+`xs 5 · sm 10 · md 16 · lg 20 · xl 32 · xxl 40`. Default gap between
+related items is `sm`; between unrelated sections, `lg`. The grid is
+opinionated — designers don't get to pick "13".
 
-**Flick physics:** `flickDecelerationFast 8000`, `flickVelocityMax 5000`, `touchFlickDeceleration 25000`, `touchFlickVelocity 8000`.
+**Radii** (`MRadius`): `none 0 · sm 2 · md 4 · lg 6 · xl 8 · pill 999`.
+Default is `md`. The whole system is **sharp by default** — pills are
+reserved for the literal pill shape (badges, page indicators, the
+nav-bar pill itself). This is where Marathon visually diverges from
+iOS's pervasive rounded-rect language.
 
-### Spacing (`Theme/MSpacing.qml`) — base × `Constants.scaleFactor`
+**Touch targets**: `touchTargetMin 45 · Small 60 · Medium 70 · Large 90`.
+Even a status-bar tap zone uses `Min` — never less, regardless of icon
+size.
 
-| Token | px (base) |
-|---|---|
-| `xs` | 5 |
-| `sm` | 10 |
-| `md` | 16 |
-| `lg` | 20 |
-| `xl` | 32 |
-| `xxl` | 40 |
+### 2.4 Density grid
 
-**Touch targets** (HIG-aligned, scaled): `touchTargetMin 45`, `touchTargetSmall 60`, `touchTargetMedium 70`, `touchTargetLarge 90`.
+The shell ships at 720×1440 on the L5 and is laid out around a 24-column
+soft grid with `lg` (20 px) gutters. Cards span 22 columns (the canonical
+content width); status chrome occupies the full 24. Apps don't get a
+say in the column count — they get `MPage`, which enforces it.
 
-### Radius (`Theme/MRadius.qml`) — scaled
+---
 
-`none 0`, `sm 2`, `md 4`, `lg 6`, `xl 8`, `pill 999` (= `circle` = `full`).
+## 3. Surfaces & depth
 
-Default for most components is `md` (4). Pills (badges, page indicators) use 999.
+Depth comes from **two borders and a delta in surface lightness**, not
+from drop shadows. FBO-based shadows (`FastBlur` + `OpacityMask`) are
+banned on the etnaviv GLES2 path — they collapse the L5 to 2 fps. (See
+the `MARATHON_LAYER_SAMPLES` env / Etnaviv MSAA trap memory.)
 
-### Typography (`Theme/MTypography.qml`) — scaled
-
-- **Families:** `fontFamily = "Slate"`, `fontFamilyMono = "JetBrains Mono"` (alias `fontMonospace`).
-- **Sizes:** `XSmall 12`, `Small 14`, `Body 16`, `Large 18`, `XLarge 24`, `XXLarge 32`, `Display 40`, `Huge 48`, `Gigantic 96`.
-- **Weights:** `Light`, `Regular/Normal`, `Medium`, `DemiBold`, `Bold`, `Black` (mapped to `Font.*`).
-
-### Responsiveness (`Core/MBreakpoints.qml`, `Core/MResponsive.qml`)
-
-`MBreakpoints` (singleton) defines breakpoints in pixels — **not scaled**, since they describe physical/viewport dimensions:
-
-| Token | px | Helpers |
-|---|---|---|
-| `xs` | 320 | `isXS()`, `atLeastXS()` |
-| `sm` | 576 | `isSM()`, `atLeastSM()` |
-| `md` | 768 | `isMD()`, `atLeastMD()` |
-| `lg` | 1024 | `isLG()`, `atLeastLG()` |
-| `xl` | 1280 | `isXL()`, `atLeastXL()` |
-| `xxl` | 1536 | `isXXL()`, `atLeastXXL()` |
-
-`MResponsive` is a non-singleton wrapper instantiated per screen/page. Set `screenWidth`, read `currentBreakpoint`, `isMobile/isTablet/isDesktop`, or call `value({xs: a, sm: b, ...})` / `columns({...})` for token-picking.
-
-## Module map
-
-QML modules registered via `qt6_add_qml_module` under `marathon-ui/`:
-
-| URI | Contents |
-|---|---|
-| `MarathonUI.Theme` | `MColors`, `MElevation`, `MMotion`, `MSpacing`, `MRadius`, `MTypography` (all singletons) |
-| `MarathonUI.Core` | `MButton`, `MIconButton`, `MCircularIconButton`, `MImageButton`, `MLabel`, `MTextInput`, `MTextArea`, `MContainer`, `MAppIcon`, `Icon`, `MDateTimePicker`, `MEmptyState`, `MGrid`, `MBreakpoints` (singleton), `MResponsive` |
-| `MarathonUI.Containers` | `MApp`, `MCard`, `MFormCard`, `MFormField`, `MLayer`, `MListItem`, `MListTile`, `MPage`, `MPanel`, `MPullToRefresh`, `MScrollView`, `MSection`, `MSectionHeader`, `MSettingsListItem`, `MSwipeDelegate` |
-| `MarathonUI.Controls` | `MCheckbox`, `MComboBox`, `MDropdown`, `MRadioButton`, `MRadioGroup`, `MSlider`, `MToggle` |
-| `MarathonUI.Effects` | `MHaptics`, `MRipple` |
-| `MarathonUI.Feedback` | `MActivityIndicator`, `MBadge`, `MProgressBar` |
-| `MarathonUI.Lists` | `MDivider` |
-| `MarathonUI.Modals` | `MConfirmDialog`, `MModal`, `MSheet` |
-| `MarathonUI.Navigation` | `MActionBar`, `MAppRouter`, `MBottomBar`, `MNavigationPane`, `MPageIndicator`, `MSwipeView`, `MTabBar`, `MTopBar` |
-
-`MarathonUI.Theme` is self-contained. `Core`/`Containers`/etc. import both `MarathonUI.Theme` and `MarathonOS.Shell` (for `Constants.scaleFactor`); MarathonUI is not usable standalone without the shell's `Constants` singleton on the QML import path.
-
-`MAppRouter` is in `MarathonUI.Navigation` despite being non-visual: it's a `StackView`-driven route controller (`pushRoute(name, props)` / `popRoute()`, `routeMap`, deep-link integration with `NavigationRouter`). The location follows platform convention — iOS UIKit groups `UINavigationController` under Navigation, AndroidX puts the Navigation Component under `androidx.navigation` — so "routing primitive belongs in Navigation" is the canonical reading, not a misfile.
-
-### Press feedback (state-of-the-art reference)
-
-The scale + spring + haptic pattern below is consistent with **Material 3 Expressive** (Google I/O 2025), which moved away from flat color-only press states to springy scale + haptic rumble across primary controls, and with iOS HIG's long-standing scale-on-press for buttons. Earlier Marathon documentation suggested "color-only, no scale, BB10-strict" — that guidance is **deprecated**; the BB10 aesthetic is preserved via sharp corners, dual-border depth, the teal palette, and OLED-black surfaces, not by removing motion.
-
-## Component conventions
-
-### Press feedback
-
-Marathon UI buttons / cards / interactive surfaces use **scale + color shift + haptic + (sometimes) ripple**. The typical pattern:
-
-```qml
-scale: pressed ? 0.96 : 1.0
-Behavior on scale {
-    SpringAnimation { spring: MMotion.springMedium; damping: MMotion.dampingMedium; epsilon: MMotion.epsilon }
-}
-onPressed: MHaptics.light()
-```
-
-Press-scale conventions used in current code:
-
-| Component | Scale on press |
-|---|---|
-| `MButton`, `MCircularIconButton`, `MImageButton`, `MCard`, `MActionBar`, `MTabBar` action | 0.96 |
-| `MIconButton`, `MCheckbox`, `MRadioButton` | 0.92 |
-| `MSlider` handle | 1.15 (grows on grab) |
-| `MModal`, `MConfirmDialog`, `MSheet`, `MComboBox`/`MDropdown` menu | enter at 0.9–0.95, spring to 1.0 |
-
-### Depth (dual border)
+The canonical depth recipe:
 
 ```qml
 Rectangle {
     color: MElevation.getSurface(elevation)
     border.color: MElevation.getBorderOuter(elevation); border.width: 1
-    Rectangle {
+    Rectangle {                                  // inner highlight
         anchors.fill: parent; anchors.margins: 1
         color: "transparent"
         border.color: MElevation.getBorderInner(elevation); border.width: 1
@@ -256,58 +178,457 @@ Rectangle {
 }
 ```
 
-### Haptics
+Two 1 px borders, two SDF-friendly draws, zero shaders. Reads as depth
+on OLED because the outer border crushes to absolute black while the
+inner highlight catches the panel's micro-emission.
 
-`MHaptics` (singleton in `MarathonUI.Effects`) is the QML entry point used by `marathon-ui` components, which must not depend on shell-specific types. It exposes `light()`, `medium()`, `heavy()`, `selection()`, `success()`, `error()`, `warning()`, `impact(intensity, duration)`, and forwards everything to its `backend` property — a `QtObject` injected once by the shell at startup. Use `light()` for taps, `medium()` for swipe thresholds, `heavy()` / `error()` for destructive confirmations.
+**`MultiEffect` exception.** Qt 6.5+'s `MultiEffect` (one shader pass,
+not the chained-FBO `QtGraphicalEffects` of Qt 5) is permitted only for
+*transient* surfaces that mount and unmount inside ~300 ms: `MModal`,
+`MSheet`, `MConfirmDialog`, `MComboBox`/`MDropdown` menus. Never on
+persistent chrome, cards, list rows, or status bar — those use `MGlass`
+(see §7) or the dual-border recipe.
 
-The backend is the C++ `HapticManager`, registered as a QML singleton on `MarathonOS.Shell 1.0` (per CODING_RULES C11 — no context properties). Shell-side QML can call `HapticManager.light()` directly; reusable `marathon-ui` components must go through `MHaptics` so they stay decoupled from the shell module.
+---
 
-### Ripple
+## 4. Motion
 
-`MRipple` is an opt-in overlay. `MCard` uses it; buttons typically don't (scale + haptic is sufficient and cheaper). Trigger from the touch point:
+Motion is the system's nervous system. Every interactive surface,
+transition, settle, and pulse picks a **role** from `MMotion.roles` and
+reads its physics from there. Roles encode *meaning* — "a tap settling",
+"a panel pulling down" — not raw numbers. Tuning the system means
+editing the table, not 200 call sites.
+
+### 4.1 Role table (`MMotion.roles`)
+
+| Role | When | Duration | Stiffness (spatial) | Damping (spatial) |
+|---|---|---|---|---|
+| `microPress` | Press-down haptic, scale to 0.97 | 80 ms | High (4.0) | Critical (1.0) |
+| `press` | Same as microPress, distinct semantic for press-hold | 80 ms | High | Critical |
+| `tap` | Press-release, chip toggle (default if role missing) | 120 ms | Medium (2.0) | 0.35 |
+| `hover` | State colour, focus ring fade | 150 ms | Medium | 0.30 |
+| `nav` | Page **push** in `MStackView`, tab change | 220 ms | VeryLow (0.5) | 0.25 |
+| `hero` | Hero / cross-fade page transitions | 320 ms | VeryLow | 0.18 |
+| `predictiveBack` | Back-gesture in-flight + commit | 220 ms | Low (1.0) | Critical |
+| `modal` | Dialog / sheet open / close | 240 ms | Low | 0.22 |
+| `panel` | QS shade pull, status reveal | 300 ms | Low | 0.20 |
+| `sheet` | Full-bleed sheet (settings deep page) | 320 ms | Low | 0.20 |
+| `entrance` | List-item stagger, app-grid first-paint | 220 ms | Low | 0.25 |
+| `pulse` | Infinite attention loops (chevron, ringing) | 1200 ms | Low | 0.15 |
+
+**Two-family damping.** Each role splits its physics across spatial
+(position, size, rotation) and effects (color, opacity). Spatial
+damping is underdamped (springy "alive" feel). Effects damping is
+always `dampingCritical` — a button background that overshoots to a
+darker shade looks broken.
+
+```qml
+SpringAnimation {
+    spring: MMotion.stiffnessSpatialFor("nav")
+    damping: MMotion.dampingSpatialFor("nav")
+    epsilon: MMotion.epsilon
+}
+ColorAnimation {
+    duration: MMotion.durationFor("hover")
+    // colour is an effect; never use spatial damping here
+}
+```
+
+### 4.2 Page transitions (`MStackView`)
+
+Push and pop deliberately have **different stiffness**. A new page
+arriving is grand and deliberate (`pushStiffness = stiffnessSpatialFor("nav") = VeryLow`,
+~600 ms grand iOS-style arrival). Going back is snappy and decisive
+(`popStiffness = stiffnessMedium`, ~300-500 ms). Both critical-damped
+on pop — there's no "did it land?" ambiguity going back.
+
+Parallax: the outgoing page lags the incoming one at
+`pageParallaxOffset = 0.3` (30% of travel). iOS uses ~25-30%; that
+number IS the iOS-feel anchor.
+
+### 4.3 Predictive back (Android M3 Expressive spec)
+
+Marathon's predictive-back honours the published Android tokens
+verbatim because there's no reason to be clever:
+
+- Exit screen: `1.0 → 0.9` scale
+- Enter screen: `1.10 → 1.00` scale (subtle overshoot in)
+- Fade threshold: 35% of progress
+- Shared-element shift: `max(0, width/20 - 8 dp)` per-axis, with 8 dp
+  edge clamp
+- Easing: `(0.1, 0.1, 0.0, 1)`
+
+In the shell, `MarathonNavBar.backProgress` (0..1) tracks the leftward
+drag distance against `width * 0.55`. `MarathonShell` binds
+`appWindowContainer.scale` and `opacity` through those tokens. Spring-
+back on cancel is gated on `!navMouseArea.pressed` so the drag itself
+tracks the finger 1:1 — the spring only fires on cancel.
+
+### 4.4 Reduce motion
+
+`MMotion.reduceMotion` is the central toggle. Bound at app startup from
+GNOME (`org.gnome.desktop.interface enable-animations`) or KDE
+(`KAccessibilityCommon.skipFancyEffects`). When true:
+
+- `dur(token)` returns `micro` (80 ms)
+- `ease(token)` returns `Easing.OutQuad` (no overshoot)
+- `MMotion.gate(cond)` returns false for infinite loops
+
+Every animation goes through these helpers or the role accessors. No
+freehand `NumberAnimation { duration: 300 }` — the audit catches them.
+
+### 4.5 Reduce blur / translucency level
+
+Companion to reduce-motion. `MMotion.reduceBlur` switches `MGlass` to
+an opaque chrome rendering. `MMotion.translucencyLevel` (0..1) is the
+soft knob Apple shipped as the iOS 27 translucency slider — multiplies
+blur radius + tint opacity proportionally. At 0.0 it collapses to
+reduce-blur; at 1.0 the chrome gets full effect.
+
+---
+
+## 5. Gestures & touch
+
+The pill at the bottom of `MarathonNavBar` is the **single touchpoint
+for system navigation**. Its semantic surface area:
+
+| Gesture | Effect |
+|---|---|
+| Tap | (nothing — it's a status affordance, not a button) |
+| Short swipe up | Minimize app / dismiss keyboard / dismiss search |
+| Long swipe up | Go home (app → app switcher → home) |
+| Long-press in left zone (< 15% from left) | Toggle search |
+| Long-press in right zone (> 85%) | Toggle keyboard |
+| Swipe left (in app) | **Back** — pop a subview, or background the app if at root |
+| Swipe right (in app) | Cancel back / forward where applicable |
+
+Back-swipe drives **predictive back**: `backProgress` rises with finger
+travel; the foreground app shrinks proportionally toward 0.9. On
+release past 50% threshold OR with velocity > 500 px/s, commit fires
+`swipeBack` → `AppLifecycleManager.handleSystemBack()` → app-runner DBus
+→ app's `MAppRouter.popRoute()` (subview pop) or falls through to
+`closeApp()`.
+
+**Edge zones.** The 15%/85% split is the system-wide gesture-zone
+contract — apps must not steal touches in those columns. `MAppWindow`
+clips them.
+
+**Haptic coupling.** Every gesture threshold fires a haptic in the same
+frame the spring starts. `MHaptics.light()` for taps, `medium()` for
+gesture thresholds (short swipe up, search open), `heavy()` / `error()`
+for destructive confirmations (power-menu reset, app-uninstall).
+Springs and haptics fire together — never one without the other.
+
+---
+
+## 6. Materials & effects
+
+### 6.1 `MGlass`
+
+The chrome material. A `ShaderEffectSource` samples the live
+framebuffer behind the surface, a `MultiEffect` runs a single-pass blur
++ tint, and the result is the lightly translucent panel the user sees
+for the status bar, top bar, nav bar, dock, NowBar, QS shade, modals,
+sheets, dropdowns.
+
+Reads `MMotion.reduceBlur` and `MMotion.translucencyLevel` automatically.
+Caller picks blur radius via `MBlur.blurFor(role)` — never an inline
+number:
+
+| Role | `MBlur.blurFor` | Use |
+|---|---|---|
+| `chrome` | 24 px | status bar, top bar, nav bar, dock, NowBar |
+| `sheet` | 24 px | modal sheets, full-bleed sheets, QS shade |
+| `dropdown` | 8 px | combo dropdowns, autocomplete popovers |
+| `halo` | 8 px | focus halos / glows |
+| `hairline` | 2 px | sub-1px glass tint on flat surfaces |
+
+### 6.2 In-process compositor as material moat
+
+This is the part competitors can't copy. Marathon's compositor + shell
++ every app surface live in one Qt scenegraph. That gives us, for free:
+
+- **Sub-frame chrome+app coherence.** The status-bar reveal, nav-bar
+  pill morph, and app-window scale can land in one composed frame.
+  Wlroots-based stacks (phosh, gnome-shell-mobile) cannot — they're
+  multi-process and pay one IPC round-trip per surface state change.
+- **Live-surface textures in chrome.** The app's actual Wayland surface
+  can be sampled by a `ShaderEffectSource` and displayed as a
+  thumbnail, a glass-blurred backdrop, or a recents-card live preview —
+  no separate snapshot capture. iOS does this; on Linux only Marathon
+  currently can.
+- **Zero-IPC scenegraph effects.** Drag-a-card-and-it-shrinks-the-app
+  is one binding evaluation, not a `wl_surface.commit` round-trip.
+
+These aren't future plans — they're the substrate the existing
+predictive-back, vertical-minimize, and pop transitions already use.
+Future work (live activities, glass-architecture lensing, recents
+live-thumbs) compounds the advantage.
+
+**Trade-off acknowledged.** A shell crash kills every app. Mitigation:
+the cgroup v2 freezer + state-machine lifecycle (`AppLifecycleManager`)
++ `BeginBackgroundTask` model means apps survive shell restarts via
+their separate processes. The compositor-split path is parked
+(see `project_compositor_split_deferred` memory) — discipline beats
+process boundaries here.
+
+---
+
+## 7. Chrome system
+
+### 7.1 Status bar
+
+Top 50 px (scaled). Glass material at `MBlur.blurFor("chrome")` with
+`MColors.glassTitlebar` tint. Left cluster: battery + percent. Centre:
+lock icon (lockscreen only) or `time`. Right cluster: signal · LTE ·
+wifi · bluetooth.
+
+The clock is *the* legibility test for the system — if it doesn't read
+crisp on a teal-gradient lockscreen wallpaper, the type system is wrong.
+
+### 7.2 Top bar (`MTopBar`)
+
+Per-app chrome. Title in `XLarge` DemiBold; back chevron + optional
+search icon at right. Background is glass for content-bleeding pages,
+opaque `surface` for list-based pages (Settings, Notes). Apps pick by
+declaring `topBarStyle: "glass" | "solid"` on `MPage`.
+
+### 7.3 Tab bar (`MTabBar`)
+
+Bottom-of-content tabs. Two visual treatments:
+
+- **Underline** (default): a single 2 px teal-glow underline tracks
+  between tabs via a shared-element `Behavior on x`. Cheaper to draw
+  than chips, reads as iOS-native.
+- **Pill** (opt-in): a `pill` radius capsule slides behind the active
+  tab. Higher visual weight; reserved for primary nav (Mail folder
+  picker, Calendar view switcher).
+
+Both share the same animation token (`MMotion.stiffnessSpatialFor("tap")`).
+
+### 7.4 Nav bar (`MarathonNavBar`)
+
+System bottom strip. Pill centred at the bottom, 4 px tall (`xs`
+spacing), `pill` radius. The strip is its own MouseArea — every system
+gesture starts here. No tap action on the pill itself; it's a
+*status affordance* (white when shell-active, dim when an app has
+focus stolen, hidden in pin-screen mode).
+
+### 7.5 Quick Settings shade
+
+Pulled down from the top by the status bar's vertical gesture (or
+swiped down on the nav-bar pill — that path is shared between QS dismiss
+and minimize, disambiguated by start-Y). Two-stage shade: condensed
+"split-shade" (brightness slider + 4 toggles) above 50% pull;
+full-page chips + media controls below. Inspired by OneUI 7's
+split-shade pattern — premium feel without the chrome cost of two
+separate panels.
+
+### 7.6 NowBar (planned)
+
+A live-activity surface that promotes itself when the shell has an
+active call, playing media, navigation in progress, or a running timer.
+**One** canonical surface; features promote into it, they don't ship
+their own widget. Visual contract: glass material, 40 px tall, primary
+text + secondary metadata + dismiss/expand affordance. Mounts above
+the nav bar, below the app content.
+
+---
+
+## 8. Components
+
+### 8.1 Press feedback
+
+The canonical recipe — every interactive surface in Marathon UI uses
+it:
+
+```qml
+scale: pressed ? 0.96 : 1.0
+Behavior on scale {
+    SpringAnimation {
+        spring: MMotion.springMedium      // or stiffnessSpatialFor("tap")
+        damping: MMotion.dampingMedium
+        epsilon: MMotion.epsilon
+    }
+}
+onPressed: MHaptics.light()
+```
+
+**Press-scale convention:**
+
+| Component | Scale on press |
+|---|---|
+| `MButton`, `MCircularIconButton`, `MImageButton`, `MCard`, `MActionBar`, `MTabBar` action | 0.96 |
+| `MIconButton`, `MCheckbox`, `MRadioButton` | 0.92 |
+| `MSlider` handle | 1.15 (grows on grab) |
+| `MModal`, `MConfirmDialog`, `MSheet`, `MComboBox`/`MDropdown` menu | enter at 0.9-0.95, spring to 1.0 |
+
+The earlier guidance "color-only, no scale, BB10-strict" is **deprecated**.
+The BB10 aesthetic is preserved via sharp corners, dual-border depth,
+the teal palette, and OLED-black surfaces — *not* by removing motion.
+Material 3 Expressive's Google I/O 2025 reset confirmed: flat colour
+states without spring are a 2018 pattern.
+
+### 8.2 Ripple (`MRipple`)
+
+Opt-in overlay. `MCard` uses it; buttons typically don't (scale + haptic
+is sufficient and cheaper). Trigger from the touch point:
 
 ```qml
 MRipple { id: ripple }
 TapHandler { onTapped: (e) => ripple.trigger(Qt.point(e.position.x, e.position.y)) }
 ```
 
-## Performance rules
+`MMotion.rippleDuration = slow (300 ms)`, `rippleMaxRadius 2.5x`,
+`rippleOpacity 0.12`. Teal-tinted (`MColors.ripple`), never white.
 
-These are the rules the rendering pipeline depends on. Violating them is detected at review.
+### 8.3 Haptics (`MHaptics`)
 
-1. **Opaque first.** All fills are fully opaque except for: modal overlays (`MColors.overlay`, 85%), glass chrome (`glass*` tokens, 72–85%), ripple (12%), accent tints. Don't introduce new 90–95% alpha "for the look."
-2. **No `layer.enabled`** except for SVG colorisation in `Icon.qml`. No `FastBlur` / `GaussianBlur` anywhere. `MultiEffect` is permitted **only on transient popup surfaces** — `MModal`, `MSheet`, `MConfirmDialog`, `MComboBox` / `MDropdown` menus. Rationale: Qt 6.5+'s `MultiEffect` combines multiple effects into a single shader pass (unlike the chained-FBO `QtGraphicalEffects` of Qt 5) and is the official replacement; for a dropdown that mounts for ~200ms and unmounts, one shader pass is acceptable. Everywhere else (cards, status bar, app grid, list rows, lock screen, anything persistent), depth uses the dual-border technique.
-3. **No `clip: true` unless overflow is real.** Stencil ops are expensive on Mali/Broadcom GPUs.
-4. **No infinite animations on hidden items.** Gate `running` on visibility (`running: lockScreen.visible`). See `CODING_RULES.md` C8 — this is a regression we paid for once.
-5. **Spring animations on `scale`/`opacity` only**, not on `width`/`height` (triggers layout recalculation).
-6. **ListView delegates use `cacheBuffer` and `reuseItems`.** Anything longer than ~20 items must be a delegate-recycling view, not a `Column`/`Row`.
-7. **Tokens, never inline hex.** Per `CODING_RULES.md` C12: colors, fonts, spacings, radii, durations live in the theme singletons. No inline `#1A1A1A` in 30 components.
+Singleton in `MarathonUI.Effects`. `light/medium/heavy/selection/
+success/error/warning/impact(intensity, duration)`. Forwards to a
+`backend: QtObject` injected once by the shell at startup (the C++
+`HapticManager` registered on `MarathonOS.Shell`). Reusable components
+must go through `MHaptics`, not `HapticManager` directly — that keeps
+`marathon-ui` decoupled from the shell module.
 
-## Migration notes
+---
 
-For files predating this design system you may see:
+## 9. Accessibility & inclusivity
 
-- `import "../components/ui"` and `Button { … }` — migrate to `import MarathonUI.Core` and `MButton { … }`.
-- `Constants.animationFast` — equivalent to `MMotion.fast`. Prefer `MMotion` going forward.
-- Inline `#0F0F0F` / `#1A1A1A` — these match neither `MColors` nor `MElevation`. Replace with the nearest `MColors.surface*` or `MElevation.getSurface(level)`.
+These are *primitives*, not features.
 
-## Testing
+- **`MMotion.reduceMotion`** — bound from `org.gnome.desktop.interface
+  enable-animations`. Every animation routes through `dur()`/`ease()`
+  or `MMotion.roles` accessors.
+- **`MMotion.reduceBlur`** + **`MMotion.translucencyLevel`** — bound
+  from `org.gnome.desktop.a11y reduce-transparency`. `MGlass`
+  collapses to opaque chrome when reduce-blur is on; otherwise scales
+  blur+tint linearly by translucencyLevel.
+- **Touch-target floor** — `MSpacing.touchTargetMin 45 px` (scaled).
+  Even status-bar taps respect this — never less.
+- **Typography scaling** — every type token multiplies by
+  `Constants.scaleFactor`. The shell reads system DPI on init;
+  on-device font-size override (planned) reads from
+  `SettingsManager.fontScale`.
+- **High-contrast accent path** — the teal `marathonTealBright`
+  (`#1de9b6`) passes WCAG AAA against `bb10Black` for large text and
+  AA for body. The dim teals are for non-text decoration only.
+- **Screen reader** — `Accessible.name`/`role`/`description` on every
+  primitive in `MarathonUI.Core` and `Containers`. Apps inherit by
+  using the primitives; no custom QML draw paths should be reachable
+  by AT.
 
-```bash
-# Run with QML profiler attached
-QML_PROFILER=1 ./build/shell/marathon-shell-bin
+---
 
-# Overdraw + batches visualisers (catch alpha-stacking and tiny draws)
-QSG_VISUALIZE=overdraw ./run.sh
-QSG_VISUALIZE=batches  ./run.sh
+## 10. Performance contract
 
-# Texture memory + scene-graph info
-QSG_INFO=1 ./run.sh
-```
+The L5's etnaviv GLES2 is the floor; if it runs there at 60 fps it
+runs anywhere. These are the rules the rendering pipeline depends on:
 
-Targets: 60fps on Pi 4, <100ms gesture response, <500ms QML app launch, <1s native app launch, <100MB RSS for the UI process.
+1. **Opaque first.** All fills are fully opaque except for modal
+   overlays (`MColors.overlay` 85%), glass chrome (72-85%), ripple
+   (12%), accent tints. Don't introduce new 90-95% alpha "for the
+   look".
+2. **No `layer.enabled`** except for SVG colourisation in `Icon.qml`.
+   No `FastBlur` / `GaussianBlur` anywhere. `MultiEffect` permitted
+   only on transient popups (§3).
+3. **No `clip: true` unless overflow is real.** Stencil ops are
+   expensive on Mali/Broadcom/etnaviv.
+4. **No infinite animations on hidden items.** Gate `running` on
+   visibility OR via `MMotion.gate(cond)`. CODING_RULES C8.
+5. **Springs on `scale`/`opacity` only**, not on `width`/`height`
+   (triggers layout recalculation).
+6. **ListView delegates use `cacheBuffer` and `reuseItems`.** Anything
+   longer than ~20 items is a delegate-recycling view, not a Column/Row.
+7. **`MARATHON_LAYER_SAMPLES`** — every `layer.samples` value gates on
+   this env (default 4, override 0 on GPUs without HW MSAA). The L5
+   ships with override 0. See the Etnaviv MSAA trap memory.
+8. **Tokens, never inline hex.** CODING_RULES C12.
 
-## Status
+**Targets:** 60 fps on the L5 (etnaviv GC7000Lite) and Pi 5;
+< 100 ms gesture response (finger-down → first frame);
+< 500 ms QML app launch; < 1 s native app launch;
+< 100 MB RSS for the shell process at rest.
 
-- Target hardware: Raspberry Pi 4 (ARM Cortex-A72), HackBerry Pi, Droidian phones.
-- Source of truth: `marathon-ui/Theme/*.qml`. Update this doc whenever those files change.
+---
+
+## 11. Adoption rules
+
+### When adding a new component
+
+1. Belongs in `marathon-ui/` if reusable across apps + shell; in
+   `shell/qml/components/` if shell-only.
+2. Every color: `MColors`. Every spacing: `MSpacing`. Every radius:
+   `MRadius`. Every duration/spring: `MMotion.durationFor(role)` /
+   `MMotion.stiffnessSpatialFor(role)`. No inline values.
+3. Press feedback uses the canonical recipe (§8.1). Haptic + spring
+   fire together.
+4. If it has depth: dual-border (§3). If it's a transient popup:
+   `MultiEffect` allowed. Otherwise neither.
+5. Accessibility props (`Accessible.name`/`role`/`description`)
+   declared, not omitted.
+6. Lint clean, no `qmllint` warnings.
+
+### When bumping a token
+
+1. Identify the role being changed (a spring stiffness, a colour, a
+   duration). If it's not in a role table, propose a new role first.
+2. Update the role/token in `marathon-ui/Theme/*.qml`.
+3. Update **this doc**. The doc is the change log for the system.
+4. Sweep the codebase for inline duplicates of the old value
+   (`rg '#1de9b6' --type qml`) and migrate or leave a comment
+   explaining the exception.
+
+### Audit cadence
+
+Every ~50 commits or before a release, run a full audit:
+
+- `docs/ux-audit-rNNN.md` — drop the rev tag, summarise what regressed,
+  what improved, what's still on the backlog.
+- Visual regression: snap the canonical screens (lockscreen, home,
+  Settings root, Settings/WiFi, Calendar week, Mail inbox, Camera
+  viewfinder) and diff against the previous rev's snaps.
+- Performance: 60 fps swept on L5 + Pi 5; PSI Critical never sustained.
+
+---
+
+## 12. Open tabs (post-baseline backlog)
+
+What's known-missing as of this baseline. Each is a sub-doc / spike,
+not a vague aspiration:
+
+- **NowBar / Live Activities** — single promotion surface for
+  call/media/nav/timer (§7.6). Needs a NotificationModel-side
+  "ongoing + progress" field and a shell-side mount slot above the
+  nav-bar.
+- **Glass-architecture lensing** — let `MGlass` sample not just the
+  flat backdrop but a refracted lens view (iOS 26 Liquid Glass
+  pattern). Shader work; gates on `MMotion.reduceBlur`.
+- **Live recents thumbnails** — task switcher cards show a live
+  framebuffer of the running app (in-process compositor moat).
+- **Predictive-forward** — the opposite of predictive-back; a
+  next-page hint as the user starts a forward gesture (rare, but
+  iOS-grade polish).
+- **Variable font animation** — Slate is variable; animate weight on
+  hover/focus for hero numerals (clock, percentages, timers).
+- **Per-app accent override** — apps declare an accent in their
+  manifest; `MColors.accent` is alias-resolved per-app context, with
+  the marathonTeal as fallback.
+- **Spring-coupled chrome morph** — status bar height bound to scroll
+  position via the same spring as the page transition; chrome and
+  content move as one.
+
+---
+
+## Status & ownership
+
+- **Target hardware**: Librem 5 (i.MX 8M Quad + etnaviv GC7000Lite,
+  720×1440), Raspberry Pi 5 (Cortex-A76 + V3D, varies), pmOS QEMU
+  developer simulator.
+- **Source of truth**: `marathon-ui/Theme/*.qml`. This doc reflects
+  those files; when they diverge, update this doc.
+- **Cross-references**: `docs/CODING_RULES.md` for the surrounding
+  engineering rules (C8 lifecycle, C11 no-context-properties, C12
+  no-inline-values). `docs/ARCHITECTURE.md` for the shell process
+  model + in-process compositor rationale. `docs/MAPP_GUIDE.md` for
+  how apps consume the design system.
