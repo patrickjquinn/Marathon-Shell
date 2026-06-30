@@ -4,8 +4,8 @@ import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
-import Qt5Compat.GraphicalEffects
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import QtWebEngine
 
@@ -1063,7 +1063,7 @@ MApp {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.durationFor("hover")
                         }
                     }
                 }
@@ -1111,7 +1111,7 @@ MApp {
 
                     Behavior on width {
                         NumberAnimation {
-                            duration: 100
+                            duration: MMotion.micro
                         }
                     }
                 }
@@ -1717,12 +1717,17 @@ MApp {
                 }
             }
 
-            layer.effect: DropShadow {
-                horizontalOffset: 0
-                verticalOffset: 4
-                radius: 16
-                samples: 33
-                color: Qt.rgba(0, 0, 0, 0.6)
+            // Swapped from Qt5Compat DropShadow to MultiEffect — same
+            // visual (16 px blur @ 4 px down, 60% black) but uses the
+            // shipped QtQuick.Effects path and stays consistent with
+            // MShadow's own internal MultiEffect calls.
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 4
+                shadowBlur: 16.0 / 32.0
+                shadowColor: Qt.rgba(0, 0, 0, 0.6)
+                shadowOpacity: 1.0
             }
         }
 
@@ -1877,12 +1882,16 @@ MApp {
                 }
             }
 
+            // Tab/page x slide — was 350ms OutCubic. Spring-driven on
+            // the panel role so flings feel velocity-aware and short
+            // drags feel decisive.
             Behavior on x {
                 enabled: !isDragging
 
-                NumberAnimation {
-                    duration: 350
-                    easing.type: Easing.OutCubic
+                SpringAnimation {
+                    spring: MMotion.stiffnessSpatialFor("panel")
+                    damping: MMotion.dampingSpatialFor("panel")
+                    epsilon: MMotion.epsilon
                 }
             }
         }
