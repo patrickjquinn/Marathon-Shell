@@ -1,0 +1,22 @@
+[Unit]
+Description=Marathon · recover RS9116 wifi if SDIO probe timed out at boot
+Documentation=https://gitlab.com/purism/librem5/linux-next/-/issues — RS9116 SDIO -110 timeout
+# Run AFTER NetworkManager has tried to bring up wlan and found nothing.
+# Ordering it before NM would race the kernel's initial probe; ordering
+# it after means the script only fires when NM has already concluded
+# there is no wlan* interface, which is exactly when we want to retry.
+After=NetworkManager.service systemd-modules-load.service
+Wants=NetworkManager.service
+# No effect if the L5 in-kernel rsi_sdio driver isn't even present —
+# the script bails out cleanly in that case.
+ConditionPathExists=/sys/bus/platform/drivers/sdhci-esdhc-imx
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/marathon/marathon-wifi-recovery.sh
+RemainAfterExit=no
+# Output flows to journald via the script's `logger` calls, so no
+# StandardOutput= override needed.
+
+[Install]
+WantedBy=multi-user.target

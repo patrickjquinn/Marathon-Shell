@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=22
+pkgrel=23
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -94,6 +94,9 @@ source="
 	journald-l5.conf
 	marathon-boot.cmd
 	99-marathon-cpufreq-l5.rules
+	marathon-wifi-recovery.sh
+	marathon-wifi-recovery.service
+	95-marathon-wifi-rfkill.rules
 	"
 
 package() {
@@ -152,6 +155,26 @@ package() {
 	# msgs flood tty. Marathon replaces it at finalize time.
 	install -Dm644 "$srcdir/marathon-boot.cmd" \
 		"$pkgdir/usr/share/marathon/marathon-boot.cmd"
+
+	# RS9116 wifi recovery — the in-kernel SDIO probe on mmc1
+	# occasionally times out at boot (-110 ETIMEDOUT) and the kernel
+	# does not retry, so wlan never enumerates. The script tries to
+	# unbind+rebind the sdhci-esdhc-imx driver to re-run the pwrseq
+	# and re-probe the chip. The service runs once at boot; the udev
+	# rule re-runs it when the user toggles the wifi kill switch
+	# off→on, so the documented physical recovery actually works.
+	install -Dm755 "$srcdir/marathon-wifi-recovery.sh" \
+		"$pkgdir/usr/lib/marathon/marathon-wifi-recovery.sh"
+	install -Dm644 "$srcdir/marathon-wifi-recovery.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-wifi-recovery.service"
+	install -Dm644 "$srcdir/95-marathon-wifi-rfkill.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/95-marathon-wifi-rfkill.rules"
+	# Auto-enable the service at first boot. The systemd preset gets
+	# applied by marathon-base-config's preset file or directly via
+	# this symlink.
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-wifi-recovery.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-wifi-recovery.service"
 }
 
 sha512sums="
@@ -162,4 +185,7 @@ SKIP  eglfs-kms.json
 SKIP  journald-l5.conf
 SKIP  marathon-boot.cmd
 SKIP  99-marathon-cpufreq-l5.rules
+SKIP  marathon-wifi-recovery.sh
+SKIP  marathon-wifi-recovery.service
+SKIP  95-marathon-wifi-rfkill.rules
 "
