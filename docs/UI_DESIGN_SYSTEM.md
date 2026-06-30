@@ -592,7 +592,82 @@ Every ~50 commits or before a release, run a full audit:
 
 ---
 
-## 12. Open tabs (post-baseline backlog)
+## 12. Power model — Marathon-Doze
+
+Marathon does NOT use S3 suspend for the daily power-key / idle-timer
+flow. It uses **Marathon-Doze**: kernel stays running, display + GPU
+power-gated, background apps frozen via the cgroup v2 freezer, wifi
+in chip-level PSM (radio idles but association stays alive). Wake from
+Doze is sub-100 ms — no kernel resume penalty, no wifi/modem reattach,
+push connections survive. This is iOS Always-On / Android Doze in
+architecture; the daily user experience is "the screen turns off and
+back on, and everything is exactly where it was".
+
+### State machine
+
+| State | Visible | CPU | Display | Wifi/modem | Background apps |
+|---|---|---|---|---|---|
+| ACTIVE | yes | full | on | full power | per-app freezer policy |
+| DOZE | screen off | cpuidle WFI | KMS off, backlight 0 | PSM on, associated | frozen via cgroup |
+| SUSPEND (S3) | screen off | off | off | torn down | killed/lost |
+| OFF | — | — | — | — | — |
+
+Transitions:
+
+| From → To | Trigger |
+|---|---|
+| ACTIVE → DOZE | Power-key short press; idle-timer expiry (3 min default) |
+| DOZE → ACTIVE | Power-key short press; modem ring/SMS; incoming network packet (when WoWLAN supported) |
+| ACTIVE → SUSPEND | PowerMenu → "Deep Sleep" (explicit); critical-battery handler |
+| SUSPEND → ACTIVE | Power-key; rtcwake scheduled wake |
+| any → OFF | PowerMenu → "Power Off"; PowerMenu long-press |
+
+### Trade
+
+iOS-class always-reachable standby costs roughly 5-10× the idle draw
+of true S3. On L5's 4500 mAh battery that's ~3-5 days standby vs ~20
+days for S3 — still vastly better than screen-on, and the price of
+"push notifications actually work". Critical-battery + explicit
+"Deep Sleep" preserve the S3 path for the cases where battery beats
+reachability.
+
+### Code surface
+
+- `PowerPolicyController::enterDoze()` / `exitDoze()` — bundles the
+  policy (display off → freeze debounce 0 → wifi PSM on, and the
+  mirror on exit). `dozing` property visible from QML.
+- `PowerPolicyController::sleep()` — backwards-compat alias that now
+  routes to `enterDoze()` (was `m_powerManager->suspend()` historically).
+- `PowerPolicyController::deepSleep()` — the new explicit S3 path,
+  reserved for PowerMenu "Deep Sleep" + critical-battery.
+- `PowerBatteryHandlerCpp::turnScreenOff/On` — power-key entry point;
+  routes through `enterDoze` / `exitDoze` when PowerPolicy is wired.
+- `DisplayPolicyController::forceScreenOn` — r293; re-syncs `m_screenOn`
+  + emits `screenOnChanged` so QML hooks (dimState, idle timer) fire
+  on the resume edge.
+- `DisplayManagerCpp::setScreenState(true)` — r293; re-writes
+  `brightness` after `bl_power=0` to defeat the i.MX 8M PWM glitch.
+- `main.cpp` — wires `PowerManagerCpp::resumedFromSuspend` to BOTH
+  `forceScreenOn` (backlight) AND `exitDoze` (state cleanup if S3 was
+  triggered out-of-band).
+
+### Open questions (measured, not assumed)
+
+- Does i.MX 8M Quad cpuidle actually power-gate cores in WFI on
+  this kernel, or does it spin? Only `WFI` (1 µs) and `cpu-sleep`
+  (1500 µs) are exposed; no cluster-off state. Real power impact of
+  Doze vs S3 is TBD until clean fuel-gauge measurements land.
+- Does the Redpine `redpine_91x` driver tolerate long PSM windows
+  without dropping the association? Current state has `power_save off`.
+- Modem behaviour in long-Doze windows — the EG25-G udev rule
+  already keeps it reachable for calls/SMS, but the practical battery
+  cost over 12-hour standby isn't yet characterised.
+
+The architecture is committed; the tuning constants (idle-timer
+duration, PSM aggressiveness, optional foreground-app freezing at
+deep-Doze depth) iterate from the deployed baseline.
+
+## 13. Open tabs (post-baseline backlog)
 
 What's known-missing as of this baseline. Each is a sub-doc / spike,
 not a vague aspiration:
