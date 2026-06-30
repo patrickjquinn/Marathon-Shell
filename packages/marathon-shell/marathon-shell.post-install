@@ -34,4 +34,23 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload 2>/dev/null || true
 fi
 
+# Enable + start the OOM-score pinning sidecar (PWR-2). Polls for
+# marathon-shell-bin and writes oom_score_adj=-800 because the
+# user-instance systemd that spawns the shell scope can't set
+# negative values (no CAP_SYS_RESOURCE in user mode).
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable marathon-shell-oom.service 2>/dev/null || true
+    systemctl start marathon-shell-oom.service 2>/dev/null || true
+fi
+
+# Mask power-profiles-daemon if it slipped in via another dep. On
+# this hardware the ppd 'balanced'/'power-saver' profiles have a
+# PlatformDriver: placeholder — they don't actually change anything.
+# Keeping the daemon running just wastes ~1 MB RAM and an idle
+# DBus connection. Mask is no-op if ppd isn't installed.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl mask power-profiles-daemon.service 2>/dev/null || true
+fi
+
 exit 0

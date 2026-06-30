@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=23
+pkgrel=25
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -93,10 +93,11 @@ source="
 	eglfs-kms.json
 	journald-l5.conf
 	marathon-boot.cmd
-	99-marathon-cpufreq-l5.rules
 	marathon-wifi-recovery.sh
 	marathon-wifi-recovery.service
 	95-marathon-wifi-rfkill.rules
+	90-marathon-modem-wakeup.rules
+	50-marathon-l5-default-sink.conf
 	"
 
 package() {
@@ -130,12 +131,13 @@ package() {
 	install -Dm644 "$srcdir/journald-l5.conf" \
 		"$pkgdir/etc/systemd/journald.conf.d/90-marathon-l5.conf"
 
-	# CPU governor override — re-set performance AFTER marathon-base-
-	# config's 60-marathon-cpufreq.rules pins schedutil. udev rules fire
-	# lexicographically and the LAST write to scaling_governor wins, so
-	# 99- after 60- leaves the L5 at performance. See file header.
-	install -Dm644 "$srcdir/99-marathon-cpufreq-l5.rules" \
-		"$pkgdir/etc/udev/rules.d/99-marathon-cpufreq-l5.rules"
+	# CPU governor: marathon-base-config's 60-marathon-cpufreq.rules
+	# sets schedutil. The L5 keeps that default — the previous
+	# 99-marathon-cpufreq-l5.rules pinned `performance` to (allegedly)
+	# fix Marathon's cold-start lag, but left the device welded at
+	# 1.5 GHz on the lockscreen 24/7 (battery 56 °C, ~5× idle drain).
+	# Removed 2026-06-30 — if cold-start lag returns, tune schedutil's
+	# rate_limit_us or fall through to ondemand, do NOT re-pin perf.
 
 	# Mask iio-sensor-proxy.service: the lsm9ds1 accel driver hangs in
 	# st_lsm6dsx_read_raw on this hardware. iio-sensor-proxy independently
@@ -169,12 +171,30 @@ package() {
 		"$pkgdir/usr/lib/systemd/system/marathon-wifi-recovery.service"
 	install -Dm644 "$srcdir/95-marathon-wifi-rfkill.rules" \
 		"$pkgdir/usr/lib/udev/rules.d/95-marathon-wifi-rfkill.rules"
+
+	# Modem USB autosuspend/wakeup enable (PWR-6). Without `wakeup=enabled`
+	# the kernel refuses to runtime-suspend the modem (suspended device
+	# can't wake host without a wake source). Result is the modem stays
+	# `runtime_status: active` 99% of uptime with ~36 xhci interrupts/sec
+	# and ~0.1-0.2 W continuous draw. Rule lets the modem suspend between
+	# tower polls while still being able to wake on incoming traffic.
+	install -Dm644 "$srcdir/90-marathon-modem-wakeup.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/90-marathon-modem-wakeup.rules"
+
 	# Auto-enable the service at first boot. The systemd preset gets
 	# applied by marathon-base-config's preset file or directly via
 	# this symlink.
 	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
 	ln -sf ../marathon-wifi-recovery.service \
 		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-wifi-recovery.service"
+
+	# Wireplumber rule: prefer built-in speaker over HDMI for the
+	# default sink. Without it the L5 boots routing every system
+	# sound to the (usually unconnected) HDMI port and the user
+	# hears silence. /etc/wireplumber/wireplumber.conf.d/ is the
+	# canonical drop-in path read by wireplumber 0.5+.
+	install -Dm644 "$srcdir/50-marathon-l5-default-sink.conf" \
+		"$pkgdir/etc/wireplumber/wireplumber.conf.d/50-marathon-l5-default-sink.conf"
 }
 
 sha512sums="
@@ -184,8 +204,9 @@ SKIP  greetd-l5-env.conf
 SKIP  eglfs-kms.json
 SKIP  journald-l5.conf
 SKIP  marathon-boot.cmd
-SKIP  99-marathon-cpufreq-l5.rules
 SKIP  marathon-wifi-recovery.sh
 SKIP  marathon-wifi-recovery.service
 SKIP  95-marathon-wifi-rfkill.rules
+SKIP  90-marathon-modem-wakeup.rules
+SKIP  50-marathon-l5-default-sink.conf
 "

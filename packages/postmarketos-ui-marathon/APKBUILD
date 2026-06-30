@@ -32,7 +32,6 @@ depends="
 	pulseaudio-utils
 	bluez
 	upower
-	power-profiles-daemon
 	iio-sensor-proxy
 	geoclue
 	udisks2

@@ -1,0 +1,36 @@
+#!/bin/sh
+# marathon-shell-oom-pin — system-level OOM-score pinning sidecar.
+#
+# The shell process needs oom_score_adj=-800 (PERSISTENT_PROC bias) so
+# systemd-oomd + the kernel OOM killer reap apps and services BEFORE
+# reaping the shell itself. The user-instance systemd that spawns the
+# shell scope lacks CAP_SYS_RESOURCE, so --property=OOMScoreAdjust=-800
+# fails to apply (and the shell never launches if you try). See the
+# rationale comment in marathon-shell-session for the full story.
+#
+# This sidecar runs as root in the system slice, polls for the
+# marathon-shell-bin PID, and writes -800 to /proc/<pid>/oom_score_adj.
+# It rewrites after every shell restart (greetd's Restart=on-failure or
+# a manual `systemctl restart greetd`) without needing greetd to know.
+#
+# Cost is minimal: 5-second poll, ~1 ms of syscalls per iteration.
+
+set -eu
+
+TARGET_SCORE=-800
+POLL_INTERVAL=5
+
+while true; do
+    for pid in $(pgrep -f marathon-shell-bin 2>/dev/null); do
+        score_path="/proc/$pid/oom_score_adj"
+        [ -w "$score_path" ] || continue
+        cur=$(cat "$score_path" 2>/dev/null || echo "?")
+        if [ "$cur" != "$TARGET_SCORE" ]; then
+            if echo "$TARGET_SCORE" > "$score_path" 2>/dev/null; then
+                logger -t marathon-shell-oom \
+                    "pinned PID $pid oom_score_adj $cur → $TARGET_SCORE"
+            fi
+        fi
+    done
+    sleep "$POLL_INTERVAL"
+done

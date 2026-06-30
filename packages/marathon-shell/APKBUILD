@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=269
+pkgrel=282
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -41,7 +41,6 @@ depends="
 	pulseaudio-utils
 	networkmanager
 	upower
-	power-profiles-daemon
 	modemmanager
 	mmsd-tng
 	mobile-broadband-provider-info
@@ -100,6 +99,8 @@ source="
 	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	marathon-shell-session
 	marathon-touchctl
+	marathon-shell-oom-pin
+	systemd/marathon-shell-oom.service
 	pam-marathon-shell
 	90-backlight.rules
 	99-marathon-rtprio.conf
@@ -243,6 +244,17 @@ package() {
 	# the virtio-tablet "mouse" path which mis-tests touch gestures.
 	install -Dm755 "$srcdir/marathon-touchctl" \
 		"$pkgdir/usr/bin/marathon-touchctl"
+
+	# OOM-score pinning sidecar (PWR-2). The shell needs oom_score_adj
+	# = -800 so apps + services get reaped before the shell itself, but
+	# user-instance systemd lacks CAP_SYS_RESOURCE — see the rationale
+	# block in marathon-shell-session around "Do NOT setcap" — so we
+	# ship a tiny system-level service that polls for the shell PID
+	# and writes the score directly. Enabled by post-install.
+	install -Dm755 "$srcdir/marathon-shell-oom-pin" \
+		"$pkgdir/usr/libexec/marathon-shell-oom-pin"
+	install -Dm644 "$srcdir/marathon-shell-oom.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-shell-oom.service"
 
 	# PAM stack -- required for screen unlock + biometric auth.
 	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
