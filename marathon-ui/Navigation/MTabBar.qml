@@ -24,9 +24,41 @@ Rectangle {
 
     signal tabSelected(int index)
 
+    // ── Shrink-on-scroll · iOS 26 / M3 Expressive chrome ───────────
+    // Same scrollSource contract as MTopBar / MBottomBar — bind to
+    // a Flickable to enable shrink-on-down, expand-on-up. Unbound =
+    // legacy fixed-height.
+    property var scrollSource: null
+    property bool minimized: false
+    property real _lastContentY: 0
+
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
-    height: Math.round(70 * scaleFactor)
+    readonly property real barHeight: Math.round(70 * scaleFactor)
+    readonly property real barHeightMin: Math.round(44 * scaleFactor)
+    height: minimized ? barHeightMin : barHeight
     color: MColors.glassTabbar
+
+    Behavior on height {
+        SpringAnimation {
+            spring: MMotion.stiffnessSpatialFor("modal")
+            damping: MMotion.dampingSpatialFor("modal")
+            epsilon: MMotion.epsilon
+        }
+    }
+
+    Connections {
+        target: root.scrollSource
+        function onContentYChanged() {
+            if (!root.scrollSource)
+                return;
+            var cy = root.scrollSource.contentY;
+            if (cy > root._lastContentY + 8 && cy > 20)
+                root.minimized = true;
+            else if (cy < root._lastContentY - 8)
+                root.minimized = false;
+            root._lastContentY = cy;
+        }
+    }
 
     // Top hairline divider per DS.
     Rectangle {
