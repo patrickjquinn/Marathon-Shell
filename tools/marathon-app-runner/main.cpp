@@ -981,10 +981,18 @@ int main(int argc, char *argv[]) {
 
     AppRunnerLifecycleObject lifecycleObj;
     {
-        const qint64  pid = QCoreApplication::applicationPid();
-
-        const QString serviceName = QStringLiteral("org.marathonos.AppRunner.pid%1").arg(pid);
-        auto          bus         = QDBusConnection::sessionBus();
+        // Use the app-id rather than the PID. The runner runs inside a
+        // bwrap PID namespace where applicationPid() returns 2 for
+        // every app (PID 1 is the namespace init), so PID-based service
+        // names like AppRunner.pid2 collided across every running app
+        // and registration silently failed. There is at most one runner
+        // per app id, and the shell already routes per-app via the
+        // same identifier, so AppRunner.<appId> is unique and stable.
+        const QString sanitizedAppId = QString(appId).replace(
+            QRegularExpression(QStringLiteral("[^A-Za-z0-9_]")), QStringLiteral("_"));
+        const QString serviceName =
+            QStringLiteral("org.marathonos.AppRunner.%1").arg(sanitizedAppId);
+        auto bus = QDBusConnection::sessionBus();
         if (bus.isConnected()) {
             if (!bus.registerService(serviceName)) {
                 qWarning() << "[marathon-app-runner] Failed to register DBus service" << serviceName

@@ -574,8 +574,14 @@ MApp {
                             return MColors.textPrimary;
                         }
                         font.family: MTypography.fontFamily
-                        font.pixelSize: modelData.type === "primary" ? 28 : 24
-                        font.weight: modelData.type === "primary" ? Font.DemiBold : Font.Light
+                        // = on the primary key was rendering as a thin
+                        // single bar at DemiBold 28 px on Sora's hinting,
+                        // visually identical to the `−` operator one row
+                        // up. Bumping the primary key to Bold + 32 px
+                        // gives the equals a heavier visible body so the
+                        // two horizontal strokes register as separate.
+                        font.pixelSize: modelData.type === "primary" ? 32 : 24
+                        font.weight: modelData.type === "primary" ? Font.Bold : Font.Light
                     }
 
                     scale: keyArea.pressed ? 0.96 : 1.0

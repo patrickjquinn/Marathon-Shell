@@ -381,6 +381,31 @@ QString DesktopFileParser::cleanExecLine(const QString &exec) {
 }
 
 bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
+    // Known dev/admin/diagnostic tools that ship as standard .desktop
+    // entries on Alpine + postmarketOS but are NOT consumer surfaces.
+    // Hiding by id (= .desktop basename) keeps the home grid free of
+    // Foot / Foot Client / Foot Server / Htop / Test Suite / Alacritty
+    // / Camera Dev Pre etc. without needing every fork to know about
+    // freedesktop's NoDisplay convention.
+    static const QSet<QString> kHiddenDevTools{
+        "alacritty",
+        "foot",
+        "foot-client",
+        "foot-server",
+        "htop",
+        "btop",
+        "lxterminal",
+        "xterm",
+        "uxterm",
+        "qterminal",
+        "marathon-test",
+        "marathon-dev",
+        "marathon-camera-dev-pre",
+    };
+    const QString idLower =
+        QFileInfo(app.value("desktopFile").toString()).completeBaseName().toLower();
+    if (kHiddenDevTools.contains(idLower))
+        return false;
 
     if (app.contains("purismFormFactor")) {
         QStringList formFactors = app["purismFormFactor"].toStringList();
