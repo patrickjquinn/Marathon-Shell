@@ -1182,6 +1182,13 @@ Item {
         property real finalScale: 0.65
         property real currentGestureScale: 1 - (navBar.gestureProgress * 0.35)
         property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
+        // Predictive-back shrink (Material 3 Expressive): 1.0 → 0.9 driven
+        // by navBar.backProgress (0..1) during left-drag on the pill.
+        // Fade-through past MMotion.backFadeThreshold gives the user a
+        // sense the page is "about to leave" — but stays subtle so the
+        // commit (actual pop) still feels like the main visual event.
+        property real backScale: 1.0 + (MMotion.backExitScaleEnd - MMotion.backExitScaleStart) * navBar.backProgress
+        property real backOpacity: navBar.backProgress > MMotion.backFadeThreshold ? 1.0 - ((navBar.backProgress - MMotion.backFadeThreshold) / (1.0 - MMotion.backFadeThreshold)) * 0.15 : 1.0
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
 
         // Apps render full-screen behind the navBar so their content (gradients,
@@ -1193,11 +1200,17 @@ Item {
         // Tab-bar capture is handled at the navBar.MouseArea level instead,
         // where only swipes from the bottom-N px register as gestures.
         anchors.fill: parent
-        anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
+        anchors.margins: (navBar.gestureProgress > 0 || navBar.backProgress > 0) ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
-        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)
-        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1)
+        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale * backScale : backScale)
+        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? Math.min(currentGestureOpacity, backOpacity) : backOpacity)
+        // Predictive back: horizontal nudge so the page visibly "leans"
+        // toward the leading edge as the user pulls. Clamped via
+        // backEdgeClampDp so it never overshoots the chrome.
+        transform: Translate {
+            x: -MMotion.backSharedShiftX(appWindowContainer.width) * navBar.backProgress
+        }
 
         Connections {
             function onCurrentAppIdChanged() {

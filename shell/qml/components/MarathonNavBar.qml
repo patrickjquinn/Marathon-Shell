@@ -18,6 +18,34 @@ Rectangle {
     property bool searchActive: false
     property bool pinScreenMode: false
 
+    // ── Predictive back progress (0..1) ───────────────────────────
+    // Drives appWindowContainer scale + opacity in MarathonShell while
+    // the user holds + drags LEFT on the nav-bar pill. 0 = idle, 1 =
+    // committed (about to fire swipeBack on release). The shell binds
+    // this to backExitScaleStart→backExitScaleEnd (1.0 → 0.9) from
+    // MMotion via lerp so the foreground page shrinks proportionally
+    // to the gesture. On release: commit if >= 0.5 OR strong leftward
+    // velocity, otherwise spring back to 0 (cancel = rubber-band).
+    property real backProgress: 0
+    // Tunable: how far the finger must travel (px) to reach progress=1.
+    readonly property real backProgressTravel: width * 0.55
+
+    // Snap-back spring when backProgress drops to 0 on cancel. On
+    // commit we just let the page-pop transition take over (MStackView
+    // handles the actual visual pop).
+    Behavior on backProgress {
+        // Only animate during the spring-back / cancel path. During
+        // active drag we want backProgress to track the finger 1:1
+        // (so the foreground shrink feels physical, not lagged).
+        enabled: !navMouseArea.pressed
+
+        SpringAnimation {
+            spring: 4
+            damping: 0.5
+            epsilon: MMotion.epsilon
+        }
+    }
+
     signal swipeLeft
     signal swipeRight
     signal swipeBack
@@ -270,6 +298,16 @@ Rectangle {
                 currentX = diffX;
                 currentY = 0;
                 gestureProgress = 0;
+                // Predictive back — only when an app is open and
+                // user is dragging LEFT (diffX < 0). Progress is
+                // the leftward distance normalised against backProgressTravel,
+                // clamped to [0, 1]. The shell listens to backProgress
+                // and shrinks appWindowContainer toward backExitScaleEnd.
+                if (isAppOpen && diffX < 0) {
+                    navBar.backProgress = Math.min(1, -diffX / Math.max(1, navBar.backProgressTravel));
+                } else if (navBar.backProgress !== 0) {
+                    navBar.backProgress = 0;
+                }
             }
         }
         onReleased: mouse => {
@@ -380,7 +418,8 @@ Rectangle {
                 if (diffX < 0 || velocityX < 0) {
                     Logger.gesture("NavBar", "swipeLeft", {
                         "velocity": velocityX,
-                        "isAppOpen": isAppOpen
+                        "isAppOpen": isAppOpen,
+                        "backProgress": navBar.backProgress
                     });
                     if (isAppOpen)
                         swipeBack();
@@ -397,11 +436,15 @@ Rectangle {
                 currentX = 0;
                 currentY = 0;
                 gestureProgress = 0;
+                // commit — shell pop transition takes over from here.
+                navBar.backProgress = 0;
             } else {
                 Logger.info("NavBar", " GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY);
                 currentX = 0;
                 currentY = 0;
                 gestureProgress = 0;
+                // cancel — Behavior spring-snaps backProgress to 0.
+                navBar.backProgress = 0;
             }
             startX = 0;
             startY = 0;

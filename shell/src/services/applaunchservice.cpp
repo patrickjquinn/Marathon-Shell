@@ -10,6 +10,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QRegularExpression>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,7 +19,6 @@
 #include <QScreen>
 #include <QFileInfo>
 #include <QStandardPaths>
-#include <QRegularExpression>
 #include <QTimer>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -1161,15 +1161,33 @@ bool AppLaunchService::isMarathonAppId(const QString &appId) const {
     return false;
 }
 
-static QString runnerServiceNameForPid(qint64 pid) {
-    return QStringLiteral("org.marathonos.AppRunner.pid%1").arg(pid);
+// The runner registers DBus service `org.marathonos.AppRunner.<appId>`
+// (tools/marathon-app-runner/main.cpp ~L994 — the comment there spells
+// out why: pid-based names collided across every running app and
+// registration silently failed). The shell was NOT updated when the
+// runner moved off pid-based names, so every sendBackToRunner /
+// sendForwardToRunner call hit an invalid interface — the nav-bar
+// back gesture appeared to ALWAYS minimize the foreground app
+// instead of popping its subview stack, because handleSystemBack
+// saw handled=false and the shell fell through to UIStore.closeApp().
+//
+// Sanitize appId the same way the runner does so an app id
+// containing special characters maps to the same DBus name on
+// both sides.
+static QString sanitizedAppId(const QString &appId) {
+    static const QRegularExpression nonAlnum(QStringLiteral("[^A-Za-z0-9_]"));
+    return QString(appId).replace(nonAlnum, QStringLiteral("_"));
 }
 
-static bool callRunnerLifecycle(qint64 pid, const char *method) {
-    if (pid <= 0)
+static QString runnerServiceNameForAppId(const QString &appId) {
+    return QStringLiteral("org.marathonos.AppRunner.%1").arg(sanitizedAppId(appId));
+}
+
+static bool callRunnerLifecycle(const QString &appId, const char *method) {
+    if (appId.isEmpty())
         return false;
     QDBusInterface iface(
-        runnerServiceNameForPid(pid), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
+        runnerServiceNameForAppId(appId), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
         QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QDBusConnection::sessionBus());
     if (!iface.isValid())
         return false;
@@ -1180,13 +1198,11 @@ static bool callRunnerLifecycle(qint64 pid, const char *method) {
 }
 
 bool AppLaunchService::sendBackToRunner(const QString &appId) {
-    const qint64 pid = m_appIdToPid.value(appId, -1);
-    return callRunnerLifecycle(pid, "Back");
+    return callRunnerLifecycle(appId, "Back");
 }
 
 bool AppLaunchService::sendForwardToRunner(const QString &appId) {
-    const qint64 pid = m_appIdToPid.value(appId, -1);
-    return callRunnerLifecycle(pid, "Forward");
+    return callRunnerLifecycle(appId, "Forward");
 }
 
 #ifdef Q_OS_LINUX
