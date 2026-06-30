@@ -24,17 +24,26 @@ class LinuxDmabufFeedbackV1;
 // advertised at multiple versions — clients bind whichever they prefer.
 // Chromium binds v4 for the feedback events.
 //
-// SCOPE (spike): only the feedback request path is implemented. The
-// create_params request on a v4 binding returns a protocol error
-// (NOT_IMPLEMENTED-style), with the intent that Chromium falls back to
-// its v3 bind for actual buffer allocation. If that fallback doesn't
-// happen (Chromium strictly uses one version per global), we'll see
-// that immediately in the chromium stderr trace and extend the scope
-// to implement create_params + zwp_linux_buffer_params_v1 too.
+// SCOPE: feedback layer is the load-bearing piece (Chromium GPU
+// process + WPE WebKit both need v4 main_device events). create_params
+// is implemented as a graceful-fallback path — the spike does NOT
+// allocate dmabuf-backed wl_buffers itself (Qt's existing v3 plugin
+// handles that path); instead, the v4 binding's create_params/
+// create_immed paths emit `failed` events / produce inert wl_buffer
+// stubs so Qt's client retries on its v3 binding cleanly.
+//
+// Previously create_params posted an implementation_error which
+// terminated the wayland connection — that took out any Qt client
+// whose wayland-egl plugin happened to bind v4 (the higher version)
+// and then call create_params. Live regression: per-app QML loaded
+// from disk (qrc-strip hot-deploy) crashed marathon-app-runner with
+// "create_params not implemented on v4 binding". Now we keep the wire
+// protocol valid + signal failure via the documented mechanism so the
+// client can fall through.
 //
 // Pattern follows FifoV1: per-process Manager owns the wl_global,
 // per-client Feedback object owns one wp_linux_dmabuf_feedback_v1
-// resource.
+// resource. BufferParamsV1 is a transient per-create_params resource.
 
 class LinuxDmabufManagerV1 : public QObject {
     Q_OBJECT
@@ -95,6 +104,32 @@ class LinuxDmabufManagerV1 : public QObject {
     int     m_formatTableFd      = -1;
     quint32 m_formatTableSize    = 0;
     quint32 m_formatTableEntries = 0;
+};
+
+// zwp_linux_buffer_params_v1 — transient per-create_params resource.
+//
+// This implementation intentionally does NOT perform dmabuf import.
+// It exists solely to keep the wire protocol valid on the v4 binding
+// when a client (Qt's wayland-egl plugin in particular) calls
+// create_params expecting v3-compatible buffer allocation. On the
+// create() request we emit the .failed event so the client cleans up
+// and (in Qt's case) falls through to a v3 binding that does
+// implement allocation. On create_immed() we MUST create a wl_buffer
+// (new_id is mandatory) but it's a stub with no backing — the client
+// gets a .release event immediately and discards it.
+//
+// The add() request closes the supplied fd (we will never use it)
+// and otherwise no-ops; the alternative is leaking client fds.
+class LinuxDmabufBufferParamsV1 {
+  public:
+    static void handleDestroy(struct wl_client *, struct wl_resource *);
+    static void handleAdd(struct wl_client *, struct wl_resource *, int32_t fd, uint32_t plane_idx,
+                          uint32_t offset, uint32_t stride, uint32_t modifier_hi,
+                          uint32_t modifier_lo);
+    static void handleCreate(struct wl_client *, struct wl_resource *, int32_t width,
+                             int32_t height, uint32_t format, uint32_t flags);
+    static void handleCreateImmed(struct wl_client *, struct wl_resource *, uint32_t buffer_id,
+                                  int32_t width, int32_t height, uint32_t format, uint32_t flags);
 };
 
 // zwp_linux_dmabuf_feedback_v1 — one per get_default_feedback /
