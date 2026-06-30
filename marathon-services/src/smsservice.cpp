@@ -491,8 +491,13 @@ void SMSService::checkForNewMessages() {
             }
 
             QList<QDBusObjectPath> smsList = listReply.value();
-            qWarning() << "[SMSService] checkForNewMessages found" << smsList.size()
-                       << "messages on" << path;
+            // Only log when there ARE messages to process. The poll runs
+            // every ~5 s; emitting a WARNING per poll when no SMS is
+            // present floods the journal with ~12 lines/min and buried
+            // real shell warnings during triage.
+            if (!smsList.isEmpty())
+                qInfo() << "[SMSService] checkForNewMessages found" << smsList.size()
+                        << "messages on" << path;
 
             for (const QDBusObjectPath &smsPath : smsList) {
                 processIncomingSMS(path, smsPath.path());

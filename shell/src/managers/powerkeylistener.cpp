@@ -91,8 +91,12 @@ QStringList PowerKeyListener::discoverPowerKeyDevices() const {
             return;
         }
         const bool advertises = deviceAdvertisesKey(keyWords, kKeyPower);
-        qWarning() << "[PowerKeyListener] scan:" << name << handler << "keyWords=" << keyWords
-                   << "advertisesPower=" << advertises;
+        // Per-input-device probe lines emitted at qInfo so they only
+        // surface with QT_LOGGING_RULES=*=true. At qWarning they
+        // flooded every shell boot with audio-jack / touchscreen /
+        // beep-generator scan lines that confused triage.
+        qInfo() << "[PowerKeyListener] scan:" << name << handler
+                << "advertisesPower=" << advertises;
         if (advertises) {
             const QString path = QStringLiteral("/dev/input/") + handler;
             result.append(path);
