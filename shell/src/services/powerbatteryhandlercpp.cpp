@@ -36,6 +36,16 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
 }
 
 void PowerBatteryHandlerCpp::turnScreenOn() {
+    // Route through Doze exit when available — that path (a) re-syncs
+    // m_screenOn via DisplayPolicyController::forceScreenOn semantics,
+    // (b) re-writes brightness to defeat the i.MX 8M PWM glitch
+    // (r293), and (c) thaws background apps' freeze debounce. Plain
+    // displayPolicy->turnScreenOn() is fine if PowerPolicy isn't
+    // wired (early boot path).
+    if (m_powerPolicy && m_powerPolicy->dozing()) {
+        m_powerPolicy->exitDoze();
+        return;
+    }
     if (m_displayPolicy)
         m_displayPolicy->turnScreenOn();
     else if (m_displayManager)
@@ -43,6 +53,15 @@ void PowerBatteryHandlerCpp::turnScreenOn() {
 }
 
 void PowerBatteryHandlerCpp::turnScreenOff() {
+    // Route through Doze entry when available — that path freezes
+    // background apps immediately + flips wifi PSM on, so the
+    // backlight-off state is actually low-power and push connections
+    // survive. Falls back to a plain backlight blank if PowerPolicy
+    // isn't wired.
+    if (m_powerPolicy) {
+        m_powerPolicy->enterDoze();
+        return;
+    }
     if (m_displayPolicy)
         m_displayPolicy->turnScreenOff();
     else if (m_displayManager)

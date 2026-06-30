@@ -671,7 +671,12 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
                                                       "AppLifecycleManager", appLifecycleManager);
 
-    auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
+    // PowerPolicyController takes the lifecycle manager so its
+    // enterDoze() / exitDoze() can flip the freeze-debounce window
+    // and freeze background apps immediately on screen-off. AppLifecycle
+    // is constructed above on line ~670 so this dependency order is safe.
+    auto *powerPolicyController =
+        new PowerPolicyController(powerManager, displayManager, appLifecycleManager, &app);
     qmlRegisterSingletonInstance<PowerPolicyController>(
         "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
@@ -707,6 +712,15 @@ int main(int argc, char *argv[]) {
     // run on the resume edge — not deferred to a second power press.
     QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, displayPolicyController,
                      &DisplayPolicyController::forceScreenOn);
+
+    // If anything triggered S3 while Marathon-Doze was active (manual
+    // `systemctl suspend`, critical-battery handler, scheduled wake),
+    // bring us cleanly out of Doze on resume — otherwise m_dozing
+    // stays stuck TRUE and the next power-key press would call
+    // exitDoze on an already-unblanked screen. exitDoze is idempotent
+    // so this is a no-op when we weren't dozing.
+    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
+                     &PowerPolicyController::exitDoze);
 
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
     // the power button. PowerKeyListener exists so the shell sees power-key
