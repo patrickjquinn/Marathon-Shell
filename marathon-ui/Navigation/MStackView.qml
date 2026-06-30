@@ -48,13 +48,22 @@ StackView {
     property real pushDamping: MMotion.dampingMedium     // 0.25 — mild overshoot
     property real popDamping: MMotion.dampingCritical    // 1.00 — no ring
 
+    // Stiffness split. Push keeps the "nav" token's deliberate
+    // VeryLow stiffness for a grand iOS-style arrival. Pop bumps
+    // up to stiffnessMedium so going back feels snappy and decisive
+    // — critically damped + VeryLow stiffness is severely overdamped
+    // (~1 s settle), and a back gesture should resolve in ~300 ms
+    // so the user trusts the action landed.
+    property real pushStiffness: MMotion.stiffnessSpatialFor("nav")
+    property real popStiffness: MMotion.stiffnessMedium
+
     pushEnter: Transition {
         ParallelAnimation {
             SpringAnimation {
                 property: "x"
                 from: stack.travel
                 to: 0
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.pushStiffness
                 damping: stack.pushDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -63,7 +72,7 @@ StackView {
                 property: "scale"
                 from: MMotion.backEnterScaleStart      // 1.10
                 to: MMotion.backEnterScaleEnd          // 1.00
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.pushStiffness
                 damping: stack.pushDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -85,7 +94,7 @@ StackView {
                 property: "x"
                 from: 0
                 to: -stack.travel * stack.parallax
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.pushStiffness
                 damping: stack.pushDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -94,7 +103,7 @@ StackView {
                 property: "scale"
                 from: MMotion.backExitScaleStart       // 1.00
                 to: MMotion.backExitScaleEnd           // 0.90
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.pushStiffness
                 damping: stack.pushDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -108,7 +117,7 @@ StackView {
                 property: "x"
                 from: -stack.travel * stack.parallax
                 to: 0
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.popStiffness
                 damping: stack.popDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -117,7 +126,7 @@ StackView {
                 property: "scale"
                 from: MMotion.backExitScaleEnd         // 0.90 — where it was deferred
                 to: MMotion.backExitScaleStart         // 1.00
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.popStiffness
                 damping: stack.popDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -131,7 +140,7 @@ StackView {
                 property: "x"
                 from: 0
                 to: stack.travel
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.popStiffness
                 damping: stack.popDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
@@ -140,7 +149,7 @@ StackView {
                 property: "scale"
                 from: MMotion.backEnterScaleEnd        // 1.00
                 to: MMotion.backEnterScaleStart        // 1.10 — recedes to its entry pose
-                spring: MMotion.stiffnessSpatialFor("nav")
+                spring: stack.popStiffness
                 damping: stack.popDamping
                 epsilon: MMotion.epsilon
                 mass: 1.0
