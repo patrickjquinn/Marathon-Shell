@@ -36,6 +36,17 @@ class DisplayPolicyController : public QObject {
     Q_INVOKABLE void turnScreenOn();
     Q_INVOKABLE void turnScreenOff();
 
+    // Force-unblank path for the resume-from-suspend edge. External
+    // suspends (logind IdleAction, lid switch, RTC alarm, anything not
+    // going through PowerPolicyController::sleep) never observe a
+    // screen-off transition in the shell — so m_screenOn stays stale
+    // TRUE across the sleep, and turnScreenOn() short-circuits its
+    // screenOnChanged emit. forceScreenOn() unconditionally re-issues
+    // setScreenState(true) (which re-writes bl_power AND brightness)
+    // and ALWAYS emits screenOnChanged so QML hooks (dimState.restore,
+    // idleScreenTimer.restart) fire on the wake edge.
+    Q_INVOKABLE void forceScreenOn();
+
   signals:
     void screenTimeoutMsChanged();
     void autoBrightnessEnabledChanged();

@@ -402,6 +402,29 @@ void DisplayManagerCpp::setScreenState(bool on) {
             // 0 = FB_BLANK_UNBLANK (on), 4 = FB_BLANK_POWERDOWN (off).
             blPower.write(on ? "0\n" : "4\n");
             blPower.close();
+            // On the unblank edge, force-re-write the brightness sysfs
+            // entry too. On i.MX8MQ + pwm-backlight (mxsfb-dsi panel),
+            // the PWM controller's resume callback does NOT reliably
+            // restore the duty cycle that was active before bl_power=4
+            // + S2/S3, so even after bl_power=0 succeeds the LED can
+            // sit at 0% duty — screen logically on, physically dark.
+            // Re-writing brightness here is cheap, idempotent, and the
+            // only reliable workaround short of a kernel driver fix.
+            if (on) {
+                QFile br(
+                    QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+                if (br.open(QIODevice::WriteOnly)) {
+                    // Clamp to a visible floor (~5% of max) so a wake from
+                    // an explicit-zero brightness still produces a lit
+                    // panel. Without this the user can wake the device
+                    // and stare at a black screen with no signal that
+                    // anything happened.
+                    double norm = m_brightness > 0.05 ? m_brightness : 0.05;
+                    int val = qBound(1, static_cast<int>(norm * m_maxBrightness), m_maxBrightness);
+                    br.write(QByteArray::number(val) + "\n");
+                    br.close();
+                }
+            }
         } else {
             qWarning() << "[DisplayManagerCpp] cannot open" << blPower.fileName()
                        << "for write — udev rule missing? Falling back to DRM DPMS.";
