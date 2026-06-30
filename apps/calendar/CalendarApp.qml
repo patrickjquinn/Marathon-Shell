@@ -76,7 +76,7 @@ MApp {
         onDataChanged: calendarApp.eventsChanged()
     }
 
-    content: StackView {
+    content: MStackView {
         id: stackView
 
         anchors.fill: parent
@@ -140,46 +140,6 @@ MApp {
             }
             // FAB removed — compose now lives in the page header (JSX
             // ref-calendar moves the action up to the title bar).
-        }
-
-        pushEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: stackView.width
-                to: 0
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        pushExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: -stackView.width * 0.3
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        popEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: -stackView.width * 0.3
-                to: 0
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        popExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: stackView.width
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
         }
     }
 }
