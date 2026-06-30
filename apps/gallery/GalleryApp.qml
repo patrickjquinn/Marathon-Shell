@@ -199,7 +199,7 @@ MApp {
                 currentIndex: galleryApp.currentView
 
                 // ── 0: Albums (kept the existing list pattern) ─
-                StackView {
+                MStackView {
                     id: albumsStackView
                     Layout.fillWidth: true
                     Layout.fillHeight: true

@@ -1,6 +1,7 @@
 import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
@@ -84,60 +85,6 @@ MApp {
             Component.onDestruction: {
                 if (backConnection)
                     messagesApp.backPressed.disconnect(backConnection);
-            }
-
-            pushEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: navigationStack.width
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            pushExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: -navigationStack.width * 0.3
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: -navigationStack.width * 0.3
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0
-                    to: 1
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: navigationStack.width
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
             }
         }
 

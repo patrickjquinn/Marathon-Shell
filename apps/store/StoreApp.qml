@@ -442,7 +442,7 @@ MApp {
         readonly property var heroApp: root.appOfTheDay || (root.collections["verified"] && root.collections["verified"][0]) || (root.collections["popular"] && root.collections["popular"][0]) || (root.collections["trending"] && root.collections["trending"][0]) || null
         readonly property var trendingApps: root.pickTrendingApps(heroApp)
 
-        StackView {
+        MStackView {
             id: navStack
             anchors.fill: parent
             initialItem: homeShell

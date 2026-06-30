@@ -47,51 +47,10 @@ MApp {
         color: MColors.background
     }
 
-    StackView {
+    MStackView {
         id: navigationStack
         anchors.fill: parent
         initialItem: inboxComponent
-
-        pushEnter: Transition {
-            NumberAnimation {
-                property: "x"
-                from: navigationStack.width
-                to: 0
-                duration: MMotion.quick
-                easing.type: MMotion.easingStandard
-                easing.bezierCurve: MMotion.easingStandardCurve
-            }
-        }
-        pushExit: Transition {
-            NumberAnimation {
-                property: "x"
-                from: 0
-                to: -navigationStack.width * MMotion.pageParallaxOffset
-                duration: MMotion.quick
-                easing.type: MMotion.easingStandard
-                easing.bezierCurve: MMotion.easingStandardCurve
-            }
-        }
-        popEnter: Transition {
-            NumberAnimation {
-                property: "x"
-                from: -navigationStack.width * MMotion.pageParallaxOffset
-                to: 0
-                duration: MMotion.quick
-                easing.type: MMotion.easingStandard
-                easing.bezierCurve: MMotion.easingStandardCurve
-            }
-        }
-        popExit: Transition {
-            NumberAnimation {
-                property: "x"
-                from: 0
-                to: navigationStack.width
-                duration: MMotion.quick
-                easing.type: MMotion.easingStandard
-                easing.bezierCurve: MMotion.easingStandardCurve
-            }
-        }
     }
 
     // ── Inbox page ─────────────────────────────────────────────────
