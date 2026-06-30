@@ -48,7 +48,7 @@ Item {
 
             Behavior on color {
                 ColorAnimation {
-                    duration: 150
+                    duration: MMotion.durationFor("hover")
                 }
             }
         }

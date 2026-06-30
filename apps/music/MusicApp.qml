@@ -422,7 +422,7 @@ MApp {
                             }
                             Behavior on color {
                                 ColorAnimation {
-                                    duration: 80
+                                    duration: MMotion.micro
                                 }
                             }
                         }
@@ -463,10 +463,14 @@ MApp {
                             }
 
                             scale: playArea.pressed ? 0.94 : 1.0
+                            // Spring-driven press feedback per the M3 Expressive
+                            // motion ladder — replaces OutBack overshoot with
+                            // tunable physics on the "tap" role.
                             Behavior on scale {
-                                NumberAnimation {
-                                    duration: 120
-                                    easing.type: Easing.OutBack
+                                SpringAnimation {
+                                    spring: MMotion.stiffnessSpatialFor("tap")
+                                    damping: MMotion.dampingSpatialFor("tap")
+                                    epsilon: MMotion.epsilon
                                 }
                             }
 
@@ -511,7 +515,7 @@ MApp {
                             }
                             Behavior on color {
                                 ColorAnimation {
-                                    duration: 80
+                                    duration: MMotion.micro
                                 }
                             }
                         }

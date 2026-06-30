@@ -393,7 +393,7 @@ MApp {
                 }
                 Behavior on color {
                     ColorAnimation {
-                        duration: 80
+                        duration: MMotion.micro
                     }
                 }
             }
@@ -587,13 +587,13 @@ MApp {
                     scale: keyArea.pressed ? 0.96 : 1.0
                     Behavior on scale {
                         NumberAnimation {
-                            duration: 80
+                            duration: MMotion.micro
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on color {
                         ColorAnimation {
-                            duration: 80
+                            duration: MMotion.micro
                         }
                     }
 
