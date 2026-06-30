@@ -59,20 +59,31 @@ Item {
     // with `live: true`.
     property bool live: false
 
+    // ── Reduce-blur path ─────────────────────────────────────
+    // When MMotion.reduceBlur is true, skip the ShaderEffectSource +
+    // MultiEffect pipeline entirely — that's a ~per-glass-surface GPU
+    // pass we don't want to pay on etnaviv GLES2 when the user has
+    // opted out. The tint Rectangle becomes the entire chrome surface,
+    // so its color needs to be opaque (alpha 1.0); we force it from
+    // the configured tint so the colour identity is preserved.
+    readonly property bool _reduceBlur: MMotion.reduceBlur
+    readonly property color _opaqueTint: Qt.rgba(tint.r, tint.g, tint.b, 1.0)
+
     ShaderEffectSource {
         id: snap
         anchors.fill: parent
         sourceItem: root.sourceItem
         sourceRect: root.sourceRect
         visible: false
-        live: root.live
+        live: root.live && !root._reduceBlur
         hideSource: false
     }
 
     MultiEffect {
         anchors.fill: parent
         source: snap
-        blurEnabled: true
+        visible: !root._reduceBlur
+        blurEnabled: !root._reduceBlur
         blur: root.blurStrength
         blurMax: root.blurMaxRadius
         blurMultiplier: root.blurMultiplier
@@ -83,7 +94,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: root.tint
+        color: root._reduceBlur ? root._opaqueTint : root.tint
         border.width: 1
         border.color: root.borderColor
     }
