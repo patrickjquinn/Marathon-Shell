@@ -43,7 +43,13 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
-    , m_filterMobileFriendlyApps(false)
+    // Default ON: the consumer home grid should not surface terminals,
+    // foot servers, htop, marathon-test etc. The DesktopFileParser ships
+    // an explicit kHiddenDevTools deny-list + an X-Purism/X-KDE/Mobile
+    // form-factor allowlist; both only kick in when this gate is true.
+    // Users with a developer leaning can toggle the gate off in Settings
+    // → Apps and get the full freedesktop list back.
+    , m_filterMobileFriendlyApps(true)
     , m_appSortOrder("alphabetical")
     , m_appGridColumns(0)
     , m_searchNativeApps(true)
@@ -256,7 +262,7 @@ void SettingsManager::load() {
     m_showNotificationsOnLockScreen =
         m_settings.value("notifications/showOnLockScreen", true).toBool();
 
-    m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", false).toBool();
+    m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", true).toBool();
     // Terminal default-hidden so a consumer phone doesn't ship a shell
     // prompt as a first-class launcher entry. Still reachable via
     // Settings → Apps → Hidden Apps.
