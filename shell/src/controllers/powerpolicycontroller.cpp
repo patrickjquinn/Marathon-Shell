@@ -236,7 +236,12 @@ bool PowerPolicyController::enterDoze() {
     //    NetworkManager APIs don't expose it. Best-effort: failures
     //    are logged and ignored (we'd rather have Doze without PSM
     //    than no Doze at all).
-    QProcess::startDetached(QStringLiteral("iw"),
+    // Absolute path because the shell's user-scope PATH may not include
+    // /usr/sbin. The marathon-iw-setcap.service oneshot grants
+    // cap_net_admin on /usr/sbin/iw at boot so this call works as
+    // uid 1000 (the alternative — pkexec / nmcli reapply — needs
+    // auth_admin which doesn't pass for the active session).
+    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
                             {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
                              QStringLiteral("power_save"), QStringLiteral("on")});
 
@@ -265,7 +270,7 @@ bool PowerPolicyController::exitDoze() {
     // 2. Wifi PSM off — slight latency win for foreground interaction.
     //    Optional; could leave on for ~ 5% additional standby but
     //    snappier first packets matter more on resume.
-    QProcess::startDetached(QStringLiteral("iw"),
+    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
                             {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
                              QStringLiteral("power_save"), QStringLiteral("off")});
 
