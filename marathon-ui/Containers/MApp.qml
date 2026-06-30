@@ -16,6 +16,17 @@ Item {
     property bool isVisible: false
     property bool isForeground: false
 
+    // Signal to the shell's MarathonAppWindow splash that this app has
+    // rendered its first scene. Without it, the outer "Loading X..."
+    // overlay only dismisses on isLoadingComponent → false, which on a
+    // slow init (Camera waiting on CameraController init that may
+    // never finish on a device with 0 cameras) leaves the splash up
+    // indefinitely. MApp default is true at Component.onCompleted —
+    // apps that legitimately need to gate first-paint on async data
+    // (e.g. Browser waiting for first WebEngine frame) set this false
+    // explicitly during construction and toggle true when ready.
+    property bool revealReady: false
+
     property int navigationDepth: 0
     property bool canNavigateBack: navigationDepth > 0
     property bool canNavigateForward: false
@@ -170,6 +181,14 @@ Item {
             console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal");
             requestRegister(appId, root);
         }
+        // Flip revealReady on the next event-loop tick so the shell's
+        // splash dismisses after our QML scene has hit at least one
+        // afterRendering pass. callLater nudges past the current
+        // Component.onCompleted chain so children's onCompleted handlers
+        // (which may queue further work) have a chance to flush first.
+        Qt.callLater(function () {
+            root.revealReady = true;
+        });
         console.log("------- MApp.onCompleted COMPLETE -------");
     }
 

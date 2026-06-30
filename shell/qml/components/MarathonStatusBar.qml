@@ -127,7 +127,11 @@ Item {
             visible: SessionStore.isOnLockScreen
             opacity: SessionStore.isOnLockScreen ? 1 : 0
             name: SessionStore.isLocked ? "lock" : "lock-open"
-            size: Math.round(14 * Constants.scaleFactor)
+            // Bumped from 14 → 18 design-px so the lock glyph reads as
+            // a clear padlock rather than a generic notification dot on
+            // a busy notch panel. The status-bar height (28 design-px)
+            // still fits the larger icon with margin to spare.
+            size: Math.round(18 * Constants.scaleFactor)
             color: MColors.textPrimary
             scale: SessionStore.isAnimatingLock ? 0.8 : 1
             rotation: {

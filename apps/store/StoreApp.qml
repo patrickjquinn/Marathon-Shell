@@ -101,7 +101,12 @@ MApp {
         xhr.setRequestHeader("Accept", "application/json");
         if (body)
             xhr.setRequestHeader("Content-Type", "application/json");
-        const timer = Qt.createQmlObject('import QtQuick; Timer { interval: 15000; repeat: false }', root);
+        // 8 s timeout — long enough to ride out a slow 4G handshake on
+        // a recently-resumed modem, short enough that an offline device
+        // surfaces the "no catalog yet" empty state without leaving the
+        // user staring at a stuck spinner. The previous 15 s ceiling
+        // read as "the Store is broken" by the time it fired.
+        const timer = Qt.createQmlObject('import QtQuick; Timer { interval: 8000; repeat: false }', root);
         timer.triggered.connect(function () {
             xhr.abort();
             cb(null, "timeout");
@@ -993,6 +998,21 @@ MApp {
                     MActivityIndicator {
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: root.catalogLoading && Object.keys(root.collections).length === 0 && !navStack.parent.heroApp
+                    }
+
+                    // Same MEmptyState the Apps tab uses, surfaced here
+                    // when the Discover hero collection also failed to
+                    // load (offline device, DNS blocked, Flathub down).
+                    // Without this the Discover tab silently sat empty
+                    // after the spinner gave up.
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - 48
+                        visible: !root.catalogLoading && Object.keys(root.collections).length === 0 && !navStack.parent.heroApp
+                        iconName: "wifi-off"
+                        iconSize: 64
+                        title: "Can't reach Flathub"
+                        message: "Check your network connection and pull down to retry."
                     }
                 }
             }
