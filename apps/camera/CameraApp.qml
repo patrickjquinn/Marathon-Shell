@@ -386,11 +386,37 @@ MApp {
                 border.color: cameraController.flashEnabled ? MColors.tealBorder : MColors.whiteOverlay08
                 visible: cameraController.flashAvailable
 
-                Icon {
+                // Flash glyph morph — crossfade between zap (on) and
+                // zap-off (off) Icons. Direct name binding caused a
+                // visible glyph-atlas reload flicker when toggling.
+                Item {
                     anchors.centerIn: parent
-                    name: cameraController.flashEnabled ? "zap" : "zap-off"
-                    size: 20
-                    color: cameraController.flashEnabled ? MColors.marathonTealBright : MColors.textSecondary
+                    width: 20
+                    height: 20
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "zap"
+                        size: 20
+                        color: MColors.marathonTealBright
+                        opacity: cameraController.flashEnabled ? 1 : 0
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: MMotion.durationFor("tap")
+                            }
+                        }
+                    }
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "zap-off"
+                        size: 20
+                        color: MColors.textSecondary
+                        opacity: cameraController.flashEnabled ? 0 : 1
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: MMotion.durationFor("tap")
+                            }
+                        }
+                    }
                 }
                 MouseArea {
                     anchors.fill: parent

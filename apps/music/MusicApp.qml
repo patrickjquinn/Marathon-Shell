@@ -455,11 +455,39 @@ MApp {
                                 border.color: Qt.rgba(1, 1, 1, 0.3)
                             }
 
-                            Icon {
+                            // Play/pause icon morph — was a hard
+                            // name swap which flickered through the
+                            // glyph atlas reload. Crossfade between
+                            // two stacked Icons via state-driven
+                            // opacity keeps the visual continuous.
+                            Item {
                                 anchors.centerIn: parent
-                                name: isPlaying ? "pause" : "play"
-                                size: 26
-                                color: "#000000"
+                                width: 26
+                                height: 26
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "pause"
+                                    size: 26
+                                    color: "#000000"
+                                    opacity: isPlaying ? 1 : 0
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: MMotion.durationFor("tap")
+                                        }
+                                    }
+                                }
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "play"
+                                    size: 26
+                                    color: "#000000"
+                                    opacity: isPlaying ? 0 : 1
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: MMotion.durationFor("tap")
+                                        }
+                                    }
+                                }
                             }
 
                             scale: playArea.pressed ? 0.94 : 1.0
