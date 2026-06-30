@@ -7,6 +7,7 @@ set(THEME_QML_FILES
     MRadius.qml
     MElevation.qml
     MMotion.qml
+    MBlur.qml
 )
 
 # Mark singletons
