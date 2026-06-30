@@ -111,3 +111,12 @@ void DisplayPolicyController::turnScreenOff() {
         emit screenOnChanged();
     }
 }
+
+void DisplayPolicyController::forceScreenOn() {
+    if (m_displayManager)
+        m_displayManager->setScreenState(true);
+    m_screenOn = true;
+    // Unconditional emit — the suspend-resume edge needs QML hooks to
+    // run even when m_screenOn was already stale TRUE going into sleep.
+    emit screenOnChanged();
+}

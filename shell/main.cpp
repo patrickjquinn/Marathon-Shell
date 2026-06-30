@@ -694,6 +694,20 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<DisplayPolicyController>(
         "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
 
+    // Resume-from-suspend bridge. External suspends (logind IdleAction,
+    // lid switch, RTC alarm — anything not going through
+    // PowerPolicyController::sleep) never tell the shell the screen
+    // went off. m_screenOn stays stale TRUE across the sleep; on the
+    // power-key wake the policy then reads screenOn=true and chooses
+    // LockAndTurnScreenOff → bl_power=4 → backlight stays off, even
+    // though the shell is fully alive (touch works, journal moves).
+    // forceScreenOn() unconditionally re-issues setScreenState(true)
+    // (re-writes bl_power AND brightness) and always emits
+    // screenOnChanged so dimState.restore + idleScreenTimer.restart
+    // run on the resume edge — not deferred to a second power press.
+    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, displayPolicyController,
+                     &DisplayPolicyController::forceScreenOn);
+
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
     // the power button. PowerKeyListener exists so the shell sees power-key
     // events even when the focused QML window happens not to be the root
