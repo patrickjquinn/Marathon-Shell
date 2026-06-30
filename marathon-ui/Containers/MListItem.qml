@@ -154,7 +154,7 @@ Rectangle {
                 shadowColor: Qt.rgba(0, 0, 0, 0.4)
                 shadowVerticalOffset: 1
                 shadowBlur: 0.2
-                blurMax: 2
+                blurMax: MBlur.xxs
             }
 
             MTopHairline {

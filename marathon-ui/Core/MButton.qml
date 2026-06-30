@@ -132,7 +132,7 @@ Item {
             source: shadowSource
             blurEnabled: true
             blur: 1.0
-            blurMax: 24
+            blurMax: MBlur.lg
         }
     }
 

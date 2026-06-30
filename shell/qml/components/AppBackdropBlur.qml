@@ -24,7 +24,7 @@ Item {
     // ceiling; the L5's etnaviv GC7000Lite is materially weaker, and the
     // wider the kernel the more fillrate it costs per vsync. blurMultiplier
     // gives back perceived strength without raising the sample radius.
-    property real blurMax: 24
+    property real blurMax: MBlur.lg
     property real blurMultiplier: 1.0
     property real saturation: 0.5
     property real brightness: -0.1

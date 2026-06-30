@@ -240,7 +240,7 @@ Item {
             blur: 1
             // 24 instead of 64 — the kernel growing beyond ~24 produces no
             // perceived blur difference on a 540×1140 panel, just fillrate.
-            blurMax: 24
+            blurMax: MBlur.lg
             blurMultiplier: 1.4
             saturation: 0.3
             brightness: -0.2

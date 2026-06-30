@@ -252,7 +252,7 @@ Rectangle {
                             layer.enabled: true
                             layer.effect: MultiEffect {
                                 blurEnabled: true
-                                blurMax: 4
+                                blurMax: MBlur.xs
                             }
                             opacity: 0.4
                         }

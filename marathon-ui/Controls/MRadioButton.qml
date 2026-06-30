@@ -131,7 +131,7 @@ Item {
                     shadowVerticalOffset: 0
                     shadowHorizontalOffset: 0
                     shadowBlur: 0.4
-                    blurMax: 8
+                    blurMax: MBlur.sm
                     paddingRect: Qt.rect(0, 0, 0, 0)
                 }
             }

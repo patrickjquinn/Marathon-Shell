@@ -85,7 +85,7 @@ Item {
         layer.effect: MultiEffect {
             blurEnabled: true
             blur: 1.0
-            blurMax: 24
+            blurMax: MBlur.lg
             blurMultiplier: 1.2
         }
     }
