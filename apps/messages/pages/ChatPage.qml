@@ -111,47 +111,22 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // ── Header — glass-titlebar w/ back + avatar + name+typing
-        //              + phone + more (screens-apps-1.jsx:MessagesThread).
-        Rectangle {
+        // Header migrated to MTopBar (P3B · ad-hoc-chrome-bypasses-mtopbar).
+        // The old hand-rolled 88 px Rectangle didn't inherit MTopBar's
+        // shrink-on-scroll or future Live-Activity chip slot. Now uses
+        // MTopBar with leadingContent (avatar + name + typing stack)
+        // and actions (phone + more).
+        MTopBar {
             id: header
             width: parent.width
-            height: 88
-            color: MColors.glassTitlebar
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: MColors.borderGlass
+            title: ""                     // name lives in leadingContent
+            showBack: true
+            onBackClicked: {
+                HapticService.light();
+                chatPage.navigateBack();
             }
 
-            Row {
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                anchors.right: parent.right
-                anchors.rightMargin: 16
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 12
-                spacing: 14
-
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "chevron-left"
-                    size: 24
-                    color: MColors.textSecondary
-
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -10
-                        onClicked: {
-                            HapticService.light();
-                            chatPage.navigateBack();
-                        }
-                    }
-                }
-
+            leadingContent: [
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 36
@@ -169,11 +144,9 @@ Rectangle {
                         font.pixelSize: 13
                         font.weight: Font.DemiBold
                     }
-                }
-
+                },
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 24 - 36 - 20 - 22 - parent.spacing * 4
                     spacing: 0
 
                     Text {
@@ -183,11 +156,9 @@ Rectangle {
                         font.pixelSize: 17
                         font.weight: Font.Medium
                         elide: Text.ElideRight
-                        width: parent.width
                     }
                     // Presence subtitle — "typing…" teal-bright when the
-                    // contact is composing. Falls back to last-seen text
-                    // when wiring lands; stays hidden when unknown.
+                    // contact is composing.
                     Text {
                         text: (conversation && conversation.isTyping) ? "typing…" : ""
                         color: MColors.marathonTealBright
@@ -197,13 +168,13 @@ Rectangle {
                         visible: text.length > 0
                     }
                 }
+            ]
 
+            actions: [
                 Icon {
-                    anchors.verticalCenter: parent.verticalCenter
                     name: "phone"
                     size: 20
                     color: MColors.textPrimary
-
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -8
@@ -213,21 +184,18 @@ Rectangle {
                             // supports cross-app launch.
                         }
                     }
-                }
-
+                },
                 Icon {
-                    anchors.verticalCenter: parent.verticalCenter
                     name: "ellipsis-vertical"
                     size: 22
                     color: MColors.textSecondary
-
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -8
                         onClicked: HapticService.light()
                     }
                 }
-            }
+            ]
         }
 
         ListView {

@@ -14,6 +14,11 @@ Rectangle {
 
     property string title: ""
     property alias actions: actionsItem.children
+    // Leading-content slot — injected just RIGHT of the back chevron
+    // and LEFT of the title. Use for an avatar pill (chat header),
+    // contact monogram, account swatch, etc. Empty by default so
+    // standard MTopBar callers see no change.
+    property alias leadingContent: leadingItem.children
     property bool showBack: false
     signal backClicked
 
@@ -121,10 +126,22 @@ Rectangle {
         }
     }
 
+    // Leading slot — sits between the back chevron and the title.
+    // Caller-injected items (e.g. an avatar pill) anchor inside this
+    // Row.
+    Row {
+        id: leadingItem
+        anchors.left: backHit.visible ? backHit.right : parent.left
+        anchors.leftMargin: backHit.visible ? 8 : 20
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 14
+        spacing: 8
+    }
+
     Text {
         id: titleText
-        anchors.left: backHit.visible ? backHit.right : parent.left
-        anchors.leftMargin: backHit.visible ? 4 : 20
+        anchors.left: leadingItem.children.length > 0 ? leadingItem.right : (backHit.visible ? backHit.right : parent.left)
+        anchors.leftMargin: leadingItem.children.length > 0 ? 10 : (backHit.visible ? 4 : 20)
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 16
         text: root.title

@@ -22,6 +22,17 @@ Item {
 
     height: Constants.statusBarHeight
 
+    // ── Ongoing-activity chip slot (Dynamic-Island equivalent) ──
+    // Set to a Component that produces a small horizontal pill
+    // ({iconName, label, accent, onClicked}) when an app wants to
+    // surface state above its own chrome — active call, recording,
+    // timer, navigation. When non-null the chip takes the centre
+    // slot and the clock fades out. iOS Live Activity / M3
+    // Expressive Live Updates analogue. Wired today as a presentation
+    // slot; the cross-app contract for publishing chips is Phase 4
+    // (Live Activity system).
+    property Component activityChip: null
+
     Rectangle {
         anchors.fill: parent
         color: MColors.glassTitlebar
@@ -75,6 +86,35 @@ Item {
         }
     }
 
+    // Activity chip slot. When statusBar.activityChip is non-null,
+    // the chip loads in the centre and the clock fades out. The chip
+    // is centered + scaled in via SpringAnimation per M3E motion.
+    Loader {
+        id: activityChipLoader
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        active: statusBar.activityChip !== null
+        sourceComponent: statusBar.activityChip
+        z: 2
+
+        opacity: active ? 1 : 0
+        scale: active ? 1 : 0.8
+        Behavior on opacity {
+            SpringAnimation {
+                spring: MMotion.stiffnessEffectsFor("tap")
+                damping: MMotion.dampingEffectsFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+        Behavior on scale {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+    }
+
     Item {
         id: centerContent
 
@@ -82,6 +122,16 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(clockText.implicitWidth, lockIcon.width)
         height: Math.max(clockText.implicitHeight, lockIcon.height)
+        // Yield the centre to the chip when present.
+        opacity: statusBar.activityChip !== null ? 0 : 1
+        visible: opacity > 0.01
+        Behavior on opacity {
+            SpringAnimation {
+                spring: MMotion.stiffnessEffectsFor("tap")
+                damping: MMotion.dampingEffectsFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
 
         Text {
             id: clockText
