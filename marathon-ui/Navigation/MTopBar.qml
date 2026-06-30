@@ -38,7 +38,11 @@ Rectangle {
     readonly property real barHeight: Math.round(96 * scaleFactor)
     readonly property real barHeightMin: Math.round(60 * scaleFactor)
     readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real titleFontSize: Math.round((minimized ? 20 : 34) * scaleFactor)
+    // NOT readonly — Behavior on titleFontSize below interpolates the
+    // value when `minimized` flips, which requires the property to be
+    // writable. The binding still drives it; the Behavior just shapes
+    // the transition.
+    property real titleFontSize: Math.round((minimized ? 20 : 34) * scaleFactor)
     readonly property real titleLetterSpacing: -0.8 * scaleFactor
 
     height: minimized ? barHeightMin : barHeight
