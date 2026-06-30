@@ -115,7 +115,16 @@ Item {
             id: lockIcon
 
             anchors.centerIn: parent
-            visible: opacity > 0.01
+            // Hard gate on isOnLockScreen rather than opacity > 0.01 so
+            // the Icon node leaves the scene graph entirely off the lock
+            // screen. With the opacity-only gate, the lock glyph stayed
+            // resident as a faint dark silhouette behind the clock
+            // during pixel-precise font hinting on the L5 panel —
+            // visible as a "mask behind the colon" when an app was
+            // foregrounded. The clock's fade-in still animates via the
+            // clockText opacity Behavior, so the transition reads the
+            // same; the icon just isn't there to draw against.
+            visible: SessionStore.isOnLockScreen
             opacity: SessionStore.isOnLockScreen ? 1 : 0
             name: SessionStore.isLocked ? "lock" : "lock-open"
             size: Math.round(14 * Constants.scaleFactor)
