@@ -796,6 +796,25 @@ Item {
         }
     }
 
+    // Power-key + system-level screen-on must ALSO restore the dim.
+    // compositor.userActivity only fires for touch / wayland input, not
+    // for /dev/input/event3 KEY_POWER (which PowerKeyListener routes via
+    // PowerBatteryHandlerCpp.turnScreenOn → DisplayPolicyController.
+    // screenOnChanged). Without this hook, pressing the power key
+    // restored bl_power=0 (screen on) but brightness stayed pinned at
+    // the dim value (5-25%) — user perceived the screen as dead.
+    Connections {
+        target: DisplayPolicyControllerCpp
+        ignoreUnknownSignals: true
+        function onScreenOnChanged() {
+            if (DisplayPolicyControllerCpp.screenOn) {
+                dimState.restore();
+                // Re-arm idle timers from the moment of wake.
+                idleScreenTimer.restart();
+            }
+        }
+    }
+
     Timer {
         id: resizeDebounceTimer
 
