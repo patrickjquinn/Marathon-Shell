@@ -421,6 +421,10 @@ MApp {
                     size: Constants.iconSizeXLarge * 2
                     color: MColors.marathonTeal
 
+                    // Infinite spinner — 2 s/revolution is the
+                    // intentional cadence for "loading map tiles";
+                    // not migrated to MMotion roles (those target
+                    // microinteractions, not attention loops).
                     RotationAnimation on rotation {
                         running: !mapLoaded
                         loops: Animation.Infinite
@@ -476,6 +480,9 @@ MApp {
                     name: isSearching ? "loader" : "search"
                     size: 20
                     color: MColors.textSecondary
+                    // Infinite search spinner — 1 s/revolution is the
+                    // intentional cadence; not migrated to MMotion
+                    // roles (attention loops, not microinteractions).
                     RotationAnimation on rotation {
                         running: isSearching
                         loops: Animation.Infinite

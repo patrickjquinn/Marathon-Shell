@@ -53,7 +53,7 @@ MApp {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 50
+                duration: MMotion.micro
             }
         }
     }
@@ -91,7 +91,7 @@ MApp {
                 property: "angle"
                 from: 0
                 to: 90
-                duration: 150
+                duration: MMotion.durationFor("hover")
                 easing.type: Easing.InQuad
             }
 
@@ -100,7 +100,7 @@ MApp {
                 property: "angle"
                 from: -90
                 to: 0
-                duration: 150
+                duration: MMotion.durationFor("hover")
                 easing.type: Easing.OutQuad
             }
         }
@@ -150,7 +150,7 @@ MApp {
                             property: "scale"
                             from: 1.5
                             to: 1
-                            duration: 200
+                            duration: MMotion.normal
                             easing.type: Easing.OutCubic
                         }
 
@@ -159,10 +159,13 @@ MApp {
                             property: "opacity"
                             from: 0
                             to: 1
-                            duration: 200
+                            duration: MMotion.normal
                         }
                     }
 
+                    // 500 ms hold is intentional — focus ring is meant
+                    // to stay visible long enough to confirm the focus
+                    // hit to the user before fading.
                     PauseAnimation {
                         duration: 500
                     }
@@ -171,7 +174,7 @@ MApp {
                         target: focusRing
                         property: "opacity"
                         to: 0
-                        duration: 300
+                        duration: MMotion.slow
                     }
                 }
             }
@@ -323,6 +326,11 @@ MApp {
                         running: cameraController.isRecording
                         loops: Animation.Infinite
 
+                        // 1-second total pulse (500 ms each way) is the
+                        // recording-indicator's intended rhythm; do NOT
+                        // migrate to MMotion role durations — those are
+                        // tuned for one-shot microinteractions, not
+                        // infinite attention loops.
                         NumberAnimation {
                             from: 1
                             to: 0.2
@@ -675,19 +683,19 @@ MApp {
 
                     Behavior on width {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.durationFor("hover")
                         }
                     }
 
                     Behavior on height {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.durationFor("hover")
                         }
                     }
 
                     Behavior on radius {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.durationFor("hover")
                         }
                     }
                 }
@@ -714,7 +722,7 @@ MApp {
 
                 Behavior on scale {
                     NumberAnimation {
-                        duration: 100
+                        duration: MMotion.micro
                     }
                 }
             }
@@ -729,10 +737,14 @@ MApp {
                 rotation: cameraController.isFrontCamera ? 180 : 0
                 onClicked: cameraController.flipCamera()
 
+                // Spring-driven flip rotation per the M3 Expressive
+                // motion ladder — replaces OutBack overshoot with
+                // tunable physics on the "nav" role.
                 Behavior on rotation {
-                    NumberAnimation {
-                        duration: 300
-                        easing.type: Easing.OutBack
+                    SpringAnimation {
+                        spring: MMotion.stiffnessSpatialFor("nav")
+                        damping: MMotion.dampingSpatialFor("nav")
+                        epsilon: MMotion.epsilon
                     }
                 }
             }
