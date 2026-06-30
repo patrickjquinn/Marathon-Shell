@@ -333,12 +333,22 @@ void LinuxDmabufBufferParamsV1::handleCreateImmed(struct wl_client *client,
                                                   uint32_t buffer_id, int32_t /*width*/,
                                                   int32_t /*height*/, uint32_t /*format*/,
                                                   uint32_t /*flags*/) {
-    // Immediate-creation path: the buffer_id new_id MUST be created or
-    // the protocol state is corrupted. Spin up an inert wl_buffer that
-    // emits .release as soon as anything attaches it, so the client
-    // discards it and (in Qt's case) retries with another buffer
-    // allocator. Per the protocol's invalid_wl_buffer note, the server
-    // is permitted to produce a buffer that fails on first attach.
+    // Immediate-creation path: the buffer_id new_id MUST be allocated
+    // or the wire protocol is broken. We allocate the resource and
+    // IMMEDIATELY destroy it. wl_resource_destroy emits a
+    // wl_display.delete_id event so the client processes the events in
+    // order — create_immed succeeds, then the buffer is gone before
+    // anything can attach it.
+    //
+    // The earlier approach of leaving the buffer alive (with a
+    // .release event) caused Qt's WaylandEglClientBufferIntegration
+    // to call createBufferFor() on the orphan resource and crash
+    // dereferencing missing user-data (verified in the L5 coredump
+    // stack: marathon-shell SEGV in createBufferFor, Jun 30).
+    //
+    // Qt's wayland-egl client treats the disappeared buffer as a
+    // failed allocation and falls back to its v3 binding (which has
+    // a working create_immed via Qt's own dmabuf plugin).
     struct wl_resource *bufferResource =
         wl_resource_create(client, &wl_buffer_interface, 1, buffer_id);
     if (!bufferResource) {
@@ -346,8 +356,5 @@ void LinuxDmabufBufferParamsV1::handleCreateImmed(struct wl_client *client,
         return;
     }
     wl_resource_set_implementation(bufferResource, &kStubBufferImpl, nullptr, nullptr);
-    // Immediately tell the client the buffer is "released" so it does
-    // not try to render with it. Most clients short-circuit on this
-    // and bail out of the failed allocation path.
-    wl_buffer_send_release(bufferResource);
+    wl_resource_destroy(bufferResource);
 }
