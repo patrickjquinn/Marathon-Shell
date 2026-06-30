@@ -725,6 +725,77 @@ Item {
         }
     }
 
+    // ── Idle DIM warning (PWR-5) ────────────────────────────────
+    // Fires `dimAdvanceMs` BEFORE idleScreenTimer to dim the backlight
+    // to a fraction of its current level. Gives the user a visible
+    // warning that the screen is about to blank, and saves continuous
+    // backlight power even before the full screen-off engages — the L5
+    // panel at 255/255 draws ~0.5 W; at 64/255 it's ~0.2 W. iOS does
+    // ~10 s before blank; we go ~30 s because Marathon's screen-off
+    // default is more aggressive (120 s vs iOS 60 s).
+    //
+    // On any user activity, dimRestore() returns the backlight to its
+    // pre-dim level and re-arms idleScreenTimer. The dim is purely
+    // ephemeral state — it does NOT touch SettingsManagerCpp/the
+    // persisted user brightness preference.
+    QtObject {
+        id: dimState
+
+        property real preDimBrightness: -1
+        property bool dimmed: false
+
+        readonly property real dimFraction: 0.25
+        readonly property int dimAdvanceMs: 30000
+
+        function dim() {
+            if (dimmed || !SystemControlStore || !DisplayPolicyControllerCpp.screenOn)
+                return;
+            preDimBrightness = SystemControlStore.brightness;
+            if (preDimBrightness <= 0)
+                return;
+            const target = Math.max(5, Math.round(preDimBrightness * dimFraction));
+            Logger.info("Shell", "Idle dim — " + preDimBrightness + " → " + target);
+            SystemControlStore.setBrightness(target);
+            dimmed = true;
+        }
+        function restore() {
+            if (!dimmed)
+                return;
+            Logger.info("Shell", "Idle dim restore — " + preDimBrightness);
+            if (preDimBrightness > 0 && SystemControlStore)
+                SystemControlStore.setBrightness(preDimBrightness);
+            preDimBrightness = -1;
+            dimmed = false;
+        }
+    }
+
+    Timer {
+        id: idleDimTimer
+
+        readonly property int effectiveInterval: Math.max(5000, idleScreenTimer.effectiveInterval - dimState.dimAdvanceMs)
+
+        interval: effectiveInterval
+        // Only run when the main screen-off timer is armed AND we
+        // haven't already dimmed (avoid re-firing during the 30 s
+        // dim window).
+        running: idleScreenTimer.running && !dimState.dimmed
+        repeat: false
+        onTriggered: dimState.dim()
+    }
+
+    // Restore on any input. compositor.userActivity already wires to
+    // idleScreenTimer.restart in the Component.onCompleted block — we
+    // hook the same signal here for the dim restore. Re-arming the
+    // restart on activity is the existing behaviour; we add the dim
+    // un-dim alongside.
+    Connections {
+        target: compositor
+        ignoreUnknownSignals: true
+        function onUserActivity() {
+            dimState.restore();
+        }
+    }
+
     Timer {
         id: resizeDebounceTimer
 
