@@ -78,6 +78,92 @@ Rectangle {
         color: Qt.rgba(1, 1, 1, 0.05)
     }
 
+    // ── Shared sliding indicator + halo ────────────────────────
+    // ONE indicator + halo for the whole bar; x slides on a spring to
+    // the active tab. iOS Control Center / M3E pattern: active state
+    // slides, never swaps. Placed BEFORE the Row of tab buttons so
+    // it paints UNDERNEATH the icons + labels (paint order = source
+    // order for siblings with default z).
+    readonly property real _tabWidth: tabRepeater.count > 0 ? root.width / tabRepeater.count : root.width
+
+    Canvas {
+        id: sharedGlow
+        x: root.activeTab * root._tabWidth
+        width: root._tabWidth
+        height: Math.round(32 * root.scaleFactor)
+        anchors.top: parent.top
+        anchors.topMargin: 2
+
+        Behavior on x {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            const cx = width / 2;
+            const cy = 0;
+            const rx = width * 0.55;
+            const ry = height;
+            ctx.translate(cx, cy);
+            ctx.scale(rx / ry, 1);
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+            grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
+            grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
+            grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(-ry, 0, ry * 2, ry);
+            ctx.restore();
+        }
+    }
+
+    Rectangle {
+        id: sharedIndicator
+        x: root.activeTab * root._tabWidth + root._tabWidth * 0.12
+        width: root._tabWidth * 0.76
+        anchors.top: parent.top
+        height: Math.max(2, Math.round(2 * root.scaleFactor))
+
+        Behavior on x {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+        Behavior on width {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop {
+                position: 0.0
+                color: MColors.marathonTealDark
+            }
+            GradientStop {
+                position: 0.5
+                color: MColors.marathonTealBright
+            }
+            GradientStop {
+                position: 1.0
+                color: MColors.marathonTealDark
+            }
+        }
+    }
+
     Row {
         anchors.fill: parent
         spacing: 0
@@ -95,17 +181,14 @@ Rectangle {
                 scale: tabMouseArea.pressed ? 0.96 : 1.0
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springMedium
-                        damping: MMotion.springMedium
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
                     }
                 }
 
-                // Per-delegate active indicator + halo removed — now
-                // a single SHARED indicator + halo at root level slides
-                // to the active tab's x position on a spring (see below
-                // this Repeater). iOS Control Center / M3E pattern:
-                // active state slides, never swaps.
+                // Per-delegate indicator + halo removed — the shared
+                // sharedGlow/sharedIndicator above this Row handle it.
                 Column {
                     anchors.centerIn: parent
                     spacing: Math.round(4 * root.scaleFactor)
@@ -146,103 +229,6 @@ Rectangle {
                         root.activeTab = index;
                         root.tabSelected(index);
                     }
-                }
-            }
-        }
-    }
-
-    // ── Shared sliding indicator + halo ────────────────────────
-    // One indicator for the whole bar; x slides on a spring to the
-    // active tab. Replaces the per-delegate visible-toggle which
-    // caused the active state to disappear from one tab and reappear
-    // on another (swap, not slide). See world-class-design audit
-    // P3A · tab-indicator-slide-not-swap.
-    readonly property real _tabWidth: tabRepeater.count > 0 ? root.width / tabRepeater.count : root.width
-
-    Item {
-        id: indicatorTrack
-        anchors.fill: parent
-        z: 1
-        // No input — only visual.
-
-        // Halo: shared radial-gradient ellipse that slides under the
-        // active tab. Same falloff as before; redrawn once per
-        // resize, not per tab change.
-        Canvas {
-            id: sharedGlow
-            x: root.activeTab * root._tabWidth
-            width: root._tabWidth
-            height: Math.round(32 * root.scaleFactor)
-            anchors.top: parent.top
-            anchors.topMargin: 2
-
-            Behavior on x {
-                SpringAnimation {
-                    spring: MMotion.stiffnessSpatialFor("tap")
-                    damping: MMotion.dampingSpatialFor("tap")
-                    epsilon: MMotion.epsilon
-                }
-            }
-
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            Component.onCompleted: requestPaint()
-            onPaint: {
-                const ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-                ctx.save();
-                const cx = width / 2;
-                const cy = 0;
-                const rx = width * 0.55;
-                const ry = height;
-                ctx.translate(cx, cy);
-                ctx.scale(rx / ry, 1);
-                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
-                grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
-                grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
-                grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
-                ctx.fillStyle = grad;
-                ctx.fillRect(-ry, 0, ry * 2, ry);
-                ctx.restore();
-            }
-        }
-
-        // Indicator bar: 2 px teal-gradient, inset 12% each side.
-        Rectangle {
-            id: sharedIndicator
-            x: root.activeTab * root._tabWidth + root._tabWidth * 0.12
-            width: root._tabWidth * 0.76
-            anchors.top: parent.top
-            height: Math.max(2, Math.round(2 * root.scaleFactor))
-
-            Behavior on x {
-                SpringAnimation {
-                    spring: MMotion.stiffnessSpatialFor("tap")
-                    damping: MMotion.dampingSpatialFor("tap")
-                    epsilon: MMotion.epsilon
-                }
-            }
-            Behavior on width {
-                SpringAnimation {
-                    spring: MMotion.stiffnessSpatialFor("tap")
-                    damping: MMotion.dampingSpatialFor("tap")
-                    epsilon: MMotion.epsilon
-                }
-            }
-
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop {
-                    position: 0.0
-                    color: MColors.marathonTealDark
-                }
-                GradientStop {
-                    position: 0.5
-                    color: MColors.marathonTealBright
-                }
-                GradientStop {
-                    position: 1.0
-                    color: MColors.marathonTealDark
                 }
             }
         }
