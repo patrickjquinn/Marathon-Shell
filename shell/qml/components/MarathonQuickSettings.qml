@@ -32,7 +32,7 @@ Item {
         anchors.fill: parent
         source: quickSettings.appBackdrop
         blurAmount: 1.0
-        blurMax: 24
+        blurMax: MBlur.lg
         blurMultiplier: 1.4
         saturation: 0.5
         brightness: -0.1
@@ -42,10 +42,16 @@ Item {
         live: false
     }
 
+    // Opaque tint when no app is open behind the shade. 0.95 was already
+    // dark, but the home grid icons (App Store, Music, etc.) still bled
+    // through enough to make the shade feel like a translucent veil
+    // instead of a real surface. Marathon DS calls for the QS shade to
+    // read as a discrete panel — bump to elev1 fully opaque + a soft
+    // hairline at the very bottom so the panel has a clear terminus.
     Rectangle {
         anchors.fill: parent
         visible: quickSettings.appBackdrop === null
-        color: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.95)
+        color: MColors.elev1
     }
 
     // Tap anywhere outside the tiles/sliders → dismiss. TapHandler composes
@@ -59,25 +65,64 @@ Item {
         onTapped: quickSettings.closed()
     }
 
-    // Swipe in EITHER direction dismisses. The shade opens via swipe-up
-    // from the navBar; once open, both swipe-down (pull the curtain
-    // closed) and swipe-up (push it back where it came from) feel like
-    // valid dismiss gestures and Marathon users expect both. Previously
-    // only swipe-down dismissed — a swipe-up from mid-shade left the
-    // gesture dangling and the user complained of "stuck half open".
+    // Drag inside the shade for "follow-finger then snap" close. Grabs
+    // the shade chrome (NOT tiles/sliders — those steal input via their
+    // own MouseAreas) and shrinks UIStore.quickSettingsHeight per-frame
+    // as the finger moves up. On release, snap-back if drag < threshold
+    // or snap-closed if fling/distance exceeds threshold.
+    //
+    // This is what makes the shade FEEL like a panel you can grab and
+    // collapse rather than a static overlay that dismisses by magic.
+    // Matches iOS Control Center + Android 16 shade behaviour.
     DragHandler {
         id: dismissDrag
+        target: null
         yAxis.enabled: true
         xAxis.enabled: false
         property real startY: 0
+        property real startHeight: 0
         onActiveChanged: {
             if (active) {
                 startY = centroid.position.y;
+                startHeight = UIStore.quickSettingsHeight;
+                UIStore.quickSettingsDragging = true;
             } else {
+                UIStore.quickSettingsDragging = false;
                 const dy = centroid.position.y - startY;
                 const vy = centroid.velocity.y;
-                if (Math.abs(dy) > 120 || Math.abs(vy) > 800)
-                    quickSettings.closed();
+                // Fling up OR more than a third of the shade swept up → close.
+                // Otherwise spring back to fully open.
+                if (vy < -800 || -dy > startHeight * 0.33)
+                    UIStore.closeQuickSettings();
+                else
+                    UIStore.openQuickSettings();
+            }
+        }
+        onCentroidChanged: {
+            if (!active)
+                return;
+            const dy = centroid.position.y - startY;
+            // Rubber-band on the dragged-PAST-open direction (dy > 0,
+            // i.e. user pulling DOWN past the fully-open shade). iOS
+            // formula: extra = travel - (travel / (extra * c / dim + 1))
+            // where c≈0.55 and dim is the dimension we're resisting
+            // against. We pick startHeight as the dim so the resistance
+            // scales with the shade's open size.
+            //
+            // Within the legitimate range (dy ≤ 0, shrinking up to
+            // fully-closed) we still hard-clamp at 0 — you can't make
+            // the shade shorter than collapsed.
+            if (dy >= 0) {
+                // pull-down past open → rubber-band resistance
+                const c = 0.55;
+                const dim = Math.max(1, startHeight);
+                const extra = dy;
+                const resisted = dim - dim / (extra * c / dim + 1);
+                UIStore.quickSettingsHeight = startHeight + resisted;
+            } else {
+                // pull-up shrinking toward 0 → linear (no resistance on
+                // the natural close direction)
+                UIStore.quickSettingsHeight = Math.max(0, startHeight + dy);
             }
         }
     }
@@ -103,119 +148,172 @@ Item {
             icon: "wifi",
             label: "Wi-Fi",
             on: SystemControlStore.isWifiOn,
-            sub: SystemControlStore.isWifiOn ? (SystemStatusStore.wifiNetwork || "On") : "Off"
+            sub: SystemControlStore.isWifiOn ? (SystemStatusStore.wifiNetwork || "") : ""
         },
         {
             id: "bluetooth",
             icon: "bluetooth",
             label: "Bluetooth",
             on: SystemControlStore.isBluetoothOn,
-            sub: SystemControlStore.isBluetoothOn ? "On" : "Off"
+            sub: ""
         },
         {
             id: "cellular",
             icon: "cell-signal-high",
-            label: "Mobile data",
+            label: "Mobile",
             on: SystemControlStore.isCellularDataOn,
-            sub: mobileDataSub()
+            sub: ""
         },
         {
             id: "airplane",
             icon: "plane",
-            label: "Flight mode",
+            label: "Flight",
             on: SystemControlStore.isAirplaneModeOn,
-            sub: SystemControlStore.isAirplaneModeOn ? "On" : "Off"
+            sub: ""
         },
         {
             id: "dnd",
             icon: "bell-slash",
-            label: "Do Not Disturb",
+            label: "DND",
             on: SystemControlStore.isDndMode,
-            sub: SystemControlStore.isDndMode ? "On" : "Off"
+            sub: ""
         },
         {
             id: "torch",
             icon: "flashlight",
             label: "Torch",
             on: SystemControlStore.isFlashlightOn,
-            sub: SystemControlStore.isFlashlightOn ? "On" : "Off"
+            sub: ""
+        },
+        {
+            id: "autobrightness",
+            icon: "sun-medium",
+            label: "Auto",
+            on: SystemControlStore.isAutoBrightnessOn,
+            sub: ""
+        },
+        {
+            id: "settings",
+            icon: "settings",
+            label: "Settings",
+            on: false,
+            sub: ""
         }
     ]
+
+    // ── Bottom edge boundary ─────────────────────────────────
+    // The shade had no visible terminus — it just faded into the home
+    // grid via the dim Rectangle. iOS Control Center / Android 16 both
+    // anchor the bottom of the shade with a soft hairline + 1 px shadow
+    // line that reads as "the panel ends HERE."
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: MColors.whiteOverlay16
+        z: 2
+    }
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 1
+        height: 1
+        color: Qt.rgba(0, 0, 0, 0.45)
+        z: 2
+    }
 
     Column {
         id: content
 
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        anchors.topMargin: 14
-        spacing: 14
+        anchors.leftMargin: MSpacing.lg     // 20 px — matches DS panel inset
+        anchors.rightMargin: MSpacing.lg
+        anchors.topMargin: MSpacing.md      // 14 px under the status bar
+        spacing: MSpacing.md                // 14 px section rhythm
 
-        // ── Header — date only ──────────────────────────────
-        // Per user direction the MARATHON brand lockup at the top of
-        // Quick Settings was dropped. The status bar already carries
-        // the brand; repeating it here was redundant. The date string
-        // stays as the only ornament so the panel has a clear anchor.
+        // ── Header — Sora Title3 time + Sora Footnote date, left-anchored.
+        // The right-aligned 12 px Footnote was dust. iOS centers a big
+        // date/time block as the shade's anchor; Android puts the date
+        // top-left + battery top-right. Marathon left-anchors the stack
+        // at Title3 so the panel has a clear focal point at top.
         Item {
+            id: header
             width: parent.width
-            height: 22
+            height: 44
 
-            // ddd · h:mm AP — re-evaluated every 30 s so the chip stays in
-            // sync. Without the tick the string is frozen at QS-open time.
-            property string dateText: Qt.formatDateTime(new Date(), "ddd · h:mm AP")
+            property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
+            property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
             Timer {
                 interval: 30000
                 running: quickSettings.visible
                 repeat: true
                 triggeredOnStart: true
-                onTriggered: parent.dateText = Qt.formatDateTime(new Date(), "ddd · h:mm AP")
+                onTriggered: {
+                    header.dateText = Qt.formatDateTime(new Date(), "dddd, MMMM d");
+                    header.timeText = Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm");
+                }
             }
 
-            Text {
-                anchors.right: parent.right
+            Column {
+                anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                text: parent.dateText
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                font.features: ({
-                        "tnum": 1
-                    })
+                spacing: 2
+                Text {
+                    text: header.timeText
+                    color: MColors.textPrimary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeTitle3
+                    font.weight: MTypography.weightDemiBold
+                    font.features: ({
+                            "tnum": 1
+                        })
+                }
+                Text {
+                    text: header.dateText
+                    color: MColors.textSecondary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeFootnote
+                    font.weight: MTypography.weightMedium
+                }
             }
         }
 
         // ── Sliders ──────────────────────────────────────────
-        // DS-spec card: elev-2 fill, whiteOverlay04 border, 4 px radius.
-        // Heights computed from the inner Column so sliders + halo
-        // always fit cleanly inside without overflowing into the tile
-        // grid below.
+        // World-class slider card: elev-2 fill, whiteOverlay08 border
+        // (was 04 — invisible against the dark backdrop), 8 px radius,
+        // 18 px vertical padding so the fatter 8 px tracks + 26 px thumb
+        // halo breathe.
         Rectangle {
             width: parent.width
-            height: slidersInner.height + 24       // 12 top + 12 bottom padding
+            height: slidersInner.height + 36       // 18 top + 18 bottom padding
             radius: MRadius.md
             color: MColors.elev2
             border.width: 1
-            border.color: MColors.whiteOverlay04
+            border.color: MColors.whiteOverlay16
+
+            // Inner top-only hairline for sub-pixel chrome on glass.
+            MTopHairline {
+                radius: parent.radius
+                color: MColors.whiteOverlay16
+                lineWidth: 1
+            }
 
             Column {
                 id: slidersInner
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                anchors.topMargin: 12
-                // JSX QuickSettings inner divider uses `margin: '12px 0'`
-                // — i.e. 12 px gap above + below the hairline. Column spacing
-                // applies between every child, so a value of 12 yields the
-                // brightness/divider/volume rhythm the spec calls for.
-                spacing: 12
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                anchors.topMargin: 18
+                spacing: 16
 
                 MQSSlider {
                     id: brightness
                     width: parent.width
                     iconName: "sun"
-                    label: "Brightness"
                     value: SystemControlStore.brightness
                     onMoved: function (v) {
                         SystemControlStore.setBrightness(v);
@@ -224,13 +322,12 @@ Item {
                 Rectangle {
                     width: parent.width
                     height: 1
-                    color: MColors.whiteOverlay04
+                    color: MColors.whiteOverlay08
                 }
                 MQSSlider {
                     id: volume
                     width: parent.width
                     iconName: "volume-2"
-                    label: "Volume"
                     value: SystemControlStore.volume
                     onMoved: function (v) {
                         SystemControlStore.setVolume(v);
@@ -239,14 +336,17 @@ Item {
             }
         }
 
-        // ── Tile grid (2 cols) ───────────────────────────────
+        // ── Tile grid (4 cols × 2 rows) ──────────────────────
+        // BB10-modern density: compact square tiles, icon top-centered,
+        // label below. 4×2 fits 8 actions without scrolling — the spec
+        // pages above 8 to a second grid (not implemented yet; reserved).
         Grid {
             id: tileGrid
             width: parent.width
-            columns: 2
-            rowSpacing: 8
-            columnSpacing: 8
-            readonly property real cellWidth: (width - columnSpacing) / 2
+            columns: 4
+            rowSpacing: 10
+            columnSpacing: 10
+            readonly property real cellWidth: (width - columnSpacing * 3) / 4
 
             Repeater {
                 model: quickSettings.tiles
@@ -256,7 +356,6 @@ Item {
                     width: tileGrid.cellWidth
                     iconName: modelData.icon || "square"
                     label: modelData.label || ""
-                    sublabel: modelData.sub || ""
                     on: modelData.on === true
                     onToggled: quickSettings.toggle(modelData.id)
                 }
@@ -264,21 +363,20 @@ Item {
         }
 
         // ── Page indicator ──────────────────────────────────
-        // Matches the JSX QuickSettings() spec: an 18 × 4 tealBright
-        // pill for the active page + N - 1 dim 4 × 4 dots for the
-        // remaining pages. Currently the tile array holds a single
-        // page's worth of tiles (6), so only the active pill shows —
-        // when a second page lands the indicator grows automatically.
+        // 28 × 6 tealBright pill for the active page + 8 × 8 dim dots
+        // for the rest. Previous 18 × 4 was below the system-wide
+        // "minimum legible" threshold on a 720 px panel — it read as a
+        // typo, not a control.
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 6
+            spacing: MSpacing.sm
 
             readonly property int pages: 1   // bump when tile pages > 1
 
             Rectangle {
-                width: 18
-                height: 4
-                radius: 2
+                width: 28
+                height: 6
+                radius: MRadius.sm
                 color: MColors.marathonTealBright
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -286,9 +384,9 @@ Item {
                 model: Math.max(0, parent.pages - 1)
                 delegate: Rectangle {
                     required property int index
-                    width: 4
-                    height: 4
-                    radius: 2
+                    width: 8
+                    height: 8
+                    radius: 4
                     color: MColors.whiteOverlay24
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -308,18 +406,19 @@ Item {
     }
 
     // ── Drag handle ─────────────────────────────────────────
-    // Sized + opacified to read as "grabbable" against the dimmed app
-    // behind. Matches iOS Control Center pill and Android 16 shade
-    // handle prominence — a thinner / lower-opacity pill reads as
-    // decorative chrome.
+    // Visible pill at the bottom of the shade. iOS Control Center pill
+    // is 60×5 white@70%, Android 16 is 32×4 white@40% — we land between
+    // (closer to iOS) so the handle reads as a definitive "grab here"
+    // affordance against the elev-1 panel.
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 14
-        width: 56
-        height: 5
-        radius: 2.5
-        color: MColors.whiteOverlay24
+        anchors.bottomMargin: MSpacing.md
+        width: 72
+        height: 6
+        radius: MRadius.md
+        color: Qt.rgba(1, 1, 1, 0.72)
+        z: 3
     }
 
     // ── Behaviour hooks ─────────────────────────────────────
@@ -342,6 +441,16 @@ Item {
             break;
         case "torch":
             SystemControlStore.toggleFlashlight();
+            break;
+        case "autobrightness":
+            SystemControlStore.toggleAutoBrightness();
+            break;
+        case "settings":
+            quickSettings.closed();
+            quickSettings.launchApp({
+                "appId": "settings",
+                "name": "Settings"
+            });
             break;
         }
     }

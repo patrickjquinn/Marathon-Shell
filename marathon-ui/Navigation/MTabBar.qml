@@ -101,76 +101,11 @@ Rectangle {
                     }
                 }
 
-                // Active indicator — 2 px teal-gradient bar, inset 12 %
-                // from each side per marathon-tokens.css .tab.active::before.
-                Rectangle {
-                    visible: tabButton.selected
-                    anchors.top: parent.top
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width * 0.76
-                    height: Math.max(2, Math.round(2 * root.scaleFactor))
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop {
-                            position: 0.0
-                            color: MColors.marathonTealDark
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: MColors.marathonTealBright
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: MColors.marathonTealDark
-                        }
-                    }
-                }
-
-                // Active halo — radial-gradient ellipse anchored at the
-                // top centre, fading to transparent. JSX/CSS spec:
-                //   radial-gradient(ellipse at center top,
-                //                   rgba(29,233,182,0.28), transparent 70%)
-                //
-                // Implemented with a Canvas so the falloff is a real
-                // ellipse and not a stack of rectangles. The Canvas only
-                // exists while the tab is selected, so the runtime cost
-                // is one paint when activeTab changes.
-                Canvas {
-                    id: glowCanvas
-                    visible: tabButton.selected
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width
-                    height: Math.round(32 * root.scaleFactor)
-                    onWidthChanged: requestPaint()
-                    onHeightChanged: requestPaint()
-                    onVisibleChanged: if (visible)
-                        requestPaint()
-                    onPaint: {
-                        const ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-                        // Build an elliptical radial gradient by scaling
-                        // the y axis. Canvas only supports circular
-                        // radial gradients natively; the scale trick
-                        // gives a horizontal ellipse rooted at the top.
-                        ctx.save();
-                        const cx = width / 2;
-                        const cy = 0;                  // origin at top centre
-                        const rx = width * 0.55;       // ellipse half-width
-                        const ry = height;             // ellipse half-height
-                        ctx.translate(cx, cy);
-                        ctx.scale(rx / ry, 1);
-                        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
-                        grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
-                        grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
-                        grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
-                        ctx.fillStyle = grad;
-                        ctx.fillRect(-ry, 0, ry * 2, ry);
-                        ctx.restore();
-                    }
-                }
-
+                // Per-delegate active indicator + halo removed — now
+                // a single SHARED indicator + halo at root level slides
+                // to the active tab's x position on a spring (see below
+                // this Repeater). iOS Control Center / M3E pattern:
+                // active state slides, never swaps.
                 Column {
                     anchors.centerIn: parent
                     spacing: Math.round(4 * root.scaleFactor)
@@ -211,6 +146,103 @@ Rectangle {
                         root.activeTab = index;
                         root.tabSelected(index);
                     }
+                }
+            }
+        }
+    }
+
+    // ── Shared sliding indicator + halo ────────────────────────
+    // One indicator for the whole bar; x slides on a spring to the
+    // active tab. Replaces the per-delegate visible-toggle which
+    // caused the active state to disappear from one tab and reappear
+    // on another (swap, not slide). See world-class-design audit
+    // P3A · tab-indicator-slide-not-swap.
+    readonly property real _tabWidth: tabRepeater.count > 0 ? root.width / tabRepeater.count : root.width
+
+    Item {
+        id: indicatorTrack
+        anchors.fill: parent
+        z: 1
+        // No input — only visual.
+
+        // Halo: shared radial-gradient ellipse that slides under the
+        // active tab. Same falloff as before; redrawn once per
+        // resize, not per tab change.
+        Canvas {
+            id: sharedGlow
+            x: root.activeTab * root._tabWidth
+            width: root._tabWidth
+            height: Math.round(32 * root.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: 2
+
+            Behavior on x {
+                SpringAnimation {
+                    spring: MMotion.stiffnessSpatialFor("tap")
+                    damping: MMotion.dampingSpatialFor("tap")
+                    epsilon: MMotion.epsilon
+                }
+            }
+
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+            Component.onCompleted: requestPaint()
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                ctx.save();
+                const cx = width / 2;
+                const cy = 0;
+                const rx = width * 0.55;
+                const ry = height;
+                ctx.translate(cx, cy);
+                ctx.scale(rx / ry, 1);
+                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+                grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
+                grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
+                grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
+                ctx.fillStyle = grad;
+                ctx.fillRect(-ry, 0, ry * 2, ry);
+                ctx.restore();
+            }
+        }
+
+        // Indicator bar: 2 px teal-gradient, inset 12% each side.
+        Rectangle {
+            id: sharedIndicator
+            x: root.activeTab * root._tabWidth + root._tabWidth * 0.12
+            width: root._tabWidth * 0.76
+            anchors.top: parent.top
+            height: Math.max(2, Math.round(2 * root.scaleFactor))
+
+            Behavior on x {
+                SpringAnimation {
+                    spring: MMotion.stiffnessSpatialFor("tap")
+                    damping: MMotion.dampingSpatialFor("tap")
+                    epsilon: MMotion.epsilon
+                }
+            }
+            Behavior on width {
+                SpringAnimation {
+                    spring: MMotion.stiffnessSpatialFor("tap")
+                    damping: MMotion.dampingSpatialFor("tap")
+                    epsilon: MMotion.epsilon
+                }
+            }
+
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop {
+                    position: 0.0
+                    color: MColors.marathonTealDark
+                }
+                GradientStop {
+                    position: 0.5
+                    color: MColors.marathonTealBright
+                }
+                GradientStop {
+                    position: 1.0
+                    color: MColors.marathonTealDark
                 }
             }
         }

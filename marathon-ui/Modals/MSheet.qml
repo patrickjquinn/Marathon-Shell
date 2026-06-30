@@ -21,9 +21,15 @@ Rectangle {
     opacity: showing ? 1.0 : 0.0
     z: 10000
 
+    // Opacity rides the effects family — colour/opacity must not
+    // ring per M3 Expressive. Spring + critical damping gives the
+    // overlay a soft fade-in/out without the abrupt cut of a fixed-
+    // duration NumberAnimation.
     Behavior on opacity {
-        NumberAnimation {
-            duration: MMotion.quick
+        SpringAnimation {
+            spring: MMotion.stiffnessEffectsFor("modal")
+            damping: MMotion.dampingEffectsFor("modal")
+            epsilon: MMotion.epsilon
         }
     }
 
@@ -39,15 +45,30 @@ Rectangle {
         anchors.bottom: parent.bottom
         height: parent.height * root.sheetHeight
 
-        color: MColors.bb10Elevated
+        // Sheet container — was opaque MColors.bb10Elevated; now
+        // glass-blurred via MGlass underneath. Keeps the elevated
+        // chroma but lets the surface read as a panel over content
+        // instead of a hard plate.
+        color: "transparent"
         radius: MRadius.xl
+
+        MGlass {
+            id: sheetGlass
+            anchors.fill: parent
+            sourceItem: root.parent
+            blurMaxRadius: MBlur.blurFor("sheet")
+            tint: Qt.rgba(MColors.bb10Elevated.r, MColors.bb10Elevated.g, MColors.bb10Elevated.b, 0.78)
+            borderColor: MColors.borderGlass
+            topHairline: false
+            z: -1
+        }
 
         y: root.showing ? 0 : height
 
         Behavior on y {
             SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
+                spring: MMotion.stiffnessSpatialFor("sheet")
+                damping: MMotion.dampingSpatialFor("sheet")
                 epsilon: MMotion.epsilon
             }
         }

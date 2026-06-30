@@ -272,19 +272,34 @@ Item {
             }
         }
 
-        // Success indicator
+        // Success indicator — morphs from invisible (scale 0) to a
+        // bigger-than-default check that commands the button's visual
+        // weight in the success state. iOS-style "tick lands" pattern:
+        // the success check is visibly larger than the icon it replaces
+        // so the state transition reads as the button *becoming* a
+        // confirmation, not just a smaller icon swap inside the same
+        // chrome.
         Icon {
             anchors.centerIn: parent
             name: "check"
-            size: root.iconSize
+            // 1.6x baseline icon size when settled — matches the
+            // "filled-with-the-action" feel iOS uses for completed
+            // buttons (e.g., Add to Cart → ✓).
+            size: Math.round(root.iconSize * 1.6)
             color: root.isPrimary ? "#000000" : MColors.success
             visible: root.state === "success"
             scale: root.state === "success" ? 1 : 0
+            // Stiff spring + critical damping — success should LAND
+            // decisively, no overshoot. Coupled with the size jump,
+            // the user perceives the button completing rather than
+            // a small icon appearing.
             Behavior on scale {
                 SpringAnimation {
-                    spring: MMotion.springLight
-                    damping: MMotion.dampingLight
+                    spring: MMotion.stiffnessSpatialFor("tap")
+                    damping: MMotion.dampingCritical
                     epsilon: MMotion.epsilon
+                    onStopped: if (root.state === "success")
+                        MHaptics.success()
                 }
             }
         }

@@ -64,6 +64,12 @@ Item {
         onStopped: ent._played = true
     }
 
+    // Spring-driven entrance per the M3 Expressive motion ladder.
+    // Spatial channels (scale, y) use the "entrance" role's spatial
+    // family — Low stiffness + underdamped so the row settles with a
+    // soft "arrival" cue. Opacity rides the effects family (critical
+    // damping; colour/opacity must not ring). Stagger comes from the
+    // index * MMotion.staggerShort delay.
     ParallelAnimation {
         id: animator
 
@@ -71,34 +77,34 @@ Item {
             duration: ent.index * ent.stagger
         }
 
-        NumberAnimation {
+        SpringAnimation {
             target: ent.target
             property: "opacity"
             from: 0
             to: 1
-            duration: MMotion.durationFor("entrance")
-            easing.type: Easing.Bezier
-            easing.bezierCurve: MMotion.easingCurveFor("entrance")
+            spring: MMotion.stiffnessEffectsFor("entrance")
+            damping: MMotion.dampingEffectsFor("entrance")
+            epsilon: MMotion.epsilon
         }
 
-        NumberAnimation {
+        SpringAnimation {
             target: ent.target
             property: "scale"
             from: ent.startScale
             to: 1.0
-            duration: MMotion.durationFor("entrance")
-            easing.type: Easing.Bezier
-            easing.bezierCurve: MMotion.easingCurveFor("entrance")
+            spring: MMotion.stiffnessSpatialFor("entrance")
+            damping: MMotion.dampingSpatialFor("entrance")
+            epsilon: MMotion.epsilon
         }
 
-        NumberAnimation {
+        SpringAnimation {
             target: ent.target
             property: "y"
             from: (ent.target ? ent.target.y : 0)
             to: (ent.target ? ent.target.y - ent.translateY : 0)
-            duration: MMotion.durationFor("entrance")
-            easing.type: Easing.Bezier
-            easing.bezierCurve: MMotion.easingCurveFor("entrance")
+            spring: MMotion.stiffnessSpatialFor("entrance")
+            damping: MMotion.dampingSpatialFor("entrance")
+            epsilon: MMotion.epsilon
         }
 
         onStopped: ent._played = true
