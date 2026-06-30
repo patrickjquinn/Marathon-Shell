@@ -443,7 +443,13 @@ Item {
 
                 MCard {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: wifiOffRow.implicitHeight + MSpacing.md * 2
+                    // Fixed sizing — wifiOffRow has anchors.fill: parent so
+                    // its implicitHeight is driven from the OUTSIDE, which
+                    // creates a binding loop if the card's preferredHeight
+                    // is derived from it. The row's content is one Icon
+                    // (24*scale) + label text, so a 72*scale card is the
+                    // natural minimum that always fits without measuring.
+                    Layout.preferredHeight: Math.round(72 * Constants.scaleFactor)
                     elevation: 2
                     visible: !SystemStatusStore.isWifiOn
 

@@ -21,7 +21,17 @@ Rectangle {
     readonly property real shadowMargin4: Math.max(1, Math.round(4 * scaleFactor))
 
     implicitWidth: parent ? parent.width : 300
-    implicitHeight: contentItem.childrenRect.height + MSpacing.md * 2
+    // implicitHeight derived from contentItem.childrenRect.height caused
+    // a binding loop when contentItem has anchors.fill: parent (always)
+    // AND a child uses anchors.fill or centerIn inside it (common with
+    // RowLayout/Column). Qt's chain: MCard.implicitHeight ←
+    // contentItem.childrenRect.height ← contentItem.height ← MCard.height
+    // ← MCard.implicitHeight. Almost every call site either sets
+    // Layout.preferredHeight explicitly or wraps content in a
+    // self-sizing Column/RowLayout — so a fixed minimum is harmless and
+    // breaks the loop. Override Layout.preferredHeight at the call site
+    // if you need a different size.
+    implicitHeight: Math.round(80 * scaleFactor)
 
     radius: MRadius.md
     color: MElevation.getSurface(elevation)
