@@ -1667,6 +1667,23 @@ Item {
         }
     }
 
+    // Shell-level fallback for the marathon-dev DBus unlock path:
+    // SecurityManager emits authenticationSuccess regardless of which
+    // surface initiated auth (PinScreen tap OR DBus AuthenticateQuickPIN).
+    // PinScreen.qml has its own Connections, but its handler chains
+    // through a 350 ms unlockDelayTimer → pinCorrect → SessionStore.unlock
+    // — fine when the user is actively entering a PIN, but for scripted
+    // unlocks via the DBus we want the lock surface to dismiss
+    // immediately. Belt-and-braces: clear showLockScreen here too. If
+    // both handlers fire, setShowLockScreen(false) twice is a no-op.
+    Connections {
+        target: SecurityManagerCpp
+        function onAuthenticationSuccess() {
+            if (SessionStore.isLocked && !pinScreen.visible)
+                SessionStore.unlock();
+        }
+    }
+
     MarathonPinScreen {
         id: pinScreen
 
