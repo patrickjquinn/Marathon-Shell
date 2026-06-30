@@ -17,14 +17,61 @@ Rectangle {
     property bool showBack: false
     signal backClicked
 
+    // ── Shrink-on-scroll · iOS 26 / Material 3 Expressive chrome ──
+    // When `scrollSource` is bound to a Flickable/ListView, the bar
+    // shrinks on downward scroll (gives way to content) and fluidly
+    // expands on upward scroll. Unbound = legacy fixed-height
+    // behaviour; callers opt in per-page by setting scrollSource.
+    //
+    //   page MPage {
+    //       MTopBar { scrollSource: scrollView.flickableItem }
+    //   }
+    //
+    // Threshold (8 px) avoids twitchy state flips from finger jitter.
+    // Activation guard (cy > 20) keeps the bar full-height during
+    // rubber-band overshoot at the top of the list.
+    property var scrollSource: null
+    property bool minimized: false
+    property real _lastContentY: 0
+
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     readonly property real barHeight: Math.round(96 * scaleFactor)
+    readonly property real barHeightMin: Math.round(60 * scaleFactor)
     readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real titleFontSize: Math.round(34 * scaleFactor)
+    readonly property real titleFontSize: Math.round((minimized ? 20 : 34) * scaleFactor)
     readonly property real titleLetterSpacing: -0.8 * scaleFactor
 
-    height: barHeight
+    height: minimized ? barHeightMin : barHeight
     color: MColors.glassTitlebar
+
+    Behavior on height {
+        SpringAnimation {
+            spring: MMotion.stiffnessSpatialFor("modal")
+            damping: MMotion.dampingSpatialFor("modal")
+            epsilon: MMotion.epsilon
+        }
+    }
+    Behavior on titleFontSize {
+        SpringAnimation {
+            spring: MMotion.stiffnessSpatialFor("modal")
+            damping: MMotion.dampingSpatialFor("modal")
+            epsilon: MMotion.epsilon
+        }
+    }
+
+    Connections {
+        target: root.scrollSource
+        function onContentYChanged() {
+            if (!root.scrollSource)
+                return;
+            var cy = root.scrollSource.contentY;
+            if (cy > root._lastContentY + 8 && cy > 20)
+                root.minimized = true;
+            else if (cy < root._lastContentY - 8)
+                root.minimized = false;
+            root._lastContentY = cy;
+        }
+    }
 
     // Bottom hairline divider.
     Rectangle {
