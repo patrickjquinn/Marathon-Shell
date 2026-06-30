@@ -93,6 +93,23 @@ namespace {
         LinuxDmabufFeedbackV1::handleDestroy,
     };
 
+    // Interface dispatch table for zwp_linux_buffer_params_v1.
+    const struct zwp_linux_buffer_params_v1_interface kBufferParamsV1Impl = {
+        LinuxDmabufBufferParamsV1::handleDestroy,
+        LinuxDmabufBufferParamsV1::handleAdd,
+        LinuxDmabufBufferParamsV1::handleCreate,
+        LinuxDmabufBufferParamsV1::handleCreateImmed,
+    };
+
+    // Inert wl_buffer dispatch table — used for the stub buffer that
+    // create_immed has to produce. Only `destroy` is meaningful; the
+    // client should never attach this buffer to a surface (we emit a
+    // .release immediately so the client discards it), but if it does,
+    // wayland-server handles the destroy cleanly.
+    const struct wl_buffer_interface kStubBufferImpl = {
+        [](struct wl_client *, struct wl_resource *resource) { wl_resource_destroy(resource); },
+    };
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -159,20 +176,22 @@ void LinuxDmabufManagerV1::handleDestroy(struct wl_client *, struct wl_resource 
     wl_resource_destroy(resource);
 }
 
-void LinuxDmabufManagerV1::handleCreateParams(struct wl_client *client,
-                                              struct wl_resource * /*resource*/,
-                                              uint32_t /*params_id*/) {
-    // Spike: not implemented. Clients that bind v4 and call create_params
-    // get a protocol error. The hypothesis is that Chromium binds v4 for
-    // feedback events but falls back to a separate v3 bind for actual
-    // buffer allocation. If that's wrong, we'll see this error in the
-    // stderr trace and extend the scope. Send NO_MEMORY-style fatal so
-    // the client cleanly drops the v4 binding without crashing.
-    qWarning() << "[LinuxDmabufV1] create_params called on v4 binding — spike does not "
-                  "implement buffer allocation here, returning error to force client to "
-                  "fall back to Qt's v3 plugin";
-    wl_client_post_implementation_error(
-        client, "marathon-dmabuf-v1 spike: create_params not implemented on v4 binding");
+void LinuxDmabufManagerV1::handleCreateParams(struct wl_client   *client,
+                                              struct wl_resource *resource, uint32_t params_id) {
+    // Create a real zwp_linux_buffer_params_v1 resource at params_id so
+    // the wire protocol stays valid (`new_id` arg MUST allocate). The
+    // implementation refuses buffer creation via .failed events; Qt's
+    // wayland-egl client retries on its v3 binding which does have the
+    // import path wired up. Previously this posted a protocol error and
+    // killed the connection. See header for full rationale.
+    const uint32_t      version       = wl_resource_get_version(resource);
+    struct wl_resource *paramResource = wl_resource_create(
+        client, &zwp_linux_buffer_params_v1_interface, static_cast<int>(version), params_id);
+    if (!paramResource) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    wl_resource_set_implementation(paramResource, &kBufferParamsV1Impl, nullptr, nullptr);
 }
 
 void LinuxDmabufManagerV1::handleGetDefaultFeedback(struct wl_client   *client,
@@ -269,4 +288,66 @@ void LinuxDmabufFeedbackV1::sendInitial() {
 
 void LinuxDmabufFeedbackV1::handleDestroy(struct wl_client *, struct wl_resource *resource) {
     wl_resource_destroy(resource);
+}
+
+// ---------------------------------------------------------------------------
+// LinuxDmabufBufferParamsV1 — graceful-fallback stub.
+//
+// The v4 binding's create_params has to return a real resource (the
+// protocol's new_id arg is mandatory) but this implementation refuses
+// to actually back any of the buffers it pretends to receive. Qt's
+// wayland-egl client treats the .failed event as "this version can't
+// allocate; try another binding" and retries on its v3 binding, which
+// has full create_params support via Qt's own dmabuf plugin.
+// ---------------------------------------------------------------------------
+
+void LinuxDmabufBufferParamsV1::handleDestroy(struct wl_client *, struct wl_resource *resource) {
+    wl_resource_destroy(resource);
+}
+
+void LinuxDmabufBufferParamsV1::handleAdd(struct wl_client * /*client*/,
+                                          struct wl_resource * /*resource*/, int32_t fd,
+                                          uint32_t /*plane_idx*/, uint32_t /*offset*/,
+                                          uint32_t /*stride*/, uint32_t /*modifier_hi*/,
+                                          uint32_t /*modifier_lo*/) {
+    // We will not import this dmabuf — close the fd immediately to
+    // avoid leaking it on the server side. Wayland's wire decoder
+    // already dup()'d it into our process when the request landed.
+    if (fd >= 0)
+        close(fd);
+}
+
+void LinuxDmabufBufferParamsV1::handleCreate(struct wl_client * /*client*/,
+                                             struct wl_resource *resource, int32_t /*width*/,
+                                             int32_t /*height*/, uint32_t /*format*/,
+                                             uint32_t /*flags*/) {
+    // Deferred-creation path: the protocol's .failed event is the
+    // documented way to signal "the requested import did not succeed"
+    // without tearing down the connection. The client cleans up the
+    // params object after handling this event.
+    zwp_linux_buffer_params_v1_send_failed(resource);
+}
+
+void LinuxDmabufBufferParamsV1::handleCreateImmed(struct wl_client *client,
+                                                  struct wl_resource * /*resource*/,
+                                                  uint32_t buffer_id, int32_t /*width*/,
+                                                  int32_t /*height*/, uint32_t /*format*/,
+                                                  uint32_t /*flags*/) {
+    // Immediate-creation path: the buffer_id new_id MUST be created or
+    // the protocol state is corrupted. Spin up an inert wl_buffer that
+    // emits .release as soon as anything attaches it, so the client
+    // discards it and (in Qt's case) retries with another buffer
+    // allocator. Per the protocol's invalid_wl_buffer note, the server
+    // is permitted to produce a buffer that fails on first attach.
+    struct wl_resource *bufferResource =
+        wl_resource_create(client, &wl_buffer_interface, 1, buffer_id);
+    if (!bufferResource) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    wl_resource_set_implementation(bufferResource, &kStubBufferImpl, nullptr, nullptr);
+    // Immediately tell the client the buffer is "released" so it does
+    // not try to render with it. Most clients short-circuit on this
+    // and bail out of the failed allocation path.
+    wl_buffer_send_release(bufferResource);
 }
