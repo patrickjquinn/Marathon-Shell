@@ -38,7 +38,8 @@ Item {
         if (!disabled && state === "default") {
             checked = !checked;
             toggled(checked);
-            MHaptics.lightImpact();
+            // Haptic moved to the check-icon scale spring onStopped —
+            // fires when the check actually lands, not at touch.
         }
     }
 
@@ -100,9 +101,11 @@ Item {
 
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springLight
-                        damping: MMotion.dampingLight
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
+                        onStopped: if (root.checked)
+                            MHaptics.light()
                     }
                 }
             }

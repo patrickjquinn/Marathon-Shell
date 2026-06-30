@@ -33,7 +33,11 @@ Item {
         if (!disabled) {
             checked = !checked;
             toggled();
-            MHaptics.lightImpact();
+            // Haptic moved from here to the thumb's SpringAnimation.
+            // onStopped below — fires when the thumb actually LANDS
+            // in the new position, not when the press registers. iOS
+            // / M3 Expressive feel: user perceives the action complete
+            // at settle, not at touch.
         }
     }
 
@@ -118,9 +122,10 @@ Item {
 
         Behavior on x {
             SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
                 epsilon: MMotion.epsilon
+                onStopped: MHaptics.light()
             }
         }
     }

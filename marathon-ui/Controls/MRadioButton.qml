@@ -42,7 +42,8 @@ Item {
         if (!disabled && !checked) {
             checked = true;
             toggled(true);
-            MHaptics.lightImpact();
+            // Haptic moved to the inner-circle scale spring onStopped —
+            // fires when the dot lands, not at touch.
 
             if (groupName !== "" && parent) {
                 for (var i = 0; i < parent.children.length; i++) {
@@ -118,9 +119,11 @@ Item {
 
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springLight
-                        damping: MMotion.dampingLight
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
+                        onStopped: if (root.checked)
+                            MHaptics.light()
                     }
                 }
 
