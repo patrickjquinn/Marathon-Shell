@@ -494,27 +494,36 @@ MApp {
 
                 // When a place is selected, show its name + address as a
                 // static label. The input only shows while typing.
-                Column {
+                // Wrapper Item so the tap target can anchors.fill — a
+                // MouseArea with anchors.fill inside a Column is illegal and
+                // silently breaks the Column's vertical layout.
+                Item {
+                    id: placeLabel
                     visible: mapsApp.selectedPlace !== null
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 20 - 36 - parent.spacing * 2
-                    spacing: 2
-                    Text {
+                    height: placeCol.height
+                    Column {
+                        id: placeCol
                         width: parent.width
-                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.name : ""
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeSubhead
-                        font.weight: Font.Medium
-                        elide: Text.ElideRight
-                    }
-                    Text {
-                        width: parent.width
-                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.address : ""
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
-                        elide: Text.ElideRight
+                        spacing: 2
+                        Text {
+                            width: parent.width
+                            text: mapsApp.selectedPlace ? mapsApp.selectedPlace.name : ""
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            width: parent.width
+                            text: mapsApp.selectedPlace ? mapsApp.selectedPlace.address : ""
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                            elide: Text.ElideRight
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent

@@ -776,6 +776,17 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("MARATHON_USER_SCALE", userScale);
         ctx->setContextProperty("MARATHON_DPI", dpi);
 
+        // Screen metrics. ScreenMetricsCpp is not registered inside the
+        // runner, so Constants.screenWidth/screenHeight (and everything
+        // derived: heightScaleFactor, isTallScreen, safeArea*) were 0/false
+        // in every app — breaking any layout keyed off screen dimensions.
+        // Forward the real screen size from the shell as a fallback, mirroring
+        // the MARATHON_DPI / MARATHON_USER_SCALE pattern above.
+        const int envScreenW = qEnvironmentVariableIntValue("MARATHON_SCREEN_WIDTH");
+        const int envScreenH = qEnvironmentVariableIntValue("MARATHON_SCREEN_HEIGHT");
+        ctx->setContextProperty("MARATHON_SCREEN_WIDTH", envScreenW > 0 ? envScreenW : w);
+        ctx->setContextProperty("MARATHON_SCREEN_HEIGHT", envScreenH > 0 ? envScreenH : h);
+
         // MARATHON_LAYER_SAMPLES + MARATHON_GPU_HDR mirror the shell-side
         // exposures (shell/main.cpp). Apps need these too — every
         // layer-wrapped QML item in shared marathon-ui primitives reads

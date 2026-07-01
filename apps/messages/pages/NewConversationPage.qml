@@ -139,9 +139,13 @@ Rectangle {
                 }
             }
 
+            // anchors.centerIn is ILLEGAL on a Column child and silently
+            // breaks the entire Column (the To: bar + contacts list below).
+            // horizontalCenter is allowed; the empty state flows just under
+            // the input bar with breathing room above.
             MEmptyState {
                 visible: contactsList.count === 0 && recipientInput.text.length > 2
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - MSpacing.xl * 2
                 iconName: "users"
                 title: "No contacts found"

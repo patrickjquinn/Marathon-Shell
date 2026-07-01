@@ -566,6 +566,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
         env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
 
+        // Real screen size, forwarded so the app-runner can populate
+        // Constants.screenWidth/screenHeight (ScreenMetricsCpp is not
+        // registered inside the sandbox, leaving them 0 — which zeroes
+        // heightScaleFactor and forces isTallScreen false in every app).
+        if (const QScreen *primaryScreen = QGuiApplication::primaryScreen()) {
+            const QRect g = primaryScreen->geometry();
+            env.insert("MARATHON_SCREEN_WIDTH", QString::number(g.width()));
+            env.insert("MARATHON_SCREEN_HEIGHT", QString::number(g.height()));
+        }
+
         // Input method for SPAWNED clients: QT_IM_MODULE=wayland.
         // QtVirtualKeyboard has no Wayland client-side IM backend (Qt 6.x
         // qtbase/src/plugins/platforms/wayland/qwaylandintegration.cpp);
@@ -916,6 +926,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             }
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
                       << QString::number(dpi, 'f', 1);
+        }
+        if (const QScreen *primaryScreen = QGuiApplication::primaryScreen()) {
+            const QRect g = primaryScreen->geometry();
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SCREEN_WIDTH")
+                      << QString::number(g.width()) << QStringLiteral("--setenv")
+                      << QStringLiteral("MARATHON_SCREEN_HEIGHT") << QString::number(g.height());
         }
 
         // QT_QPA_PLATFORM=wayland makes the sandboxed runner connect to
