@@ -19,6 +19,10 @@
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include <QScreen>
+#if MARATHON_HAVE_QT_GUI_PRIVATE
+#include <qpa/qplatformscreen.h>
+#endif
 #include "textinputv3.h"
 
 #include "util/frametiming.h"
@@ -1093,6 +1097,11 @@ void WaylandCompositor::setCompositorActive(bool active) {
              << "compositor window";
 
     if (active) {
+        // Power the display pipeline back on BEFORE resuming page flips,
+        // so the first flip lands on a live CRTC (not a sleeping one,
+        // which is what wedges eglfs_kms with EINVAL). Order is the
+        // mirror image of the suspend path below.
+        setDisplayPowerState(true);
         m_window->setVisible(true);
         return;
     }
@@ -1103,6 +1112,57 @@ void WaylandCompositor::setCompositorActive(bool active) {
     // virtio-gpu (the page-flip cannot land on a sleeping connector).
     m_window->setVisible(false);
     m_window->releaseResources();
+
+    // Now that page flips are halted, power the CRTC/panel down. Turning
+    // off only the backlight LED (DisplayManagerCpp) leaves the DCSS
+    // display controller scanning out 720x1440@63Hz to a still-powered
+    // DSI panel — measured at ~3W in Doze, because continuous scanout
+    // pins the memory-controller + interconnect devfreq at 800MHz (floor
+    // is 169MHz) and the mxsfb-dsi panel regulators (avdd/avee) never
+    // gate. A real DPMS-off stops scanout, drops the memory bus, and
+    // powers the panel rails down — the single biggest standby win.
+    setDisplayPowerState(false);
+}
+
+// DPMS transition for the primary output. Gated behind MARATHON_DOZE_DPMS
+// and DEFAULT OFF — do not enable without a kernel fix.
+//
+// VALIDATED 2026-07-01 on kernel 6.6.139-librem5 + eglfs_kms_atomic and
+// found NOT SHIPPABLE:
+//   1. Wedges intermittently on wake. Doze DPMS-off correctly stops DCSS
+//      scanout (memory-controller drops 800->25 MHz, confirmed) and the
+//      first wake recovers cleanly, but a later cycle leaves the panel
+//      physically dark while every signal reads healthy (dpms=On,
+//      backlight PWM 200/255, LCD_AVDD/AVEE 5.5V). The mxsfb-dsi panel
+//      driver fails to re-issue the MIPI display-on sequence on Off->On.
+//      A greetd restart does NOT recover it (panel driver stays bound);
+//      only a full reboot does. Kernel-side bug, not fixable here.
+//   2. Marginal win anyway: ~0.28 W / 10% (784->709 mA). DCSS scanout
+//      stops but the panel rails never gate, and the standby draw is
+//      dominated by the i.MX8MQ SoC floor, not the display. The real
+//      standby lever is SoC suspend-with-wake, not this. See the
+//      "standby power floor" investigation notes.
+// Left in place as the starting point for a future revisit once the
+// mxsfb-dsi driver reliably re-runs panel prepare/enable on DPMS On.
+void WaylandCompositor::setDisplayPowerState(bool on) {
+    static const bool enabled = qEnvironmentVariableIntValue("MARATHON_DOZE_DPMS") != 0;
+    if (!enabled)
+        return;
+#if MARATHON_HAVE_QT_GUI_PRIVATE
+    if (!m_window)
+        return;
+    QScreen *screen = m_window->screen();
+    if (!screen)
+        return;
+    QPlatformScreen *platformScreen = screen->handle();
+    if (!platformScreen)
+        return;
+    platformScreen->setPowerState(on ? QPlatformScreen::PowerStateOn :
+                                       QPlatformScreen::PowerStateOff);
+    qInfo() << "[WaylandCompositor] DPMS" << (on ? "ON" : "OFF") << "(MARATHON_DOZE_DPMS)";
+#else
+    Q_UNUSED(on);
+#endif
 }
 
 void WaylandCompositor::setOutputOrientation(const QString &orientation) {
