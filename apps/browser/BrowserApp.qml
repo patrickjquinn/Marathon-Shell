@@ -992,35 +992,38 @@ MApp {
                         }
                     }
                 }
+            }
 
-                MouseArea {
-                    id: rightEdgeGesture
+            // Right-edge drawer gesture — must be a SIBLING of the content
+            // column, not a child: an anchored MouseArea inside a Column is
+            // illegal and silently breaks the column's layout.
+            MouseArea {
+                id: rightEdgeGesture
 
-                    property real startX: 0
-                    property real currentX: 0
+                property real startX: 0
+                property real currentX: 0
 
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: Constants.gestureEdgeWidth
-                    z: 1000
-                    onPressed: mouse => {
-                        startX = mouse.x + rightEdgeGesture.x;
-                        currentX = startX;
-                        isDragging = true;
-                    }
-                    onPositionChanged: mouse => {
-                        currentX = mouse.x + rightEdgeGesture.x;
-                        var deltaX = startX - currentX;
-                        drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
-                    }
-                    onReleased: {
-                        isDragging = false;
-                        if (drawerProgress > 0.3)
-                            openDrawer();
-                        else
-                            closeDrawer();
-                    }
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: Constants.gestureEdgeWidth
+                z: 1000
+                onPressed: mouse => {
+                    startX = mouse.x + rightEdgeGesture.x;
+                    currentX = startX;
+                    isDragging = true;
+                }
+                onPositionChanged: mouse => {
+                    currentX = mouse.x + rightEdgeGesture.x;
+                    var deltaX = startX - currentX;
+                    drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
+                }
+                onReleased: {
+                    isDragging = false;
+                    if (drawerProgress > 0.3)
+                        openDrawer();
+                    else
+                        closeDrawer();
                 }
             }
 

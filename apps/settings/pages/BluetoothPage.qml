@@ -161,8 +161,10 @@ SettingsPageTemplate {
                                 }
 
                                 Icon {
+                                    // anchors.right is illegal in a Row (breaks it) AND
+                                    // redundant — deviceColumn's width already reserves
+                                    // space so the Row flow lands this at the right edge.
                                     anchors.verticalCenter: parent.verticalCenter
-                                    anchors.right: parent.right
                                     name: "chevron-right"
                                     size: Constants.iconSizeSmall
                                     color: MColors.textSecondary

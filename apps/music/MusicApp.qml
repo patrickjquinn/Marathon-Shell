@@ -138,6 +138,7 @@ MApp {
     }
 
     content: Rectangle {
+        id: musicRoot
         anchors.fill: parent
         color: MColors.background
 
@@ -148,8 +149,12 @@ MApp {
             spacing: 0
 
             StackLayout {
-                width: parent.width
-                height: parent.height - tabBar.height
+                // Size from the content root, NOT parent.width: the parent is
+                // a Column positioner and `width: parent.width` there forms a
+                // circular dependency that resolves to 0, collapsing the whole
+                // Now Playing view (album bay especially).
+                width: musicRoot.width
+                height: musicRoot.height - tabBar.height
                 currentIndex: parent.currentView
 
                 // Marathon DS · Music Now Playing (screens-shell.jsx:MusicNowPlaying).
@@ -160,6 +165,12 @@ MApp {
                 // (shuffle · prev · big play circle · next · heart).
                 Rectangle {
                     id: nowPlayingFrame
+                    // StackLayout children default to implicit size (0 for a
+                    // Rectangle) unless they opt into filling — without this
+                    // the whole Now Playing view laid out against width 0,
+                    // collapsing the album bay.
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     color: MColors.background
 
                     // Top column: eyebrow, album bay, track info, scrubber.
@@ -236,7 +247,10 @@ MApp {
                         // the same way iOS Music does, and the transport
                         // row sits at a natural distance below the scrubber.
                         Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
+                            // NO anchors.horizontalCenter here: combined with
+                            // width: parent.width inside a Column it conflicts
+                            // and collapses the bay to implicit (glyph) size.
+                            // width: parent.width alone fills the column.
                             width: parent.width
                             height: width
                             radius: MRadius.md
@@ -245,11 +259,11 @@ MApp {
                             gradient: Gradient {
                                 GradientStop {
                                     position: 0
-                                    color: Qt.rgba(0, 89 / 255, 77 / 255, 0.65)
+                                    color: Qt.rgba(0, 140 / 255, 122 / 255, 1.0)
                                 }
                                 GradientStop {
                                     position: 1
-                                    color: Qt.rgba(4 / 255, 4 / 255, 4 / 255, 0.85)
+                                    color: Qt.rgba(6 / 255, 30 / 255, 27 / 255, 1.0)
                                 }
                             }
                             clip: true
