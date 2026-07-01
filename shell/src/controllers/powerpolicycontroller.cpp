@@ -306,6 +306,23 @@ bool PowerPolicyController::deepSleep() {
 }
 
 QString PowerPolicyController::scheduleWakeEpoch(qint64 epochSeconds, const QString &reason) {
+    // Coalesce wake alarms to 60-second windows. Android's AlarmManager
+    // has done this via setInexactRepeating since API 19; iOS BGTaskScheduler
+    // uses opportunistic scheduling with earliestBeginDate as a lower
+    // bound. Marathon rounds each requested wake UP to the next
+    // multiple of kAlarmSnapSeconds so that 5 apps requesting "wake
+    // me at 09:00, 09:00:12, 09:00:37, 09:00:58" all land at the same
+    // RTC alarm slot — one wake instead of four. Compatible with the
+    // existing scheduledWakes surface; QML sees the snapped time in
+    // epochSeconds. Callers needing exact wake latency can opt out by
+    // passing an already-snapped value.
+    constexpr qint64 kAlarmSnapSeconds = 60;
+    if (kAlarmSnapSeconds > 1) {
+        const qint64 remainder = epochSeconds % kAlarmSnapSeconds;
+        if (remainder != 0)
+            epochSeconds += (kAlarmSnapSeconds - remainder);
+    }
+
     const QString wakeId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
     QVariantMap   wake;

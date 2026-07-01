@@ -87,9 +87,21 @@ bool CgroupManager::initRootPath() {
     // Enable the controllers we want children of marathon-apps to see.
     // Best-effort: cgroup.freeze itself is in the v2 core (not a
     // controller) so this isn't load-bearing.
+    //
+    // The `cpu` controller must ALSO be enabled at the parent slice's
+    // subtree_control before it can be enabled at marathon-apps. systemd
+    // gives us `memory pids` by default under user.slice; we enable
+    // `+cpu` here so cpu.uclamp.min becomes writable on child app
+    // cgroups. That's the mainline replacement for "touch boost" — the
+    // foreground app gets uclamp.min=30 during interactive use.
+    QFile parentSubtree(sliceAbs + QStringLiteral("/cgroup.subtree_control"));
+    if (parentSubtree.open(QIODevice::WriteOnly)) {
+        parentSubtree.write("+cpu");
+        parentSubtree.close();
+    }
     QFile subtree(m_appsRoot + QStringLiteral("/cgroup.subtree_control"));
     if (subtree.open(QIODevice::WriteOnly)) {
-        subtree.write("+memory +pids");
+        subtree.write("+cpu +memory +pids");
         subtree.close();
     }
     return true;
@@ -171,6 +183,26 @@ bool CgroupManager::setAppFrozen(const QString &appId, bool frozen) {
     const bool ok = setFrozen(path, frozen);
     if (ok)
         qCInfo(lcCgroup) << (frozen ? "froze" : "thawed") << appId;
+    return ok;
+}
+
+bool CgroupManager::setAppUclampMin(const QString &appId, int pct) {
+    if (!m_available)
+        return false;
+    // Fall back to constructing the path from appsRoot+appId when we
+    // haven't observed placeAppPid yet — Foreground transition can
+    // race the app-runner's pidChanged signal, and dropping the
+    // uclamp write silently means the foreground boost never applies.
+    // The path may not exist yet; writeFile logs and returns false
+    // cleanly if so.
+    QString path = m_appPaths.value(appId);
+    if (path.isEmpty())
+        path = m_appsRoot + QStringLiteral("/marathon-app-") + appId;
+    const int  clamped = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+    const bool ok =
+        writeFile(path + QStringLiteral("/cpu.uclamp.min"), QByteArray::number(clamped));
+    if (ok)
+        qCInfo(lcCgroup) << "uclamp.min" << clamped << "for" << appId;
     return ok;
 }
 

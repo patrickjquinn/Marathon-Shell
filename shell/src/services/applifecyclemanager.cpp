@@ -30,11 +30,38 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
     if (m_appLaunchService) {
         connect(m_appLaunchService, &AppLaunchService::pidRegistered, this,
                 [this](qint64 pid, const QString &appId) {
+                    // Runner-based apps (marathon-app-runner subprocess)
+                    // never call the shell-side registerApp() because
+                    // their MApp QObject lives in the subprocess, not the
+                    // shell. Seed their lifecycle state on the pid edge
+                    // so uclamp/OOM/freeze all have a state to key off.
+                    // The user just tapped the icon so Foreground is the
+                    // correct initial state.
+                    if (!m_appStates.contains(appId)) {
+                        AppState st;
+                        st.launchTimeMs   = QDateTime::currentMSecsSinceEpoch();
+                        st.stateEnteredMs = st.launchTimeMs;
+                        st.state          = Foreground;
+                        m_appStates.insert(appId, st);
+                    }
+                    // Demote the previous foreground app so uclamp / OOM
+                    // reflect only one Foreground at a time. For runner-
+                    // based apps this path substitutes for the demote
+                    // that bringToForeground normally does for in-shell
+                    // (QObject-registered) apps.
+                    if (!m_foregroundAppId.isEmpty() && m_foregroundAppId != appId) {
+                        onForegroundExit(m_foregroundAppId);
+                    }
+                    m_foregroundAppId = appId;
                     if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
                         writeOomScoreAdj(appId, it->state);
                     }
                     if (m_cgroup && m_cgroup->isAvailable()) {
                         m_cgroup->placeAppPid(pid, appId);
+                        if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
+                            m_cgroup->setAppFrozen(appId, it->state == Frozen);
+                            m_cgroup->setAppUclampMin(appId, it->state == Foreground ? 30 : 0);
+                        }
                     }
                 });
         connect(m_appLaunchService, &AppLaunchService::pidUnregistered, this,
@@ -453,6 +480,13 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
         } else if (old == Frozen) {
             m_cgroup->setAppFrozen(appId, false);
         }
+        // cpu.uclamp.min — mainline replacement for Android's ROM-lore
+        // "touch boost". Foreground app gets 30 (guarantees ~30% of
+        // capacity as a schedutil freq floor while its tasks are
+        // runnable); everything else resets to 0 (no boost). This is
+        // the right layer to fight ondemand's 100 ms sampling lag on
+        // interactive load spikes.
+        m_cgroup->setAppUclampMin(appId, newState == Foreground ? 30 : 0);
     }
 
     emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
