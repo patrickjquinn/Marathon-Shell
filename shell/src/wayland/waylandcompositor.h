@@ -86,8 +86,11 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleTextInputEnabled(bool enabled);
 
   private:
-    void                                    setCompositorRealtimePriority();
-    void                                    calculateAndSetPhysicalSize();
+    void setCompositorRealtimePriority();
+    void calculateAndSetPhysicalSize();
+    // DPMS-off/on the primary output (opt-in via MARATHON_DOZE_DPMS).
+    // Called from setCompositorActive with render already paused/resumed.
+    void                                    setDisplayPowerState(bool on);
 
     QWaylandXdgShell                       *m_xdgShell                 = nullptr;
     QWaylandWlShell                        *m_wlShell                  = nullptr;
