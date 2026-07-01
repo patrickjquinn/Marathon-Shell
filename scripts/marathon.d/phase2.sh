@@ -160,21 +160,33 @@ cmd_monitor() {
 
 _marathon_monitor_cgroup() {
     marathon::info "monitoring app cgroup state (Ctrl-C to stop)"
-    marathon::ssh 'declare -A prev_u
-declare -A prev_f
+    # busybox sh on-device has no assoc arrays. Use a state file keyed
+    # by app name, one line per app: `app uclamp freeze`. Re-read after
+    # every poll and compare deltas.
+    marathon::ssh 'STATE=$(mktemp)
+: > "$STATE"
+trap "rm -f $STATE" EXIT
 while true; do
+    NEW=$(mktemp)
     for CG in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/; do
         a=$(basename "$CG" | sed s/marathon-app-//)
         u=$(cat "$CG"/cpu.uclamp.min 2>/dev/null | cut -d. -f1)
         f=$(cat "$CG"/cgroup.freeze 2>/dev/null)
-        pu="${prev_u[$a]:-init}"
-        pf="${prev_f[$a]:-init}"
-        if [ "$pu" != "init" ] && ([ "$u" != "$pu" ] || [ "$f" != "$pf" ]); then
-            printf "%s  %-12s  uclamp %s→%s  freeze %s→%s\n" "$(date +%H:%M:%S)" "$a" "$pu" "$u" "$pf" "$f"
-        fi
-        prev_u[$a]="$u"
-        prev_f[$a]="$f"
+        printf "%s %s %s\n" "$a" "${u:-0}" "${f:-0}" >> "$NEW"
     done
+    if [ -s "$STATE" ]; then
+        while read -r a u f; do
+            pline=$(grep "^$a " "$STATE" || echo "")
+            [ -z "$pline" ] && continue
+            pu=$(echo "$pline" | awk "{print \$2}")
+            pf=$(echo "$pline" | awk "{print \$3}")
+            if [ "$u" != "$pu" ] || [ "$f" != "$pf" ]; then
+                printf "%s  %-12s  uclamp %s→%s  freeze %s→%s\n" \
+                    "$(date +%H:%M:%S)" "$a" "$pu" "$u" "$pf" "$f"
+            fi
+        done < "$NEW"
+    fi
+    mv "$NEW" "$STATE"
     sleep 0.4
 done'
 }
