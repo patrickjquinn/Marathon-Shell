@@ -8,6 +8,41 @@
 # shellcheck source=common.sh
 # common.sh already sourced by dispatcher; declarations available.
 
+# ── sh — arbitrary command over the muxed connection ────────────────
+# The escape hatch for novel probes that don't (yet) have a verb. Runs
+# on the current --device using the same ControlMaster mux + host
+# resolution as every other command, so ad-hoc investigation gets the
+# fast persistent connection instead of a fresh SSH login each time.
+#
+#   marathon sh 'cat /proc/interrupts'         # one command
+#   marathon sh                                 # read a script from stdin
+#   marathon sh <<'EOF' ... EOF                 # heredoc
+#   echo '...' | marathon sh                    # piped script
+cmd_sh() {
+    if [ $# -gt 0 ]; then
+        marathon::ssh "$*"
+    elif [ ! -t 0 ]; then
+        # No args + stdin is a pipe/heredoc: forward it to a remote shell.
+        marathon::ssh 'sh -s'
+    else
+        marathon::error "usage: marathon sh '<command>'   (or pipe a script to stdin)"
+        return 2
+    fi
+}
+
+# ── push / pull — scp over the muxed connection ─────────────────────
+cmd_push() {
+    [ $# -lt 2 ] && { marathon::error "usage: marathon push <local> <remote-path>"; return 2; }
+    marathon::scp "$1" "$2"
+}
+
+cmd_pull() {
+    [ $# -lt 2 ] && { marathon::error "usage: marathon pull <remote-path> <local>"; return 2; }
+    marathon::debug "scp $MARATHON_HOST:$1 -> $2"
+    # shellcheck disable=SC2154  # _marathon_ssh_opts is set in common.sh
+    sshpass -p "$MARATHON_PASSWORD" scp "${_marathon_ssh_opts[@]}" "$MARATHON_HOST:$1" "$2"
+}
+
 # ── status ──────────────────────────────────────────────────────────
 cmd_status() {
     marathon::info "device: $MARATHON_DEVICE ($MARATHON_DEVICE_KIND) → $MARATHON_HOST"
