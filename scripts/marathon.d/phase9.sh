@@ -118,7 +118,7 @@ _marathon() {
     local cur prev verbs
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    verbs="status deploy reset wake unlock snap logs apps launch
+    verbs="status deploy reset wake unlock snap logs apps launch sh push pull
            tap swipe power doze freq irqs wakeups cgroup monitor
            modem wifi gov scheduler fuel-gauge backlight
            app device all compare
