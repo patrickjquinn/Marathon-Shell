@@ -21,6 +21,25 @@
 #include <qpa/qplatformscreen.h>
 #endif
 
+// Minimum PHYSICAL backlight duty. The user-facing brightness slider
+// runs 0..100%, but 0% must never make the panel invisible — on the
+// Librem 5 a fully-dimmed backlight is indistinguishable from a dead
+// screen. So we remap the user's [0,1] onto the hardware range
+// [kMinVisibleBrightness, 1.0]: slider 0% -> ~28% real duty, slider
+// 100% -> 100%. All hardware writes go through brightnessUserToHw() and
+// all sysfs reads come back through brightnessHwToUser() so the slider
+// still reflects the user's own 0..100 setting.
+static constexpr double kMinVisibleBrightness = 0.28;
+
+static inline double    brightnessUserToHw(double user) {
+    user = qBound(0.0, user, 1.0);
+    return kMinVisibleBrightness + (1.0 - kMinVisibleBrightness) * user;
+}
+
+static inline double brightnessHwToUser(double hw) {
+    return qBound(0.0, (hw - kMinVisibleBrightness) / (1.0 - kMinVisibleBrightness), 1.0);
+}
+
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
                                      RotationManager *rotationManager, QObject *parent)
     : QObject(parent)
@@ -104,7 +123,7 @@ double DisplayManagerCpp::brightness() const {
         const int v = file.readAll().trimmed().toInt();
         file.close();
         if (m_maxBrightness > 0)
-            return static_cast<double>(v) / m_maxBrightness;
+            return brightnessHwToUser(static_cast<double>(v) / m_maxBrightness);
     }
     return m_brightness;
 }
@@ -122,9 +141,9 @@ double DisplayManagerCpp::getBrightness() {
         int     currentValue = value.toInt();
         file.close();
 
-        double brightness = static_cast<double>(currentValue) / m_maxBrightness;
+        double brightness = brightnessHwToUser(static_cast<double>(currentValue) / m_maxBrightness);
         qDebug() << "[DisplayManagerCpp] Current brightness:" << currentValue << "/"
-                 << m_maxBrightness << "=" << (brightness * 100) << "%";
+                 << m_maxBrightness << "=" << (brightness * 100) << "% (user)";
         return brightness;
     }
 
@@ -143,9 +162,12 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     qInfo() << "[DisplayManagerCpp] Setting brightness to" << brightness
             << " (current internal:" << m_brightness << ")";
 
+    // Store the USER value (what the slider shows); drive the hardware
+    // with the remapped value so 0% still lights the panel (~28% duty).
     m_brightness = brightness;
 
-    int     brightnessValue = static_cast<int>(brightness * m_maxBrightness);
+    const double hwBrightness    = brightnessUserToHw(brightness);
+    int          brightnessValue = static_cast<int>(hwBrightness * m_maxBrightness);
 
     QString brightnessPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
 
@@ -157,7 +179,7 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     args << "org.gnome.SettingsDaemon.Power.Screen";
     args << "Brightness";
 
-    int gsdValue = static_cast<int>(brightness * 100.0);
+    int gsdValue = static_cast<int>(hwBrightness * 100.0);
     args << QVariant::fromValue(QDBusVariant(gsdValue));
     message.setArguments(args);
 
@@ -411,18 +433,34 @@ void DisplayManagerCpp::setScreenState(bool on) {
             // Re-writing brightness here is cheap, idempotent, and the
             // only reliable workaround short of a kernel driver fix.
             if (on) {
-                QFile br(
-                    QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
-                if (br.open(QIODevice::WriteOnly)) {
-                    // Clamp to a visible floor (~5% of max) so a wake from
-                    // an explicit-zero brightness still produces a lit
-                    // panel. Without this the user can wake the device
-                    // and stare at a black screen with no signal that
-                    // anything happened.
-                    double norm = m_brightness > 0.05 ? m_brightness : 0.05;
-                    int val = qBound(1, static_cast<int>(norm * m_maxBrightness), m_maxBrightness);
-                    br.write(QByteArray::number(val) + "\n");
-                    br.close();
+                // Target duty = the user's brightness remapped through the
+                // visible floor (never below ~28% real). Waking to a lit
+                // panel is non-negotiable.
+                const int target =
+                    qBound(1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness),
+                           m_maxBrightness);
+
+                const QString brPath =
+                    QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+
+                // Force a PWM re-init with a low->target NUDGE. After the
+                // display power domain gates at CRTC ACTIVE=0 (deep-idle
+                // Doze), the pwm-backlight duty can stay latched at 0 —
+                // bl_power=0 alone leaves the LED physically dark. Writing
+                // a distinctly different value first, then the target,
+                // forces pwm_backlight_update_status to re-apply the duty
+                // cycle. Two separate open/close ops guarantee two sysfs
+                // store callbacks (a single fd with two writes can coalesce).
+                const int nudge = (target > m_maxBrightness / 2) ? 1 : m_maxBrightness;
+                QFile     brNudge(brPath);
+                if (brNudge.open(QIODevice::WriteOnly)) {
+                    brNudge.write(QByteArray::number(nudge) + "\n");
+                    brNudge.close();
+                }
+                QFile brSet(brPath);
+                if (brSet.open(QIODevice::WriteOnly)) {
+                    brSet.write(QByteArray::number(target) + "\n");
+                    brSet.close();
                 }
             }
         } else {
@@ -513,8 +551,10 @@ void DisplayManagerCpp::onExternalBrightnessChanged() {
     double currentBrightness = m_brightness;
     bool   changed           = false;
 
+    // Hardware values are in the remapped [floor,1] domain; convert back
+    // to the user's [0,1] domain before comparing against m_brightness.
     if (actualVal != -1) {
-        double actualNorm = (double)actualVal / m_maxBrightness;
+        double actualNorm = brightnessHwToUser((double)actualVal / m_maxBrightness);
         if (qAbs(actualNorm - m_brightness) > 0.02) {
             currentBrightness = actualNorm;
             changed           = true;
@@ -523,7 +563,7 @@ void DisplayManagerCpp::onExternalBrightnessChanged() {
     }
 
     if (!changed && reqVal != -1) {
-        double reqNorm = (double)reqVal / m_maxBrightness;
+        double reqNorm = brightnessHwToUser((double)reqVal / m_maxBrightness);
         if (qAbs(reqNorm - m_brightness) > 0.02) {
             currentBrightness = reqNorm;
             changed           = true;
