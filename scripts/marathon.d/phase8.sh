@@ -56,13 +56,17 @@ cmd_session_run() {
     [ ! -f "$path" ] && { marathon::error "no session '$name'"; return 1; }
     marathon::info "running session: $name"
     local step=0
-    while IFS= read -r line; do
+    while IFS= read -r line <&3; do
         [ -z "$line" ] || [[ "$line" =~ ^# ]] && continue
         step=$((step + 1))
         marathon::step "[$step] $line"
+        # Redirect the sub-command's stdin from /dev/null so SSH (or
+        # anything else that reads stdin) doesn't drain the remaining
+        # session lines out from under our while loop. FD 3 keeps our
+        # loop's stream separate from the sub-command's stdin.
         # shellcheck disable=SC2086
-        "$MARATHON_CLI_DIR/marathon" $line || marathon::warn "step $step failed"
-    done < "$path"
+        "$MARATHON_CLI_DIR/marathon" $line </dev/null || marathon::warn "step $step failed"
+    done 3< "$path"
     marathon::success "session done ($step steps)"
 }
 
@@ -205,7 +209,6 @@ _bench_foreground_boost() {
         u=$(cat "$CG"/cpu.uclamp.min 2>/dev/null | cut -d. -f1)
         if [ "$u" = "30" ]; then basename "$CG" | sed s/marathon-app-//; exit; fi
     done')" || true
-    marathon::debug "current_fg=[$current_fg]"
 
     if [ -n "$current_fg" ]; then
         marathon::success "Stage A ✓  foreground app '$current_fg' has uclamp.min=30"
@@ -217,7 +220,6 @@ _bench_foreground_boost() {
             n=$(basename "$CG" | sed s/marathon-app-//)
             [ -n "$procs" ] && [ "$f" = "0" ] && printf "  %s: uclamp=%s (running, unfrozen)\n" "$n" "$u"
         done')" || true
-        marathon::debug "current_u=[$current_u]"
         if [ -n "$current_u" ]; then
             marathon::warn "Stage A ✗  no app is at uclamp=30, but these are running unfrozen:"
             echo "$current_u"
