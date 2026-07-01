@@ -45,6 +45,14 @@ export MARATHON_CLI_DIR
 . "$MARATHON_CLI_DIR/marathon.d/phase4.sh"
 # shellcheck source=marathon.d/phase5.sh
 . "$MARATHON_CLI_DIR/marathon.d/phase5.sh"
+# shellcheck source=marathon.d/phase6.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase6.sh"
+# shellcheck source=marathon.d/phase7.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase7.sh"
+# shellcheck source=marathon.d/phase8.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase8.sh"
+# shellcheck source=marathon.d/phase9.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase9.sh"
 
 # ── Global flag parsing ──────────────────────────────────────────────
 while [ $# -gt 0 ]; do
