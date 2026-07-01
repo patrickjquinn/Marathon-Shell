@@ -119,57 +119,148 @@ cmd_bench() {
 
 _bench_doze() {
     marathon::info "bench: doze enter latency"
-    # Wake first
     cmd_wake >/dev/null
     sleep 1
-    local t0 t1
-    t0="$(date +%s%N)"
-    cmd_power >/dev/null 2>&1
-    # Poll bl_power until 4
-    while :; do
-        local bl
-        bl="$(marathon::ssh 'cat /sys/class/backlight/backlight-dsi/bl_power' 2>/dev/null)"
-        [ "$bl" = "4" ] && break
-        sleep 0.02
-    done
-    t1="$(date +%s%N)"
-    marathon::success "enter Doze: $(( (t1 - t0) / 1000000 )) ms"
+    # Poll ON DEVICE — inject KEY_POWER + tight loop reading bl_power.
+    # Doing this via one SSH invocation eliminates the per-poll network
+    # round-trip that was dominating the measurement (~3 s of noise vs
+    # actual sub-300 ms latency).
+    local ms
+    ms="$(marathon::ssh 'python3 - <<PYEOF 2>/dev/null
+from evdev import UInput, ecodes as e
+import time
+ui = UInput({e.EV_KEY: [e.KEY_POWER]}, name="marathon-bench")
+time.sleep(0.2)
+BL = "/sys/class/backlight/backlight-dsi/bl_power"
+def read(): return open(BL).read().strip()
+if read() == "4":
+    print("already-doze"); raise SystemExit
+t0 = time.monotonic_ns()
+ui.write(e.EV_KEY, e.KEY_POWER, 1); ui.syn(); time.sleep(0.08)
+ui.write(e.EV_KEY, e.KEY_POWER, 0); ui.syn()
+ui.close()
+while True:
+    if read() == "4": break
+    if (time.monotonic_ns() - t0) > 2_000_000_000: print("timeout"); raise SystemExit
+    time.sleep(0.005)
+print(int((time.monotonic_ns() - t0) / 1_000_000))
+PYEOF')"
+    case "$ms" in
+        already-doze) marathon::warn "already in Doze — cmd_wake didn't take" ;;
+        timeout)      marathon::error "timed out waiting for bl_power=4" ;;
+        [0-9]*)       marathon::success "enter Doze: $ms ms" ;;
+        *)            marathon::error "unexpected bench output: $ms" ;;
+    esac
 }
 
 _bench_wake() {
     marathon::info "bench: wake latency"
     cmd_doze_enter >/dev/null 2>&1
     sleep 1
-    local t0 t1
-    t0="$(date +%s%N)"
-    cmd_power >/dev/null 2>&1
-    while :; do
-        local bl
-        bl="$(marathon::ssh 'cat /sys/class/backlight/backlight-dsi/bl_power' 2>/dev/null)"
-        [ "$bl" = "0" ] && break
-        sleep 0.02
-    done
-    t1="$(date +%s%N)"
-    marathon::success "wake: $(( (t1 - t0) / 1000000 )) ms"
+    local ms
+    ms="$(marathon::ssh 'python3 - <<PYEOF 2>/dev/null
+from evdev import UInput, ecodes as e
+import time
+ui = UInput({e.EV_KEY: [e.KEY_POWER]}, name="marathon-bench")
+time.sleep(0.2)
+BL = "/sys/class/backlight/backlight-dsi/bl_power"
+def read(): return open(BL).read().strip()
+if read() == "0":
+    print("already-awake"); raise SystemExit
+t0 = time.monotonic_ns()
+ui.write(e.EV_KEY, e.KEY_POWER, 1); ui.syn(); time.sleep(0.08)
+ui.write(e.EV_KEY, e.KEY_POWER, 0); ui.syn()
+ui.close()
+while True:
+    if read() == "0": break
+    if (time.monotonic_ns() - t0) > 2_000_000_000: print("timeout"); raise SystemExit
+    time.sleep(0.005)
+print(int((time.monotonic_ns() - t0) / 1_000_000))
+PYEOF')"
+    case "$ms" in
+        already-awake) marathon::warn "already awake — cmd_doze_enter didn't take" ;;
+        timeout)       marathon::error "timed out waiting for bl_power=0" ;;
+        [0-9]*)        marathon::success "wake: $ms ms" ;;
+        *)             marathon::error "unexpected bench output: $ms" ;;
+    esac
 }
 
 _bench_foreground_boost() {
     marathon::info "bench: uclamp foreground boost end-to-end"
-    marathon::step "reset uclamp to 0 on all apps"
-    marathon::ssh 'for f in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/cpu.uclamp.min; do
-        [ -e "$f" ] && echo 0 > "$f" 2>/dev/null
-    done'
-    marathon::step "launch notes"
-    cmd_launch notes >/dev/null 2>&1
-    sleep 3
-    local u
-    u="$(marathon::ssh 'cat /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-notes/cpu.uclamp.min' 2>/dev/null | cut -d. -f1)"
-    if [ "$u" = "30" ]; then
-        marathon::success "foreground boost applied (uclamp.min=$u)"
+
+    # Two-stage test that observes the shell doing its job, doesn't
+    # try to poke it:
+    #   Stage A — read the current foreground: does any app have
+    #             uclamp.min=30? if so, boost is working right now.
+    #   Stage B — launch a different app, observe the demote of the
+    #             old fg + the promote of the new fg.
+    #
+    # This avoids the false-negative shape where we "reset uclamp
+    # then wait for the shell to notice" — the shell only writes
+    # uclamp on state transitions, not on external file writes.
+
+    marathon::step "Stage A: current foreground has uclamp=30?"
+    local current_fg current_u
+    current_fg="$(marathon::ssh 'for CG in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/; do
+        u=$(cat "$CG"/cpu.uclamp.min 2>/dev/null | cut -d. -f1)
+        if [ "$u" = "30" ]; then basename "$CG" | sed s/marathon-app-//; exit; fi
+    done')" || true
+    marathon::debug "current_fg=[$current_fg]"
+
+    if [ -n "$current_fg" ]; then
+        marathon::success "Stage A ✓  foreground app '$current_fg' has uclamp.min=30"
     else
-        marathon::error "foreground boost NOT applied (uclamp.min=$u)"
+        current_u="$(marathon::ssh 'for CG in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/; do
+            procs=$(cat "$CG"/cgroup.procs 2>/dev/null)
+            u=$(cat "$CG"/cpu.uclamp.min 2>/dev/null)
+            f=$(cat "$CG"/cgroup.freeze 2>/dev/null)
+            n=$(basename "$CG" | sed s/marathon-app-//)
+            [ -n "$procs" ] && [ "$f" = "0" ] && printf "  %s: uclamp=%s (running, unfrozen)\n" "$n" "$u"
+        done')" || true
+        marathon::debug "current_u=[$current_u]"
+        if [ -n "$current_u" ]; then
+            marathon::warn "Stage A ✗  no app is at uclamp=30, but these are running unfrozen:"
+            echo "$current_u"
+            marathon::info "  → 'marathon launch <appId>' to bring one foreground, then rerun bench"
+            return 1
+        fi
+        marathon::warn "Stage A ✗  no app is currently foreground"
+        marathon::info "  → 'marathon launch notes' (or any app), then rerun bench"
         return 1
     fi
+
+    # Stage B: pick a different app and swap. We look for a running-
+    # frozen sibling to promote; if there isn't one, skip Stage B.
+    local swap_target
+    swap_target="$(marathon::ssh "for CG in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/; do
+        n=\$(basename \"\$CG\" | sed s/marathon-app-//)
+        [ \"\$n\" = \"$current_fg\" ] && continue
+        procs=\$(cat \"\$CG\"/cgroup.procs 2>/dev/null)
+        [ -n \"\$procs\" ] && { echo \"\$n\"; exit; }
+    done")"
+
+    if [ -z "$swap_target" ]; then
+        marathon::info "Stage B skipped — no other running app to swap with"
+        marathon::success "bench: foreground boost verified via Stage A"
+        return 0
+    fi
+
+    marathon::step "Stage B: launch '$swap_target' → expect ${current_fg}→0 + ${swap_target}→30"
+    cmd_launch "$swap_target" >/dev/null 2>&1
+    sleep 3
+
+    local new_fg_u prev_fg_u
+    new_fg_u="$(marathon::ssh "cat /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-$swap_target/cpu.uclamp.min" 2>/dev/null | cut -d. -f1)"
+    prev_fg_u="$(marathon::ssh "cat /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-$current_fg/cpu.uclamp.min" 2>/dev/null | cut -d. -f1)"
+
+    if [ "$new_fg_u" = "30" ] && [ "$prev_fg_u" != "30" ]; then
+        marathon::success "Stage B ✓  ${current_fg} → uclamp=$prev_fg_u, ${swap_target} → uclamp=$new_fg_u"
+    else
+        marathon::warn "Stage B ✗  ${current_fg}=$prev_fg_u, ${swap_target}=$new_fg_u (expected 0 + 30)"
+        return 1
+    fi
+
+    marathon::success "bench: foreground boost verified end-to-end"
 }
 
 _bench_battery_idle() {

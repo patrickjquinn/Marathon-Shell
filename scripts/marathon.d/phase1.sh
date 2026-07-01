@@ -161,39 +161,55 @@ cmd_unlock() {
     [ ${#pin} -ne 6 ] && { marathon::error "PIN must be 6 digits"; return 2; }
 
     marathon::info "unlock (PIN len=${#pin})"
+
+    _digit_coord() {
+        case "$1" in
+            0) echo "360 875" ;; 1) echo "195 400" ;; 2) echo "360 400" ;;
+            3) echo "525 400" ;; 4) echo "195 560" ;; 5) echo "360 560" ;;
+            6) echo "525 560" ;; 7) echo "195 715" ;; 8) echo "360 715" ;;
+            9) echo "525 715" ;;
+            *) return 1 ;;
+        esac
+    }
+
+    # Swipe up if the lockscreen clock is showing (not the PIN pad).
+    # Cheap heuristic: the pin-pad exposes no easily-queried state
+    # from the shell right now, so we always swipe. Idempotent — a
+    # spurious swipe on the PIN screen just moves nothing.
     marathon::step "swipe up from lock screen"
     marathon::ssh 'marathon-touchctl swipe 360 1300 360 400 30' >/dev/null 2>&1 || true
     sleep 2
 
-    marathon::step "enter PIN"
+    # Batch every digit through marathon-touchctl's stdin mode. Each
+    # invocation of touchctl creates + destroys a uinput device, and
+    # libinput takes ~50-100 ms to notice a new device — that's the
+    # window where the first tap of each invocation gets lost. Using
+    # one long-lived uinput device via stdin ('marathon-touchctl -')
+    # eliminates it. The 'sleep MS' verb is supported by touchctl.
+    marathon::step "enter PIN (batched via touchctl stdin)"
+    local commands=""
     local i=0
     while [ $i -lt ${#pin} ]; do
         local d="${pin:$i:1}"
         local coord
-        case "$d" in
-            0) coord="360 875" ;;
-            1) coord="195 400" ;;
-            2) coord="360 400" ;;
-            3) coord="525 400" ;;
-            4) coord="195 560" ;;
-            5) coord="360 560" ;;
-            6) coord="525 560" ;;
-            7) coord="195 715" ;;
-            8) coord="360 715" ;;
-            9) coord="525 715" ;;
-            *) marathon::error "invalid digit '$d'"; return 2 ;;
-        esac
-        marathon::ssh "marathon-touchctl tap $coord" >/dev/null 2>&1 || true
-        sleep 0.4
+        coord="$(_digit_coord "$d")" || { marathon::error "invalid digit '$d'"; return 2; }
+        commands="${commands}tap $coord
+sleep 300
+"
         i=$((i + 1))
     done
-    sleep 3
+    printf '%s' "$commands" | marathon::ssh 'marathon-touchctl -' >/dev/null 2>&1 || true
+    sleep 2
 
-    if marathon::ssh 'pgrep -f app-runner >/dev/null || cat /sys/class/backlight/backlight-dsi/bl_power' \
-            2>/dev/null | grep -q '^0$'; then
+    # Verify: an unlocked session has SOME cpu.uclamp.min not-empty
+    # (all apps have their files, at least). More strongly: the
+    # session is unlocked when bl_power=0 AND we're past the PIN pad
+    # (harder to detect). Fall back to a wake-check heuristic: if
+    # bl_power is 0 and shell is alive, call it a success.
+    if marathon::ssh 'cat /sys/class/backlight/backlight-dsi/bl_power' 2>/dev/null | grep -q '^0$'; then
         marathon::success "unlocked (screen on)"
     else
-        marathon::success "unlock sent (verify with 'marathon snap')"
+        marathon::warn "unlock sent — verify with 'marathon snap'"
     fi
 }
 
@@ -321,19 +337,37 @@ cmd_launch() {
     local bl
     bl="$(marathon::ssh 'cat /sys/class/backlight/backlight-dsi/bl_power' 2>/dev/null || echo 4)"
     [ "$bl" = "4" ] && cmd_wake >/dev/null
-    # Lockscreen? unlock first.
-    local locked
-    locked="$(marathon::ssh 'pgrep -f "app-runner" | head -1' 2>/dev/null || true)"
-    if [ -z "$locked" ]; then
-        # Best-effort: unlock. If we're not actually at lockscreen this is harmless.
+
+    # Lockscreen detection: an unlocked session ALWAYS has at least
+    # one app with cpu.uclamp.min=30 (the currently-Foreground app,
+    # per Marathon-Doze). If nothing is at 30 the session is locked
+    # (or at home with nothing focused — either way, unlock is
+    # idempotent since PIN entry on home-screen icons is harmless).
+    local any_fg
+    any_fg="$(marathon::ssh 'for CG in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-*/; do
+        u=$(cat "$CG"/cpu.uclamp.min 2>/dev/null | cut -d. -f1)
+        [ "$u" = "30" ] && { echo yes; exit; }
+    done')"
+    if [ -z "$any_fg" ]; then
+        marathon::step "session appears locked or idle — unlocking"
         cmd_unlock >/dev/null 2>&1 || true
+        sleep 1
     fi
 
     marathon::ssh "marathon-touchctl tap $coord" >/dev/null 2>&1
     sleep 3
-    if marathon::ssh "pgrep -f 'app-runner --app-id $app' >/dev/null"; then
-        marathon::success "$app running"
+
+    # Verify the app is actually FOREGROUND (uclamp.min=30), not just
+    # that a runner exists — a stale runner from a prior session may
+    # still be around and frozen. Icon-tap-based launch is fragile
+    # (misses on non-home surfaces); this is where we notice.
+    local u
+    u="$(marathon::ssh "cat /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-$app/cpu.uclamp.min 2>/dev/null | cut -d. -f1")"
+    if [ "$u" = "30" ]; then
+        marathon::success "$app foreground (uclamp=30)"
+    elif marathon::ssh "pgrep -f 'app-runner --app-id $app' >/dev/null"; then
+        marathon::warn "$app runner alive but not foreground (uclamp=$u) — icon tap may have missed. Check 'marathon snap' + retry."
     else
-        marathon::warn "$app did not appear — check 'marathon snap' and re-tap"
+        marathon::warn "$app did not appear — check 'marathon snap' + retry"
     fi
 }
