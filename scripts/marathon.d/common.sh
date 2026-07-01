@@ -108,6 +108,23 @@ marathon::device::list() {
 }
 
 # ── SSH ──────────────────────────────────────────────────────────────
+#
+# ControlMaster/ControlPath multiplex every `marathon` command over a
+# single persistent SSH connection to a device. Without it, each
+# invocation opens a new SSH login: pam auth → logind session-start →
+# systemd user-manager touch → dbus session-registered signal →
+# eventually the shell + oom sidecar all wake and chew CPU. Dogfooding
+# measured that overhead at ~20 % of one CPU sustained just from
+# session churn (systemd 6.5 % + logind 4.2 % + sshd 3.0 % + dbus 2.2 %
+# + journal 1.8 % + shell wake 3.6 %). ControlPersist=60 keeps the
+# muxed socket for a minute after the last command — enough to reuse
+# across a typical dev workflow — then reaps.
+#
+# Socket path is per-host so multi-device (`marathon --device cm5`)
+# works. Path is under /tmp so it dies on reboot without cleanup.
+_marathon_ssh_ctl_dir="/tmp/marathon-cli-ssh-$UID"
+mkdir -p "$_marathon_ssh_ctl_dir" 2>/dev/null || true
+chmod 700 "$_marathon_ssh_ctl_dir" 2>/dev/null || true
 _marathon_ssh_opts=(
     -o StrictHostKeyChecking=accept-new
     -o UserKnownHostsFile=/dev/null
@@ -115,11 +132,25 @@ _marathon_ssh_opts=(
     -o ConnectTimeout=5
     -o ServerAliveInterval=15
     -o ServerAliveCountMax=3
+    -o ControlMaster=auto
+    -o "ControlPath=$_marathon_ssh_ctl_dir/%r@%h:%p"
+    -o ControlPersist=60
 )
 
 marathon::ssh() {
     marathon::debug "ssh $MARATHON_HOST -- $*"
     sshpass -p "$MARATHON_PASSWORD" ssh "${_marathon_ssh_opts[@]}" "$MARATHON_HOST" "$@"
+}
+
+# Interactive / long-lived SSH — allocates a remote TTY so that when
+# this SSH channel closes (Ctrl-C locally, network drop, script exit),
+# the remote TTY closes and SIGHUP kills the entire remote process
+# group. Use for `while true` loops (monitors, taillers, benches).
+# Without -t, the remote `sh -c` loop becomes an orphan and keeps
+# spinning at ~5-10 % CPU forever — a real bug we hit in dogfooding.
+marathon::ssh::interactive() {
+    marathon::debug "ssh -t $MARATHON_HOST -- $*"
+    sshpass -p "$MARATHON_PASSWORD" ssh -tt "${_marathon_ssh_opts[@]}" "$MARATHON_HOST" "$@"
 }
 
 marathon::scp() {
