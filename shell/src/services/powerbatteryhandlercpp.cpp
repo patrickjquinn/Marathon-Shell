@@ -5,6 +5,8 @@
 #include "hapticmanager.h"
 #include "powerpolicycontroller.h"
 
+#include <QDateTime>
+
 PowerBatteryHandlerCpp::PowerBatteryHandlerCpp(PowerPolicyController   *powerPolicy,
                                                DisplayPolicyController *displayPolicy,
                                                DisplayManagerCpp       *displayManager,
@@ -19,8 +21,19 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
     if (!m_powerPolicy)
         return;
 
+    // A single physical power press fans out to TWO handlers — QML
+    // Keys.onReleased (when the shell has focus) and PowerKeyListener
+    // (raw /dev/input) — which must be coalesced to one action. The
+    // second one is DELAYED by the compositor doze/resume transition:
+    // with the deep-idle display-off (CRTC ACTIVE=0 + releaseResources +
+    // DDR downshift) it lands 265-402ms after the first (measured on
+    // L5), past the old 200ms window, where it sees screenOn already
+    // flipped and REVERSES the action — the "screen turns off then back
+    // on" bug (and its mirror, "won't wake"). An 800ms window covers the
+    // transition with margin under load while staying well under any
+    // intentional double-press of the power button.
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (now - m_lastPressMs < 200) {
+    if (now - m_lastPressMs < 800) {
         // Second event source firing for the same physical press. Ignore.
         return;
     }
