@@ -25,6 +25,13 @@ DisplayPolicyController::DisplayPolicyController(DisplayManagerCpp *displayManag
                 m_displayManager->setAutoBrightness(m_settingsManager->autoBrightness());
             emit autoBrightnessEnabledChanged();
         });
+
+        // Initial sync — SettingsManager is the source of truth and may
+        // already have auto-brightness ON at boot, in which case the
+        // changed signal never fires and DisplayManager would otherwise
+        // never enable the ambient-light engine.
+        if (m_displayManager)
+            m_displayManager->setAutoBrightness(m_settingsManager->autoBrightness());
     }
 
     if (m_displayManager) {

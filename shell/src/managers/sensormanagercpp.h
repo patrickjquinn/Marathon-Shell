@@ -44,6 +44,7 @@ class SensorManagerCpp : public QObject {
   private slots:
     void onProximityChanged();
     void onLightChanged();
+    void pollIio();
 
   signals:
     void availableChanged();
@@ -68,6 +69,18 @@ class SensorManagerCpp : public QObject {
 
     QProximitySensor *m_proximity;
     QLightSensor     *m_light;
+
+    // Direct-iio backend. QtSensors' QLightSensor/QProximitySensor are
+    // unreliable on the Librem 5 (the iio-sensor-proxy plugin frequently
+    // reports no readings). We read the vcnl4000 iio device straight from
+    // sysfs on a poll timer — confirmed to always work on-device.
+    bool    detectIioSensors();
+    bool    m_useIio = false;
+    QString m_iioLightPath; // .../in_illuminance_raw
+    double  m_iioLuxScale = 1.0;
+    QString m_iioProxPath;           // .../in_proximity_raw
+    int     m_iioProxNearLevel = 16; // raw >= this => near (baseline ~3)
+    QTimer *m_iioTimer         = nullptr;
 };
 
 #endif

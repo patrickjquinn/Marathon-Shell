@@ -18,6 +18,7 @@
 #include <QFileSystemWatcher>
 #include <QScreen>
 #include <QSettings>
+#include <cmath>
 #if MARATHON_HAVE_QT_GUI_PRIVATE
 #include <qpa/qplatformscreen.h>
 #endif
@@ -206,6 +207,12 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     qInfo() << "[DisplayManagerCpp] Setting brightness to" << brightness
             << " (current internal:" << m_brightness << ")";
 
+    // Manual set — the user's intent wins over auto-brightness for a
+    // grace window, and any in-flight auto ramp is abandoned.
+    m_lastManualSetMs = QDateTime::currentMSecsSinceEpoch();
+    if (m_rampTimer && m_rampTimer->isActive())
+        m_rampTimer->stop();
+
     // Store the USER value (what the slider shows); drive the hardware
     // with the remapped value so 0% still lights the panel (~28% duty).
     m_brightness = brightness;
@@ -302,17 +309,150 @@ void DisplayManagerCpp::setAutoBrightness(bool enabled) {
     qInfo() << "[DisplayManagerCpp] Auto-brightness" << (enabled ? "enabled" : "disabled");
 }
 
+// Perceptual lux -> user-brightness [0,1] curve. Human brightness
+// perception is roughly logarithmic, so we map on log10(lux). Anchored
+// so a dark room (0 lux) sits just above the visible floor and direct
+// sun (~10000 lux) hits 100%. The user domain is then remapped through
+// kMinVisibleBrightness on the way to hardware (setBrightness /
+// forceBacklightOn), so this never drives the panel invisible.
+double DisplayManagerCpp::luxToUserBrightness(double lux) const {
+    if (lux < 0.0)
+        lux = 0.0;
+    // 0 lux -> 0.05, 50 -> ~0.46, 500 -> ~0.70, 1000 -> ~0.77, 10000 -> 1.0
+    const double u = 0.05 + 0.24 * std::log10(lux + 1.0);
+    return qBound(0.0, u, 1.0);
+}
+
 void DisplayManagerCpp::onAmbientLightChanged() {
     if (!m_autoBrightnessEnabled || !m_sensorManager)
         return;
 
-    int lux = m_sensorManager->ambientLight();
-    // Map lux to brightness: 0 lux → 0.05, ~500 lux → 0.5, ~10000+ lux → 1.0
-    double target = qBound(0.05, 0.05 + 0.95 * (qLn(lux + 1.0) / qLn(10001.0)), 1.0);
+    // Respect a manual override: if the user just touched brightness,
+    // hold auto off for a grace window so their intent wins.
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastManualSetMs < 5000)
+        return;
 
-    if (qAbs(target - m_brightness) > 0.03) {
-        qDebug() << "[DisplayManagerCpp] Auto-brightness: lux=" << lux << "→ brightness=" << target;
-        setBrightness(target);
+    const double lux = m_sensorManager->ambientLight();
+
+    // EWMA smoothing to reject sensor spikes (alpha 0.25).
+    if (m_luxEwma < 0.0)
+        m_luxEwma = lux;
+    else
+        m_luxEwma = 0.25 * lux + 0.75 * m_luxEwma;
+
+    const double target = luxToUserBrightness(m_luxEwma);
+    const double delta  = target - m_brightness;
+
+    // Deadband — ignore micro-changes so the panel never hunts.
+    constexpr double kDeadband = 0.06;
+    if (std::abs(delta) < kDeadband) {
+        m_luxAboveSinceMs = 0;
+        m_luxBelowSinceMs = 0;
+        return;
+    }
+
+    // Asymmetric dwell: brighten fast (you walked into sunlight), dim
+    // slow (don't chase flickering / passing shadows). This is the
+    // iOS/Android feel — responsive up, gentle down.
+    constexpr qint64 kBrightenDwellMs = 300;
+    constexpr qint64 kDimDwellMs      = 1500;
+
+    if (delta > 0) { // need to brighten
+        m_luxBelowSinceMs = 0;
+        if (m_luxAboveSinceMs == 0)
+            m_luxAboveSinceMs = now;
+        if (now - m_luxAboveSinceMs < kBrightenDwellMs)
+            return;
+    } else { // need to dim
+        m_luxAboveSinceMs = 0;
+        if (m_luxBelowSinceMs == 0)
+            m_luxBelowSinceMs = now;
+        if (now - m_luxBelowSinceMs < kDimDwellMs)
+            return;
+    }
+    m_luxAboveSinceMs = 0;
+    m_luxBelowSinceMs = 0;
+
+    m_autoTargetUser = target;
+    startBrightnessRamp(target);
+}
+
+// Smoothly ease the backlight from the current value to targetUser over
+// m_rampDurationMs, writing intermediate hardware values directly (cheap
+// sysfs writes) so the change is a glide, not a step. m_brightness (the
+// user-facing value) + brightnessChanged fire once at the end.
+void DisplayManagerCpp::startBrightnessRamp(double targetUser) {
+    if (!m_available || m_backlightDevice.isEmpty())
+        return;
+
+    if (!m_rampTimer) {
+        m_rampTimer = new QTimer(this);
+        m_rampTimer->setInterval(20); // ~50 Hz — smooth to the eye
+        connect(m_rampTimer, &QTimer::timeout, this, &DisplayManagerCpp::rampStep);
+    }
+
+    m_rampFromUser = m_brightness;
+    m_rampToUser   = qBound(0.0, targetUser, 1.0);
+    m_rampStartMs  = QDateTime::currentMSecsSinceEpoch();
+    if (!m_rampTimer->isActive())
+        m_rampTimer->start();
+}
+
+void DisplayManagerCpp::rampStep() {
+    const qint64 now  = QDateTime::currentMSecsSinceEpoch();
+    double       t    = double(now - m_rampStartMs) / double(m_rampDurationMs);
+    bool         done = false;
+    if (t >= 1.0) {
+        t    = 1.0;
+        done = true;
+    }
+    // smoothstep ease
+    const double e       = t * t * (3.0 - 2.0 * t);
+    const double curUser = m_rampFromUser + (m_rampToUser - m_rampFromUser) * e;
+
+    const int    hwVal =
+        qBound(1, static_cast<int>(brightnessUserToHw(curUser) * m_maxBrightness), m_maxBrightness);
+    QFile f(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+    if (f.open(QIODevice::WriteOnly)) {
+        f.write(QByteArray::number(hwVal) + "\n");
+        f.close();
+    }
+
+    if (done) {
+        m_rampTimer->stop();
+        m_brightness = m_rampToUser;
+        emit brightnessChanged();
+    }
+}
+
+// A lightweight, call-scoped backlight blank — NOT the deep-idle Doze
+// (no CRTC teardown, no lock, no app freeze). The user moving the phone
+// to/from their ear must toggle the panel instantly and repeatedly, so
+// this only powers the backlight LED down/up. Owned by
+// TelephonyIntegration (gated on active-call + proximity).
+void DisplayManagerCpp::setCallProximityBlank(bool blank) {
+    if (m_proximityBlanked == blank)
+        return;
+    if (m_backlightDevice.isEmpty())
+        return;
+    m_proximityBlanked = blank;
+
+    QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+    if (blPower.open(QIODevice::WriteOnly)) {
+        blPower.write(blank ? "4\n" : "0\n");
+        blPower.close();
+    }
+    if (!blank) {
+        // Restore the pre-blank duty (through the visible floor).
+        const int target =
+            qBound(1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness),
+                   m_maxBrightness);
+        QFile br(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+        if (br.open(QIODevice::WriteOnly)) {
+            br.write(QByteArray::number(target) + "\n");
+            br.close();
+        }
     }
 }
 
