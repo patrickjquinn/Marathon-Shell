@@ -254,8 +254,10 @@ void SettingsManager::load() {
     m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
     m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
-    m_screenTimeout  = m_settings.value("display/screenTimeout", 300000).toInt();
-    m_autoBrightness = m_settings.value("display/autoBrightness", false).toBool();
+    m_screenTimeout = m_settings.value("display/screenTimeout", 300000).toInt();
+    // Default ON — adaptive brightness should "just work" out of the box
+    // (it never drops below the visible floor). Users can disable it.
+    m_autoBrightness = m_settings.value("display/autoBrightness", true).toBool();
     m_statusBarClockPosition =
         m_settings.value("display/statusBarClockPosition", "center").toString();
 

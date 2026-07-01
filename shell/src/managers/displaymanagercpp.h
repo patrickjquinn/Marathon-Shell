@@ -8,6 +8,7 @@
 class PowerManagerCpp;
 class RotationManager;
 class SensorManagerCpp;
+class QTimer;
 
 class DisplayManagerCpp : public QObject {
     Q_OBJECT
@@ -35,7 +36,13 @@ class DisplayManagerCpp : public QObject {
 
     void setSensorManager(SensorManagerCpp *sensorManager);
 
-    bool available() const {
+    // Lightweight call-scoped backlight blank driven by the proximity
+    // sensor while a voice call is active (owned by TelephonyIntegration).
+    // NOT the deep-idle Doze — just powers the backlight LED down/up so
+    // moving the phone to/from your ear toggles the panel instantly.
+    Q_INVOKABLE void setCallProximityBlank(bool blank);
+
+    bool             available() const {
         return m_available;
     }
     bool autoBrightnessEnabled() const {
@@ -83,7 +90,29 @@ class DisplayManagerCpp : public QObject {
   private:
     // Power-cycle the backlight LED to a lit state. Must be called AFTER
     // the compositor has re-enabled the CRTC on wake (see setScreenState).
-    void              forceBacklightOn();
+    void forceBacklightOn();
+
+    // --- Adaptive brightness engine ---------------------------------
+    // Map an ambient-light reading (lux) to a user-space [0,1] target
+    // via a perceptual (log) curve, apply asymmetric hysteresis so we
+    // only react to sustained changes, and ease toward the target with
+    // a smooth PWM ramp instead of an instant jump.
+    double            luxToUserBrightness(double lux) const;
+    void              startBrightnessRamp(double targetUser);
+    void              rampStep();
+
+    double            m_luxEwma         = -1.0; // smoothed lux (-1 = unseeded)
+    double            m_autoTargetUser  = -1.0; // last auto target committed
+    qint64            m_luxAboveSinceMs = 0;    // dwell timers for hysteresis
+    qint64            m_luxBelowSinceMs = 0;
+    qint64            m_lastManualSetMs = 0; // manual override grace window
+    QTimer           *m_rampTimer       = nullptr;
+    double            m_rampFromUser    = 0.0;
+    double            m_rampToUser      = 0.0;
+    qint64            m_rampStartMs     = 0;
+    int               m_rampDurationMs  = 600;
+
+    bool              m_proximityBlanked = false;
 
     bool              m_available;
     QString           m_backlightDevice;

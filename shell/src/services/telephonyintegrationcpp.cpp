@@ -219,6 +219,19 @@ void TelephonyIntegrationCpp::updateHasActiveCall(const QString &state) {
         return;
     m_hasActiveCall = active;
     emit hasActiveCallChanged();
+
+    // Drive the shared call-state flag so the proximity sensor gets
+    // powered on/off for the duration of the call (main.cpp wires
+    // PowerPolicyController::hasActiveCalls -> SensorManager::
+    // setProximityActive). Without this the sensor never starts and the
+    // proximity blank below never fires. Also gates canSleep().
+    if (m_powerPolicy)
+        m_powerPolicy->setHasActiveCalls(active);
+
+    // Call ended with the screen still proximity-blanked (phone was at
+    // the ear when the other side hung up): un-blank immediately.
+    if (!active && m_displayManager)
+        m_displayManager->setCallProximityBlank(false);
 }
 
 void TelephonyIntegrationCpp::handleProximityChanged() {
@@ -238,11 +251,16 @@ void TelephonyIntegrationCpp::handleProximityChanged() {
         return;
     }
 
+    // Use the lightweight backlight-only blank, NOT setScreenState —
+    // the latter now triggers the full deep-idle Doze (CRTC ACTIVE=0 +
+    // DDR downshift + lock), which is far too heavy to toggle every
+    // time the phone moves to/from the ear and would lock the session
+    // mid-call. setCallProximityBlank just powers the LED down/up.
     if (m_sensorManager->proximityNear()) {
-        qInfo() << "[TelephonyIntegration] Proximity near during call - screen off";
-        m_displayManager->setScreenState(false);
+        qInfo() << "[TelephonyIntegration] Proximity near during call - backlight off";
+        m_displayManager->setCallProximityBlank(true);
     } else {
-        qInfo() << "[TelephonyIntegration] Proximity far during call - screen on";
-        m_displayManager->setScreenState(true);
+        qInfo() << "[TelephonyIntegration] Proximity far during call - backlight on";
+        m_displayManager->setCallProximityBlank(false);
     }
 }
