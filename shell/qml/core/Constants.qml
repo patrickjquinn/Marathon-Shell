@@ -11,8 +11,13 @@ QtObject {
     // ScreenMetricsCpp / MARATHON_DEBUG_ENABLED / SettingsManagerCpp are not
     // registered in the runner; the typeof guards must stay so this file
     // evaluates cleanly there.
-    property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.width : 0
-    property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.height : 0
+    // screenWidth/screenHeight source order mirrors dpi/userScaleFactor:
+    // shell's ScreenMetricsCpp (full device probe) → marathon-app-runner's
+    // MARATHON_SCREEN_WIDTH/HEIGHT context property (forwarded from the shell
+    // at launch) → 0. Without the runner fallback these were 0 inside every
+    // sandboxed app, zeroing heightScaleFactor and forcing isTallScreen false.
+    property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.width > 0) ? ScreenMetricsCpp.width : (typeof MARATHON_SCREEN_WIDTH !== "undefined" && MARATHON_SCREEN_WIDTH > 0) ? MARATHON_SCREEN_WIDTH : 0
+    property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.height > 0) ? ScreenMetricsCpp.height : (typeof MARATHON_SCREEN_HEIGHT !== "undefined" && MARATHON_SCREEN_HEIGHT > 0) ? MARATHON_SCREEN_HEIGHT : 0
     readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
     // DPI source order: shell's ScreenMetricsCpp (full device probe) →
     // marathon-app-runner's MARATHON_DPI context property (forwarded from

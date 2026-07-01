@@ -134,6 +134,7 @@ MApp {
             anchors.top: parent.top
 
             Row {
+                id: undoRow
                 anchors.left: parent.left
                 anchors.leftMargin: 16
                 anchors.verticalCenter: parent.verticalCenter
@@ -152,10 +153,12 @@ MApp {
                     font.pixelSize: MTypography.sizeFootnote
                     font.weight: Font.Medium
                 }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: HapticService.light()
-                }
+            }
+            // Tap target lives OUTSIDE the Row — anchors.fill on a Row child
+            // is illegal and silently breaks the Row's horizontal layout.
+            MouseArea {
+                anchors.fill: undoRow
+                onClicked: HapticService.light()
             }
 
             Row {
