@@ -278,9 +278,27 @@ package() {
 		"$pkgdir/usr/lib/systemd/system/marathon-cpu-governor.service"
 
 	# MM + I/O scheduler boot-time tuning (verified Pixel parity, not
-	# XDA folklore). Swappiness 100, page-cluster 0, mq-deadline eMMC.
+	# XDA folklore). Swappiness 100, page-cluster 0. (I/O scheduler is
+	# set by 60-marathon-iosched.rules — udev is the winning mechanism,
+	# it re-fires on device add/change and overrides any service write.)
 	install -Dm644 "$srcdir/marathon-mm-tune.service" \
 		"$pkgdir/usr/lib/systemd/system/marathon-mm-tune.service"
+
+	# Enable the boot-tuning + oom services via /usr symlinks, NOT the
+	# post-install `systemctl enable` (which writes /etc symlinks). On
+	# the immutable duranium image /etc is a systemd-confext overlay whose
+	# runtime .wants symlinks are NOT honored at boot — systemd computes
+	# its transaction before/independent of the mutable /etc layer, so an
+	# /etc-enabled service silently never starts (verified 2026-07-01:
+	# governor stuck at schedutil, swappiness at kernel default, across
+	# clean reboots). Baked /usr .wants symlinks ARE honored (same as
+	# ModemManager et al). This is the deterministic, immutable-friendly
+	# enablement.
+	mkdir -p "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	for _svc in marathon-shell-oom marathon-iw-setcap marathon-cpu-governor marathon-mm-tune; do
+		ln -sf "../$_svc.service" \
+			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
+	done
 
 	# PAM stack -- required for screen unlock + biometric auth.
 	# Ships under /usr/share/factory/etc/... so Duranium-style immutable

@@ -1,8 +1,8 @@
 # Marathon OS I/O Scheduler Configuration
-# Kyber scheduler for flash storage (eMMC/UFS) + polling + read-ahead tuning
+# mq-deadline for flash storage (eMMC/UFS) + polling + read-ahead tuning
 
-# Set Kyber scheduler on all mmcblk devices
-ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="kyber"
+# Set mq-deadline on all mmcblk devices
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="mq-deadline"
 
 # I/O polling DOES NOT apply to MMC — the mmc block driver doesn't
 # implement the poll_fn op, so writing 1 to queue/io_poll returns EINVAL
