@@ -14,6 +14,7 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QTimer>
+#include <QThread>
 #include <QFileSystemWatcher>
 #include <QScreen>
 #include <QSettings>
@@ -126,6 +127,49 @@ double DisplayManagerCpp::brightness() const {
             return brightnessHwToUser(static_cast<double>(v) / m_maxBrightness);
     }
     return m_brightness;
+}
+
+void DisplayManagerCpp::forceBacklightOn() {
+    if (m_backlightDevice.isEmpty())
+        return;
+
+    const QString blPath =
+        QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice);
+    const QString brPath =
+        QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+
+    // Target duty = user brightness remapped through the visible floor
+    // (never below ~28% real). Waking to a lit panel is non-negotiable.
+    const int target = qBound(
+        1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness), m_maxBrightness);
+
+    auto writeFile = [](const QString &path, const QByteArray &val) {
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(val + "\n");
+            f.close();
+            return true;
+        }
+        return false;
+    };
+
+    // Full power-cycle of the backlight LED. After the display domain
+    // gated (deep-idle Doze), the pwm-backlight duty can stay latched at
+    // 0; a plain bl_power=0 leaves it dark. Powering the LED down, letting
+    // the PWM/domain settle, then back up + re-writing the duty re-inits
+    // it reliably — this is the exact sequence verified to recover a
+    // wedged panel on i.MX8MQ. The brief msleep runs on the wake path
+    // only (a one-time transition, not a hot path); the scene-graph render
+    // thread is unaffected.
+    writeFile(blPath, "4");
+    QThread::msleep(30);
+    writeFile(blPath, "0");
+    // Nudge low->target across two stores so pwm_backlight_update_status
+    // re-applies the duty (a single idempotent write can be skipped).
+    writeFile(brPath, "1");
+    if (!writeFile(brPath, QByteArray::number(target))) {
+        qWarning() << "[DisplayManagerCpp] forceBacklightOn: cannot write brightness";
+    }
 }
 
 double DisplayManagerCpp::getBrightness() {
@@ -403,84 +447,47 @@ void DisplayManagerCpp::setScreenState(bool on) {
     // Suspend the compositor's render thread before powering the CRTC down,
     // and bring the CRTC back up before resuming the compositor.
 
-    // Backlight-only blank. Qt eglfs_kms's setPowerState path uses the
-    // legacy drmModeConnectorSetProperty(DPMS_property) — known broken
-    // on i.MX8MQ + mxsfb-dsi: the kernel panel driver doesn't reliably
-    // re-issue prepare/enable callbacks on Off→On, so the panel wedges
-    // dark even though the DRM state machine reports it as On. Phoc
-    // works around it by using atomic modeset with ALLOW_MODESET via
-    // wlroots; we don't have that path from Qt without forking the QPA.
+    // ORDER MATTERS relative to the compositor's CRTC power state.
+    // screenStateChanged (emitted below) is wired — via a synchronous QML
+    // .connect — to WaylandCompositor::setCompositorActive, which toggles
+    // the CRTC ACTIVE property. So by the time `emit` returns, the CRTC is
+    // already on (wake) or off (doze).
     //
-    // The simpler and more reliable approach for a user-facing
-    // screen-off is to leave the DRM CRTC running and just power the
-    // backlight LED driver down via the backlight class. The compositor
-    // keeps drawing — invisible, slightly more power than DPMS-off —
-    // and pressing power restores the backlight instantly with zero
-    // DRM negotiation. bl_power requires the udev rule that chmods it
-    // 0666 (udev/70-marathon-shell.rules).
-    if (!m_backlightDevice.isEmpty()) {
+    //   Doze  (on=false): power the backlight LED DOWN first, THEN let the
+    //                     compositor disable the CRTC.
+    //   Wake  (on=true):  let the compositor enable the CRTC first, THEN
+    //                     re-assert the backlight (see forceBacklightOn()).
+    //
+    // Getting this backwards is what left the panel rendering-but-dark: a
+    // bl_power/brightness write that lands while the display power domain
+    // is still gated (deep-idle Doze, CRTC ACTIVE=0) is silently dropped,
+    // so the LED stays at 0% duty even though sysfs reads back healthy.
+    if (!on && !m_backlightDevice.isEmpty()) {
         QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
         if (blPower.open(QIODevice::WriteOnly)) {
-            // 0 = FB_BLANK_UNBLANK (on), 4 = FB_BLANK_POWERDOWN (off).
-            blPower.write(on ? "0\n" : "4\n");
+            blPower.write("4\n"); // FB_BLANK_POWERDOWN
             blPower.close();
-            // On the unblank edge, force-re-write the brightness sysfs
-            // entry too. On i.MX8MQ + pwm-backlight (mxsfb-dsi panel),
-            // the PWM controller's resume callback does NOT reliably
-            // restore the duty cycle that was active before bl_power=4
-            // + S2/S3, so even after bl_power=0 succeeds the LED can
-            // sit at 0% duty — screen logically on, physically dark.
-            // Re-writing brightness here is cheap, idempotent, and the
-            // only reliable workaround short of a kernel driver fix.
-            if (on) {
-                // Target duty = the user's brightness remapped through the
-                // visible floor (never below ~28% real). Waking to a lit
-                // panel is non-negotiable.
-                const int target =
-                    qBound(1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness),
-                           m_maxBrightness);
-
-                const QString brPath =
-                    QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
-
-                // Force a PWM re-init with a low->target NUDGE. After the
-                // display power domain gates at CRTC ACTIVE=0 (deep-idle
-                // Doze), the pwm-backlight duty can stay latched at 0 —
-                // bl_power=0 alone leaves the LED physically dark. Writing
-                // a distinctly different value first, then the target,
-                // forces pwm_backlight_update_status to re-apply the duty
-                // cycle. Two separate open/close ops guarantee two sysfs
-                // store callbacks (a single fd with two writes can coalesce).
-                const int nudge = (target > m_maxBrightness / 2) ? 1 : m_maxBrightness;
-                QFile     brNudge(brPath);
-                if (brNudge.open(QIODevice::WriteOnly)) {
-                    brNudge.write(QByteArray::number(nudge) + "\n");
-                    brNudge.close();
-                }
-                QFile brSet(brPath);
-                if (brSet.open(QIODevice::WriteOnly)) {
-                    brSet.write(QByteArray::number(target) + "\n");
-                    brSet.close();
-                }
-            }
         } else {
             qWarning() << "[DisplayManagerCpp] cannot open" << blPower.fileName()
-                       << "for write — udev rule missing? Falling back to DRM DPMS.";
+                       << "for write — udev rule missing?";
 #if MARATHON_HAVE_QT_GUI_PRIVATE
             QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
             if (platformScreen) {
-                if (on) {
-                    platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
-                    platformScreen->setPowerState(QPlatformScreen::PowerStateOn);
-                } else {
-                    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-                    platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
-                }
+                QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+                platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
             }
 #endif
         }
     }
+
     emit screenStateChanged(on);
+
+    // Wake: the CRTC is now powered on (ACTIVE=1 ran synchronously above).
+    // Re-assert the backlight in the correct order — this is the fix for
+    // the dark-panel-on-wake wedge.
+    if (on && !m_backlightDevice.isEmpty()) {
+        forceBacklightOn();
+    }
 
     if (m_powerManager) {
         if (on) {

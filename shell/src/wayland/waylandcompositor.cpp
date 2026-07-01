@@ -1227,7 +1227,14 @@ bool WaylandCompositor::initAtomicDisplay() {
 // before ACTIVE=0, and restored to ACTIVE=1 before render resumes —
 // callers in setCompositorActive guarantee that ordering.
 void WaylandCompositor::setDisplayPowerState(bool on) {
-    static const bool enabled = qEnvironmentVariableIntValue("MARATHON_DOZE_DPMS") != 0;
+    // DEFAULT ON as of 2026-07-01. Validated: the atomic CRTC ACTIVE=0
+    // display-off drops Doze draw from ~2.8W to ~0.1W (measured; matches
+    // the i.MX8MQ ~105mW deep-idle floor), and the wake path re-lights
+    // the panel reliably — 15/15 physical doze/wake cycles incl. 30s
+    // deep-idle holds, after the backlight-after-CRTC ordering fix in
+    // DisplayManagerCpp::setScreenState + forceBacklightOn(). Set
+    // MARATHON_DOZE_DPMS=0 to disable (e.g. bring-up on other panels).
+    static const bool enabled = envBool("MARATHON_DOZE_DPMS", true);
     if (!enabled)
         return;
     if (!initAtomicDisplay())

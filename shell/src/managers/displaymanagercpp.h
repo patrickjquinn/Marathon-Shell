@@ -81,6 +81,10 @@ class DisplayManagerCpp : public QObject {
     void screenStateChanged(bool on);
 
   private:
+    // Power-cycle the backlight LED to a lit state. Must be called AFTER
+    // the compositor has re-enabled the CRTC on wake (see setScreenState).
+    void              forceBacklightOn();
+
     bool              m_available;
     QString           m_backlightDevice;
     int               m_maxBrightness;
