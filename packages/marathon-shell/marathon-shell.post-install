@@ -44,6 +44,29 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl start marathon-shell-oom.service 2>/dev/null || true
 fi
 
+# Enable the iw setcap oneshot so Marathon-Doze's wifi PSM toggle
+# works from the shell (uid 1000). Re-runs every boot in case `apk
+# upgrade iw` stripped the cap.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable marathon-iw-setcap.service 2>/dev/null || true
+    systemctl start marathon-iw-setcap.service 2>/dev/null || true
+fi
+
+# Set cpufreq governor to ondemand — schedutil boosts to max on RT
+# task wakes and the L5 has ~25 threaded IRQ handlers running at
+# SCHED_FIFO. Ondemand cuts max-freq residency from 58.8% to 11.7%.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable marathon-cpu-governor.service 2>/dev/null || true
+    systemctl start marathon-cpu-governor.service 2>/dev/null || true
+fi
+
+# MM + eMMC I/O scheduler tuning (Pixel-parity). Idempotent; runs each
+# boot in case another package overwrote the values.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable marathon-mm-tune.service 2>/dev/null || true
+    systemctl start marathon-mm-tune.service 2>/dev/null || true
+fi
+
 # Mask power-profiles-daemon if it slipped in via another dep. On
 # this hardware the ppd 'balanced'/'power-saver' profiles have a
 # PlatformDriver: placeholder — they don't actually change anything.

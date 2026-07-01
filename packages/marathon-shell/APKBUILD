@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=282
+pkgrel=300
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -64,6 +64,8 @@ depends="
 	qmf-messageserver
 	python3
 	py3-evdev
+	iw
+	libcap-utils
 	"
 makedepends="
 	cmake
@@ -101,6 +103,9 @@ source="
 	marathon-touchctl
 	marathon-shell-oom-pin
 	systemd/marathon-shell-oom.service
+	marathon-iw-setcap.service
+	marathon-cpu-governor.service
+	marathon-mm-tune.service
 	pam-marathon-shell
 	90-backlight.rules
 	99-marathon-rtprio.conf
@@ -255,6 +260,26 @@ package() {
 		"$pkgdir/usr/libexec/marathon-shell-oom-pin"
 	install -Dm644 "$srcdir/marathon-shell-oom.service" \
 		"$pkgdir/usr/lib/systemd/system/marathon-shell-oom.service"
+
+	# Marathon-Doze needs cap_net_admin on /usr/sbin/iw so the shell
+	# (uid 1000) can flip wifi PSM on Doze enter / exit. Set on every
+	# boot via a oneshot to survive `apk upgrade iw` (which strips
+	# caps). Enabled by the post-install hook.
+	install -Dm644 "$srcdir/marathon-iw-setcap.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-iw-setcap.service"
+
+	# Ondemand cpufreq governor — schedutil boosts to max on any
+	# RT-task wake, and the L5 stack has ~25 SCHED_FIFO threaded
+	# IRQ handlers firing ~1000 IRQs/s. Under schedutil the cluster
+	# sits at 1.5 GHz 58.8% of active time (measured 2026-07-01);
+	# under ondemand that drops to 11.7%. Estimated 500-800 mW save.
+	install -Dm644 "$srcdir/marathon-cpu-governor.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-cpu-governor.service"
+
+	# MM + I/O scheduler boot-time tuning (verified Pixel parity, not
+	# XDA folklore). Swappiness 100, page-cluster 0, mq-deadline eMMC.
+	install -Dm644 "$srcdir/marathon-mm-tune.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-mm-tune.service"
 
 	# PAM stack -- required for screen unlock + biometric auth.
 	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
