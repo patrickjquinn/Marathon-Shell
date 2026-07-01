@@ -1,5 +1,15 @@
 # Development Workflow
 
+**Start here:** every dev task in Marathon is driven by the
+`marathon` CLI at `scripts/marathon`. Read
+[**DEV_CLI.md**](DEV_CLI.md) first — it's the primary reference for
+build, deploy, snapshot, unlock, launch, tail logs, doctor, probes,
+multi-device, sessions, benchmarks. `marathon quickstart` also walks
+new developers through the essentials.
+
+The sections below cover the source/install layout that any dev task
+should understand.
+
 ## Source File Locations
 
 Marathon Shell uses a build-and-install workflow where source files are separate from installed runtime files.

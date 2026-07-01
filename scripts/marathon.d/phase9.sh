@@ -57,8 +57,9 @@ cmd_quickstart() {
        marathon session record doze-test snap doze-entered
        marathon session run doze-test
 
-  Full help: marathon --help
-  Docs:      marathon docs
+  Full help:    marathon --help
+  CLI ref:      marathon docs cli        (docs/DEV_CLI.md)
+  All docs:     marathon docs
 
 HELP
 }
@@ -72,6 +73,14 @@ cmd_docs() {
         return
     fi
     local file
+    # Special aliases for verbs that don't literally match a filename.
+    case "$topic" in
+        cli|dev|tool|tools) topic=DEV_CLI ;;
+        workflow)           topic=DEVELOPMENT_WORKFLOW ;;
+        arch|architecture)  topic=ARCHITECTURE ;;
+        design|ui)          topic=UI_DESIGN_SYSTEM ;;
+        rules|coding)       topic=CODING_RULES ;;
+    esac
     for candidate in \
         "$docs_dir/$topic" \
         "$docs_dir/$topic.md" \
