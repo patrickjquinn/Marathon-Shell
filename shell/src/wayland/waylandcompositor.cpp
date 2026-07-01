@@ -20,9 +20,11 @@
 #include <QQuickItem>
 #include <QKeyEvent>
 #include <QScreen>
-#if MARATHON_HAVE_QT_GUI_PRIVATE
-#include <qpa/qplatformscreen.h>
-#endif
+#include <QGuiApplication>
+#include <qpa/qplatformnativeinterface.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <cstring>
 #include "textinputv3.h"
 
 #include "util/frametiming.h"
@@ -1124,45 +1126,131 @@ void WaylandCompositor::setCompositorActive(bool active) {
     setDisplayPowerState(false);
 }
 
-// DPMS transition for the primary output. Gated behind MARATHON_DOZE_DPMS
-// and DEFAULT OFF — do not enable without a kernel fix.
+// Cache the DRM master fd + CRTC id + ACTIVE property id from Qt's
+// eglfs_kms integration. Returns true if we have everything needed to
+// drive the CRTC's ACTIVE property ourselves. Idempotent.
 //
-// VALIDATED 2026-07-01 on kernel 6.6.139-librem5 + eglfs_kms_atomic and
-// found NOT SHIPPABLE:
-//   1. Wedges intermittently on wake. Doze DPMS-off correctly stops DCSS
-//      scanout (memory-controller drops 800->25 MHz, confirmed) and the
-//      first wake recovers cleanly, but a later cycle leaves the panel
-//      physically dark while every signal reads healthy (dpms=On,
-//      backlight PWM 200/255, LCD_AVDD/AVEE 5.5V). The mxsfb-dsi panel
-//      driver fails to re-issue the MIPI display-on sequence on Off->On.
-//      A greetd restart does NOT recover it (panel driver stays bound);
-//      only a full reboot does. Kernel-side bug, not fixable here.
-//   2. Marginal win anyway: ~0.28 W / 10% (784->709 mA). DCSS scanout
-//      stops but the panel rails never gate, and the standby draw is
-//      dominated by the i.MX8MQ SoC floor, not the display. The real
-//      standby lever is SoC suspend-with-wake, not this. See the
-//      "standby power floor" investigation notes.
-// Left in place as the starting point for a future revisit once the
-// mxsfb-dsi driver reliably re-runs panel prepare/enable on DPMS On.
+// We take Qt's OWN master fd (via QPlatformNativeInterface "dri_fd")
+// rather than open()ing /dev/dri/card* ourselves — only the DRM master
+// may issue a modeset, and Qt eglfs holds mastership on the card. A
+// second open() would be a non-master fd and every atomic commit would
+// return EACCES.
+bool WaylandCompositor::initAtomicDisplay() {
+    if (m_atomicDisplayReady)
+        return true;
+    if (m_atomicDisplayFailed)
+        return false;
+
+    QPlatformNativeInterface *ni = QGuiApplication::platformNativeInterface();
+    if (!ni || !m_window) {
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+    QScreen *screen = m_window->screen();
+    if (!screen) {
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    void *fdPtr   = ni->nativeResourceForIntegration(QByteArrayLiteral("dri_fd"));
+    void *crtcPtr = ni->nativeResourceForScreen(QByteArrayLiteral("dri_crtcid"), screen);
+    m_driFd       = fdPtr ? static_cast<int>(reinterpret_cast<qintptr>(fdPtr)) : -1;
+    m_crtcId      = crtcPtr ? static_cast<uint32_t>(reinterpret_cast<qintptr>(crtcPtr)) : 0;
+
+    if (m_driFd < 0 || m_crtcId == 0) {
+        qWarning() << "[WaylandCompositor] atomic display init: no dri_fd/crtcid from eglfs"
+                   << "(fd" << m_driFd << "crtc" << m_crtcId << ") — DPMS disabled";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    // Enable atomic on this fd (harmless if eglfs_kms_atomic already did).
+    drmSetClientCap(m_driFd, DRM_CLIENT_CAP_ATOMIC, 1);
+
+    // Resolve the CRTC's "ACTIVE" property id.
+    drmModeObjectProperties *props =
+        drmModeObjectGetProperties(m_driFd, m_crtcId, DRM_MODE_OBJECT_CRTC);
+    if (!props) {
+        qWarning() << "[WaylandCompositor] atomic display init: cannot read CRTC props";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+    for (uint32_t i = 0; i < props->count_props; ++i) {
+        drmModePropertyRes *p = drmModeGetProperty(m_driFd, props->props[i]);
+        if (!p)
+            continue;
+        if (qstrcmp(p->name, "ACTIVE") == 0)
+            m_crtcActivePropId = props->props[i];
+        drmModeFreeProperty(p);
+    }
+    drmModeFreeObjectProperties(props);
+
+    if (m_crtcActivePropId == 0) {
+        qWarning() << "[WaylandCompositor] atomic display init: no ACTIVE prop on CRTC";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    qInfo() << "[WaylandCompositor] atomic display ready: fd" << m_driFd << "crtc" << m_crtcId
+            << "ACTIVE prop" << m_crtcActivePropId;
+    m_atomicDisplayReady = true;
+    return true;
+}
+
+// DPMS transition for the primary output via a DIRECT libdrm atomic
+// commit of the CRTC's ACTIVE property. Gated behind MARATHON_DOZE_DPMS
+// (default off).
+//
+// Why not Qt's QPlatformScreen::setPowerState: on i.MX8MQ + mxsfb + nwl
+// DSI, a full CRTC teardown (zeroing MODE_ID + CRTC_ID) fails atomic
+// validation because a plane+framebuffer is still bound to a now-
+// modeless CRTC — the panel wedges dark and only a reboot recovers.
+// This is swaywm/wlroots#1889, filed on this exact hardware. The clean
+// path Phosh/wlroots uses — and what we replicate here — is to toggle
+// ONLY the CRTC ACTIVE property, leaving MODE_ID intact.
+//
+// VALIDATED on-device 2026-07-01 (instrumented): ACTIVE=0/1 commits
+// return 0, readback confirms the value sticks, wake is clean across
+// many cycles (NO wedge — unlike Qt's setPowerState), and the panel's
+// AVDD rail gates on ACTIVE=0. This is the correct, shippable display-
+// off for the DSI panel.
+//
+// HOWEVER it does NOT unlock the DDR self-refresh win we hoped for:
+// with the CRTC confirmed disabled, the memory-controller stays pinned
+// at 800MHz. A dev_pm_qos MIN_FREQUENCY=166.9MHz floor (held by a NON-
+// display consumer — it survives CRTC disable) excludes the usable
+// 25/100MHz DDR OPPs. Dropping the DDR to self-refresh is therefore a
+// kernel/DTB task (find + release that QoS holder), independent of this
+// compositor change. See the "standby power floor" / "doze dpms" notes.
+//
+// Render must already be paused (setVisible(false)+releaseResources)
+// before ACTIVE=0, and restored to ACTIVE=1 before render resumes —
+// callers in setCompositorActive guarantee that ordering.
 void WaylandCompositor::setDisplayPowerState(bool on) {
     static const bool enabled = qEnvironmentVariableIntValue("MARATHON_DOZE_DPMS") != 0;
     if (!enabled)
         return;
-#if MARATHON_HAVE_QT_GUI_PRIVATE
-    if (!m_window)
+    if (!initAtomicDisplay())
         return;
-    QScreen *screen = m_window->screen();
-    if (!screen)
+
+    drmModeAtomicReq *req = drmModeAtomicAlloc();
+    if (!req)
         return;
-    QPlatformScreen *platformScreen = screen->handle();
-    if (!platformScreen)
+    drmModeAtomicAddProperty(req, m_crtcId, m_crtcActivePropId, on ? 1 : 0);
+
+    // ALLOW_MODESET: toggling ACTIVE is a modeset-class change. No page
+    // flip event requested (nullptr user_data) — this is a blocking
+    // synchronous commit, appropriate for a screen on/off transition.
+    const int ret = drmModeAtomicCommit(m_driFd, req, DRM_MODE_ATOMIC_ALLOW_MODESET, nullptr);
+    drmModeAtomicFree(req);
+
+    if (ret != 0) {
+        qWarning() << "[WaylandCompositor] CRTC ACTIVE=" << on << "atomic commit failed:" << ret
+                   << strerror(-ret);
         return;
-    platformScreen->setPowerState(on ? QPlatformScreen::PowerStateOn :
-                                       QPlatformScreen::PowerStateOff);
-    qInfo() << "[WaylandCompositor] DPMS" << (on ? "ON" : "OFF") << "(MARATHON_DOZE_DPMS)";
-#else
-    Q_UNUSED(on);
-#endif
+    }
+    qInfo() << "[WaylandCompositor] display" << (on ? "ON" : "OFF")
+            << "via CRTC ACTIVE atomic commit";
 }
 
 void WaylandCompositor::setOutputOrientation(const QString &orientation) {

@@ -513,9 +513,14 @@ endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
 pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
+# libdrm: direct atomic CRTC ACTIVE toggle for the Doze display-off path
+# (WaylandCompositor::setDisplayPowerState). Present via mesa-dev on the
+# Alpine build root; the shell already holds the DRM master fd from eglfs.
+pkg_check_modules(LIBDRM REQUIRED libdrm)
 target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
     ${PIPEWIRE_INCLUDE_DIRS}
+    ${LIBDRM_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components
@@ -560,6 +565,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
     ${PIPEWIRE_LIBRARIES}
+    ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}
     lunasvg
 )

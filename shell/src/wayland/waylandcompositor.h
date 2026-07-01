@@ -90,7 +90,17 @@ class WaylandCompositor : public QWaylandCompositor {
     void calculateAndSetPhysicalSize();
     // DPMS-off/on the primary output (opt-in via MARATHON_DOZE_DPMS).
     // Called from setCompositorActive with render already paused/resumed.
-    void                                    setDisplayPowerState(bool on);
+    // Drives the CRTC's ACTIVE property directly via a libdrm atomic
+    // commit (the wlroots#1889-clean path for the mxsfb DSI panel).
+    void setDisplayPowerState(bool on);
+    bool initAtomicDisplay();
+
+    // Cached DRM handles for the ACTIVE-property display-off path.
+    int                                     m_driFd               = -1;
+    uint32_t                                m_crtcId              = 0;
+    uint32_t                                m_crtcActivePropId    = 0;
+    bool                                    m_atomicDisplayReady  = false;
+    bool                                    m_atomicDisplayFailed = false;
 
     QWaylandXdgShell                       *m_xdgShell                 = nullptr;
     QWaylandWlShell                        *m_wlShell                  = nullptr;
