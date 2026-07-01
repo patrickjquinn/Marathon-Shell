@@ -723,19 +723,32 @@ int main(int argc, char *argv[]) {
                      &PowerPolicyController::exitDoze);
 
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
-    // the power button. PowerKeyListener exists so the shell sees power-key
-    // events even when the focused QML window happens not to be the root
-    // (apps can claim focus). The canonical wake/blank decision lives in
-    // PowerBatteryHandler, invoked from MarathonShell.qml's Keys.onReleased
-    // handler — that's the one place that owns session-locked + screen-on
-    // policy, so we don't add a second toggle here. Doing so would race
-    // (press-down wakes, key-release blanks) and present as "the screen
-    // flickers on then goes black the moment I lift my finger."
-    auto *powerKeyListener = new PowerKeyListener(&app);
-    Q_UNUSED(powerKeyListener);
-    createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
-                                         displayPolicyController, displayManager, hapticManager,
-                                         &app);
+    // the power button. PowerKeyListener reads /dev/input/event* directly,
+    // which is essential when a marathon-app-runner subprocess has Wayland
+    // focus — in that case Qt routes KEY_POWER to the runner's window and
+    // MarathonShell.qml's Keys.onReleased never fires, so the shell would
+    // otherwise miss the wake press entirely. The runner has no reason
+    // (and no code) to forward KEY_POWER upstream.
+    //
+    // Both event sources (QML Keys.onReleased when shell has focus,
+    // PowerKeyListener when it doesn't) invoke the same
+    // handlePowerButtonPress; a 200 ms dedupe there absorbs the case
+    // where both fire for the same physical press.
+    auto *powerKeyListener    = new PowerKeyListener(&app);
+    auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
+        ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
+        hapticManager, &app);
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
+                     [powerBatteryHandler, displayPolicyController]() {
+                         const bool screenOn =
+                             displayPolicyController ? displayPolicyController->screenOn() : true;
+                         // sessionLocked=false is a reasonable fallback — the
+                         // lock/unlock decision in powerButtonAction only
+                         // matters for the screen-ON path (LockAndTurnScreenOff
+                         // vs TurnScreenOff), and the screen-OFF wake path
+                         // (TurnScreenOn) is agnostic to it.
+                         powerBatteryHandler->handlePowerButtonPress(false, screenOn);
+                     });
     auto *audioPolicyController =
         new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
     qmlRegisterSingletonInstance<AudioPolicyController>(

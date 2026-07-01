@@ -19,6 +19,13 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
     if (!m_powerPolicy)
         return;
 
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastPressMs < 200) {
+        // Second event source firing for the same physical press. Ignore.
+        return;
+    }
+    m_lastPressMs = now;
+
     const bool screenOn = m_displayPolicy ? m_displayPolicy->screenOn() : screenOnHint;
     const auto action   = m_powerPolicy->powerButtonAction(screenOn, sessionLocked);
 
