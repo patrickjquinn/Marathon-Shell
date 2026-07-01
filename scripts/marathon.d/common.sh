@@ -69,7 +69,12 @@ marathon::config::load() {
 
 marathon::device::resolve() {
     if [ -n "${MARATHON_HOST:-}" ]; then
-        marathon::debug "host from env: $MARATHON_HOST"
+        # --host / MARATHON_HOST override bypasses devices.conf lookup,
+        # but downstream code (phase1 status header, phase6 device list)
+        # still reads MARATHON_DEVICE and _KIND, so publish sane defaults.
+        export MARATHON_DEVICE="${MARATHON_DEVICE:-adhoc}"
+        export MARATHON_DEVICE_KIND="${MARATHON_DEVICE_KIND:-unknown}"
+        marathon::debug "host from env: $MARATHON_HOST (device=$MARATHON_DEVICE)"
         return
     fi
     local name="${MARATHON_DEVICE:-}"
