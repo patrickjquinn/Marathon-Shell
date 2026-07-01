@@ -43,6 +43,16 @@ class CgroupManager : public QObject {
     // prior placeAppPid calls.
     bool setAppFrozen(const QString &appId, bool frozen);
 
+    // Set the cgroup's cpu.uclamp.min (kernel 5.3+). Kernel accepts a
+    // percentage 0-100 where 0 is "no boost" (default) and 100 forces
+    // the scheduler to treat the group's tasks as capacity-max. Marathon
+    // uses 30 for the foreground app to guarantee a CPU-frequency floor
+    // during interactive use — the mainline, official replacement for
+    // Android's ROM-lore "touch boost" hispeed_freq/boostpulse hacks.
+    // Best-effort: returns false if uclamp isn't compiled in the kernel,
+    // the cpu controller isn't delegated, or the path doesn't exist yet.
+    bool setAppUclampMin(const QString &appId, int pct);
+
     // Tear down cgroup directory (rmdir) when app exits. Tolerant of the
     // dir not existing.
     void removeAppCgroup(const QString &appId);
