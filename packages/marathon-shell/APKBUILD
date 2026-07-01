@@ -87,6 +87,7 @@ makedepends="
 	wayland-dev
 	wayland-protocols
 	mesa-dev
+	libdrm-dev
 	dbus-dev
 	eudev-dev
 	libinput-dev
