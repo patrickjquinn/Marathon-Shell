@@ -1005,8 +1005,10 @@ MApp {
                     // load (offline device, DNS blocked, Flathub down).
                     // Without this the Discover tab silently sat empty
                     // after the spinner gave up.
+                    // centerIn is illegal on a Column child and breaks the
+                    // whole Discover column; horizontalCenter is allowed.
                     MEmptyState {
-                        anchors.centerIn: parent
+                        anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width - 48
                         visible: !root.catalogLoading && Object.keys(root.collections).length === 0 && !navStack.parent.heroApp
                         iconName: "wifi-off"
