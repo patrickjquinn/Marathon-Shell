@@ -657,11 +657,28 @@ reachability.
   this kernel, or does it spin? Only `WFI` (1 µs) and `cpu-sleep`
   (1500 µs) are exposed; no cluster-off state. Real power impact of
   Doze vs S3 is TBD until clean fuel-gauge measurements land.
-- Does the Redpine `redpine_91x` driver tolerate long PSM windows
-  without dropping the association? Current state has `power_save off`.
-- Modem behaviour in long-Doze windows — the EG25-G udev rule
-  already keeps it reachable for calls/SMS, but the practical battery
-  cost over 12-hour standby isn't yet characterised.
+- Modem behaviour in long-Doze windows — the BM818-E1 udev rule
+  keeps it reachable for calls/SMS, but `qmi_wwan` kernel driver
+  prevents USB autosuspend from actually engaging (measured 89.7%
+  active even with ModemManager stopped). Kernel-level fix needed.
+
+### Governor choice (2026-07-01)
+
+Marathon ships **ondemand**, not schedutil. Under schedutil on
+imx8mq's coupled A53 cluster, any SCHED_FIFO task wake boosts the
+whole cluster to 1.5 GHz. The L5 has ~25 threaded IRQ handlers at
+`SCHED_FIFO prio 50` (PMIC, RTC, fuel gauge, touch, wifi/mmc SDIO,
+GPU, migration). At ~1000 IRQs/s the cluster is boosted to max 58.8%
+of active time under schedutil.
+
+Ondemand samples load every 100 ms without the RT-boost path. Live
+measurement: 1.5 GHz residency 58.8% → 11.7%, 100 MHz residency
+29.8% → 73.5%. Doze enter/wake timing unchanged (~300 ms). Ping in
+Doze with PSM on: 10/10, 14-39 ms RTT.
+
+Applied at boot via `marathon-cpu-governor.service` (packaging repo).
+If ondemand ever causes touch-to-frame latency issues, either revert
+to schedutil or patch the kernel to skip RT-boost for non-DL tasks.
 
 The architecture is committed; the tuning constants (idle-timer
 duration, PSM aggressiveness, optional foreground-app freezing at
