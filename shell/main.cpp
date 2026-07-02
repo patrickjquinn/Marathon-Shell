@@ -105,7 +105,6 @@
 #include "src/services/appstore.h"
 #include "src/services/wallpaperstore.h"
 #include "src/services/router.h"
-#include "src/services/surfaceregistry.h"
 #include "src/services/languagemanager.h"
 #include "src/services/dictionary.h"
 #include "src/services/autocorrect.h"
@@ -806,9 +805,6 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<UIStore>("MarathonOS.Shell", 1, 0, "UIStore", uiStore);
     auto *router = new Router(&app);
     qmlRegisterSingletonInstance<Router>("MarathonOS.Shell", 1, 0, "Router", router);
-    auto *surfaceRegistry = new SurfaceRegistry(&app);
-    qmlRegisterSingletonInstance<SurfaceRegistry>("MarathonOS.Shell", 1, 0, "SurfaceRegistry",
-                                                  surfaceRegistry);
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
