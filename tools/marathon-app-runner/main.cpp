@@ -29,8 +29,14 @@
 #include <QDBusError>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QEventLoop>
+#include <QSocketNotifier>
+#include <QOffscreenSurface>
+#include <QOpenGLContext>
 #include <atomic>
 #include <cstring>
+#include <cstdio>
+#include <fcntl.h>
 #include <unistd.h>
 
 #ifdef HAVE_WEBENGINE
@@ -400,6 +406,27 @@ static bool peekPoolFlag(int argc, char *argv[]) {
     return false;
 }
 
+// Re-touch every executable file-backed mapping so the kernel keeps the
+// spare's code pages resident. Idle eviction of the Qt libraries was
+// measured to cost ~800 ms of adopt-to-frame after 100 s of pool idle.
+static void touchOwnCodePages() {
+    QFile maps(QStringLiteral("/proc/self/maps"));
+    if (!maps.open(QIODevice::ReadOnly))
+        return;
+    volatile unsigned char  sink  = 0;
+    const QList<QByteArray> lines = maps.readAll().split('\n');
+    for (const QByteArray &l : lines) {
+        if (!l.contains(" r-xp ") || !l.contains('/'))
+            continue;
+        unsigned long start = 0, end = 0;
+        if (::sscanf(l.constData(), "%lx-%lx", &start, &end) != 2)
+            continue;
+        for (unsigned long a = start; a < end; a += 4096)
+            sink += *reinterpret_cast<const volatile unsigned char *>(a);
+    }
+    (void)sink;
+}
+
 static QString peekAppId(int argc, char *argv[]) {
     auto take = [&](const QString &val) { return val.startsWith('-') ? QString() : val.trimmed(); };
     for (int i = 1; i < argc; ++i) {
@@ -559,14 +586,46 @@ int main(int argc, char *argv[]) {
     QString launchRoute;
     QString launchRouteParams;
     if (poolMode) {
-        // Warm pool: Qt is up; block until the shell writes the adopt
-        // message (one JSON line on stdin), then continue as a normal
-        // launch of that app. QtWayland's event thread keeps servicing
-        // the display connection while we wait here.
+        // Warm the GL stack off the critical path: EGL display init, the
+        // Mesa driver load, and the first context creation otherwise land
+        // inside the adopted launch's window-to-frame span.
+        {
+            QOffscreenSurface warmSurface;
+            warmSurface.create();
+            QOpenGLContext warmCtx;
+            if (warmCtx.create() && warmCtx.makeCurrent(&warmSurface))
+                warmCtx.doneCurrent();
+        }
+
+        // Wait on the event loop, not a blocking read: a keepalive timer
+        // keeps code pages resident and Wayland events pump normally.
         QByteArray line;
-        char       c = 0;
-        while (::read(0, &c, 1) == 1 && c != '\n')
-            line.append(c);
+        {
+            ::fcntl(0, F_SETFL, ::fcntl(0, F_GETFL) | O_NONBLOCK);
+            QEventLoop      wait;
+            QSocketNotifier notifier(0, QSocketNotifier::Read);
+            QObject::connect(&notifier, &QSocketNotifier::activated, &wait, [&line, &wait]() {
+                char    c = 0;
+                ssize_t n = 0;
+                while ((n = ::read(0, &c, 1)) == 1) {
+                    if (c == '\n') {
+                        wait.quit();
+                        return;
+                    }
+                    line.append(c);
+                }
+                if (n == 0) {
+                    line.clear();
+                    wait.quit();
+                }
+            });
+            QTimer keepalive;
+            keepalive.setInterval(20000);
+            QObject::connect(&keepalive, &QTimer::timeout, &keepalive, touchOwnCodePages);
+            keepalive.start();
+            touchOwnCodePages();
+            wait.exec();
+        }
         const QJsonObject msg    = QJsonDocument::fromJson(line).object();
         appId                    = msg.value(QStringLiteral("appId")).toString().trimmed();
         launchRoute              = msg.value(QStringLiteral("route")).toString();
