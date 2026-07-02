@@ -505,6 +505,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // card while the surface is still attaching spawned a parallel
             // bwrap + runner pair (two 75-100 MB clones for the same app).
             if (existing->surfaceId() >= 0 && existing->waylandSurface()) {
+                qWarning() << "[AppLaunchService] Restore branch:" << appId << "surfaceId"
+                           << existing->surfaceId() << "type" << existing->appType();
                 if (m_uiStore)
                     invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
                 invokeVoid(appWindowRef, "show",
@@ -515,6 +517,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                 emit appLaunchCompleted(appId, name);
                 return true;
             }
+            qWarning() << "[AppLaunchService] Task without usable surface for" << appId
+                       << "- surfaceId" << existing->surfaceId() << "- falling to cold spawn";
         }
     }
 

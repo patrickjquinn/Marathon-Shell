@@ -1204,10 +1204,10 @@ Item {
             if (!UIStore.appWindowOpen || !UIStore.currentAppId)
                 return;
             if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
-                Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+                Logger.warn("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                 return;
             }
-            Logger.info("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
+            Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
             var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
             if (task && task.appType === "native" && compositor) {
                 var surface = compositor.getSurfaceById(task.surfaceId);
@@ -1219,7 +1219,7 @@ Item {
                 for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
                     var child = backgroundAppsContainer.children[i];
                     if (child.appId === UIStore.currentAppId) {
-                        Logger.info("Shell", "Re-attaching detached native instance: " + UIStore.currentAppId);
+                        Logger.warn("Shell", "Re-attaching detached native instance: " + UIStore.currentAppId);
                         appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
                         return;
                     }
