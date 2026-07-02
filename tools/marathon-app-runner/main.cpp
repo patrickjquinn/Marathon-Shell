@@ -27,8 +27,11 @@
 #include <QDBusConnectionInterface>
 #include <QDBusContext>
 #include <QDBusError>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <atomic>
 #include <cstring>
+#include <unistd.h>
 
 #ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QtWebEngineQuick>
@@ -389,6 +392,14 @@ static QString findAppQmldirPath(const QString &appAbsolutePath, const QString &
 // Find --app-id / -a in argv without constructing any Qt application
 // object. QtWebEngineQuick::initialize() must run before QGuiApplication
 // is created, so we peek at argv first to look up the manifest.
+static bool peekPoolFlag(int argc, char *argv[]) {
+    for (int i = 1; i < argc; ++i) {
+        if (::strcmp(argv[i], "--pool") == 0)
+            return true;
+    }
+    return false;
+}
+
 static QString peekAppId(int argc, char *argv[]) {
     auto take = [&](const QString &val) { return val.startsWith('-') ? QString() : val.trimmed(); };
     for (int i = 1; i < argc; ++i) {
@@ -412,11 +423,15 @@ int main(int argc, char *argv[]) {
     startupTimer.start();
     const bool logStartup = qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0;
 
+    // Pool mode (--pool): no app id yet; WebEngine apps never adopt from
+    // the pool, so STAGE 1 is skipped entirely.
+    const bool poolMode = peekPoolFlag(argc, argv);
+
     // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
     // which Qt modules this app needs at process scope (currently just
     // WebEngine). The cost of loading Chromium is then paid by app
     // processes that actually use it, not by the shell.
-    {
+    if (!poolMode) {
         const QString earlyAppId = peekAppId(argc, argv);
         if (!earlyAppId.isEmpty()) {
             MarathonAppRegistry earlyRegistry;
@@ -540,32 +555,64 @@ int main(int argc, char *argv[]) {
     // back to Noto Sans on this build).
     QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
-    QCommandLineParser parser;
-    parser.setApplicationDescription(
-        "Marathon App Runner (Wayland client) - runs a Marathon QML app out-of-process");
-    parser.addHelpOption();
+    QString appId;
+    QString launchRoute;
+    QString launchRouteParams;
+    if (poolMode) {
+        // Warm pool: Qt is up; block until the shell writes the adopt
+        // message (one JSON line on stdin), then continue as a normal
+        // launch of that app. QtWayland's event thread keeps servicing
+        // the display connection while we wait here.
+        QByteArray line;
+        char       c = 0;
+        while (::read(0, &c, 1) == 1 && c != '\n')
+            line.append(c);
+        const QJsonObject msg    = QJsonDocument::fromJson(line).object();
+        appId                    = msg.value(QStringLiteral("appId")).toString().trimmed();
+        launchRoute              = msg.value(QStringLiteral("route")).toString();
+        launchRouteParams        = msg.value(QStringLiteral("routeParams")).toString();
+        const QJsonObject envObj = msg.value(QStringLiteral("env")).toObject();
+        for (auto it = envObj.begin(); it != envObj.end(); ++it)
+            qputenv(it.key().toUtf8(), it.value().toString().toUtf8());
+        if (appId.isEmpty()) {
+            // EOF without a message: the shell went away or drained the pool.
+            if (line.isEmpty())
+                return 0;
+            qCritical() << "[marathon-app-runner] Bad pool adopt message:" << line;
+            return 2;
+        }
+        // Report adopt -> frame: the portion of launch the pool influences.
+        startupTimer.restart();
+        if (logStartup)
+            qWarning().noquote() << "[startup]" << appId << "pooled-adopt";
+    } else {
+        QCommandLineParser parser;
+        parser.setApplicationDescription(
+            "Marathon App Runner (Wayland client) - runs a Marathon QML app out-of-process");
+        parser.addHelpOption();
 
-    QCommandLineOption appIdOpt(QStringList() << "a"
-                                              << "app-id",
-                                "Marathon app id (e.g. phone, calculator)", "appId");
-    parser.addOption(appIdOpt);
-    QCommandLineOption routeOpt(QStringList() << "r"
-                                              << "route",
-                                "In-app route to open (e.g. /emergency)", "route");
-    parser.addOption(routeOpt);
-    parser.process(app);
+        QCommandLineOption appIdOpt(QStringList() << "a"
+                                                  << "app-id",
+                                    "Marathon app id (e.g. phone, calculator)", "appId");
+        parser.addOption(appIdOpt);
+        QCommandLineOption routeOpt(QStringList() << "r"
+                                                  << "route",
+                                    "In-app route to open (e.g. /emergency)", "route");
+        parser.addOption(routeOpt);
+        parser.process(app);
 
-    const QString appId = parser.value(appIdOpt).trimmed();
-    if (appId.isEmpty()) {
-        qCritical() << "[marathon-app-runner] Missing --app-id";
-        return 2;
+        appId = parser.value(appIdOpt).trimmed();
+        if (appId.isEmpty()) {
+            qCritical() << "[marathon-app-runner] Missing --app-id";
+            return 2;
+        }
+        // Route may also arrive via env (when shell sets MARATHON_APP_ROUTE).
+        // CLI flag wins, then env, then empty.
+        launchRoute = parser.value(routeOpt).trimmed();
+        if (launchRoute.isEmpty())
+            launchRoute = qEnvironmentVariable("MARATHON_APP_ROUTE");
+        launchRouteParams = qEnvironmentVariable("MARATHON_APP_ROUTE_PARAMS");
     }
-    // Route may also arrive via env (when shell sets MARATHON_APP_ROUTE).
-    // CLI flag wins, then env, then empty.
-    QString launchRoute = parser.value(routeOpt).trimmed();
-    if (launchRoute.isEmpty())
-        launchRoute = qEnvironmentVariable("MARATHON_APP_ROUTE");
-    const QString launchRouteParams = qEnvironmentVariable("MARATHON_APP_ROUTE_PARAMS");
 
     QGuiApplication::setDesktopFileName(appId);
 
