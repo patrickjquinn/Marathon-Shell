@@ -22,12 +22,7 @@ Item {
     property bool suppressTapOpen: false
     property Item nativeSurfaceItem: null
     property bool nativeSurfaceActive: false
-    property Item registeredSurfaceItem: null
     readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
-    // Plain bool, not a derived property binding: Qt's binding-loop detector
-    // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
-    // fanning out signals. Updated explicitly from updateRegisteredSurface().
-    property bool useRegisteredSurface: false
 
     signal closed
     signal taskClosed(string appId)
@@ -43,30 +38,10 @@ Item {
         });
     }
 
-    function updateRegisteredSurface() {
-        if (taskCard.surfaceId <= 0) {
-            registeredSurfaceItem = null;
-            useRegisteredSurface = false;
-            return;
-        }
-        registeredSurfaceItem = SurfaceRegistry.getSurfaceItem(taskCard.surfaceId);
-        useRegisteredSurface = registeredSurfaceItem !== null;
-    }
-
     onWaylandSurfaceChanged: refreshNativeSurface()
-    onSurfaceIdChanged: updateRegisteredSurface()
-    onTaskSwitcherVisibleChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    onHaveWaylandChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    Component.onCompleted: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
+    onTaskSwitcherVisibleChanged: refreshNativeSurface()
+    onHaveWaylandChanged: refreshNativeSurface()
+    Component.onCompleted: refreshNativeSurface()
 
     Rectangle {
         id: cardRoot
@@ -210,7 +185,15 @@ Item {
                                         liveApp = null;
                                     }
                                     trackedAppId = taskCard.appId;
-                                    if (taskCard.type === "native") {
+                                    // Any surface-backed task previews through a second
+                                    // WaylandQuickItem view (nativeSurfaceLoader) — zero-copy,
+                                    // shows the client's last committed buffer. Grabbing the
+                                    // live foreground subtree with a ShaderEffectSource here
+                                    // re-rendered it offscreen mid-gesture (flicker) and could
+                                    // starve the primary view's texture (black foreground).
+                                    // The liveApp path remains only for in-process apps that
+                                    // have no Wayland surface to view.
+                                    if (taskCard.type === "native" || taskCard.waylandSurface) {
                                         liveApp = null;
                                         return;
                                     }
@@ -332,8 +315,8 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
                                     height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
-                                    visible: taskCard.type === "native"
-                                    active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
+                                    visible: status === Loader.Ready
+                                    active: taskCard.nativeSurfaceActive
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
                                         if (item) {
@@ -376,22 +359,12 @@ Item {
                                     }
                                 }
 
-                                ShaderEffectSource {
-                                    id: registeredSurfacePreview
-
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    sourceItem: taskCard.registeredSurfaceItem
-                                    visible: taskCard.useRegisteredSurface
-                                    live: true
-                                    recursive: true
-                                    hideSource: false
-                                    smooth: false
-                                    format: ShaderEffectSource.RGBA
-                                    samples: 0
-                                }
+                                // The registered-surface ShaderEffectSource path is gone:
+                                // live:true + recursive:true on the FOREGROUND's own surface
+                                // item re-rendered it into a card FBO every frame — the
+                                // switcher flicker — and its offscreen pass could permanently
+                                // capture the item's texture (foreground black, card alive).
+                                // Surface-backed tasks use the second-view loader above.
 
                                 Rectangle {
                                     anchors.top: parent.top
@@ -434,7 +407,7 @@ Item {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    visible: previewContainer.liveApp === null && (taskCard.type !== "native" || !taskCard.waylandSurface)
+                                    visible: previewContainer.liveApp === null && !taskCard.waylandSurface
                                     color: MColors.background
 
                                     Column {
@@ -649,20 +622,6 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-    }
-
-    Connections {
-        function onSurfaceRegistered(surfaceId) {
-            if (surfaceId === taskCard.surfaceId)
-                updateRegisteredSurface();
-        }
-
-        function onSurfaceUnregistered(surfaceId) {
-            if (surfaceId === taskCard.surfaceId)
-                updateRegisteredSurface();
-        }
-
-        target: SurfaceRegistry
     }
 
     Behavior on scale {

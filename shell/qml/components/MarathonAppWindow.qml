@@ -42,7 +42,11 @@ Rectangle {
                 appWindow.pendingAppInstance = nativeInstance;
                 appContentLoader.sourceComponent = undefined;
                 appContentLoader.sourceComponent = appInstanceContainer;
-                appWindow.isLoadingComponent = false;
+                // isLoadingComponent stays true until the instance reports
+                // revealReady (first frame + initial size) — see the
+                // Connections next to loadingSplash. This keeps the splash
+                // over the black pre-first-frame window AND keeps the 20 s
+                // launch watchdog armed against surfaces that never render.
                 if (nativeInstance.requestClose) {
                     var capturedId = id;
                     nativeInstance.requestClose.connect(function (skipNative) {
@@ -100,7 +104,11 @@ Rectangle {
             Logger.info("AppWindow", "Surface arrived for " + id + " (surfaceId: " + sid + ") - creating native window");
             appWindow.waylandSurface = surface;
             appWindow.surfaceId = sid;
-            appWindow.isLoadingComponent = false;
+            // Keep isLoadingComponent true: the surface OBJECT existing is not
+            // the app being visible — the async NativeAppWindow load and the
+            // client's first frame are still ahead. Dropping the splash here
+            // produced a seconds-long black gap between splash and content.
+            // The splash's visible binding hides it when revealReady flips.
             var surfComponent = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
             if (surfComponent.status === Component.Ready) {
                 _finishNativeCreation(surfComponent, id, name, icon, surface, sid);
@@ -269,6 +277,19 @@ Rectangle {
             appWindow.isLoadingComponent = false;
             appWindow.hasError = true;
             appWindow.loadError = "The app didn't open in time. It may require X11 (which Marathon doesn't ship), or its runtime failed to start.";
+        }
+    }
+
+    // Disarm the loading state (and with it the 20 s watchdog) only once the
+    // app instance has actually presented: first frame swapped + initial size
+    // sent. Before this, dismissal was keyed to the surface object arriving,
+    // which left a black gap of up to several seconds before first render.
+    Connections {
+        target: appWindow.appContainer && appWindow.appContainer["appInstance"] ? appWindow.appContainer["appInstance"] : null
+        ignoreUnknownSignals: true
+        function onRevealReadyChanged() {
+            if (appWindow.appContainer["appInstance"].revealReady === true)
+                appWindow.isLoadingComponent = false;
         }
     }
 
