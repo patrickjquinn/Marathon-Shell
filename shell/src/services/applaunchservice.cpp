@@ -1204,7 +1204,12 @@ QStringList AppLaunchService::spareSandboxArgs() const {
 void AppLaunchService::spawnSpareRunner() {
     if (m_spareProcess)
         return;
-    if (qgetenv("MARATHON_RUNNER_POOL") == "0")
+    // Opt-in (MARATHON_RUNNER_POOL=1): measured 2026-07-02, the v1 pool
+    // LOSES to cold launch (2.3-3.0s vs 2.0s tap-to-frame) — the idle
+    // spare's pages get evicted while it waits and adoption pays them
+    // back. Stays off until the spare is kept resident (mlock/periodic
+    // touch) or the pool point moves past engine+import init.
+    if (qEnvironmentVariableIntValue("MARATHON_RUNNER_POOL") != 1)
         return;
     if (m_spareFailures >= 3) {
         qWarning() << "[AppLaunchService] Runner pool disabled after repeated spare failures";
