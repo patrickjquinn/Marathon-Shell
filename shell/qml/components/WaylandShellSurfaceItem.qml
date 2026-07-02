@@ -12,6 +12,10 @@ ShellSurfaceItem {
     property bool hasSentInitialSize: false
     property bool autoResize: true
     property bool isMinimized: false
+    // Preview views must never bufferLock: a fresh second view has no
+    // buffer yet, and a locked empty view can never take one — the lock
+    // exists to hold the detached foreground item's last frame, not this.
+    property bool isPreview: false
     readonly property bool hasFirstFrame: {
         var s = _surfaceFromObj(surfaceObj);
         return s ? s.hasContent : false;
@@ -124,7 +128,7 @@ ShellSurfaceItem {
     // in waylandcompositor.cpp) so the client can ack and commit its first buffer
     // immediately. The splash overlay below covers the "no buffer yet" gap visually.
     opacity: 1
-    bufferLocked: isMinimized && hasFirstFrame
+    bufferLocked: !isPreview && isMinimized && hasFirstFrame
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)
