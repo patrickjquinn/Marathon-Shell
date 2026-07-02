@@ -1250,13 +1250,11 @@ Item {
                             }
                         }
                     }
-                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0) {
-                        // A runner for this app is already alive but has no
-                        // surface we could show (the task/surface lookups
-                        // above all missed). Relaunching here spawns a
-                        // duplicate into the same void — the respawn loop
-                        // behind the 2026-07-02 headless-launch audit. Wait
-                        // for its surface to attach instead.
+                    // launchApp restores running apps via its existing-task
+                    // branch; only block it when a live runner has no surface
+                    // to restore (spawning there duplicates into the void).
+                    var fallbackTask = TaskModel.getTaskByAppId(UIStore.currentAppId);
+                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!fallbackTask || fallbackTask.surfaceId < 0)) {
                         Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
                         return;
                     }
@@ -1293,13 +1291,11 @@ Item {
                             }
                         }
                     }
-                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0) {
-                        // A runner for this app is already alive but has no
-                        // surface we could show (the task/surface lookups
-                        // above all missed). Relaunching here spawns a
-                        // duplicate into the same void — the respawn loop
-                        // behind the 2026-07-02 headless-launch audit. Wait
-                        // for its surface to attach instead.
+                    // launchApp restores running apps via its existing-task
+                    // branch; only block it when a live runner has no surface
+                    // to restore (spawning there duplicates into the void).
+                    var fallbackTask = TaskModel.getTaskByAppId(UIStore.currentAppId);
+                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!fallbackTask || fallbackTask.surfaceId < 0)) {
                         Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
                         return;
                     }
