@@ -7,6 +7,8 @@
 #include <QTextStream>
 #include <QThread>
 
+#include <csignal>
+
 Q_LOGGING_CATEGORY(lcCgroup, "marathon.lifecycle.cgroup")
 
 CgroupManager::CgroupManager(QObject *parent)
@@ -167,6 +169,35 @@ QString CgroupManager::placeAppPid(qint64 pid, const QString &appId) {
     m_appPaths.insert(appId, appPath);
     qCInfo(lcCgroup) << "placed pid" << pid << "for" << appId << "into" << appPath;
     return appPath;
+}
+
+void CgroupManager::reconcileStaleAppCgroups() {
+    if (!m_available)
+        return;
+    const QDir        appsRoot(m_appsRoot);
+    const QStringList dirs =
+        appsRoot.entryList({QStringLiteral("marathon-app-*")}, QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &dir : dirs) {
+        const QString path = m_appsRoot + QLatin1Char('/') + dir;
+        // Thaw before killing: on cgroup v2 a SIGKILL is accepted while
+        // frozen but exit only completes once the task can run again.
+        writeFile(path + QStringLiteral("/cgroup.freeze"), QByteArrayLiteral("0"));
+        int   killed = 0;
+        QFile procs(path + QStringLiteral("/cgroup.procs"));
+        if (procs.open(QIODevice::ReadOnly)) {
+            const QList<QByteArray> pids = procs.readAll().split('\n');
+            for (const QByteArray &line : pids) {
+                const qint64 pid = line.trimmed().toLongLong();
+                if (pid > 0 && ::kill(static_cast<pid_t>(pid), SIGKILL) == 0)
+                    ++killed;
+            }
+        }
+        // rmdir needs the killed pids reaped first; if it fails the dir
+        // stays behind thawed and empty, and placeAppPid reuses it.
+        const bool removed = QDir().rmdir(path);
+        qCInfo(lcCgroup) << "reconciled stale cgroup" << dir << "- killed" << killed
+                         << "orphan pids, dir removed:" << removed;
+    }
 }
 
 bool CgroupManager::setFrozen(const QString &cgroupPath, bool frozen) {

@@ -24,6 +24,12 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
     , m_taskModel(taskModel)
     , m_appLaunchService(appLaunchService)
     , m_cgroup(new CgroupManager(this)) {
+    // A previous shell session's app cgroups (and any frozen orphan pids
+    // inside them) outlive greetd restarts — reap them before the first
+    // launch of this session can inherit a stale freeze=1.
+    if (m_cgroup->isAvailable())
+        m_cgroup->reconcileStaleAppCgroups();
+
     // Apply oom_score bias + cgroup placement as soon as a PID becomes
     // known. Both are best-effort on the dev box (procfs and cgroup writes
     // may be denied) but reliable on the duranium image.
@@ -463,6 +469,19 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
     const LifecycleState old = it->state;
     if (old == newState)
         return;
+    // Never freeze an app that has not mapped its first surface. Freezing
+    // a cold-starting runner stops it before it can create its Wayland
+    // toplevel, leaving a permanently invisible process the user reads as
+    // "the app won't open" (2026-07-02 audit). Stay in the current state
+    // and retry after another debounce window instead.
+    if (newState == Frozen) {
+        Task *task = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+        if (!task || task->surfaceId() < 0) {
+            qCInfo(lcLifecycle) << appId << "freeze deferred: no mapped surface yet";
+            startIdleFreezeDebounce(appId);
+            return;
+        }
+    }
     it->state          = newState;
     it->stateEnteredMs = QDateTime::currentMSecsSinceEpoch();
     qCInfo(lcLifecycle) << appId << ":" << static_cast<int>(old) << "→"
