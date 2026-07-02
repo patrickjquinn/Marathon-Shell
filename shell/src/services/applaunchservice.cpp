@@ -596,6 +596,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // value; we forward whatever the shell decided.
         env.insert("MARATHON_LAYER_SAMPLES", qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0"));
 
+        // Cold-start profiling opt-in. Forward so sandboxed runners see it —
+        // without this the timing instrumentation only fires on manual
+        // unsandboxed runs, which skip the exact spawn path being measured.
+        if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
+            env.insert("MARATHON_STARTUP_TIMING", "1");
+
         // Locale for VirtualKeyboard spellcheck (hunspell). Without LANG,
         // hunspell looks for dictionaries under "C" and finds nothing —
         // predictive text and autocorrect silently fail. Inherits the
