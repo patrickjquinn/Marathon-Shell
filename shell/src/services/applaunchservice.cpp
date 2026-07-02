@@ -596,20 +596,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // value; we forward whatever the shell decided.
         env.insert("MARATHON_LAYER_SAMPLES", qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0"));
 
-        // Cold-start profiling opt-in. Forward so sandboxed runners see it —
-        // without this the timing instrumentation only fires on manual
-        // unsandboxed runs, which skip the exact spawn path being measured.
         if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
             env.insert("MARATHON_STARTUP_TIMING", "1");
 
-        // Per-device Mesa driver pin for app clients. Without it every runner
-        // pays Mesa's full probe chain at EGL init — Zink tries
-        // vkEnumeratePhysicalDevices (no Vulkan ICD on etnaviv), dri2 screen
-        // creation fails, then it falls back — a measurable slice of the
-        // first-frame time and three warning lines per launch. Set
-        // MARATHON_APP_MESA_DRIVER (greetd env, per device: etnaviv on L5,
-        // v3d on Pi 5) to skip straight to the right driver. WebEngine apps
-        // get their own hard-set value further down, which overwrites this.
+        // Per-device driver pin (etnaviv on L5, v3d on Pi 5) — skips Mesa's
+        // doomed Zink/dri2 probe chain at every app's EGL init. The WebEngine
+        // branch below overwrites this with its own value.
         const QByteArray appMesaDriver = qgetenv("MARATHON_APP_MESA_DRIVER");
         if (!appMesaDriver.isEmpty())
             env.insert("MESA_LOADER_DRIVER_OVERRIDE", QString::fromLatin1(appMesaDriver));
@@ -651,9 +643,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // value lets an app declare exactly what shape it needs without
     // the shell having to special-case appIds.
     if (requiresQt.isEmpty() || manifestChromiumFlags.isEmpty()) {
-        // Cache per appId: manifests are immutable at runtime and this read
-        // used to run synchronously on the main thread inside EVERY launch —
-        // part of the ~440 ms tap-to-spawn dispatch cost measured 2026-07-02.
+        // Manifests are immutable at runtime; cache to keep this synchronous
+        // read off the per-launch path.
         struct ManifestBits {
             QStringList requiresQt;
             QString     chromiumFlags;

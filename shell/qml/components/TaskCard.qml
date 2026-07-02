@@ -185,14 +185,8 @@ Item {
                                         liveApp = null;
                                     }
                                     trackedAppId = taskCard.appId;
-                                    // Any surface-backed task previews through a second
-                                    // WaylandQuickItem view (nativeSurfaceLoader) — zero-copy,
-                                    // shows the client's last committed buffer. Grabbing the
-                                    // live foreground subtree with a ShaderEffectSource here
-                                    // re-rendered it offscreen mid-gesture (flicker) and could
-                                    // starve the primary view's texture (black foreground).
-                                    // The liveApp path remains only for in-process apps that
-                                    // have no Wayland surface to view.
+                                    // Surface-backed tasks preview via nativeSurfaceLoader;
+                                    // liveApp grabs are only for surfaceless in-process apps.
                                     if (taskCard.type === "native" || taskCard.waylandSurface) {
                                         liveApp = null;
                                         return;
@@ -358,13 +352,6 @@ Item {
                                         when: taskCard.nativeSurfaceItem !== null
                                     }
                                 }
-
-                                // The registered-surface ShaderEffectSource path is gone:
-                                // live:true + recursive:true on the FOREGROUND's own surface
-                                // item re-rendered it into a card FBO every frame — the
-                                // switcher flicker — and its offscreen pass could permanently
-                                // capture the item's texture (foreground black, card alive).
-                                // Surface-backed tasks use the second-view loader above.
 
                                 Rectangle {
                                     anchors.top: parent.top

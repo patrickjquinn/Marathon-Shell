@@ -150,15 +150,8 @@ ShellSurfaceItem {
         if (autoResize)
             scheduleSizeUpdate();
     }
-    // Qt Wayland's primaryView() is simply views.first() in attach order, and
-    // it governs buffer advance + the client's frame throttling. When the
-    // foreground item is destroyed and recreated (detach/adopt churn) while a
-    // task-card preview view exists, the CARD view passively becomes first —
-    // and a bufferLocked primary never advances, so the client stops getting
-    // buffers released and the restored app renders black. The foreground
-    // item therefore explicitly re-asserts primary (moves its view to index
-    // 0) whenever it binds a surface or returns from minimized. Preview items
-    // (isMinimized at creation) never assert.
+    // primaryView() is views.first(); a bufferLocked preview view left at the
+    // front stalls the client's buffer flow, so the foreground view re-asserts.
     function _assertPrimary() {
         if (!isMinimized && surface)
             setPrimary();
@@ -168,9 +161,7 @@ ShellSurfaceItem {
             Qt.callLater(_assertPrimary);
     }
 
-    // Registration is deferred one tick so task-card previews — whose
-    // isMinimized flag is applied by the Loader right after creation — never
-    // hijack the registry slot (same surfaceId) from the foreground item.
+    // Deferred one tick: preview items get isMinimized set just after creation.
     function _deferredRegister() {
         if (surfaceId !== -1 && !isMinimized) {
             Logger.info("WaylandShellSurfaceItem", "Registering surface: " + surfaceId);
