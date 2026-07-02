@@ -172,6 +172,8 @@ ShellSurfaceItem {
     function _nudgePreview() {
         if (isMinimized)
             _nudge();
+        else if (surfaceId !== -1)
+            SurfaceRegistry.registerSurface(surfaceId, this);
     }
     onIsMinimizedChanged: {
         if (!isMinimized)
@@ -180,6 +182,10 @@ ShellSurfaceItem {
     // Deferred one tick: preview items get isMinimized set just after creation.
     onSurfaceIdChanged: Qt.callLater(_nudgePreview)
     Component.onCompleted: Qt.callLater(_nudgePreview)
+    Component.onDestruction: {
+        if (surfaceId !== -1 && !isMinimized)
+            SurfaceRegistry.unregisterSurface(surfaceId);
+    }
 
     Item {
         anchors.fill: parent

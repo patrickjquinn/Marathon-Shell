@@ -22,7 +22,12 @@ Item {
     property bool suppressTapOpen: false
     property Item nativeSurfaceItem: null
     property bool nativeSurfaceActive: false
+    property Item registeredSurfaceItem: null
     readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
+    // Plain bool, not a derived property binding: Qt's binding-loop detector
+    // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
+    // fanning out signals. Updated explicitly from updateRegisteredSurface().
+    property bool useRegisteredSurface: false
 
     signal closed
     signal taskClosed(string appId)
@@ -38,10 +43,30 @@ Item {
         });
     }
 
+    function updateRegisteredSurface() {
+        if (taskCard.surfaceId <= 0) {
+            registeredSurfaceItem = null;
+            useRegisteredSurface = false;
+            return;
+        }
+        registeredSurfaceItem = SurfaceRegistry.getSurfaceItem(taskCard.surfaceId);
+        useRegisteredSurface = registeredSurfaceItem !== null;
+    }
+
     onWaylandSurfaceChanged: refreshNativeSurface()
-    onTaskSwitcherVisibleChanged: refreshNativeSurface()
-    onHaveWaylandChanged: refreshNativeSurface()
-    Component.onCompleted: refreshNativeSurface()
+    onSurfaceIdChanged: updateRegisteredSurface()
+    onTaskSwitcherVisibleChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    onHaveWaylandChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    Component.onCompleted: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
 
     Rectangle {
         id: cardRoot
@@ -185,9 +210,7 @@ Item {
                                         liveApp = null;
                                     }
                                     trackedAppId = taskCard.appId;
-                                    // Surface-backed tasks preview via nativeSurfaceLoader;
-                                    // liveApp grabs are only for surfaceless in-process apps.
-                                    if (taskCard.type === "native" || taskCard.waylandSurface) {
+                                    if (taskCard.type === "native") {
                                         liveApp = null;
                                         return;
                                     }
@@ -309,8 +332,8 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
                                     height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
-                                    visible: status === Loader.Ready
-                                    active: taskCard.nativeSurfaceActive
+                                    visible: taskCard.type === "native"
+                                    active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
                                         if (item) {
@@ -319,7 +342,6 @@ Item {
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
                                             item.isMinimized = true;
-                                            item.isPreview = true;
                                         } else {
                                             taskCard.nativeSurfaceItem = null;
                                         }
@@ -352,6 +374,23 @@ Item {
                                         value: false
                                         when: taskCard.nativeSurfaceItem !== null
                                     }
+                                }
+
+                                ShaderEffectSource {
+                                    id: registeredSurfacePreview
+
+                                    anchors.top: parent.top
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: parent.width
+                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    sourceItem: taskCard.registeredSurfaceItem
+                                    visible: taskCard.useRegisteredSurface
+                                    live: true
+                                    recursive: true
+                                    hideSource: false
+                                    smooth: false
+                                    format: ShaderEffectSource.RGBA
+                                    samples: 0
                                 }
 
                                 Rectangle {
@@ -390,26 +429,12 @@ Item {
                                     }
                                 }
 
-                                // Still of the app's last on-screen frame, grabbed at
-                                // minimize. Live second views never fill for idle
-                                // clients, so this is what the card actually shows.
-                                Image {
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    fillMode: Image.PreserveAspectCrop
-                                    source: (shell.taskSnapshots && shell.taskSnapshots[taskCard.appId]) ? shell.taskSnapshots[taskCard.appId].url : ""
-                                    visible: source.toString() !== ""
-                                    z: 2
-                                }
-
                                 Rectangle {
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    visible: previewContainer.liveApp === null && !taskCard.waylandSurface
+                                    visible: previewContainer.liveApp === null && (taskCard.type !== "native" || !taskCard.waylandSurface)
                                     color: MColors.background
 
                                     Column {
@@ -624,6 +649,20 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
+    }
+
+    Connections {
+        function onSurfaceRegistered(surfaceId) {
+            if (surfaceId === taskCard.surfaceId)
+                updateRegisteredSurface();
+        }
+
+        function onSurfaceUnregistered(surfaceId) {
+            if (surfaceId === taskCard.surfaceId)
+                updateRegisteredSurface();
+        }
+
+        target: SurfaceRegistry
     }
 
     Behavior on scale {
