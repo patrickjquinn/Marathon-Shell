@@ -9,6 +9,7 @@
 
 class AppModel;
 class TaskModel;
+class QProcess;
 
 #if defined(HAVE_WAYLAND)
 class QWaylandSurface;
@@ -94,8 +95,21 @@ class AppLaunchService : public QObject {
     // Per-launch route+params (set by launchAppWithRoute, consumed and
     // cleared by launchMarathonApp). Avoids changing the launchMarathonApp
     // signature for what is genuinely transient state.
-    QString     m_pendingRoute;
-    QString     m_pendingRouteParamsJson;
+    QString m_pendingRoute;
+    QString m_pendingRouteParamsJson;
+
+    // Warm runner pool: one spare marathon-app-runner kept pre-initialised
+    // (libs loaded, Qt + Wayland connect done) inside a neutral sandbox,
+    // waiting on stdin for its app id. Adoption skips the exec+ld+Qt-init
+    // bucket that dominates cold-launch time.
+    void        spawnSpareRunner();
+    bool        adoptSpareRunner(const PendingLaunch &p);
+    QString     runnerExecutablePath() const;
+    QStringList spareSandboxArgs() const;
+    QProcess   *m_spareProcess   = nullptr;
+    qint64      m_sparePid       = -1;
+    bool        m_spareAdoptable = false;
+    int         m_spareFailures  = 0;
 
     static bool invokeVoid(QObject *obj, const char *method, const QVariantList &args);
     static bool invokeBool(QObject *obj, const char *method, const QVariantList &args,

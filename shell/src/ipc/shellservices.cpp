@@ -124,6 +124,12 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     bool   ancestorIsShell = false;
     qint64 cursor          = ppidOf(pid);
     for (int hop = 0; hop < 8 && cursor > 1; ++hop) {
+        // Pool-adopted runners carry no --app-id in argv; their bwrap
+        // ancestor is registered at adopt time instead.
+        if (QString mapped = als->appIdForPid(cursor); !mapped.isEmpty()) {
+            als->registerPidForAppId(pid, mapped);
+            return mapped;
+        }
         if (cursor == shellPid) {
             ancestorIsShell = true;
             break;

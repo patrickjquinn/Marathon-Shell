@@ -18,6 +18,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QFileInfo>
+#include <QProcess>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QDBusConnection>
@@ -190,7 +191,10 @@ namespace {
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
     : QObject(parent)
     , m_appModel(appModel)
-    , m_taskModel(taskModel) {}
+    , m_taskModel(taskModel) {
+    // First spare spawns after shell boot settles; adopts refill on demand.
+    QTimer::singleShot(8000, this, &AppLaunchService::spawnSpareRunner);
+}
 
 void AppLaunchService::setCompositor(QObject *obj) {
     if (m_compositor == obj)
@@ -523,17 +527,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         {appId, name, icon, type.isEmpty() ? QStringLiteral("marathon") : type, QVariant(), -1});
     emit          appLaunchProgress(appId, 60);
 
-    QString       runnerPath;
-    const QDir    shellBinDir(QCoreApplication::applicationDirPath());
-    const QString candidate =
-        shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
-    if (QFileInfo::exists(candidate)) {
-        runnerPath = candidate;
-    } else {
-        runnerPath = QStringLiteral("marathon-app-runner");
-    }
+    const QString runnerPath = runnerExecutablePath();
 
-    QVariantMap env;
+    QVariantMap   env;
     env.insert("QT_NO_XDG_DESKTOP_PORTAL", "1");
     // The app-runner's AppRunnerLifecycleObject verifies DBus callers
     // against this PID before honouring Back() / Forward(). Without it,
@@ -774,6 +770,26 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // MARATHON_PERM_SECRET_SERVICE=1 is set in its environment.
     if (permissions.contains("secret-service")) {
         env.insert("MARATHON_PERM_SECRET_SERVICE", "1");
+    }
+
+    // Warm pool: hand a pre-initialised runner this app instead of paying
+    // exec + dynamic linking + Qt init on the critical path (~1s of the
+    // ~2s tap-to-frame measured 2026-07-02). WebEngine apps keep the cold
+    // path — their env and sandbox shape are per-app.
+    if (!usesWebEngine && m_spareAdoptable && m_spareProcess &&
+        m_spareProcess->state() == QProcess::Running) {
+        PendingLaunch pooled;
+        pooled.appId   = appId;
+        pooled.name    = name;
+        pooled.icon    = icon;
+        pooled.type    = type.isEmpty() ? QStringLiteral("marathon") : type;
+        pooled.command = QStringLiteral("pool-adopt ") + appId;
+        if (adoptSpareRunner(pooled)) {
+            QTimer::singleShot(10000, this, [this, appId]() { m_launchingApps.remove(appId); });
+            emit appLaunchProgress(appId, 100);
+            emit appLaunchCompleted(appId, name);
+            return true;
+        }
     }
 
     // Build the app command. If bubblewrap is present, wrap marathon-app-runner
@@ -1067,6 +1083,221 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
     emit appLaunchProgress(appId, 100);
     emit appLaunchCompleted(appId, name);
+    return true;
+}
+
+QString AppLaunchService::runnerExecutablePath() const {
+    const QDir    shellBinDir(QCoreApplication::applicationDirPath());
+    const QString candidate =
+        shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
+    if (QFileInfo::exists(candidate))
+        return candidate;
+    return QStringLiteral("marathon-app-runner");
+}
+
+// Neutral sandbox for the spare: same shape as the per-app recipe in
+// launchMarathonApp minus everything app-specific. The per-app data dirs
+// are replaced by their parents (the app id is unknown at spawn) and the
+// network namespace is shared — both a deliberate loosening, scoped to
+// pool-adopted first-party apps. WebEngine apps never adopt.
+QStringList AppLaunchService::spareSandboxArgs() const {
+    const QString xdgRuntimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/1000");
+    const QString homeDir       = qEnvironmentVariable("HOME", "/home/user");
+    const QString xdgDataHome =
+        qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir));
+    const QString xdgCacheHome =
+        qEnvironmentVariable("XDG_CACHE_HOME", QStringLiteral("%1/.cache").arg(homeDir));
+    const QString xdgConfigHome =
+        qEnvironmentVariable("XDG_CONFIG_HOME", QStringLiteral("%1/.config").arg(homeDir));
+    const QString dataDir   = xdgDataHome + QStringLiteral("/marathon-apps");
+    const QString cacheDir  = xdgCacheHome + QStringLiteral("/marathon-apps");
+    const QString configDir = xdgConfigHome + QStringLiteral("/marathon-apps");
+
+    QStringList   args;
+    args << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session")
+         << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
+         << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
+         << QStringLiteral("--unshare-user-try");
+
+    args << QStringLiteral("--ro-bind") << QStringLiteral("/usr") << QStringLiteral("/usr")
+         << QStringLiteral("--ro-bind") << QStringLiteral("/etc") << QStringLiteral("/etc")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/lib") << QStringLiteral("/lib")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/lib64") << QStringLiteral("/lib64")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/bin") << QStringLiteral("/bin")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/sbin") << QStringLiteral("/sbin")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/empty")
+         << QStringLiteral("/var/empty") << QStringLiteral("--proc") << QStringLiteral("/proc")
+         << QStringLiteral("--dev") << QStringLiteral("/dev") << QStringLiteral("--dev-bind-try")
+         << QStringLiteral("/dev/dri/renderD128") << QStringLiteral("/dev/dri/renderD128")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys") << QStringLiteral("/sys")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys/dev/char")
+         << QStringLiteral("/sys/dev/char") << QStringLiteral("--ro-bind-try")
+         << QStringLiteral("/sys/class/drm") << QStringLiteral("/sys/class/drm")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys/devices")
+         << QStringLiteral("/sys/devices") << QStringLiteral("--ro-bind-try")
+         << QStringLiteral("/run/dbus") << QStringLiteral("/run/dbus")
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/run/dbus")
+         << QStringLiteral("/var/run/dbus") << QStringLiteral("--tmpfs") << QStringLiteral("/tmp")
+         << QStringLiteral("--tmpfs") << QStringLiteral("/dev/shm") << QStringLiteral("--tmpfs")
+         << homeDir << QStringLiteral("--ro-bind") << QStringLiteral("/usr/share/marathon-apps")
+         << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
+         << configDir << configDir << QStringLiteral("--bind") << dataDir << dataDir
+         << QStringLiteral("--bind") << cacheDir << cacheDir << QStringLiteral("--bind")
+         << xdgRuntimeDir << xdgRuntimeDir;
+
+    args << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
+         << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
+         << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
+         << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME") << xdgConfigHome
+         << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SHELL_PID")
+         << QString::number(QCoreApplication::applicationPid()) << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_SANDBOXED") << QStringLiteral("1");
+
+    {
+        const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
+        double           dpi    = 160.0;
+        bool             ok     = false;
+        if (!forced.isEmpty()) {
+            const double v = forced.toDouble(&ok);
+            if (ok && v > 0)
+                dpi = v;
+        }
+        if (!ok) {
+            const QScreen *screen = QGuiApplication::primaryScreen();
+            dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
+        }
+        args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
+             << QString::number(dpi, 'f', 1);
+    }
+    if (const QScreen *primaryScreen = QGuiApplication::primaryScreen()) {
+        const QRect g = primaryScreen->geometry();
+        args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SCREEN_WIDTH")
+             << QString::number(g.width()) << QStringLiteral("--setenv")
+             << QStringLiteral("MARATHON_SCREEN_HEIGHT") << QString::number(g.height());
+    }
+
+    args << QStringLiteral("--setenv") << QStringLiteral("QT_QPA_PLATFORM")
+         << QStringLiteral("wayland") << QStringLiteral("--setenv")
+         << QStringLiteral("WAYLAND_DISPLAY")
+         << qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0"))
+         << QStringLiteral("--setenv") << QStringLiteral("QT_IM_MODULE")
+         << QStringLiteral("wayland") << QStringLiteral("--setenv")
+         << QStringLiteral("QSG_ANTIALIASING_METHOD")
+         << qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex") << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_LAYER_SAMPLES")
+         << qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0") << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_GPU_HDR") << qEnvironmentVariable("MARATHON_GPU_HDR", "0")
+         << QStringLiteral("--setenv") << QStringLiteral("LANG")
+         << qEnvironmentVariable("LANG", "en_US.UTF-8");
+
+    const QByteArray appMesaDriver = qgetenv("MARATHON_APP_MESA_DRIVER");
+    if (!appMesaDriver.isEmpty())
+        args << QStringLiteral("--setenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
+             << QString::fromLatin1(appMesaDriver);
+    if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
+        args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_STARTUP_TIMING")
+             << QStringLiteral("1");
+
+    return args;
+}
+
+void AppLaunchService::spawnSpareRunner() {
+    if (m_spareProcess)
+        return;
+    if (qgetenv("MARATHON_RUNNER_POOL") == "0")
+        return;
+    if (m_spareFailures >= 3) {
+        qWarning() << "[AppLaunchService] Runner pool disabled after repeated spare failures";
+        return;
+    }
+    const QString bwrapPath = QStandardPaths::findExecutable("bwrap");
+    if (bwrapPath.isEmpty() || qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX"))
+        return; // pool covers the sandboxed production path only
+
+    const QString homeDir = qEnvironmentVariable("HOME", "/home/user");
+    QDir().mkpath(
+        qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir)) +
+        QStringLiteral("/marathon-apps"));
+    QDir().mkpath(qEnvironmentVariable("XDG_CACHE_HOME", QStringLiteral("%1/.cache").arg(homeDir)) +
+                  QStringLiteral("/marathon-apps"));
+
+    auto *proc = new QProcess(this);
+    proc->setProcessChannelMode(QProcess::SeparateChannels);
+    connect(proc, &QProcess::readyReadStandardError, this, [proc]() {
+        const QStringList lines = QString::fromLocal8Bit(proc->readAllStandardError()).split('\n');
+        for (const QString &l : lines) {
+            const QString line = l.trimmed();
+            if (!line.isEmpty())
+                qWarning().noquote() << "[PoolRunner stderr]" << line;
+        }
+    });
+    connect(proc, &QProcess::started, this, [this, proc]() {
+        const qint64 pid = proc->processId();
+        proc->setProperty("marathonPoolPid", pid);
+        if (proc == m_spareProcess) {
+            m_sparePid       = pid;
+            m_spareAdoptable = true;
+            qInfo() << "[AppLaunchService] Spare runner ready, pid" << pid;
+        }
+    });
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+            [this, proc](int exitCode, QProcess::ExitStatus) {
+                const qint64 pid = proc->property("marathonPoolPid").toLongLong();
+                if (proc == m_spareProcess) {
+                    qWarning() << "[AppLaunchService] Spare runner died unadopted, exit"
+                               << exitCode;
+                    m_spareProcess   = nullptr;
+                    m_sparePid       = -1;
+                    m_spareAdoptable = false;
+                    ++m_spareFailures;
+                    QTimer::singleShot(5000, this, &AppLaunchService::spawnSpareRunner);
+                } else if (pid > 0) {
+                    onCompositorAppClosed(pid);
+                }
+                proc->deleteLater();
+            });
+
+    QStringList args = spareSandboxArgs();
+    args << runnerExecutablePath() << QStringLiteral("--pool");
+    m_spareProcess = proc;
+    proc->start(bwrapPath, args);
+}
+
+bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
+    QJsonObject envObj;
+    {
+        QSettings shellSettings(QSettings::IniFormat, QSettings::UserScope,
+                                QStringLiteral("marathon-os"), QStringLiteral("Marathon Shell"));
+        envObj.insert(
+            QStringLiteral("MARATHON_USER_SCALE"),
+            QString::number(
+                shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble(), 'f', 3));
+    }
+    QJsonObject msg;
+    msg.insert(QStringLiteral("appId"), p.appId);
+    msg.insert(QStringLiteral("route"), m_pendingRoute);
+    msg.insert(QStringLiteral("routeParams"), m_pendingRouteParamsJson);
+    msg.insert(QStringLiteral("env"), envObj);
+    const QByteArray line = QJsonDocument(msg).toJson(QJsonDocument::Compact) + '\n';
+    if (m_spareProcess->write(line) != line.size()) {
+        qWarning() << "[AppLaunchService] Pool adopt write failed for" << p.appId;
+        return false;
+    }
+    m_pendingRoute.clear();
+    m_pendingRouteParamsJson.clear();
+
+    PendingLaunch tracked = p;
+    tracked.pid           = m_sparePid;
+    m_activeByPid.insert(m_sparePid, tracked);
+    registerPidForAppId(m_sparePid, p.appId);
+    qInfo() << "[AppLaunchService] Pool-adopted runner pid" << m_sparePid << "for" << p.appId;
+
+    // Ownership stays with `this`; the finished handler set up at spawn
+    // recognises the adopted process by pointer inequality with the spare.
+    m_spareProcess   = nullptr;
+    m_sparePid       = -1;
+    m_spareAdoptable = false;
+    QTimer::singleShot(1500, this, &AppLaunchService::spawnSpareRunner);
     return true;
 }
 
