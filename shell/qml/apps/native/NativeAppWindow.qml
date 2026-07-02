@@ -69,8 +69,39 @@ MApp {
 
             anchors.fill: parent
             color: MColors.background
-            visible: !nativeAppWindow.revealReady
             z: 10
+
+            // A Qt client's FIRST committed buffer is usually its empty
+            // background, before content has laid out and painted — so
+            // hiding the splash the instant hasFirstFrame flips (revealReady)
+            // flashes a black frame and content "pops" in. Hold the splash a
+            // few frames past that first commit, then FADE it out so the
+            // hand-off reads as intentional rather than a dismiss-then-render.
+            property bool _revealed: false
+            opacity: _revealed ? 0 : 1
+            visible: opacity > 0.001
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Timer {
+                id: revealHold
+                interval: 90
+                onTriggered: splashScreen._revealed = true
+            }
+            Connections {
+                target: nativeAppWindow
+                function onRevealReadyChanged() {
+                    if (nativeAppWindow.revealReady)
+                        revealHold.restart();
+                    else {
+                        revealHold.stop();
+                        splashScreen._revealed = false;
+                    }
+                }
+            }
 
             Column {
                 anchors.centerIn: parent
