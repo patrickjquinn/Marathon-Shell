@@ -997,9 +997,7 @@ int main(int argc, char *argv[]) {
     qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << info->entryPoint
             << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
 
-    // qWarning, not qInfo: Release compiles qInfo out (QT_NO_INFO_OUTPUT in
-    // the top-level CMakeLists), which silently killed this instrumentation
-    // on production builds — the only place cold-start numbers matter.
+    // qWarning: Release defines QT_NO_INFO_OUTPUT, which compiles qInfo out.
     if (logStartup)
         qWarning().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed()
                              << "ms";

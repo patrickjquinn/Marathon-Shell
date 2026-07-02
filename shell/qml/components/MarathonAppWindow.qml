@@ -42,11 +42,6 @@ Rectangle {
                 appWindow.pendingAppInstance = nativeInstance;
                 appContentLoader.sourceComponent = undefined;
                 appContentLoader.sourceComponent = appInstanceContainer;
-                // isLoadingComponent stays true until the instance reports
-                // revealReady (first frame + initial size) — see the
-                // Connections next to loadingSplash. This keeps the splash
-                // over the black pre-first-frame window AND keeps the 20 s
-                // launch watchdog armed against surfaces that never render.
                 if (nativeInstance.requestClose) {
                     var capturedId = id;
                     nativeInstance.requestClose.connect(function (skipNative) {
@@ -57,11 +52,8 @@ Rectangle {
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
                 AppLifecycleManager.registerApp(id, nativeInstance);
                 AppLifecycleManager.bringToForeground(id);
-                // Direct connect, not a Connections element: the instance is
-                // reparented during task-switcher detach, which broke the
-                // declarative target lookup and left isLoadingComponent stuck
-                // true — the splash then popped back over live content every
-                // time the hide-clause's appInstance reference vanished.
+                // Direct connect — a Connections target through the container
+                // breaks when the instance is reparented into the switcher.
                 if (nativeInstance.revealReadyChanged !== undefined) {
                     var syncReveal = function () {
                         if (nativeInstance.revealReady === true)
@@ -117,11 +109,8 @@ Rectangle {
             Logger.info("AppWindow", "Surface arrived for " + id + " (surfaceId: " + sid + ") - creating native window");
             appWindow.waylandSurface = surface;
             appWindow.surfaceId = sid;
-            // Keep isLoadingComponent true: the surface OBJECT existing is not
-            // the app being visible — the async NativeAppWindow load and the
-            // client's first frame are still ahead. Dropping the splash here
-            // produced a seconds-long black gap between splash and content.
-            // The splash's visible binding hides it when revealReady flips.
+            // isLoadingComponent stays true until revealReady — the surface
+            // object existing is not the app having rendered.
             var surfComponent = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
             if (surfComponent.status === Component.Ready) {
                 _finishNativeCreation(surfComponent, id, name, icon, surface, sid);
