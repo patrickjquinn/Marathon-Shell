@@ -333,22 +333,25 @@ done'
 # ── launch APPID ───────────────────────────────────────────────────
 # Icon coordinates (720x1440 device, standard 4-column app grid on
 # home page 1). Only the ~14 pinned apps.
+# Grid-page-1 icon centres, measured from a 720x1440 device snapshot
+# (columns 91/270/449/628, rows 210/460/720/980). The prior values had the
+# rows ~150px too low, which drifted taps onto the wrong app.
 _marathon_icon_coord() {
     case "$1" in
-        phone)      echo "100 320" ;;
-        messages)   echo "270 320" ;;
-        mail)       echo "440 320" ;;
-        browser)    echo "610 320" ;;
-        store)      echo "100 610" ;;
-        music)      echo "270 610" ;;
-        camera)     echo "440 610" ;;
-        gallery)    echo "610 610" ;;
-        maps)       echo "100 890" ;;
-        calendar)   echo "270 890" ;;
-        clock)      echo "440 890" ;;
-        calculator) echo "610 890" ;;
-        notes)      echo "100 1180" ;;
-        settings)   echo "270 1180" ;;
+        phone)      echo "91 210" ;;
+        messages)   echo "270 210" ;;
+        mail)       echo "449 210" ;;
+        browser)    echo "628 210" ;;
+        store)      echo "91 460" ;;
+        music)      echo "270 460" ;;
+        camera)     echo "449 460" ;;
+        gallery)    echo "628 460" ;;
+        maps)       echo "91 720" ;;
+        calendar)   echo "270 720" ;;
+        clock)      echo "449 720" ;;
+        calculator) echo "628 720" ;;
+        notes)      echo "91 980" ;;
+        settings)   echo "270 980" ;;
         *) return 1 ;;
     esac
 }
