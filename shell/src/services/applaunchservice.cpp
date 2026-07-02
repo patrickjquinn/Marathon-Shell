@@ -1278,19 +1278,23 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
     msg.insert(QStringLiteral("route"), m_pendingRoute);
     msg.insert(QStringLiteral("routeParams"), m_pendingRouteParamsJson);
     msg.insert(QStringLiteral("env"), envObj);
-    const QByteArray line = QJsonDocument(msg).toJson(QJsonDocument::Compact) + '\n';
-    if (m_spareProcess->write(line) != line.size()) {
-        qWarning() << "[AppLaunchService] Pool adopt write failed for" << p.appId;
-        return false;
-    }
-    m_pendingRoute.clear();
-    m_pendingRouteParamsJson.clear();
-
+    // Register before waking the spare: pidRegistered places the pid in its
+    // cgroup and applies the foreground uclamp boost, so the adopt work runs
+    // at interactive CPU frequency instead of ramping up from idle.
     PendingLaunch tracked = p;
     tracked.pid           = m_sparePid;
     m_activeByPid.insert(m_sparePid, tracked);
     registerPidForAppId(m_sparePid, p.appId);
-    qInfo() << "[AppLaunchService] Pool-adopted runner pid" << m_sparePid << "for" << p.appId;
+
+    const QByteArray line = QJsonDocument(msg).toJson(QJsonDocument::Compact) + '\n';
+    if (m_spareProcess->write(line) != line.size()) {
+        qWarning() << "[AppLaunchService] Pool adopt write failed for" << p.appId;
+        m_activeByPid.remove(tracked.pid);
+        return false;
+    }
+    m_pendingRoute.clear();
+    m_pendingRouteParamsJson.clear();
+    qInfo() << "[AppLaunchService] Pool-adopted runner pid" << tracked.pid << "for" << p.appId;
 
     // Ownership stays with `this`; the finished handler set up at spawn
     // recognises the adopted process by pointer inequality with the spare.
