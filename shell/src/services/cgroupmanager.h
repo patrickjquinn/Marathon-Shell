@@ -57,6 +57,14 @@ class CgroupManager : public QObject {
     // dir not existing.
     void removeAppCgroup(const QString &appId);
 
+    // Startup reconciliation. Per-app cgroups live under user@1000.service,
+    // not the session scope, so they survive greetd restarts: frozen
+    // orphan pids are unkillable by SIGTERM (a frozen task never runs its
+    // handler) and a leftover freeze=1 dir freezes the next launch of the
+    // same app at birth. Thaw every dir, SIGKILL leftover pids, best-effort
+    // rmdir. Call once at shell startup, before any launch.
+    void reconcileStaleAppCgroups();
+
   private:
     bool                    initRootPath();
     static QString          readShellCgroupPath();

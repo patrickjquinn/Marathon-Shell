@@ -1251,6 +1251,16 @@ Item {
                             }
                         }
                     }
+                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0) {
+                        // A runner for this app is already alive but has no
+                        // surface we could show (the task/surface lookups
+                        // above all missed). Relaunching here spawns a
+                        // duplicate into the same void — the respawn loop
+                        // behind the 2026-07-02 headless-launch audit. Wait
+                        // for its surface to attach instead.
+                        Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
+                        return;
+                    }
                     AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
@@ -1283,6 +1293,16 @@ Item {
                                 Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
                             }
                         }
+                    }
+                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0) {
+                        // A runner for this app is already alive but has no
+                        // surface we could show (the task/surface lookups
+                        // above all missed). Relaunching here spawns a
+                        // duplicate into the same void — the respawn loop
+                        // behind the 2026-07-02 headless-launch audit. Wait
+                        // for its surface to attach instead.
+                        Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
+                        return;
                     }
                     AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
