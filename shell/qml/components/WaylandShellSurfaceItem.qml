@@ -139,6 +139,7 @@ ShellSurfaceItem {
         if (shellSurface) {
             if (autoResize)
                 scheduleSizeUpdate();
+            Qt.callLater(_assertPrimary);
         }
     }
     onWidthChanged: {
@@ -149,23 +150,40 @@ ShellSurfaceItem {
         if (autoResize)
             scheduleSizeUpdate();
     }
-    onSurfaceDestroyed: {
-        Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
+    // Qt Wayland's primaryView() is simply views.first() in attach order, and
+    // it governs buffer advance + the client's frame throttling. When the
+    // foreground item is destroyed and recreated (detach/adopt churn) while a
+    // task-card preview view exists, the CARD view passively becomes first —
+    // and a bufferLocked primary never advances, so the client stops getting
+    // buffers released and the restored app renders black. The foreground
+    // item therefore explicitly re-asserts primary (moves its view to index
+    // 0) whenever it binds a surface or returns from minimized. Preview items
+    // (isMinimized at creation) never assert.
+    function _assertPrimary() {
+        if (!isMinimized && surface)
+            setPrimary();
     }
-    onSurfaceIdChanged: {
-        if (surfaceId !== -1) {
+    onIsMinimizedChanged: {
+        if (!isMinimized)
+            Qt.callLater(_assertPrimary);
+    }
+
+    // Registration is deferred one tick so task-card previews — whose
+    // isMinimized flag is applied by the Loader right after creation — never
+    // hijack the registry slot (same surfaceId) from the foreground item.
+    function _deferredRegister() {
+        if (surfaceId !== -1 && !isMinimized) {
             Logger.info("WaylandShellSurfaceItem", "Registering surface: " + surfaceId);
             SurfaceRegistry.registerSurface(surfaceId, this);
         }
     }
-    Component.onCompleted: {
-        if (surfaceId !== -1) {
-            Logger.info("WaylandShellSurfaceItem", "Registering surface on init: " + surfaceId);
-            SurfaceRegistry.registerSurface(surfaceId, this);
-        }
+    onSurfaceDestroyed: {
+        Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
     }
+    onSurfaceIdChanged: Qt.callLater(_deferredRegister)
+    Component.onCompleted: Qt.callLater(_deferredRegister)
     Component.onDestruction: {
-        if (surfaceId !== -1)
+        if (surfaceId !== -1 && !isMinimized)
             SurfaceRegistry.unregisterSurface(surfaceId);
     }
 
