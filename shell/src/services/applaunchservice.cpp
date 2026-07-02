@@ -419,7 +419,13 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
         emit appLaunchFailed(appId, name, "Invalid app object");
         return false;
     }
-    if (m_launchingApps.contains(appId)) {
+    // The launch-hold guards against duplicate SPAWNS. An app that already
+    // has a surface is a re-show, not a spawn — blocking it here left the
+    // app window open on its bare root (restore within the hold window).
+    Task      *heldTask = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+    const bool hasUsableSurface =
+        heldTask && heldTask->surfaceId() >= 0 && heldTask->waylandSurface();
+    if (m_launchingApps.contains(appId) && !hasUsableSurface) {
         qWarning() << "[AppLaunchService] App already launching:" << appId;
         return false;
     }

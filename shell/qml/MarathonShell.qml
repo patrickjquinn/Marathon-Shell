@@ -1203,12 +1203,15 @@ Item {
         function showForegroundApp(reason) {
             if (!UIStore.appWindowOpen || !UIStore.currentAppId)
                 return;
-            if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
+            var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
+            // The launch-hold only guards duplicate spawns; an app that
+            // already has a surface is a re-show and must always proceed,
+            // or a restore inside the hold window leaves the window blank.
+            if ((!task || task.surfaceId < 0) && AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
                 Logger.warn("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                 return;
             }
             Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
-            var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
             if (task && task.appType === "native" && compositor) {
                 var surface = compositor.getSurfaceById(task.surfaceId);
                 if (surface) {
