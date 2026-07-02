@@ -699,6 +699,16 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     }
 }
 
+// A minimized surface's views stop delivering wl_surface.frame callbacks,
+// so a throttled client never commits again — and a restored view with no
+// current buffer paints nothing, which never resumes the callbacks either.
+// Firing the pending callbacks breaks that deadlock at restore.
+void WaylandCompositor::nudgeSurface(int surfaceId) {
+    QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    if (surface)
+        surface->sendFrameCallbacks();
+}
+
 void WaylandCompositor::handleTextInputEnabled(bool enabled) {
     emit nativeTextInputPanelRequested(enabled);
 }

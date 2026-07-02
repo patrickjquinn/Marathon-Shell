@@ -43,6 +43,7 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
+    Q_INVOKABLE void     nudgeSurface(int surfaceId);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
     Q_INVOKABLE void     setCompositorActive(bool active);
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
