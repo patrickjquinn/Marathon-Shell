@@ -713,9 +713,17 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
     surface->sendFrameCallbacks();
     QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
     if (xdg && xdg->toplevel()) {
-        const QSize size = surface->destinationSize();
-        if (!size.isEmpty())
-            xdg->toplevel()->sendConfigure(size, QList<int>{1});
+        QWaylandXdgToplevel *top  = xdg->toplevel();
+        const QSize          size = surface->destinationSize();
+        if (!size.isEmpty()) {
+            // Mirror the toplevel's true state: dropping activated here
+            // told every nudged app it was deactivated, demoting its RT
+            // render priority and throttling it (felt like lost HW accel).
+            QList<int> states{1};
+            if (top->activated())
+                states << 4;
+            top->sendConfigure(size, states);
+        }
     }
 }
 

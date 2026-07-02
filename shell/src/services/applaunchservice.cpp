@@ -839,6 +839,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
         QStringList bwrapArgs;
         bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session");
+        // The shell's eglfs driver pin (kmsro on the L5) must never reach
+        // clients: on the render node it sends Mesa to software rendering.
+        // MARATHON_APP_MESA_DRIVER re-pins below when set; otherwise Mesa
+        // auto-detects the right driver for the render node.
+        bwrapArgs << QStringLiteral("--unsetenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
+                  << QStringLiteral("--unsetenv") << QStringLiteral("ETNA_MESA_DEBUG");
 
         // Chromium's zygote sandbox does its own CLONE_NEW{PID,USER,IPC,UTS,
         // NET,CGROUP} on every renderer + GPU + utility process. Nesting
@@ -1124,6 +1130,8 @@ QStringList AppLaunchService::spareSandboxArgs() const {
     const QString configDir = xdgConfigHome + QStringLiteral("/marathon-apps");
 
     QStringList   args;
+    args << QStringLiteral("--unsetenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
+         << QStringLiteral("--unsetenv") << QStringLiteral("ETNA_MESA_DEBUG");
     args << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session")
          << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
          << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
