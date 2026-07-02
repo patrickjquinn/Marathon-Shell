@@ -149,19 +149,11 @@ Item {
             // foreground app. Was task #338.
             compositor.userActivity.connect(idleScreenTimer.restart);
         }
-        // xdg-shell v6 suspend on Frozen (4) only. Suspending at BgIdle (3)
-        // made Qt clients attach a null buffer the moment an app was
-        // minimized — blanking the task-card preview and re-arming the
-        // in-app splash. A frozen client can't run, so its last buffer
-        // survives for the card and the queued configure resolves on thaw.
-        AppLifecycleManager.stateChanged.connect(function (appId, oldState, newState) {
-            if (!compositor)
-                return;
-            const wantSuspend = newState === 4;
-            const wasSuspend = oldState === 4;
-            if (wantSuspend !== wasSuspend)
-                compositor.sendSuspendedState(appId, wantSuspend);
-        });
+        // No xdg suspend at any lifecycle state: suspended Qt clients attach
+        // a null buffer (blank previews, black restores), and a frozen
+        // client saves nothing from it — cgroup.freeze already stops it.
+        // A frozen client processes a queued suspend on thaw, blanking
+        // exactly when it returns to the foreground.
         // --start-on=<surface> for visual-validation harness only.
         // Honoured alongside --skip-lock; no-op without it.
         // --demo-notifications seeds five canonical notifications matching
