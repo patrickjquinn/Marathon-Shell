@@ -390,6 +390,20 @@ Item {
                                     }
                                 }
 
+                                // Still of the app's last on-screen frame, grabbed at
+                                // minimize. Live second views never fill for idle
+                                // clients, so this is what the card actually shows.
+                                Image {
+                                    anchors.top: parent.top
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: parent.width
+                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    fillMode: Image.PreserveAspectCrop
+                                    source: (shell.taskSnapshots && shell.taskSnapshots[taskCard.appId]) ? shell.taskSnapshots[taskCard.appId].url : ""
+                                    visible: source.toString() !== ""
+                                    z: 2
+                                }
+
                                 Rectangle {
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
