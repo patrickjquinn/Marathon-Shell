@@ -186,19 +186,30 @@ Rectangle {
 
     // Live second views on a surface never reliably fill on this stack
     // (an idle client attaches no new buffer for them), so the switcher
-    // shows a still grabbed here, at the last moment the app is on screen.
+    // shows a still. It must be grabbed while the app is still rendered
+    // on screen — a grab scheduled at detach dies with the reparent.
     signal snapshotTaken(string appId, var grabResult)
+    property double _lastSnapMs: 0
+    function snapshotNow() {
+        var now = Date.now();
+        if (now - _lastSnapMs < 400)
+            return;
+        if (!appWindow.appContainer || appWindow.appContainer["children"].length === 0)
+            return;
+        var app = appWindow.appContainer["children"][0];
+        if (!app || app.width <= 0 || app.height <= 0)
+            return;
+        _lastSnapMs = now;
+        var snapId = appWindow.appId;
+        app.grabToImage(function (result) {
+            appWindow.snapshotTaken(snapId, result);
+        });
+    }
     function detachCurrentApp() {
         Logger.warn("AppWindow", "Detaching current app instance");
         if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
             var app = appWindow.appContainer["children"][0];
             if (app) {
-                var snapId = appWindow.appId;
-                if (app.width > 0 && app.height > 0) {
-                    app.grabToImage(function (result) {
-                        appWindow.snapshotTaken(snapId, result);
-                    });
-                }
                 app.parent = null;
                 appWindow.appContainer["appInstance"] = null;
                 return app;
