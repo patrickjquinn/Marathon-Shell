@@ -152,9 +152,15 @@ ShellSurfaceItem {
     }
     // primaryView() is views.first(); a bufferLocked preview view left at the
     // front stalls the client's buffer flow, so the foreground view re-asserts.
+    // The frame-callback nudge breaks the restore deadlock: a client
+    // throttled while minimized never commits, and a view with no buffer
+    // never paints, so the callbacks would never resume on their own.
     function _assertPrimary() {
-        if (!isMinimized && surface)
+        if (!isMinimized && surface) {
             setPrimary();
+            if (surfaceId !== -1 && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
+                compositor.nudgeSurface(surfaceId);
+        }
     }
     onIsMinimizedChanged: {
         if (!isMinimized)
