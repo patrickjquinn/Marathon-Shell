@@ -139,7 +139,7 @@ ShellSurfaceItem {
         if (shellSurface) {
             if (autoResize)
                 scheduleSizeUpdate();
-            Qt.callLater(_assertPrimary);
+            Qt.callLater(_wakeClient);
         }
     }
     onWidthChanged: {
@@ -150,43 +150,26 @@ ShellSurfaceItem {
         if (autoResize)
             scheduleSizeUpdate();
     }
-    // primaryView() is views.first(); a bufferLocked preview view left at the
-    // front stalls the client's buffer flow, so the foreground view re-asserts.
-    // The frame-callback nudge breaks the restore deadlock: a client
-    // throttled while minimized never commits, and a view with no buffer
-    // never paints, so the callbacks would never resume on their own.
-    function _assertPrimary() {
-        if (!isMinimized && surface) {
+    // An idle client only commits when its frame callbacks flow, and a
+    // view with no current buffer paints nothing — which itself stops the
+    // callbacks. Whenever this view (re)gains relevance — foreground
+    // restore or preview attach — re-assert primary for foreground views
+    // and fire the pending callbacks so the client commits a buffer.
+    function _wakeClient() {
+        if (surfaceId === -1 || !surface)
+            return;
+        if (!isMinimized)
             setPrimary();
-            if (surfaceId !== -1 && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
-                compositor.nudgeSurface(surfaceId);
-        }
+        if (typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
+            compositor.nudgeSurface(surfaceId);
     }
     onIsMinimizedChanged: {
         if (!isMinimized)
-            Qt.callLater(_assertPrimary);
+            Qt.callLater(_wakeClient);
     }
-
     // Deferred one tick: preview items get isMinimized set just after creation.
-    function _deferredRegister() {
-        if (surfaceId !== -1 && !isMinimized) {
-            Logger.info("WaylandShellSurfaceItem", "Registering surface: " + surfaceId);
-            SurfaceRegistry.registerSurface(surfaceId, this);
-        }
-        // Preview views (isMinimized) attach with no buffer and only fill
-        // on the client's NEXT commit — nudge so an idle client commits.
-        if (surfaceId !== -1 && isMinimized && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
-            compositor.nudgeSurface(surfaceId);
-    }
-    onSurfaceDestroyed: {
-        Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
-    }
-    onSurfaceIdChanged: Qt.callLater(_deferredRegister)
-    Component.onCompleted: Qt.callLater(_deferredRegister)
-    Component.onDestruction: {
-        if (surfaceId !== -1 && !isMinimized)
-            SurfaceRegistry.unregisterSurface(surfaceId);
-    }
+    onSurfaceIdChanged: Qt.callLater(_wakeClient)
+    Component.onCompleted: Qt.callLater(_wakeClient)
 
     Item {
         anchors.fill: parent
