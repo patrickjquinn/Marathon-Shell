@@ -173,6 +173,10 @@ ShellSurfaceItem {
             Logger.info("WaylandShellSurfaceItem", "Registering surface: " + surfaceId);
             SurfaceRegistry.registerSurface(surfaceId, this);
         }
+        // Preview views (isMinimized) attach with no buffer and only fill
+        // on the client's NEXT commit — nudge so an idle client commits.
+        if (surfaceId !== -1 && isMinimized && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
+            compositor.nudgeSurface(surfaceId);
     }
     onSurfaceDestroyed: {
         Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
