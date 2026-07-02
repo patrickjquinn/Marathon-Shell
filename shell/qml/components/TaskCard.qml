@@ -319,6 +319,7 @@ Item {
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
                                             item.isMinimized = true;
+                                            item.isPreview = true;
                                         } else {
                                             taskCard.nativeSurfaceItem = null;
                                         }
