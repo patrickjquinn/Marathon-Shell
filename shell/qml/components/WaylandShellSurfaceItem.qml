@@ -160,8 +160,8 @@ ShellSurfaceItem {
     // commits: on foreground (re)attach after re-asserting primary, and
     // once at preview attach so an idle client fills the second view.
     function _nudge() {
-        if (surfaceId !== -1 && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
-            compositor.nudgeSurface(surfaceId);
+        if (surfaceId !== -1 && AppLaunchService.compositor)
+            AppLaunchService.compositor.nudgeSurface(surfaceId);
     }
     function _assertPrimary() {
         if (!isMinimized && surface) {
