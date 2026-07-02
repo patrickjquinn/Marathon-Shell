@@ -19,6 +19,7 @@
 #include <QRegularExpression>
 #include <QColor>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QTimeZone>
 #include <QVariantMap>
 #include <QtQml/qqml.h>
@@ -403,6 +404,14 @@ static QString peekAppId(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+    // Startup profiling (MARATHON_STARTUP_TIMING=1). Times the app-runner's
+    // cold-start phases so launch cost is measurable — the prerequisite for
+    // any launch-speed work (there is no warm runner pool; every launch is a
+    // full Qt process spawn). Off by default; zero cost when unset.
+    QElapsedTimer startupTimer;
+    startupTimer.start();
+    const bool logStartup = qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0;
+
     // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
     // which Qt modules this app needs at process scope (currently just
     // WebEngine). The cost of loading Chromium is then paid by app
@@ -987,6 +996,21 @@ int main(int argc, char *argv[]) {
 
     qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << info->entryPoint
             << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
+
+    if (logStartup)
+        qInfo().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed() << "ms";
+    if (logStartup) {
+        // One-shot: time from process entry to the first rendered frame —
+        // the number a user perceives as "launch time".
+        QObject::connect(&view, &QQuickWindow::frameSwapped, &view,
+                         [&startupTimer, appId, fired = false]() mutable {
+                             if (fired)
+                                 return;
+                             fired = true;
+                             qInfo().noquote() << "[startup]" << appId << "first-frame"
+                                               << startupTimer.elapsed() << "ms";
+                         });
+    }
 
     view.show();
 
