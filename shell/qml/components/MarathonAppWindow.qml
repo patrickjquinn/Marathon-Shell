@@ -131,7 +131,7 @@ Rectangle {
         surfaceId = sid || -1;
         hasError = false;
         loadError = "";
-        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
+        Logger.warn("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
         if (appWindow.appContainer) {
             if (appWindow.appContainer["children"].length > 0) {
                 var currentChild = appWindow.appContainer["children"][0];
@@ -174,7 +174,7 @@ Rectangle {
                 }
             }
         } else {
-            Logger.info("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
+            Logger.warn("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
             appWindow.isLoadingComponent = true;
         }
         visible = true;
@@ -185,7 +185,7 @@ Rectangle {
     }
 
     function detachCurrentApp() {
-        Logger.info("AppWindow", "Detaching current app instance");
+        Logger.warn("AppWindow", "Detaching current app instance");
         if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
             var app = appWindow.appContainer["children"][0];
             if (app) {
@@ -227,7 +227,7 @@ Rectangle {
     }
 
     function reattachInstance(instance, id, name, icon, type) {
-        Logger.info("AppWindow", "Re-attaching detached instance: " + id);
+        Logger.warn("AppWindow", "Re-attaching detached instance: " + id);
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
 
