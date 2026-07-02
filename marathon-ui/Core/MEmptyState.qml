@@ -55,6 +55,9 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: actionText
             variant: "primary"
+            // Empty-state CTA is a primary action — use the large size so it
+            // reads as a proper padded button, not tight-wrapped text.
+            size: "large"
             visible: actionText.length > 0
             onClicked: root.actionClicked()
         }
