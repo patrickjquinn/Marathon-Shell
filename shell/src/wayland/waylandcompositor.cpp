@@ -705,8 +705,17 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 // Firing the pending callbacks breaks that deadlock at restore.
 void WaylandCompositor::nudgeSurface(int surfaceId) {
     QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
-    if (surface)
-        surface->sendFrameCallbacks();
+    if (!surface)
+        return;
+    // Callbacks alone only unblock a client already waiting mid-frame; an
+    // idle client needs a reason to redraw before a fresh view can take a
+    // buffer. A same-state configure forces ack + commit, like restore does.
+    surface->sendFrameCallbacks();
+    QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
+    if (xdg && xdg->toplevel()) {
+        QWaylandXdgToplevel *top = xdg->toplevel();
+        top->sendConfigure(QSize(top->size()), top->states());
+    }
 }
 
 void WaylandCompositor::handleTextInputEnabled(bool enabled) {
