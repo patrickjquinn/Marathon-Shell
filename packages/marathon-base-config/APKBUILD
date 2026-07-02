@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=32
+pkgrel=33
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -64,6 +64,7 @@ source="
 	50-marathon-limits.conf
 	50-pipewire-priority.conf
 	50-modemmanager-priority.conf
+	50-marathon-logind.conf
 	50-gpu-acceleration.conf
 	20-modesetting.conf
 	marathon-shell.service
@@ -91,6 +92,8 @@ package() {
 	install -Dm644 "$srcdir/50-modemmanager-priority.conf" \
 		"$pkgdir/etc/systemd/system/ModemManager.service.d/50-priority.conf"
 	install -d "$pkgdir"/etc/environment.d
+	install -Dm644 "$srcdir/50-marathon-logind.conf" \
+		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
 	install -Dm644 "$srcdir/50-gpu-acceleration.conf" \
 		"$pkgdir/etc/environment.d/50-gpu-acceleration.conf"
 	install -d "$pkgdir"/etc/X11/xorg.conf.d
