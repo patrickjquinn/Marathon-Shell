@@ -713,8 +713,9 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
     surface->sendFrameCallbacks();
     QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
     if (xdg && xdg->toplevel()) {
-        QWaylandXdgToplevel *top = xdg->toplevel();
-        top->sendConfigure(QSize(top->size()), top->states());
+        const QSize size = surface->destinationSize();
+        if (!size.isEmpty())
+            xdg->toplevel()->sendConfigure(size, QList<int>{1});
     }
 }
 
