@@ -94,12 +94,10 @@ MApp {
             Connections {
                 target: nativeAppWindow
                 function onRevealReadyChanged() {
-                    if (nativeAppWindow.revealReady)
+                    // One-way: hasContent dips (suspend, buffer churn) after
+                    // first reveal must not bring the splash back.
+                    if (nativeAppWindow.revealReady && !splashScreen._revealed)
                         revealHold.restart();
-                    else {
-                        revealHold.stop();
-                        splashScreen._revealed = false;
-                    }
                 }
             }
 

@@ -149,17 +149,16 @@ Item {
             // foreground app. Was task #338.
             compositor.userActivity.connect(idleScreenTimer.restart);
         }
-        // xdg-shell v6 suspend: BgIdle (3) or Frozen (4) → suspended;
-        // Foreground (1) / BgActive (2) → not suspended. Co-operating
-        // clients (Qt 6 apps, Chromium) pause their render loop on the
-        // suspended state so we save CPU between the lifecycle debounce
-        // and the actual cgroup.freeze. Only flip when the suspend
-        // boolean actually changes to avoid spamming configure events.
+        // xdg-shell v6 suspend on Frozen (4) only. Suspending at BgIdle (3)
+        // made Qt clients attach a null buffer the moment an app was
+        // minimized — blanking the task-card preview and re-arming the
+        // in-app splash. A frozen client can't run, so its last buffer
+        // survives for the card and the queued configure resolves on thaw.
         AppLifecycleManager.stateChanged.connect(function (appId, oldState, newState) {
             if (!compositor)
                 return;
-            const wantSuspend = newState >= 3 && newState <= 4;
-            const wasSuspend = oldState >= 3 && oldState <= 4;
+            const wantSuspend = newState === 4;
+            const wasSuspend = oldState === 4;
             if (wantSuspend !== wasSuspend)
                 compositor.sendSuspendedState(appId, wantSuspend);
         });
