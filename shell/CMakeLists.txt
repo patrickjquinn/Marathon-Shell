@@ -127,8 +127,6 @@ set(SOURCES
     src/services/wallpaperstore.cpp
     src/services/router.h
     src/services/router.cpp
-    src/services/surfaceregistry.h
-    src/services/surfaceregistry.cpp
     src/services/domainsuggestions.h
     src/services/domainsuggestions.cpp
     src/services/emojipredictor.h
@@ -440,8 +438,6 @@ qt6_add_qml_module(marathon-shell
         src/services/wallpaperstore.h
         src/services/router.cpp
         src/services/router.h
-        src/services/surfaceregistry.cpp
-        src/services/surfaceregistry.h
         src/services/domainsuggestions.cpp
         src/services/domainsuggestions.h
         src/services/emojipredictor.cpp

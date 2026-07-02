@@ -149,11 +149,6 @@ Item {
             // foreground app. Was task #338.
             compositor.userActivity.connect(idleScreenTimer.restart);
         }
-        // No xdg suspend at any lifecycle state: suspended Qt clients attach
-        // a null buffer (blank previews, black restores), and a frozen
-        // client saves nothing from it — cgroup.freeze already stops it.
-        // A frozen client processes a queued suspend on thaw, blanking
-        // exactly when it returns to the foreground.
         // --start-on=<surface> for visual-validation harness only.
         // Honoured alongside --skip-lock; no-op without it.
         // --demo-notifications seeds five canonical notifications matching
@@ -1203,96 +1198,56 @@ Item {
         // dmabuf-backed Wayland textures (likely a texture-coord
         // transform mismatch). scale + opacity carry the signal.
 
+        // Single entry point for bringing UIStore's current app on screen,
+        // shared by the currentAppId and appWindowOpen signal paths.
+        function showForegroundApp(reason) {
+            if (!UIStore.appWindowOpen || !UIStore.currentAppId)
+                return;
+            if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
+                Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+                return;
+            }
+            Logger.info("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
+            var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
+            if (task && task.appType === "native" && compositor) {
+                var surface = compositor.getSurfaceById(task.surfaceId);
+                if (surface) {
+                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
+                    return;
+                }
+                Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
+                for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
+                    var child = backgroundAppsContainer.children[i];
+                    if (child.appId === UIStore.currentAppId) {
+                        Logger.info("Shell", "Re-attaching detached native instance: " + UIStore.currentAppId);
+                        appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
+                        return;
+                    }
+                }
+                Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
+            }
+            // launchApp restores running apps via its existing-task branch;
+            // only block it when a live runner has no surface to restore
+            // (spawning there duplicates into the void).
+            if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!task || task.surfaceId < 0)) {
+                Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
+                return;
+            }
+            AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
+        }
+
         Connections {
             function onCurrentAppIdChanged() {
-                // If the foreground app changed and the active permission
-                // dialog was for the PREVIOUS foreground app, drop it.
-                // Otherwise the dialog leaks across apps — e.g. Browser
-                // launched, asked for system access, user navigated to
-                // Messages without answering, and the prompt kept rendering
-                // on top of Messages (audit on r269 hit this).
+                // A permission dialog for the previous foreground app must
+                // not leak on top of the next one (audit on r269 hit this).
                 if (PermissionManager.promptActive && PermissionManager.currentAppId && PermissionManager.currentAppId !== UIStore.currentAppId) {
                     PermissionManager.dismissForApp(PermissionManager.currentAppId);
                 }
-                if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
-                        Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
-                        return;
-                    }
-                    Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId);
-                    var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
-                    if (task && task.appType === "native") {
-                        Logger.info("Shell", "Restoring native app from task switcher");
-                        if (compositor) {
-                            var surface = compositor.getSurfaceById(task.surfaceId);
-                            if (surface) {
-                                appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
-                                return;
-                            } else {
-                                Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
-                                for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
-                                    var child = backgroundAppsContainer.children[i];
-                                    if (child.appId === UIStore.currentAppId) {
-                                        Logger.info("Shell", "Found detached native app instance in background, re-attaching: " + UIStore.currentAppId);
-                                        appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
-                                        return;
-                                    }
-                                }
-                                Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
-                            }
-                        }
-                    }
-                    // launchApp restores running apps via its existing-task
-                    // branch; only block it when a live runner has no surface
-                    // to restore (spawning there duplicates into the void).
-                    var fallbackTask = TaskModel.getTaskByAppId(UIStore.currentAppId);
-                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!fallbackTask || fallbackTask.surfaceId < 0)) {
-                        Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
-                        return;
-                    }
-                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
-                }
+                appWindowContainer.showForegroundApp("app-id-changed");
             }
 
             function onAppWindowOpenChanged() {
-                if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
-                        Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
-                        return;
-                    }
-                    Logger.info("Shell", "App window opened, showing: " + UIStore.currentAppId);
-                    var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
-                    if (task && task.appType === "native") {
-                        Logger.info("Shell", "Restoring native app from app window open");
-                        if (compositor) {
-                            var surface = compositor.getSurfaceById(task.surfaceId);
-                            if (surface) {
-                                appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
-                                return;
-                            } else {
-                                Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
-                                for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
-                                    var child = backgroundAppsContainer.children[i];
-                                    if (child.appId === UIStore.currentAppId) {
-                                        Logger.info("Shell", "Found detached native app instance in background, re-attaching: " + UIStore.currentAppId);
-                                        appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
-                                        return;
-                                    }
-                                }
-                                Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
-                            }
-                        }
-                    }
-                    // launchApp restores running apps via its existing-task
-                    // branch; only block it when a live runner has no surface
-                    // to restore (spawning there duplicates into the void).
-                    var fallbackTask = TaskModel.getTaskByAppId(UIStore.currentAppId);
-                    if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!fallbackTask || fallbackTask.surfaceId < 0)) {
-                        Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
-                        return;
-                    }
-                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
-                }
+                appWindowContainer.showForegroundApp("window-opened");
             }
 
             target: UIStore
