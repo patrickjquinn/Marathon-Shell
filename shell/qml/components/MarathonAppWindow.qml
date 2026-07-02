@@ -184,11 +184,21 @@ Rectangle {
         Logger.info("AppWindow", " " + name + " launched in " + totalTime + "ms");
     }
 
+    // Live second views on a surface never reliably fill on this stack
+    // (an idle client attaches no new buffer for them), so the switcher
+    // shows a still grabbed here, at the last moment the app is on screen.
+    signal snapshotTaken(string appId, var grabResult)
     function detachCurrentApp() {
         Logger.warn("AppWindow", "Detaching current app instance");
         if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
             var app = appWindow.appContainer["children"][0];
             if (app) {
+                var snapId = appWindow.appId;
+                if (app.width > 0 && app.height > 0) {
+                    app.grabToImage(function (result) {
+                        appWindow.snapshotTaken(snapId, result);
+                    });
+                }
                 app.parent = null;
                 appWindow.appContainer["appInstance"] = null;
                 return app;

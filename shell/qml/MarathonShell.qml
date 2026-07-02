@@ -8,6 +8,9 @@ import QtQuick.Window
 
 Item {
     id: shell
+    // Last-frame stills for the switcher; keyed by appId, values are
+    // QQuickItemGrabResult objects (the url dies with the object).
+    property var taskSnapshots: ({})
 
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
@@ -1298,6 +1301,11 @@ Item {
                 anchors.topMargin: Constants.safeAreaTop
                 anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
                 visible: true
+                onSnapshotTaken: function (snapAppId, grabResult) {
+                    var snaps = shell.taskSnapshots;
+                    snaps[snapAppId] = grabResult;
+                    shell.taskSnapshots = snaps;
+                }
                 onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
                     UIStore.minimizeApp();
