@@ -453,6 +453,13 @@ Rectangle {
             isLeftZone = false;
             isRightZone = false;
             prevDiffY = 0;
+            // Unconditional: the branch chain above has gaps (e.g. a vertical
+            // drag with diffY between 30 and shortSwipeThreshold hits no
+            // sub-branch, and no vertical path ever cleared backProgress).
+            // Leaked progress kept appWindowContainer's 8 px gesture margins
+            // applied forever — the wallpaper sliver around restored apps.
+            gestureProgress = 0;
+            navBar.backProgress = 0;
         }
     }
 

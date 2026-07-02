@@ -57,6 +57,19 @@ Rectangle {
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
                 AppLifecycleManager.registerApp(id, nativeInstance);
                 AppLifecycleManager.bringToForeground(id);
+                // Direct connect, not a Connections element: the instance is
+                // reparented during task-switcher detach, which broke the
+                // declarative target lookup and left isLoadingComponent stuck
+                // true — the splash then popped back over live content every
+                // time the hide-clause's appInstance reference vanished.
+                if (nativeInstance.revealReadyChanged !== undefined) {
+                    var syncReveal = function () {
+                        if (nativeInstance.revealReady === true)
+                            appWindow.isLoadingComponent = false;
+                    };
+                    nativeInstance.revealReadyChanged.connect(syncReveal);
+                    syncReveal();
+                }
                 Logger.info("AppWindow", "Native app instance created successfully: " + id);
                 appWindow.hasError = false;
             } else {
@@ -277,19 +290,6 @@ Rectangle {
             appWindow.isLoadingComponent = false;
             appWindow.hasError = true;
             appWindow.loadError = "The app didn't open in time. It may require X11 (which Marathon doesn't ship), or its runtime failed to start.";
-        }
-    }
-
-    // Disarm the loading state (and with it the 20 s watchdog) only once the
-    // app instance has actually presented: first frame swapped + initial size
-    // sent. Before this, dismissal was keyed to the surface object arriving,
-    // which left a black gap of up to several seconds before first render.
-    Connections {
-        target: appWindow.appContainer && appWindow.appContainer["appInstance"] ? appWindow.appContainer["appInstance"] : null
-        ignoreUnknownSignals: true
-        function onRevealReadyChanged() {
-            if (appWindow.appContainer["appInstance"].revealReady === true)
-                appWindow.isLoadingComponent = false;
         }
     }
 
