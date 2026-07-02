@@ -156,9 +156,9 @@ ShellSurfaceItem {
     // restore or preview attach — re-assert primary for foreground views
     // and fire the pending callbacks so the client commits a buffer.
     function _wakeClient() {
-        if (surfaceId === -1 || !surface)
+        if (surfaceId === -1)
             return;
-        if (!isMinimized)
+        if (!isMinimized && surface)
             setPrimary();
         if (typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
             compositor.nudgeSurface(surfaceId);
