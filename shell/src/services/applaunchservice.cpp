@@ -602,6 +602,18 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
             env.insert("MARATHON_STARTUP_TIMING", "1");
 
+        // Per-device Mesa driver pin for app clients. Without it every runner
+        // pays Mesa's full probe chain at EGL init — Zink tries
+        // vkEnumeratePhysicalDevices (no Vulkan ICD on etnaviv), dri2 screen
+        // creation fails, then it falls back — a measurable slice of the
+        // first-frame time and three warning lines per launch. Set
+        // MARATHON_APP_MESA_DRIVER (greetd env, per device: etnaviv on L5,
+        // v3d on Pi 5) to skip straight to the right driver. WebEngine apps
+        // get their own hard-set value further down, which overwrites this.
+        const QByteArray appMesaDriver = qgetenv("MARATHON_APP_MESA_DRIVER");
+        if (!appMesaDriver.isEmpty())
+            env.insert("MESA_LOADER_DRIVER_OVERRIDE", QString::fromLatin1(appMesaDriver));
+
         // Locale for VirtualKeyboard spellcheck (hunspell). Without LANG,
         // hunspell looks for dictionaries under "C" and finds nothing —
         // predictive text and autocorrect silently fail. Inherits the
@@ -639,19 +651,35 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // value lets an app declare exactly what shape it needs without
     // the shell having to special-case appIds.
     if (requiresQt.isEmpty() || manifestChromiumFlags.isEmpty()) {
-        const QString appId = app.value("id").toString();
-        QFile         mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
-        if (mf.open(QIODevice::ReadOnly)) {
-            QJsonDocument     doc  = QJsonDocument::fromJson(mf.readAll());
-            const QJsonObject root = doc.object();
-            if (requiresQt.isEmpty()) {
-                const auto arr = root.value(QStringLiteral("requiresQtModules")).toArray();
+        // Cache per appId: manifests are immutable at runtime and this read
+        // used to run synchronously on the main thread inside EVERY launch —
+        // part of the ~440 ms tap-to-spawn dispatch cost measured 2026-07-02.
+        struct ManifestBits {
+            QStringList requiresQt;
+            QString     chromiumFlags;
+        };
+        static QHash<QString, ManifestBits> manifestCache;
+
+        const QString                       appId = app.value("id").toString();
+        auto                                it    = manifestCache.constFind(appId);
+        if (it == manifestCache.constEnd()) {
+            ManifestBits bits;
+            QFile        mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
+            if (mf.open(QIODevice::ReadOnly)) {
+                QJsonDocument     doc  = QJsonDocument::fromJson(mf.readAll());
+                const QJsonObject root = doc.object();
+                const auto        arr  = root.value(QStringLiteral("requiresQtModules")).toArray();
                 for (const auto &v : arr)
-                    requiresQt << v.toString();
+                    bits.requiresQt << v.toString();
+                bits.chromiumFlags =
+                    root.value(QStringLiteral("chromiumFlags")).toString().trimmed();
             }
-            manifestChromiumFlags =
-                root.value(QStringLiteral("chromiumFlags")).toString().trimmed();
+            it = manifestCache.insert(appId, bits);
         }
+        if (requiresQt.isEmpty())
+            requiresQt = it->requiresQt;
+        if (manifestChromiumFlags.isEmpty())
+            manifestChromiumFlags = it->chromiumFlags;
     }
     const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
 
