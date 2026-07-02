@@ -997,8 +997,12 @@ int main(int argc, char *argv[]) {
     qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << info->entryPoint
             << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
 
+    // qWarning, not qInfo: Release compiles qInfo out (QT_NO_INFO_OUTPUT in
+    // the top-level CMakeLists), which silently killed this instrumentation
+    // on production builds — the only place cold-start numbers matter.
     if (logStartup)
-        qInfo().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed() << "ms";
+        qWarning().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed()
+                             << "ms";
     if (logStartup) {
         // One-shot: time from process entry to the first rendered frame —
         // the number a user perceives as "launch time".
@@ -1007,8 +1011,8 @@ int main(int argc, char *argv[]) {
                              if (fired)
                                  return;
                              fired = true;
-                             qInfo().noquote() << "[startup]" << appId << "first-frame"
-                                               << startupTimer.elapsed() << "ms";
+                             qWarning().noquote() << "[startup]" << appId << "first-frame"
+                                                  << startupTimer.elapsed() << "ms";
                          });
     }
 
