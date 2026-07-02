@@ -1301,20 +1301,6 @@ Item {
                 anchors.topMargin: Constants.safeAreaTop
                 anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
                 visible: true
-                onSnapshotTaken: function (snapAppId, grabResult) {
-                    var snaps = shell.taskSnapshots;
-                    snaps[snapAppId] = grabResult;
-                    shell.taskSnapshots = snaps;
-                }
-                Connections {
-                    target: navBar
-                    // Grab at gesture start, while the app still renders
-                    // full-screen; by detach time it is too late.
-                    function onGestureProgressChanged() {
-                        if (navBar.gestureProgress > 0.05 && UIStore.appWindowOpen)
-                            appWindow.snapshotNow();
-                    }
-                }
                 onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
                     UIStore.minimizeApp();
