@@ -139,7 +139,7 @@ ShellSurfaceItem {
         if (shellSurface) {
             if (autoResize)
                 scheduleSizeUpdate();
-            Qt.callLater(_wakeClient);
+            Qt.callLater(_assertPrimary);
         }
     }
     onWidthChanged: {
@@ -152,24 +152,30 @@ ShellSurfaceItem {
     }
     // An idle client only commits when its frame callbacks flow, and a
     // view with no current buffer paints nothing — which itself stops the
-    // callbacks. Whenever this view (re)gains relevance — foreground
-    // restore or preview attach — re-assert primary for foreground views
-    // and fire the pending callbacks so the client commits a buffer.
-    function _wakeClient() {
-        if (surfaceId === -1)
-            return;
-        if (!isMinimized && surface)
-            setPrimary();
-        if (typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
+    // callbacks. nudgeSurface fires the pending callbacks so the client
+    // commits: on foreground (re)attach after re-asserting primary, and
+    // once at preview attach so an idle client fills the second view.
+    function _nudge() {
+        if (surfaceId !== -1 && typeof compositor !== "undefined" && compositor && compositor.nudgeSurface)
             compositor.nudgeSurface(surfaceId);
+    }
+    function _assertPrimary() {
+        if (!isMinimized && surface) {
+            setPrimary();
+            _nudge();
+        }
+    }
+    function _nudgePreview() {
+        if (isMinimized)
+            _nudge();
     }
     onIsMinimizedChanged: {
         if (!isMinimized)
-            Qt.callLater(_wakeClient);
+            Qt.callLater(_assertPrimary);
     }
     // Deferred one tick: preview items get isMinimized set just after creation.
-    onSurfaceIdChanged: Qt.callLater(_wakeClient)
-    Component.onCompleted: Qt.callLater(_wakeClient)
+    onSurfaceIdChanged: Qt.callLater(_nudgePreview)
+    Component.onCompleted: Qt.callLater(_nudgePreview)
 
     Item {
         anchors.fill: parent
