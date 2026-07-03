@@ -108,7 +108,7 @@ void SessionStore::reset() {
     // drive a swipe-to-unlock gesture, and harmless on real phones where the
     // env stays unset. Does not disable the lock screen at runtime -- it only
     // affects the initial state after construction / explicit reset.
-    const bool skipInitialLock = !qgetenv("MARATHON_NO_INITIAL_LOCK").isEmpty();
+    const bool skipInitialLock = !qEnvironmentVariableIsEmpty("MARATHON_NO_INITIAL_LOCK");
 
     setShowLockScreen(!skipInitialLock);
     setIsLocked(!skipInitialLock);

@@ -1,0 +1,51 @@
+name: Windows-2019 Build and Test on Qt5 and Qt6
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - actions
+  pull_request:
+    branches:
+      - master
+      - dev
+      - actions
+
+jobs:
+  build_and_test:
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        qt_version: ['5.15.2', '6.5.2']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup CMake and Ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ matrix.qt_version }}
+        arch: 'win64_msvc2019_64'
+
+    - name: Create Build Environment
+      shell: cmd
+      run: |
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && cmake -S . -B build -G Ninja  -DENABLE_TESTING:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+
+#    - name: Create Build Environment
+#      run: |
+#        "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+#        cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER="cl" -DCMAKE_CXX_COMPILER="cl" -DENABLE_TESTING:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build Project
+      shell: cmd
+      run: |
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && cmake --build build
+
+    - name: Run Tests
+      run: cd build && ./tests/asyncfutureunittests

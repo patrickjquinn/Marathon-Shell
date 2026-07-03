@@ -4,6 +4,8 @@
 #include <QFile>
 #include <QTextStream>
 
+#include <cmath>
+
 // Locate the vcnl4000/4040 iio device and cache its light + proximity
 // sysfs paths, the lux scale, and the near threshold. Returns true if a
 // usable ambient-light channel was found.
@@ -224,7 +226,7 @@ void SensorManagerCpp::pollIio() {
     if (m_lightRunning && !m_iioLightPath.isEmpty()) {
         const int raw = readInt(m_iioLightPath, -1);
         if (raw >= 0) {
-            const int lux = int(raw * m_iioLuxScale + 0.5);
+            const int lux = static_cast<int>(std::lround(raw * m_iioLuxScale));
             if (lux != m_ambientLight) {
                 m_ambientLight = lux;
                 emit ambientLightChanged();

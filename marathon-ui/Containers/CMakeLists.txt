@@ -58,7 +58,7 @@ if(QMLLINT_AVAILABLE)
     )
 endif()
 
-install(TARGETS marathon-ui-containers
+install(TARGETS marathon-ui-containers marathon-ui-containersplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Containers
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Containers
 )

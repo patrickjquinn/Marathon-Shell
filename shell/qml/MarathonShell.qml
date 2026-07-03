@@ -1784,9 +1784,11 @@ Item {
                     systemHUD.showVolume(SystemControlStore.volume / 100);
             }
 
-            function onBrightnessChanged() {
+            // Manual-only: fires on setBrightnessFromUser, not on ambient
+            // auto-brightness or idle-dim (those use the silent setter).
+            function onUserBrightnessChanged(value) {
                 if (systemHUD.initialized)
-                    systemHUD.showBrightness(SystemControlStore.brightness / 100);
+                    systemHUD.showBrightness(value / 100);
             }
 
             target: SystemControlStore
@@ -2223,5 +2225,42 @@ Item {
         }
 
         target: TelephonyIntegration
+    }
+
+    // Diagnostic live-FPS readout. Gated by MARATHON_FPS_OVERLAY env
+    // (context property, default off). Green >=50, amber >=30, red below.
+    // Reads ~2fps at idle (its own 500ms refresh); the real number shows
+    // during scrolling/animation.
+    Rectangle {
+        id: fpsOverlay
+
+        visible: typeof MARATHON_FPS_OVERLAY !== "undefined" && MARATHON_FPS_OVERLAY
+        z: 999999
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: Constants.statusBarHeight + 4
+        anchors.rightMargin: 6
+        width: fpsLabel.implicitWidth + 14
+        height: fpsLabel.implicitHeight + 8
+        radius: 5
+        color: "#cc000000"
+
+        Text {
+            id: fpsLabel
+
+            anchors.centerIn: parent
+            text: (typeof fpsMonitor !== "undefined" ? fpsMonitor.fps.toFixed(0) : "0") + " fps"
+            font.pixelSize: 15
+            font.family: "monospace"
+            color: {
+                if (typeof fpsMonitor === "undefined")
+                    return "#ffffff";
+                if (fpsMonitor.fps >= 50)
+                    return "#4ade80";
+                if (fpsMonitor.fps >= 30)
+                    return "#fbbf24";
+                return "#f87171";
+            }
+        }
     }
 }

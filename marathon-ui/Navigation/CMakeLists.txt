@@ -36,7 +36,7 @@ if(QMLLINT_AVAILABLE)
     )
 endif()
 
-install(TARGETS marathon-ui-navigation
+install(TARGETS marathon-ui-navigation marathon-ui-navigationplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Navigation
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Navigation
 )

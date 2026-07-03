@@ -129,6 +129,14 @@ ShellSurfaceItem {
     // immediately. The splash overlay below covers the "no buffer yet" gap visually.
     opacity: 1
     bufferLocked: !isPreview && isMinimized && hasFirstFrame
+    // Eager buffer release for the live foreground view (MARATHON_DISCARD_FRONT):
+    // release the client's buffer once composited instead of holding it to the
+    // next commit, so a scrolling double-buffered client isn't starved by
+    // etnaviv's implicit fence. Never on preview views or a locked (minimized)
+    // view -- those intentionally retain their last frame.
+    allowDiscardFrontBuffer: !isPreview && !bufferLocked
+                             && AppLaunchService.compositor
+                             && AppLaunchService.compositor.discardFrontBuffer
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)

@@ -1,0 +1,189 @@
+{
+   <not_related_memoryleak>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:_ZN7QThread5startENS_8PriorityE
+   fun:_ZN18QThreadPoolPrivate11startThreadEP9QRunnable
+   fun:_ZN18QThreadPoolPrivate8tryStartEP9QRunnable
+   fun:_ZN11QThreadPool8tryStartEP9QRunnable
+   fun:_ZN12QtConcurrent16ThreadEngineBase19startThreadInternalEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase12startThreadsEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   obj:*/libQt5Core.so.*
+   obj:*/libQt5Core.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <qtconurrent_mapped_5_10>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN18QFutureWatcherBase5eventEP6QEvent
+   fun:_ZN16QCoreApplication15notifyInternal2EP7QObjectP6QEvent
+   fun:_ZN23QCoreApplicationPrivate16sendPostedEventsEP7QObjectiP11QThreadData
+   obj:/home/travis/build/benlau/asyncfuture/Qt/5.10.1/gcc_64/lib/libQt5Core.so.5.10.1
+   fun:g_main_context_dispatch
+   obj:/lib/x86_64-linux-gnu/libglib-2.0.so.0.4002.0
+   fun:g_main_context_iteration
+   fun:_ZN20QEventDispatcherGlib13processEventsE6QFlagsIN10QEventLoop17ProcessEventsFlagEE
+   fun:_ZN10QEventLoop4execE6QFlagsINS_17ProcessEventsFlagEE
+   fun:_ZN4Test5awaitIvEEv7QFutureIT_Ei
+   fun:_ZN4Spec21test_QtConcurrent_mapEv
+   fun:_ZN4Spec18qt_static_metacallEP7QObjectN11QMetaObject4CallEiPPv
+   fun:_ZNK11QMetaMethod6invokeEP7QObjectN2Qt14ConnectionTypeE22QGenericReturnArgument16QGenericArgumentS5_S5_S5_S5_S5_S5_S5_S5_S5_
+   obj:/home/travis/build/benlau/asyncfuture/Qt/5.10.1/gcc_64/lib/libQt5Test.so.5.10.1
+   obj:/home/travis/build/benlau/asyncfuture/Qt/5.10.1/gcc_64/lib/libQt5Test.so.5.10.1
+   obj:/home/travis/build/benlau/asyncfuture/Qt/5.10.1/gcc_64/lib/libQt5Test.so.5.10.1
+   fun:_ZN5QTest4qRunEv
+   fun:_ZN5QTest5qExecEP7QObjectiPPc
+   fun:_ZN5QTest5qExecEP7QObjectRK11QStringList
+   fun:_ZN10TestRunner3runEP7QObjectRK11QStringList
+   fun:_ZN10TestRunner4execE11QStringList
+   fun:main
+}
+
+{
+   <qtconcurrent_Uninitialised_value_after>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   obj:*/libQt5Core.so.*
+   obj:*/libQt5Core.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <qtconcurrent_Uninitialised_value_before>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   obj:*/libQt5Core.so.*
+   obj:*/libQt5Core.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE17forThreadFunctionEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIPKiiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIPKiiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIPKiiE17forThreadFunctionEv
+   fun:_ZN12QtConcurrent13IterateKernelIPKiiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZN12QtConcurrent13IterateKernelIPKiiE17forThreadFunctionEv
+   fun:_ZN12QtConcurrent13IterateKernelIPKiiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV214timeBeforeUserEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN12QtConcurrent18BlockSizeManagerV213timeAfterUserEv
+   fun:_ZTv0_n56_N12QtConcurrent13IterateKernelIN5QListIiE14const_iteratorEiE14threadFunctionEv
+   fun:_ZN12QtConcurrent16ThreadEngineBase3runEv
+   fun:_ZN17QThreadPoolThread3runEv
+   fun:_ZN14QThreadPrivate5startEPv
+   fun:start_thread
+   fun:clone
+}
+

@@ -17,6 +17,7 @@
 #include <QMap>
 #include <QProcess>
 #include <QPointer>
+#include <QAtomicInt>
 
 class TextInputManagerV3;
 class SecurityContextManagerV1;
@@ -30,6 +31,11 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_PROPERTY(QWaylandQuickOutput *output READ output CONSTANT)
     Q_PROPERTY(bool hasIdleInhibitingSurface READ hasIdleInhibitingSurface NOTIFY
                    hasIdleInhibitingSurfaceChanged)
+    // MARATHON_DISCARD_FRONT: let the foreground surface item release the
+    // client's buffer as soon as it has composited it, instead of holding it
+    // until the client's next commit. Shortens the double-buffer dependency
+    // chain that starves a scrolling client on etnaviv's implicit fencing.
+    Q_PROPERTY(bool discardFrontBuffer READ discardFrontBuffer CONSTANT)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window);
@@ -59,6 +65,10 @@ class WaylandCompositor : public QWaylandCompositor {
 
     bool             hasIdleInhibitingSurface() const {
         return m_hasIdleInhibitor;
+    }
+
+    bool             discardFrontBuffer() const {
+        return m_discardFrontBuffer;
     }
 
   signals:
@@ -125,6 +135,27 @@ class WaylandCompositor : public QWaylandCompositor {
 
     int                                     m_nextSurfaceId;
     bool                                    m_hasIdleInhibitor;
+
+    // Present-pipeline (MARATHON_PRESENT_PIPELINE): removes the ~4-vblank
+    // app<->compositor round-trip that throttles client scroll to ~15fps on
+    // this in-process compositor (client swap blocks ~67ms, both sides idle).
+    // Sends wl_surface.frame at frame START (beforeSynchronizing) so the
+    // client renders concurrently, and free-runs the compositor at vsync
+    // while a client is actively committing so its buffer lands next vblank.
+    bool                                    m_presentPipeline = false;
+    // Frames of vsync free-run remaining before the compositor idles back to
+    // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
+    // decremented each frameSwapped. Touched from render + GUI threads.
+    QAtomicInt                              m_activeFrameCredits{0};
+
+    bool                                    m_discardFrontBuffer = false;
+
+    // MARATHON_PRESENT_STATS: low-volume (one line/sec) present meter --
+    // compositor frames swapped and client buffer commits per second, so
+    // scroll rate can be measured without the per-frame QSG_RENDER_TIMING
+    // flood that backpressures the log pipe and stalls the GUI thread.
+    QAtomicInt                              m_frameSwapCount{0};
+    QAtomicInt                              m_clientCommitCount{0};
 };
 
 #endif

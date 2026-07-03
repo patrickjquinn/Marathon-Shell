@@ -66,7 +66,12 @@ class DisplayManagerCpp : public QObject {
         return m_nightLightSchedule;
     }
 
-    void               setBrightness(double brightness);
+    void setBrightness(double brightness);
+    // Manual brightness change originating from the user (QS/Settings slider).
+    // Sets the backlight AND teaches the adaptive curve for the current
+    // ambient level; programmatic/idle-dim callers use setBrightness so they
+    // never bias the learned curve.
+    Q_INVOKABLE void   setBrightnessFromUser(double brightness);
     Q_INVOKABLE double getBrightness();
     Q_INVOKABLE void   setScreenState(bool on);
     Q_INVOKABLE void   setAutoBrightness(bool enabled);
@@ -97,20 +102,44 @@ class DisplayManagerCpp : public QObject {
     // via a perceptual (log) curve, apply asymmetric hysteresis so we
     // only react to sustained changes, and ease toward the target with
     // a smooth PWM ramp instead of an instant jump.
-    double            luxToUserBrightness(double lux) const;
-    void              startBrightnessRamp(double targetUser);
-    void              rampStep();
+    double luxToUserBrightness(double lux) const;
+    void   startBrightnessRamp(double targetUser);
+    void   rampStep();
 
-    double            m_luxEwma         = -1.0; // smoothed lux (-1 = unseeded)
-    double            m_autoTargetUser  = -1.0; // last auto target committed
-    qint64            m_luxAboveSinceMs = 0;    // dwell timers for hysteresis
-    qint64            m_luxBelowSinceMs = 0;
-    qint64            m_lastManualSetMs = 0; // manual override grace window
-    QTimer           *m_rampTimer       = nullptr;
-    double            m_rampFromUser    = 0.0;
-    double            m_rampToUser      = 0.0;
-    qint64            m_rampStartMs     = 0;
-    int               m_rampDurationMs  = 600;
+    // Adaptive (learned) curve. luxToUserBrightness = baseCurve + learnedOffset.
+    // The base curve is the fixed perceptual log map; the offset is what the
+    // user has taught us. Two tiers, Android-style: a short-term offset gives
+    // an exact fit in the lighting you just corrected, and a persistent
+    // long-term offset (per log-lux anchor) slowly absorbs your corrections so
+    // the baseline drifts toward your taste across sessions.
+    static constexpr int kAdaptAnchors = 9; // log-lux 0.0..4.0 in 0.5 steps
+    double               baseCurve(double lux) const;
+    double               learnedOffset(double lux) const;
+    double               longTermOffset(double logLux) const;
+    void                 learnFromUser(double userBrightness);
+    void                 commitLearning();                    // debounced long-term blend + persist
+    double               m_ltOffset[kAdaptAnchors] = {};      // persisted long-term
+    double               m_stOffset                = 0.0;     // session short-term
+    double               m_stLogLux                = -1.0;    // lux the short-term fits
+    QTimer              *m_learnCommitTimer        = nullptr; // coalesces a drag gesture
+    double               m_pendingDesired          = 0.0;     // last settled correction
+    double               m_pendingLogLux           = -1.0;
+
+    double               m_luxEwma         = -1.0; // smoothed lux (-1 = unseeded)
+    double               m_autoTargetUser  = -1.0; // last auto target committed
+    qint64               m_luxAboveSinceMs = 0;    // dwell timers for hysteresis
+    qint64               m_luxBelowSinceMs = 0;
+    qint64               m_lastManualSetMs = 0; // manual override grace window
+    QTimer              *m_rampTimer       = nullptr;
+    double               m_rampFromUser    = 0.0;
+    double               m_rampToUser      = 0.0;
+    qint64               m_rampStartMs     = 0;
+    int                  m_rampDurationMs  = 600;
+
+    // Self-heal the documented dark-panel-on-wake race: after a wake we
+    // verify the backlight actually lit and re-assert it a few times if not.
+    QTimer           *m_wakeVerifyTimer = nullptr;
+    int               m_wakeVerifyTries = 0;
 
     bool              m_proximityBlanked = false;
 
@@ -138,6 +167,7 @@ class DisplayManagerCpp : public QObject {
     void onDBusPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                  const QStringList &invalidated);
     void onAmbientLightChanged();
+    void verifyWakeLit();
 };
 
 #endif

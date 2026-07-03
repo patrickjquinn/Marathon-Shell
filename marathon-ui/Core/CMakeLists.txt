@@ -46,7 +46,7 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-ui-core ${CORE_QML_FILES})
 endif()
 
-install(TARGETS marathon-ui-core
+install(TARGETS marathon-ui-core marathon-ui-coreplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Core
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Core
 )

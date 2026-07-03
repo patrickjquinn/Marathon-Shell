@@ -24,7 +24,7 @@ if(QMLLINT_AVAILABLE)
     )
 endif()
 
-install(TARGETS marathon-ui-modals
+install(TARGETS marathon-ui-modals marathon-ui-modalsplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Modals
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Modals
 )

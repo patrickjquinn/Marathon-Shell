@@ -29,7 +29,6 @@
 
 #include "util/frametiming.h"
 #include "util/rtprio.h"
-#include <cstring>
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -190,9 +189,78 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     setCompositorRealtimePriority();
 
+    // ── Present pipeline (opt-in: MARATHON_PRESENT_PIPELINE) ──────────
+    // Default QtWayland throttles client scroll to ~15fps on this in-process
+    // compositor: it sends wl_surface.frame callbacks from afterRendering
+    // (frame END, cross-thread-queued to the GUI loop) and the on-demand
+    // threaded render loop sleeps between frames, so a client's commit waits
+    // ~1 vblank to be scheduled and its callback arrives only after our frame
+    // -- a serialized ~4-vblank round trip (measured: client swap blocks
+    // ~67ms, both sides idle). This collapses it to a 1-frame pipeline.
+    m_presentPipeline = envBool("MARATHON_PRESENT_PIPELINE", false);
+    if (m_presentPipeline && m_window && m_output) {
+        m_output->setAutomaticFrameCallback(false);
+        // beforeSynchronizing runs on the render thread while the GUI thread
+        // is blocked in sync -- the safe point to touch wl_display. Sending
+        // the frame callback here (frame START, before our own present) hands
+        // the client the full frame interval to render its next buffer
+        // concurrently, instead of only after our frame completes.
+        connect(
+            m_window, &QQuickWindow::beforeSynchronizing, this,
+            [this]() {
+                if (m_output)
+                    m_output->sendFrameCallbacks();
+            },
+            Qt::DirectConnection);
+        // While a client is actively committing, free-run the on-demand loop
+        // at vsync so its just-committed buffer composites on the very next
+        // vblank instead of the scheduler sleeping and missing it. Credits are
+        // refreshed on every client commit (redraw) and decay to 0 when
+        // commits stop -> compositor idles back to 0fps (preserves Doze).
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this]() {
+                const int c = m_activeFrameCredits.loadRelaxed();
+                if (c > 0) {
+                    m_activeFrameCredits.storeRelaxed(c - 1);
+                    QMetaObject::invokeMethod(
+                        m_window, [w = m_window]() { w->update(); }, Qt::QueuedConnection);
+                }
+            },
+            Qt::DirectConnection);
+        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame "
+                   "callbacks + commit-gated vsync free-run)";
+    }
+
+    m_discardFrontBuffer = envBool("MARATHON_DISCARD_FRONT", false);
+    if (m_discardFrontBuffer)
+        qInfo() << "[WaylandCompositor] Front-buffer discard ENABLED (eager client "
+                   "buffer release)";
+
     if (envBool("MARATHON_FRAME_TIMING", false)) {
         marathon::diag::installFrameTimingTracker(m_window, QStringLiteral("compositor"));
         qInfo() << "[WaylandCompositor] Frame-timing diagnostics enabled";
+    }
+
+    // ── Present stats (opt-in: MARATHON_PRESENT_STATS) ───────────────
+    // One log line per second: compositor frames + client commits. Cheap
+    // enough not to backpressure the log pipe (unlike QSG_RENDER_TIMING),
+    // so scroll rate stays measurable while the meter is on.
+    if (envBool("MARATHON_PRESENT_STATS", false) && m_window) {
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this]() { m_frameSwapCount.fetchAndAddRelaxed(1); }, Qt::DirectConnection);
+        auto *statsTimer = new QTimer(this);
+        statsTimer->setInterval(1000);
+        connect(statsTimer, &QTimer::timeout, this, [this]() {
+            const int frames  = m_frameSwapCount.fetchAndStoreRelaxed(0);
+            const int commits = m_clientCommitCount.fetchAndStoreRelaxed(0);
+            qInfo().nospace() << "[PresentStats] compositor=" << frames
+                              << "fps client_commits=" << commits << "/s";
+        });
+        statsTimer->start();
+        qInfo() << "[WaylandCompositor] Present stats ENABLED (1Hz compositor/client "
+                   "rate meter)";
     }
 
     m_window->installEventFilter(this);
@@ -337,9 +405,9 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
     env.insert("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
-    env.insert(
-        "QT_QUICK_BACKEND",
-        "software"); // SHM buffers required when EGL_WL_bind_wayland_display unavailable (nested)
+    // Apps default to the GPU scenegraph; opt back to SHM/software per-board.
+    if (envBool("MARATHON_APPS_FORCE_SOFTWARE", false))
+        env.insert("QT_QUICK_BACKEND", "software");
 
     qDebug() << "[WaylandCompositor] Setting WAYLAND_DISPLAY=" << socketName()
              << "for child process";
@@ -659,6 +727,22 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
+
+    // Client commit meter (harmless when the 1Hz stats timer isn't running).
+    connect(surface, &QWaylandSurface::redraw, this,
+            [this]() { m_clientCommitCount.fetchAndAddRelaxed(1); });
+
+    if (m_presentPipeline) {
+        // Each client commit (redraw) refreshes the free-run credits and
+        // schedules a frame, keeping the compositor at vsync while the app
+        // animates. 4 frames (~64ms) of tail bridges brief commit gaps (fling
+        // momentum ticks) without holding the loop awake once motion stops.
+        connect(surface, &QWaylandSurface::redraw, this, [this]() {
+            m_activeFrameCredits.storeRelaxed(4);
+            if (m_window)
+                m_window->update();
+        });
+    }
 
     if (auto *inputControl = surface->inputMethodControl()) {
         qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
@@ -1120,23 +1204,32 @@ void WaylandCompositor::setCompositorActive(bool active) {
     if (!m_window)
         return;
 
-    if (active == m_window->isVisible())
-        return;
-
-    qDebug() << "[WaylandCompositor]" << (active ? "Resuming" : "Suspending")
-             << "compositor window";
-
     if (active) {
-        // Power the display pipeline back on BEFORE resuming page flips,
-        // so the first flip lands on a live CRTC (not a sleeping one,
-        // which is what wedges eglfs_kms with EINVAL). Order is the
-        // mirror image of the suspend path below.
+        // Always re-assert display power on wake, even if the window already
+        // reports visible. Window-visibility is NOT a reliable proxy for CRTC
+        // power: a raced double-toggle or a partial wake can leave the window
+        // visible while the CRTC sits at ACTIVE=0 -- and the old
+        // `active == isVisible()` early-return then skipped the CRTC re-enable
+        // outright, leaving the panel dark with no recovery (an unwakeable
+        // screen). setDisplayPowerState is idempotent, so re-asserting a live
+        // CRTC is a cheap no-op. Power the pipeline on BEFORE resuming page
+        // flips so the first flip lands on a live CRTC (a sleeping one wedges
+        // eglfs_kms with EINVAL).
         setDisplayPowerState(true);
-        m_window->setVisible(true);
+        if (!m_window->isVisible()) {
+            qDebug() << "[WaylandCompositor] Resuming compositor window";
+            m_window->setVisible(true);
+        }
         return;
     }
 
-    // Suspending: hide first, then ask the scene graph to release its GL
+    // Suspending. Idempotent: if the window is already hidden we are already
+    // suspended, nothing to do.
+    if (!m_window->isVisible())
+        return;
+    qDebug() << "[WaylandCompositor] Suspending compositor window";
+
+    // Hide first, then ask the scene graph to release its GL
     // resources. Without this, the render thread keeps trying to flip into
     // a soon-to-be DPMS-off CRTC and eglfs_kms wedges with EINVAL on
     // virtio-gpu (the page-flip cannot land on a sleeping connector).

@@ -117,6 +117,9 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleNightLight();
     Q_INVOKABLE void captureScreenshot();
     Q_INVOKABLE void setBrightness(int value);
+    // Same as setBrightness but flags the change as user-initiated so the HUD
+    // shows; auto-brightness and idle-dim use the plain setter and stay silent.
+    Q_INVOKABLE void setBrightnessFromUser(int value);
     Q_INVOKABLE void setVolume(int value);
     Q_INVOKABLE void sleep();
     Q_INVOKABLE void powerOff();
@@ -138,6 +141,7 @@ class SystemControlStore : public QObject {
     void isVibrationOnChanged();
     void isNightLightOnChanged();
     void brightnessChanged();
+    void userBrightnessChanged(int value);
     void volumeChanged();
     void isLowPowerModeChanged();
 

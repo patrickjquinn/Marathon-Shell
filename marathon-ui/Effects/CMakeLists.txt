@@ -32,7 +32,7 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-ui-effects ${EFFECTS_QML_FILES})
 endif()
 
-install(TARGETS marathon-ui-effects
+install(TARGETS marathon-ui-effects marathon-ui-effectsplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Effects
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Effects
 )

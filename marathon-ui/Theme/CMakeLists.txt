@@ -39,7 +39,7 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-ui-theme ${THEME_QML_FILES})
 endif()
 
-install(TARGETS marathon-ui-theme
+install(TARGETS marathon-ui-theme marathon-ui-themeplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Theme
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Theme
 )
