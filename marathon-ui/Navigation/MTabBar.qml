@@ -42,7 +42,7 @@ Rectangle {
         SpringAnimation {
             spring: MMotion.stiffnessSpatialFor("modal")
             damping: MMotion.dampingSpatialFor("modal")
-            epsilon: MMotion.epsilon
+            epsilon: MMotion.epsilonSpatial
         }
     }
 
@@ -98,7 +98,7 @@ Rectangle {
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("tap")
                 damping: MMotion.dampingSpatialFor("tap")
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
 
@@ -136,14 +136,14 @@ Rectangle {
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("tap")
                 damping: MMotion.dampingSpatialFor("tap")
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
         Behavior on width {
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("tap")
                 damping: MMotion.dampingSpatialFor("tap")
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
 

@@ -124,7 +124,7 @@ Item {
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("tap")
                 damping: MMotion.dampingSpatialFor("tap")
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
                 onStopped: MHaptics.light()
             }
         }

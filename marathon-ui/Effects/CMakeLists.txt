@@ -8,6 +8,7 @@ set(EFFECTS_QML_FILES
     MShadow.qml
     MGlow.qml
     MEntrance.qml
+    MVelocitySpring.qml
     WallpaperSlateAurora.qml
 )
 

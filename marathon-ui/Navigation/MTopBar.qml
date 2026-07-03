@@ -57,14 +57,14 @@ Rectangle {
         SpringAnimation {
             spring: MMotion.stiffnessSpatialFor("modal")
             damping: MMotion.dampingSpatialFor("modal")
-            epsilon: MMotion.epsilon
+            epsilon: MMotion.epsilonSpatial
         }
     }
     Behavior on titleFontSize {
         SpringAnimation {
             spring: MMotion.stiffnessSpatialFor("modal")
             damping: MMotion.dampingSpatialFor("modal")
-            epsilon: MMotion.epsilon
+            epsilon: MMotion.epsilonSpatial
         }
     }
 

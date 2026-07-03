@@ -110,7 +110,7 @@ Item {
             SpringAnimation {
                 spring: MMotion.springHeavy
                 damping: MMotion.dampingHeavy
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
 

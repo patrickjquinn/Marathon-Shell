@@ -25,6 +25,23 @@ QtObject {
     readonly property real dampingLight: 0.15
     readonly property real dampingMedium: 0.25
     readonly property real dampingHeavy: 0.4
+
+    // ── Spring convergence thresholds · PROPERTY-TYPE-AWARE ───────
+    // Qt's SpringAnimation `epsilon` is an ABSOLUTE threshold in the
+    // animated property's OWN units, so a single value cannot serve
+    // both a 0..1 scale and a 0..720 px position. Qt's own docs are
+    // explicit: "For pixel positions, 0.25 would suffice. For scale,
+    // 0.005 will suffice." A shared 0.01 forced every position spring
+    // to settle to within 0.01 PX of a multi-hundred-px journey — the
+    // slide reached its destination in a moment yet the animation kept
+    // creeping for seconds, holding StackView/Sheet "busy" (the 4 s
+    // page-nav bug). Pick by what the spring drives:
+    //   epsilonSpatial  → x, y, width, height, contentX/Y (pixels)
+    //   epsilonUnit     → scale, opacity, progress (0..1)
+    readonly property real epsilonSpatial: 0.5     // px positions & sizes
+    readonly property real epsilonUnit: 0.005      // scale / opacity / 0..1
+    // Retained for callers not yet migrated; equals neither extreme.
+    // New code MUST pick epsilonSpatial or epsilonUnit explicitly.
     readonly property real epsilon: 0.01
 
     // ── Stiffness ladder · M3 Expressive 4-rung ──────────────
@@ -256,9 +273,14 @@ QtObject {
                 curve: [0.2, 0, 0.0, 1.0],
                 spring: 1.8,
                 damping: 0.25,
-                // Page nav lives at the bottom of the M3E ladder —
-                // VeryLow stiffness gives the grand, deliberate feel
-                // of an iOS push without the duration-driven cubic.
+                // NOTE: the page drill-in (MStackView) does NOT use this
+                // spring — a raw SpringAnimation holds StackView `busy`
+                // (blocking input) until it converges, ~4-5 s on a
+                // full-width slide, so the drill-in is a bounded
+                // NumberAnimation instead. This spatial spring survives
+                // for non-StackView "nav"-role motion (e.g. the camera
+                // flip). Physics-driven page motion belongs in the
+                // interactive back GESTURE (velocity handoff), not a tap.
                 spatial: {
                     stiffness: stiffnessVeryLow,
                     damping: 0.25
@@ -409,7 +431,8 @@ QtObject {
     //
     //   SpringAnimation { spring: MMotion.stiffnessSpatialFor("nav")
     //                     damping: MMotion.dampingSpatialFor("nav")
-    //                     epsilon: MMotion.epsilon }
+    //                     epsilon: MMotion.epsilonSpatial }  // px!
+    //                     // scale/opacity springs → epsilonUnit
     //
     //   ColorAnimation  { duration: MMotion.durationFor("hover") }
     //                     // colour is an effect; keep on duration+ease
