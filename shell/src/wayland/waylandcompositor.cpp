@@ -16,6 +16,7 @@
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
 #include <QWaylandInputMethodControl>
+#include <QWaylandQuickSurface>
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
@@ -167,6 +168,25 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 if (wlVerbose() && newFocus)
                     qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
                              << newFocus;
+            });
+
+    // Create QWaylandQuickSurface, not the default plain QWaylandSurface.
+    // Qt's QtQuick render path (QWaylandSurfaceTextureProvider::setBufferRef in
+    // qwaylandquickitem.cpp) does `qobject_cast<QWaylandQuickSurface*>(surface)`
+    // and then dereferences the result UNCONDITIONALLY on the hardware-buffer
+    // path (`surface->bufferSize()`), guarded only for the useTextureAlpha
+    // branch. With the base QWaylandCompositor's createDefaultSurface() handing
+    // back a plain QWaylandSurface, that cast is always null, so the first GPU
+    // (dmabuf) frame segfaults the compositor in QWaylandSurface::bufferSize.
+    // Shared-memory clients took the image() path and never hit it, which is
+    // why this only surfaced once apps began rendering through dmabuf. Handling
+    // surfaceRequested is the standard pattern for a QtQuick compositor built on
+    // the non-quick QWaylandCompositor base; the surface auto-registers via its
+    // initialize() in the constructor, and Qt owns it through the wl_surface
+    // resource lifecycle exactly as createDefaultSurface() would.
+    connect(this, &QWaylandCompositor::surfaceRequested, this,
+            [this](QWaylandClient *client, uint id, int version) {
+                new QWaylandQuickSurface(this, client, id, version);
             });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
