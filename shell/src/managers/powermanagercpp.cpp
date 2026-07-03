@@ -438,7 +438,15 @@ void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) const {
         case Performance: governor = "performance"; break;
         case PowerSaver: governor = "powersave"; break;
         case Balanced:
-        default: governor = "schedutil"; break;
+        // ondemand, not schedutil: on the imx8mq's coupled A53 cluster,
+        // schedutil's RT-boost pins the whole cluster to 1.5 GHz whenever any
+        // SCHED_FIFO task wakes, and the L5 fires ~1000 threaded-IRQ wakeups/s
+        // (PMIC, RTC, fuel gauge, touch, SDIO, GPU). Measured residency at
+        // 1.5 GHz was 58.8% under schedutil vs 11.7% under ondemand at the same
+        // load -- ~500-800 mW wasted continuously. This mirrors the image's
+        // marathon-cpu-governor.service / 60-marathon-cpufreq.rules decision so
+        // the Balanced profile stops clobbering the boot-time governor.
+        default: governor = "ondemand"; break;
     }
 
     QProcess process;
