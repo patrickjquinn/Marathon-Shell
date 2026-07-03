@@ -69,7 +69,7 @@ Rectangle {
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("sheet")
                 damping: MMotion.dampingSpatialFor("sheet")
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
 

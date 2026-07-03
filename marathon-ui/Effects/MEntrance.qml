@@ -104,7 +104,7 @@ Item {
             to: (ent.target ? ent.target.y - ent.translateY : 0)
             spring: MMotion.stiffnessSpatialFor("entrance")
             damping: MMotion.dampingSpatialFor("entrance")
-            epsilon: MMotion.epsilon
+            epsilon: MMotion.epsilonSpatial
         }
 
         onStopped: ent._played = true

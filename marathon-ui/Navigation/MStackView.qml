@@ -7,26 +7,45 @@ import MarathonUI.Theme
 //
 // The Qt default StackView transition is a 200 ms crossfade. It reads
 // as "the OS reloaded a page," not "I navigated." This wrapper ships
-// the canonical Marathon page push: spring-driven slide + scale
-// following the Android predictive-back ladder (exit 100→90%, enter
-// 110→100%) so every push/pop in the system feels physical, not
-// duration-driven. One curve, one ladder, one place to tune.
+// the canonical Marathon drill-in: a clean, decisive iOS-style slide
+// with parallax on the outgoing page. One curve, one place to tune.
 //
-// Drop-in: replace `StackView { ... }` with `MStackView { ... }`. All
-// other StackView API is preserved; pushEnter/pushExit can still be
-// overridden by the caller for one-off transitions (sparingly).
+// WHY DURATION-BOUNDED, NOT A RAW SpringAnimation (measured, not assumed):
+//   StackView BLOCKS input on the incoming page for its entire `busy`
+//   window, and `busy` stays true until the transition's animations
+//   *converge*. A raw SpringAnimation on the 0..width (~720 px) `x`
+//   converges via a long low-velocity tail: on-device the page arrived
+//   in ~1 s but `busy` (a visible probe) stayed lit for ~4-5 s AFTER —
+//   the page looked settled yet ignored every tap. This held at Qt's
+//   MAX useful stiffness AND at CRITICAL damping — spring frequency
+//   scales with sqrt(stiffness), so no in-range value clears the tail.
+//   Raw SpringAnimation is simply the wrong tool for a StackView
+//   transition. A time-bounded NumberAnimation ends when it says it
+//   ends, so `busy` (and the input block) clears with the motion.
 //
-// Per the world-class-design audit:
-//   Push enter:  x  travel  → 0           spring, mild overshoot
-//                scale 1.10 → 1.00        spring, mild overshoot
-//                opacity 0  → 1           NumberAnimation, predictiveBack curve
-//   Push exit:   x  0 → -travel * parallax spring, mild overshoot
-//                scale 1.00 → 0.90        spring, mild overshoot
-//   Pop enter:   x  -travel * parallax → 0 spring, CRITICAL (no ring)
-//                scale 0.90 → 1.00        spring, CRITICAL
-//   Pop exit:    x  0 → travel             spring, CRITICAL
-//                scale 1.00 → 1.10        spring, CRITICAL
-//                opacity 1 → 0            NumberAnimation, predictiveBack curve
+//   Physical, velocity-responsive spring motion still belongs in the
+//   product — in the INTERACTIVE back-swipe gesture (where the finger's
+//   release velocity drives the settle) — just not in a discrete,
+//   tap-driven page push, where "responds to velocity" is meaningless
+//   and "blocks input for 5 s" is unacceptable.
+//
+// DESIGN NOTES (do not "restore" these — each fixed a real regression):
+//   • NO opacity crossfade. Pages stay fully OPAQUE. A fade made both
+//     pages translucent mid-slide so you saw one bleeding through the
+//     other. The incoming page slides in and covers — that's navigation.
+//   • NO scale ladder. The predictive-back scale (exit→0.90) shrank the
+//     outgoing page and opened gaps around it ("jacked up"). The scale
+//     ladder is for the back GESTURE, not a tap push. Slide + parallax.
+//   • Silky decelerate curve ([0.22, 1, 0.36, 1], easeOutQuint) — fast
+//     departure, long smooth settle. Reads as momentum without a bounce
+//     that, on a full-width slide, would fling the page past its edge.
+//
+// Drop-in: replace `StackView { ... }` with `MStackView { ... }`.
+//
+//   Push enter:  x  travel → 0                incoming slides in, opaque
+//   Push exit:   x  0 → -travel * parallax    outgoing lags by parallax
+//   Pop enter:   x  -travel * parallax → 0     outgoing returns
+//   Pop exit:    x  0 → travel                 top page slides back out
 StackView {
     id: stack
 
@@ -41,127 +60,54 @@ StackView {
     // iOS uses ~25-30%; we land on MMotion.pageParallaxOffset.
     property real parallax: MMotion.pageParallaxOffset
 
-    // Spring tuning per direction. Push gets mild overshoot so a new
-    // page reads as "arriving" (a tiny scale-bounce on settle); pop
-    // lands CRITICAL so going back is decisive — no oscillation, no
-    // "did it land?" ambiguity.
-    property real pushDamping: MMotion.dampingMedium     // 0.25 — mild overshoot
-    property real popDamping: MMotion.dampingCritical    // 1.00 — no ring
-
-    // Stiffness split. Push keeps the "nav" token's deliberate
-    // VeryLow stiffness for a grand iOS-style arrival. Pop bumps
-    // up to stiffnessMedium so going back feels snappy and decisive
-    // — critically damped + VeryLow stiffness is severely overdamped
-    // (~1 s settle), and a back gesture should resolve in ~300 ms
-    // so the user trusts the action landed.
-    property real pushStiffness: MMotion.stiffnessSpatialFor("nav")
-    property real popStiffness: MMotion.stiffnessMedium
+    // Bounded so StackView.busy — which gates input on the new page —
+    // clears the instant the slide ends. Tuned for a decisive drill-in.
+    readonly property int navDuration: MMotion.reduceMotion ? MMotion.micro : 280
+    // easeOutQuint — silky, momentum-flavoured deceleration, no overshoot
+    // (overshoot on a full-width slide flings the page past the edge).
+    readonly property var navCurve: [0.22, 1, 0.36, 1]
 
     pushEnter: Transition {
-        ParallelAnimation {
-            SpringAnimation {
-                property: "x"
-                from: stack.travel
-                to: 0
-                spring: stack.pushStiffness
-                damping: stack.pushDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            SpringAnimation {
-                property: "scale"
-                from: MMotion.backEnterScaleStart      // 1.10
-                to: MMotion.backEnterScaleEnd          // 1.00
-                spring: stack.pushStiffness
-                damping: stack.pushDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            NumberAnimation {
-                property: "opacity"
-                from: 0
-                to: 1
-                duration: MMotion.durationFor("nav")
-                easing.type: Easing.Bezier
-                easing.bezierCurve: MMotion.predictiveBackCurve
-            }
+        NumberAnimation {
+            property: "x"
+            from: stack.travel
+            to: 0
+            duration: stack.navDuration
+            easing.type: Easing.Bezier
+            easing.bezierCurve: stack.navCurve
         }
     }
 
     pushExit: Transition {
-        ParallelAnimation {
-            SpringAnimation {
-                property: "x"
-                from: 0
-                to: -stack.travel * stack.parallax
-                spring: stack.pushStiffness
-                damping: stack.pushDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            SpringAnimation {
-                property: "scale"
-                from: MMotion.backExitScaleStart       // 1.00
-                to: MMotion.backExitScaleEnd           // 0.90
-                spring: stack.pushStiffness
-                damping: stack.pushDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
+        NumberAnimation {
+            property: "x"
+            from: 0
+            to: -stack.travel * stack.parallax
+            duration: stack.navDuration
+            easing.type: Easing.Bezier
+            easing.bezierCurve: stack.navCurve
         }
     }
 
     popEnter: Transition {
-        ParallelAnimation {
-            SpringAnimation {
-                property: "x"
-                from: -stack.travel * stack.parallax
-                to: 0
-                spring: stack.popStiffness
-                damping: stack.popDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            SpringAnimation {
-                property: "scale"
-                from: MMotion.backExitScaleEnd         // 0.90 — where it was deferred
-                to: MMotion.backExitScaleStart         // 1.00
-                spring: stack.popStiffness
-                damping: stack.popDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
+        NumberAnimation {
+            property: "x"
+            from: -stack.travel * stack.parallax
+            to: 0
+            duration: stack.navDuration
+            easing.type: Easing.Bezier
+            easing.bezierCurve: stack.navCurve
         }
     }
 
     popExit: Transition {
-        ParallelAnimation {
-            SpringAnimation {
-                property: "x"
-                from: 0
-                to: stack.travel
-                spring: stack.popStiffness
-                damping: stack.popDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            SpringAnimation {
-                property: "scale"
-                from: MMotion.backEnterScaleEnd        // 1.00
-                to: MMotion.backEnterScaleStart        // 1.10 — recedes to its entry pose
-                spring: stack.popStiffness
-                damping: stack.popDamping
-                epsilon: MMotion.epsilon
-                mass: 1.0
-            }
-            NumberAnimation {
-                property: "opacity"
-                from: 1
-                to: 0
-                duration: MMotion.durationFor("nav")
-                easing.type: Easing.Bezier
-                easing.bezierCurve: MMotion.predictiveBackCurve
-            }
+        NumberAnimation {
+            property: "x"
+            from: 0
+            to: stack.travel
+            duration: stack.navDuration
+            easing.type: Easing.Bezier
+            easing.bezierCurve: stack.navCurve
         }
     }
 }

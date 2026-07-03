@@ -770,7 +770,7 @@ MApp {
                     SpringAnimation {
                         spring: MMotion.stiffnessSpatialFor("nav")
                         damping: MMotion.dampingSpatialFor("nav")
-                        epsilon: MMotion.epsilon
+                        epsilon: MMotion.epsilonSpatial
                     }
                 }
             }

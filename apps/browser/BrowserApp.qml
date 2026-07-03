@@ -1894,7 +1894,7 @@ MApp {
                 SpringAnimation {
                     spring: MMotion.stiffnessSpatialFor("panel")
                     damping: MMotion.dampingSpatialFor("panel")
-                    epsilon: MMotion.epsilon
+                    epsilon: MMotion.epsilonSpatial
                 }
             }
         }
