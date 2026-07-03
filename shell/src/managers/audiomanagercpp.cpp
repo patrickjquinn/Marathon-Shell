@@ -93,10 +93,10 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
         QProcess process;
         process.start("wpctl", {"get-volume", "@DEFAULT_AUDIO_SINK@"});
         process.waitForFinished();
-        QString                 output = process.readAllStandardOutput();
+        QString                         output = process.readAllStandardOutput();
 
-        QRegularExpression      re("Volume: ([0-9.]+)");
-        QRegularExpressionMatch match = re.match(output);
+        static const QRegularExpression re("Volume: ([0-9.]+)");
+        QRegularExpressionMatch         match = re.match(output);
         if (match.hasMatch()) {
             m_currentVolume = match.captured(1).toDouble();
             emit volumeChanged();
@@ -263,10 +263,10 @@ void AudioManagerCpp::parseWpctlStatus() {
         return;
     }
 
-    QString            output = process.readAllStandardOutput();
-    QList<AudioStream> streams;
+    QString                         output = process.readAllStandardOutput();
+    QList<AudioStream>              streams;
 
-    QRegularExpression streamRe(
+    static const QRegularExpression streamRe(
         "^\\s+[│├─]+\\s+(\\d+)\\.\\s+(.+?)\\s+\\[vol:\\s+([0-9.]+)(?:\\s+MUTED)?\\]",
         QRegularExpression::MultilineOption);
 

@@ -775,7 +775,8 @@ void DisplayObject::SetScreenTimeout(int seconds) {
 void DisplayObject::SetBrightness(double brightness) {
     if (!requireSystem())
         return;
-    m_display->setBrightness(brightness);
+    // Settings-app slider is a user choice — teach the adaptive curve too.
+    m_display->setBrightnessFromUser(brightness);
 }
 
 void DisplayObject::SetNightLightEnabled(bool enabled) {

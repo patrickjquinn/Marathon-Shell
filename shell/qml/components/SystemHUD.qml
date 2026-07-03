@@ -39,8 +39,12 @@ Item {
         id: hud
 
         anchors.centerIn: parent
-        width: 200
-        height: 200
+        // Box scales with the same factor as its contents (Icon/MText scale off
+        // Constants.scaleFactor). A fixed 200 px square let the scaled contents
+        // break out on high-DPI panels; clip is a belt-and-braces guard.
+        width: Math.round(200 * (Constants.scaleFactor || 1))
+        height: Math.round(200 * (Constants.scaleFactor || 1))
+        clip: true
         // DS says 4 px corners on every chrome surface. Previously
         // Constants.borderRadiusSharp (= 0) made this a flat box,
         // breaking continuity with the rest of the shell language.
@@ -67,7 +71,7 @@ Item {
         Column {
             anchors.centerIn: parent
             spacing: MSpacing.lg
-            width: parent.width - 40
+            width: parent.width - Math.round(40 * (Constants.scaleFactor || 1))
 
             Icon {
                 name: hudType === "volume" ? "volume-2" : "sun"
@@ -82,7 +86,7 @@ Item {
 
                 Rectangle {
                     width: parent.width
-                    height: 8
+                    height: Math.round(8 * (Constants.scaleFactor || 1))
                     radius: MRadius.md
                     color: MColors.whiteOverlay04
                     border.width: 1
@@ -105,13 +109,14 @@ Item {
                     }
                 }
 
-                Text {
+                MText {
                     text: Math.round(hudValue * 100) + "%"
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeHeadline
                     font.weight: MTypography.weightDemiBold
                     font.letterSpacing: MTypography.trackingHeadline
-                    font.family: MTypography.fontFamily
+                    // Tabular figures so the percentage digits don't jitter.
+                    tnum: true
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }

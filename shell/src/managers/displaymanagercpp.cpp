@@ -18,6 +18,7 @@
 #include <QFileSystemWatcher>
 #include <QScreen>
 #include <QSettings>
+#include <QStringList>
 #include <cmath>
 #if MARATHON_HAVE_QT_GUI_PRIVATE
 #include <qpa/qplatformscreen.h>
@@ -315,12 +316,93 @@ void DisplayManagerCpp::setAutoBrightness(bool enabled) {
 // sun (~10000 lux) hits 100%. The user domain is then remapped through
 // kMinVisibleBrightness on the way to hardware (setBrightness /
 // forceBacklightOn), so this never drives the panel invisible.
-double DisplayManagerCpp::luxToUserBrightness(double lux) const {
+double DisplayManagerCpp::baseCurve(double lux) const {
     if (lux < 0.0)
         lux = 0.0;
     // 0 lux -> 0.05, 50 -> ~0.46, 500 -> ~0.70, 1000 -> ~0.77, 10000 -> 1.0
     const double u = 0.05 + 0.24 * std::log10(lux + 1.0);
     return qBound(0.0, u, 1.0);
+}
+
+// Long-term learned offset: piecewise-linear over kAdaptAnchors anchors spaced
+// 0.5 apart in log10(lux+1), covering lux 0..10000.
+double DisplayManagerCpp::longTermOffset(double logLux) const {
+    const double ll = qBound(0.0, logLux, 4.0);
+    const double f  = ll / 0.5;
+    int          i  = static_cast<int>(std::floor(f));
+    if (i >= kAdaptAnchors - 1)
+        i = kAdaptAnchors - 2;
+    const double t = f - i;
+    return m_ltOffset[i] * (1.0 - t) + m_ltOffset[i + 1] * t;
+}
+
+// Effective offset = long-term baseline, overridden by the short-term exact fit
+// with a Gaussian falloff so your last correction fully applies in that lighting
+// and relaxes to the learned baseline as the ambient level moves away from it.
+double DisplayManagerCpp::learnedOffset(double lux) const {
+    const double ll = std::log10((lux < 0.0 ? 0.0 : lux) + 1.0);
+    const double lt = longTermOffset(ll);
+    if (m_stLogLux < 0.0)
+        return lt;
+    const double d = (ll - m_stLogLux) / 0.6; // ~0.6 decade sigma
+    const double w = std::exp(-d * d);
+    return lt + w * (m_stOffset - lt);
+}
+
+double DisplayManagerCpp::luxToUserBrightness(double lux) const {
+    return qBound(0.05, baseCurve(lux) + learnedOffset(lux), 1.0);
+}
+
+// Teach the adaptive curve from a genuine user brightness choice at the current
+// ambient level. Short-term takes the exact delta (instant, exact satisfaction);
+// long-term blends toward it at a gentle rate so one-off corrections don't
+// dominate but repeated ones stick across sessions.
+void DisplayManagerCpp::learnFromUser(double userBrightness) {
+    if (!m_autoBrightnessEnabled || !m_sensorManager)
+        return;
+    double lux = (m_luxEwma >= 0.0) ? m_luxEwma : m_sensorManager->ambientLight();
+    if (lux < 0.0)
+        lux = 0.0;
+    const double ll      = std::log10(lux + 1.0);
+    const double desired = qBound(-0.5, userBrightness - baseCurve(lux), 0.5);
+
+    // Short-term takes effect instantly so the live setting sticks in this
+    // lighting; the long-term blend + disk write are debounced to the settled
+    // value so a slider drag teaches once, not once per intermediate frame.
+    m_stOffset       = desired;
+    m_stLogLux       = ll;
+    m_pendingDesired = desired;
+    m_pendingLogLux  = ll;
+
+    if (!m_learnCommitTimer) {
+        m_learnCommitTimer = new QTimer(this);
+        m_learnCommitTimer->setSingleShot(true);
+        m_learnCommitTimer->setInterval(600);
+        connect(m_learnCommitTimer, &QTimer::timeout, this, &DisplayManagerCpp::commitLearning);
+    }
+    m_learnCommitTimer->start();
+}
+
+void DisplayManagerCpp::commitLearning() {
+    if (m_pendingLogLux < 0.0)
+        return;
+    // Blend the two bracketing anchors toward the settled correction.
+    const double clampedLt = qBound(-0.4, m_pendingDesired, 0.4);
+    const double f         = qBound(0.0, m_pendingLogLux, 4.0) / 0.5;
+    int          i         = static_cast<int>(std::floor(f));
+    if (i >= kAdaptAnchors - 1)
+        i = kAdaptAnchors - 2;
+    constexpr double kLearnRate = 0.5;
+    for (int k : {i, i + 1}) {
+        m_ltOffset[k] += kLearnRate * (clampedLt - m_ltOffset[k]);
+        m_ltOffset[k] = qBound(-0.4, m_ltOffset[k], 0.4);
+    }
+    saveSettings();
+}
+
+void DisplayManagerCpp::setBrightnessFromUser(double brightness) {
+    setBrightness(brightness);
+    learnFromUser(brightness);
 }
 
 void DisplayManagerCpp::onAmbientLightChanged() {
@@ -516,6 +598,10 @@ void DisplayManagerCpp::loadSettings() {
     m_nightLightEnabled     = s.value("nightLightEnabled", m_nightLightEnabled).toBool();
     m_nightLightTemperature = s.value("nightLightTemperature", m_nightLightTemperature).toInt();
     m_nightLightSchedule    = s.value("nightLightSchedule", m_nightLightSchedule).toString();
+    const QStringList off =
+        s.value("adaptiveBrightnessOffsets").toString().split(',', Qt::SkipEmptyParts);
+    for (int i = 0; i < kAdaptAnchors && i < off.size(); ++i)
+        m_ltOffset[i] = qBound(-0.4, off.at(i).toDouble(), 0.4);
     s.endGroup();
     qDebug() << "[DisplayManagerCpp] Settings loaded (timeout=" << m_screenTimeout
              << "rotationLocked=" << m_rotationLocked << ")";
@@ -530,6 +616,11 @@ void DisplayManagerCpp::saveSettings() {
     s.setValue("nightLightEnabled", m_nightLightEnabled);
     s.setValue("nightLightTemperature", m_nightLightTemperature);
     s.setValue("nightLightSchedule", m_nightLightSchedule);
+    QStringList off;
+    off.reserve(kAdaptAnchors);
+    for (double o : m_ltOffset)
+        off << QString::number(o, 'f', 4);
+    s.setValue("adaptiveBrightnessOffsets", off.join(','));
     s.endGroup();
     s.sync();
     qDebug() << "[DisplayManagerCpp] Settings saved";
@@ -627,6 +718,25 @@ void DisplayManagerCpp::setScreenState(bool on) {
     // the dark-panel-on-wake wedge.
     if (on && !m_backlightDevice.isEmpty()) {
         forceBacklightOn();
+        // Self-heal the dark-panel-on-wake race. If the CRTC re-enable and
+        // the backlight write above race (the domain-gated write is silently
+        // dropped, per forceBacklightOn's comment), the panel stays dark with
+        // no retry -- the exact "power key fires but screen doesn't wake"
+        // signature. Verify shortly after and re-assert if still dark. Only
+        // fires work when the panel FAILED to light, so the happy path is
+        // one cheap sysfs read.
+        m_wakeVerifyTries = 3;
+        if (!m_wakeVerifyTimer) {
+            m_wakeVerifyTimer = new QTimer(this);
+            m_wakeVerifyTimer->setSingleShot(true);
+            m_wakeVerifyTimer->setInterval(120);
+            connect(m_wakeVerifyTimer, &QTimer::timeout, this, &DisplayManagerCpp::verifyWakeLit);
+        }
+        m_wakeVerifyTimer->start();
+    } else if (!on && m_wakeVerifyTimer) {
+        // Going back to sleep -- cancel any pending wake re-assert.
+        m_wakeVerifyTimer->stop();
+        m_wakeVerifyTries = 0;
     }
 
     if (m_powerManager) {
@@ -637,6 +747,33 @@ void DisplayManagerCpp::setScreenState(bool on) {
             m_powerManager->releaseWakelock("display");
             qInfo() << "[DisplayManagerCpp] Released display wakelock";
         }
+    }
+}
+
+void DisplayManagerCpp::verifyWakeLit() {
+    if (m_backlightDevice.isEmpty())
+        return;
+
+    // bl_power == "0" (FB_BLANK_UNBLANK) means the panel actually lit.
+    // Anything else (4 == FB_BLANK_POWERDOWN, latched) means the wake write
+    // did not take -- re-assert the backlight until it holds or we give up.
+    QByteArray state;
+    QFile      blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+    if (blPower.open(QIODevice::ReadOnly)) {
+        state = blPower.readAll().trimmed();
+        blPower.close();
+    }
+    if (state == "0")
+        return; // lit -- wake succeeded
+
+    if (m_wakeVerifyTries-- > 0) {
+        qWarning() << "[DisplayManagerCpp] wake: panel still dark (bl_power=" << state
+                   << ") -- re-asserting backlight, tries left" << m_wakeVerifyTries;
+        forceBacklightOn();
+        if (m_wakeVerifyTimer)
+            m_wakeVerifyTimer->start();
+    } else {
+        qWarning() << "[DisplayManagerCpp] wake: panel failed to light after retries";
     }
 }
 

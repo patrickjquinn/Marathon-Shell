@@ -120,6 +120,7 @@
 
 #ifdef HAVE_WAYLAND
 #include "src/wayland/waylandcompositor.h"
+#include "src/diag/fpsmonitor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
 #endif
@@ -570,6 +571,14 @@ int main(int argc, char *argv[]) {
 #else
     ctx->setContextProperty("HAVE_WAYLAND", false);
 #endif
+
+    // MARATHON_FPS_OVERLAY -> live on-screen FPS counter (top-right).
+    // Diagnostic: shows real presented-frame rate during interaction so
+    // framerate regressions on the GC7000Lite are visible without journald.
+    const bool fpsOverlay = qEnvironmentVariableIntValue("MARATHON_FPS_OVERLAY") != 0;
+    auto      *fpsMonitor = new FpsMonitor(&app);
+    ctx->setContextProperty("fpsMonitor", fpsMonitor);
+    ctx->setContextProperty("MARATHON_FPS_OVERLAY", fpsOverlay);
 
     createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
@@ -1146,6 +1155,18 @@ int main(int argc, char *argv[]) {
     if (engine.rootObjects().isEmpty()) {
         qCritical() << "No root QML objects";
         return -1;
+    }
+
+    // The shell's single QQuickWindow is the root object (Main.qml Window).
+    // Wire the FPS monitor to its frame-swap signal now that it exists.
+    if (fpsOverlay) {
+        for (QObject *root : engine.rootObjects()) {
+            if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+                fpsMonitor->attach(win);
+                qInfo() << "[MarathonShell] FPS overlay enabled";
+                break;
+            }
+        }
     }
 
     QTimer::singleShot(

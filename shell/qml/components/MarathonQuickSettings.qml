@@ -316,7 +316,7 @@ Item {
                     iconName: "sun"
                     value: SystemControlStore.brightness
                     onMoved: function (v) {
-                        SystemControlStore.setBrightness(v);
+                        SystemControlStore.setBrightnessFromUser(v);
                     }
                 }
                 Rectangle {

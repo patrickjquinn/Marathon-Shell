@@ -1,0 +1,53 @@
+name: Ubuntu Latest Build and Test with ASan on Qt5 and Qt6
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - actions
+  pull_request:
+    branches:
+      - master
+      - dev
+      - actions
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        qt_version: ['5', '6']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup CMake and Ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Setup C++ Compiler
+      run: |
+        sudo apt-get update &&
+        sudo apt-get install -y g++-10 &&
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 60 --slave /usr/bin/g++ g++ /usr/bin/g++-10
+
+    - name: Install Qt
+      run: |
+        sudo apt-get update
+        if [ "${{ matrix.qt_version }}" = "5" ]; then
+          sudo apt-get install -y qtbase5-dev qttools5-dev qttools5-dev-tools qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-controls2 qtquickcontrols2-5-dev libqt5concurrent5 libqt5test5
+        elif [ "${{ matrix.qt_version }}" = "6" ]; then
+          sudo apt-get install -y qt6-base-dev qt6-tools-dev qt6-declarative-dev libqt6concurrent6 libqt6test6 qt6-declarative-dev qt6-declarative-dev-tools libqt6gui6 libglx-dev libgl1-mesa-dev
+        fi
+
+    - name: Create Build Environment
+      run: cmake -S . -B build -G Ninja -DENABLE_TESTING:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address"
+
+    - name: Build Project
+      run: cmake --build build
+
+    - name: Run Tests
+      env:
+        ASAN_OPTIONS: detect_leaks=1
+      run: cd build && ./tests/asyncfutureunittests

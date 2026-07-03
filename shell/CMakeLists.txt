@@ -1,5 +1,7 @@
 set(SOURCES
     main.cpp
+    src/diag/fpsmonitor.h
+    src/diag/fpsmonitor.cpp
     src/components/desktopfileparser.h
     src/components/desktopfileparser.cpp
     src/components/lunasvgimageprovider.h

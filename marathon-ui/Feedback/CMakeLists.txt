@@ -26,7 +26,7 @@ if(QMLLINT_AVAILABLE)
     )
 endif()
 
-install(TARGETS marathon-ui-feedback
+install(TARGETS marathon-ui-feedback marathon-ui-feedbackplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Feedback
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Feedback
 )

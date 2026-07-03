@@ -17,7 +17,7 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-ui-lists MDivider.qml)
 endif()
 
-install(TARGETS marathon-ui-lists
+install(TARGETS marathon-ui-lists marathon-ui-listsplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Lists
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Lists
 )

@@ -605,6 +605,14 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
             env.insert("MARATHON_STARTUP_TIMING", "1");
 
+        // QSG_RENDER_TIMING -> Qt logs per-frame scenegraph breakdown
+        // (polish/sync/render + distance-field glyph-cache generation time).
+        // Forwarded into the sandbox so the ~10s render-thread cold-launch
+        // burn can be split between glyph generation, texture upload, and
+        // effect rendering. Opt-in via the shell env; costs nothing off.
+        if (qEnvironmentVariableIntValue("QSG_RENDER_TIMING") != 0)
+            env.insert("QSG_RENDER_TIMING", "1");
+
         // Per-device driver pin (etnaviv on L5, v3d on Pi 5) — skips Mesa's
         // doomed Zink/dri2 probe chain at every app's EGL init. The WebEngine
         // branch below overwrites this with its own value.
@@ -845,6 +853,11 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // auto-detects the right driver for the render node.
         bwrapArgs << QStringLiteral("--unsetenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
                   << QStringLiteral("--unsetenv") << QStringLiteral("ETNA_MESA_DEBUG");
+        // NB: native (non-WebEngine) apps must launch with the Mesa loader
+        // driver UNSET. On etnaviv the loader front-end is kmsro (etnaviv is
+        // render-only behind it); pinning MESA_LOADER_DRIVER_OVERRIDE=etnaviv
+        // makes QRhiGles2 fail to create a context -> no surface -> launch
+        // timeout. Mesa auto-selects kmsro->etnaviv correctly on its own.
 
         // Chromium's zygote sandbox does its own CLONE_NEW{PID,USER,IPC,UTS,
         // NET,CGROUP} on every renderer + GPU + utility process. Nesting
@@ -1103,9 +1116,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 }
 
 QString AppLaunchService::runnerExecutablePath() const {
-    const QDir    shellBinDir(QCoreApplication::applicationDirPath());
-    const QString candidate =
-        shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
+    const QDir shellBinDir(QCoreApplication::applicationDirPath());
+    QString    candidate = shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
     if (QFileInfo::exists(candidate))
         return candidate;
     return QStringLiteral("marathon-app-runner");
@@ -1214,6 +1226,11 @@ QStringList AppLaunchService::spareSandboxArgs() const {
              << QString::fromLatin1(appMesaDriver);
     if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
         args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_STARTUP_TIMING")
+             << QStringLiteral("1");
+    // See the env-map forward above: QSG_RENDER_TIMING lets us split the
+    // ~10s render-thread cold-launch burn (glyph gen vs texture vs render).
+    if (qEnvironmentVariableIntValue("QSG_RENDER_TIMING") != 0)
+        args << QStringLiteral("--setenv") << QStringLiteral("QSG_RENDER_TIMING")
              << QStringLiteral("1");
 
     return args;

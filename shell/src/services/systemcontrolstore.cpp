@@ -263,6 +263,17 @@ void SystemControlStore::setBrightness(int value) {
     setBrightnessValue(clamped);
 }
 
+void SystemControlStore::setBrightnessFromUser(int value) {
+    int clamped = std::clamp(value, 0, 100);
+    if (m_displayManager) {
+        // Routes through the learning path so the adaptive curve is taught;
+        // the plain setBrightness above stays silent for idle-dim/programmatic.
+        m_displayManager->setBrightnessFromUser(static_cast<double>(clamped) / 100.0);
+    }
+    setBrightnessValue(clamped);
+    emit userBrightnessChanged(clamped);
+}
+
 void SystemControlStore::setVolume(int value) {
     int clamped = std::clamp(value, 0, 100);
     if (m_audioManager) {

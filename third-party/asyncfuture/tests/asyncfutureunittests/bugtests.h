@@ -1,0 +1,42 @@
+#ifndef BUGTESTS_H
+#define BUGTESTS_H
+
+#include <QObject>
+
+class BugTests : public QObject
+{
+    Q_OBJECT
+public:
+    explicit BugTests(QObject *parent = nullptr);
+
+private slots:
+    void test_nested_context();
+
+    void test_nested_subscribe_in_thread();
+    void test_nested_context_in_thread();
+
+    void test_issue4();
+
+    void test_canceled_before_finished();
+
+    void test_finished_and_cancel_in_other_thread();
+
+    void test_combiner_handle_nested_progress();
+    void test_combiner_combiner_handle_nested_progress();
+    void test_chained_obserable_progress();
+
+    void test_forward_canceled();
+    void test_issue4_cancel();
+    void test_combine_forward_cancel();
+
+    void test_chained_cancel();
+    void test_watch_deleted_zero_add_combined();
+    void test_watch_deleted_add_combined();
+
+    void test_qlist_issue23();
+    void test_qvector_issue23();
+
+    void test_qprocess_finished_vpicaver_issue4();
+};
+
+#endif // BUGTESTS_H

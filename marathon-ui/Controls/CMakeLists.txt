@@ -40,7 +40,7 @@ if(QMLLINT_AVAILABLE)
     )
 endif()
 
-install(TARGETS marathon-ui-controls
+install(TARGETS marathon-ui-controls marathon-ui-controlsplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Controls
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Controls
 )

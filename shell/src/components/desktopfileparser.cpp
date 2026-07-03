@@ -308,8 +308,8 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
 
 QString DesktopFileParser::cleanExecLine(const QString &exec) {
 
-    QString            cleaned = exec;
-    QRegularExpression re("%[fFuUdDnNickvm]");
+    QString                         cleaned = exec;
+    static const QRegularExpression re("%[fFuUdDnNickvm]");
     cleaned.remove(re);
     cleaned = cleaned.trimmed();
 

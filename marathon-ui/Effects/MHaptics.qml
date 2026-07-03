@@ -43,6 +43,9 @@ QtObject {
         if (backend && backend.enabled)
             backend.heavy();
     }
+    function heavyImpact() {
+        heavy();
+    }
 
     function selection() {
         light();
