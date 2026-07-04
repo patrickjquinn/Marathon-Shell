@@ -348,21 +348,29 @@ int main(int argc, char *argv[]) {
     // every running app. It must be the last thing the OOM killer
     // considers under memory pressure.
     //
-    // We write this ourselves rather than relying on a launch wrapper.
-    // Values below 0 require CAP_SYS_RESOURCE, granted via
-    //   setcap cap_sys_resource+ep /usr/bin/marathon-shell-bin
-    // in the marathon-shell APKBUILD. The systemd-run --user path
-    // can't do this (user@.service has no CAP_SYS_RESOURCE) and the
-    // systemd-run --system path requires greetd-as-root which breaks
-    // PAM. setcap is the surgical fix.
+    // We write this ourselves rather than relying on a launch wrapper —
+    // but only best-effort. Values below 0 require CAP_SYS_RESOURCE, and
+    // we DELIBERATELY do NOT grant it via file caps on this binary.
     //
-    // AT_SECURE concern: file caps make the binary AT_SECURE, which
-    // makes glibc drop "unsafe" env vars. DBUS_SESSION_BUS_ADDRESS is
-    // NOT in glibc's secure_getenv blocklist on aarch64 — verified
-    // against glibc 2.40 setjmp/secure_getenv.c — so DBus IPC keeps
-    // working without manual re-derivation. The defensive re-derive
-    // below is belt-and-braces in case a future glibc tightens the
-    // list.
+    // DO NOT `setcap cap_sys_resource`/`cap_sys_nice` on marathon-shell-bin.
+    // File caps make the process AT_SECURE=1, and both glibc and musl then
+    // route env lookups through secure_getenv(), which returns NULL for
+    // DBUS_SESSION_BUS_ADDRESS — QDBusConnection::sessionBus() never
+    // connects, org.marathonos.Shell never registers, and every shell↔app
+    // IPC path dies (pill back-swipe, notifications, WiFi/BT/brightness).
+    // Verified live on L5 2026-07-04: file caps present → shell OFF the
+    // session bus; `setcap -r` → session bus restored, back-swipe works.
+    // (An earlier comment here claimed aarch64 glibc kept
+    // DBUS_SESSION_BUS_ADDRESS through AT_SECURE — that was WRONG and
+    // caused the regression this replaces. The qputenv re-derive below is
+    // also insufficient against AT_SECURE: secure_getenv ignores the env
+    // regardless of qputenv. It only helps the no-caps respawn case.)
+    //
+    // The negative oom_score_adj is instead pinned by the system-level
+    // marathon-shell-oom.service sidecar (runs as root, finds the shell
+    // PID, writes -800) — keeping file caps OFF the binary. The best-effort
+    // self-write below still lands when the process already has the cap
+    // ambiently (e.g. a dev host run as root).
     {
         // Force DBUS_SESSION_BUS_ADDRESS via XDG_RUNTIME_DIR/bus regardless
         // of whether it's already in the env. On musl, file caps make us
@@ -395,9 +403,11 @@ int main(int argc, char *argv[]) {
             oomRead.close();
             if (score > 0) {
                 qWarning() << "[MarathonShell] oom_score_adj=" << score
-                           << "(expected -800). setcap cap_sys_resource missing"
-                              " on marathon-shell-bin? Under memory pressure"
-                              " the shell may be killed before its apps.";
+                           << "(expected -800). marathon-shell-oom.service"
+                              " sidecar not active yet? Under memory pressure"
+                              " the shell may be killed before its apps."
+                              " (Do NOT 'fix' with setcap — file caps break"
+                              " the D-Bus session bus.)";
             } else {
                 qInfo() << "[MarathonShell] oom_score_adj=" << score << "(PERSISTENT_PROC bias)";
             }

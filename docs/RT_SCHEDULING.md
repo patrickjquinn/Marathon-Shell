@@ -47,13 +47,26 @@ audio/modem priorities above the compositor.
 
 ### 1. Ensure `CAP_SYS_NICE` is granted
 
+> ⚠️ **NEVER `setcap` the shell binary on a real device / production image.**
+> File caps mark the process `AT_SECURE=1`, which makes glibc **and musl**
+> route env lookups through `secure_getenv()` — it returns NULL for
+> `DBUS_SESSION_BUS_ADDRESS`, so `QDBusConnection::sessionBus()` never
+> connects. The shell then fails to register `org.marathonos.Shell` and
+> every shell↔app IPC path silently dies (pill back-swipe → exits to home,
+> notifications, WiFi/BT/brightness readouts). Verified live on L5
+> 2026-07-04. On device, use **Option B** (pam_limits) for RT priority and
+> the `marathon-shell-oom.service` sidecar for oom_score_adj. Option A below
+> is for a **dev host only**, where you accept losing the session bus.
+
 Pick one of:
 
 ```bash
-# Option A -- capability on the binary (preferred for production images)
+# Option A -- capability on the binary (DEV HOST ONLY -- breaks the D-Bus
+#             session bus on a real device; see warning above).
 sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell-bin
 
-# Option B -- limits.conf for the user account (works for development too)
+# Option B -- limits.conf for the user account (REQUIRED on device; works
+#             for development too)
 sudo tee /etc/security/limits.d/99-marathon.conf <<'EOF'
 @marathon-users  -  rtprio  90
 @marathon-users  -  nice   -10
