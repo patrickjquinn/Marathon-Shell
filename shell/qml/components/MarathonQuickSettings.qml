@@ -2,19 +2,24 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
-// Marathon DS · Quick Settings panel (§08).
+// Marathon DS · Quick Settings panel (§7.5).
 //
 // Pulled down from the top edge. Glass overlay over the wallpaper.
-// Layout, top to bottom:
-//   • Header — Marathon lockup + date right
+// Layout, top to bottom (content-rich single shade):
+//   • Header — Sora Title3 time + Footnote date, left-anchored (live 1s tick)
 //   • Sliders block — brightness + volume (MQSSlider)
-//   • Tile grid — 2 cols × N rows of MQSTile (split-bay)
-//   • Page indicator — teal bar for active, dim circles for others
-//   • Music strip — MNowBar variant (only when something is playing)
-//   • Drag handle — 44 × 4 bar centred at bottom
+//   • Primary tile grid — 4 cols × 2 rows of MQSTile (the common toggles)
+//   • Now-playing strip — MNowBar (only when media/call active)
+//   • "More Controls" — 4 cols × 2 rows of the secondary toggles
+//   • Quick actions — Screenshot · Lock · Power (one-shot, not toggles)
+//   • Drag handle — 72 × 6 bar centred at bottom
+//
+// Notifications deliberately DO NOT live here — they belong to the Hub.
+// This shade is controls-only: toggles + contextual controls + actions.
 Item {
     id: quickSettings
 
@@ -25,6 +30,32 @@ Item {
 
     signal closed
     signal launchApp(var app)
+    // Emitted when the Power quick-action is tapped. Wired by
+    // MarathonShell.qml to showPowerMenu() — never a hard shutdown here.
+    signal powerRequested
+
+    // How far the shade is open, 0..1, derived from its own (animating,
+    // drag-driven) height against the content it needs to show. Drives the
+    // content reveal so the chrome MATERIALISES as the shade pulls down and
+    // fades back out as it's dragged closed — motion coupled to the gesture,
+    // not a canned one-shot. +140 keeps it ~1 before the last pixels arrive.
+    readonly property real openProgress: Math.min(1, height / Math.max(1, content.implicitHeight + 140))
+
+    // Cheap, blur-free contact shadow: a dark→transparent gradient cast just
+    // below a floating card. Reads as real ambient occlusion on OLED without
+    // a MultiEffect (per the DS perf rule — no per-frame Gaussian on etnaviv).
+    // Drop as a child of any card; it anchors under the card's bottom edge.
+    component QSContactShadow: Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.bottom
+        height: 12
+        z: -1
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.5) }
+            GradientStop { position: 1.0; color: "transparent" }
+        }
+    }
 
     // Backdrop: live blur of the running app (iOS-style glass-over-app)
     // when one is open, dark tint over the wallpaper otherwise.
@@ -42,38 +73,29 @@ Item {
         live: false
     }
 
-    // Opaque tint when no app is open behind the shade. 0.95 was already
-    // dark, but the home grid icons (App Store, Music, etc.) still bled
-    // through enough to make the shade feel like a translucent veil
-    // instead of a real surface. Marathon DS calls for the QS shade to
-    // read as a discrete panel — bump to elev1 fully opaque + a soft
-    // hairline at the very bottom so the panel has a clear terminus.
+    // Opaque panel fill when no app is open behind the shade — the shade
+    // must read as a discrete surface, not a translucent veil over the
+    // home grid. elev1 + the bottom hairline give it a clear terminus.
     Rectangle {
         anchors.fill: parent
         visible: quickSettings.appBackdrop === null
-        color: MColors.elev1
+        // elev0, not elev1 — pushing the panel a full two steps below the
+        // elev2/elev3 cards is what lets them read as layered surfaces
+        // rather than same-plane outlines. Depth here is tonal, not cast.
+        color: MColors.elev0
     }
 
     // Tap anywhere outside the tiles/sliders → dismiss. TapHandler composes
     // with the MouseAreas inside MQSTile / MQSSlider — a tap that lands on
-    // a tile is claimed by the tile first; a tap on the dim area below the
-    // last tile reaches this handler. Without it, touches fall through to
-    // whatever's behind quickSettings (the home grid) and partially light
-    // up app icons under the dim overlay.
+    // a control is claimed by it first; a tap on the dim area reaches here.
     TapHandler {
         gesturePolicy: TapHandler.ReleaseWithinBounds
         onTapped: quickSettings.closed()
     }
 
     // Drag inside the shade for "follow-finger then snap" close. Grabs
-    // the shade chrome (NOT tiles/sliders — those steal input via their
-    // own MouseAreas) and shrinks UIStore.quickSettingsHeight per-frame
-    // as the finger moves up. On release, snap-back if drag < threshold
-    // or snap-closed if fling/distance exceeds threshold.
-    //
-    // This is what makes the shade FEEL like a panel you can grab and
-    // collapse rather than a static overlay that dismisses by magic.
-    // Matches iOS Control Center + Android 16 shade behaviour.
+    // the shade chrome (NOT tiles/sliders) and shrinks quickSettingsHeight
+    // per-frame as the finger moves up; snaps open/closed on release.
     DragHandler {
         id: dismissDrag
         target: null
@@ -91,7 +113,6 @@ Item {
                 const dy = centroid.position.y - startY;
                 const vy = centroid.velocity.y;
                 // Fling up OR more than a third of the shade swept up → close.
-                // Otherwise spring back to fully open.
                 if (vy < -800 || -dy > startHeight * 0.33)
                     UIStore.closeQuickSettings();
                 else
@@ -102,110 +123,54 @@ Item {
             if (!active)
                 return;
             const dy = centroid.position.y - startY;
-            // Rubber-band on the dragged-PAST-open direction (dy > 0,
-            // i.e. user pulling DOWN past the fully-open shade). iOS
-            // formula: extra = travel - (travel / (extra * c / dim + 1))
-            // where c≈0.55 and dim is the dimension we're resisting
-            // against. We pick startHeight as the dim so the resistance
-            // scales with the shade's open size.
-            //
-            // Within the legitimate range (dy ≤ 0, shrinking up to
-            // fully-closed) we still hard-clamp at 0 — you can't make
-            // the shade shorter than collapsed.
             if (dy >= 0) {
-                // pull-down past open → rubber-band resistance
+                // pull-down past open → iOS rubber-band resistance
                 const c = 0.55;
                 const dim = Math.max(1, startHeight);
-                const extra = dy;
-                const resisted = dim - dim / (extra * c / dim + 1);
+                const resisted = dim - dim / (dy * c / dim + 1);
                 UIStore.quickSettingsHeight = startHeight + resisted;
             } else {
-                // pull-up shrinking toward 0 → linear (no resistance on
-                // the natural close direction)
+                // pull-up shrinking toward 0 → linear (natural close)
                 UIStore.quickSettingsHeight = Math.max(0, startHeight + dy);
             }
         }
     }
 
-    // Tile state. Wired to SystemControlStore / SystemStatusStore.
-    // Helper: descriptive sublabels per JSX QuickSettings — show meaningful
-    // state when on (SSID, "5G · 87%", profile name), simple "Off" otherwise.
-    function mobileDataSub() {
-        if (!SystemControlStore.isCellularDataOn)
-            return "Off";
-        const tech = ModemManagerCpp.networkType || "";
-        const signal = ModemManagerCpp.signalStrength;
-        const op = ModemManagerCpp.operatorName;
-        if (tech && signal > 0)
-            return tech + " · " + signal + "%";
-        if (op)
-            return op;
-        return "On";
-    }
+    // ── Primary toggles (the everyday four-plus-four) ────────
     readonly property var tiles: [
-        {
-            id: "wifi",
-            icon: "wifi",
-            label: "Wi-Fi",
-            on: SystemControlStore.isWifiOn,
-            sub: SystemControlStore.isWifiOn ? (SystemStatusStore.wifiNetwork || "") : ""
-        },
-        {
-            id: "bluetooth",
-            icon: "bluetooth",
-            label: "Bluetooth",
-            on: SystemControlStore.isBluetoothOn,
-            sub: ""
-        },
-        {
-            id: "cellular",
-            icon: "cell-signal-high",
-            label: "Mobile",
-            on: SystemControlStore.isCellularDataOn,
-            sub: ""
-        },
-        {
-            id: "airplane",
-            icon: "plane",
-            label: "Flight",
-            on: SystemControlStore.isAirplaneModeOn,
-            sub: ""
-        },
-        {
-            id: "dnd",
-            icon: "bell-slash",
-            label: "DND",
-            on: SystemControlStore.isDndMode,
-            sub: ""
-        },
-        {
-            id: "torch",
-            icon: "flashlight",
-            label: "Torch",
-            on: SystemControlStore.isFlashlightOn,
-            sub: ""
-        },
-        {
-            id: "autobrightness",
-            icon: "sun-medium",
-            label: "Auto",
-            on: SystemControlStore.isAutoBrightnessOn,
-            sub: ""
-        },
-        {
-            id: "settings",
-            icon: "settings",
-            label: "Settings",
-            on: false,
-            sub: ""
-        }
+        { id: "wifi",           icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn },
+        { id: "bluetooth",      icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
+        { id: "cellular",       icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn },
+        { id: "airplane",       icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
+        { id: "dnd",            icon: "bell-slash",       label: "DND",       on: SystemControlStore.isDndMode },
+        { id: "torch",          icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn },
+        { id: "autobrightness", icon: "sun",              label: "Auto",      on: SystemControlStore.isAutoBrightnessOn },
+        { id: "settings",       icon: "gear",             label: "Settings",  on: false }
     ]
 
-    // ── Bottom edge boundary ─────────────────────────────────
-    // The shade had no visible terminus — it just faded into the home
-    // grid via the dim Rectangle. iOS Control Center / Android 16 both
-    // anchor the bottom of the shade with a soft hairline + 1 px shadow
-    // line that reads as "the panel ends HERE."
+    // ── Secondary contextual controls (beyond the toggles) ───
+    readonly property var expandedTiles: [
+        { id: "rotation",  icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked },
+        { id: "nightlight",icon: "moon",          label: "Night",    on: SystemControlStore.isNightLightOn },
+        { id: "location",  icon: "map-pin",       label: "Location", on: SystemControlStore.isLocationOn },
+        { id: "hotspot",   icon: "broadcast",     label: "Hotspot",  on: SystemControlStore.isHotspotOn },
+        { id: "lowpower",  icon: "battery-low",   label: "Saver",    on: SystemControlStore.isLowPowerMode },
+        { id: "vibration", icon: "vibrate",       label: "Vibrate",  on: SystemControlStore.isVibrationOn }
+    ]
+
+    // ── One-shot actions (distinct from toggles) ─────────────
+    readonly property var actions: [
+        { id: "screenshot", icon: "camera", label: "Screenshot" },
+        { id: "lock",       icon: "lock",   label: "Lock" },
+        { id: "power",      icon: "power",  label: "Power" }
+    ]
+
+    // QS tile height. Taller than MQSTile's 84px default so the centred
+    // icon+label sits with generous breathing room top and bottom rather
+    // than crowding the tile's top edge.
+    readonly property int tileCellHeight: 96
+
+    // ── Bottom edge terminus — soft hairline + shadow line ───
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
@@ -227,26 +192,34 @@ Item {
     Column {
         id: content
 
-        anchors.fill: parent
-        anchors.leftMargin: MSpacing.lg     // 20 px — matches DS panel inset
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: MSpacing.lg
         anchors.rightMargin: MSpacing.lg
-        anchors.topMargin: MSpacing.md      // 14 px under the status bar
-        spacing: MSpacing.md                // 14 px section rhythm
+        anchors.topMargin: MSpacing.lg
+        spacing: MSpacing.md
 
-        // ── Header — Sora Title3 time + Sora Footnote date, left-anchored.
-        // The right-aligned 12 px Footnote was dust. iOS centers a big
-        // date/time block as the shade's anchor; Android puts the date
-        // top-left + battery top-right. Marathon left-anchors the stack
-        // at Title3 so the panel has a clear focal point at top.
+        // Gesture-coupled reveal: fade + a small settle-up as the shade
+        // opens; both collapse to a no-op under reduceMotion. Anchored to
+        // the top and clip:true on the shade, so translating down just
+        // exposes panel above — never overlaps the status bar.
+        opacity: MMotion.reduceMotion ? 1 : Math.min(1, quickSettings.openProgress * 1.35)
+        transform: Translate {
+            y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * 16
+        }
+
+        // ── Header — live time + date, left-anchored ─────────
         Item {
             id: header
             width: parent.width
-            height: 44
+            height: 52
 
             property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
             property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
+            // 1s tick so the shade clock never lags the status bar clock.
             Timer {
-                interval: 30000
+                interval: 1000
                 running: quickSettings.visible
                 repeat: true
                 triggeredOnStart: true
@@ -259,16 +232,14 @@ Item {
             Column {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
+                spacing: 4
                 Text {
                     text: header.timeText
                     color: MColors.textPrimary
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeTitle3
                     font.weight: MTypography.weightDemiBold
-                    font.features: ({
-                            "tnum": 1
-                        })
+                    font.features: ({ "tnum": 1 })
                 }
                 Text {
                     text: header.dateText
@@ -280,20 +251,23 @@ Item {
             }
         }
 
-        // ── Sliders ──────────────────────────────────────────
-        // World-class slider card: elev-2 fill, whiteOverlay08 border
-        // (was 04 — invisible against the dark backdrop), 8 px radius,
-        // 18 px vertical padding so the fatter 8 px tracks + 26 px thumb
-        // halo breathe.
+        // ── Sliders — brightness + volume ────────────────────
         Rectangle {
             width: parent.width
-            height: slidersInner.height + 36       // 18 top + 18 bottom padding
+            height: slidersInner.height + 36
             radius: MRadius.md
-            color: MColors.elev2
+            // Lit-from-above: elev3 top → elev2 bottom. A flat fill on an
+            // OLED reads as a hole; the vertical ramp is what gives the card
+            // a face that catches light and a base that recedes.
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: MColors.elev3 }
+                GradientStop { position: 1.0; color: MColors.elev2 }
+            }
             border.width: 1
             border.color: MColors.whiteOverlay16
 
-            // Inner top-only hairline for sub-pixel chrome on glass.
+            QSContactShadow {}
+
             MTopHairline {
                 radius: parent.radius
                 color: MColors.whiteOverlay16
@@ -315,9 +289,7 @@ Item {
                     width: parent.width
                     iconName: "sun"
                     value: SystemControlStore.brightness
-                    onMoved: function (v) {
-                        SystemControlStore.setBrightnessFromUser(v);
-                    }
+                    onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
                 Rectangle {
                     width: parent.width
@@ -327,19 +299,14 @@ Item {
                 MQSSlider {
                     id: volume
                     width: parent.width
-                    iconName: "volume-2"
+                    iconName: "speaker-high"
                     value: SystemControlStore.volume
-                    onMoved: function (v) {
-                        SystemControlStore.setVolume(v);
-                    }
+                    onMoved: v => SystemControlStore.setVolume(v)
                 }
             }
         }
 
-        // ── Tile grid (4 cols × 2 rows) ──────────────────────
-        // BB10-modern density: compact square tiles, icon top-centered,
-        // label below. 4×2 fits 8 actions without scrolling — the spec
-        // pages above 8 to a second grid (not implemented yet; reserved).
+        // ── Primary tile grid (4 × 2) ────────────────────────
         Grid {
             id: tileGrid
             width: parent.width
@@ -351,9 +318,9 @@ Item {
             Repeater {
                 model: quickSettings.tiles
                 delegate: MQSTile {
-                    required property int index
                     required property var modelData
                     width: tileGrid.cellWidth
+                    height: quickSettings.tileCellHeight
                     iconName: modelData.icon || "square"
                     label: modelData.label || ""
                     on: modelData.on === true
@@ -362,54 +329,143 @@ Item {
             }
         }
 
-        // ── Page indicator ──────────────────────────────────
-        // 28 × 6 tealBright pill for the active page + 8 × 8 dim dots
-        // for the rest. Previous 18 × 4 was below the system-wide
-        // "minimum legible" threshold on a 720 px panel — it read as a
-        // typo, not a control.
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: MSpacing.sm
+        // ── Now-playing strip — always present ────────────────
+        // When media is live it shows the track; when idle it stays as a
+        // "tap to open Music" affordance rather than collapsing to a void.
+        // The whole strip taps through to Music either way. Wrapped so it
+        // carries a contact shadow and sits at a card-weight 56px height
+        // (the bare 36px NowBar read as loose text jammed between grids).
+        Item {
+            width: parent.width
+            // 76, not 56: at scaleFactor 1.79 the two eyebrow lines are
+            // ~54px of line-box; 56 left ~1px and the text kissed the
+            // container edges. 76 gives ~11px breathing top and bottom and
+            // lands the strip at the same card weight as the action chips.
+            height: 76
 
-            readonly property int pages: 1   // bump when tile pages > 1
+            QSContactShadow {}
 
-            Rectangle {
-                width: 28
-                height: 6
-                radius: MRadius.sm
-                color: MColors.marathonTealBright
-                anchors.verticalCenter: parent.verticalCenter
+            MNowBar {
+                anchors.fill: parent
+                variant: "music"
+                iconName: "music-note"
+                label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
+                sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
+                playing: MPRIS2Controller.isPlaying
+                onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
             }
+        }
+
+        // ── Section label ────────────────────────────────────
+        // The group break lives in the label's own topPadding, not a
+        // separate spacer Item. A spacer in a Column is bracketed by the
+        // Column's spacing on BOTH sides (md + spacer + md ≈ 67px at 1.79×
+        // — far too airy); topPadding adds to the single leading gap for a
+        // controlled section break (~47px) that reads as "new group."
+        Text {
+            text: "MORE CONTROLS"
+            topPadding: MSpacing.sm
+            color: MColors.textSecondary
+            font.family: MTypography.fontFamily
+            font.pixelSize: MTypography.sizeFootnote
+            font.weight: MTypography.weightDemiBold
+            font.letterSpacing: 1.2
+        }
+
+        // ── Secondary contextual toggles (4 × 2) ─────────────
+        Grid {
+            id: expandedGrid
+            width: parent.width
+            columns: 4
+            rowSpacing: 10
+            columnSpacing: 10
+            readonly property real cellWidth: (width - columnSpacing * 3) / 4
+
             Repeater {
-                model: Math.max(0, parent.pages - 1)
-                delegate: Rectangle {
-                    required property int index
-                    width: 8
-                    height: 8
-                    radius: 4
-                    color: MColors.whiteOverlay24
-                    anchors.verticalCenter: parent.verticalCenter
+                model: quickSettings.expandedTiles
+                delegate: MQSTile {
+                    required property var modelData
+                    width: expandedGrid.cellWidth
+                    height: quickSettings.tileCellHeight
+                    iconName: modelData.icon || "square"
+                    label: modelData.label || ""
+                    on: modelData.on === true
+                    onToggled: quickSettings.toggle(modelData.id)
                 }
             }
         }
 
-        // ── Now-playing strip (visible when something playing) ──
-        MNowBar {
+        // ── Quick actions row (one-shot) ─────────────────────
+        // No extra break here — the wide chips are already visually distinct
+        // from the toggle grid, so the standard rhythm reads cleanly.
+        Row {
             width: parent.width
-            visible: MPRIS2Controller.isPlaying
-            variant: "music"
-            iconName: "music"
-            label: MPRIS2Controller.trackTitle || ""
-            sublabel: MPRIS2Controller.trackArtist || ""
-            playing: MPRIS2Controller.isPlaying
+            spacing: 10
+
+            Repeater {
+                model: quickSettings.actions
+                delegate: Rectangle {
+                    id: actionChip
+                    required property var modelData
+                    width: (parent.width - 20) / 3
+                    height: 76
+                    radius: MRadius.md
+                    // Same lit-from-above gradient as the slider card so the
+                    // action chips read as raised keys, not flat swatches.
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: MColors.elev3 }
+                        GradientStop { position: 1.0; color: MColors.elev2 }
+                    }
+                    border.width: 1
+                    border.color: MColors.whiteOverlay16
+                    scale: chipTap.pressed ? 0.96 : 1.0
+
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: MMotion.reduceMotion ? MMotion.micro : MMotion.fast
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+
+                    MTopHairline {
+                        radius: parent.radius
+                        color: MColors.whiteOverlay08
+                        lineWidth: 1
+                    }
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: actionChip.modelData.icon
+                            size: 24
+                            color: MColors.textPrimary
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: actionChip.modelData.label
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeCaption
+                            font.weight: MTypography.weightMedium
+                        }
+                    }
+
+                    MouseArea {
+                        id: chipTap
+                        anchors.fill: parent
+                        onClicked: {
+                            MHaptics.light();
+                            quickSettings.doAction(actionChip.modelData.id);
+                        }
+                    }
+                }
+            }
         }
     }
 
     // ── Drag handle ─────────────────────────────────────────
-    // Visible pill at the bottom of the shade. iOS Control Center pill
-    // is 60×5 white@70%, Android 16 is 32×4 white@40% — we land between
-    // (closer to iOS) so the handle reads as a definitive "grab here"
-    // affordance against the elev-1 panel.
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
@@ -424,33 +480,40 @@ Item {
     // ── Behaviour hooks ─────────────────────────────────────
     function toggle(id) {
         switch (id) {
-        case "wifi":
-            SystemControlStore.toggleWifi();
-            break;
-        case "bluetooth":
-            SystemControlStore.toggleBluetooth();
-            break;
-        case "cellular":
-            SystemControlStore.toggleCellularData();
-            break;
-        case "airplane":
-            SystemControlStore.toggleAirplaneMode();
-            break;
-        case "dnd":
-            SystemControlStore.toggleDndMode();
-            break;
-        case "torch":
-            SystemControlStore.toggleFlashlight();
-            break;
-        case "autobrightness":
-            SystemControlStore.toggleAutoBrightness();
-            break;
+        case "wifi":           SystemControlStore.toggleWifi(); break;
+        case "bluetooth":      SystemControlStore.toggleBluetooth(); break;
+        case "cellular":       SystemControlStore.toggleCellularData(); break;
+        case "airplane":       SystemControlStore.toggleAirplaneMode(); break;
+        case "dnd":            SystemControlStore.toggleDndMode(); break;
+        case "torch":          SystemControlStore.toggleFlashlight(); break;
+        case "autobrightness": SystemControlStore.toggleAutoBrightness(); break;
+        case "rotation":       SystemControlStore.toggleRotationLock(); break;
+        case "nightlight":     SystemControlStore.toggleNightLight(); break;
+        case "location":       SystemControlStore.toggleLocation(); break;
+        case "hotspot":        SystemControlStore.toggleHotspot(); break;
+        case "lowpower":       SystemControlStore.toggleLowPowerMode(); break;
+        case "vibration":      SystemControlStore.toggleVibration(); break;
         case "settings":
             quickSettings.closed();
-            quickSettings.launchApp({
-                "appId": "settings",
-                "name": "Settings"
-            });
+            quickSettings.launchApp({ "appId": "settings", "name": "Settings" });
+            break;
+        }
+    }
+
+    function doAction(id) {
+        switch (id) {
+        case "screenshot":
+            // Dismiss first so the shade isn't in the capture.
+            quickSettings.closed();
+            SystemControlStore.captureScreenshot();
+            break;
+        case "lock":
+            quickSettings.closed();
+            SystemControlStore.sleep();
+            break;
+        case "power":
+            quickSettings.closed();
+            quickSettings.powerRequested();
             break;
         }
     }

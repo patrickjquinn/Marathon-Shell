@@ -1518,12 +1518,16 @@ Item {
         onLaunchApp: app => {
             AppLaunchService.launchApp(app, compositor, appWindow);
         }
+        onPowerRequested: shell.showPowerMenu()
 
+        // reduceMotion collapses to an instant snap; otherwise a tokenized
+        // panel-duration decelerate. (Velocity handoff from the drag is a
+        // follow-up — see QS motion audit.)
         Behavior on height {
             enabled: !UIStore.quickSettingsDragging
 
             NumberAnimation {
-                duration: Constants.animationSlow
+                duration: MMotion.reduceMotion ? MMotion.micro : Constants.animationSlow
                 easing.type: Easing.OutCubic
             }
         }
