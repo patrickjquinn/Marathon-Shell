@@ -507,6 +507,14 @@ class NavigationObject : public QObject, protected QDBusContext {
     bool Navigate(const QString &uri);
     bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
 
+    // Quick Settings shade control (marathon CLI `qs` verb). Lets a dev host
+    // pull the shade over D-Bus, since top-edge touch injection never reaches
+    // the shell's statusBarDragArea. No caller auth — the shade exposes only
+    // system toggles the lock screen already gates, same rationale as LaunchApp.
+    bool ShowQuickSettings();
+    bool HideQuickSettings();
+    bool ToggleQuickSettings();
+
   signals:
     void AppLaunched(const QString &appId);
     void NavigationFailed(const QString &uri, const QString &error);

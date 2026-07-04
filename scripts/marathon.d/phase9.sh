@@ -118,7 +118,7 @@ _marathon() {
     local cur prev verbs
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    verbs="status deploy reset wake unlock snap logs apps launch sh push pull
+    verbs="status deploy reset wake unlock snap logs apps launch qs sh push pull
            tap swipe power doze freq irqs wakeups cgroup monitor
            modem wifi gov scheduler fuel-gauge backlight
            app device all compare
@@ -127,6 +127,7 @@ _marathon() {
            doctor quickstart docs completions --help --device --host"
     case "$prev" in
         launch) COMPREPLY=( $(compgen -W "phone messages mail browser store music camera gallery maps calendar clock calculator notes settings" -- "$cur") ); return ;;
+        qs) COMPREPLY=( $(compgen -W "show hide toggle" -- "$cur") ); return ;;
         --device|-d) COMPREPLY=( $(compgen -W "l5 cm5 qemu" -- "$cur") ); return ;;
         app) COMPREPLY=( $(compgen -W "new run package validate install watch registry permissions" -- "$cur") ); return ;;
         device) COMPREPLY=( $(compgen -W "list current use add probe" -- "$cur") ); return ;;

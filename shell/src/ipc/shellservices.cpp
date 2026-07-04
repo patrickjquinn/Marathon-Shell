@@ -1696,6 +1696,30 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
     return ok;
 }
 
+// Quick Settings shade control. No caller auth (see slot declaration): the
+// shade surfaces only system toggles the lock screen already gates, and
+// MarathonShell.qml refuses to open it while locked. mode: 0 hide, 1 show,
+// 2 toggle -- routed through AppLaunchService::quickSettingsRequested so the
+// lock guard + UIStore call stay in one place, in QML.
+bool NavigationObject::ShowQuickSettings() {
+    qInfo() << "[NavigationObject] ShowQuickSettings requested by"
+            << (callerAppIdOrEmpty().isEmpty() ? QStringLiteral("<external>") : callerAppIdOrEmpty());
+    m_launchService->requestQuickSettings(1);
+    return true;
+}
+
+bool NavigationObject::HideQuickSettings() {
+    qInfo() << "[NavigationObject] HideQuickSettings requested";
+    m_launchService->requestQuickSettings(0);
+    return true;
+}
+
+bool NavigationObject::ToggleQuickSettings() {
+    qInfo() << "[NavigationObject] ToggleQuickSettings requested";
+    m_launchService->requestQuickSettings(2);
+    return true;
+}
+
 HapticObject::HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent)
     : QObject(parent)
     , m_haptic(haptic)
