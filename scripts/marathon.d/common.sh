@@ -223,6 +223,7 @@ DAILY-DRIVERS (Phase 1)
   logs [-f] [GREP]      tail shell log
   apps                  running app-runners + their cgroup state
   launch APPID          unlock + navigate + tap the app icon
+  qs [show|hide|toggle] drive Quick Settings shade over D-Bus (default show)
   sh '<cmd>'            run any command on device over the muxed conn
                         (also reads a script from stdin / heredoc)
   push <local> <remote> / pull <remote> <local>   scp over the mux

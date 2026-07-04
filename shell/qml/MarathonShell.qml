@@ -865,6 +865,25 @@ Item {
         target: PowerBatteryHandler
     }
 
+    Connections {
+        // marathon CLI `qs` verb → NavigationObject (D-Bus) → AppLaunchService.
+        // Lets a dev host drive the shade over IPC; top-edge touch injection
+        // never reaches statusBarDragArea. mode: 0 hide, 1 show, 2 toggle.
+        // Refuse show/toggle while locked — mirrors the shade's own gate.
+        function onQuickSettingsRequested(mode) {
+            if (mode === 0)
+                UIStore.closeQuickSettings();
+            else if (SessionStore.isLocked)
+                Logger.info("Shell", "qs request ignored — device is locked");
+            else if (mode === 2)
+                UIStore.toggleQuickSettings();
+            else
+                UIStore.openQuickSettings();
+        }
+
+        target: AppLaunchService
+    }
+
     Comp.ShellInitialization {
         id: shellInitialization
     }

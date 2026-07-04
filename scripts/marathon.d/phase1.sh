@@ -356,6 +356,31 @@ _marathon_icon_coord() {
     esac
 }
 
+# marathon qs [show|hide|toggle] — drive the Quick Settings shade over D-Bus.
+# Top-edge touch injection never reaches the shell's statusBarDragArea, so the
+# shade is otherwise undriveable from the host. Calls the shell's NavigationObject
+# on the user session bus (org.marathonos.Shell.Navigation1). Default: show.
+cmd_qs() {
+    local action="${1:-show}"
+    local method
+    case "$action" in
+        show)   method="ShowQuickSettings" ;;
+        hide)   method="HideQuickSettings" ;;
+        toggle) method="ToggleQuickSettings" ;;
+        *) marathon::error "usage: marathon qs [show|hide|toggle]"; return 2 ;;
+    esac
+    marathon::info "qs $action → $method"
+    local out
+    out="$(marathon::ssh "su - user -c 'export XDG_RUNTIME_DIR=/run/user/1000; export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus; busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation org.marathonos.Shell.Navigation1 $method' 2>&1")"
+    # NavigationObject returns a bool; busctl prints 'b true' on success.
+    if printf '%s' "$out" | grep -q 'b true'; then
+        marathon::success "quick settings: $action"
+    else
+        marathon::error "qs $action failed: ${out:-<no reply>}"
+        return 1
+    fi
+}
+
 cmd_launch() {
     local app="${1:-}"
     [ -z "$app" ] && { marathon::error "usage: marathon launch <appId>"; return 2; }

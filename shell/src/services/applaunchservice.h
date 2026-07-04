@@ -64,6 +64,15 @@ class AppLaunchService : public QObject {
     Q_INVOKABLE bool isAppLaunching(const QString &appId) const;
     Q_INVOKABLE bool cancelLaunch(const QString &appId);
 
+    // Request the shell's Quick Settings shade to open/close/toggle.
+    // Called from the D-Bus NavigationObject (marathon CLI `qs` verb) so a
+    // dev host can drive the shade over IPC — top-edge touch injection does
+    // not reach the shell's statusBarDragArea. mode: 0 hide, 1 show, 2 toggle.
+    // Emits quickSettingsRequested; MarathonShell.qml applies the lock guard
+    // and calls UIStore. Kept as a signal (not a direct UIStore call) so the
+    // shade's own !isLocked gate lives in one place, in QML.
+    void requestQuickSettings(int mode) { emit quickSettingsRequested(mode); }
+
   signals:
     void compositorChanged();
     void appWindowChanged();
@@ -77,6 +86,9 @@ class AppLaunchService : public QObject {
     // Tracked app-runner exited. Subscribers receive the appId directly
     // so they don't have to translate PID → appId on their own.
     void appExited(const QString &appId);
+
+    // Quick Settings shade requested over IPC. mode: 0 hide, 1 show, 2 toggle.
+    void quickSettingsRequested(int mode);
 
   private:
     struct PendingLaunch {
