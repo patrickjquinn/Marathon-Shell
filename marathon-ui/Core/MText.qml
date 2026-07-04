@@ -28,11 +28,24 @@ Text {
     property bool tnum: false
 
     color: MColors.textPrimary
+
+    // Value-gated mirror of the weight. Binding font.family directly to
+    // root.font.weight was a binding loop: font.family and font.weight are
+    // both sub-properties of the `font` value-type group, so *writing*
+    // font.family re-fired the whole group's change signal, re-evaluating
+    // the family binding, re-writing font.family... Qt detects and breaks
+    // it, but it logs a warning on every MText instance. Routing through a
+    // plain int makes the family binding depend on the weight *value*: when
+    // the group re-notifies but the weight is unchanged, this int doesn't
+    // emit changed(), so the family binding doesn't re-run. Callsites still
+    // set font.weight as before — the public contract is unchanged.
+    readonly property int _weightForFamily: font.weight
+
     // Per-cut family — see MTypography for the rationale. Without this
     // every callsite that asks for ExtraLight / Light / Thin Sora got
     // the OS/2 default Regular cut due to Qt 6.11 variable-font axis
     // handling. fontFamilyForWeight selects the matching static face.
-    font.family: MTypography.fontFamilyForWeight(root.font.weight)
+    font.family: MTypography.fontFamilyForWeight(root._weightForFamily)
     font.pixelSize: MTypography.sizeBody
     font.hintingPreference: Font.PreferNoHinting
     font.kerning: true
