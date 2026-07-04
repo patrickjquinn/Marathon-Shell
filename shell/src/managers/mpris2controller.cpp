@@ -69,7 +69,20 @@ void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &ol
     } else {
         qDebug() << "[MPRIS2Controller] New media player detected:" << name;
     }
-    scanForPlayers();
+
+    // Defer the rescan to a fresh event-loop turn. scanForPlayers() ->
+    // connectToPlayer() constructs a QDBusInterface, whose ctor makes a
+    // BLOCKING introspection call on the session bus. Running that
+    // reentrantly from inside this NameOwnerChanged dispatch fails
+    // (QDBusInterface::isValid() comes back false) and the player is
+    // dropped with no retry -- so a player that registers while the shell
+    // is already running is seen but never adopted, and the NowBar stays
+    // "Nothing playing". Only players present at startup were picked up,
+    // because that scan runs from the ctor (not reentrant). The queued
+    // singleShot(0) breaks the reentrancy: the scan runs after this
+    // dispatch unwinds, when a blocking introspection call is safe.
+    // (Removal needs no introspection, so it worked either way.)
+    QTimer::singleShot(0, this, &MPRIS2Controller::scanForPlayers);
 }
 
 void MPRIS2Controller::scanForPlayers() {
