@@ -42,7 +42,54 @@ Rectangle {
     radius: MRadius.md
     color: on ? MColors.marathonTealBright : MColors.elev2
     border.width: 1
-    border.color: on ? MColors.tealBorder : MColors.whiteOverlay08
+    // Off-state border lifted to whiteOverlay16 so each tile reads as a
+    // raised key against the elev0 panel rather than a faint outline.
+    border.color: on ? MColors.tealBorder : MColors.whiteOverlay16
+
+    // Active-tile teal glow — a blur-free halo that bleeds ~8px past the
+    // tile so an on-toggle reads as lit against the dark panel. Peak teal
+    // sits at the tile edge and fades to nothing outward; strongest along
+    // the sides (vertical ramp). No MultiEffect — a real Gaussian glow
+    // would tank the grid on etnaviv. Declared first so it sits behind.
+    Rectangle {
+        visible: tile.on
+        anchors.fill: parent
+        anchors.margins: -8
+        radius: parent.radius + 8
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 0.14; color: Qt.rgba(0, 191 / 255, 165 / 255, 0.32) }
+            GradientStop { position: 0.86; color: Qt.rgba(0, 191 / 255, 165 / 255, 0.32) }
+            GradientStop { position: 1.0; color: "transparent" }
+        }
+    }
+
+    // On-state lit dome — the teal fill ramps bright at the top to a deeper
+    // teal at the base, so an active tile reads as a lit key with a face and
+    // a shadowed base rather than a flat swatch. This (not the outer halo)
+    // is what gives the on-state real presence. Icon/label paint on top.
+    Rectangle {
+        visible: tile.on
+        anchors.fill: parent
+        radius: parent.radius
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: MColors.marathonTealBright }
+            GradientStop { position: 1.0; color: MColors.marathonTeal }
+        }
+    }
+
+    // Off-state top sheen — a faint white ramp fading out by mid-height.
+    // With the inner hairline below it, the tile catches light along its
+    // top edge (glass lit from above) instead of sitting dead-flat.
+    Rectangle {
+        anchors.fill: parent
+        radius: parent.radius
+        visible: !tile.on
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: MColors.whiteOverlay08 }
+            GradientStop { position: 0.5; color: "transparent" }
+        }
+    }
 
     // Sub-pixel inner top hairline — gives the tile physical presence on
     // glass. Tealified when on, plain whiteOverlay when off.
