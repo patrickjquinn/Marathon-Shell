@@ -29,6 +29,20 @@ import MarathonUI.Theme
 //   tap-driven page push, where "responds to velocity" is meaningless
 //   and "blocks input for 5 s" is unacceptable.
 //
+// WHAT MAKES IT FEEL PHYSICAL (the tuning, learned the hard way):
+//   A spring released with energy does NOT decelerate from max speed with a
+//   long floaty tail — that's what a pure easeOut (e.g. easeOutQuint) gives,
+//   and it reads as "mechanical / not physics based." A real damped spring
+//   arrives fast and SETTLES with a small overshoot — that settle is the
+//   signature the eye reads as "alive."
+//
+//   So the ARRIVING page (pushEnter / popEnter) uses OutBack with a SMALL,
+//   deliberately-tuned overshoot (`settleOvershoot`) — it slides to its
+//   target, kisses ~1.5% past, and settles. The LEAVING page stays a clean
+//   monotonic decel (no overshoot on the page you're covering up). Duration
+//   is bounded and short so StackView.busy — which gates input on the new
+//   page — clears the instant the motion ends (no 4-5s spring tail).
+//
 // DESIGN NOTES (do not "restore" these — each fixed a real regression):
 //   • NO opacity crossfade. Pages stay fully OPAQUE. A fade made both
 //     pages translucent mid-slide so you saw one bleeding through the
@@ -36,15 +50,18 @@ import MarathonUI.Theme
 //   • NO scale ladder. The predictive-back scale (exit→0.90) shrank the
 //     outgoing page and opened gaps around it ("jacked up"). The scale
 //     ladder is for the back GESTURE, not a tap push. Slide + parallax.
-//   • Silky decelerate curve ([0.22, 1, 0.36, 1], easeOutQuint) — fast
-//     departure, long smooth settle. Reads as momentum without a bounce
-//     that, on a full-width slide, would fling the page past its edge.
+//   • Overshoot is SMALL (~1.5% of travel) and ONLY on the arriving page.
+//     A large position overshoot on a full-width slide flings the page
+//     past its edge and reveals a gap — keep `settleOvershoot` low.
+//   • A true velocity-handoff spring (MVelocitySpring) belongs in the
+//     INTERACTIVE back-swipe GESTURE, where the finger's release velocity
+//     drives the settle and there's no StackView.busy gate — not here.
 //
 // Drop-in: replace `StackView { ... }` with `MStackView { ... }`.
 //
-//   Push enter:  x  travel → 0                incoming slides in, opaque
+//   Push enter:  x  travel → 0                incoming slides in + settles
 //   Push exit:   x  0 → -travel * parallax    outgoing lags by parallax
-//   Pop enter:   x  -travel * parallax → 0     outgoing returns
+//   Pop enter:   x  -travel * parallax → 0     outgoing returns + settles
 //   Pop exit:    x  0 → travel                 top page slides back out
 StackView {
     id: stack
@@ -60,12 +77,18 @@ StackView {
     // iOS uses ~25-30%; we land on MMotion.pageParallaxOffset.
     property real parallax: MMotion.pageParallaxOffset
 
-    // Bounded so StackView.busy — which gates input on the new page —
-    // clears the instant the slide ends. Tuned for a decisive drill-in.
-    readonly property int navDuration: MMotion.reduceMotion ? MMotion.micro : 280
-    // easeOutQuint — silky, momentum-flavoured deceleration, no overshoot
-    // (overshoot on a full-width slide flings the page past the edge).
-    readonly property var navCurve: [0.22, 1, 0.36, 1]
+    // Bounded so StackView.busy clears with the motion. Snappier than the
+    // old 280ms — the overshoot settle, not the duration, carries the feel.
+    readonly property int navDuration: MMotion.reduceMotion ? MMotion.micro : 235
+
+    // OutBack overshoot amplitude for the ARRIVING page. ~0.26 → the page
+    // kisses ~1.5% (~11px @ 720) past target then settles — the spring
+    // signature, small enough that the trailing-edge gap is sub-perceptual.
+    // reduceMotion kills it entirely (0 = plain decel, no bounce).
+    readonly property real settleOvershoot: MMotion.reduceMotion ? 0 : 0.26
+
+    // Clean decelerate for the LEAVING page (never overshoot what you cover).
+    readonly property var exitCurve: [0.3, 0.9, 0.25, 1]
 
     pushEnter: Transition {
         NumberAnimation {
@@ -73,8 +96,8 @@ StackView {
             from: stack.travel
             to: 0
             duration: stack.navDuration
-            easing.type: Easing.Bezier
-            easing.bezierCurve: stack.navCurve
+            easing.type: Easing.OutBack
+            easing.overshoot: stack.settleOvershoot
         }
     }
 
@@ -85,7 +108,7 @@ StackView {
             to: -stack.travel * stack.parallax
             duration: stack.navDuration
             easing.type: Easing.Bezier
-            easing.bezierCurve: stack.navCurve
+            easing.bezierCurve: stack.exitCurve
         }
     }
 
@@ -95,8 +118,8 @@ StackView {
             from: -stack.travel * stack.parallax
             to: 0
             duration: stack.navDuration
-            easing.type: Easing.Bezier
-            easing.bezierCurve: stack.navCurve
+            easing.type: Easing.OutBack
+            easing.overshoot: stack.settleOvershoot
         }
     }
 
@@ -107,7 +130,7 @@ StackView {
             to: stack.travel
             duration: stack.navDuration
             easing.type: Easing.Bezier
-            easing.bezierCurve: stack.navCurve
+            easing.bezierCurve: stack.exitCurve
         }
     }
 }
