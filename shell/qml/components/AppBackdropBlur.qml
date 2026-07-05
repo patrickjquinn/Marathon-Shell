@@ -19,6 +19,14 @@ Item {
     // pass null (or a wallpaper item) otherwise.
     property Item source
 
+    // Region of `source` to capture, in the source item's coordinates. Default
+    // Qt.rect(0,0,0,0) = the whole source (ShaderEffectSource's "empty = all"
+    // rule). Set this to a rect the SAME SIZE as this blur item to avoid the
+    // source being squashed into a different aspect — e.g. sampling a
+    // full-screen wallpaper into a shorter shade compresses it into a smeared,
+    // misaligned cast. A 1:1 slice keeps the frost uniform and aligned.
+    property rect sourceRect: Qt.rect(0, 0, 0, 0)
+
     property real blurAmount: 1.0
     // Cap default at 24. The Qt docs document blurMax ≤ 32 as the Snapdragon
     // ceiling; the L5's etnaviv GC7000Lite is materially weaker, and the
@@ -42,6 +50,7 @@ Item {
 
         anchors.fill: parent
         sourceItem: root.source
+        sourceRect: root.sourceRect
         live: root.live && root.visible && root.source !== null
         hideSource: false
         recursive: false

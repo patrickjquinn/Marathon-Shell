@@ -28,6 +28,11 @@ QtObject {
     readonly property color marathonTealBright: "#1de9b6"
     readonly property color marathonTealGlow: "#5dffdc"
 
+    // Very dark teal — the resting face of an ACTIVE glowing key (QS tile,
+    // toggle) that carries its state via a teal radial glow rather than a
+    // flat teal fill. Reads as "lit dark glass", not a solid swatch.
+    readonly property color tealTintDark: "#0a1613"
+
     // 35% / 55% teal at 18% halo — used on focus rings, primary glow.
     readonly property color tealBorder: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
     readonly property color tealBorderHover: Qt.rgba(0, 191 / 255, 165 / 255, 0.55)
