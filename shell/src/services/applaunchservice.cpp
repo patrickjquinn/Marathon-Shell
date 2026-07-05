@@ -750,18 +750,19 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MESA_GLES_VERSION_OVERRIDE", QStringLiteral("2.0"));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
         env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
-        // Force Mesa to use etnaviv directly instead of auto-probing
-        // Zink first. Hard-set, not qEnvironmentVariable: greetd
-        // currently exports MESA_LOADER_DRIVER_OVERRIDE=kmsro for the
-        // shell, which is the legacy split-display winsys layer name.
-        // Mesa 25.x removed `kmsro` as a standalone gallium driver
-        // (etnaviv pulls in renderonly internally) — passing kmsro to
-        // the runner gets it "Failed to create context" because no such
-        // driver is loadable. The shell's env is wrong but not worth
-        // fighting upstream; for the runner we want the renderer name.
-        env.insert("MESA_LOADER_DRIVER_OVERRIDE", QStringLiteral("etnaviv"));
-        env.insert("GBM_BACKEND", QStringLiteral("etnaviv"));
-        env.insert("GALLIUM_DRIVER", QStringLiteral("etnaviv"));
+        // Do NOT force MESA_LOADER_DRIVER_OVERRIDE / GALLIUM_DRIVER /
+        // GBM_BACKEND to "etnaviv". On this render node the Mesa loader
+        // front-end is kmsro (etnaviv is render-only behind it); pinning
+        // the loader straight to etnaviv makes eglInitialize fail to
+        // create the DRI2 screen -> EGL_NOT_INITIALIZED -> QRhiGles2
+        // "Failed to create context" -> SceneGraphError -> the runner
+        // aborts (SIGABRT). This is the same failure the native-app path
+        // below documents and avoids by leaving the override UNSET. The
+        // bwrap cage binds only renderD128 (see --dev-bind-try below), so
+        // Mesa auto-selects kmsro->etnaviv on its own, and wl_drm names
+        // the device explicitly — exactly what the native apps do. The
+        // greetd-inherited kmsro override is cleared per-app by the
+        // `--unsetenv MESA_LOADER_DRIVER_OVERRIDE` in the bwrap args.
         // Tell wayland-egl clients which DRM render node to allocate on,
         // in lieu of Qt Wayland Compositor advertising linux-dmabuf-v1 v4
         // feedback (Qt 6.11 docs still title the attribution page
@@ -1039,15 +1040,15 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << qEnvironmentVariable("QT_OPENGL", "es2");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
                       << QStringLiteral("1");
-            // Mirror the etnaviv / render-node hints from the un-sandboxed
-            // env block above into the bwrap sandbox so spawned WebEngine
-            // apps land on the right driver path.
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
-                      << QStringLiteral("etnaviv");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GBM_BACKEND")
-                      << QStringLiteral("etnaviv");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GALLIUM_DRIVER")
-                      << QStringLiteral("etnaviv");
+            // Deliberately do NOT --setenv MESA_LOADER_DRIVER_OVERRIDE /
+            // GBM_BACKEND / GALLIUM_DRIVER to etnaviv here. Forcing the
+            // loader to etnaviv makes eglInitialize fail the DRI2 screen
+            // (EGL_NOT_INITIALIZED) and QRhiGles2 abort — see the
+            // un-sandboxed block above and the native-app note by the
+            // `--unsetenv MESA_LOADER_DRIVER_OVERRIDE` arg. The cage binds
+            // only renderD128, so Mesa auto-selects kmsro->etnaviv and
+            // wl_drm names the device; WebEngine apps now come up on the
+            // same working path as native QML apps.
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WLR_RENDER_DRM_DEVICE")
                       << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", "/dev/dri/renderD128");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("EGL_PLATFORM")
