@@ -100,6 +100,15 @@ MApp {
                         revealHold.restart();
                 }
             }
+            // Restore path: the surface can already be live (revealReady true)
+            // BEFORE this Connections is wired, so onRevealReadyChanged fires
+            // into the void and the splash never lifts — the #497 black-on-
+            // first-restore. The edge-triggered handler above can't catch a
+            // transition that already happened; level-check it once at creation.
+            Component.onCompleted: {
+                if (nativeAppWindow.revealReady && !splashScreen._revealed)
+                    revealHold.restart();
+            }
 
             Column {
                 anchors.centerIn: parent
