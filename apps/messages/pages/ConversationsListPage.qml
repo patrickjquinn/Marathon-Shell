@@ -85,28 +85,12 @@ Page {
         anchors.fill: parent
         spacing: 0
 
-        // ── Header — MTopBar with search + compose actions ───────
+        // ── Header — MTopBar with compose action ─────────────────
         MTopBar {
             id: topBar
             width: parent.width
             title: "Messages"
             actions: [
-                Icon {
-                    name: "search"
-                    size: 22
-                    color: MColors.textSecondary
-
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -10
-                        onClicked: {
-                            HapticService.light();
-                            // Search UI to be implemented as a slide-in row;
-                            // tap is a no-op for now so the header chrome
-                            // stays visually accurate.
-                        }
-                    }
-                },
                 // Compose squircle. Uses Math.round(X * Constants.scaleFactor)
                 // per Marathon convention (MSectionHeader / MActionBar / MComboBox);
                 // raw 32 dp rendered at ~32 device px on the L5 (scaleFactor 1.79)

@@ -427,34 +427,6 @@ MApp {
                 }
             }
 
-            // HDR pill — placeholder state until cameraController exposes
-            // an HDR toggle. Shows the JSX chrome unconditionally.
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                width: hdrText.implicitWidth + 28
-                height: 32
-                radius: 4
-                color: Qt.rgba(0, 0, 0, 0.55)
-                border.width: 1
-                border.color: MColors.whiteOverlay08
-
-                Text {
-                    id: hdrText
-                    anchors.centerIn: parent
-                    text: "HDR · ON"
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeFootnote
-                    font.weight: Font.DemiBold
-                    font.letterSpacing: 1
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: HapticService.light()
-                }
-            }
-
             Rectangle {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter

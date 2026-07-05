@@ -108,7 +108,7 @@ Page {
             topPadding: 24
             bottomPadding: 24
 
-            // ── Title + search ─────────────────────────────────────
+            // ── Title ──────────────────────────────────────────────
             // DS Title 1 — 34/200 with -0.8 tracking.
             Item {
                 width: parent.width - 48
@@ -123,14 +123,6 @@ Page {
                     font.letterSpacing: MTypography.trackingTitle1
                     font.family: MTypography.fontFamily
                     anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-
-                Icon {
-                    name: "search"
-                    size: 22
-                    color: MColors.textSecondary
-                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -349,16 +341,6 @@ Page {
                     toggleValue: SettingsManagerCpp.showNotificationBadges
                     onToggleChanged: value => {
                         SettingsManagerCpp.showNotificationBadges = value;
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Show Frequent Apps"
-                    iconName: "trending-up"
-                    showToggle: true
-                    toggleValue: SettingsManagerCpp.showFrequentApps
-                    onToggleChanged: value => {
-                        SettingsManagerCpp.showFrequentApps = value;
                     }
                 }
             }

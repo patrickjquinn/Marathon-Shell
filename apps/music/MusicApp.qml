@@ -194,18 +194,10 @@ MApp {
                         anchors.topMargin: Constants.safeAreaTop + 8
                         spacing: 14
 
-                        // ── Eyebrow row — chevron + PLAYING FROM + more ──
+                        // ── Eyebrow row — PLAYING FROM ──
                         Item {
                             width: parent.width
                             height: 40
-
-                            Icon {
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "chevron-down"
-                                size: 22
-                                color: MColors.textSecondary
-                            }
 
                             Column {
                                 anchors.centerIn: parent
@@ -227,14 +219,6 @@ MApp {
                                     font.pixelSize: MTypography.sizeSubhead
                                     font.weight: Font.Medium
                                 }
-                            }
-
-                            Icon {
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "ellipsis-vertical"
-                                size: 22
-                                color: MColors.textSecondary
                             }
                         }
 
@@ -379,11 +363,11 @@ MApp {
                         }
                     }
 
-                    // ── Transport row — shuffle · prev · play · next · heart ──
+                    // ── Transport row — shuffle · prev · play · next ──
                     // Anchored to bottom of the parent Rectangle so the
                     // controls hug the nav bar instead of stacking under
                     // the scrubber (used to leave ~500 px of dead space
-                    // between the heart button and the bottom tab bar).
+                    // between the transport row and the bottom tab bar).
                     Row {
                         id: nowPlayingTransport
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -559,26 +543,6 @@ MApp {
                                 ColorAnimation {
                                     duration: MMotion.micro
                                 }
-                            }
-                        }
-
-                        // Heart — accent icon, no bay. JSX puts heart
-                        // here in place of repeat; repeat stays
-                        // available via a long-press of the scrubber
-                        // (TBD).
-                        Item {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 32
-                            Icon {
-                                anchors.centerIn: parent
-                                name: currentTrack && currentTrack.favorited ? "heart" : "heart"
-                                size: 20
-                                color: (currentTrack && currentTrack.favorited) ? MColors.marathonTealBright : MColors.textTertiary
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: HapticService.light()
                             }
                         }
                     }
