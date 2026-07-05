@@ -68,6 +68,22 @@ void SessionStore::lock() {
 }
 
 void SessionStore::unlock() {
+    // Cancel any in-flight LOCK before doing anything else. A lock scheduled
+    // moments ago (auto-lock, power-key) sits in m_lockTimer with
+    // m_targetLocked == true and fires ~300 ms later. If unlock() short-
+    // circuits below (already unlocking, or isLocked not yet asserted) without
+    // stopping it, that stale timer flips isLocked back to true *after* we've
+    // hidden the lock screen — leaving the home screen visible but the session
+    // logically locked. That state silently gates off the Quick Settings shade
+    // and system gestures (`visible: !SessionStore.isLocked && …`), and is the
+    // root cause of the intermittent "home shows but QS won't open" bug: it
+    // only triggers when unlock lands inside the lock-settling window.
+    if (m_lockTimer.isActive() && m_targetLocked) {
+        m_lockTimer.stop();
+        setIsAnimatingLock(false);
+        setLockTransition(QString());
+    }
+
     if (m_isAnimatingLock && m_lockTransition == "unlocking") {
         setShowLockScreen(false);
         setIsOnLockScreen(false);
