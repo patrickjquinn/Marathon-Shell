@@ -757,6 +757,12 @@ int main(int argc, char *argv[]) {
     auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
         ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
         hapticManager, &app);
+    // Key-DOWN stamps the hold-start so the release handler can tell a long
+    // press (power menu) from a short press (screen toggle). Without this the
+    // raw /dev/input release ran the screen-off action even for the release
+    // that ends a long press, blanking the screen the moment the menu appeared.
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, powerBatteryHandler,
+                     [powerBatteryHandler]() { powerBatteryHandler->notePowerButtonDown(); });
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
                      [powerBatteryHandler, displayPolicyController]() {
                          const bool screenOn =
