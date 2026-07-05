@@ -145,9 +145,15 @@ Item {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
                 Logger.info("LockScreen", "New notification: " + notification.title);
-                if (!DisplayPolicyControllerCpp.screenOn)
-                    DisplayPolicyControllerCpp.turnScreenOn();
-                resetIdleTimer();
+                // Under Do Not Disturb, never light the screen for a
+                // notification — waking the display is the single most
+                // disruptive thing DND is supposed to prevent. Still refresh
+                // the list quietly so it's there when the user wakes it.
+                if (!NotificationService.isDndEnabled) {
+                    if (!DisplayPolicyControllerCpp.screenOn)
+                        DisplayPolicyControllerCpp.turnScreenOn();
+                    resetIdleTimer();
+                }
                 lockScreen.refreshNotifications();
             }
         }

@@ -181,6 +181,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     bool                    m_isCharging;
     bool                    m_isPluggedIn;
     bool                    m_isPowerSaveMode;
+    // Pre-saver settings captured on entry so exit restores them exactly.
+    int                     m_preSaverIdleTimeout = 0;
+    QString                 m_preSaverProfile;
     int                     m_estimatedBatteryTime;
     bool                    m_hasUPower;
     bool                    m_hasLogind;

@@ -889,6 +889,7 @@ Item {
     }
 
     Image {
+        id: wallpaperImage
         anchors.fill: parent
         source: WallpaperStore.path
         fillMode: Image.PreserveAspectCrop
@@ -1512,6 +1513,9 @@ Item {
         z: Constants.zIndexQuickSettings
         clip: true
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
+        // Frosted-glass source for the home case (no app behind the shade) —
+        // the shade blurs the wallpaper instead of dropping an opaque slab.
+        homeBackdrop: wallpaperImage
         onClosed: {
             UIStore.closeQuickSettings();
         }
@@ -1785,6 +1789,12 @@ Item {
 
         Connections {
             function onNotificationReceived(notification) {
+                // Do Not Disturb suppresses the auto-popup banner (audio +
+                // haptic are already muted at emit time in the C++ service).
+                // Without this gate DND still flashed a toast for every
+                // notification, so the toggle only half-worked.
+                if (NotificationService.isDndEnabled)
+                    return;
                 notificationToast.showToast(notification);
             }
 
@@ -2129,6 +2139,28 @@ Item {
             Logger.info("Shell", "Tap outside keyboard - dismissing and forwarding tap");
             virtualKeyboard.active = false;
             mouse.accepted = false;
+        }
+    }
+
+    // ── Night Light warm-tint overlay ─────────────────────────────
+    // Marathon's shell IS the compositor, so one top-most tint item warms
+    // every app surface + chrome uniformly — the scene-graph equivalent of a
+    // CRTC gamma ramp (which Qt's compositor exposes no protocol for). Bound
+    // to the real DisplayManager night-light state via SystemControlStore.
+    // No MouseArea → never intercepts input. This is what makes the Night
+    // tile actually do something on screen.
+    Rectangle {
+        id: nightLightOverlay
+        anchors.fill: parent
+        z: 900000
+        color: Qt.rgba(1.0, 0.52, 0.12, 1.0)
+        opacity: SystemControlStore.isNightLightOn ? 0.22 : 0.0
+        visible: opacity > 0.0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 400
+                easing.type: Easing.OutCubic
+            }
         }
     }
 

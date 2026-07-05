@@ -48,11 +48,20 @@ class HapticManager : public QObject {
 
   private:
     bool    detectVibrator();
+    bool    detectEvdevRumble();   // Librem 5 pwm-vibrator: evdev FF_RUMBLE
     void    writeVibrator(int value);
+    void    playEvdevRumble(int durationMs);
+    void    stopEvdevRumble();
 
     bool    m_available;
     bool    m_enabled;
     QString m_vibratorPath;
+
+    // evdev force-feedback path (used when the vibrator is an input FF device,
+    // e.g. the L5's pwm-vibrator, rather than a sysfs LED/timed_output node).
+    bool    m_useEvdevFf = false;
+    int     m_ffFd       = -1;
+    int     m_ffEffectId = -1;
 };
 
 #endif

@@ -11,7 +11,42 @@
 #include <QDBusArgument>
 #include <QRandomGenerator>
 #include <QUuid>
+#include <QDir>
+#include <QFile>
 #include <algorithm>
+
+namespace {
+// Soft-block (block=true) or unblock every kernel rfkill switch whose `type`
+// is in `types`. Direct /sys/class/rfkill writes — Alpine's util-linux
+// `rfkill` CLI SIGABRTs on some rows, and the sysfs API is stable and
+// write-permitted. Returns the number of switches touched.
+int setRfkillSoftByTypes(const QStringList &types, bool block) {
+    QDir dir(QStringLiteral("/sys/class/rfkill"));
+    if (!dir.exists())
+        return 0;
+    int              touched = 0;
+    const QByteArray val     = block ? QByteArrayLiteral("1\n") : QByteArrayLiteral("0\n");
+    const QStringList entries =
+        dir.entryList(QStringList{QStringLiteral("rfkill*")}, QDir::Dirs);
+    for (const QString &entry : entries) {
+        const QString base = dir.absoluteFilePath(entry);
+        QFile         typeFile(base + QStringLiteral("/type"));
+        if (!typeFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QString readType = QString::fromUtf8(typeFile.readAll()).trimmed();
+        typeFile.close();
+        if (!types.contains(readType))
+            continue;
+        QFile softFile(base + QStringLiteral("/soft"));
+        if (!softFile.open(QIODevice::WriteOnly | QIODevice::Text))
+            continue;
+        if (softFile.write(val) > 0)
+            ++touched;
+        softFile.close();
+    }
+    return touched;
+}
+} // namespace
 
 NetworkManagerCpp *NetworkManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new NetworkManagerCpp(engine);
@@ -226,9 +261,13 @@ void NetworkManagerCpp::queryWifiState() {
     if (!m_hasNetworkManager)
         return;
 
-    QDBusReply<uint> wifiState = m_nmInterface->call("GetWifiEnabled");
-    if (wifiState.isValid()) {
-        bool enabled = wifiState.value() != 0;
+    // Wi-Fi enablement is a read/write PROPERTY (WirelessEnabled) on
+    // org.freedesktop.NetworkManager — there is NO "GetWifiEnabled" method,
+    // so the old call() always returned invalid and the tile state never
+    // synced with the real radio. property() reads it via Properties.Get.
+    const QVariant v = m_nmInterface->property("WirelessEnabled");
+    if (v.isValid()) {
+        const bool enabled = v.toBool();
         if (m_wifiEnabled != enabled) {
             m_wifiEnabled = enabled;
             emit wifiEnabledChanged();
@@ -397,9 +436,12 @@ void NetworkManagerCpp::enableWifi() {
     qDebug() << "[NetworkManagerCpp] Enabling WiFi";
 
     if (m_hasNetworkManager) {
-        QDBusReply<void> reply = m_nmInterface->call("Enable", true);
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to enable WiFi:" << reply.error().message();
+        // Write the WirelessEnabled PROPERTY (wlan-only soft switch that maps
+        // to the wlan rfkill), NOT the global Enable() method — Enable(false)
+        // sleeps ALL of NetworkManager (cellular data + ethernet included),
+        // so the old code made the Wi-Fi tile tear down the whole stack.
+        if (!m_nmInterface->setProperty("WirelessEnabled", true)) {
+            qDebug() << "[NetworkManagerCpp] Failed to enable WiFi (WirelessEnabled set failed)";
             emit networkError("Failed to enable WiFi");
             return;
         }
@@ -413,9 +455,8 @@ void NetworkManagerCpp::disableWifi() {
     qDebug() << "[NetworkManagerCpp] Disabling WiFi";
 
     if (m_hasNetworkManager) {
-        QDBusReply<void> reply = m_nmInterface->call("Enable", false);
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to disable WiFi:" << reply.error().message();
+        if (!m_nmInterface->setProperty("WirelessEnabled", false)) {
+            qDebug() << "[NetworkManagerCpp] Failed to disable WiFi (WirelessEnabled set failed)";
             emit networkError("Failed to disable WiFi");
             return;
         }
@@ -754,19 +795,24 @@ void NetworkManagerCpp::toggleBluetooth() {
 void NetworkManagerCpp::setAirplaneMode(bool enabled) {
     qDebug() << "[NetworkManagerCpp] Setting Airplane Mode to:" << enabled;
 
+    // Airplane mode must kill ALL radios. Drive the kernel rfkill soft
+    // switches for wlan + wwan (cellular) + bluetooth directly; on exit
+    // unblock them so the radios can come back. The old path only flipped the
+    // Wi-Fi device Autoconnect flag and left the modem and Bluetooth fully
+    // live — which is why it read as fake.
+    static const QStringList kRadioTypes{QStringLiteral("wlan"), QStringLiteral("wwan"),
+                                         QStringLiteral("bluetooth")};
+    const int touched = setRfkillSoftByTypes(kRadioTypes, enabled);
+    qDebug() << "[NetworkManagerCpp] Airplane rfkill switches touched:" << touched;
+
+    // Keep NM's WirelessEnabled in agreement so the Wi-Fi tile reflects it,
+    // and re-enable Wi-Fi when leaving airplane mode.
     if (m_hasNetworkManager) {
-
-        if (!m_wifiDevicePath.isEmpty()) {
-            QDBusInterface wifiDevice("org.freedesktop.NetworkManager", m_wifiDevicePath,
-                                      "org.freedesktop.DBus.Properties",
-                                      QDBusConnection::systemBus());
-            wifiDevice.call("Set", "org.freedesktop.NetworkManager.Device", "Autoconnect",
-                            QVariant::fromValue(QDBusVariant(!enabled)));
-        }
-
-        if (enabled) {
-            disableWifi();
-        }
+        m_nmInterface->setProperty("WirelessEnabled", !enabled);
+    }
+    if (m_wifiEnabled == enabled) {
+        m_wifiEnabled = !enabled;
+        emit wifiEnabledChanged();
     }
 
     m_airplaneModeEnabled = enabled;
@@ -784,9 +830,13 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
         return;
     }
 
-    QMap<QString, QMap<QString, QVariant>> connectionSettings;
+    // Use the registered NMConnectionSettings typedef so QtDBus marshals this
+    // as a{sa{sv}} (what AddAndActivateConnection requires). The old code
+    // rebuilt it into a QVariantMap of QVariants → a{sv}, which NM rejected
+    // with InvalidArgs, so the hotspot was never actually created.
+    NMConnectionSettings    connectionSettings;
 
-    QMap<QString, QVariant>                connection;
+    QMap<QString, QVariant> connection;
     connection["type"]               = "802-11-wireless";
     connection["uuid"]               = QUuid::createUuid().toString().remove('{').remove('}');
     connection["id"]                 = ssid + " Hotspot";
@@ -820,12 +870,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
         "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager", "AddAndActivateConnection");
 
-    QVariantMap dbusSettings;
-    for (auto it = connectionSettings.begin(); it != connectionSettings.end(); ++it) {
-        dbusSettings[it.key()] = QVariant::fromValue(it.value());
-    }
-
-    msg << QVariant::fromValue(dbusSettings);
+    msg << QVariant::fromValue(connectionSettings);
     msg << QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
     msg << QVariant::fromValue(QDBusObjectPath("/"));
 
