@@ -24,6 +24,7 @@ class SecurityContextManagerV1;
 class FifoManagerV1;
 class CommitTimingManagerV1;
 class LinuxDmabufManagerV1;
+class WlDrmManager;
 
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
@@ -122,6 +123,7 @@ class WaylandCompositor : public QWaylandCompositor {
     FifoManagerV1                          *m_fifoManager              = nullptr;
     CommitTimingManagerV1                  *m_commitTimingManager      = nullptr;
     LinuxDmabufManagerV1                   *m_linuxDmabufManager       = nullptr;
+    WlDrmManager                           *m_wlDrmManager             = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;

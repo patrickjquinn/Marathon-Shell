@@ -2,6 +2,7 @@
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
 #include "src/wayland/linuxdmabufv1.h"
+#include "src/wayland/wldrm.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/textinputv3.h"
 #include <QDebug>
@@ -149,6 +150,14 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // import. See linuxdmabufv1.h for the scope honesty and the
     // hypothesis the spike is testing.
     m_linuxDmabufManager = new LinuxDmabufManagerV1(this);
+
+    // wl_drm — device discovery for Mesa's wayland-egl clients (apps). Qt's
+    // v3 dmabuf carries no render-device identity and the v4 feedback global
+    // above is gated off (it breaks Qt buffer import), so on Mesa 26.1.1 app
+    // clients can't find the etnaviv render node and drop to llvmpipe. wl_drm
+    // names /dev/dri/renderD128 + advertises PRIME so Mesa renders on etnaviv
+    // while buffers still import through Qt's v3 dmabuf. See wldrm.h.
+    m_wlDrmManager = new WlDrmManager(this);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
