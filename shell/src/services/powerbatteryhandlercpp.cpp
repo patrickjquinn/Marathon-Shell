@@ -17,9 +17,32 @@ PowerBatteryHandlerCpp::PowerBatteryHandlerCpp(PowerPolicyController   *powerPol
     , m_displayManager(displayManager)
     , m_haptics(haptics) {}
 
+void PowerBatteryHandlerCpp::notePowerButtonDown() {
+    // Stamp the raw key-DOWN. PowerKeyListener delivers this for every
+    // physical press regardless of focus, so it's the reliable hold-start.
+    m_pressDownMs = QDateTime::currentMSecsSinceEpoch();
+}
+
 void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool screenOnHint) {
     if (!m_powerPolicy)
         return;
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+
+    // LONG-PRESS SUPPRESSION. If this key-UP ends a hold >= kLongPressMs, the
+    // gesture belongs to the power menu (QML powerButtonTimer already fired
+    // and showed it). Toggling the screen here is what blanked the display
+    // the instant the menu appeared: the QML Keys.onReleased path correctly
+    // no-ops after a long press, but PowerKeyListener's raw /dev/input reader
+    // fires an UP with no dedupe partner and used to run the screen-off action
+    // alone. Consume it. Stamp m_lastPressMs so the twin event source (if the
+    // shell had focus too) is also absorbed by the dedupe below.
+    if (m_pressDownMs > 0 && (nowMs - m_pressDownMs) >= kLongPressMs) {
+        m_pressDownMs = 0;
+        m_lastPressMs = nowMs;
+        return;
+    }
+    m_pressDownMs = 0;
 
     // A single physical power press fans out to TWO handlers — QML
     // Keys.onReleased (when the shell has focus) and PowerKeyListener
@@ -32,12 +55,11 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
     // on" bug (and its mirror, "won't wake"). An 800ms window covers the
     // transition with margin under load while staying well under any
     // intentional double-press of the power button.
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (now - m_lastPressMs < 800) {
+    if (nowMs - m_lastPressMs < 800) {
         // Second event source firing for the same physical press. Ignore.
         return;
     }
-    m_lastPressMs = now;
+    m_lastPressMs = nowMs;
 
     const bool screenOn = m_displayPolicy ? m_displayPolicy->screenOn() : screenOnHint;
     const auto action   = m_powerPolicy->powerButtonAction(screenOn, sessionLocked);
