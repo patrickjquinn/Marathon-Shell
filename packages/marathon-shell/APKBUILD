@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=300
+pkgrel=302
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -323,12 +323,22 @@ package() {
 	install -Dm644 "$srcdir/marathon-shell-tmpfiles.conf" \
 		"$pkgdir/usr/lib/tmpfiles.d/marathon-shell.conf"
 
-	# Qt6 auto-generates invalid plugin refs for pure-QML modules
-	for qmldir in "$pkgdir"/usr/lib/qt6/qml/MarathonUI/*/qmldir; do
-		if [ -f "$qmldir" ]; then
-			sed -i '/^linktarget /d; /^optional plugin /d; /^prefer /d' "$qmldir"
-		fi
-	done
+	# MarathonUI ships qmlcachegen bytecode inside each submodule's pure-QML
+	# plugin .so; the generated qmldir carries `prefer :/qt/qml/MarathonUI/<Mod>/`
+	# to redirect Qt to that compiled copy instead of parsing the loose .qml at
+	# every process start. Stripping those lines (the old default) forced Qt to
+	# recompile all 9 submodules from source on every app launch -- the primary
+	# cause of the ~10s cold-start. Production keeps them so the bytecode is used.
+	# The pure-QML plugin loads via the identical mechanism the per-app plugins
+	# already use successfully. Set MARATHON_STRIP_QML_PREFER=1 only for the dev
+	# hot-deploy loop, where loose-.qml override on-device needs `prefer` gone.
+	if [ "${MARATHON_STRIP_QML_PREFER:-0}" = "1" ]; then
+		for qmldir in "$pkgdir"/usr/lib/qt6/qml/MarathonUI/*/qmldir; do
+			if [ -f "$qmldir" ]; then
+				sed -i '/^linktarget /d; /^optional plugin /d; /^prefer /d' "$qmldir"
+			fi
+		done
+	fi
 
 }
 
