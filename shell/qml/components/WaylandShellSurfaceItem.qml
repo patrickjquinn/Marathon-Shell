@@ -187,6 +187,20 @@ ShellSurfaceItem {
         if (!isMinimized)
             Qt.callLater(_assertPrimary);
     }
+    // A restored / just-thawed idle client won't commit a fresh buffer until a
+    // frame callback fires. The single nudge in _assertPrimary can race ahead
+    // of the cgroup thaw, leaving the foreground view with no current buffer =
+    // black void. Re-nudge briefly until the surface actually has content. The
+    // binding stops the instant it paints (hasFirstFrame); a genuinely dead
+    // client is still caught by MarathonAppWindow's 20 s launch watchdog.
+    Timer {
+        id: contentNudge
+        interval: 150
+        repeat: true
+        running: !surfaceItem.isPreview && !surfaceItem.isMinimized && surfaceItem.surfaceId !== -1
+                 && surfaceItem.shellSurface && !surfaceItem.hasFirstFrame
+        onTriggered: surfaceItem._nudge()
+    }
     // Deferred one tick: preview items get isMinimized set just after creation.
     onSurfaceIdChanged: Qt.callLater(_nudgePreview)
     Component.onCompleted: Qt.callLater(_nudgePreview)
