@@ -89,9 +89,13 @@ MApp {
         case "÷":
             result = value !== 0 ? currentValue / value : 0;
             break;
+        case "mod":
+            result = value !== 0 ? currentValue % value : 0;
+            break;
         }
         lastExpression = fmt(currentValue) + " " + currentOperator + " " + fmt(value);
         lastResult = "= " + fmt(result);
+        lastAnswer = result;
         // Push to history. Reassigning the array (not .push) is what makes
         // QML's binding system notice — in-place mutation doesn't trigger
         // historyChanged.
@@ -116,6 +120,70 @@ MApp {
         currentValue = 0;
         currentOperator = "";
         newNumber = true;
+    }
+
+    // Last computed result, kept as a real number (not the formatted
+    // lastResult text) so the "ans" key round-trips exactly.
+    property real lastAnswer: 0
+
+    function factorial(n) {
+        if (n < 0 || Math.floor(n) !== n || n > 170)
+            return NaN;              // negative/non-integer undefined; >170! overflows a double
+        let f = 1;
+        for (let i = 2; i <= n; i++)
+            f *= i;
+        return f;
+    }
+
+    // Immediate-execution scientific ops: operate on the current display value
+    // and replace it with the result. Trig is in DEGREES (the friendlier phone
+    // default). These chips were previously dead — they only fired a haptic.
+    function applyScientific(name) {
+        const x = parseFloat(display);
+        let r = x;
+        let expr = "";
+        switch (name) {
+        case "sqrt":    r = Math.sqrt(x);                expr = "√(" + fmt(x) + ")"; break;
+        case "sq":      r = x * x;                       expr = fmt(x) + "²"; break;
+        case "sin":     r = Math.sin(x * Math.PI / 180); expr = "sin(" + fmt(x) + "°)"; break;
+        case "cos":     r = Math.cos(x * Math.PI / 180); expr = "cos(" + fmt(x) + "°)"; break;
+        case "tan":     r = Math.tan(x * Math.PI / 180); expr = "tan(" + fmt(x) + "°)"; break;
+        case "log":     r = Math.log(x) / Math.LN10;     expr = "log(" + fmt(x) + ")"; break;
+        case "ln":      r = Math.log(x);                 expr = "ln(" + fmt(x) + ")"; break;
+        case "fact":    r = factorial(x);                expr = fmt(x) + "!"; break;
+        case "percent": r = x / 100;                     expr = fmt(x) + "%"; break;
+        default: return;
+        }
+        lastExpression = expr;
+        lastResult = "= " + fmt(r);
+        lastAnswer = r;
+        display = String(r);
+        newNumber = true;
+    }
+
+    function insertConstant(v) {
+        display = String(v);
+        newNumber = true;
+    }
+
+    function recallAnswer() {
+        display = String(lastAnswer);
+        newNumber = true;
+    }
+
+    // Backspace — deletes the last entered character. Replaces the old "( )"
+    // key, which can never work in an immediate-execution calculator (no
+    // expression parser) and so was a dead key.
+    function backspace() {
+        if (newNumber)
+            return;
+        const negativeSingle = display.length === 2 && display.charAt(0) === "-";
+        if (display.length <= 1 || negativeSingle) {
+            display = "0";
+            newNumber = true;
+        } else {
+            display = display.slice(0, -1);
+        }
     }
 
     appId: "calculator"
@@ -389,10 +457,24 @@ MApp {
                 MouseArea {
                     id: chipArea
                     anchors.fill: parent
-                    onClicked: HapticService.light()
-                    // Scientific chips are visual placeholders until
-                    // the parser supports them — tapping just gives
-                    // a haptic ack so users know the key registered.
+                    onClicked: {
+                        HapticService.light();
+                        const k = modelData;
+                        if (k === "mod")
+                            calcApp.setOperator("mod");     // binary — completes on "="
+                        else if (k === "π")
+                            calcApp.insertConstant(Math.PI);
+                        else if (k === "√")
+                            calcApp.applyScientific("sqrt");
+                        else if (k === "x²")
+                            calcApp.applyScientific("sq");
+                        else if (k === "!")
+                            calcApp.applyScientific("fact");
+                        else if (k === "ans")
+                            calcApp.recallAnswer();
+                        else
+                            calcApp.applyScientific(k);     // sin/cos/tan/log/ln
+                    }
                 }
                 Behavior on color {
                     ColorAnimation {
@@ -425,7 +507,7 @@ MApp {
                         type: "op-soft"
                     },
                     {
-                        k: "( )",
+                        k: "⌫",
                         type: "op-soft"
                     },
                     {
@@ -618,7 +700,10 @@ MApp {
                                 calcApp.setOperator(k);
                             else if ("0123456789".indexOf(k) !== -1)
                                 calcApp.appendDigit(k);
-                            // %, () are no-ops for now (basic mode).
+                            else if (k === "%")
+                                calcApp.applyScientific("percent");
+                            else if (k === "⌫")
+                                calcApp.backspace();
                         }
                     }
                 }

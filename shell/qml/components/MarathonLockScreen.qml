@@ -71,6 +71,14 @@ Item {
     // surfaced via the 'N more · earlier today' card.
     function refreshNotifications() {
         unreadModel.clear();
+        // Honour the "Show on Lock Screen" privacy setting. Previously this
+        // toggle wrote SettingsManagerCpp.showNotificationsOnLockScreen but
+        // nothing read it, so turning it off still leaked every notification
+        // onto the lock surface. Gate the whole list here.
+        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen) {
+            moreCount = 0;
+            return;
+        }
         let unread = 0;
         for (let i = 0; i < NotificationModel.rowCount(); i++) {
             const idx = NotificationModel.index(i, 0);
