@@ -28,6 +28,11 @@ Item {
     // open; null otherwise (a dark tint covers the wallpaper).
     property Item appBackdrop: null
 
+    // The wallpaper surface to frost behind the shade when NO app is open.
+    // Set by MarathonShell.qml. Lets the home-case shade read as frosted
+    // glass over the wallpaper rather than a flat opaque panel.
+    property Item homeBackdrop: null
+
     signal closed
     signal launchApp(var app)
     // Emitted when the Power quick-action is tapped. Wired by
@@ -73,16 +78,35 @@ Item {
         live: false
     }
 
-    // Opaque panel fill when no app is open behind the shade — the shade
-    // must read as a discrete surface, not a translucent veil over the
-    // home grid. elev1 + the bottom hairline give it a clear terminus.
+    // Home case (no app behind): FROSTED MATTE glass over the wallpaper.
+    // A solid elev0 floor guarantees the shade stays opaque if the wallpaper
+    // source is ever missing; the blurred, heavily desaturated wallpaper on
+    // top gives the shade a frosted-glass face (iOS Control-Center-over-home)
+    // instead of a dead-flat black slab. Tuned MATTE, not glossy: high tint
+    // opacity + low saturation + extra blur diffusion so it reads as etched/
+    // sandblasted glass rather than a clear reflective pane. The elev0 floor
+    // still keeps the elev2/elev3 cards reading as layered surfaces above it.
     Rectangle {
         anchors.fill: parent
         visible: quickSettings.appBackdrop === null
-        // elev0, not elev1 — pushing the panel a full two steps below the
-        // elev2/elev3 cards is what lets them read as layered surfaces
-        // rather than same-plane outlines. Depth here is tonal, not cast.
         color: MColors.elev0
+    }
+    AppBackdropBlur {
+        anchors.fill: parent
+        visible: quickSettings.appBackdrop === null
+        source: quickSettings.homeBackdrop
+        // 1:1 slice of the wallpaper (same size as the shade) — NOT the whole
+        // frame squashed in, which produced the diagonal green smear. Heavy
+        // blur + deep desaturation + a high matte tint turn it into an even,
+        // milky frosted pane with only a whisper of wallpaper colour left.
+        sourceRect: Qt.rect(0, 0, width, height)
+        blurAmount: 1.0
+        blurMax: MBlur.lg
+        blurMultiplier: 2.2
+        saturation: 0.2
+        brightness: -0.1
+        tint: Qt.rgba(0.05, 0.055, 0.062, 0.82)
+        live: false
     }
 
     // Tap anywhere outside the tiles/sliders → dismiss. TapHandler composes
@@ -149,14 +173,21 @@ Item {
     ]
 
     // ── Secondary contextual controls (beyond the toggles) ───
-    readonly property var expandedTiles: [
-        { id: "rotation",  icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked },
-        { id: "nightlight",icon: "moon",          label: "Night",    on: SystemControlStore.isNightLightOn },
-        { id: "location",  icon: "map-pin",       label: "Location", on: SystemControlStore.isLocationOn },
-        { id: "hotspot",   icon: "broadcast",     label: "Hotspot",  on: SystemControlStore.isHotspotOn },
-        { id: "lowpower",  icon: "battery-low",   label: "Saver",    on: SystemControlStore.isLowPowerMode },
-        { id: "vibration", icon: "vibrate",       label: "Vibrate",  on: SystemControlStore.isVibrationOn }
-    ]
+    // Rotation lock is only shown when an orientation sensor actually exists.
+    // On hardware with no accelerometer (e.g. Librem 5 with lsm6dsx
+    // blacklisted) auto-rotate can never fire, so a rotation-LOCK toggle
+    // would control nothing — hide it rather than present a dead switch.
+    readonly property var expandedTiles: {
+        var t = [];
+        if (RotationManager.available)
+            t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
+        t.push({ id: "nightlight", icon: "moon",        label: "Night",    on: SystemControlStore.isNightLightOn });
+        t.push({ id: "location",   icon: "map-pin",     label: "Location", on: SystemControlStore.isLocationOn });
+        t.push({ id: "hotspot",    icon: "broadcast",   label: "Hotspot",  on: SystemControlStore.isHotspotOn });
+        t.push({ id: "lowpower",   icon: "battery-low", label: "Saver",    on: SystemControlStore.isLowPowerMode });
+        t.push({ id: "vibration",  icon: "vibrate",     label: "Vibrate",  on: SystemControlStore.isVibrationOn });
+        return t;
+    }
 
     // ── One-shot actions (distinct from toggles) ─────────────
     readonly property var actions: [

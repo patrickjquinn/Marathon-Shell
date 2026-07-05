@@ -4,6 +4,9 @@
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
 #include <QDBusVariant>
+#include <QDBusPendingCall>
+#include <QDBusPendingReply>
+#include <QDBusPendingCallWatcher>
 #include <QRandomGenerator>
 
 ModemManagerCpp::ModemManagerCpp(QObject *parent)
@@ -231,6 +234,22 @@ void ModemManagerCpp::queryModemState() {
         emit modemEnabledChanged();
     }
 
+    // Reconcile mobile-data (bearer) state from the REAL modem state rather
+    // than trusting the cached bool that enable/disableData() set
+    // optimistically. MM_MODEM_STATE_CONNECTING (10) / CONNECTED (11) means a
+    // data bearer is up (or coming up); anything below means no active data.
+    // Without this the Mobile tile showed a stale/wrong state at boot and
+    // never reflected a connect/disconnect that originated anywhere else
+    // (NetworkManager, mmcli, coverage loss). CONNECTING is treated as "on"
+    // so the tile doesn't flicker off during the ~1s dial-up transition.
+    const bool dataConnected = (modemState >= 10);
+    if (m_dataEnabled != dataConnected) {
+        m_dataEnabled = dataConnected;
+        emit dataEnabledChanged();
+        qInfo() << "[ModemManagerCpp] Mobile data active:" << m_dataEnabled
+                << "(modemState=" << modemState << ")";
+    }
+
     // Primary source: Modem.SignalQuality — a (ub) tuple of (percentage,
     // recent). ModemManager keeps this updated from extended URC parsing
     // without needing Setup() on the Signal interface, so we get a real
@@ -429,18 +448,29 @@ void ModemManagerCpp::enableData() {
     QVariantMap properties;
     properties["apn"] = "";
 
-    QDBusReply<void> reply = simpleInterface.call("Connect", properties);
-    if (!reply.isValid()) {
-        qWarning() << "[ModemManagerCpp] Failed to enable data:" << reply.error().message();
-        return;
-    }
+    // Async — Simple.Connect dials up a data bearer and can block for SECONDS.
+    // A blocking QDBusReply here froze the whole compositor (the shell pumps
+    // the D-Bus event loop on the GUI thread), so tapping "Mobile" stalled the
+    // UI. Fire-and-forget; queryModemState() reconciles the true connected
+    // state from the modem's PropertiesChanged. Set the tile optimistically so
+    // it responds instantly.
+    QDBusPendingCall         pending = simpleInterface.asyncCall("Connect", properties);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [](QDBusPendingCallWatcher *w) {
+                QDBusPendingReply<QDBusObjectPath> reply = *w;
+                if (reply.isError())
+                    qWarning() << "[ModemManagerCpp] Failed to enable data:"
+                               << reply.error().message();
+                w->deleteLater();
+            });
 
     m_dataEnabled   = true;
     m_dataConnected = true;
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qWarning() << "[ModemManagerCpp] Mobile data enabled";
+    qInfo() << "[ModemManagerCpp] Mobile data connect requested";
 }
 
 void ModemManagerCpp::disableData() {
@@ -458,11 +488,19 @@ void ModemManagerCpp::disableData() {
         return;
     }
 
-    QDBusReply<void> reply = simpleInterface.call("Disconnect", "/");
-    if (!reply.isValid()) {
-        qWarning() << "[ModemManagerCpp] Failed to disable data:" << reply.error().message();
-        return;
-    }
+    // Async for the same reason as Connect — Disconnect can block. "/" means
+    // "all bearers". Pass it as a D-Bus object path (the argument type is `o`).
+    QDBusPendingCall pending =
+        simpleInterface.asyncCall("Disconnect", QVariant::fromValue(QDBusObjectPath("/")));
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [](QDBusPendingCallWatcher *w) {
+                QDBusPendingReply<> reply = *w;
+                if (reply.isError())
+                    qWarning() << "[ModemManagerCpp] Failed to disable data:"
+                               << reply.error().message();
+                w->deleteLater();
+            });
 
     m_dataEnabled   = false;
     m_dataConnected = false;

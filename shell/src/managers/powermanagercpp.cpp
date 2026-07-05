@@ -350,8 +350,33 @@ void PowerManagerCpp::restart() {
 }
 
 void PowerManagerCpp::setPowerSaveMode(bool enabled) {
-    qDebug() << "[PowerManagerCpp] Power save mode:" << enabled;
+    if (m_isPowerSaveMode == enabled)
+        return;
+    qInfo() << "[PowerManagerCpp] Power save mode:" << enabled;
     m_isPowerSaveMode = enabled;
+
+    // Saver used to be a cosmetic bool. Give it real, SAFE effects:
+    //  1) drop the CPU to the powersave governor (via the existing profile
+    //     path — reverts cleanly to the boot governor on exit / reboot), and
+    //  2) shorten the idle timeout so the display Dozes sooner.
+    // Deliberately does NOT enable auto-suspend (S3): on this hardware S3 has
+    // an unresolved unwakeable-screen bug, so Saver must never push the device
+    // into it. Doze (display-off, ~0.1 W, power-key-wakeable) is the low-power
+    // path we lean on instead.
+    static const int kSaverIdleTimeoutSeconds = 30;
+    if (enabled) {
+        m_preSaverIdleTimeout = m_idleTimeout;
+        m_preSaverProfile     = m_powerProfileString;
+        setPowerProfile(QStringLiteral("power-saver"));
+        if (m_idleTimeout <= 0 || m_idleTimeout > kSaverIdleTimeoutSeconds)
+            setIdleTimeout(kSaverIdleTimeoutSeconds);
+    } else {
+        setPowerProfile(m_preSaverProfile.isEmpty() ? QStringLiteral("balanced")
+                                                    : m_preSaverProfile);
+        if (m_preSaverIdleTimeout > 0)
+            setIdleTimeout(m_preSaverIdleTimeout);
+    }
+
     emit isPowerSaveModeChanged();
 }
 
