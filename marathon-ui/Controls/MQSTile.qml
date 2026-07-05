@@ -40,54 +40,56 @@ Rectangle {
 
     implicitHeight: 84
     radius: MRadius.md
-    color: on ? MColors.marathonTealBright : MColors.elev2
+    // Off = elev2 key; On = a dark teal-tinted key. The tile no longer floods
+    // solid teal (that read as a flat 2014-era swatch) — activation is carried
+    // by a teal RADIAL GLOW + brightened glyph + teal border, the same
+    // active-state language the top tab bar uses.
+    color: on ? MColors.tealTintDark : MColors.elev2
     border.width: 1
     // Off-state border lifted to whiteOverlay16 so each tile reads as a
-    // raised key against the elev0 panel rather than a faint outline.
-    border.color: on ? MColors.tealBorder : MColors.whiteOverlay16
-
-    // Active-tile teal glow — a blur-free halo that bleeds ~8px past the
-    // tile so an on-toggle reads as lit against the dark panel. Peak teal
-    // sits at the tile edge and fades to nothing outward; strongest along
-    // the sides (vertical ramp). No MultiEffect — a real Gaussian glow
-    // would tank the grid on etnaviv. Declared first so it sits behind.
-    Rectangle {
-        visible: tile.on
-        anchors.fill: parent
-        anchors.margins: -8
-        radius: parent.radius + 8
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "transparent" }
-            GradientStop { position: 0.14; color: Qt.rgba(0, 191 / 255, 165 / 255, 0.32) }
-            GradientStop { position: 0.86; color: Qt.rgba(0, 191 / 255, 165 / 255, 0.32) }
-            GradientStop { position: 1.0; color: "transparent" }
-        }
+    // raised key against the elev0 panel rather than a faint outline. On-state
+    // gets a brighter teal rim (hover-strength) so the lit key has a crisp edge.
+    border.color: on ? MColors.tealBorderHover : MColors.whiteOverlay16
+    Behavior on border.color {
+        ColorAnimation { duration: MMotion.quick }
     }
 
-    // On-state lit dome — the teal fill ramps bright at the top to a deeper
-    // teal at the base, so an active tile reads as a lit key with a face and
-    // a shadowed base rather than a flat swatch. This (not the outer halo)
-    // is what gives the on-state real presence. Icon/label paint on top.
-    Rectangle {
-        visible: tile.on
+    // Radial "dome" glow — the SAME treatment for BOTH states so on and off
+    // tiles read as one component family. On → a bright teal glow that lights
+    // the key up; off → a faint neutral dome that gives the resting key the
+    // identical glass depth, just unlit. Static Canvas paint (same technique
+    // as the tab bar's active-tab glow), repainted whenever `on` flips.
+    // Behind icon + label.
+    Canvas {
+        id: domeGlow
         anchors.fill: parent
-        radius: parent.radius
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: MColors.marathonTealBright }
-            GradientStop { position: 1.0; color: MColors.marathonTeal }
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            const cx = width / 2;
+            const cy = height / 2;
+            const rad = Math.max(width, height) * 0.72;
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+            if (tile.on) {
+                g.addColorStop(0.0, "rgba(29, 233, 182, 0.62)");
+                g.addColorStop(0.45, "rgba(29, 233, 182, 0.28)");
+                g.addColorStop(1.0, "rgba(29, 233, 182, 0.0)");
+            } else {
+                // Neutral resting dome — same shape, unlit. A whisper of white
+                // so the key catches light from its centre like the lit ones.
+                g.addColorStop(0.0, "rgba(255, 255, 255, 0.055)");
+                g.addColorStop(0.5, "rgba(255, 255, 255, 0.018)");
+                g.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+            }
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, width, height);
         }
-    }
-
-    // Off-state top sheen — a faint white ramp fading out by mid-height.
-    // With the inner hairline below it, the tile catches light along its
-    // top edge (glass lit from above) instead of sitting dead-flat.
-    Rectangle {
-        anchors.fill: parent
-        radius: parent.radius
-        visible: !tile.on
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: MColors.whiteOverlay08 }
-            GradientStop { position: 0.5; color: "transparent" }
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+        Connections {
+            target: tile
+            function onOnChanged() { domeGlow.requestPaint(); }
         }
     }
 
@@ -95,7 +97,8 @@ Rectangle {
     // glass. Tealified when on, plain whiteOverlay when off.
     MTopHairline {
         radius: parent.radius
-        color: on ? Qt.rgba(0, 0, 0, 0.22) : MColors.whiteOverlay08
+        // On → a teal-lit top edge over the dark active key; off → plain white.
+        color: on ? MColors.marathonTealBorderHover : MColors.whiteOverlay08
         lineWidth: 1
         z: 1
     }
@@ -110,16 +113,19 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             name: tile.iconName
             size: 24
-            color: tile.on ? "#000000" : MColors.textPrimary
+            // On → teal-bright glyph over the halo (lit); off → dim secondary.
+            color: tile.on ? MColors.marathonTealBright : MColors.textSecondary
+            Behavior on color { ColorAnimation { duration: MMotion.quick } }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: tile.label
-            color: tile.on ? "#000000" : MColors.textPrimary
+            color: tile.on ? MColors.textPrimary : MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeFootnote
             font.weight: MTypography.weightMedium
             horizontalAlignment: Text.AlignHCenter
+            Behavior on color { ColorAnimation { duration: MMotion.quick } }
         }
     }
 
@@ -139,7 +145,8 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             name: tile.iconName
             size: 24
-            color: tile.on ? "#000000" : MColors.textPrimary
+            color: tile.on ? MColors.marathonTealBright : MColors.textSecondary
+            Behavior on color { ColorAnimation { duration: MMotion.quick } }
         }
         Column {
             anchors.verticalCenter: parent.verticalCenter
@@ -148,7 +155,7 @@ Rectangle {
 
             Text {
                 text: tile.label
-                color: tile.on ? "#000000" : MColors.textPrimary
+                color: tile.on ? MColors.textPrimary : MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
                 font.weight: MTypography.weightDemiBold
@@ -158,7 +165,7 @@ Rectangle {
             Text {
                 text: tile.sublabel
                 visible: text.length > 0
-                color: tile.on ? Qt.rgba(0, 0, 0, 0.72) : MColors.textSecondary
+                color: tile.on ? MColors.marathonTealBright : MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeCaption
                 font.weight: MTypography.weightMedium
