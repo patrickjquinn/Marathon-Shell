@@ -78,28 +78,6 @@ Item {
         width: parent.width
         title: "Clock"
         anchors.top: parent.top
-        actions: [
-            Icon {
-                name: "plus"
-                size: 22
-                color: MColors.textSecondary
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -10
-                    onClicked: HapticService.light()
-                }
-            },
-            Icon {
-                name: "ellipsis-vertical"
-                size: 22
-                color: MColors.textSecondary
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -10
-                    onClicked: HapticService.light()
-                }
-            }
-        ]
     }
 
     // ── Analog dial ─────────────────────────────────────────

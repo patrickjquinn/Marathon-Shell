@@ -163,16 +163,6 @@ Page {
             width: parent.width
             title: "Notes"
             actions: [
-                Icon {
-                    name: "search"
-                    size: 22
-                    color: MColors.textSecondary
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -10
-                        onClicked: HapticService.light()
-                    }
-                },
                 Rectangle {
                     width: Math.round(48 * Constants.scaleFactor)
                     height: Math.round(48 * Constants.scaleFactor)

@@ -566,19 +566,6 @@ MApp {
                         message: "Anniversary throwbacks will appear here as your library grows over the years."
                     }
                 }
-
-                // ── 3: Search — placeholder ─
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    MEmptyState {
-                        anchors.centerIn: parent
-                        iconName: "search"
-                        iconSize: 64
-                        title: "Search Gallery"
-                        message: "Search your photos by date, place, or content."
-                    }
-                }
             }
 
             MTabBar {
@@ -601,10 +588,6 @@ MApp {
                         // glyph). Memories = retrospective time-cluster,
                         // so use clock-counter-clockwise (rewind).
                         "icon": "clock-counter-clockwise"
-                    },
-                    {
-                        "label": "Search",
-                        "icon": "search"
                     }
                 ]
                 onTabSelected: index => {

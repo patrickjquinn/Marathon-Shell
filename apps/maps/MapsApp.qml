@@ -812,7 +812,7 @@ MApp {
                 }
             }
 
-            // Action row — Directions (teal accent) · Call · Share · Save.
+            // Action row — Directions (teal accent).
             Row {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -825,25 +825,10 @@ MApp {
                             label: "Directions",
                             icon: "navigation",
                             accent: true
-                        },
-                        {
-                            label: "Call",
-                            icon: "phone",
-                            accent: false
-                        },
-                        {
-                            label: "Share",
-                            icon: "share",
-                            accent: false
-                        },
-                        {
-                            label: "Save",
-                            icon: "star",
-                            accent: false
                         }
                     ]
                     delegate: Item {
-                        width: parent.width / 4
+                        width: parent.width
                         height: 48
                         Column {
                             anchors.centerIn: parent

@@ -100,55 +100,13 @@ MApp {
                 id: topBar
                 title: "Inbox"
                 showBack: false
-                actions: Row {
-                    spacing: MSpacing.md
-                    Icon {
-                        name: "search"
-                        size: 22
-                        color: MColors.textSecondary
-                    }
-                    Icon {
-                        name: "more"
-                        size: 22
-                        color: MColors.textSecondary
-                    }
-                }
-            }
-
-            MTabBar {
-                id: tabBar
-                anchors.bottom: parent.bottom
-                activeTab: 0
-                tabs: [
-                    {
-                        icon: "inbox",
-                        label: "Inbox"
-                    },
-                    {
-                        icon: "star",
-                        label: "Starred"
-                    },
-                    {
-                        icon: "send",
-                        label: "Sent"
-                    },
-                    {
-                        icon: "archive",
-                        label: "All"
-                    }
-                ]
-                // Folder swap binding deferred — QMailFolderListModel
-                // exposes standard-folder ids per account, and we need
-                // the per-account folder fetch (an asynchronous QMF
-                // call) to complete before we can wire each tab to a
-                // concrete folderId. Tracks under Day 10 follow-on.
             }
 
             Item {
                 id: content
                 anchors {
                     top: topBar.bottom
-                    bottom: tabBar.top
+                    bottom: parent.bottom
                     left: parent.left
                     right: parent.right
                 }

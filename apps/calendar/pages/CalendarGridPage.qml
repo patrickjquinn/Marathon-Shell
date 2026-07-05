@@ -39,7 +39,7 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // ── Header — Display month title + search + compose ────
+        // ── Header — Display month title + compose ─────────────
         Item {
             width: parent.width
             height: 96
@@ -61,18 +61,6 @@ Rectangle {
                 anchors.rightMargin: 20
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 14
-
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "search"
-                    size: 22
-                    color: MColors.textSecondary
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -10
-                        onClicked: HapticService.light()
-                    }
-                }
 
                 // 36 × 36 teal-gradient compose squircle.
                 Rectangle {
