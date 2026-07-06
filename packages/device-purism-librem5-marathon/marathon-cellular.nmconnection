@@ -1,0 +1,24 @@
+[connection]
+id=Cellular
+uuid=4d8a6e1c-9f3b-4a2d-b7e0-c1a2b3c4d5e6
+type=gsm
+autoconnect=true
+# Lower priority than any Wi-Fi profile so Wi-Fi stays primary when both
+# are up; cellular is the fallback data path (matches the route-metric split).
+autoconnect-priority=-10
+
+[gsm]
+# Resolve the APN from mobile-broadband-provider-info by the SIM's operator
+# (MCC/MNC) instead of hardcoding a carrier APN. Requires the
+# mobile-broadband-provider-info package (in this device's depends).
+auto-config=true
+
+[ipv4]
+method=auto
+# Higher metric than Wi-Fi (600) so the Wi-Fi default route wins when both
+# are connected; cellular provides internet whenever Wi-Fi is down.
+route-metric=700
+
+[ipv6]
+method=auto
+route-metric=700

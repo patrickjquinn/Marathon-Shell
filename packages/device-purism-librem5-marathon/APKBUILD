@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=25
+pkgrel=27
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -74,6 +74,7 @@ depends="
 	networkmanager-wifi
 	networkmanager-cli
 	modemmanager
+	mobile-broadband-provider-info
 	upower
 	wireless-tools
 	wpa_supplicant
@@ -98,6 +99,8 @@ source="
 	95-marathon-wifi-rfkill.rules
 	90-marathon-modem-wakeup.rules
 	50-marathon-l5-default-sink.conf
+	marathon-modem-location.service
+	marathon-cellular.nmconnection
 	"
 
 package() {
@@ -188,6 +191,22 @@ package() {
 	ln -sf ../marathon-wifi-recovery.service \
 		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-wifi-recovery.service"
 
+	# Enable ModemManager GPS location sources at boot so geoclue + the
+	# shell LocationManager have a position source (Maps, weather, etc).
+	# The modem ships with location gathering disabled by default.
+	# Enabled via `systemctl enable` in .post-install (same as the other
+	# services) so `is-enabled` reports correctly.
+	install -Dm644 "$srcdir/marathon-modem-location.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-modem-location.service"
+
+	# Autoconnect cellular data profile. gsm.auto-config=true resolves the
+	# APN from mobile-broadband-provider-info by the SIM operator, so LTE
+	# data works out of the box with no manual APN entry — and stays a
+	# fallback below Wi-Fi (route-metric 700 vs Wi-Fi's 600). NM ignores
+	# system-connection keyfiles that aren't 0600 root-owned.
+	install -Dm600 "$srcdir/marathon-cellular.nmconnection" \
+		"$pkgdir/etc/NetworkManager/system-connections/marathon-cellular.nmconnection"
+
 	# Wireplumber rule: prefer built-in speaker over HDMI for the
 	# default sink. Without it the L5 boots routing every system
 	# sound to the (usually unconnected) HDMI port and the user
@@ -198,15 +217,17 @@ package() {
 }
 
 sha512sums="
-ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
+c0d599806eae553b7af7e6b29b19b0e63808f599200a766805685a2d2a60e9e4fc8100cdcb8b352973e5a6b25058e7a14645661bc8667e11d0b42593bdccac18  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-SKIP  greetd-l5-env.conf
-SKIP  eglfs-kms.json
-SKIP  journald-l5.conf
-SKIP  marathon-boot.cmd
-SKIP  marathon-wifi-recovery.sh
-SKIP  marathon-wifi-recovery.service
-SKIP  95-marathon-wifi-rfkill.rules
-SKIP  90-marathon-modem-wakeup.rules
-SKIP  50-marathon-l5-default-sink.conf
+bc68ea093103d2f4645065ce34d8517508bf2db64c1641da1220e71698d1ce91ff5a94e4b27812c95d9758ccea46890c96fa120872d9dabbf0ec8dcff64eaa88  greetd-l5-env.conf
+389a5a7d3d6002a8bc2af633a3baae134d021b5fdbc3e09a0216211345db794744f9fcd13a887a65e8b8bd92fd62c069deca1cb9e48eb5976898ebe39b41c911  eglfs-kms.json
+6dd436a5f82a2a3e31c609bd1429978c43838f884a0e779582662c524a73cd7766b4f0bd36faf9cf79584541d85d15b70bcdb03bba288f292d36c62b5f19947b  journald-l5.conf
+fda83861fc6365b253b2737976b7d93fa03b4e9ac42e20c4ac1791e891e7876637e1c286561bfb1d77bdab1e0291e1f7c6e88a5429555b13a4a804bef75474e4  marathon-boot.cmd
+62ac6ff2493097507b6549cb3b0cbc4aff25ad8f7ca4fa20415a5b68eb326a3c39de737b7b72e401ae2b52182bcba95895aca7f6b4a885d18d3e04ce96d4b9fe  marathon-wifi-recovery.sh
+1d2335381b0fac234ac98980b70effef6e05ebbaa108642f43b868957b59f8d7d8fbf8213300debf3f99aef652393c2b0bc12429a1171b3c365d49f57a84b7f7  marathon-wifi-recovery.service
+b59a4434b47ea4967030810952a1816a576ce1e95bb2c1d37afc53ced362a1405eaf9da8676b12552597e08276d97a01ef76f09c7fa3b5dbb54d4343e95d6aff  95-marathon-wifi-rfkill.rules
+c8f91554fc7cc1e456d68d68b0b7ab73a2531b4361b02e5e51fc8d7ede7048f602012a9bc9efb7e982bcb5f53f1050854738240f79b3e54449badedad1f88d1b  90-marathon-modem-wakeup.rules
+279c57171c6080313729fc71eda757c0e4e566a70a0980ad833f649149444f8f52378344b7cd057e25ecd82071842d2b9f2196230239afdafb5a46b4a1847928  50-marathon-l5-default-sink.conf
+3c9e558ec3eaae346ae31afac6fcf997bf498039ef4e0a59f0b922ba9e27bcae80004e7c2b19400a55bc504bf839f0af3e3a64b60e8f8e5266ab19e9b6bc9a36  marathon-modem-location.service
+4bf52b20db09f47f775d294df9f48d945a697a130b6ddaaf144e291b74d13d5f9b065f8212e8b5452fe857f45423a7daf3e22bd5c2d08f8ed0704251a19760cf  marathon-cellular.nmconnection
 "

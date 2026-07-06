@@ -1,0 +1,20 @@
+[Unit]
+Description=Enable ModemManager GPS/GNSS location sources for Marathon
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+After=ModemManager.service
+Wants=ModemManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# The BM818 modem exposes GPS (gps-nmea/gps-raw/agps) but ModemManager keeps
+# location gathering DISABLED until asked. geoclue + the shell LocationManager
+# then have no position source. Wait for a modem to appear (it enumerates a few
+# seconds after ModemManager starts), then enable the GPS sources so NMEA flows
+# to geoclue. A-GPS (MSA) uses the network for a faster cold fix; harmless to
+# request even offline. Per-flag failures are non-fatal (|| true) so an older
+# firmware that lacks one source doesn't wedge the unit.
+ExecStart=/bin/sh -c 'for i in $(seq 1 30); do m=$(mmcli -L 2>/dev/null | grep -oE "/org/freedesktop/ModemManager1/Modem/[0-9]+" | head -1); [ -n "$m" ] && break; sleep 2; done; [ -z "$m" ] && exit 0; mmcli -m "$m" --location-enable-gps-nmea --location-enable-gps-raw || true; mmcli -m "$m" --location-enable-agps-msa || true'
+
+[Install]
+WantedBy=multi-user.target

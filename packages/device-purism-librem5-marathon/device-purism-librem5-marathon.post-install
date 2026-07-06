@@ -15,6 +15,8 @@ systemctl enable bluetooth
 systemctl enable pipewire
 systemctl enable pipewire-pulse
 systemctl enable wireplumber
+# Enable GPS location gathering at boot (modem ships with it disabled).
+systemctl enable marathon-modem-location
 
 # --- mask noisy/broken upstream units --------------------------------------
 #
