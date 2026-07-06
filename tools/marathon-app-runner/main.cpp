@@ -34,9 +34,11 @@
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
 #include <atomic>
+#include <cerrno>
 #include <cstring>
 #include <cstdio>
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #ifdef HAVE_WEBENGINE
@@ -406,17 +408,31 @@ static bool peekPoolFlag(int argc, char *argv[]) {
     return false;
 }
 
-// Re-touch every executable file-backed mapping so the kernel keeps the
-// spare's code pages resident. Idle eviction of the Qt libraries was
-// measured to cost ~800 ms of adopt-to-frame after 100 s of pool idle.
-static void touchOwnCodePages() {
+// Re-touch the spare's whole resident private working set so the kernel
+// keeps it in RAM while the pool idles. The earlier version touched only
+// r-xp code pages, but the pages that actually cost adopt-to-frame are the
+// anonymous ones the driver/engine allocate (Qt heap, warmed GL state):
+// under memory pressure those get pushed to zram and adoption faulted them
+// back (~800 ms). Touch every readable private mapping (code, rodata, and
+// anon heap), skipping device maps (/dev, e.g. GPU BOs) and kernel pseudo
+// regions which must not be read byte-wise. Only used as the fallback when
+// mlockall is unavailable (see pool mode).
+static void touchOwnResidentPages() {
     QFile maps(QStringLiteral("/proc/self/maps"));
     if (!maps.open(QIODevice::ReadOnly))
         return;
     volatile unsigned char  sink  = 0;
     const QList<QByteArray> lines = maps.readAll().split('\n');
     for (const QByteArray &l : lines) {
-        if (!l.contains(" r-xp ") || !l.contains('/'))
+        // Fields: address perms offset dev inode pathname
+        const QList<QByteArray> f = l.simplified().split(' ');
+        if (f.size() < 2)
+            continue;
+        const QByteArray perms = f.at(1);
+        if (perms.size() < 4 || perms.at(0) != 'r' || perms.at(3) != 'p')
+            continue; // need readable + private
+        const QByteArray path = f.size() >= 6 ? f.at(5) : QByteArray();
+        if (path.startsWith("/dev") || path.startsWith("[vsyscall]") || path.startsWith("[vvar]"))
             continue;
         unsigned long start = 0, end = 0;
         if (::sscanf(l.constData(), "%lx-%lx", &start, &end) != 2)
@@ -425,6 +441,25 @@ static void touchOwnCodePages() {
             sink += *reinterpret_cast<const volatile unsigned char *>(a);
     }
     (void)sink;
+}
+
+// Append one startup milestone to $XDG_RUNTIME_DIR/marathon-startup.log with
+// a raw O_APPEND write (atomic, unbuffered, immediately visible) so launch
+// timing can be read off-device without fighting the shell log's block
+// buffering. Gated by MARATHON_STARTUP_TIMING; the qWarning line stays too.
+static void logStartupPhase(const QString &appId, const char *phase, qint64 ms) {
+    const QByteArray rt = qgetenv("XDG_RUNTIME_DIR");
+    if (rt.isEmpty())
+        return;
+    const QByteArray path = rt + "/marathon-startup.log";
+    const int        fd   = ::open(path.constData(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd < 0)
+        return;
+    const QByteArray l =
+        appId.toUtf8() + ' ' + phase + ' ' + QByteArray::number(ms) + " ms\n";
+    const ssize_t w = ::write(fd, l.constData(), static_cast<size_t>(l.size()));
+    (void)w;
+    ::close(fd);
 }
 
 static QString peekAppId(int argc, char *argv[]) {
@@ -597,8 +632,19 @@ int main(int argc, char *argv[]) {
                 warmCtx.doneCurrent();
         }
 
-        // Wait on the event loop, not a blocking read: a keepalive timer
-        // keeps code pages resident and Wayland events pump normally.
+        // Keep the warmed pages resident while the pool idles. Reclaim to
+        // zram during idle is what made the v1 pool lose to cold launch:
+        // adoption faulted the Qt heap + warmed GL state back in (~800 ms).
+        // mlockall pins the whole address space so nothing is reclaimed; if
+        // the memlock rlimit is too low (bwrap drops CAP_IPC_LOCK) we fall
+        // back to periodically touching the full resident set instead.
+        const bool poolLocked = (::mlockall(MCL_CURRENT | MCL_FUTURE) == 0);
+        if (!poolLocked)
+            qWarning() << "[marathon-app-runner] pool: mlockall failed ("
+                       << ::strerror(errno) << ") - using page-touch keepalive";
+
+        // Wait on the event loop, not a blocking read, so Wayland events
+        // pump normally while the spare idles.
         QByteArray line;
         {
             ::fcntl(0, F_SETFL, ::fcntl(0, F_GETFL) | O_NONBLOCK);
@@ -619,13 +665,23 @@ int main(int argc, char *argv[]) {
                     wait.quit();
                 }
             });
+            // The touch-keepalive only matters when we could not lock:
+            // mlockall already guarantees residency, so skip the wasteful
+            // full-set walk in that case.
             QTimer keepalive;
-            keepalive.setInterval(20000);
-            QObject::connect(&keepalive, &QTimer::timeout, &keepalive, touchOwnCodePages);
-            keepalive.start();
-            touchOwnCodePages();
+            if (!poolLocked) {
+                keepalive.setInterval(3000);
+                QObject::connect(&keepalive, &QTimer::timeout, &keepalive, touchOwnResidentPages);
+                keepalive.start();
+                touchOwnResidentPages();
+            }
             wait.exec();
         }
+        // The spare now becomes the launched app: drop the lock so the app's
+        // memory is reclaimable again when it is backgrounded/frozen — leaving
+        // MCL_FUTURE in place would pin everything the adopt path allocates.
+        if (poolLocked)
+            ::munlockall();
         const QJsonObject msg    = QJsonDocument::fromJson(line).object();
         appId                    = msg.value(QStringLiteral("appId")).toString().trimmed();
         launchRoute              = msg.value(QStringLiteral("route")).toString();
@@ -642,8 +698,10 @@ int main(int argc, char *argv[]) {
         }
         // Report adopt -> frame: the portion of launch the pool influences.
         startupTimer.restart();
-        if (logStartup)
+        if (logStartup) {
             qWarning().noquote() << "[startup]" << appId << "pooled-adopt";
+            logStartupPhase(appId, "pooled-adopt", 0);
+        }
     } else {
         QCommandLineParser parser;
         parser.setApplicationDescription(
@@ -1104,9 +1162,11 @@ int main(int argc, char *argv[]) {
             << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
 
     // qWarning: Release defines QT_NO_INFO_OUTPUT, which compiles qInfo out.
-    if (logStartup)
+    if (logStartup) {
         qWarning().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed()
                              << "ms";
+        logStartupPhase(appId, "qml-setup", startupTimer.elapsed());
+    }
     if (logStartup) {
         // One-shot: time from process entry to the first rendered frame —
         // the number a user perceives as "launch time".
@@ -1117,6 +1177,7 @@ int main(int argc, char *argv[]) {
                              fired = true;
                              qWarning().noquote() << "[startup]" << appId << "first-frame"
                                                   << startupTimer.elapsed() << "ms";
+                             logStartupPhase(appId, "first-frame", startupTimer.elapsed());
                          });
     }
 
