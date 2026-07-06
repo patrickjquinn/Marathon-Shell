@@ -81,6 +81,20 @@ static const struct wl_drm_interface kDrmImpl = {
 WlDrmManager::WlDrmManager(QWaylandCompositor *compositor)
     : QObject(compositor)
     , m_compositor(compositor) {
+    // wl_drm is legacy device-discovery/buffer-sharing. Marathon now discovers
+    // the render device through the linux-dmabuf-v1 v4 main_device feedback
+    // plugin, which also imports the buffers. Leaving wl_drm advertised is
+    // actively harmful on Mesa >= 26.1 / etnaviv: Mesa binds wl_drm and allocates
+    // its surface buffers via create_prime_buffer (our inert stub) instead of
+    // dmabuf, so no importable buffer reaches the compositor and the app surface
+    // never maps. Default OFF; opt in with MARATHON_WL_DRM=1 only on a stack
+    // where the dmabuf-v1 plugin is unavailable.
+    if (qgetenv("MARATHON_WL_DRM") != QByteArrayLiteral("1")) {
+        qInfo() << "[WlDrm] not advertised (default) — clients use linux-dmabuf-v1;"
+                << "set MARATHON_WL_DRM=1 to force-enable the legacy wl_drm global";
+        return;
+    }
+
     m_deviceNode = qEnvironmentVariableIsSet("MARATHON_RENDER_NODE")
                        ? qgetenv("MARATHON_RENDER_NODE")
                        : QByteArrayLiteral("/dev/dri/renderD128");
