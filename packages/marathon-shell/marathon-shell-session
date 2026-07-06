@@ -186,37 +186,31 @@ fi
 
 # ---- Wayland runtime ---------------------------------------------------------
 
-# Force the QtWayland compositor to load BOTH the wayland-egl AND
-# linux-dmabuf-unstable-v1 server-side integrations. Qt's plugin loader
-# accepts a semicolon-separated list; quoting is REQUIRED or bash splits
-# at `;` and the dmabuf integration silently never loads.
+# The COMPOSITOR (server) loads ONLY Marathon's linux-dmabuf-v1 v4 plugin.
+# This is a standalone Qt client-buffer-integration (ships in the
+# marathon-shell apk from shell/wayland-plugins/dmabuf-v1) that both
+# advertises the render device through zwp_linux_dmabuf_v1 v4 main_device
+# feedback AND imports the app's dmabuf buffers to EGLImages. Mesa >= 26.1
+# on etnaviv needs that v4 feedback to discover renderD128; without it every
+# app degrades to llvmpipe (software). Stock Qt only ships a v3 dmabuf plugin
+# (no feedback), so it can't be used.
 #
-# wayland-egl: app clients allocate via EGL, hand the texture to the
-# compositor as a wayland-egl buffer. Without it Qt probes the host and
-# on Alpine + V3D falls through to shm-emulation-server — app clients
-# get NO GPU buffers, Mesa degrades to llvmpipe inside every app, and
-# QtWebEngine SIGSEGVs when its RHI tries to share a texture with the
-# llvmpipe context. wayland-egl is the SAME plugin name on both server
-# and client sides (different shared objects under different plugin
-# dirs) so the same env var resolves correctly when an app-runner
-# inherits this from the shell.
-#
-# linux-dmabuf-unstable-v1: registers the v3 dmabuf server integration
-# which handles buffer params + buffer import. Marathon's compositor
-# adds its OWN v4 wl_global on top (shell/src/wayland/linuxdmabufv1.*)
-# for the feedback layer Chromium needs — but it relies on Qt's v3
-# plugin still handling create_params + the actual dmabuf-to-EGLImage
-# import. Without v3 loaded server-side, wayland-info shows
-# zwp_linux_dmabuf_v1 at version 4 only, Chromium binds it, then
-# create_params returns implementation_error and the client falls back
-# to the SHM emulation path again.
-#
-# Do NOT set QT_WAYLAND_CLIENT_BUFFER_INTEGRATION to
-# "linux-dmabuf-unstable-v1" — the client-side plugin folder doesn't
-# ship that integration on Alpine, the runner logs "Failed to load
-# client buffer integration" and the GL context creation silently
-# fails (verified Pi 5 / 2026-06-15).
-export QT_WAYLAND_HARDWARE_INTEGRATION="wayland-egl;linux-dmabuf-unstable-v1"
+# Do NOT add "wayland-egl" to this SERVER list: Qt's wayland-egl server
+# integration segfaults in createBufferFor() on etnaviv because Mesa's EGL
+# has no eglQueryWaylandBufferWL, and it crash-loops the compositor the
+# instant an app commits its first buffer. (Validated live on L5 2026-07-06.)
+export QT_WAYLAND_HARDWARE_INTEGRATION="linux-dmabuf-v1"
+
+# The APP CLIENTS (which inherit this env) use the stock wayland-egl CLIENT
+# integration — Mesa allocates via EGL and shares through zwp_linux_dmabuf_v1
+# underneath, which our v4 server plugin imports. Pinning this is REQUIRED:
+# without it the client tries to load "linux-dmabuf-v1" (a server-only plugin
+# name it inherits from HARDWARE_INTEGRATION) as its client integration, fails,
+# and its QRhi/scenegraph dies. Server role != client role — they must differ.
+# wl_drm stays OFF by default (see shell/src/wayland/wldrm.cpp): with it
+# advertised, Mesa allocates surface buffers via wl_drm's inert stub instead
+# of dmabuf and the app surface never maps.
+export QT_WAYLAND_CLIENT_BUFFER_INTEGRATION="wayland-egl"
 
 export WAYLAND_DISPLAY=wayland-0
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -392,6 +386,7 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --setenv=QT_QPA_EGLFS_HIDECURSOR \
         --setenv=QSG_RENDER_LOOP \
         --setenv=QT_WAYLAND_HARDWARE_INTEGRATION \
+        --setenv=QT_WAYLAND_CLIENT_BUFFER_INTEGRATION \
         --setenv=QT_AUTO_SCREEN_SCALE_FACTOR \
         --setenv=QT_ENABLE_HIGHDPI_SCALING \
         --setenv=QT_LOGGING_RULES \

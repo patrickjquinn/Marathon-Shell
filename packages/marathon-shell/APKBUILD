@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=302
+pkgrel=303
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -146,7 +146,7 @@ prepare() {
 
 build() {
 	cd "$builddir"
-	rm -rf build build-apps
+	rm -rf build build-apps build-dmabuf
 
 	# Disable QML cache to reduce memory usage during build
 	export QML_DISABLE_DISK_CACHE=1
@@ -181,6 +181,20 @@ build() {
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
 	cmake --build build-apps
+
+	# linux-dmabuf-v1 v4 compositor plugin (etnaviv HW app rendering). A
+	# standalone Qt client-buffer-integration that advertises the render
+	# device via v4 main_device feedback AND imports dmabuf buffers — stock
+	# Qt only ships a v3 plugin (no feedback) so Mesa 26.1+ on etnaviv can't
+	# discover renderD128 and falls back to llvmpipe (software). Loaded at
+	# runtime via QT_WAYLAND_HARDWARE_INTEGRATION=linux-dmabuf-v1. See
+	# shell/wayland-plugins/dmabuf-v1/CMakeLists.txt for the C+CXX rationale.
+	cmake -B build-dmabuf -S shell/wayland-plugins/dmabuf-v1 -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_C_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build-dmabuf
 }
 
 package() {
@@ -189,6 +203,10 @@ package() {
 	# Main shell + apps
 	DESTDIR="$pkgdir" cmake --install build
 	DESTDIR="$pkgdir" cmake --install build-apps
+
+	# linux-dmabuf-v1 v4 compositor plugin -> Qt's server-side integration dir.
+	install -Dm755 build-dmabuf/libqt-wayland-compositor-linux-dmabuf-v1.so \
+		"$pkgdir/usr/lib/qt6/plugins/wayland-graphics-integration-server/libqt-wayland-compositor-linux-dmabuf-v1.so"
 
 	# cmake doesn't install app shared libs
 	for lib in build-apps/*/lib*.so; do
