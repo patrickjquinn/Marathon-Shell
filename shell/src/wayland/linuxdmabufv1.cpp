@@ -1,6 +1,7 @@
 #include "linuxdmabufv1.h"
 
 #include "linux-dmabuf-v1-server.h"
+#include "src/managers/deviceprofile.h"
 
 #include <QByteArray>
 #include <QDebug>
@@ -119,12 +120,14 @@ namespace {
 LinuxDmabufManagerV1::LinuxDmabufManagerV1(QWaylandCompositor *compositor)
     : QObject(compositor)
     , m_compositor(compositor) {
-    // dev_t of /dev/dri/renderD128 — sent as main_device in feedback.
-    struct stat st{};
-    if (stat("/dev/dri/renderD128", &st) == 0) {
+    // dev_t of the render node (L5 default /dev/dri/renderD128, overlay-set
+    // via DeviceProfile) — sent as main_device in feedback.
+    const QByteArray renderNode = DeviceProfile::instance().renderNode().toLocal8Bit();
+    struct stat      st{};
+    if (stat(renderNode.constData(), &st) == 0) {
         m_mainDevice = static_cast<quint64>(st.st_rdev);
     } else {
-        qWarning() << "[LinuxDmabufV1] stat /dev/dri/renderD128 failed:" << strerror(errno)
+        qWarning() << "[LinuxDmabufV1] stat" << renderNode << "failed:" << strerror(errno)
                    << "— feedback main_device will be 0, clients may refuse to allocate";
     }
 

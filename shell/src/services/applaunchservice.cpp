@@ -2,6 +2,7 @@
 
 #include "appmodel.h"
 #include "taskmodel.h"
+#include "src/managers/deviceprofile.h"
 
 #include <QMetaObject>
 #include <QVariant>
@@ -582,6 +583,13 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             env.insert("MARATHON_SCREEN_HEIGHT", QString::number(g.height()));
         }
 
+        // Initial app-runner canvas, from DeviceProfile (L5 default 540x1140).
+        // The runner reads these exact names; sourcing them here lets a device
+        // overlay set its own canvas without touching the runner binary.
+        env.insert("MARATHON_APP_WIDTH", QString::number(DeviceProfile::instance().runnerWidth()));
+        env.insert("MARATHON_APP_HEIGHT",
+                   QString::number(DeviceProfile::instance().runnerHeight()));
+
         // Input method for SPAWNED clients: QT_IM_MODULE=wayland.
         // QtVirtualKeyboard has no Wayland client-side IM backend (Qt 6.x
         // qtbase/src/plugins/platforms/wayland/qwaylandintegration.cpp);
@@ -771,7 +779,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // distributes this same env var as their workaround for
         // wlroots#3757.
         env.insert("WLR_RENDER_DRM_DEVICE",
-                   qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", "/dev/dri/renderD128"));
+                   qEnvironmentVariable("WLR_RENDER_DRM_DEVICE",
+                                        DeviceProfile::instance().renderNode()));
     }
 
     if (permissions.contains("network")) {
@@ -1050,7 +1059,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // wl_drm names the device; WebEngine apps now come up on the
             // same working path as native QML apps.
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WLR_RENDER_DRM_DEVICE")
-                      << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", "/dev/dri/renderD128");
+                      << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE",
+                                              DeviceProfile::instance().renderNode());
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("EGL_PLATFORM")
                       << QStringLiteral("wayland");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
@@ -1182,7 +1192,14 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME") << xdgConfigHome
          << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SHELL_PID")
          << QString::number(QCoreApplication::applicationPid()) << QStringLiteral("--setenv")
-         << QStringLiteral("MARATHON_SANDBOXED") << QStringLiteral("1");
+         << QStringLiteral("MARATHON_SANDBOXED") << QStringLiteral("1")
+         // Initial canvas from DeviceProfile, same as the on-demand launch path
+         // — so a preforked pool spare boots at the device's own size instead of
+         // the runner's built-in 540x1140 fallback (matters on non-L5 devices).
+         << QStringLiteral("--setenv") << QStringLiteral("MARATHON_APP_WIDTH")
+         << QString::number(DeviceProfile::instance().runnerWidth()) << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_APP_HEIGHT")
+         << QString::number(DeviceProfile::instance().runnerHeight());
 
     {
         const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
