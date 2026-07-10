@@ -22,6 +22,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Resolved by setup-trees.sh when called from build-qemu-image.sh;
 # fall back to the conventional cache path otherwise.
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
@@ -43,11 +45,13 @@ echo "==> image: $IMG"
 # grow for /var work. Resize is a no-op if already 20G.
 qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
 
-# Per-boot EFI vars file so two boots don't clobber each other's
-# variable store. /tmp is fine — it's regenerated every run.
-EFI_VARS="/tmp/marathon-qemu-vars-$$.qcow2"
-cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
-trap 'rm -f "$EFI_VARS"' EXIT
+# Boot the extracted kernel+initrd directly instead of via UEFI/UKI — the
+# systemd-boot path can't discover root on the QEMU image (masked
+# cryptsetup + gpt-auto), so it hangs in the initrd. See lib/extract-uki.sh.
+UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1)"
+[ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
+. "$SCRIPT_DIR/extract-uki.sh"
+extract_uki_kernel_initrd "$UKI" /tmp/marathon-qemu-uki || exit 1
 
 # Pick the display flag set. VNC is the default because it works in
 # every environment — local desktop, SSH session, headless server.
@@ -84,14 +88,17 @@ echo "    or, as the user account: ... user@127.0.0.1   (no password; sudo passw
 echo
 echo "Ctrl-C in this terminal stops QEMU."
 
-# Same kernel cmdline workarounds verify-mail.sh / verify-shell.sh use:
-# mask repart + cryptsetup so the auto-resize-and-encrypt-root logic
-# from postmarketos-duranium's first-boot doesn't loop on QEMU.
-CMDLINE='systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw \
-systemd.mask=systemd-repart.service \
-systemd.mask=cryptsetup.target \
+# Explicit root=LABEL=pmOS_root bypasses gpt-auto/cryptsetup (masked here);
+# mask repart + cryptsetup so duranium's first-boot resize-and-encrypt
+# logic doesn't loop on QEMU. No SYSTEMD_SULOGIN_FORCE — with the boot
+# fixed it only ever hurts (a headless `none`-mode failure would hang in
+# an emergency shell we can't reach).
+DIRECT_CMDLINE="root=LABEL=pmOS_root rw rootwait \
+systemd.wants=network.target \
+systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target \
 systemd.mask=systemd-cryptsetup@pmOS_root.service \
-module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200'
+module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,115200 \
+pmos.force-partition-resize psi=1"
 
 exec qemu-system-aarch64 \
     -machine type=virt,memory-backend=mem -cpu host -accel kvm \
@@ -100,13 +107,9 @@ exec qemu-system-aarch64 \
     -object rng-random,filename=/dev/urandom,id=rng0 \
     -device virtio-rng-pci,rng=rng0 -device virtio-balloon \
     -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22 \
-    -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2 \
-    -drive if=pflash,format=qcow2,file="$EFI_VARS" \
     -drive file="$IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
-    -device virtio-blk-pci,drive=hd0,bootindex=1 \
+    -device virtio-blk-pci,drive=hd0 \
     -device virtio-gpu-gl-pci,xres=720,yres=1440 \
     -device virtio-keyboard-pci -device virtio-tablet-pci \
     "${DISPLAY_ARGS[@]}" \
-    -smbios "type=11,value=io.systemd.stub.kernel-cmdline-extra=$CMDLINE" \
-    -smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=$CMDLINE" \
-    -boot menu=on,splash-time=0
+    -kernel "$UKI_KERNEL" -initrd "$UKI_INITRD" -append "$DIRECT_CMDLINE"
