@@ -858,6 +858,11 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         QDir().mkpath(appConfig);
 
         QStringList bwrapArgs;
+        // The DRM render node the sandbox exposes and the client renders on.
+        // DeviceProfile resolves MARATHON_RENDER_NODE > conf RENDER_NODE >
+        // /dev/dri/renderD128, so an overlay can retarget it and the bwrap
+        // bind, the WLR device hint, and the client all stay in agreement.
+        const QString renderNode = DeviceProfile::instance().renderNode();
         bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session");
         // The shell's eglfs driver pin (kmsro on the L5) must never reach
         // clients: on the render node it sends Mesa to software rendering.
@@ -917,8 +922,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   // gbm_bo_create(... GBM_BO_USE_RENDERING), dmabuf export,
                   // wl_buffer import — exactly what phoc/Phosh clients do
                   // and what Igalia's WPEBackend-fdo does in production.
-                  << QStringLiteral("--dev-bind-try") << QStringLiteral("/dev/dri/renderD128")
-                  << QStringLiteral("/dev/dri/renderD128")
+                  << QStringLiteral("--dev-bind-try") << renderNode << renderNode
                   // /sys is needed for GPU/DRM driver discovery: Mesa walks
                   // /sys/dev/char/<major:minor> → /sys/class/drm/renderD128
                   // → /sys/devices/.../pci... to pick the right DRI driver.
@@ -1061,8 +1065,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // wl_drm names the device; WebEngine apps now come up on the
             // same working path as native QML apps.
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("WLR_RENDER_DRM_DEVICE")
-                      << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE",
-                                              DeviceProfile::instance().renderNode());
+                      << qEnvironmentVariable("WLR_RENDER_DRM_DEVICE", renderNode);
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("EGL_PLATFORM")
                       << QStringLiteral("wayland");
             // Experimental etnaviv ES3 override — OFF by default, same as the
@@ -1161,6 +1164,7 @@ QStringList AppLaunchService::spareSandboxArgs() const {
     const QString dataDir   = xdgDataHome + QStringLiteral("/marathon-apps");
     const QString cacheDir  = xdgCacheHome + QStringLiteral("/marathon-apps");
     const QString configDir = xdgConfigHome + QStringLiteral("/marathon-apps");
+    const QString renderNode = DeviceProfile::instance().renderNode();
 
     QStringList   args;
     args << QStringLiteral("--unsetenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
@@ -1179,7 +1183,7 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/empty")
          << QStringLiteral("/var/empty") << QStringLiteral("--proc") << QStringLiteral("/proc")
          << QStringLiteral("--dev") << QStringLiteral("/dev") << QStringLiteral("--dev-bind-try")
-         << QStringLiteral("/dev/dri/renderD128") << QStringLiteral("/dev/dri/renderD128")
+         << renderNode << renderNode
          << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys") << QStringLiteral("/sys")
          << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys/dev/char")
          << QStringLiteral("/sys/dev/char") << QStringLiteral("--ro-bind-try")
