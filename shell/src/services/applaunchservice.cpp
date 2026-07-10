@@ -747,15 +747,17 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // match the wayland-egl client surface the runner needs. Cheap
         // insurance against ambiguous Mesa platform discovery.
         env.insert("EGL_PLATFORM", QStringLiteral("wayland"));
-        // Force Mesa to advertise OpenGL ES 2.0 as the highest version
-        // through eglQueryString(EGL_CLIENT_APIS) and related capability
-        // queries. Without this, Chromium's GPU init queries the EGL
-        // display, sees etnaviv reports ES 2.0 already (HALTI0), but
-        // STILL requests an ES 3.x context via EGL_CONTEXT_CLIENT_VERSION
-        // because its internal cap probe assumed ES3-capable Mesa. Pinning
-        // GLES_VERSION_OVERRIDE makes Mesa lie consistently: every cap
-        // query says 2.0, Chromium's negotiation aligns.
-        env.insert("MESA_GLES_VERSION_OVERRIDE", QStringLiteral("2.0"));
+        // Experimental etnaviv ES3-context override, OFF by default. The GC7000
+        // rev 6214 is GLES3-class silicon but etnaviv still gates Mesa's GLES3
+        // conformance, so Chromium's ES3 WebGL context request fails. Forcing
+        // MESA_GLES_VERSION_OVERRIDE=3.0 lets ES3 context CREATION through — but
+        // on Mesa 26.1.1 that does NOT produce working WebGL (Chromium SIGTRAPs
+        // at MapLibre init, injection-verified) and destabilises Maps, so it
+        // ships disabled. Opt in for testing by setting MARATHON_MESA_GLES_OVERRIDE
+        // (e.g. =3.0); unset means we leave Mesa's default ES2 advertisement alone.
+        const QByteArray glesOverride = qgetenv("MARATHON_MESA_GLES_OVERRIDE");
+        if (!glesOverride.isEmpty())
+            env.insert("MESA_GLES_VERSION_OVERRIDE", QString::fromLatin1(glesOverride));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
         env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
         // Do NOT force MESA_LOADER_DRIVER_OVERRIDE / GALLIUM_DRIVER /
@@ -1063,8 +1065,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                                               DeviceProfile::instance().renderNode());
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("EGL_PLATFORM")
                       << QStringLiteral("wayland");
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
-                      << QStringLiteral("2.0");
+            // Experimental etnaviv ES3 override — OFF by default, same as the
+            // un-sandboxed block. Forcing MESA_GLES_VERSION_OVERRIDE=3.0 does
+            // NOT yield working WebGL on Mesa 26.1.1 (Chromium SIGTRAPs at
+            // MapLibre init) and destabilises Maps, so we only pass it through
+            // when MARATHON_MESA_GLES_OVERRIDE is explicitly set for testing.
+            const QByteArray glesOverride = qgetenv("MARATHON_MESA_GLES_OVERRIDE");
+            if (!glesOverride.isEmpty())
+                bwrapArgs << QStringLiteral("--setenv")
+                          << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
+                          << QString::fromLatin1(glesOverride);
             // The chromium flags value contains spaces (multiple --foo=bar
             // tokens) and the cmd string we build here is re-parsed by
             // QProcess::splitCommand on the compositor side. Per Qt 6 docs
