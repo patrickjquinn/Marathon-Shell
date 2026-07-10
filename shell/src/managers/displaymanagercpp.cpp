@@ -3,6 +3,7 @@
 #include "rotationmanager.h"
 #include "sensormanagercpp.h"
 #include "platform.h"
+#include "deviceprofile.h"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
@@ -28,19 +29,24 @@
 // runs 0..100%, but 0% must never make the panel invisible — on the
 // Librem 5 a fully-dimmed backlight is indistinguishable from a dead
 // screen. So we remap the user's [0,1] onto the hardware range
-// [kMinVisibleBrightness, 1.0]: slider 0% -> ~28% real duty, slider
-// 100% -> 100%. All hardware writes go through brightnessUserToHw() and
-// all sysfs reads come back through brightnessHwToUser() so the slider
-// still reflects the user's own 0..100 setting.
-static constexpr double kMinVisibleBrightness = 0.28;
+// [floor, 1.0]: slider 0% -> ~floor real duty, slider 100% -> 100%. The
+// floor is a per-device panel trait (L5 default 0.28), sourced from
+// DeviceProfile so an overlay can declare its own. All hardware writes go
+// through brightnessUserToHw() and all sysfs reads come back through
+// brightnessHwToUser() so the slider still reflects the user's 0..100.
+static inline double minVisibleBrightness() {
+    return DeviceProfile::instance().brightnessFloor();
+}
 
-static inline double    brightnessUserToHw(double user) {
-    user = qBound(0.0, user, 1.0);
-    return kMinVisibleBrightness + (1.0 - kMinVisibleBrightness) * user;
+static inline double brightnessUserToHw(double user) {
+    const double floor = minVisibleBrightness();
+    user               = qBound(0.0, user, 1.0);
+    return floor + (1.0 - floor) * user;
 }
 
 static inline double brightnessHwToUser(double hw) {
-    return qBound(0.0, (hw - kMinVisibleBrightness) / (1.0 - kMinVisibleBrightness), 1.0);
+    const double floor = minVisibleBrightness();
+    return qBound(0.0, (hw - floor) / (1.0 - floor), 1.0);
 }
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
