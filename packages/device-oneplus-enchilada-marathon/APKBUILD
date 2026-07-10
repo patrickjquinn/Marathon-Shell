@@ -4,7 +4,7 @@
 pkgname=device-oneplus-enchilada-marathon
 pkgdesc="OnePlus 6 - Marathon OS Edition"
 pkgver=1.0.0
-pkgrel=6
+pkgrel=7
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -39,6 +39,7 @@ source="
 	greetd-marathon.toml
 	logind.conf
 	greetd.service
+	50-gpu-acceleration.conf
 	"
 
 package() {
@@ -53,11 +54,19 @@ package() {
 	# Install greetd systemd service file
 	install -Dm644 "$srcdir/greetd.service" \
 		"$pkgdir/usr/lib/systemd/system/greetd.service"
+
+	# GPU acceleration env for the Adreno 630 / freedreno stack. This
+	# lived (wrongly) in marathon-base-config where it shipped to every
+	# device; it is device-specific to the OnePlus 6 (enchilada) and now
+	# lives here. Only devices that actually use freedreno get it.
+	install -Dm644 "$srcdir/50-gpu-acceleration.conf" \
+		"$pkgdir/etc/environment.d/50-gpu-acceleration.conf"
 }
 
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
+2578e143e2ed73b6e038f64d1956685b42bb8850439bb15ecfe8ed68458c169d0cd7759245035516f2ce28092bbc0a78254994effd0430351ac138f81922df33  50-gpu-acceleration.conf
 db580d365c13bb196f2fdd4ac2a4339c3ad91490dc5ca4a3d3eab882121a1a5b38afe5a24d8fab0caa2e3cecf129d464833d2e2752641711ff74356e51282d49  greetd.service
 "
 
