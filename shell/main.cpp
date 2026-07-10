@@ -50,6 +50,7 @@
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
+#include "src/managers/deviceprofile.h"
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
 #include "src/controllers/displaypolicycontroller.h"
@@ -278,24 +279,31 @@ int main(int argc, char *argv[]) {
     // the main shell window AND any internal surface Qt creates use
     // the same config.
     {
-        QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+        // GLES level and framebuffer alpha come from the DeviceProfile, not
+        // hardcoded L5 constants — a device whose GPU stack does GLES3 (e.g.
+        // the Vivante blob) declares GLES_LEVEL=3.0, and a device whose CRTC
+        // is ARGB declares SURFACE_ALPHA=1. Defaults still match the Librem 5
+        // (GLES 2.0, no alpha) so an un-provisioned device is unchanged.
+        const DeviceProfile &dp  = DeviceProfile::instance();
+        QSurfaceFormat       fmt = QSurfaceFormat::defaultFormat();
         fmt.setRenderableType(QSurfaceFormat::OpenGLES);
-        fmt.setMajorVersion(2);
-        fmt.setMinorVersion(0);
+        fmt.setMajorVersion(dp.glesMajor());
+        fmt.setMinorVersion(dp.glesMinor());
         fmt.setProfile(QSurfaceFormat::NoProfile);
         fmt.setColorSpace(QColorSpace::SRgb);
         fmt.setSamples(0);
         fmt.setSwapInterval(1);
         fmt.setDepthBufferSize(24);
         fmt.setStencilBufferSize(8);
-        // Do NOT set alpha/red/green/blue buffer sizes here. The Librem 5
-        // i.MX 8M Quad LCDIF DSI CRTC is configured for XRGB8888 (no
-        // alpha) by the kernel modesetting driver. Asking Qt for an
-        // EGLConfig with alpha=8 returns an ARGB8888 surface whose
-        // framebuffer pixel format does not match the CRTC; DRM rejects
-        // every drmModePageFlip with EINVAL and the panel never updates
-        // even though the shell is happily rendering frames. Letting Qt
-        // pick its defaults lands on an EGLConfig matching the CRTC.
+        // Framebuffer alpha is CRTC-dependent. The Librem 5 i.MX 8M Quad LCDIF
+        // DSI CRTC is XRGB8888 (no alpha): asking Qt for an EGLConfig with
+        // alpha=8 returns an ARGB8888 surface whose pixel format does not
+        // match the CRTC, DRM rejects every drmModePageFlip with EINVAL, and
+        // the panel never updates. So we set alpha ONLY when the device
+        // profile says its CRTC has an alpha channel; otherwise we leave Qt's
+        // defaults (which land on the XRGB-matching EGLConfig).
+        if (dp.surfaceHasAlpha())
+            fmt.setAlphaBufferSize(8);
         QSurfaceFormat::setDefaultFormat(fmt);
     }
 
@@ -532,6 +540,12 @@ int main(int argc, char *argv[]) {
     auto *ctx = engine.rootContext();
 
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
+
+    // DeviceProfile is a process-lifetime singleton (already loaded early for
+    // the surface format); expose the same instance to QML so the UI can key
+    // off declared device traits instead of env sniffing.
+    qmlRegisterSingletonInstance<DeviceProfile>("MarathonOS.Shell", 1, 0, "DeviceProfile",
+                                                &DeviceProfile::instance());
 
     auto *mpris2Controller = new MPRIS2Controller(&app);
     qmlRegisterSingletonInstance<MPRIS2Controller>("MarathonOS.Shell", 1, 0, "MPRIS2Controller",

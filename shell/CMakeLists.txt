@@ -62,6 +62,8 @@ set(SOURCES
     src/controllers/displaypolicycontroller.cpp
     src/managers/displaymanagercpp.h
     src/managers/displaymanagercpp.cpp
+    src/managers/deviceprofile.h
+    src/managers/deviceprofile.cpp
     src/managers/powerkeylistener.h
     src/managers/powerkeylistener.cpp
     src/services/screenshotservicecpp.h
