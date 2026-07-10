@@ -15,8 +15,15 @@
 # the moment pmaports' linux-purism-librem5 carries the same patch.
 pkgname=linux-purism-librem5-marathon
 pkgver=6.6.139
-pkgrel=0
+pkgrel=2
 _purismrel=1
+# Vivante galcore GPU kernel module, built out-of-tree against this kernel and
+# shipped in modules/<kver>/extra/. Not auto-loaded — the L5 device overlay
+# activates it (and blacklists etnaviv) only when GPU_STACK=vivante-blob. Its
+# ABI base (6.4.11) matches the librem5-vivante-blobs userspace; the p3.0
+# source is the first with kernel 6.6 support. See docs/DEVICE_OVERLAYS.md.
+_galcorever=6.4.11.p3.0
+_galcoredir="kernel-module-imx-gpu-viv-upstream-$_galcorever"
 _purismver=${pkgver}pureos$_purismrel
 pkgdesc="Purism Librem 5 kernel — Marathon fork with RS9116 kCFI fix"
 arch="aarch64"
@@ -60,18 +67,41 @@ source="
 	treewide-remove-unnecessary-linux-version.h-inclusion.patch
 	0001-redpine-fix-kthread-signatures-for-cfi.patch
 	0002-librem5-usdhc2-non-removable.patch
+	imx-gpu-viv-galcore-$_galcorever.tar.gz::https://github.com/Freescale/kernel-module-imx-gpu-viv/archive/refs/tags/upstream/$_galcorever.tar.gz
+	galcore-busfreq-imx-stub.diff
 "
 builddir="$srcdir/linux-pureos-$_purismver"
 
 prepare() {
 	default_prepare
 	cp "$srcdir/config-$_flavor.$arch" .config
+
+	# galcore's i.MX platform glue #includes NXP's downstream-only
+	# <linux/busfreq-imx.h>; Purism's mainline-based 6.6 kernel has no
+	# bus-freq API. Stub the GPU bus-freq hints (a power optimisation, not
+	# required for correct operation) so galcore compiles. Shipped as a
+	# .diff (not .patch) so abuild's default_prepare doesn't try to apply it
+	# to the kernel tree — it targets the galcore source tree only. VALIDATED:
+	# with this stub galcore 6.4.11.p3.0 compiles clean against 6.6.139.
+	( cd "$srcdir/$_galcoredir" \
+		&& patch -p1 -i "$srcdir/galcore-busfreq-imx-stub.diff" )
 }
 
 build() {
 	unset LDFLAGS
 	make ARCH="$_carch" LLVM=1 \
 		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-marathon"
+
+	# Vivante galcore, out-of-tree against the kernel tree we just built.
+	# LLVM=1 must match the kernel's toolchain or module symbol versions
+	# won't line up. Command-line ARCH/LLVM propagate to galcore's inner
+	# `make -C $KERNEL_SRC` via MAKEFLAGS.
+	msg "Building Vivante galcore $_galcorever against $_purismver"
+	# galcore's Makefile derives AQROOT from ${PWD}, so it MUST run with the
+	# galcore dir as cwd — `make -C` doesn't update the recipe shell's PWD and
+	# AQROOT resolves wrong (config not found). cd in instead.
+	( cd "$srcdir/$_galcoredir" \
+		&& make KERNEL_SRC="$builddir" ARCH="$_carch" LLVM=1 )
 }
 
 package() {
@@ -87,12 +117,22 @@ package() {
 
 	install -D "$builddir"/include/config/kernel.release \
 		"$pkgdir"/usr/share/kernel/"$_flavor"/kernel.release
+
+	# Ship galcore in modules/<kver>/extra/ and refresh modules.dep so the L5
+	# overlay can `modprobe galcore`. Not auto-loaded (no modules-load.d here).
+	local _kver
+	_kver="$(cat "$builddir"/include/config/kernel.release)"
+	install -Dm644 "$srcdir/$_galcoredir/kernel-module-imx-gpu-viv-src/galcore.ko" \
+		"$pkgdir/usr/lib/modules/$_kver/extra/galcore.ko"
+	depmod -b "$pkgdir/usr" "$_kver"
 }
 
 sha512sums="
 d51709ee85ac8ebe271fc57ba60e2ab5f90225bd045b813a281553b0f76ae4c227317201fbb509e59af9813ea3e49947e83ac7d82b97cede15212cadd90fc372  linux-purism-librem5-marathon-6.6.139pureos1.tar.gz
-041d21c40d5868963da9779d9dca462b91eff3153da851cbef355d155ad342e83428ab56837bbde0f9030a4227763ce7edcb2df9dcfda799af1e294d5c24c270  config-purism-librem5.aarch64
+5c04049c911c20c7a932a8f0ffb045f9744f741b031d91d0107d9745f51d1b6cb7602f727f8c2cd855a27760b525a5e0d28f1823e2687eb528f6b787e3946a66  config-purism-librem5.aarch64
 76c1e07b5479fe7be0d1e4a74a8f4a2cd8fc25fbeb3a4efcaf8300e27817a320c0c1340ea6c00ad1c3dd86cc2cb192280de8a91360bad80665115701ba11632d  treewide-remove-unnecessary-linux-version.h-inclusion.patch
 097f98b1fb24e2064ff726af65cf20a2a407bf53b310d9aa1d44c8cc7b39f737cf5b9a57cf454bbf4442a3ec9f6f4486f2c7d5568f67a8f168dad68a975d1b35  0001-redpine-fix-kthread-signatures-for-cfi.patch
-	0002-librem5-usdhc2-non-removable.patch
+3ab27d7e6fb40c2af9cc995952fadca7f41c0e6acaf812f595398eb4ee4e5ffd2f799de1d952cb71d6125e99678f2e05e138fea59ff751f3999bfc5f7193f262  0002-librem5-usdhc2-non-removable.patch
+05da28d1a93e0c704bcdd767800a659b333ca22583f00f8848534a03cf469198929a2dbc86c07d6b1952f413a968e906281fe437afc2300d2d350beae530e622  imx-gpu-viv-galcore-6.4.11.p3.0.tar.gz
+1f2cd45e2187f2ed71b9ee93337e977fb5ae4e93356a0bc75f0970c4901c35006e8303048d5e0036b28d685fbc6485dbb6b944cfc093bc864c27adf566f8f255  galcore-busfreq-imx-stub.diff
 "

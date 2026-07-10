@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=27
+pkgrel=31
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -64,6 +64,7 @@ depends="
 	linux-purism-librem5-marathon
 	u-boot-librem5
 	u-boot-tools
+	librem5-vivante-blobs
 	marathon-shell
 	marathon-base-config
 	marathon-plymouth-theme
@@ -101,6 +102,10 @@ source="
 	50-marathon-l5-default-sink.conf
 	marathon-modem-location.service
 	marathon-cellular.nmconnection
+	device-profile.conf
+	marathon-gpu.modprobe.conf
+	marathon-gpu-select.sh
+	marathon-gpu-select.service
 	"
 
 package() {
@@ -121,6 +126,13 @@ package() {
 	# QT_QPA_EGLFS_KMS_CONFIG env var (set in the greetd drop-in).
 	install -Dm644 "$srcdir/eglfs-kms.json" \
 		"$pkgdir/etc/marathon/eglfs-kms.json"
+
+	# Device profile — the shell (DeviceProfile) and marathon-shell-session
+	# read this to pick GPU stack / GLES level / render node / governor for
+	# the Librem 5. Matches the shell's built-in defaults today; flip
+	# GPU_STACK/GLES_LEVEL when the Vivante blob overlay is installed.
+	install -Dm644 "$srcdir/device-profile.conf" \
+		"$pkgdir/etc/marathon/device-profile.conf"
 
 	# greetd service drop-in: point Qt at the JSON above so EGLFS_KMS
 	# opens /dev/dri/card1 (LCDIF + DSI panel) instead of card0
@@ -214,13 +226,35 @@ package() {
 	# canonical drop-in path read by wireplumber 0.5+.
 	install -Dm644 "$srcdir/50-marathon-l5-default-sink.conf" \
 		"$pkgdir/etc/wireplumber/wireplumber.conf.d/50-marathon-l5-default-sink.conf"
+
+	# GPU driver arbitration (etnaviv vs Vivante galcore). The GC7000Lite
+	# can only be bound by one at a time; udev must not autoload either
+	# (the modprobe blacklist) — marathon-gpu-select.service picks the one
+	# named by GPU_STACK in device-profile.conf at boot, before greetd, with
+	# a hard fallback to etnaviv so a bad Vivante state can never wedge the
+	# device. See docs/DEVICE_OVERLAYS.md.
+	install -Dm644 "$srcdir/marathon-gpu.modprobe.conf" \
+		"$pkgdir/etc/modprobe.d/marathon-gpu.conf"
+	install -Dm755 "$srcdir/marathon-gpu-select.sh" \
+		"$pkgdir/usr/lib/marathon/marathon-gpu-select.sh"
+	install -Dm644 "$srcdir/marathon-gpu-select.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-gpu-select.service"
+	# Enable it via a shipped wants-symlink, NOT a post-install
+	# `systemctl enable` — the latter is a no-op in the mkosi buildroot
+	# (no running systemd), same as marathon-wifi-recovery above. Without
+	# this, etnaviv (blacklisted in marathon-gpu.conf) never loads and the
+	# shell falls back to software render.
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-gpu-select.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-gpu-select.service"
 }
 
 sha512sums="
 c0d599806eae553b7af7e6b29b19b0e63808f599200a766805685a2d2a60e9e4fc8100cdcb8b352973e5a6b25058e7a14645661bc8667e11d0b42593bdccac18  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
 bc68ea093103d2f4645065ce34d8517508bf2db64c1641da1220e71698d1ce91ff5a94e4b27812c95d9758ccea46890c96fa120872d9dabbf0ec8dcff64eaa88  greetd-l5-env.conf
-389a5a7d3d6002a8bc2af633a3baae134d021b5fdbc3e09a0216211345db794744f9fcd13a887a65e8b8bd92fd62c069deca1cb9e48eb5976898ebe39b41c911  eglfs-kms.json
+3a0096896c38674560e1c1ad248df461675a30708de1f889cf101f721b4cc3c12a6c685ccb6c86a0ad1c59056098a3c9b770ebdf44adb48b918f29ad40717767  eglfs-kms.json
+190174d593dca515a65373ca9b3f091c6bcf6e27dc5fae2a8ee64b8198532b8e81b15b6fae427751482a2055d1f26fca62c387347dc270c5caa3c3278f388aac  device-profile.conf
 6dd436a5f82a2a3e31c609bd1429978c43838f884a0e779582662c524a73cd7766b4f0bd36faf9cf79584541d85d15b70bcdb03bba288f292d36c62b5f19947b  journald-l5.conf
 fda83861fc6365b253b2737976b7d93fa03b4e9ac42e20c4ac1791e891e7876637e1c286561bfb1d77bdab1e0291e1f7c6e88a5429555b13a4a804bef75474e4  marathon-boot.cmd
 62ac6ff2493097507b6549cb3b0cbc4aff25ad8f7ca4fa20415a5b68eb326a3c39de737b7b72e401ae2b52182bcba95895aca7f6b4a885d18d3e04ce96d4b9fe  marathon-wifi-recovery.sh
@@ -230,4 +264,7 @@ c8f91554fc7cc1e456d68d68b0b7ab73a2531b4361b02e5e51fc8d7ede7048f602012a9bc9efb7e9
 279c57171c6080313729fc71eda757c0e4e566a70a0980ad833f649149444f8f52378344b7cd057e25ecd82071842d2b9f2196230239afdafb5a46b4a1847928  50-marathon-l5-default-sink.conf
 3c9e558ec3eaae346ae31afac6fcf997bf498039ef4e0a59f0b922ba9e27bcae80004e7c2b19400a55bc504bf839f0af3e3a64b60e8f8e5266ab19e9b6bc9a36  marathon-modem-location.service
 4bf52b20db09f47f775d294df9f48d945a697a130b6ddaaf144e291b74d13d5f9b065f8212e8b5452fe857f45423a7daf3e22bd5c2d08f8ed0704251a19760cf  marathon-cellular.nmconnection
+73428eec391985813dfe3bd3ec6f318aa8c6820189a4aa543c072397f857ebe1c665de596709788d8853d5093d310381fadba9151870cb17212cd27577f9c963  marathon-gpu.modprobe.conf
+7e696f5da8b2c60dbfee8f81a8bd848f6fd8620bc33c607a37edf09318b6a6756e80ce376aa7d8a533267f42446293bf03e77a126a7a84a5edd25733e526d5c9  marathon-gpu-select.sh
+6b70eb0ade799e1c9b33af1d20bf9182a85bd15dafc0442b04f6717291903b55ac7a7be72a5dcb5c25bbc518c991bd3881b90868d0b537b38a46a506ba1d0ffb  marathon-gpu-select.service
 "

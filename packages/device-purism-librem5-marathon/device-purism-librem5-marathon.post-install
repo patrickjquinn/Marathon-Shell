@@ -17,6 +17,8 @@ systemctl enable pipewire-pulse
 systemctl enable wireplumber
 # Enable GPS location gathering at boot (modem ships with it disabled).
 systemctl enable marathon-modem-location
+# NOTE: marathon-gpu-select is enabled via a shipped wants-symlink in the
+# APKBUILD (systemctl enable is a no-op in the mkosi buildroot), not here.
 
 # --- mask noisy/broken upstream units --------------------------------------
 #

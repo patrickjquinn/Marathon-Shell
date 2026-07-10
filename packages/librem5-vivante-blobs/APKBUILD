@@ -1,0 +1,69 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+#
+# NXP i.MX8M proprietary Vivante GPU userspace (imx-gpu-viv) for the Librem 5
+# (i.MX 8M Quad, GC7000Lite). Ships the closed EGL/GLESv2/GL/GBM stack that the
+# etnaviv open driver cannot match on GLES3.1 + WebGL (see Marathon
+# docs/DEVICE_OVERLAYS.md, GPU_STACK=vivante-blob).
+#
+# ISOLATED INSTALL: everything lands under /usr/lib/vivante/ and is opted into
+# ONLY by the marathon-shell greetd session via LD_LIBRARY_PATH. It does NOT
+# replace system Mesa (no provides=/replaces=), so a boot with the blob path
+# unset falls straight back to etnaviv — the swap is reversible and cannot
+# brick the boot chain. Pairs with galcore built from the 6.4.11.p3.0
+# kernel-module source (same 6.4.11 driver base) in the L5 kernel fork.
+#
+# aarch64-only (the blob has no other arch). Licensed under the NXP EULA
+# embedded in the self-extractor; redistribution in a device image is permitted
+# by that EULA. Do NOT strip or trace-deps the vendor objects.
+pkgname=librem5-vivante-blobs
+pkgver=6.4.11
+pkgrel=0
+_binver=6.4.11.p1.0
+_soc=mx8mq
+pkgdesc="NXP Vivante (imx-gpu-viv) closed GPU userspace for Librem 5 i.MX8MQ — isolated under /usr/lib/vivante"
+url="https://www.nxp.com/design/software/embedded-software/i-mx-software"
+arch="aarch64"
+license="custom:NXP-EULA"
+# No mesa provides/replaces on purpose: this is an opt-in overlay, not a
+# system GL swap. Depends only on the wayland/drm bits the blob dlopens.
+depends="libdrm wayland-libs-client"
+options="!check !strip !tracedeps"
+source="imx-gpu-viv-$_binver-aarch64.bin::https://www.nxp.com/lgfiles/NMG/MAD/YOCTO/imx-gpu-viv-$_binver-aarch64.bin"
+builddir="$srcdir/imx-gpu-viv-$_binver-aarch64"
+
+# The source is a Freescale self-extracting shell+tar installer, not a tarball
+# abuild knows how to open. Run it to unpack the gpu-core tree.
+unpack() {
+	default_unpack || true
+	cd "$srcdir"
+	[ -d "imx-gpu-viv-$_binver-aarch64" ] && return 0
+	install -m755 "$srcdir/imx-gpu-viv-$_binver-aarch64.bin" "$srcdir/_extract.bin"
+	( cd "$srcdir" && ./_extract.bin --force --auto-accept )
+	rm -f "$srcdir/_extract.bin"
+}
+
+package() {
+	local vdir="$pkgdir/usr/lib/vivante"
+	local src="$builddir/gpu-core/usr/lib"
+	install -d "$vdir"
+
+	# 1. Common (backend-agnostic) userspace: HAL, shader compiler, GBM, VSC,
+	#    Vulkan, CL — everything that lives at the top of gpu-core/usr/lib.
+	#    (regular files + their versioned/symlink siblings)
+	cp -a "$src"/*.so* "$vdir"/ 2>/dev/null || true
+
+	# 2. The Wayland-world GL backend (its libEGL advertises EGL_KHR_platform_gbm
+	#    + EGL_EXT_device_drm, so Qt's eglfs_kms_atomic can drive it over gbm on
+	#    the L5's split card0-GPU / card1-scanout topology). These win over the
+	#    top-level copies for EGL/GLESv2/GL.
+	cp -a "$src"/wayland/*.so* "$vdir"/
+
+	# 3. SoC-specific NN/GPU binary for the i.MX8M Quad.
+	if [ -f "$src/$_soc/libNNGPUBinary-lite.so" ]; then
+		cp -a "$src/$_soc"/*.so* "$vdir"/
+	fi
+
+	# Vendor licence text for the record (NXP EULA / COPYING at the tree root).
+	install -Dm644 "$builddir/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING" 2>/dev/null || true
+}

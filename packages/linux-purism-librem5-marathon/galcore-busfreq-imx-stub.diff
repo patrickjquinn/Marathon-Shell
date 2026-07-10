@@ -1,0 +1,18 @@
+--- a/kernel-module-imx-gpu-viv-src/hal/os/linux/kernel/platform/freescale/gc_hal_kernel_platform_imx.c	2026-07-10 15:49:20.457557275 +0100
++++ b/kernel-module-imx-gpu-viv-src/hal/os/linux/kernel/platform/freescale/gc_hal_kernel_platform_imx.c	2026-07-10 15:49:20.468515755 +0100
+@@ -91,7 +91,14 @@
+ #    include <linux/busfreq-imx6.h>
+ #    include <linux/reset.h>
+ #  else
+-#      include <linux/busfreq-imx.h>
++/* busfreq-imx.h is NXP-downstream only; Purism/mainline i.MX8M has no
++ * bus-frequency API. Stub the GPU bus-freq hints (a power optimisation,
++ * not required for correct GPU operation) so galcore builds mainline. */
++#      ifndef BUS_FREQ_HIGH
++#        define BUS_FREQ_HIGH 0
++#        define request_bus_freq(x) do { } while (0)
++#        define release_bus_freq(x) do { } while (0)
++#      endif
+ #    include <linux/reset.h>
+ #  endif
+ #endif

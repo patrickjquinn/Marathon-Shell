@@ -152,6 +152,67 @@ if [ "$NEED_SOFTWARE_BACKEND" = 1 ]; then
     echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software + QT_QPA_PLATFORM=linuxfb" >&2
 fi
 
+# ---- Vivante blob GPU stack (opt-in, DEFENSIVE) ------------------------------
+#
+# The Librem 5 can render on the proprietary NXP Vivante userspace (galcore +
+# /usr/lib/vivante, from librem5-vivante-blobs) for GLES3.1 + WebGL instead of
+# the open etnaviv/Mesa stack. Opt-in via GPU_STACK=vivante-blob in
+# /etc/marathon/device-profile.conf. It is DELIBERATELY hard to get stuck on:
+# we switch only if the whole chain checks out AND the previous vivante boot
+# didn't just crash — otherwise we fall straight back to etnaviv so a bad blob
+# can never leave the phone on a black, unwakeable screen. Vivante's libEGL
+# advertises EGL_KHR_platform_gbm, so the existing eglfs_kms_atomic integration
+# drives it; we only redirect the loader (LD_LIBRARY_PATH) and drop the
+# Mesa-only driver override.
+_gpu_stack="mesa-etnaviv"
+if [ -r /etc/marathon/device-profile.conf ]; then
+    _v=$(sed -n 's/^[[:space:]]*GPU_STACK[[:space:]]*=[[:space:]]*//p' \
+            /etc/marathon/device-profile.conf | tr -d '"' | head -1)
+    [ -n "$_v" ] && _gpu_stack="$_v"
+fi
+[ -n "${MARATHON_GPU_STACK:-}" ] && _gpu_stack="$MARATHON_GPU_STACK"
+export MARATHON_ACTIVE_GPU_STACK="mesa-etnaviv"
+
+if [ "$_gpu_stack" = "vivante-blob" ] && [ "$IS_VIRTIO_GPU" != 1 ] \
+   && [ "$NEED_SOFTWARE_BACKEND" != 1 ]; then
+    _viv_lib=/usr/lib/vivante
+    _viv_ok=1
+    _viv_why=""
+    # Crash-loop guard: a marker in XDG_RUNTIME_DIR (tmpfs → cleared every
+    # power-on) records the last vivante attempt. If it's fresh (< 45 s) we
+    # are in a greetd restart loop from a vivante boot that just died — fall
+    # back to etnaviv THIS boot so the device comes up wakeable. A clean
+    # power-on always retries vivante (marker gone).
+    _viv_marker="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.marathon-vivante-boot"
+    if [ -f /etc/marathon/force-etnaviv ]; then
+        _viv_ok=0; _viv_why="force-etnaviv marker present"
+    elif [ -e "$_viv_marker" ] \
+         && [ "$(( $(date +%s) - $(stat -c %Y "$_viv_marker" 2>/dev/null || echo 0) ))" -lt 45 ]; then
+        _viv_ok=0; _viv_why="previous vivante boot crashed < 45s ago — recovering on etnaviv"
+    elif [ ! -e "$_viv_lib/libEGL.so.1" ]; then
+        _viv_ok=0; _viv_why="vivante userspace missing at $_viv_lib"
+    else
+        # galcore must be up and its char node present, else the GPU isn't
+        # actually available on the blob path.
+        [ -e /dev/galcore ] || modprobe galcore >/dev/null 2>&1 || true
+        _i=0
+        while [ ! -e /dev/galcore ] && [ "$_i" -lt 10 ]; do sleep 0.2; _i=$((_i + 1)); done
+        [ -e /dev/galcore ] || { _viv_ok=0; _viv_why="galcore not loaded / /dev/galcore absent"; }
+    fi
+
+    if [ "$_viv_ok" = 1 ]; then
+        # Stamp the attempt BEFORE launching, so a crash within 45 s trips the
+        # guard on the next greetd restart.
+        : > "$_viv_marker" 2>/dev/null || true
+        export LD_LIBRARY_PATH="$_viv_lib:${LD_LIBRARY_PATH:-}"
+        unset MESA_LOADER_DRIVER_OVERRIDE
+        export MARATHON_ACTIVE_GPU_STACK="vivante-blob"
+        echo "[marathon-shell-session] GPU stack: vivante-blob (LD_LIBRARY_PATH=$_viv_lib)" >&2
+    else
+        echo "[marathon-shell-session] GPU stack: etnaviv fallback — $_viv_why" >&2
+    fi
+fi
+
 # ---- Qt-wide env -------------------------------------------------------------
 
 export QT_MEDIA_BACKEND=gstreamer
@@ -395,6 +456,8 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --setenv=QML_IMPORT_PATH \
         --setenv=QML2_IMPORT_PATH \
         --setenv=MESA_LOADER_DRIVER_OVERRIDE \
+        --setenv=LD_LIBRARY_PATH \
+        --setenv=MARATHON_ACTIVE_GPU_STACK \
         --setenv=MARATHON_FORCE_DPI \
         --setenv=MARATHON_LAYER_SAMPLES \
         --setenv=MARATHON_APPS_DIR \

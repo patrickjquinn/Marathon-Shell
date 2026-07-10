@@ -1,0 +1,16 @@
+[Unit]
+Description=Marathon GPU driver selection (etnaviv vs Vivante galcore)
+Documentation=file:///usr/share/doc/marathon/DEVICE_OVERLAYS.md
+# /usr must be mounted (script + .ko live there); run before the compositor
+# so the GPU render node exists by the time marathon-shell starts.
+After=local-fs.target systemd-modules-load.service
+Before=greetd.service
+ConditionPathExists=/etc/marathon/device-profile.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/marathon/marathon-gpu-select.sh
+
+[Install]
+WantedBy=multi-user.target
