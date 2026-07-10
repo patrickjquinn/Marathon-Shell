@@ -78,6 +78,44 @@ The GPU driver stack is one dimension of the overlay: a device declares
 (Mesa packages by default; for `vivante-blob`, an extra `*-vivante-blobs` aport
 + the galcore kernel module via the device kernel fork's `depends=`).
 
+### GPU driver arbitration on the Librem 5 (etnaviv ↔ Vivante galcore)
+
+The GC7000Lite can be bound by **either** the open `etnaviv` DRM driver **or**
+NXP's proprietary Vivante `galcore` module — never both; they claim the same
+hardware. The L5 overlay arbitrates at boot:
+
+- **Kernel**: `CONFIG_DRM_ETNAVIV=m` (not `=y`) in
+  `config-purism-librem5.aarch64`, so etnaviv can be prevented from binding.
+  `galcore.ko` is built out-of-tree by `linux-purism-librem5-marathon` and
+  shipped in `modules/<kver>/extra/` (never auto-loaded).
+- **`/etc/modprobe.d/marathon-gpu.conf`**: `blacklist etnaviv` +
+  `blacklist galcore` — udev must not race either driver onto the GPU.
+- **`marathon-gpu-select.service`** (oneshot, `Before=greetd`): runs
+  `marathon-gpu-select.sh`, which reads `GPU_STACK` from `device-profile.conf`
+  (kernel cmdline `marathon.gpu=<stack>` overrides for recovery) and
+  `modprobe`s exactly one driver. `vivante-blob` loads galcore and verifies
+  `/dev/galcore`; **anything else, or any galcore failure, falls back to
+  `modprobe etnaviv`.**
+- **Safety contract (anti-wedge)**: the display controllers (`mxsfb` /
+  `imx-dcss`, both `=y`) are separate hardware and come up at kernel init
+  regardless of the GPU driver, so even total GPU-driver failure degrades to
+  software render on a working panel — never an unwakeable phone.
+
+Because etnaviv is now a late-loaded module, the DRM **card index** it lands on
+is no longer fixed (mxsfb/dcss, being built-in, register first). The eglfs KMS
+config therefore selects the display by **stable by-path symlink**
+(`/dev/dri/by-path/platform-30320000.lcd-controller-card`), not `cardN`. The
+etnaviv **render node** stays `renderD128` (etnaviv is the only render-capable
+driver, so it is always the first/only `renderD1NN` regardless of card index),
+so `RENDER_NODE` needs no change. galcore does not use the DRM render-node
+model at all (it exposes `/dev/galcore`), so `RENDER_NODE` is inert under
+`vivante-blob`.
+
+Bring-up is staged: bake/flash with `GPU_STACK=mesa-etnaviv` first (proves the
+`=m` + selector restructure is behaviour-neutral), then flip
+`GPU_STACK=vivante-blob` once galcore + the blob userspace are validated in
+isolation.
+
 ## Checklist: adding a new device
 
 1. **Create the overlay aport** `Marathon-Image/packages/device-<vendor>-<model>-marathon/`:
