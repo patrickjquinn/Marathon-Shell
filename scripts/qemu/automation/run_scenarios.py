@@ -58,17 +58,49 @@ def find_image() -> Path:
     return raws[0]
 
 
+def extract_uki(cache: Path = Path("/tmp/marathon-auto-uki")):
+    """Pull kernel+initrd out of the UKI so QEMU can boot them directly.
+
+    Python port of scripts/qemu/lib/extract-uki.sh. The UEFI->systemd-boot
+    ->UKI path has no root= and leans on gpt-auto, which duranium routes
+    through the masked systemd-cryptsetup@pmOS_root; the initrd then waits
+    for root forever while slirp still accepts :22, so the guest looks
+    "booted" and ssh fails with a banner timeout.
+    """
+    ukis = sorted(QEMU_OUT.glob("qemu-aarch64_marathon_edge_*.efi"),
+                  key=lambda p: p.stat().st_mtime, reverse=True)
+    if not ukis:
+        sys.exit(f"no UKI (.efi) in {QEMU_OUT}")
+    uki = ukis[0]
+    cache.mkdir(parents=True, exist_ok=True)
+    kernel, initrd = cache / "vmlinuz", cache / "initrd"
+    stamp = cache / ".uki-source"
+    have = kernel.exists() and initrd.exists() and kernel.stat().st_size > 0
+    same = stamp.read_text().strip() == str(uki) if stamp.exists() else False
+    fresh = have and uki.stat().st_mtime <= kernel.stat().st_mtime
+    if not (have and same and fresh):
+        print(f"==> extracting kernel+initrd from UKI: {uki.name}")
+        for sect, out in ((".linux", kernel), (".initrd", initrd)):
+            subprocess.run(["objcopy", "-O", "binary", f"--only-section={sect}",
+                            str(uki), str(out)], check=True)
+        stamp.write_text(str(uki) + "\n")
+    return kernel, initrd
+
+
 def launch_qemu(img: Path) -> subprocess.Popen:
     for s in (QMP_SOCK, SERIAL_SOCK):
         s.unlink(missing_ok=True)
-    shutil.copy(EFI_VARS_TEMPLATE, EFI_VARS)
     subprocess.run(["qemu-img", "resize", "-f", "raw", "-q", str(img), "20G"],
                    check=False, stderr=subprocess.DEVNULL)
-    smbios_cmdline = (
-        "systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw "
+    kernel, initrd = extract_uki()
+    # No SYSTEMD_SULOGIN_FORCE: headless, it turns a non-fatal early
+    # failure into a hung emergency shell instead of a boot.
+    direct_cmdline = (
+        "root=LABEL=pmOS_root rw rootwait "
+        "systemd.wants=network.target "
         "systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target "
         "systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci "
-        "loglevel=4 console=tty0 console=ttyAMA0,,115200")
+        "loglevel=4 console=tty0 console=ttyAMA0,115200")
     cmd = [
         "qemu-system-aarch64",
         "-machine", "type=virt,memory-backend=mem", "-cpu", "host", "-accel", "kvm",
@@ -78,8 +110,6 @@ def launch_qemu(img: Path) -> subprocess.Popen:
         "-device", "virtio-rng-pci,rng=rng0",
         "-device", "virtio-balloon",
         "-nic", f"user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{SSH_PORT}-:22",
-        "-drive", f"if=pflash,format=qcow2,readonly=on,file={EFI_CODE}",
-        "-drive", f"if=pflash,format=qcow2,file={EFI_VARS}",
         "-drive", f"file={img},format=raw,if=none,id=hd0,cache=writeback,discard=unmap",
         "-device", "virtio-blk-pci,drive=hd0,bootindex=1",
         # virtio-gpu-pci (no -gl) exposes a host-readable framebuffer that
@@ -94,9 +124,7 @@ def launch_qemu(img: Path) -> subprocess.Popen:
         "-vnc", "127.0.0.1:7",  # :5907 — only for human poking, not the harness
         "-serial", f"unix:{SERIAL_SOCK},server,nowait",
         "-qmp", f"unix:{QMP_SOCK},server,nowait",
-        "-smbios", f"type=11,value=io.systemd.stub.kernel-cmdline-extra={smbios_cmdline}",
-        "-smbios", f"type=11,value=io.systemd.boot.kernel-cmdline-extra={smbios_cmdline}",
-        "-boot", "menu=on,splash-time=0",
+        "-kernel", str(kernel), "-initrd", str(initrd), "-append", direct_cmdline,
     ]
     log = open("/tmp/marathon-auto-qemu.log", "w")
     return subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
