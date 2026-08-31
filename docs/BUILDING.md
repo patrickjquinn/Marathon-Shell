@@ -35,7 +35,7 @@ The first two are normal git clones. The third is the awkward one:
 upstream `postmarketos/duranium` is not Marathon-owned, and Marathon's
 divergence (Pi 5 boot pipeline, layer-2 device overlay injection, the
 device-APK builder script) is not in the upstream. We carry it as a
-patch series in [`pipeline-patches/`](../pipeline-patches/) and apply
+patch series in [`pipeline-patches/`](../packaging/pipeline-patches/) and apply
 it via the bootstrap script.
 
 ## 2. Bootstrap duranium with Marathon's patches

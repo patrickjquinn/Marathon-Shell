@@ -394,9 +394,9 @@ ssh user@device "sudo cp /tmp/marathon-shell /usr/bin/ && sudo systemctl restart
 
 ## Reference Documentation
 
-- [BUILD_THIS.md](../docs/BUILD_THIS.md) - Complete build guide
-- [KERNEL_CONFIG.md](../docs/KERNEL_CONFIG.md) - Kernel config explanations
-- [TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md) - Common issues
+- [BUILD_THIS.md](DEVELOPMENT_WORKFLOW.md) - Complete build guide
+- [KERNEL_CONFIG.md](KERNEL_CONFIG.md) - Kernel config explanations
+- [TROUBLESHOOTING.md](DEVICE_TROUBLESHOOTING.md) - Common issues
 - [README.md](../README.md) - Project overview
 
 ## Links
