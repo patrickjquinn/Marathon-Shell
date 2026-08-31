@@ -56,10 +56,20 @@ Item {
     // bottom + 180 sf hero image + status bar overflowed the 720 px
     // panel — the logo+title got clipped on first boot.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    // Reserves room for the Back/Next row + page-indicator dots + nav
-    // bar pill. At less than 250 sf the Passcode keypad clips its last
-    // row on tall screens (L5 scaleFactor ~1.61).
-    readonly property real swipeBottomMargin: compactLayout ? 140 : 250
+    // Space page content must clear at the bottom: the Back/Next row and
+    // the nav-bar pill, measured rather than guessed.
+    //
+    // This was a constant (170, then 250) multiplied by scaleFactor. Both
+    // directions were wrong: the constant only ever matched one device's
+    // scaleFactor (250 was tuned for the L5 at ~1.61), and raising it to
+    // stop content colliding with the nav row simultaneously shrank the
+    // content area, so at scaleFactor ~2.0 it reserved ~500 px of a
+    // 1440 px screen and the Passcode keypad's last row clipped off the
+    // bottom at the shipping default userScaleFactor of 1.10.
+    //
+    // navigationRow and navBar already scale themselves, so reading their
+    // real heights tracks every device and every user scale for free.
+    readonly property real swipeBottomInset: navigationRow.height + navBar.height + MSpacing.lg * 2
     readonly property real heroImageBlockSize: compactLayout ? 100 : 180
 
     signal setupComplete
@@ -140,11 +150,7 @@ Item {
         anchors.topMargin: topChrome.height + MSpacing.sm
         anchors.leftMargin: MSpacing.lg
         anchors.rightMargin: MSpacing.lg
-        // Reserve enough room at the bottom for the Back/Next row (height =
-        // touchTargetMedium ~70sf), the page-indicator row, the nav bar, plus
-        // margins. The old 170sf was tight at any scale and clipped cards on
-        // Gestures / Time & Date / Passcode at high DPI.
-        anchors.bottomMargin: Math.round(oobeRoot.swipeBottomMargin * Constants.scaleFactor)
+        anchors.bottomMargin: Math.round(oobeRoot.swipeBottomInset)
         currentIndex: oobeRoot.currentPage
         interactive: false
         clip: true
@@ -1257,13 +1263,36 @@ Item {
 
             readonly property bool isCompact: oobeRoot.compactLayout
             readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
-            readonly property real keySize: isCompact ? 44 : 56
-            // Scaled size for cell-container Items (the spacer at row 4 col 0
-            // and the +/-/dot keys). Must be ≥ MCircularIconButton's full
-            // chrome size (buttonSize × sf + halo), so the layout reserves
-            // enough room around the rendered button.
-            readonly property real scaledKeyCell: Math.round(keySize * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
             readonly property real keySpacing: Math.round((isCompact ? 10 : 14) * Constants.scaleFactor)
+
+            // Design size at 1x. Only an upper bound — see keyCellFit.
+            readonly property real keyCellDesign: Math.round(keyCellBase * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+            readonly property real keyCellBase: isCompact ? 44 : 56
+
+            // Height the four keypad rows may actually occupy, taken from
+            // this page's own height (set by SwipeView, so it never depends
+            // on the keypad — no binding loop) minus the header block above.
+            readonly property real keypadBudget: height - Math.round(216 * Constants.scaleFactor)
+            readonly property real keyCellFit: Math.floor((keypadBudget - 3 * keySpacing) / 4)
+
+            // Shrink to fit rather than clip. The keypad is the one thing on
+            // this page that MUST stay fully on screen — a clipped row hides
+            // digits and the backspace key entirely.
+            //
+            // The floor is in DEVICE pixels and deliberately does not scale.
+            // A scaled floor (40 * scaleFactor) defeats the whole mechanism:
+            // at userScaleFactor 1.50 the floor itself grew past the space
+            // available, overrode keyCellFit, and the bottom row clipped
+            // again. 44 px is the standard minimum touch target, so this
+            // still degrades to something thumb-sized rather than unusable.
+            readonly property real scaledKeyCell: Math.max(44, Math.min(keyCellDesign, keyCellFit))
+
+            // Button chrome and glyph both follow the resolved cell, in the
+            // logical units MCircularIconButton multiplies by scaleFactor —
+            // otherwise a shrunk cell keeps full-size digits and they spill
+            // out of their own circles.
+            readonly property real keySize: Math.max(20, scaledKeyCell / Constants.scaleFactor - 12)
+            readonly property real keyGlyphSize: Math.max(11, Math.round(keySize * 0.5))
 
             function appendDigit(d) {
                 if (passcodePage.currentPin.length >= passcodePage.maxLength)
@@ -1324,7 +1353,12 @@ Item {
                 spacing: Math.round((passcodePage.isCompact ? 8 : 10) * Constants.scaleFactor)
 
                 Text {
-                    Layout.alignment: Qt.AlignHCenter
+                    // fillWidth + wrap, not alignment alone: with only
+                    // AlignHCenter this Text keeps its implicit single-line
+                    // width and runs past the page gutter, so "Create a
+                    // passcode" lost its last glyph at userScaleFactor 1.10.
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
                     font.pixelSize: MTypography.sizeTitle2
                     font.weight: MTypography.weightExtraLight
@@ -1412,7 +1446,7 @@ Item {
                                 height: passcodePage.scaledKeyCell
                                 text: modelData
                                 buttonSize: passcodePage.keySize
-                                iconSize: passcodePage.isCompact ? 22 : 28
+                                iconSize: passcodePage.keyGlyphSize
                                 variant: "secondary"
                                 textColor: MColors.textPrimary
                                 onClicked: passcodePage.appendDigit(modelData)
@@ -1437,7 +1471,7 @@ Item {
                             height: passcodePage.scaledKeyCell
                             text: "0"
                             buttonSize: passcodePage.keySize
-                            iconSize: passcodePage.isCompact ? 22 : 28
+                            iconSize: passcodePage.keyGlyphSize
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: passcodePage.appendDigit("0")
@@ -1455,7 +1489,7 @@ Item {
                             height: passcodePage.scaledKeyCell
                             iconName: "delete"
                             buttonSize: passcodePage.keySize
-                            iconSize: passcodePage.isCompact ? 20 : 24
+                            iconSize: Math.max(10, Math.round(passcodePage.keyGlyphSize * 0.85))
                             variant: "secondary"
                             iconColor: MColors.textSecondary
                             enabled: passcodePage.currentPin.length > 0
