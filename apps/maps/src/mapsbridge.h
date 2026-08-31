@@ -53,9 +53,17 @@ class MapsBridge : public QObject {
     // their live coordinate).
     void onMapMoved(double centerLat, double centerLon, double zoom);
 
+    // MapLibre failed to construct — almost always "Failed to initialize
+    // WebGL" on a host with no usable WebGL1 context. That throw is
+    // top-level in maps.html, so window.MarathonMaps never gets defined
+    // and every later mapCall no-ops behind its own guard; without this
+    // the user just gets a blank map and QML never learns why.
+    void onMapError(const QString &message);
+
   signals:
     void ready();
     void mapClicked(double latitude, double longitude);
     void pinTapped(const QString &id);
     void mapMoved(double centerLat, double centerLon, double zoom);
+    void mapError(const QString &message);
 };

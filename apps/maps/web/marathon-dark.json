@@ -195,7 +195,7 @@
       "filter": ["==", "class", "city"],
       "layout": {
         "text-field": "{name:latin}",
-        "text-font": ["Noto Sans Medium"],
+        "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 4, 12, 12, 18],
         "text-letter-spacing": 0.06
       },
@@ -231,7 +231,7 @@
       "minzoom": 12,
       "layout": {
         "text-field": "{name:latin}",
-        "text-font": ["Noto Sans Medium"],
+        "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 9, 16, 12],
         "text-letter-spacing": 0.04
       },

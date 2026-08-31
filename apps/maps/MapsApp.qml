@@ -16,6 +16,10 @@ MApp {
     property var searchResults: []
     property bool isSearching: false
     property bool mapLoaded: false
+    // Non-empty when MapLibre failed to construct (no usable WebGL1
+    // context). Shown in place of the loading spinner, which would
+    // otherwise stop and leave a bare basemap with no explanation.
+    property string mapErrorText: ""
     property bool hasLocationPermission: false
     // Reference to the WebEngineView running MapLibre GL JS. Commands
     // are issued via runJavaScript() against the window.MarathonMaps
@@ -340,6 +344,13 @@ MApp {
             onPinTapped: id => {
                 Logger.info("Maps", "JS pinTapped " + id);
             }
+            onMapError: message => {
+                // MapLibre could not construct — no usable WebGL1 context.
+                // Surface it instead of leaving a blank basemap that
+                // silently swallows every subsequent mapCall.
+                Logger.error("Maps", "MapLibre init failed: " + message);
+                mapsApp.mapErrorText = message;
+            }
         }
 
         WebChannel {
@@ -409,7 +420,7 @@ MApp {
         Rectangle {
             anchors.fill: parent
             color: MColors.background
-            visible: !mapLoaded
+            visible: !mapLoaded || mapsApp.mapErrorText.length > 0
 
             Column {
                 anchors.centerIn: parent
@@ -426,7 +437,7 @@ MApp {
                     // not migrated to MMotion roles (those target
                     // microinteractions, not attention loops).
                     RotationAnimation on rotation {
-                        running: !mapLoaded
+                        running: !mapLoaded && mapsApp.mapErrorText.length === 0
                         loops: Animation.Infinite
                         from: 0
                         to: 360
@@ -436,9 +447,20 @@ MApp {
 
                 MLabel {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Loading map..."
+                    text: mapsApp.mapErrorText.length > 0 ? "Map unavailable" : "Loading map..."
                     variant: "secondary"
                     font.pixelSize: MTypography.sizeLarge
+                }
+
+                MLabel {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.round(260 * Constants.scaleFactor)
+                    visible: mapsApp.mapErrorText.length > 0
+                    text: mapsApp.mapErrorText
+                    variant: "secondary"
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: MTypography.sizeSubhead
                 }
             }
         }

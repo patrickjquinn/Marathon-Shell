@@ -18,3 +18,7 @@ void MapsBridge::onPinTapped(const QString &id) {
 void MapsBridge::onMapMoved(double centerLat, double centerLon, double zoom) {
     emit mapMoved(centerLat, centerLon, zoom);
 }
+
+void MapsBridge::onMapError(const QString &message) {
+    emit mapError(message);
+}

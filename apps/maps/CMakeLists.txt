@@ -58,12 +58,27 @@ else()
     message(STATUS "Maps: voice client disabled (install qt6-qtspeech-devel to enable)")
 endif()
 
-# Web assets (Leaflet JS/CSS, marker PNGs, HTML harness, license) are
-# loaded by WebEngineView from the app's install root via
-# MARATHON_APP_PATH. They live under <app>/web/ at install time.
-# Switched from MapLibre GL JS to Leaflet 1.9 because QtWebEngine on
-# Librem 5 / etnaviv has --use-gl=disabled (no Mesa etnaviv_gbm, no
-# SwiftShader) so WebGL is unavailable. Leaflet renders to Canvas2D.
+# Web assets (MapLibre GL JS/CSS, the marathon-dark OpenFreeMap vector
+# style, marker PNGs, HTML harness, license) are loaded by WebEngineView
+# from the app's install root via MARATHON_APP_PATH; they live under
+# <app>/web/ at install time.
+# The real Maps failure was a 404'ing font ("Noto Sans Medium") in
+# marathon-dark.json that stalled MapLibre's per-tile symbol layout, so
+# tiles never completed and the basemap rendered as an empty strip. Fixed
+# by using "Noto Sans Bold" (a weight the OpenFreeMap glyph server
+# actually serves). No Leaflet raster fallback needed.
+#
+# NOTE on where this renders: WebEngine apps are still launched with
+# --use-gl=disabled --disable-gpu (shell/src/services/applaunchservice.cpp),
+# so MapLibre's WebGL1 context comes from Chromium's CPU Skia/Ganesh path,
+# NOT the etnaviv GPU. Vector tiles are therefore rasterised in software on
+# 4x Cortex-A53, where the Leaflet path this replaces was blitting
+# pre-rendered raster PNGs through Canvas2D. Measure frame rate on device
+# before assuming this is a win. Two consequences:
+#   - the vendored bundle must stay on MapLibre v2.x; v5 requires WebGL2,
+#     which the same launch flags disable.
+#   - if the GPU flags are ever flipped on, re-measure rather than assuming
+#     this comment still holds.
 install(DIRECTORY web
     DESTINATION "${MARATHON_APPS_DIR}/${APP_NAME}"
     FILES_MATCHING
