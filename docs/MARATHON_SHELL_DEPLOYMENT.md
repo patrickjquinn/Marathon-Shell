@@ -85,7 +85,7 @@ bluez                 # Bluetooth support
 
 ### 2. SystemD Integration
 
-**Create directory in Marathon-Image:** `packages/marathon-shell/systemd/`
+**Create directory:** `packaging/packages/marathon-shell/systemd/`
 
 #### `systemd/marathon-shell.service` (NEW)
 - **Description:** SystemD user service for Marathon Shell
@@ -431,55 +431,27 @@ After installation and first boot:
 
 ---
 
-## Next Steps for Marathon-Image Integration
+## Packaging the result
 
-1. **Copy files from Marathon-Shell to Marathon-Image package directory:**
-   ```bash
-   cd $HOME/Developer/Marathon-Shell
-   
-   # Create directories in Marathon-Image package
-   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/systemd
-   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/polkit
-   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart
-   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/udev
-   
-   # Copy new deployment files
-   cp marathon-shell-session $HOME/Developer/Marathon-Image/packages/marathon-shell/
-   cp systemd/marathon-shell.service $HOME/Developer/Marathon-Image/packages/marathon-shell/systemd/
-   cp polkit/org.marathonos.shell.policy $HOME/Developer/Marathon-Image/packages/marathon-shell/polkit/
-   cp xdg-autostart/marathon-notification-service.desktop $HOME/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart/
-   cp udev/70-marathon-shell.rules $HOME/Developer/Marathon-Image/packages/marathon-shell/udev/
-   
-   # Copy updated files
-   cp marathon.desktop $HOME/Developer/Marathon-Image/packages/marathon-shell/
-   cp APKBUILD $HOME/Developer/Marathon-Image/packages/marathon-shell/
-   ```
+The `marathon-shell` aport lives in-tree at
+`packaging/packages/marathon-shell/`. There is no copy-across step —
+that cross-repo sync was retired when Marathon-Image was merged in
+(see [MONOREPO_MIGRATION.md](MONOREPO_MIGRATION.md)); its rsync variant
+is what produced the stale 520-file source copy that merge removed.
 
-2. **Sync the full shell source:**
-   ```bash
-   # Option A: If marathon-shell package has full source
-   rsync -av --exclude=build --exclude=build-apps \
-       $HOME/Developer/Marathon-Shell/ \
-       $HOME/Developer/Marathon-Image/packages/marathon-shell/
-   
-   # Option B: If using git submodule
-   cd $HOME/Developer/Marathon-Image/packages/marathon-shell
-   git pull origin main
-   ```
+```bash
+cd $HOME/Developer/Marathon-Shell
+./scripts/qemu/lib/build-marathon-shell-apk.sh
+```
 
-3. **Build the updated package:**
-   ```bash
-   cd $HOME/Developer/Marathon-Image
-   ./build-marathon.sh
-   ```
-
-4. **Flash to device and test.**
+Then flash to device and test — see [BUILDING.md](BUILDING.md) and
+[TESTING_ON_DEVICE.md](TESTING_ON_DEVICE.md).
 
 ---
 
 ## Support & Troubleshooting
 
-See `$HOME/Developer/Marathon-Image/docs/TROUBLESHOOTING.md` for common issues.
+See [DEVICE_TROUBLESHOOTING.md](DEVICE_TROUBLESHOOTING.md) for common issues.
 
 For Marathon Shell-specific issues, check logs:
 ```bash

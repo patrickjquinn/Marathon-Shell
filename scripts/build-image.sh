@@ -9,7 +9,7 @@
 #
 #   1. Check host tools (podman, qemu, mkosi, EFI firmware) and print
 #      install hints per package manager when missing.
-#   2. Resolve / clone Marathon-Image, postmarketos-duranium, and a
+#   2. Resolve in-tree packaging/, clone postmarketos-duranium, and a
 #      pinned mkosi tag under ~/.cache/marathon-build/. Override the
 #      location with MARATHON_BUILD_DIR=/path.
 #   3. Build local apks in dependency order, skipping any already

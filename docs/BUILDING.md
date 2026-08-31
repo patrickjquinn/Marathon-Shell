@@ -22,27 +22,29 @@ It does NOT need Docker, KVM, or root containers.
 
 ## 1. Repository layout
 
-Marathon's image build pulls from THREE independent git trees:
+Marathon's image build pulls from TWO git trees:
 
 ```
-$HOME/Developer/Marathon-Shell/        # github.com/patrickjquinn/Marathon-Shell (ux-overhaul)
-$HOME/Developer/Marathon-Image/        # github.com/MarathonOS/Marathon-Image (main)  ← this repo
+$HOME/Developer/Marathon-Shell/        # github.com/patrickjquinn/Marathon-Shell (ux-overhaul)  ← this repo
+  └── packaging/                       #   aports + duranium patch series (was Marathon-Image)
 $HOME/duranium-build/duranium/         # postmarketos/duranium fork with Marathon patches
 $HOME/duranium-build/mkosi-src/        # systemd/mkosi at a known-good tip
 ```
 
-The first two are normal git clones. The third is the awkward one:
-upstream `postmarketos/duranium` is not Marathon-owned, and Marathon's
-divergence (Pi 5 boot pipeline, layer-2 device overlay injection, the
-device-APK builder script) is not in the upstream. We carry it as a
-patch series in [`pipeline-patches/`](../packaging/pipeline-patches/) and apply
+The first is a normal git clone; packaging/ is in-tree since the
+Marathon-Image merge (see [MONOREPO_MIGRATION.md](MONOREPO_MIGRATION.md)).
+The second is the awkward one: upstream `postmarketos/duranium` is not
+Marathon-owned, and Marathon's divergence (Pi 5 boot pipeline, layer-2
+device overlay injection, the device-APK builder script) is not in the
+upstream. We carry it as a patch series in
+[`packaging/pipeline-patches/`](../packaging/pipeline-patches/) and apply
 it via the bootstrap script.
 
 ## 2. Bootstrap duranium with Marathon's patches
 
 ```sh
-cd $HOME/Developer/Marathon-Image
-./pipeline-patches/bootstrap.sh
+cd $HOME/Developer/Marathon-Shell
+./packaging/pipeline-patches/bootstrap.sh
 ```
 
 This clones `postmarketos/duranium` at the pinned merge-base commit
@@ -237,15 +239,15 @@ git rebase origin/main
 # Resolve any conflicts in the standard git rebase loop.
 
 # Regenerate the patch series and refresh the pinned commit.
-cd $HOME/Developer/Marathon-Image
-rm pipeline-patches/00*.patch
+cd $HOME/Developer/Marathon-Shell
+rm packaging/pipeline-patches/00*.patch
 cd $HOME/duranium-build/duranium
-git format-patch -o $HOME/Developer/Marathon-Image/pipeline-patches origin/main..HEAD
-# Update PINNED_COMMIT in pipeline-patches/bootstrap.sh to the new
-# `git merge-base origin/main HEAD`.
+git format-patch -o $HOME/Developer/Marathon-Shell/packaging/pipeline-patches origin/main..HEAD
+# Update PINNED_COMMIT in packaging/pipeline-patches/bootstrap.sh to the
+# new `git merge-base origin/main HEAD`.
 
-cd $HOME/Developer/Marathon-Image
-git add pipeline-patches/
+cd $HOME/Developer/Marathon-Shell
+git add packaging/pipeline-patches/
 git commit -m "chore(pipeline-patches): refresh against duranium <new-sha>"
 ```
 

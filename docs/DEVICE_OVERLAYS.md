@@ -60,7 +60,7 @@ location (for host testing).
 ## The image seam (build-time selection)
 
 Device selection is package-driven (see `~/duranium-build/duranium/` and
-`Marathon-Image/`):
+`packaging/`):
 
 1. `build-image.py device-<name> ui-<name>` → `PMOS_DEVICE=<name>`.
 2. `mkosi-configure.py` injects the `device-<name>-marathon` overlay aport
@@ -118,7 +118,7 @@ isolation.
 
 ## Checklist: adding a new device
 
-1. **Create the overlay aport** `Marathon-Image/packages/device-<vendor>-<model>-marathon/`:
+1. **Create the overlay aport** `packaging/packages/device-<vendor>-<model>-marathon/`:
    - `APKBUILD` (copy an existing one; set `pkgname`, `depends=` for firmware +
      any GPU-blob subpackage + kernel fork).
    - `device-profile.conf` — declare the device's traits (table above). Start
@@ -150,6 +150,8 @@ isolation.
 - No device-specific env in global `marathon-base-config` — GPU driver env, CPU
   governor, and I/O scheduler tuning belong in the device overlay (or are
   derived from `DeviceProfile`).
-- `Marathon-Image/{devices,configs,scripts/build-rootless*.sh}` are a **dead**
-  pmbootstrap-era path not used by the mkosi build; do not add to them (their
-  `configs/udev.rules.d/` copies have already diverged from the packaged ones).
+- `packaging/{devices,configs}` are a **dead** pmbootstrap-era path not used by
+  the mkosi build; do not add to them (their `configs/udev.rules.d/` copies have
+  already diverged from the packaged ones). The `scripts/build-rootless*.sh`
+  half of that path was removed in the monorepo merge; `devices/` is retained
+  only because `packages/linux-marathon/APKBUILD` still reads it.

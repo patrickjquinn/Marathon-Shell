@@ -47,11 +47,11 @@ adb version           # Should show Android Debug Bridge
 
 ### File Integrity
 ```bash
-cd Marathon-Image
+cd Marathon-Shell
 
 # Verify all critical files exist
-ls -la packages/marathon-base-config/APKBUILD
-ls -la packages/marathon-shell/APKBUILD
+ls -la packaging/packages/marathon-base-config/APKBUILD
+ls -la packaging/packages/marathon-shell/APKBUILD
 ls -la packages/linux-marathon/APKBUILD
 ls -la devices/enchilada/device.conf
 ls -la configs/sysctl.d/99-marathon.conf
@@ -239,7 +239,7 @@ Once all items are checked:
 
 1. **Run the build:**
    ```bash
-   cd Marathon-Image
+   cd Marathon-Shell
    ./scripts/build-and-flash.sh enchilada
    ```
 

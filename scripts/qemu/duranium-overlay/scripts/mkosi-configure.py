@@ -64,7 +64,7 @@ def main() -> int:
         # base gets device+UI packages resolved from pmaports
         existing = config.get("Packages", [])
         dynamic = pmaports.get("Packages", [])
-        # Inject Marathon's per-device overlay aport if Marathon-Image
+        # Inject Marathon's per-device overlay aport if packaging/
         # has one for this device. The aport (e.g.
         # device-oneplus-enchilada-marathon) carries the marathon
         # runtime stack + device-specific configs (greetd, dtbo,

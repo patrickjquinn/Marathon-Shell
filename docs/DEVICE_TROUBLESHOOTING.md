@@ -553,7 +553,7 @@ If issues persist:
    ```
 
 3. **Report issue:**
-   - GitHub: https://github.com/patrickjquinn/Marathon-Image/issues
+   - GitHub: https://github.com/patrickjquinn/Marathon-Shell/issues
    - Include: device model, kernel version, logs, steps to reproduce
 
 ---

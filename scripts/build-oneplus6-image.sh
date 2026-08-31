@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build a Marathon image for the OnePlus 6 (codename: enchilada,
 # SDM845). Targets the upstream pmaports device-oneplus-enchilada
-# plus Marathon-Image's device-oneplus-enchilada-marathon overlay
+# plus packaging/'s device-oneplus-enchilada-marathon overlay
 # (depends= marathon-shell + the runtime stack + linux-marathon,
 # mainline PREEMPT_RT for SDM845 via provides=/replaces=).
 #

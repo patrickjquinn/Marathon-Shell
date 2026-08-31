@@ -29,7 +29,7 @@ mkdir -p ~/.config/marathon-dev
 cat > ~/.config/marathon-dev/config <<'EOF'
 MARATHON_PIN=027602
 # MARATHON_PASSWORD=marathon         # default; override if you changed it
-# MARATHON_IMAGE=$HOME/Developer/Marathon-Image
+# MARATHON_IMAGE=$HOME/Developer/Marathon-Shell/packaging
 EOF
 ```
 
@@ -336,7 +336,7 @@ marathon monitor freq
 | `MARATHON_PASSWORD` | `marathon` | SSH password |
 | `MARATHON_PIN` | (unset — must be configured) | 6-digit unlock PIN |
 | `MARATHON_SRC` | resolved from CLI location | Marathon-Shell repo root |
-| `MARATHON_IMAGE` | `~/Developer/Marathon-Image` | Marathon-Image repo root |
+| `MARATHON_IMAGE` | in-tree `packaging/` | packaging tree (aports + pipeline patches) |
 | `MARATHON_SCRATCH` | session-specific tmp dir | scratchpad for snaps/APKs |
 | `MARATHON_VERBOSE` | 0 | 1 = show debug traces |
 | `MARATHON_QUIET` | 0 | 1 = suppress info/step lines |

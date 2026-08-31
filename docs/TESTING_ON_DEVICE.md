@@ -12,15 +12,10 @@
 ### 1. On Development Machine
 
 ```bash
-cd $HOME/Developer/Marathon-Image/packages/marathon-shell
+cd $HOME/Developer/Marathon-Shell
 
-# Pull latest changes from Marathon-Shell repo
-rsync -av --exclude=build --exclude=build-apps \
-    $HOME/Developer/Marathon-Shell/ ./
-
-# Rebuild the package
-cd $HOME/Developer/Marathon-Image
-./build-marathon.sh
+# The aport is in-tree at packaging/packages/marathon-shell/ — no sync step.
+./scripts/qemu/lib/build-marathon-shell-apk.sh
 ```
 
 ### 2. On Device (marathon-ev1)

@@ -6,7 +6,7 @@
 # Same pipeline as OnePlus 6 / Librem 5: thin wrapper into the shared
 # duranium/mkosi orchestrator at scripts/build-image.sh. Picks up the
 # upstream pmaports `device-raspberry-pi5` (BCM2712, raspberrypi-
-# bootloader, linux-rpi) plus Marathon-Image's
+# bootloader, linux-rpi) plus packaging/'s
 # `device-raspberry-pi5-hackberry-marathon` overlay aport, which ships
 # the hackberrypi.dtbo + usercfg.txt + the marathon runtime stack
 # (marathon-shell + marathon-plymouth-theme + greetd + …).

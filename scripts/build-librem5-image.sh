@@ -6,7 +6,7 @@
 # boot.scr. Ready for scripts/flash/flash-librem5.sh (sd or eMMC).
 #
 # Targets the upstream pmaports device-purism-librem5 plus
-# Marathon-Image's device-purism-librem5-marathon overlay (which
+# packaging/'s device-purism-librem5-marathon overlay (which
 # pulls marathon-shell + the runtime stack as dependencies).
 #
 # A note on mkosi.Bootloader: the Librem 5's mainline u-boot does

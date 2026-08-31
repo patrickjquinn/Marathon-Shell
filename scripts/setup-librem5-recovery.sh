@@ -8,7 +8,7 @@
 #   4. Download Jumpdrive 0.8 + record locally-computed SHA256
 #   5. Download latest postmarketOS phosh Librem 5 image + verify SHA256
 #
-# Reference: ~/Developer/Marathon-Image/docs/LIBREM5_RECOVERY.md
+# Reference: docs/LIBREM5_RECOVERY.md
 #
 # Usage:
 #   ./setup-librem5-recovery.sh [STAGE_DIR]
@@ -58,7 +58,7 @@ uuu -V 2>&1 | head -1 | sed 's/^/    /'
 
 sudo -A tee /etc/udev/rules.d/99-librem5-uuu.rules > /dev/null <<'UDEV'
 # Librem 5 recovery: uuu over USB Serial Download Protocol.
-# See ~/Developer/Marathon-Image/docs/LIBREM5_RECOVERY.md.
+# See docs/LIBREM5_RECOVERY.md.
 SUBSYSTEM!="usb", GOTO="librem5_uuu_rules_end"
 
 # i.MX 8M Quad ROM SDP — Librem 5 in Vol+power-on recovery mode.

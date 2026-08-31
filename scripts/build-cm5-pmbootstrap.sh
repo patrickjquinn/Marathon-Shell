@@ -24,14 +24,14 @@
 #   - pmbootstrap installed and `pmbootstrap init` already run with
 #     device=raspberry-pi5, ui=marathon, systemd=always
 #   - pmaports clone at ~/pmaports-upstream (gitlab.postmarketos.org)
-#   - Marathon-Image at ~/Developer/Marathon-Image
+#   - this repo at ~/Developer/Marathon-Shell
 #   - SUDO_ASKPASS=/tmp/askpass.sh (or polkit/sudo configured)
 #   - SD card at /dev/sda (verify with lsblk before running)
 
 set -euo pipefail
 
 PMAPORTS="${PMAPORTS:-$HOME/pmaports-upstream}"
-MARATHON_PKGS="${MARATHON_PKGS:-$HOME/Developer/Marathon-Image/packages}"
+MARATHON_PKGS="${MARATHON_PKGS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages}"
 DURANIUM_PKGS="${DURANIUM_PKGS:-$HOME/duranium-build/duranium/mkosi.packages}"
 SD_DEV="${SD_DEV:-/dev/sda}"
 PIN_LINUX_RPI_APK="linux-rpi-6.12.85-r0.apk"

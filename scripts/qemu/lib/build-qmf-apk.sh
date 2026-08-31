@@ -6,7 +6,7 @@
 # IMAP/SMTP/POP3 sync daemon + QML-bindable QMailMessageListModel etc.
 #
 # Same abuild-in-podman pattern as build-marathon-shell-apk.sh: pull the
-# APKBUILD from Marathon-Image/packages/qmf, build in an alpine:edge
+# APKBUILD from packaging/packages/qmf, build in an alpine:edge
 # container with a throwaway signing key, drop the resulting apks
 # (qmf, qmf-libs, qmf-messageserver, qmf-dev) into mkosi.packages/.
 #

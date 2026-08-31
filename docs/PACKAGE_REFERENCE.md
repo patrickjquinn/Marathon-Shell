@@ -300,7 +300,7 @@ glmark2-wayland
 ### On Build System
 
 ```
-Marathon-Image/
+packaging/
 ├── packages/
 │   ├── marathon-base-config/
 │   │   ├── APKBUILD

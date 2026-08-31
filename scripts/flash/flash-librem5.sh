@@ -126,7 +126,7 @@ case "$MODE" in
         fi
         [[ -r "$UBOOT" ]] || {
             echo "error: phone-boot.img not found. set UBOOT=/path/to/phone-boot.img" >&2
-            echo "       (Marathon-Image's device-purism-librem5-marathon ships one)" >&2
+            echo "       (packaging/'s device-purism-librem5-marathon ships one)" >&2
             exit 1
         }
 

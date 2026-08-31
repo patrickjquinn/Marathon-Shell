@@ -163,13 +163,13 @@ pmbootstrap status
 mkdir -p ~/Projects
 cd ~/Projects
 
-# Clone Marathon-Image repository
-git clone https://github.com/patrickjquinn/Marathon-Image.git
-cd Marathon-Image
+# Clone the Marathon monorepo
+git clone https://github.com/patrickjquinn/Marathon-Shell.git
+cd Marathon-Shell
 
 # Verify structure
 ls -la
-# Should see: packages/, configs/, devices/, docs/, scripts/
+# Should see: shell/, apps/, packaging/, docs/, scripts/
 ```
 
 ## Step 8: Verify Build Environment
@@ -264,7 +264,7 @@ qtcreator &
 ## Step 13: Verify Everything Works
 
 ```bash
-cd ~/Projects/Marathon-Image
+cd ~/Projects/Marathon-Shell
 
 # Run a dry-run check (doesn't actually build)
 ./scripts/build-and-flash.sh enchilada --dry-run 2>/dev/null || echo "Script will work once on device"
@@ -374,7 +374,7 @@ echo '* hard nofile 65536' | sudo tee -a /etc/security/limits.conf
 Once all steps are complete:
 
 ```bash
-cd ~/Projects/Marathon-Image
+cd ~/Projects/Marathon-Shell
 
 # Read pre-build checklist
 cat docs/PRE_BUILD_CHECKLIST.md
