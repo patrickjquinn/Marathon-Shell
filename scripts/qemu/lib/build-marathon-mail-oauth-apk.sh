@@ -10,8 +10,12 @@
 # (c) ~75 MB of cargo dep download time shouldn't gate every
 # marathon-shell apk iteration.
 #
-# Override MARATHON_SHELL_SRC=/path/to/local/checkout to skip the git
-# clone and use a local source tree (matches the upstream sibling).
+# Builds from THIS repo by default (matches build-marathon-shell-apk.sh).
+# Set MARATHON_SHELL_SRC=/some/checkout to build a different tree, or
+# MARATHON_SHELL_SRC="" (explicitly empty) to clone MARATHON_SHELL_GIT at
+# MARATHON_SHELL_REF instead. Note the OAuth client-ID bake below reads
+# tools/marathon-mail-oauth/oauth-clients.env from this tree — the clone
+# path cannot bake IDs and yields a community apk.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +26,7 @@ MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
 
 MARATHON_SHELL_GIT="${MARATHON_SHELL_GIT:-https://github.com/patrickjquinn/Marathon-Shell.git}"
 MARATHON_SHELL_REF="${MARATHON_SHELL_REF:-ux-overhaul}"
-MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-}"
+MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 
 [ -d "$APORTS_SRC/marathon-mail-oauth" ] || {
     echo "error: marathon-mail-oauth APKBUILD not found at $APORTS_SRC/marathon-mail-oauth" >&2
@@ -102,7 +106,7 @@ mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
 if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
     rsync -a --checksum --no-times --delete \
           --exclude='.git' --exclude='build' --exclude='build-apps' \
-          --exclude='build-ui' --exclude='.cache' --exclude='target' \
+          --exclude='build-ui' --exclude='.cache' --exclude='target' --exclude='packaging' \
           /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
 else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"

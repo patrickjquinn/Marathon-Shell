@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # Build marathon-shell-<pkgver>-r<pkgrel>.apk for Duranium's mkosi.packages/.
 #
-# Pulls Marathon-Shell at MARATHON_SHELL_REF (default: ux-overhaul) from
-# MARATHON_SHELL_GIT (default upstream), runs abuild in an alpine:edge
-# podman container, signs with a throwaway key, copies the resulting
-# .apk into duranium-build/duranium/mkosi.packages/.
+# Builds the shell from THIS repo by default: the aport and the source
+# live in one tree now, so what you build is what you are standing in.
+# Runs abuild in an alpine:edge podman container, signs with a throwaway
+# key, copies the resulting .apk into mkosi.packages/.
 #
-# Override MARATHON_SHELL_SRC=/path/to/local/checkout to skip the git
-# clone and use a local source tree (useful when iterating).
+# Set MARATHON_SHELL_SRC=/some/checkout to build a different tree, or
+# MARATHON_SHELL_SRC="" (explicitly empty) to fall back to cloning
+# MARATHON_SHELL_GIT at MARATHON_SHELL_REF.
+#
+# The APKBUILD's source= URL is a floating branch tarball and is NOT what
+# gets built here — the tree below is staged into /var/cache/distfiles
+# under the expected filename and abuild -F checksum is re-run over it,
+# so abuild never fetches. That URL only fires for a standalone abuild
+# outside this script.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +25,7 @@ MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
 
 MARATHON_SHELL_GIT="${MARATHON_SHELL_GIT:-https://github.com/patrickjquinn/Marathon-Shell.git}"
 MARATHON_SHELL_REF="${MARATHON_SHELL_REF:-ux-overhaul}"
-MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-}"
+MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 
 [ -d "$APORTS_SRC/marathon-shell" ] || {
     echo "error: marathon-shell APKBUILD not found at $APORTS_SRC/marathon-shell" >&2
@@ -93,7 +100,7 @@ mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
 if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
     rsync -a --checksum --no-times --delete \
           --exclude='.git' --exclude='build' --exclude='build-apps' \
-          --exclude='build-ui' --exclude='.cache' \
+          --exclude='build-ui' --exclude='.cache' --exclude='packaging' \
           /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
 else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
