@@ -1294,6 +1294,16 @@ Item {
             readonly property real keySize: Math.max(20, scaledKeyCell / Constants.scaleFactor - 12)
             readonly property real keyGlyphSize: Math.max(11, Math.round(keySize * 0.5))
 
+            // Cap the header type against the page, not the user scale. The
+            // keypad is the page's job; letting the title and subtitle grow
+            // without limit starves it, and at userScaleFactor 1.50 that left
+            // huge headings above keys shrunk to their 44 px floor. Bounding
+            // the header keeps the keys usable and still honours the scale
+            // setting up to the point where the two compete.
+            readonly property real headerTypeCap: Math.max(16, Math.round(height * 0.045))
+            readonly property real titleSize: Math.min(MTypography.sizeTitle2, Math.round(headerTypeCap * 1.35))
+            readonly property real subtitleSize: Math.min(MTypography.sizeSubhead, headerTypeCap)
+
             function appendDigit(d) {
                 if (passcodePage.currentPin.length >= passcodePage.maxLength)
                     return;
@@ -1360,7 +1370,7 @@ Item {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
-                    font.pixelSize: MTypography.sizeTitle2
+                    font.pixelSize: passcodePage.titleSize
                     font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
                     font.letterSpacing: MTypography.trackingTitle2
@@ -1371,7 +1381,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
-                    font.pixelSize: MTypography.sizeSubhead
+                    font.pixelSize: passcodePage.subtitleSize
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
