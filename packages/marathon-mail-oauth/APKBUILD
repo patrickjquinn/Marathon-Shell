@@ -8,7 +8,7 @@ url="https://github.com/patrickjquinn/Marathon-Shell"
 # rustls-tls path is pure Rust — no musl-specific build break on aarch64
 # tested via tokio 1.42 + zbus 5.x + reqwest 0.11.
 arch="aarch64"
-license="MIT"
+license="Apache-2.0"
 makedepends="cargo cargo-auditable"
 # Runtime: requires a session-bus Secret Service provider so the helper
 # can read/write OAuth refresh tokens and classic-password creds.

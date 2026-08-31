@@ -6,7 +6,7 @@ pkgrel=37
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
-license="MIT"
+license="Apache-2.0"
 # Marathon doesn't ship full-disk encryption (Pi 5 / CM5 with HyperPixel
 # has no UI for it pre-shell). Stub-provide unl0kr-agent so apk doesn't
 # pull unl0kr-3.5.1, which would conflict with f0rmz-3.4.2 that

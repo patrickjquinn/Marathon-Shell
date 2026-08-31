@@ -164,12 +164,23 @@ Archive on GitHub (read-only, history intact) with a README pointer.
 Do **not** delete — the subtree keeps hashes, but the old remote is the
 cheapest audit trail.
 
-## Open decisions
+## Resolved: licensing
 
-**Licensing.** `packaging/LICENSE` is MIT (inherited from
-Marathon-Image); the repo root is Apache 2.0. Both are © Patrick Quinn,
-so unifying them is available but is the owner's call, not a migration
-side-effect. Left as-is.
+`packaging/LICENSE` (MIT, inherited from Marathon-Image) is removed; the
+root Apache 2.0 LICENSE governs the whole repo. The ten Marathon-owned
+aports moved `license="MIT"` -> `license="Apache-2.0"`, which also
+corrects `marathon-shell`, whose APKBUILD claimed MIT for Apache-2.0
+source.
+
+The five aports carrying upstream licences are untouched, because those
+are not ours to relicense: `callaudiod` (GPL-3.0-or-later, vendored from
+mobian), `linux-marathon` and `linux-purism-librem5-marathon`
+(GPL-2.0-only), `qmf` (LGPL-2.1 with the Qt exception), and
+`librem5-vivante-blobs` (custom:NXP-EULA).
+
+No `pkgrel` bumps: `license=` is metadata and does not change the built
+artifact, so bumping would force a full marathon-shell rebuild for no
+functional gain. The new value lands on each package's next natural bump.
 
 ## Deliberately out of scope
 

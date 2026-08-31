@@ -6,7 +6,7 @@ pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ 
 pkgver=1.0.0
 pkgrel=2
 url="https://github.com/patrickjquinn/Marathon-Shell"
-license="MIT"
+license="Apache-2.0"
 arch="aarch64"
 options="!check !archcheck"
 # Layered on top of the generic Pi 5 / CM5 base. Vanilla Pi 5 / CM5 dev

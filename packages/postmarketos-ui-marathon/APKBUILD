@@ -14,7 +14,7 @@ pkgrel=1
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
-license="MIT"
+license="Apache-2.0"
 
 # Everything the shell needs to function as the system UI. Compositor +
 # session manager + low-level services that the shell consumes via D-Bus.

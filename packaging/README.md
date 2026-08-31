@@ -32,9 +32,3 @@ Per-aport rebuilds go through the builders in `scripts/qemu/lib/`, e.g.
 See [`docs/BUILDING.md`](../docs/BUILDING.md) for a cold-clone walkthrough
 and [`docs/IMAGE_BUILD_ARCHITECTURE.md`](../docs/IMAGE_BUILD_ARCHITECTURE.md)
 for why the pipeline is shaped the way it is.
-
-## Licensing
-
-`LICENSE` here is MIT, inherited from Marathon-Image; the repo root is
-Apache 2.0. Both are © Patrick Quinn. Unifying them is an open decision —
-see `docs/MONOREPO_MIGRATION.md`.

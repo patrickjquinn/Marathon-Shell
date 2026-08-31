@@ -6,7 +6,7 @@ pkgdesc="Purism Librem 5 device package for Marathon OS"
 pkgver=1.0.0
 pkgrel=31
 url="https://github.com/patrickjquinn/Marathon-Shell"
-license="MIT"
+license="Apache-2.0"
 arch="aarch64"
 options="!check !archcheck"
 # Upstream device-purism-librem5 depends on `pulseaudio<9990` to mark a
