@@ -41,17 +41,23 @@ MKOSI_DIR="$DEST_DIR/mkosi-src"
 # The marker is a patch commit subject in git log. A file marker will not
 # do: setup-trees.sh rsyncs marathon-extras/ into the tree separately, so
 # its presence says nothing about whether git am ever ran.
+# No pipe into grep -q here: this script runs under `set -o pipefail`, and
+# grep -q exits at the first match, so git takes SIGPIPE and the pipeline
+# reports failure even on a successful match. Substring-match instead.
 SKIP_DURANIUM=0
 if [ -d "$DURANIUM_DIR" ]; then
-    if git -C "$DURANIUM_DIR" log --format=%s -n 60 2>/dev/null \
-         | grep -q 'synthesize /boot/loader/entries'; then
-        echo "==> $DURANIUM_DIR already bootstrapped — skipping"
-        SKIP_DURANIUM=1
-    else
-        echo "error: $DURANIUM_DIR exists but has no Marathon patches applied." >&2
-        echo "       Move or delete it, then re-run." >&2
-        exit 1
-    fi
+    DURANIUM_SUBJECTS="$(git -C "$DURANIUM_DIR" log --format=%s -n 60 2>/dev/null || true)"
+    case "$DURANIUM_SUBJECTS" in
+        *"synthesize /boot/loader/entries"*)
+            echo "==> $DURANIUM_DIR already bootstrapped — skipping"
+            SKIP_DURANIUM=1
+            ;;
+        *)
+            echo "error: $DURANIUM_DIR exists but has no Marathon patches applied." >&2
+            echo "       Move or delete it, then re-run." >&2
+            exit 1
+            ;;
+    esac
 fi
 SKIP_MKOSI=0
 if [ -d "$MKOSI_DIR" ]; then
