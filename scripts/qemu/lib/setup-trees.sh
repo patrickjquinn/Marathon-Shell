@@ -110,7 +110,11 @@ if [ -d "$OVERLAY_SRC" ]; then
             echo "==> WARNING: duranium tree has edits that will be overwritten by the overlay:"
             printf '    %s\n' $DIVERGED
             echo "    These edits will NOT land in the image. Either copy them into"
-            echo "    $OVERLAY_SRC/ or `git stash` them in the duranium tree."
+            echo "    $OVERLAY_SRC/ or 'git stash' them in the duranium tree."
+            # NOTE: single quotes above are deliberate. Backticks inside a
+            # double-quoted echo are command substitution, not literal text —
+            # the earlier `git stash` here actually RAN git stash against the
+            # user's working tree every time this warning fired.
         fi
     fi
 
