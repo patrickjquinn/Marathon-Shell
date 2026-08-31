@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=36
+pkgrel=37
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -17,7 +17,6 @@ depends="
 	systemd
 	dbus
 	dbus-systemd
-	eudev
 	mesa-gbm
 	mesa-egl
 	mesa-dri-gallium
