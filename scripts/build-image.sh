@@ -30,18 +30,16 @@
 #   $1                      target device, e.g. "qemu-aarch64",
 #                           "oneplus-enchilada", "purism-librem5".
 #                           Maps to mkosi's `device-<NAME>` arg.
-#                           Also picks up Marathon-Image's
+#                           Also picks up packaging/packages/
 #                           device-<NAME>-marathon overlay aport
 #                           (when present).
 #
 # Env overrides:
-#   MARATHON_IMAGE_GIT      upstream repo for Marathon-Image
-#   MARATHON_IMAGE_REF      branch / tag (default main)
 #   DURANIUM_GIT            upstream repo for postmarketos-duranium
 #   DURANIUM_REF            branch / tag (default main)
 #   MKOSI_REF               pinned mkosi tag (default v25.3)
 #   MARATHON_BUILD_DIR      build-cache root (default ~/.cache/marathon-build)
-#   MARATHON_IMAGE_SRC      use existing local Marathon-Image clone
+#   MARATHON_IMAGE_SRC      packaging tree (default: in-tree packaging/)
 #   FORCE_REBUILD           "1" → drop cached apks before rebuild
 
 set -euo pipefail
@@ -289,7 +287,7 @@ DROPIN
                 # concatenated-initramfs format lets later entries shadow
                 # earlier ones, so our plymouthd.defaults wins.
                 PLYMOUTH_FIX_CPIO=""
-                PLYMOUTH_THEME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/../Marathon-Image/packages/marathon-plymouth-theme"
+                PLYMOUTH_THEME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packaging/packages/marathon-plymouth-theme"
                 if [ -d "$PLYMOUTH_THEME_DIR" ] && [ -f "$PLYMOUTH_THEME_DIR/marathon.plymouth" ]; then
                     PLYMOUTH_FIX_DIR=$(mktemp -d --suffix=.plymouth-fix)
                     if [ -n "$PLYMOUTH_FIX_DIR" ]; then

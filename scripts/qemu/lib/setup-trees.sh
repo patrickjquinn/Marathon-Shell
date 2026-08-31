@@ -4,7 +4,7 @@
 # on success:
 #
 #   MARATHON_SHELL_SRC      this repo's root
-#   MARATHON_IMAGE_SRC      sibling clone of Marathon-Image (or env var)
+#   MARATHON_IMAGE_SRC      in-tree packaging/ (or env var)
 #   MARATHON_BUILD_DIR      ~/.cache/marathon-build (overridable)
 #   DURANIUM_DIR            $MARATHON_BUILD_DIR/duranium
 #   MKOSI_BIN               mkosi executable (vendored or system)
@@ -15,10 +15,8 @@
 
 set -euo pipefail
 
-# Project-owned repo URLs. Override per-build with the matching
-# MARATHON_*_GIT env var if you're working from a fork.
-: "${MARATHON_IMAGE_GIT:=https://github.com/patrickjquinn/Marathon-Image.git}"
-: "${MARATHON_IMAGE_REF:=main}"
+# Upstream repo pins. Override per-build with the matching *_GIT /
+# *_REF env var if you're working from a fork.
 : "${DURANIUM_GIT:=https://gitlab.postmarketos.org/postmarketOS/duranium.git}"
 : "${DURANIUM_REF:=main}"
 : "${MKOSI_GIT:=https://github.com/systemd/mkosi.git}"
@@ -27,25 +25,16 @@ set -euo pipefail
 : "${MARATHON_BUILD_DIR:=$HOME/.cache/marathon-build}"
 mkdir -p "$MARATHON_BUILD_DIR"
 
-# 1. Marathon-Image — sibling clone is the convention for local devs.
-#    First check the env override, then check the conventional sibling
-#    path next to this repo, then clone into $MARATHON_BUILD_DIR.
-if [ -z "${MARATHON_IMAGE_SRC:-}" ]; then
-    SIBLING="$(dirname "$MARATHON_SHELL_SRC")/Marathon-Image"
-    if [ -d "$SIBLING/packages" ]; then
-        MARATHON_IMAGE_SRC="$SIBLING"
-    elif [ -d "$MARATHON_BUILD_DIR/Marathon-Image/packages" ]; then
-        MARATHON_IMAGE_SRC="$MARATHON_BUILD_DIR/Marathon-Image"
-    else
-        echo "==> cloning Marathon-Image into $MARATHON_BUILD_DIR/Marathon-Image"
-        git clone --depth 1 --branch "$MARATHON_IMAGE_REF" \
-            "$MARATHON_IMAGE_GIT" \
-            "$MARATHON_BUILD_DIR/Marathon-Image"
-        MARATHON_IMAGE_SRC="$MARATHON_BUILD_DIR/Marathon-Image"
-    fi
+# 1. Packaging (aports + duranium patch series) is in-tree since the
+#    Marathon-Image merge. The env override stays honoured so a build
+#    can still be pointed at an external checkout.
+: "${MARATHON_IMAGE_SRC:=$MARATHON_SHELL_SRC/packaging}"
+if [ ! -d "$MARATHON_IMAGE_SRC/packages" ]; then
+    echo "ERROR: no packages/ under $MARATHON_IMAGE_SRC" >&2
+    exit 1
 fi
 export MARATHON_IMAGE_SRC
-echo "==> Marathon-Image:  $MARATHON_IMAGE_SRC"
+echo "==> packaging:       $MARATHON_IMAGE_SRC"
 
 # 2. postmarketos-duranium — the mkosi image-build skeleton. We
 #    clone it once and overlay Marathon's image-extras/ + mkosi.conf

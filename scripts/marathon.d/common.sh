@@ -49,7 +49,7 @@ marathon::config::load() {
     # Defaults.
     export MARATHON_PASSWORD="${MARATHON_PASSWORD:-marathon}"
     export MARATHON_PIN="${MARATHON_PIN:-027602}"
-    export MARATHON_IMAGE="${MARATHON_IMAGE:-$HOME/Developer/Marathon-Image}"
+    export MARATHON_IMAGE="${MARATHON_IMAGE:-$(cd "$MARATHON_CLI_DIR/.." && pwd)/packaging}"
     export MARATHON_SCRATCH="${MARATHON_SCRATCH:-/tmp/claude-1000/-home-patrickquinn-Developer-Marathon-Shell/9bbcb305-4fd3-4232-a2b7-9c9eafebbcf4/scratchpad}"
 
     marathon::device::resolve
