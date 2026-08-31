@@ -218,7 +218,17 @@ class QemuDriver:
     _touchctl_available: bool | None = None
 
     def _has_touchctl(self) -> bool:
+        # OPT-IN, not auto-detect. marathon-touchctl is present in the image
+        # and exits 0 under QEMU while injecting nothing the compositor ever
+        # sees, so "command -v" said yes and every tap silently did nothing —
+        # scenarios ran green against a screen they were not touching. The
+        # QMP virtio-tablet path below is the one that demonstrably works
+        # here. Set MARATHON_USE_TOUCHCTL=1 on real hardware, where the
+        # evdev injector is the only option.
         if self._touchctl_available is None:
+            if os.environ.get("MARATHON_USE_TOUCHCTL") != "1":
+                self._touchctl_available = False
+                return False
             rc, _, _ = self.ssh("command -v marathon-touchctl >/dev/null")
             self._touchctl_available = (rc == 0)
             if self._touchctl_available:
@@ -234,7 +244,10 @@ class QemuDriver:
             f". /tmp/marathon-touchctl.env 2>/dev/null; "
             f"marathon-touchctl {cmd}")
 
-    def tap(self, x: int, y: int, hold_ms: int = 80):
+    # 80 ms was too short for the compositor to resolve a synthetic press
+    # into a click — taps landed on the right pixel and did nothing. 300 ms
+    # registers reliably; it is still far quicker than a human tap.
+    def tap(self, x: int, y: int, hold_ms: int = 300):
         if self._has_touchctl():
             self._touchctl(f"tap {x} {y}")
             return

@@ -1,95 +1,55 @@
-# Marathon OS - Git Ignore File
-
-# Build artifacts and logs
-*.log
-*.pid
 build/
-build-*/
-.cache/
-
-# Temporary debug/test files
-*.txt
-!BUILD_INSTRUCTIONS.txt
-!CONTRIBUTING.txt
-# Aport source files under packages/ are not scratch — usercfg.txt,
-# config.txt, CMakeLists.txt etc. ship inside .apk's. Without this
-# negation a new aport adding a *.txt source silently fails to be
-# tracked (caught 2026-06-19: device-hackberrypi-cm5-marathon's
-# usercfg-hackberrypi.txt + the long-orphaned device-raspberry-pi5-
-# marathon usercfg.txt).
-!packages/**/*.txt
-
-# Temporary progress tracking files (vibe coding prevention)
-*BUILD_COMPLETE*.md
-*BUILD_SUMMARY*.md
-*LATEST_BUILD*.md
-*VALIDATION_REPORT*.md
-*PERFORMANCE_TUNING*.md
-*RT_KERNEL_TODO*.md
-*FLASH_INSTRUCTIONS*.md
-*ISSUES_ANALYSIS*.md
-
-# Package build artifacts
-packages/*/build/
-packages/*/pkg/
-packages/*/src/
-packages/*/*.tar.gz
-
-# Output images (too large for git)
-out/
-*.img
-*.iso
-
-# pmbootstrap cache and chroots
-.pmbootstrap/
-chroot_*/
-
-# Kernel build artifacts
-*.o
-*.ko
-*.mod.c
-.tmp_versions/
-Module.symvers
-modules.order
-
-# Editor and IDE files
+build-apps/
+build-release/
+build-ui/
+build-tests/
 .vscode/
-.idea/
-*.swp
-*.swo
-*~
+*.user
+*.autosave
 .DS_Store
+.qtc_clangd/
+*.qmlc
+*.jsc
+*.log
+*.ini
+check_output.cpp
+.cache/
+compile_commands.json
+build-tests/
+build-power/
+CMakeFiles/
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
+# Deployment artifacts (generated manually, not part of source)
+*.tar
+libs_to_deploy.txt
 
-# Backup files
-*.bak
-*.backup
-*-old
-*-backup
+# Profiling output
+profile_data.qtd
+shell_perf.log
 
-# Temporary files
-tmp/
-temp/
-*.tmp
+# AI assistant guidance (local only)
+CLAUDE.md
 
-# Marathon Shell embedded repo (if present)
-packages/marathon-shell/shell/
-packages/marathon-shell/apps/
-packages/marathon-shell/.git/
-packages/marathon-shell/build/
-packages/marathon-shell/build-apps/
+# Local build trees produced by scripts/build-all.sh, podman-build/build.sh, etc.
+build-podman/
 
-# oneplus-enchilada pmaports (if copied)
-oneplus-enchilada/
+# Claude Code tooling/project state
+.claude/
 
-# Shared/mounted directories
-mnt-share/
-personal/
+# Per-deployment OAuth client IDs (see oauth-clients.env.example).
+# Not secrets — PKCE installed-app means the client_id alone can't be
+# used to impersonate. Gitignored anyway so each release / fork picks
+# its own IDs without colliding with upstream Marathon's quota.
+tools/marathon-mail-oauth/oauth-clients.env
+# Rust cargo build artefacts under each Rust crate
+tools/marathon-mail-oauth/target/
+
+# WiFi preset for dev/QA images — never commit credentials.
+scripts/qemu/wifi-preset.conf
+tests/screenshots/
+
+# Flashing artifacts — written into the repo root by mtkclient (hwparam.json
+# carries per-device MEID/SOC-ID) and by NXP uuu. Machine-specific, not ours.
+hwparam.json
+uuu.inputlog
+*.inputlog
