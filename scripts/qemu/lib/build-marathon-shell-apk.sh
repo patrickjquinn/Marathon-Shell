@@ -91,7 +91,11 @@ mkdir -p /root/.abuild
 abuild-keygen -a -n -q
 KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
 cp "${KEY_PRIV}.pub" /etc/apk/keys/
-echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
+# REPODEST must be explicit. Writing /etc/abuild.conf wipes the
+# distro default, and abuild >=3.18 then falls back to
+# $XDG_DATA_HOME/abuild, not /root/packages — the copy below silently
+# found nothing and the image baked without these apks.
+printf 'PACKAGER_PRIVKEY=%s\nREPODEST=/root/packages\n' "$KEY_PRIV" > /etc/abuild.conf
 
 mkdir -p /work/aports
 rsync -a --checksum --no-times /aports-src/ /work/aports/
