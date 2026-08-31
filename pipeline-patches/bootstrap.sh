@@ -33,16 +33,39 @@ DEST_DIR="${1:-$HOME/duranium-build}"
 DURANIUM_DIR="$DEST_DIR/duranium"
 MKOSI_DIR="$DEST_DIR/mkosi-src"
 
+# Idempotent: an already-bootstrapped tree is left alone so callers
+# (scripts/qemu/lib/setup-trees.sh) can invoke this unconditionally. A
+# directory that exists but is NOT a bootstrapped tree is still an error
+# — that state is ambiguous and clobbering it would lose work.
+#
+# The marker is a patch commit subject in git log. A file marker will not
+# do: setup-trees.sh rsyncs marathon-extras/ into the tree separately, so
+# its presence says nothing about whether git am ever ran.
+SKIP_DURANIUM=0
 if [ -d "$DURANIUM_DIR" ]; then
-    echo "error: $DURANIUM_DIR already exists. Move or delete it first." >&2
-    exit 1
+    if git -C "$DURANIUM_DIR" log --format=%s -n 60 2>/dev/null \
+         | grep -q 'synthesize /boot/loader/entries'; then
+        echo "==> $DURANIUM_DIR already bootstrapped — skipping"
+        SKIP_DURANIUM=1
+    else
+        echo "error: $DURANIUM_DIR exists but has no Marathon patches applied." >&2
+        echo "       Move or delete it, then re-run." >&2
+        exit 1
+    fi
 fi
+SKIP_MKOSI=0
 if [ -d "$MKOSI_DIR" ]; then
-    echo "error: $MKOSI_DIR already exists. Move or delete it first." >&2
-    exit 1
+    if [ -x "$MKOSI_DIR/bin/mkosi" ]; then
+        echo "==> $MKOSI_DIR already present — skipping"
+        SKIP_MKOSI=1
+    else
+        echo "error: $MKOSI_DIR exists but has no bin/mkosi." >&2
+        exit 1
+    fi
 fi
 
 mkdir -p "$DEST_DIR"
+if [ "$SKIP_DURANIUM" = "0" ]; then
 echo "==> cloning upstream duranium into $DURANIUM_DIR"
 git clone "$UPSTREAM" "$DURANIUM_DIR"
 
@@ -60,12 +83,15 @@ fi
 
 echo "==> applying $(ls "$SCRIPT_DIR"/*.patch | wc -l) patches"
 git am "$SCRIPT_DIR"/*.patch
+fi
 
+if [ "$SKIP_MKOSI" = "0" ]; then
 echo "==> cloning mkosi into $MKOSI_DIR"
 git clone "$MKOSI_UPSTREAM" "$MKOSI_DIR"
 cd "$MKOSI_DIR"
 echo "==> checking out pinned mkosi commit $MKOSI_COMMIT"
 git checkout "$MKOSI_COMMIT"
+fi
 
 cd "$DEST_DIR"
 echo "==> next steps:"

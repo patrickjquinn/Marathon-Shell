@@ -15,12 +15,9 @@
 
 set -euo pipefail
 
-# Upstream repo pins. Override per-build with the matching *_GIT /
-# *_REF env var if you're working from a fork.
-: "${DURANIUM_GIT:=https://gitlab.postmarketos.org/postmarketOS/duranium.git}"
-: "${DURANIUM_REF:=main}"
-: "${MKOSI_GIT:=https://github.com/systemd/mkosi.git}"
-: "${MKOSI_REF:=v25.3}"
+# duranium + mkosi upstream URLs and pinned commits live in
+# packaging/pipeline-patches/bootstrap.sh — the patch series and the
+# commit it applies to have to move together, so they are stated once.
 
 : "${MARATHON_BUILD_DIR:=$HOME/.cache/marathon-build}"
 mkdir -p "$MARATHON_BUILD_DIR"
@@ -36,47 +33,36 @@ fi
 export MARATHON_IMAGE_SRC
 echo "==> packaging:       $MARATHON_IMAGE_SRC"
 
-# 2. postmarketos-duranium — the mkosi image-build skeleton. We
-#    clone it once and overlay Marathon's image-extras/ + mkosi.conf
-#    patches via a sync step at build time (so upstream pulls remain
-#    clean).
+# 2. duranium + mkosi. Bootstrapped as one unit by the patch series'
+#    own script, so the tree the build uses is the tree the patches were
+#    written against. This previously cloned upstream main bare and
+#    relied on the overlay rsync below for Marathon's divergence — but
+#    the overlay only ever carried a stale subset (a 309-line
+#    mkosi.finalize against the patched 954-line one), so every image
+#    built here was missing the Librem 5 boot composer, the Pi 5 boot
+#    chain, and the loader-entry synthesis from patch 0007.
 DURANIUM_DIR="$MARATHON_BUILD_DIR/duranium"
-if [ ! -d "$DURANIUM_DIR/mkosi.images" ]; then
-    echo "==> cloning postmarketos-duranium into $DURANIUM_DIR"
-    git clone --depth 1 --branch "$DURANIUM_REF" \
-        "$DURANIUM_GIT" "$DURANIUM_DIR"
-fi
+"$MARATHON_IMAGE_SRC/pipeline-patches/bootstrap.sh" "$MARATHON_BUILD_DIR"
 export DURANIUM_DIR
-echo "==> duranium:        $DURANIUM_DIR"
+echo "==> duranium:        $DURANIUM_DIR (upstream pin + Marathon patches)"
 
-# 3. mkosi — duranium needs `Distribution=postmarketos` support, which
-#    vanilla upstream mkosi DOES NOT carry; pmOS maintains a fork.
-#    Resolution priority:
-#      (a) $MKOSI_SRC env override (user pin)
-#      (b) ~/duranium-build/mkosi-src if it has a postmarketos
-#          distribution module — that's the canonical Marathon dev
-#          location per project memory (feedback_duranium_primary).
-#      (c) Fall back to cloning the upstream tag at $MKOSI_GIT —
-#          will only work for non-postmarketos targets.
+# 3. mkosi — bootstrap.sh stages a pinned checkout next to duranium.
+#    Resolution order: $MKOSI_SRC override, bootstrap's own checkout,
+#    then the canonical dev location.
 if [ -z "${MKOSI_SRC:-}" ]; then
-    if [ -f "$HOME/duranium-build/mkosi-src/mkosi/distribution/postmarketos.py" ] \
-       || [ -f "$HOME/duranium-build/mkosi-src/mkosi/distributions/postmarketos.py" ]; then
-        MKOSI_SRC="$HOME/duranium-build/mkosi-src"
-        echo "==> mkosi: using duranium-build fork at $MKOSI_SRC (has postmarketos support)"
-    else
+    if [ -x "$MARATHON_BUILD_DIR/mkosi-src/bin/mkosi" ]; then
         MKOSI_SRC="$MARATHON_BUILD_DIR/mkosi-src"
+    elif [ -x "$HOME/duranium-build/mkosi-src/bin/mkosi" ]; then
+        MKOSI_SRC="$HOME/duranium-build/mkosi-src"
+    else
+        echo "ERROR: no mkosi checkout found. Run" >&2
+        echo "  $MARATHON_IMAGE_SRC/pipeline-patches/bootstrap.sh $MARATHON_BUILD_DIR" >&2
+        exit 1
     fi
-fi
-if [ ! -d "$MKOSI_SRC/.git" ]; then
-    echo "==> cloning mkosi $MKOSI_REF into $MKOSI_SRC"
-    echo "    NOTE: upstream v25.3 has no Distribution=postmarketos. If the bake step" >&2
-    echo "    fails with that error, install pmOS's mkosi fork at ~/duranium-build/mkosi-src." >&2
-    git clone --depth 1 --branch "$MKOSI_REF" \
-        "$MKOSI_GIT" "$MKOSI_SRC"
 fi
 MKOSI_BIN="$MKOSI_SRC/bin/mkosi"
 if [ ! -x "$MKOSI_BIN" ]; then
-    echo "ERROR: $MKOSI_BIN not executable. Check the mkosi clone." >&2
+    echo "ERROR: $MKOSI_BIN not executable. Check the mkosi checkout." >&2
     exit 1
 fi
 export MKOSI_BIN
