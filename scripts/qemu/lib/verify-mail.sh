@@ -24,8 +24,15 @@ fail() { echo "FAIL: $1" >&2; RC=$2; }
 USER_BUS='systemctl --machine=user@.host --user'
 
 echo "==> 1. QMF artefacts on disk"
-test -f /usr/lib/libQmfClient.so.4.0.4         && say "libQmfClient.so.4.0.4 ✓"        || fail "libQmfClient missing"          1
-test -f /usr/lib/libQmfMessageServer.so.4.0.4  && say "libQmfMessageServer.so.4.0.4 ✓" || fail "libQmfMessageServer missing"   1
+# Glob the soname rather than pinning it. Upstream QMF renamed these
+# (libQmfClient.so.4.0.4 -> libQmfClient-qt6.so.6.0.0) and the hardcoded
+# names failed while the libraries were present and correctly linked —
+# a false alarm on a healthy image. What matters is that exactly one of
+# each exists and messageserver resolves against it (checked in step 3).
+QMF_CLIENT_LIB=$(ls /usr/lib/libQmfClient*.so.* 2>/dev/null | head -1)
+QMF_SERVER_LIB=$(ls /usr/lib/libQmfMessageServer*.so.* 2>/dev/null | head -1)
+[ -n "$QMF_CLIENT_LIB" ] && say "$(basename "$QMF_CLIENT_LIB") ✓"        || fail "libQmfClient missing"          1
+[ -n "$QMF_SERVER_LIB" ] && say "$(basename "$QMF_SERVER_LIB") ✓" || fail "libQmfMessageServer missing"   1
 test -x /usr/bin/messageserver                 && say "/usr/bin/messageserver ✓"      || fail "messageserver binary missing"  1
 
 echo "==> 2. Plugin directories present"

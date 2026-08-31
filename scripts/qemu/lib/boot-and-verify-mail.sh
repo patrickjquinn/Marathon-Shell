@@ -11,8 +11,6 @@ DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 OUT_BASE="$DURANIUM_DIR/mkosi.output/qemu-aarch64_marathon_edge"
 SERIAL=/tmp/duranium-mail-serial.sock
 QMP=/tmp/duranium-mail-qmp.sock
-EFI_CODE=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2
-EFI_VARS=/tmp/duranium-mail-efivars.qcow2
 
 cd "$DURANIUM_DIR"
 
@@ -24,10 +22,27 @@ IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
 [ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }
 echo "==> image: $IMG"
 
-qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
+# Boot the extracted kernel+initrd directly with an explicit root=.
+# The UKI's own cmdline has no root= and relies on gpt-auto, which
+# duranium routes through systemd-cryptsetup@pmOS_root — masked here
+# because QEMU has no LUKS — so a UKI/pflash boot hangs in the initrd
+# and SSH fails with "timed out during banner exchange". Same fix
+# boot-and-verify-shell.sh already carries. See lib/extract-uki.sh.
+UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1)"
+[ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
+. "$SCRIPT_DIR/extract-uki.sh"
+extract_uki_kernel_initrd "$UKI" /tmp/duranium-mail-uki || exit 1
 
-cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
+qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
 rm -f "$SERIAL" "$QMP"
+
+# No SYSTEMD_SULOGIN_FORCE: on a headless guest it turns a non-fatal
+# early failure into a hung emergency shell.
+DIRECT_CMDLINE="root=LABEL=pmOS_root rw rootwait \
+systemd.wants=network.target \
+systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target \
+systemd.mask=systemd-cryptsetup@pmOS_root.service \
+module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,115200"
 
 echo "==> launching QEMU (KVM, serial on $SERIAL)"
 qemu-system-aarch64 \
@@ -38,8 +53,6 @@ qemu-system-aarch64 \
     -device virtio-rng-pci,rng=rng0 \
     -device virtio-balloon \
     -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22 \
-    -drive if=pflash,format=qcow2,readonly=on,file="$EFI_CODE" \
-    -drive if=pflash,format=qcow2,file="$EFI_VARS" \
     -drive file="$IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
     -device virtio-blk-pci,drive=hd0,bootindex=1 \
     -device virtio-gpu-pci,xres=720,yres=1440 \
@@ -47,9 +60,7 @@ qemu-system-aarch64 \
     -display none \
     -serial unix:"$SERIAL",server,nowait \
     -qmp unix:"$QMP",server,nowait \
-    -smbios "type=11,value=io.systemd.stub.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
-    -smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
-    -boot menu=on,splash-time=0 &
+    -kernel "$UKI_KERNEL" -initrd "$UKI_INITRD" -append "$DIRECT_CMDLINE" &
 QEMU_PID=$!
 trap 'echo "==> tearing down QEMU pid=$QEMU_PID"; kill -TERM $QEMU_PID 2>/dev/null || true' EXIT
 
