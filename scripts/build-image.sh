@@ -189,6 +189,35 @@ LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.ra
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
 echo "==> image ready: $LATEST_IMG"
 
+# Prune superseded split artifacts.
+#
+# mkosi writes a fresh <image>.<part>-<arch>.<hash>.raw on every bake and
+# never removes the previous one. The hash changes each build, so a
+# rebuild loop accumulates them silently — twelve builds in one session
+# left eleven orphans at ~1.5 GB real each and filled an 85 GB disk twice.
+#
+# Keep the NEWEST of each split family and drop the rest. Deliberately not
+# "older than the UKI": the current split and the .efi are written seconds
+# apart in either order, so an mtime comparison against the UKI can delete
+# the live split. Newest-per-family has no such race — whatever this bake
+# just wrote is by definition the newest.
+prune_splits() {
+    local dir="$1" fam base kept=0 pruned=0
+    # Family = filename with the hash segment removed, e.g.
+    # qemu-aarch64_marathon_edge_26083101.root-arm64
+    for fam in $(ls -1 "$dir"/*.*-*.*.raw 2>/dev/null \
+                 | sed -E 's|.*/||; s|\.[0-9a-f]{32}\.raw$||' | sort -u); do
+        local first=1
+        for f in $(ls -1t "$dir/$fam".*.raw 2>/dev/null); do
+            if [ "$first" = 1 ]; then first=0; kept=$((kept + 1)); continue; fi
+            rm -f "$f"; pruned=$((pruned + 1))
+        done
+    done
+    [ "$pruned" -gt 0 ] && echo "==> pruned $pruned superseded split artifact(s), kept $kept current"
+    return 0
+}
+prune_splits "$OUT_DIR_GLOB"
+
 # Post-bake device-conditional extraction. Some flash flows need
 # artifacts the user shouldn't have to fish out of the .raw or apk
 # cache by hand; we drop them next to the .raw so the per-device
