@@ -947,6 +947,18 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   // need it to reach ModemManager / NetworkManager / UPower
                   // / Bluez. Without this the runner logs
                   // "Failed to connect to socket /run/dbus/system_bus_socket".
+                  // /etc/resolv.conf is a SYMLINK into /run/systemd/resolve
+                  // on this image. /etc is bound read-only above, so the
+                  // symlink itself is present inside the sandbox -- but its
+                  // target was not, leaving it dangling. Every sandboxed app
+                  // therefore failed DNS: Qt reported "Host <name> not found"
+                  // and QML XHR surfaced that as status 0, which is what made
+                  // the Store's Discover tab unreachable even though the app
+                  // holds the "network" permission and the sandbox shares the
+                  // host network namespace. Bind the resolver state too.
+                  << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/run/systemd/resolve")
+                  << QStringLiteral("/run/systemd/resolve")
                   << QStringLiteral("--ro-bind-try") << QStringLiteral("/run/dbus")
                   << QStringLiteral("/run/dbus") << QStringLiteral("--ro-bind-try")
                   << QStringLiteral("/var/run/dbus") << QStringLiteral("/var/run/dbus")
@@ -1191,6 +1203,11 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys/devices")
          << QStringLiteral("/sys/devices") << QStringLiteral("--ro-bind-try")
          << QStringLiteral("/run/dbus") << QStringLiteral("/run/dbus")
+         // See the note on the other bwrap builder: /etc/resolv.conf is a
+         // symlink into /run/systemd/resolve, so binding /etc alone leaves
+         // DNS broken inside the sandbox.
+         << QStringLiteral("--ro-bind-try") << QStringLiteral("/run/systemd/resolve")
+         << QStringLiteral("/run/systemd/resolve")
          << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/run/dbus")
          << QStringLiteral("/var/run/dbus") << QStringLiteral("--tmpfs") << QStringLiteral("/tmp")
          << QStringLiteral("--tmpfs") << QStringLiteral("/dev/shm") << QStringLiteral("--tmpfs")
