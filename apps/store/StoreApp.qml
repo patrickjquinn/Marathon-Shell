@@ -126,27 +126,45 @@ MApp {
         // user staring at a stuck spinner. The previous 15 s ceiling
         // read as "the Store is broken" by the time it fired.
         const timer = Qt.createQmlObject('import QtQuick; Timer { interval: 8000; repeat: false }', root);
+
+        // The timeout path calls abort(), and abort() itself drives
+        // onreadystatechange to DONE -- so a timing-out request used to
+        // invoke cb twice, once as "timeout" and again as "HTTP 0". Callers
+        // that only set a flag did not notice; a caller that counts
+        // requests in flight would be driven negative and never report
+        // loading again. Deliver exactly one result per request.
+        let settled = false;
+        function settle(data, err) {
+            if (settled)
+                return;
+            settled = true;
+            timer.stop();
+            timer.destroy();
+            if (err)
+                console.warn("[Store] fetch failed:", url, "--", err);
+            cb(data, err);
+        }
+
         timer.triggered.connect(function () {
             xhr.abort();
-            cb(null, "timeout");
+            settle(null, "timeout");
         });
         timer.start();
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
-            timer.stop();
             if (xhr.status !== 200) {
-                cb(null, "HTTP " + xhr.status);
+                settle(null, "HTTP " + xhr.status);
                 return;
             }
             if (xhr.responseText.length > 1024 * 1024) {
-                cb(null, "response too large");
+                settle(null, "response too large");
                 return;
             }
             try {
-                cb(JSON.parse(xhr.responseText), null);
+                settle(JSON.parse(xhr.responseText), null);
             } catch (e) {
-                cb(null, "parse: " + e);
+                settle(null, "parse: " + e);
             }
         };
         if (body)
@@ -176,6 +194,7 @@ MApp {
 
     function loadCollection(name) {
         catalogFetchesInFlight += 1;
+        console.warn("[Store] loadCollection", name, "in flight:", catalogFetchesInFlight);
         fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=24&locale=en", null, function (data, err) {
             root.catalogFetchesInFlight -= 1;
             if (err) {
@@ -185,6 +204,9 @@ MApp {
             const next = Object.assign({}, root.collections);
             next[name] = pickAarch64(data.hits || []);
             root.collections = next;
+            console.warn("[Store]", name, "hits:", (data.hits || []).length,
+                         "aarch64:", next[name].length,
+                         "appCount:", root.catalogAppCount);
         });
     }
 
@@ -544,7 +566,7 @@ MApp {
                         // 1 — Apps (search-style category browser)
                         Loader {
                             sourceComponent: appsPage
-                            active: root.activeTab === 1 || root.collections["popular"]
+                            active: root.activeTab === 1 || !!root.collections["popular"]
                         }
                         // 2 — Installed
                         Loader {
@@ -600,13 +622,19 @@ MApp {
             id: discoverPage
 
             Flickable {
+                id: discoverFlick
                 contentWidth: width
                 contentHeight: discoverCol.height + 20
                 clip: true
 
                 Column {
                     id: discoverCol
-                    width: parent.width
+                    // Bound to the Flickable, not `parent`: a Flickable
+                    // reparents its children onto contentItem, so
+                    // `parent.width` here is the content item's width, not
+                    // the viewport's. Every child below sizes off this, so
+                    // getting it wrong collapses the entire page.
+                    width: discoverFlick.width
                     topPadding: 16
                     spacing: 18
 
@@ -1015,7 +1043,9 @@ MApp {
                     // Activity spinner while collections are
                     // loading on first paint.
                     MActivityIndicator {
-                        anchors.horizontalCenter: parent.horizontalCenter
+                        // Column drives x/y, so centre by position, not by
+                        // anchor -- Column rejects horizontalCenter.
+                        x: (discoverCol.width - width) / 2
                         visible: root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                     }
 
@@ -1024,16 +1054,21 @@ MApp {
                     // load (offline device, DNS blocked, Flathub down).
                     // Without this the Discover tab silently sat empty
                     // after the spinner gave up.
-                    // centerIn is illegal on a Column child and breaks the
-                    // whole Discover column; horizontalCenter is allowed.
+                    // Column rejects centerIn AND horizontalCenter alike --
+                    // it sets its children's x itself. An earlier note here
+                    // claimed horizontalCenter was allowed; it is not, which
+                    // is why this empty state never appeared and Discover
+                    // showed a black void instead of saying what went wrong.
                     MEmptyState {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - 48
+                        x: 24
+                        width: discoverCol.width - 48
                         visible: !root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
-                        iconName: "wifi-off"
+                        iconName: "wifi-slash"
                         iconSize: 64
                         title: "Can't reach Flathub"
-                        message: "Check your network connection and pull down to retry."
+                        message: root.lastError !== ""
+                                 ? "Check your network connection and pull down to retry.\n(" + root.lastError + ")"
+                                 : "Check your network connection and pull down to retry."
                     }
                 }
             }

@@ -19,7 +19,23 @@ Item {
 
     signal actionClicked
 
+    // This had no implicit size at all: a bare Item whose only child is
+    // anchors.centerIn. Given an explicit size or anchors.fill it looked
+    // fine, but dropped into a positioner it was a ZERO-HEIGHT box whose
+    // centred content drew around y=0 and got clipped away by any parent
+    // with clip:true. That is exactly how the Store's Discover tab
+    // rendered a black void: the empty state was visible, correctly
+    // positioned and 672 px wide, with height 0.
+    //
+    // implicitWidth is the design cap (a constant, so root.width -> the
+    // Column's width -> implicitWidth cannot cycle); implicitHeight tracks
+    // the content, which depends only on width. Callers that set an
+    // explicit size or fill are unaffected.
+    implicitWidth: Math.round(400 * (Constants.scaleFactor || 1.0))
+    implicitHeight: contentColumn.implicitHeight
+
     Column {
+        id: contentColumn
         anchors.centerIn: parent
         // The 400 cap is a DESIGN-pixel measure and has to scale. Unscaled,
         // every empty state was pinned to 400 physical px whatever the user
