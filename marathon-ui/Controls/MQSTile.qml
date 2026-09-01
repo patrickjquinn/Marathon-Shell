@@ -2,6 +2,7 @@ import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
+import MarathonOS.Shell
 
 // Marathon DS · Quick Settings tile — 4-col compact (BB10-modern hybrid).
 //
@@ -125,6 +126,18 @@ Rectangle {
             font.pixelSize: MTypography.sizeFootnote
             font.weight: MTypography.weightMedium
             horizontalAlignment: Text.AlignHCenter
+            // Constrain and elide, as the wide variant below already does.
+            // Without a width this rendered at its natural size and overflowed
+            // the tile: sizeFootnote scales but the 4-column grid does not, so
+            // at userScaleFactor 1.50 "Bluetooth", "Location", "Hotspot" and
+            // "Settings" spilled past their tiles into their neighbours.
+            //
+            // Bind to the TILE, not to parent. The parent Column is
+            // intrinsically sized (anchors.centerIn, no explicit width), so
+            // parent.width depends on this child — a circular binding that
+            // collapses to 0 and elides the label away entirely.
+            width: tile.width - Math.round(10 * (Constants.scaleFactor || 1.0))
+            elide: Text.ElideRight
             Behavior on color { ColorAnimation { duration: MMotion.quick } }
         }
     }

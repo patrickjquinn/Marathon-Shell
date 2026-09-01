@@ -3,6 +3,7 @@ import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
+import MarathonOS.Shell
 
 // Marathon DS · Quick Settings slider — BB10-modern hybrid.
 //
@@ -19,6 +20,14 @@ import QtQuick.Effects
 //   Value pill          right edge, 28 px wide, Body tnum
 Item {
     id: root
+    
+    // The track and thumb are deliberately NOT scaled: they sit inside a
+    // fixed-height card, and scaling them by ~2.5 at userScaleFactor 1.50
+    // produced thumbs that swallowed the row. Only the value column scales,
+    // because its label uses MTypography.sizeFootnote, which does — a
+    // three-digit value overflowed the fixed 36 px column and the leading
+    // digit was occluded by the thumb, so max volume read "00".
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string iconName: "brightness"
     property real value: 50          // 0..100
@@ -31,14 +40,21 @@ Item {
 
     readonly property real fraction: (value - from) / Math.max(1, to - from)
 
+    // Single source of truth for the value column. The track width below
+    // subtracted a hardcoded 36 for it; widening the column without updating
+    // that arithmetic pushed the value clean off the right edge of the card.
+    readonly property real valueWidth: Math.round(44 * scaleFactor)
+    readonly property real rowSpacing: 14
+    readonly property real iconSize: 22
+
     Row {
         anchors.fill: parent
-        spacing: 14
+        spacing: root.rowSpacing
 
         Icon {
             anchors.verticalCenter: parent.verticalCenter
             name: root.iconName
-            size: 22
+            size: root.iconSize
             color: MColors.textPrimary
         }
 
@@ -46,7 +62,8 @@ Item {
         // the value pill on the right.
         Item {
             id: trackHost
-            width: parent.width - 22 - 14 - 36 - 14
+            width: parent.width - root.iconSize - root.rowSpacing
+                   - root.valueWidth - root.rowSpacing
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
@@ -159,7 +176,8 @@ Item {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: 36
+            // 3 digits at the scaled font, not 2 at the unscaled one.
+            width: root.valueWidth
             horizontalAlignment: Text.AlignRight
             text: Math.round(root.value)
             color: MColors.textPrimary
