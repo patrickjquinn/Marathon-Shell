@@ -1094,11 +1094,79 @@ MApp {
                     }
                 }
 
+                // Swipe the bar horizontally to move through history --
+                // right for back, left for forward -- with the row tracking
+                // the finger at reduced ratio and springing home on release.
+                // A DragHandler with target:null takes the grab from the
+                // buttons' MouseAreas only once the drag threshold is
+                // crossed, so taps on back / pill / reload / tabs behave
+                // exactly as before. Disabled while editing: a horizontal
+                // drag in a focused field is text selection.
+                DragHandler {
+                    id: barSwipe
+
+                    // Captured during the drag: activeTranslation resets to
+                    // zero BEFORE onActiveChanged fires on release, so a
+                    // release handler that reads it directly always sees 0
+                    // and the gesture silently never navigates.
+                    property real dragX: 0
+
+                    target: null
+                    xAxis.enabled: true
+                    yAxis.enabled: false
+                    enabled: !urlInput.activeFocus
+                    grabPermissions: PointerHandler.CanTakeOverFromAnything
+                    onActiveTranslationChanged: {
+                        if (active)
+                            dragX = activeTranslation.x;
+                    }
+                    onActiveChanged: {
+                        if (active)
+                            return;
+                        var dx = dragX;
+                        dragX = 0;
+                        var view = browserApp.currentWebView();
+                        if (!view)
+                            return;
+                        if (dx > 70 && view.canGoBack) {
+                            HapticService.light();
+                            view.goBack();
+                        } else if (dx < -70 && view.canGoForward) {
+                            HapticService.light();
+                            view.goForward();
+                        }
+                    }
+                }
+
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: MSpacing.sm
                     anchors.rightMargin: MSpacing.sm
                     spacing: MSpacing.xs
+
+                    transform: Translate {
+                        // A third of the finger's travel, capped, and only in
+                        // directions history can actually go -- the bar
+                        // resists rather than slides when there is nothing
+                        // to pop.
+                        x: {
+                            var view = browserApp.currentWebView();
+                            var t = barSwipe.dragX * 0.35;
+                            if (t > 0 && !(view && view.canGoBack))
+                                t = t * 0.25;
+                            if (t < 0 && !(view && view.canGoForward))
+                                t = t * 0.25;
+                            return Math.max(-64, Math.min(64, t));
+                        }
+
+                        Behavior on x {
+                            enabled: !barSwipe.active
+                            NumberAnimation {
+                                duration: MMotion.quick
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall
@@ -1139,34 +1207,10 @@ MApp {
                         }
                     }
 
-                    Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall
-                        Layout.preferredHeight: Constants.touchTargetSmall
-                        Layout.alignment: Qt.AlignVCenter
-                        color: "transparent"
-                        visible: {
-                            var currentTab = getCurrentTab();
-                            return currentTab && currentTab.canGoForward;
-                        }
-
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "arrow-right"
-                            size: Constants.iconSizeSmall
-                            color: MColors.text
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light();
-                                var view = browserApp.currentWebView();
-                                if (view && view.canGoForward)
-                                    view.goForward();
-                            }
-                        }
-                    }
+                    // No forward button. When it popped in the bar held five
+                    // controls and the host collapsed to "en....". Forward is
+                    // the bar's left-swipe (back is the right-swipe); the
+                    // back button stays because it is the discoverable half.
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -1178,15 +1222,19 @@ MApp {
                         border.color: urlInput.activeFocus ? MColors.marathonTealBright : MColors.whiteOverlay08
                         clip: true
 
+                        // Idle tap cover, above the input (z), gone while
+                        // editing. Focusing used to happen ON PRESS -- which
+                        // meant the bar's back/forward swipe could never
+                        // start over the pill: the keyboard was already
+                        // rising before any drag threshold was crossed. A
+                        // drag now cancels the press (the DragHandler takes
+                        // the grab), no click fires, and no keyboard rises;
+                        // a real tap still focuses and selects the URL.
                         MouseArea {
                             anchors.fill: parent
-                            propagateComposedEvents: true
-                            onPressed: mouse => {
-                                if (!urlInput.activeFocus)
-                                    urlInput.forceActiveFocus();
-
-                                mouse.accepted = false;
-                            }
+                            z: 10
+                            visible: !urlInput.activeFocus
+                            onClicked: urlInput.forceActiveFocus()
                         }
 
                         Text {
@@ -1248,6 +1296,9 @@ MApp {
                             selectionColor: MColors.accent
                             clip: true
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                            // Focus arrives via the idle cover's click, never
+                            // the raw press -- see the MouseArea above.
+                            activeFocusOnPress: false
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     browserApp.isEditingAddress = true;
@@ -1255,8 +1306,13 @@ MApp {
                                     urlInput.userTypedSinceFocus = false;
                                     var currentTab = getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
+                                    // selectAll and STOP. Setting cursorPosition
+                                    // afterwards clears the selection, so the
+                                    // first character typed was prepended into
+                                    // the old URL instead of replacing it --
+                                    // "en.wikipedia.org" typed over the DDG url
+                                    // navigated to "en.wikipedia.orghttps...".
                                     selectAll();
-                                    urlInput.cursorPosition = 0;
                                     _clearAddressSuggestions();
                                 } else {
                                     browserApp.isEditingAddress = false;
@@ -1452,42 +1508,49 @@ MApp {
                             // drawer's Bookmarks page; reload keeps the
                             // in-pill slot, as Safari does.
 
-                            Rectangle {
-                                width: Constants.touchTargetSmall * 0.8
-                                height: parent.height
-                                color: "transparent"
-                                visible: !urlInput.activeFocus
+                        }
+                    }
 
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: {
-                                        var currentTab = getCurrentTab();
-                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "square" : "refresh-cw";
-                                    }
-                                    size: Constants.iconSizeSmall * 0.8
-                                    color: MColors.text
+                    // Reload sits in the bar, not the pill. Inside the pill
+                    // it competed with the host for the one stretch of space
+                    // whose whole job is showing what site you are on; out
+                    // here it fills the dead zone beside the field, at full
+                    // control size instead of 0.8x. Hidden while editing so
+                    // the field takes the room instead.
+                    Rectangle {
+                        Layout.preferredWidth: Constants.touchTargetSmall
+                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.alignment: Qt.AlignVCenter
+                        color: "transparent"
+                        visible: !urlInput.activeFocus
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: {
+                                var currentTab = getCurrentTab();
+                                return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "square" : "refresh-cw";
+                            }
+                            size: Constants.iconSizeSmall
+                            color: MColors.text
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                HapticService.light();
+                                var view = browserApp.currentWebView();
+                                if (!view) {
+                                    Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
+                                    Qt.callLater(updateCurrentWebView);
+                                    return;
                                 }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        HapticService.light();
-                                        var view = browserApp.currentWebView();
-                                        if (!view) {
-                                            Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
-                                            Qt.callLater(updateCurrentWebView);
-                                            return;
-                                        }
-                                        Logger.warn("BrowserApp", "Refresh clicked url=" + view.url + " loading=" + view.loading + " lifecycle=" + view.lifecycleState);
-                                        var currentTab = getCurrentTab();
-                                        if (currentTab && currentTab.isLoading) {
-                                            view.triggerWebAction(WebEngineView.Stop);
-                                        } else {
-                                            view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
-                                            view.reload();
-                                        }
-                                    }
+                                var currentTab = getCurrentTab();
+                                if (currentTab && currentTab.isLoading) {
+                                    view.triggerWebAction(WebEngineView.Stop);
+                                } else {
+                                    view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
+                                    view.reload();
                                 }
                             }
                         }
