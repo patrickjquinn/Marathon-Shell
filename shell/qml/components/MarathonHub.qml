@@ -279,7 +279,8 @@ Rectangle {
         return first.charAt(0) + last.charAt(0);
     }
 
-    function accountFor(appId) {
+    function accountFor(rawAppId) {
+        const appId = String(rawAppId || "").toLowerCase();
         switch (appId) {
         case "messages":
         case "imessage":
@@ -302,21 +303,20 @@ Rectangle {
         }
     }
 
+    // Was a second, case-sensitive copy of appIdInCategory's ladder, so the
+    // chips counted one way and the list filtered another. One predicate.
     function matchesCategory(appId) {
-        if (hub.selectedCategory === "all")
-            return true;
-        if (hub.selectedCategory === "messages")
-            return appId === "messages" || appId === "imessage";
-        if (hub.selectedCategory === "mail")
-            return appId === "mail";
-        if (hub.selectedCategory === "work")
-            return appId === "linear" || appId === "github" || appId === "work";
-        if (hub.selectedCategory === "call")
-            return appId === "phone" || appId === "call";
-        return false;
+        return hub.selectedCategory === "all"
+            || hub.appIdInCategory(appId, hub.selectedCategory);
     }
 
-    function appIdInCategory(appId, category) {
+    // appId is the freedesktop app_name, which is a human-readable display
+    // name chosen by the sending app -- "Messages", "Thunderbird", "Mail".
+    // These comparisons were case-sensitive against lowercase literals, so
+    // every real notification fell through to false and the Messages / Mail
+    // / Work / Calls chips all read 0 while All read the true total.
+    function appIdInCategory(rawAppId, category) {
+        const appId = String(rawAppId || "").toLowerCase();
         if (category === "messages")
             return appId === "messages" || appId === "imessage";
         if (category === "mail")
