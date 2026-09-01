@@ -285,8 +285,10 @@ Rectangle {
         return first.charAt(0) + last.charAt(0);
     }
 
-    // Takes the RAW app_name: the default branch below re-cases it for
-    // display, so folding first would destroy interior capitalisation.
+    // Takes the RAW app_name. The switch matches on a folded copy, but the
+    // default branch echoes what the sender actually sent -- only
+    // capitalising a leading lower-case letter -- so "GNOME Software" keeps
+    // its interior capitals while "signal" still reads as "Signal".
     function accountFor(rawAppId) {
         const appId = String(rawAppId || "").toLowerCase();
         switch (appId) {
@@ -307,7 +309,8 @@ Rectangle {
         case "work":
             return "Work";
         default:
-            return rawAppId;
+            const raw = String(rawAppId || "");
+            return raw.charAt(0).toUpperCase() + raw.slice(1);
         }
     }
 

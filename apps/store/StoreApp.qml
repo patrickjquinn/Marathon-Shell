@@ -54,7 +54,12 @@ MApp {
     // first collection back happens to filter to zero aarch64 hits.
     property int catalogFetchesInFlight: 0
     readonly property bool catalogLoading: catalogFetchesInFlight > 0
+    // Why the CATALOG failed to load -- surfaced on Discover's empty state,
+    // and cleared as soon as a collection lands. Install failures go to
+    // installError; they used to share this and made the "Can't reach
+    // Flathub" card blame an unrelated bad install ref.
     property string lastError: ""
+    property string installError: ""
 
     // Collections can come back with keys but zero entries: a fetch that
     // succeeded whose hits all failed the aarch64 filter still writes
@@ -194,7 +199,6 @@ MApp {
 
     function loadCollection(name) {
         catalogFetchesInFlight += 1;
-        console.warn("[Store] loadCollection", name, "in flight:", catalogFetchesInFlight);
         fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=24&locale=en", null, function (data, err) {
             root.catalogFetchesInFlight -= 1;
             if (err) {
@@ -204,9 +208,7 @@ MApp {
             const next = Object.assign({}, root.collections);
             next[name] = pickAarch64(data.hits || []);
             root.collections = next;
-            console.warn("[Store]", name, "hits:", (data.hits || []).length,
-                         "aarch64:", next[name].length,
-                         "appCount:", root.catalogAppCount);
+            root.lastError = "";
         });
     }
 
@@ -311,7 +313,7 @@ MApp {
 
     function installApp(appId) {
         if (!isValidRef(appId)) {
-            root.lastError = "Refusing to install invalid ref: " + appId;
+            root.installError = "Refusing to install invalid ref: " + appId;
             return;
         }
         root.trackInstall(appId);
@@ -1043,9 +1045,7 @@ MApp {
                     // Activity spinner while collections are
                     // loading on first paint.
                     MActivityIndicator {
-                        // Column drives x/y, so centre by position, not by
-                        // anchor -- Column rejects horizontalCenter.
-                        x: (discoverCol.width - width) / 2
+                        anchors.horizontalCenter: parent.horizontalCenter
                         visible: root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                     }
 
@@ -1054,14 +1054,15 @@ MApp {
                     // load (offline device, DNS blocked, Flathub down).
                     // Without this the Discover tab silently sat empty
                     // after the spinner gave up.
-                    // Column rejects centerIn AND horizontalCenter alike --
-                    // it sets its children's x itself. An earlier note here
-                    // claimed horizontalCenter was allowed; it is not, which
-                    // is why this empty state never appeared and Discover
-                    // showed a black void instead of saying what went wrong.
+                    // Column rejects the VERTICAL anchors (top, bottom,
+                    // verticalCenter, fill, centerIn); horizontalCenter is
+                    // fine and is what MEmptyState uses internally. The void
+                    // here was never an anchor problem -- MEmptyState had no
+                    // implicitHeight, so it was a zero-height box that the
+                    // clipping Flickable discarded.
                     MEmptyState {
-                        x: 24
-                        width: discoverCol.width - 48
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: discoverCol.width - MSpacing.lg * 2
                         visible: !root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                         iconName: "wifi-slash"
                         iconSize: 64

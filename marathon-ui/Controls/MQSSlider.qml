@@ -143,6 +143,13 @@ Item {
                     anchors.fill: track
                     anchors.topMargin: -16
                     anchors.bottomMargin: -16
+                    // The Quick Settings shade is a Flickable at larger
+                    // display scales, and this hit area is padded 16px
+                    // vertically. Without this a slightly diagonal drag
+                    // hands the grab to the Flickable mid-gesture: the
+                    // press is cancelled and brightness sticks at whatever
+                    // partial value it had reached while the shade scrolls.
+                    preventStealing: true
                     // Continuous haptic on every value-step. iOS pulses
                     // at every integer crossing on the Control Center
                     // slider — same idea: gives the dragged track a

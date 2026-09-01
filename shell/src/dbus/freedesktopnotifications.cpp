@@ -118,10 +118,21 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
     uint id = m_database->saveNotification(record);
 
     if (m_model) {
-        // Adopt the database's row id so the model and the database share
-        // one id space. They were independent counters, which made the
-        // replaces_id dismissal below able to evict an unrelated Hub row.
-        m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body, app_icon);
+        if (id > 0) {
+            // Adopt the database's row id so the model and the database
+            // share one id space. They were independent counters, which
+            // made the replaces_id dismissal below able to evict an
+            // unrelated Hub row.
+            m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body, app_icon);
+        } else {
+            // saveNotification returns 0 on insert failure, and 0 is not a
+            // valid id: two failures in a row would have put two rows under
+            // id 0 and orphaned the first. Fall back to a transient id so
+            // the notification still reaches the Hub.
+            qWarning() << "[FreedesktopNotifications] Persist failed; "
+                          "showing" << summary << "as transient";
+            m_model->addNotification(appId, summary, body, app_icon);
+        }
     }
 
     // expire_timeout governs how long the on-screen BANNER shows, not how

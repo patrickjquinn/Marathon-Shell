@@ -129,10 +129,18 @@ class NotificationModel : public QAbstractListModel {
 
   private:
     void                       updateUnreadCount();
+    void                       trimToCap();
+
+    // Mirrors NotificationDatabase::kMaxStoredNotifications so the model and
+    // the table hold the same history rather than drifting apart.
+    static constexpr int       kMaxNotifications = 500;
 
     QVector<Notification *>    m_notifications;
     QHash<int, Notification *> m_notificationIndex;
     int                        m_nextId;
+    // Transient (model-only) ids run negative so they cannot collide with
+    // the database row ids that the D-Bus path adopts.
+    int                        m_nextTransientId = -1;
     int                        m_unreadCount;
 };
 
