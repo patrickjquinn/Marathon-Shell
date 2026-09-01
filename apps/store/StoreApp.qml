@@ -49,6 +49,19 @@ MApp {
     property var installState: ({})
     property bool catalogLoading: false
     property string lastError: ""
+
+    // Collections can come back with keys but zero entries: a fetch that
+    // succeeded whose hits all failed the aarch64 filter still writes
+    // collections["popular"] = []. Testing Object.keys().length treated
+    // that as "catalog loaded", so the spinner stopped AND the empty state
+    // stayed hidden, and Discover rendered a black void with no spinner,
+    // no message and no way to tell it had failed. Count apps, not keys.
+    readonly property int catalogAppCount: {
+        let n = 0;
+        for (const k in collections)
+            n += (collections[k] || []).length;
+        return n;
+    }
     property int activeTab: 0
 
     signal openDetailRequested(string appId, var summary)
@@ -997,7 +1010,7 @@ MApp {
                     // loading on first paint.
                     MActivityIndicator {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        visible: root.catalogLoading && Object.keys(root.collections).length === 0 && !navStack.parent.heroApp
+                        visible: root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                     }
 
                     // Same MEmptyState the Apps tab uses, surfaced here
@@ -1010,7 +1023,7 @@ MApp {
                     MEmptyState {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width - 48
-                        visible: !root.catalogLoading && Object.keys(root.collections).length === 0 && !navStack.parent.heroApp
+                        visible: !root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                         iconName: "wifi-off"
                         iconSize: 64
                         title: "Can't reach Flathub"
