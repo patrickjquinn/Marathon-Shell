@@ -266,7 +266,7 @@ MApp {
             anchors.centerIn: parent
             width: parent.width - MSpacing.xl * 2
             visible: cameraController.cameraCount === 0
-            iconName: "camera-off"
+            iconName: "camera-slash"
             title: "Camera unavailable"
             message: "We couldn't find a working camera. If your device has one, Marathon may not have permission yet."
             actionText: "Grant camera access"
@@ -386,8 +386,8 @@ MApp {
                 border.color: cameraController.flashEnabled ? MColors.tealBorder : MColors.whiteOverlay08
                 visible: cameraController.flashAvailable
 
-                // Flash glyph morph — crossfade between zap (on) and
-                // zap-off (off) Icons. Direct name binding caused a
+                // Flash glyph morph — crossfade between lightning (on) and
+                // lightning-slash (off) Icons. Direct name binding caused a
                 // visible glyph-atlas reload flicker when toggling.
                 Item {
                     anchors.centerIn: parent
@@ -395,7 +395,7 @@ MApp {
                     height: 20
                     Icon {
                         anchors.centerIn: parent
-                        name: "zap"
+                        name: "lightning"
                         size: 20
                         color: MColors.marathonTealBright
                         opacity: cameraController.flashEnabled ? 1 : 0
@@ -407,7 +407,7 @@ MApp {
                     }
                     Icon {
                         anchors.centerIn: parent
-                        name: "zap-off"
+                        name: "lightning-slash"
                         size: 20
                         color: MColors.textSecondary
                         opacity: cameraController.flashEnabled ? 0 : 1

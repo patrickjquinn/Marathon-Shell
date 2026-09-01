@@ -271,7 +271,7 @@ Page {
 
                 MSettingsListItem {
                     title: "Terminal"
-                    iconName: "square-terminal"
+                    iconName: "terminal-window"
                     showChevron: true
                     onSettingClicked: AppLifecycleManager.launchAppWithRoute("terminal", "", "{}")
                 }

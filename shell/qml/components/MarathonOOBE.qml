@@ -416,7 +416,7 @@ Item {
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
-                    name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
+                    name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-slash"
                     size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
                     color: MColors.marathonTealBright
                 }
@@ -591,7 +591,7 @@ Item {
 
                                 Icon {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    name: "wifi-off"
+                                    name: "wifi-slash"
                                     size: Math.round(32 * Constants.scaleFactor)
                                     color: MColors.textTertiary
                                 }

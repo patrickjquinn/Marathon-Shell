@@ -1924,14 +1924,14 @@ Item {
             if (NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Connected to Wi-Fi", "wifi");
             else if (NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
-                connectionToast.show("Wi-Fi disconnected", "wifi-off");
+                connectionToast.show("Wi-Fi disconnected", "wifi-slash");
         }
 
         function onEthernetConnectedChanged() {
             if (NetworkManagerCpp.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
             else if (!NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
-                connectionToast.show("No network connection", "wifi-off");
+                connectionToast.show("No network connection", "wifi-slash");
         }
 
         target: NetworkManagerCpp

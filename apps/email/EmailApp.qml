@@ -169,7 +169,7 @@ MApp {
                         spacing: MSpacing.md
                         Icon {
                             Layout.alignment: Qt.AlignHCenter
-                            name: "envelope-plus"
+                            name: "envelope"
                             size: 48
                             color: MColors.textTertiary
                         }
