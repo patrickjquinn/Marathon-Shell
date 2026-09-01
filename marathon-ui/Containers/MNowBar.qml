@@ -1,8 +1,11 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
-// Marathon DS · Now Bar — 36 px live-activity strip.
+// Marathon DS · Now Bar — 36 design-px live-activity strip.
 //
 // Variants (set `variant`):
 //   • "music"  — icon badge + title + artist/duration + 5-bar visualiser
@@ -19,8 +22,20 @@ import QtQuick
 Item {
     id: root
 
-    // Layout token — DS spec.
-    implicitHeight: 36
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
+    // Layout token — DS spec is 36 design-px. Every type token scales
+    // (MTypography multiplies by Constants.scaleFactor) so a fixed 36
+    // physical-px bar cannot hold two scaled eyebrow lines: at 1.5x the
+    // label + sublabel line-boxes are ~42px and the text clipped.
+    //
+    // Derived from the text rather than scaled blindly, so the bar always
+    // fits its own content and the DS 36 acts as a floor. Height depends
+    // on width here, never the reverse — both labels elide instead of
+    // wrapping, so their line count is fixed and this cannot cycle.
+    readonly property real vPadding: Math.round(6 * scaleFactor)
+    implicitHeight: Math.max(Math.round(36 * scaleFactor),
+                             textColumn.implicitHeight + vPadding * 2)
 
     // Variant + content.
     property string variant: "music"          // "music" | "call" | "nav" | "timer"
@@ -60,14 +75,14 @@ Item {
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: variant === "call" ? 14 : 6
-        anchors.rightMargin: 12
-        spacing: 10
+        anchors.leftMargin: Math.round((root.variant === "call" ? 14 : 6) * root.scaleFactor)
+        anchors.rightMargin: Math.round(12 * root.scaleFactor)
+        spacing: Math.round(10 * root.scaleFactor)
 
         // Icon badge.
         Item {
             id: badgeWrap
-            width: variant === "call" ? 26 : 26
+            width: Math.round(26 * root.scaleFactor)
             height: width
             anchors.verticalCenter: parent.verticalCenter
 
@@ -81,7 +96,7 @@ Item {
                 Icon {
                     anchors.centerIn: parent
                     name: root.iconName
-                    size: 13
+                    size: Math.round(13 * root.scaleFactor)
                     color: root.tintColor
                 }
             }
@@ -91,8 +106,8 @@ Item {
             // C8 so no idle cost when not in call.
             Rectangle {
                 anchors.fill: parent
-                anchors.margins: -2
-                radius: (parent.width + 4) / 2
+                anchors.margins: -Math.round(2 * root.scaleFactor)
+                radius: (parent.width + Math.round(4 * root.scaleFactor)) / 2
                 color: "transparent"
                 border.width: 1
                 border.color: MColors.tealBorder
@@ -119,9 +134,10 @@ Item {
 
         // Label / sublabel — flex-1, ellipses.
         Column {
+            id: textColumn
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - badgeWrap.width - visualWrap.width - parent.spacing * 2
-            spacing: 2
+            spacing: Math.round(2 * root.scaleFactor)
 
             Text {
                 width: parent.width
@@ -154,26 +170,29 @@ Item {
             id: visualWrap
             anchors.verticalCenter: parent.verticalCenter
             width: root.variant === "music" ? visualiser.implicitWidth : 0
-            height: 12
+            height: Math.round(12 * root.scaleFactor)
 
             Row {
                 id: visualiser
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
+                spacing: Math.max(1, Math.round(2 * root.scaleFactor))
                 visible: root.variant === "music"
 
                 // Five teal bars, heights [6, 10, 4, 8, 5] per DS §02.
                 Repeater {
                     model: [6, 10, 4, 8, 5]
                     delegate: Rectangle {
+                        id: bar
                         required property int index
                         required property int modelData
-                        width: 2
-                        height: modelData
-                        radius: 1
+                        readonly property real fullHeight: Math.round(bar.modelData * root.scaleFactor)
+                        readonly property real restHeight: Math.max(2, Math.round(2 * root.scaleFactor))
+                        width: Math.max(2, Math.round(2 * root.scaleFactor))
+                        height: bar.fullHeight
+                        radius: width / 2
                         anchors.verticalCenter: parent.verticalCenter
                         color: root.tintColor
-                        opacity: index % 2 ? 1.0 : 0.5
+                        opacity: bar.index % 2 ? 1.0 : 0.5
 
                         // Subtle height bob when playing. Animation only
                         // runs while the bar is actually visible.
@@ -181,15 +200,15 @@ Item {
                             loops: Animation.Infinite
                             running: root.playing && root.visible
                             NumberAnimation {
-                                from: modelData
-                                to: 2
-                                duration: 280 + index * 70
+                                from: bar.fullHeight
+                                to: bar.restHeight
+                                duration: 280 + bar.index * 70
                                 easing.type: Easing.InOutQuad
                             }
                             NumberAnimation {
-                                from: 2
-                                to: modelData
-                                duration: 280 + index * 70
+                                from: bar.restHeight
+                                to: bar.fullHeight
+                                duration: 280 + bar.index * 70
                                 easing.type: Easing.InOutQuad
                             }
                         }

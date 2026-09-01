@@ -220,275 +220,299 @@ Item {
         z: 2
     }
 
-    Column {
-        id: content
+    // The shade is a fixed-height surface but its contents are all scaled
+    // tokens, so past roughly 1.4x display size the column is taller than
+    // the shade and the Screenshot / Lock / Power row was simply sliced off
+    // the bottom with no way to reach it.
+    //
+    // interactive is gated on actual overflow: at the shipping default the
+    // content fits, the Flickable is inert, and drag-to-close behaves
+    // exactly as before. The dismiss DragHandler above deliberately grabs
+    // only the shade chrome and never the tiles/sliders, so this does not
+    // take a gesture that used to close the shade.
+    Flickable {
+        id: shadeScroll
 
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
-        anchors.topMargin: MSpacing.lg
-        spacing: MSpacing.md
+        anchors.fill: parent
+        // Leave the drag handle at the bottom uncovered.
+        anchors.bottomMargin: MSpacing.md * 2 + 6
+        clip: true
+        contentWidth: width
+        contentHeight: content.height + MSpacing.lg * 2
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+        flickDeceleration: 4000
 
-        // Gesture-coupled reveal: fade + a small settle-up as the shade
-        // opens; both collapse to a no-op under reduceMotion. Anchored to
-        // the top and clip:true on the shade, so translating down just
-        // exposes panel above — never overlaps the status bar.
-        opacity: MMotion.reduceMotion ? 1 : Math.min(1, quickSettings.openProgress * 1.35)
-        transform: Translate {
-            y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * 16
-        }
+        Column {
+            id: content
 
-        // ── Header — live time + date, left-anchored ─────────
-        Item {
-            id: header
-            width: parent.width
-            height: 52
+            x: MSpacing.lg
+            y: MSpacing.lg
+            width: shadeScroll.width - MSpacing.lg * 2
+            spacing: MSpacing.md
 
-            property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
-            property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
-            // 1s tick so the shade clock never lags the status bar clock.
-            Timer {
-                interval: 1000
-                running: quickSettings.visible
-                repeat: true
-                triggeredOnStart: true
-                onTriggered: {
-                    header.dateText = Qt.formatDateTime(new Date(), "dddd, MMMM d");
-                    header.timeText = Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm");
-                }
+            // Gesture-coupled reveal: fade + a small settle-up as the shade
+            // opens; both collapse to a no-op under reduceMotion. Anchored to
+            // the top and clip:true on the shade, so translating down just
+            // exposes panel above — never overlaps the status bar.
+            opacity: MMotion.reduceMotion ? 1 : Math.min(1, quickSettings.openProgress * 1.35)
+            transform: Translate {
+                y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * 16
             }
 
-            Column {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 4
-                Text {
-                    text: header.timeText
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeTitle3
-                    font.weight: MTypography.weightDemiBold
-                    font.features: ({ "tnum": 1 })
-                }
-                Text {
-                    text: header.dateText
-                    color: MColors.textSecondary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeFootnote
-                    font.weight: MTypography.weightMedium
-                }
-            }
-        }
+            // ── Header — live time + date, left-anchored ─────────
+            Item {
+                id: header
+                width: parent.width
+                height: 52
 
-        // ── Sliders — brightness + volume ────────────────────
-        Rectangle {
-            width: parent.width
-            height: slidersInner.height + 36
-            radius: MRadius.md
-            // Lit-from-above: elev3 top → elev2 bottom. A flat fill on an
-            // OLED reads as a hole; the vertical ramp is what gives the card
-            // a face that catches light and a base that recedes.
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: MColors.elev3 }
-                GradientStop { position: 1.0; color: MColors.elev2 }
-            }
-            border.width: 1
-            border.color: MColors.whiteOverlay16
-
-            QSContactShadow {}
-
-            MTopHairline {
-                radius: parent.radius
-                color: MColors.whiteOverlay16
-                lineWidth: 1
-            }
-
-            Column {
-                id: slidersInner
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                anchors.topMargin: 18
-                spacing: 16
-
-                MQSSlider {
-                    id: brightness
-                    width: parent.width
-                    iconName: "sun"
-                    value: SystemControlStore.brightness
-                    onMoved: v => SystemControlStore.setBrightnessFromUser(v)
-                }
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: MColors.whiteOverlay08
-                }
-                MQSSlider {
-                    id: volume
-                    width: parent.width
-                    iconName: "speaker-high"
-                    value: SystemControlStore.volume
-                    onMoved: v => SystemControlStore.setVolume(v)
-                }
-            }
-        }
-
-        // ── Primary tile grid (4 × 2) ────────────────────────
-        Grid {
-            id: tileGrid
-            width: parent.width
-            columns: 4
-            rowSpacing: 10
-            columnSpacing: 10
-            readonly property real cellWidth: (width - columnSpacing * 3) / 4
-
-            Repeater {
-                model: quickSettings.tiles
-                delegate: MQSTile {
-                    required property var modelData
-                    width: tileGrid.cellWidth
-                    height: quickSettings.tileCellHeight
-                    iconName: modelData.icon || "square"
-                    label: modelData.label || ""
-                    on: modelData.on === true
-                    onToggled: quickSettings.toggle(modelData.id)
-                }
-            }
-        }
-
-        // ── Now-playing strip — always present ────────────────
-        // When media is live it shows the track; when idle it stays as a
-        // "tap to open Music" affordance rather than collapsing to a void.
-        // The whole strip taps through to Music either way. Wrapped so it
-        // carries a contact shadow and sits at a card-weight 56px height
-        // (the bare 36px NowBar read as loose text jammed between grids).
-        Item {
-            width: parent.width
-            // 76, not 56: at scaleFactor 1.79 the two eyebrow lines are
-            // ~54px of line-box; 56 left ~1px and the text kissed the
-            // container edges. 76 gives ~11px breathing top and bottom and
-            // lands the strip at the same card weight as the action chips.
-            height: 76
-
-            QSContactShadow {}
-
-            MNowBar {
-                anchors.fill: parent
-                variant: "music"
-                iconName: "music-note"
-                label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
-                sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
-                playing: MPRIS2Controller.isPlaying
-                onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
-            }
-        }
-
-        // ── Section label ────────────────────────────────────
-        // The group break lives in the label's own topPadding, not a
-        // separate spacer Item. A spacer in a Column is bracketed by the
-        // Column's spacing on BOTH sides (md + spacer + md ≈ 67px at 1.79×
-        // — far too airy); topPadding adds to the single leading gap for a
-        // controlled section break (~47px) that reads as "new group."
-        Text {
-            text: "MORE CONTROLS"
-            topPadding: MSpacing.sm
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-            font.weight: MTypography.weightDemiBold
-            font.letterSpacing: 1.2
-        }
-
-        // ── Secondary contextual toggles (4 × 2) ─────────────
-        Grid {
-            id: expandedGrid
-            width: parent.width
-            columns: 4
-            rowSpacing: 10
-            columnSpacing: 10
-            readonly property real cellWidth: (width - columnSpacing * 3) / 4
-
-            Repeater {
-                model: quickSettings.expandedTiles
-                delegate: MQSTile {
-                    required property var modelData
-                    width: expandedGrid.cellWidth
-                    height: quickSettings.tileCellHeight
-                    iconName: modelData.icon || "square"
-                    label: modelData.label || ""
-                    on: modelData.on === true
-                    onToggled: quickSettings.toggle(modelData.id)
-                }
-            }
-        }
-
-        // ── Quick actions row (one-shot) ─────────────────────
-        // No extra break here — the wide chips are already visually distinct
-        // from the toggle grid, so the standard rhythm reads cleanly.
-        Row {
-            width: parent.width
-            spacing: 10
-
-            Repeater {
-                model: quickSettings.actions
-                delegate: Rectangle {
-                    id: actionChip
-                    required property var modelData
-                    width: (parent.width - 20) / 3
-                    height: 76
-                    radius: MRadius.md
-                    // Same lit-from-above gradient as the slider card so the
-                    // action chips read as raised keys, not flat swatches.
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: MColors.elev3 }
-                        GradientStop { position: 1.0; color: MColors.elev2 }
+                property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
+                property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
+                // 1s tick so the shade clock never lags the status bar clock.
+                Timer {
+                    interval: 1000
+                    running: quickSettings.visible
+                    repeat: true
+                    triggeredOnStart: true
+                    onTriggered: {
+                        header.dateText = Qt.formatDateTime(new Date(), "dddd, MMMM d");
+                        header.timeText = Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm");
                     }
-                    border.width: 1
-                    border.color: MColors.whiteOverlay16
-                    scale: chipTap.pressed ? 0.96 : 1.0
+                }
 
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: MMotion.reduceMotion ? MMotion.micro : MMotion.fast
-                            easing.type: Easing.OutCubic
-                        }
+                Column {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
+                    Text {
+                        text: header.timeText
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeTitle3
+                        font.weight: MTypography.weightDemiBold
+                        font.features: ({ "tnum": 1 })
                     }
+                    Text {
+                        text: header.dateText
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        font.weight: MTypography.weightMedium
+                    }
+                }
+            }
 
-                    MTopHairline {
-                        radius: parent.radius
+            // ── Sliders — brightness + volume ────────────────────
+            Rectangle {
+                width: parent.width
+                height: slidersInner.height + 36
+                radius: MRadius.md
+                // Lit-from-above: elev3 top → elev2 bottom. A flat fill on an
+                // OLED reads as a hole; the vertical ramp is what gives the card
+                // a face that catches light and a base that recedes.
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: MColors.elev3 }
+                    GradientStop { position: 1.0; color: MColors.elev2 }
+                }
+                border.width: 1
+                border.color: MColors.whiteOverlay16
+
+                QSContactShadow {}
+
+                MTopHairline {
+                    radius: parent.radius
+                    color: MColors.whiteOverlay16
+                    lineWidth: 1
+                }
+
+                Column {
+                    id: slidersInner
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 18
+                    spacing: 16
+
+                    MQSSlider {
+                        id: brightness
+                        width: parent.width
+                        iconName: "sun"
+                        value: SystemControlStore.brightness
+                        onMoved: v => SystemControlStore.setBrightnessFromUser(v)
+                    }
+                    Rectangle {
+                        width: parent.width
+                        height: 1
                         color: MColors.whiteOverlay08
-                        lineWidth: 1
                     }
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 6
-                        Icon {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            name: actionChip.modelData.icon
-                            size: 24
-                            color: MColors.textPrimary
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: actionChip.modelData.label
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeCaption
-                            font.weight: MTypography.weightMedium
-                        }
+                    MQSSlider {
+                        id: volume
+                        width: parent.width
+                        iconName: "speaker-high"
+                        value: SystemControlStore.volume
+                        onMoved: v => SystemControlStore.setVolume(v)
                     }
+                }
+            }
 
-                    MouseArea {
-                        id: chipTap
-                        anchors.fill: parent
-                        onClicked: {
-                            MHaptics.light();
-                            quickSettings.doAction(actionChip.modelData.id);
+            // ── Primary tile grid (4 × 2) ────────────────────────
+            Grid {
+                id: tileGrid
+                width: parent.width
+                columns: 4
+                rowSpacing: 10
+                columnSpacing: 10
+                readonly property real cellWidth: (width - columnSpacing * 3) / 4
+
+                Repeater {
+                    model: quickSettings.tiles
+                    delegate: MQSTile {
+                        required property var modelData
+                        width: tileGrid.cellWidth
+                        height: quickSettings.tileCellHeight
+                        iconName: modelData.icon || "square"
+                        label: modelData.label || ""
+                        on: modelData.on === true
+                        onToggled: quickSettings.toggle(modelData.id)
+                    }
+                }
+            }
+
+            // ── Now-playing strip — always present ────────────────
+            // When media is live it shows the track; when idle it stays as a
+            // "tap to open Music" affordance rather than collapsing to a void.
+            // The whole strip taps through to Music either way. Wrapped so it
+            // carries a contact shadow and sits at a card-weight 56 design-px
+            // height (the bare NowBar read as loose text jammed between grids).
+            Item {
+                width: parent.width
+                // Card weight is the floor; the bar's own content height wins
+                // if it is taller. This used to be a flat 76 chosen to clear
+                // the two eyebrow line-boxes at scaleFactor 1.79 — a caller-
+                // side workaround for MNowBar not scaling its own geometry.
+                // MNowBar now sizes to its text, so ask it instead of guessing.
+                height: Math.max(nowBar.implicitHeight,
+                                 Math.round(56 * (Constants.scaleFactor || 1.0)))
+
+                QSContactShadow {}
+
+                MNowBar {
+                    id: nowBar
+                    anchors.fill: parent
+                    variant: "music"
+                    iconName: "music-note"
+                    label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
+                    sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
+                    playing: MPRIS2Controller.isPlaying
+                    onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
+                }
+            }
+
+            // ── Section label ────────────────────────────────────
+            // The group break lives in the label's own topPadding, not a
+            // separate spacer Item. A spacer in a Column is bracketed by the
+            // Column's spacing on BOTH sides (md + spacer + md ≈ 67px at 1.79×
+            // — far too airy); topPadding adds to the single leading gap for a
+            // controlled section break (~47px) that reads as "new group."
+            Text {
+                text: "MORE CONTROLS"
+                topPadding: MSpacing.sm
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                font.weight: MTypography.weightDemiBold
+                font.letterSpacing: 1.2
+            }
+
+            // ── Secondary contextual toggles (4 × 2) ─────────────
+            Grid {
+                id: expandedGrid
+                width: parent.width
+                columns: 4
+                rowSpacing: 10
+                columnSpacing: 10
+                readonly property real cellWidth: (width - columnSpacing * 3) / 4
+
+                Repeater {
+                    model: quickSettings.expandedTiles
+                    delegate: MQSTile {
+                        required property var modelData
+                        width: expandedGrid.cellWidth
+                        height: quickSettings.tileCellHeight
+                        iconName: modelData.icon || "square"
+                        label: modelData.label || ""
+                        on: modelData.on === true
+                        onToggled: quickSettings.toggle(modelData.id)
+                    }
+                }
+            }
+
+            // ── Quick actions row (one-shot) ─────────────────────
+            // No extra break here — the wide chips are already visually distinct
+            // from the toggle grid, so the standard rhythm reads cleanly.
+            Row {
+                width: parent.width
+                spacing: 10
+
+                Repeater {
+                    model: quickSettings.actions
+                    delegate: Rectangle {
+                        id: actionChip
+                        required property var modelData
+                        width: (parent.width - 20) / 3
+                        height: 76
+                        radius: MRadius.md
+                        // Same lit-from-above gradient as the slider card so the
+                        // action chips read as raised keys, not flat swatches.
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: MColors.elev3 }
+                            GradientStop { position: 1.0; color: MColors.elev2 }
+                        }
+                        border.width: 1
+                        border.color: MColors.whiteOverlay16
+                        scale: chipTap.pressed ? 0.96 : 1.0
+
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: MMotion.reduceMotion ? MMotion.micro : MMotion.fast
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        MTopHairline {
+                            radius: parent.radius
+                            color: MColors.whiteOverlay08
+                            lineWidth: 1
+                        }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6
+                            Icon {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                name: actionChip.modelData.icon
+                                size: 24
+                                color: MColors.textPrimary
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: actionChip.modelData.label
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeCaption
+                                font.weight: MTypography.weightMedium
+                            }
+                        }
+
+                        MouseArea {
+                            id: chipTap
+                            anchors.fill: parent
+                            onClicked: {
+                                MHaptics.light();
+                                quickSettings.doAction(actionChip.modelData.id);
+                            }
                         }
                     }
                 }

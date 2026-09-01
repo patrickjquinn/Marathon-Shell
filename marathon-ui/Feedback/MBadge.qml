@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonOS.Shell
 import MarathonUI.Theme
 
 // Marathon DS · Count badge (ds-components.jsx:DSBadges · "Counts").
@@ -6,6 +7,10 @@ import MarathonUI.Theme
 // Teal-bright fill, black text. Optional 4 px squircle radius for
 // rect badges (used on app grid), or pill radius for inline counts.
 // Bare 8 px teal dot for "unread, no count" — use the `dot` mode.
+//
+// All sizes below are design-px. The count text is a scaled type token,
+// so the pill has to scale with it: at 1.5x an 11 px eyebrow renders a
+// ~20 px line-box, which a fixed 18 px badge clipped.
 Rectangle {
     id: root
 
@@ -15,8 +20,17 @@ Rectangle {
     property int count: 0
     property bool dot: false          // true → 8 px teal dot, no text
 
-    implicitWidth: dot ? 8 : Math.max(18, contentText.width + 14)
-    implicitHeight: dot ? 8 : 18
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real dotSize: Math.round(8 * scaleFactor)
+
+    // Height tracks the text it has to hold; the DS 18 is the floor.
+    // Width falls back to height so single digits stay circular.
+    implicitHeight: dot ? dotSize
+                        : Math.max(Math.round(18 * scaleFactor),
+                                   contentText.implicitHeight + Math.round(4 * scaleFactor))
+    implicitWidth: dot ? dotSize
+                       : Math.max(implicitHeight,
+                                  contentText.implicitWidth + Math.round(14 * scaleFactor))
 
     radius: dot ? width / 2 : height / 2
     color: badgeColor
@@ -36,9 +50,9 @@ Rectangle {
     Rectangle {
         visible: root.dot
         anchors.centerIn: parent
-        width: 16
-        height: 16
-        radius: 8
+        width: Math.round(16 * root.scaleFactor)
+        height: width
+        radius: width / 2
         color: MColors.marathonTealGlow
         opacity: 0.18
         z: -1
