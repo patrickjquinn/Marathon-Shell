@@ -36,6 +36,53 @@
 #endif
 
 namespace {
+
+// The bwrap argument list is flattened into a single command string here and
+// re-parsed with QProcess::splitCommand on the compositor side. That round
+// trip silently loses two kinds of argument: one containing spaces (it splits
+// into several) and, worse, an EMPTY one (it disappears entirely, shifting
+// every argument after it by one position).
+//
+// The empty case broke every WebEngine app. The session exports
+// MARATHON_LAYER_SAMPLES with an empty value, and qEnvironmentVariable's
+// default only applies when a variable is UNSET, not when it is set-but-empty
+// -- so `--setenv MARATHON_LAYER_SAMPLES ""` flattened to
+// `--setenv MARATHON_LAYER_SAMPLES` and bwrap consumed the following
+// `--setenv` as the value, then treated `MARATHON_GPU_HDR` as the program to
+// exec: "bwrap: execvp MARATHON_GPU_HDR: No such file or directory".
+// Browser and Maps both died there before showing a surface.
+//
+// splitCommand honours DOUBLE quotes only, so quote there and nowhere else.
+// It cannot represent an EMPTY argument at all -- its tokenizer appends only
+// non-empty tokens, so even a literal "" is dropped. Empty values therefore
+// have to be prevented at the source: see envValue() below.
+QString quoteForSplitCommand(const QString &arg) {
+    if (arg.isEmpty())
+        return QStringLiteral("\"\"");
+    if (!arg.contains(QLatin1Char(' ')) && !arg.contains(QLatin1Char('"')))
+        return arg;
+    QString escaped = arg;
+    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
+    return QLatin1Char('"') + escaped + QLatin1Char('"');
+}
+
+// qEnvironmentVariable's fallback applies only when a variable is UNSET. The
+// session exports several of these EMPTY, and an empty value cannot survive
+// the command-string round trip (above) -- it vanishes and shifts every later
+// argument, which is what made bwrap exec a variable name. Treat empty as
+// absent.
+QString envValue(const char *name, const QString &fallback) {
+    const QString v = qEnvironmentVariable(name);
+    return v.isEmpty() ? fallback : v;
+}
+
+QString joinForSplitCommand(const QStringList &args) {
+    QStringList quoted;
+    quoted.reserve(args.size());
+    for (const QString &a : args)
+        quoted << quoteForSplitCommand(a);
+    return quoted.join(QLatin1Char(' '));
+}
     // QtWebEngine's bundled Chromium on Alpine is built WITHOUT the wayland
     // ozone backend; passing --ozone-platform=wayland or --enable-features=
     // UseOzonePlatform crashes the render process with FATAL "Invalid ozone
@@ -602,13 +649,13 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // QSG_ANTIALIASING_METHOD=vertex — same reasoning as the compositor
         // probe. Etnaviv has no FBO MSAA; vertex AA covers Shape strokes.
         env.insert("QSG_ANTIALIASING_METHOD",
-                   qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex"));
+                   envValue("QSG_ANTIALIASING_METHOD", QStringLiteral("vertex")));
 
         // MSAA samples for layered items. 0 silences "Layer requested N
         // samples but multisample renderbuffers are not supported" on
         // etnaviv. Shell's main.cpp probes the GPU and exports the chosen
         // value; we forward whatever the shell decided.
-        env.insert("MARATHON_LAYER_SAMPLES", qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0"));
+        env.insert("MARATHON_LAYER_SAMPLES", envValue("MARATHON_LAYER_SAMPLES", QStringLiteral("0")));
 
         if (qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0)
             env.insert("MARATHON_STARTUP_TIMING", "1");
@@ -634,7 +681,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // user-chosen locale from the shell env if set, falls back to
         // en_US.UTF-8. (Hunspell-en-us dictionaries land via the image
         // depends; see pmaports.)
-        env.insert("LANG", qEnvironmentVariable("LANG", "en_US.UTF-8"));
+        env.insert("LANG", envValue("LANG", QStringLiteral("en_US.UTF-8")));
 
         // GPU HDR gate. AppBackdropBlur and any future MultiEffect/Shader
         // sources that want linear-precise compositing read this — defaults
@@ -642,7 +689,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // that QRhi can't allocate on this GPU ("Attempted to set
         // unsupported texture format 8"). Inherit from shell env or
         // default 0.
-        env.insert("MARATHON_GPU_HDR", qEnvironmentVariable("MARATHON_GPU_HDR", "0"));
+        env.insert("MARATHON_GPU_HDR", envValue("MARATHON_GPU_HDR", QStringLiteral("0")));
     }
 
     QStringList permissions = app.value("permissions").toStringList();
@@ -739,7 +786,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // that lets Mesa accept the context request is the runner's
         // QSurfaceFormat::setDefaultFormat(OpenGLES, 2.0) before
         // QGuiApplication (tools/marathon-app-runner/main.cpp:498).
-        env.insert("QT_OPENGL", qEnvironmentVariable("QT_OPENGL", "es2"));
+        env.insert("QT_OPENGL", envValue("QT_OPENGL", QStringLiteral("es2")));
         // EGL_PLATFORM=wayland pins Mesa's _eglGetNativePlatform to the
         // wayland binding before native-display sniffing. Without it
         // Mesa's lookup order can pick up gbm/drm when both libraries
@@ -841,8 +888,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     const QString bwrapPath = QStandardPaths::findExecutable("bwrap");
     QString       cmd;
     if (!bwrapPath.isEmpty() && !qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX")) {
-        const QString xdgRuntimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/1000");
-        const QString homeDir       = qEnvironmentVariable("HOME", "/home/user");
+        const QString xdgRuntimeDir = envValue("XDG_RUNTIME_DIR", QStringLiteral("/run/user/1000"));
+        const QString homeDir       = envValue("HOME", QStringLiteral("/home/user"));
         const QString xdgDataHome =
             qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir));
         const QString xdgCacheHome =
@@ -1049,13 +1096,13 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_IM_MODULE")
                   << QStringLiteral("wayland");
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QSG_ANTIALIASING_METHOD")
-                  << qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex");
+                  << envValue("QSG_ANTIALIASING_METHOD", QStringLiteral("vertex"));
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_LAYER_SAMPLES")
-                  << qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0");
+                  << envValue("MARATHON_LAYER_SAMPLES", QStringLiteral("0"));
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_GPU_HDR")
-                  << qEnvironmentVariable("MARATHON_GPU_HDR", "0");
+                  << envValue("MARATHON_GPU_HDR", QStringLiteral("0"));
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LANG")
-                  << qEnvironmentVariable("LANG", "en_US.UTF-8");
+                  << envValue("LANG", QStringLiteral("en_US.UTF-8"));
 
         // WebEngine GPU shape — see kDefaultChromiumFlags + the
         // un-sandboxed env block above for the full reasoning. QT_OPENGL
@@ -1064,7 +1111,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // underneath for chromium.
         if (usesWebEngine) {
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_OPENGL")
-                      << qEnvironmentVariable("QT_OPENGL", "es2");
+                      << envValue("QT_OPENGL", QStringLiteral("es2"));
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
                       << QStringLiteral("1");
             // Deliberately do NOT --setenv MESA_LOADER_DRIVER_OVERRIDE /
@@ -1099,13 +1146,14 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             // `--disable-gpu` as its own flag — "bwrap: Unknown option
             // --disable-gpu" and the WebEngine app fails to launch. The
             // chromium flags value doesn't contain any double quotes itself
-            // so wrapping is safe.
+            // so wrapping is safe. Quoting is now done once, generically,
+            // by quoteForSplitCommand() at the join below.
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
-                      << QStringLiteral("\"") + effectiveChromiumFlags + QStringLiteral("\"");
+                      << effectiveChromiumFlags;
         }
 
-        cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
-            runnerPath + QStringLiteral(" --app-id ") + appId;
+        cmd = bwrapPath + QStringLiteral(" ") + joinForSplitCommand(bwrapArgs)
+            + QStringLiteral(" ") + runnerPath + QStringLiteral(" --app-id ") + appId;
         env.insert("MARATHON_SANDBOXED", "1");
         qInfo() << "[AppLaunchService] Launching" << appId << "in bubblewrap sandbox (network="
                 << (permissions.contains("network") ? "yes" : "no") << ")";
@@ -1165,8 +1213,8 @@ QString AppLaunchService::runnerExecutablePath() const {
 // network namespace is shared — both a deliberate loosening, scoped to
 // pool-adopted first-party apps. WebEngine apps never adopt.
 QStringList AppLaunchService::spareSandboxArgs() const {
-    const QString xdgRuntimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/1000");
-    const QString homeDir       = qEnvironmentVariable("HOME", "/home/user");
+    const QString xdgRuntimeDir = envValue("XDG_RUNTIME_DIR", QStringLiteral("/run/user/1000"));
+    const QString homeDir       = envValue("HOME", QStringLiteral("/home/user"));
     const QString xdgDataHome =
         qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir));
     const QString xdgCacheHome =
@@ -1262,12 +1310,12 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QStringLiteral("--setenv") << QStringLiteral("QT_IM_MODULE")
          << QStringLiteral("wayland") << QStringLiteral("--setenv")
          << QStringLiteral("QSG_ANTIALIASING_METHOD")
-         << qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex") << QStringLiteral("--setenv")
+         << envValue("QSG_ANTIALIASING_METHOD", QStringLiteral("vertex")) << QStringLiteral("--setenv")
          << QStringLiteral("MARATHON_LAYER_SAMPLES")
-         << qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0") << QStringLiteral("--setenv")
-         << QStringLiteral("MARATHON_GPU_HDR") << qEnvironmentVariable("MARATHON_GPU_HDR", "0")
+         << envValue("MARATHON_LAYER_SAMPLES", QStringLiteral("0")) << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_GPU_HDR") << envValue("MARATHON_GPU_HDR", QStringLiteral("0"))
          << QStringLiteral("--setenv") << QStringLiteral("LANG")
-         << qEnvironmentVariable("LANG", "en_US.UTF-8");
+         << envValue("LANG", QStringLiteral("en_US.UTF-8"));
 
     const QByteArray appMesaDriver = qgetenv("MARATHON_APP_MESA_DRIVER");
     if (!appMesaDriver.isEmpty())
@@ -1306,7 +1354,7 @@ void AppLaunchService::spawnSpareRunner() {
     if (bwrapPath.isEmpty() || qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX"))
         return; // pool covers the sandboxed production path only
 
-    const QString homeDir = qEnvironmentVariable("HOME", "/home/user");
+    const QString homeDir = envValue("HOME", QStringLiteral("/home/user"));
     QDir().mkpath(
         qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir)) +
         QStringLiteral("/marathon-apps"));
