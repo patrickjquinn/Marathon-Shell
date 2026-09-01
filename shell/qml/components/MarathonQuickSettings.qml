@@ -25,6 +25,12 @@ Item {
 
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
+    // The shade's fully-open height, supplied by the shell. `height` grows
+    // from 0 while the shade opens, so it cannot be used to decide whether
+    // the content overflows -- every open would briefly look like overflow
+    // at every scale.
+    property real maxHeight: 0
+
     // The running app surface to blur behind the QS chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (a dark tint covers the wallpaper).
@@ -246,8 +252,33 @@ Item {
         clip: interactive
         contentHeight: content.y + content.height + MSpacing.lg
         boundsBehavior: Flickable.StopAtBounds
-        interactive: contentHeight > height
         flickDeceleration: MMotion.flickDecelerationFast
+
+        // Gated on the OPEN height, not the live one, so this is a function
+        // of display scale alone and does not flip during the open
+        // animation.
+        //
+        // Tradeoff, stated plainly: this Flickable fills the shade, and the
+        // dismiss DragHandler on the root has no bounds -- it worked only
+        // because the gaps between tiles had no other grabber. So when this
+        // is interactive, an upward drag on the shade body scrolls instead
+        // of closing. That only happens at the scales where the bottom
+        // controls were previously unreachable, and closing is still
+        // available from the drag handle below, a tap anywhere on the
+        // shade, and the nav bar.
+        // Compare against this Flickable's own settled viewport, not the
+        // shade's: the viewport is shorter by the drag-handle margin, and
+        // measuring against the shade made the threshold ~44px too high --
+        // the shade stopped scrolling at exactly the scales that need it.
+        readonly property real settledViewportHeight: quickSettings.maxHeight
+                                                      - anchors.bottomMargin
+        interactive: quickSettings.maxHeight > 0
+                     && contentHeight > settledViewportHeight
+
+        // The shade is hidden, not destroyed, so contentY survives a
+        // close/reopen: without this it would reopen still scrolled to the
+        // action row with the clock and sliders off the top.
+        onVisibleChanged: if (!visible) contentY = 0
 
         Column {
             id: content

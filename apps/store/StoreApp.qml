@@ -47,7 +47,13 @@ MApp {
     property var installedApps: []
     property var pendingUpdates: []
     property var installState: ({})
-    property bool catalogLoading: false
+    // Four collections load concurrently, so this has to count fetches in
+    // flight, not be a bool. As a bool the FIRST response cleared it while
+    // three were still running: with the app-counting guard that means a
+    // healthy device can flash "Can't reach Flathub" for a second if the
+    // first collection back happens to filter to zero aarch64 hits.
+    property int catalogFetchesInFlight: 0
+    readonly property bool catalogLoading: catalogFetchesInFlight > 0
     property string lastError: ""
 
     // Collections can come back with keys but zero entries: a fetch that
@@ -169,9 +175,9 @@ MApp {
     }
 
     function loadCollection(name) {
-        catalogLoading = true;
+        catalogFetchesInFlight += 1;
         fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=24&locale=en", null, function (data, err) {
-            catalogLoading = false;
+            root.catalogFetchesInFlight -= 1;
             if (err) {
                 lastError = name + ": " + err;
                 return;

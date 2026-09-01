@@ -106,6 +106,13 @@ class NotificationModel : public QAbstractListModel {
 
     Q_INVOKABLE int addNotification(const QString &appId, const QString &title, const QString &body,
                                     const QString &icon);
+
+    // Same, but adopting an id minted elsewhere -- specifically the row id
+    // NotificationDatabase::saveNotification() returns. The two used to be
+    // independent counters, so a caller holding a database id could dismiss
+    // an unrelated model row. Callers that persist should use this.
+    int             addNotificationWithId(int id, const QString &appId, const QString &title,
+                                          const QString &body, const QString &icon);
     Q_INVOKABLE void          dismissNotification(int id);
     Q_INVOKABLE void          markAsRead(int id);
     Q_INVOKABLE void          dismissAllNotifications();

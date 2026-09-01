@@ -134,7 +134,7 @@ Item {
                     id: replyField
 
                     width: parent.width - sendButton.width - MSpacing.sm
-                    height: 40
+                    height: Math.round(40 * toastContainer.scaleFactor)
                     placeholderText: "Reply..."
                     onAccepted: {
                         if (text.trim().length > 0 && currentToast) {
@@ -155,8 +155,8 @@ Item {
                     id: sendButton
 
                     text: "Send"
-                    width: 80
-                    height: 40
+                    width: Math.round(80 * toastContainer.scaleFactor)
+                    height: Math.round(40 * toastContainer.scaleFactor)
                     enabled: replyField.text.trim().length > 0
                     onClicked: replyField.accepted()
                 }

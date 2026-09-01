@@ -60,7 +60,16 @@ int NotificationModel::roleId(const QString &name) const {
 
 int NotificationModel::addNotification(const QString &appId, const QString &title,
                                        const QString &body, const QString &icon) {
-    int id = m_nextId++;
+    return addNotificationWithId(m_nextId, appId, title, body, icon);
+}
+
+int NotificationModel::addNotificationWithId(int id, const QString &appId, const QString &title,
+                                             const QString &body, const QString &icon) {
+    // Keep the generator ahead of any id handed in, so a later generated id
+    // can never collide with one adopted from the database.
+    if (id >= m_nextId) {
+        m_nextId = id + 1;
+    }
 
     beginInsertRows(QModelIndex(), 0, 0);
     Notification *notification = new Notification(id, appId, title, body, icon, this);

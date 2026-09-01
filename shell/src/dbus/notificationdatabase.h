@@ -38,6 +38,10 @@ class NotificationDatabase : public QObject {
     bool                      dismiss(uint id);
     bool                      dismissAll();
     bool                      clearAll();
+
+    // Retention cap. Generous enough that the Hub still reads as full
+    // history; bounded so the table cannot grow forever.
+    static constexpr int      kMaxStoredNotifications = 500;
     int                       getUnreadCount() const;
 
   private:
@@ -45,6 +49,7 @@ class NotificationDatabase : public QObject {
     QString            m_dbPath;
 
     bool               createTables();
+    void               pruneToCap();
     NotificationRecord recordFromQuery(class QSqlQuery &query);
 };
 

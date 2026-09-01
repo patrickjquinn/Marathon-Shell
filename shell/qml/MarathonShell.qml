@@ -1509,6 +1509,7 @@ Item {
         anchors.right: parent.right
         y: Constants.statusBarHeight
         height: UIStore.quickSettingsHeight
+        maxHeight: shell.maxQuickSettingsHeight
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true

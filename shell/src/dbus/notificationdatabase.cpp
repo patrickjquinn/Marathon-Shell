@@ -100,7 +100,33 @@ uint NotificationDatabase::saveNotification(const NotificationRecord &notif) {
         return 0;
     }
 
-    return query.lastInsertId().toUInt();
+    const uint id = query.lastInsertId().toUInt();
+    pruneToCap();
+    return id;
+}
+
+// Nothing else ever removes a row. Notify() used to delete records when
+// their expire_timeout elapsed, which was wrong -- that value governs how
+// long the banner shows, not how long the notification lives -- but it was
+// the only thing bounding this table. With it gone the history grows until
+// the user taps Clear All, so the cap has to live here instead.
+//
+// Trimming by id rather than timestamp: id is the primary key, so this is
+// an index scan, and it is monotonic with insertion order even when two
+// notifications share a second.
+void NotificationDatabase::pruneToCap() {
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(R"(
+        DELETE FROM notifications
+        WHERE id NOT IN (
+            SELECT id FROM notifications ORDER BY id DESC LIMIT :cap
+        )
+    )"));
+    query.bindValue(":cap", kMaxStoredNotifications);
+
+    if (!query.exec()) {
+        qWarning() << "[NotificationDB] Prune error:" << query.lastError().text();
+    }
 }
 
 NotificationDatabase::NotificationRecord NotificationDatabase::recordFromQuery(QSqlQuery &query) {

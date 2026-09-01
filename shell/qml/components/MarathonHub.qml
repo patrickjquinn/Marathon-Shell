@@ -190,7 +190,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
-        visible: list.count === 0
+        visible: hub.countForCategory(hub.selectedCategory) === 0
         iconName: "inbox"
         title: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
         message: hub.selectedCategory === "all" ? "Notifications from your apps land here. New ones get a teal dot." : "Switch a category above to see other notifications."
@@ -235,7 +235,7 @@ Rectangle {
             avatarTextColor: hub.avatarTextFor(appKey)
             name: title
             time: hub.relativeTime(timestamp)
-            account: hub.accountFor(appKey)
+            account: hub.accountFor(appId)
             snippet: body
             visible: hub.appIdInCategory(appKey, hub.selectedCategory)
             height: visible ? implicitHeight : 0
@@ -285,8 +285,10 @@ Rectangle {
         return first.charAt(0) + last.charAt(0);
     }
 
-    // appId here is the delegate's pre-folded appKey.
-    function accountFor(appId) {
+    // Takes the RAW app_name: the default branch below re-cases it for
+    // display, so folding first would destroy interior capitalisation.
+    function accountFor(rawAppId) {
+        const appId = String(rawAppId || "").toLowerCase();
         switch (appId) {
         case "messages":
         case "imessage":
@@ -305,7 +307,7 @@ Rectangle {
         case "work":
             return "Work";
         default:
-            return appId.charAt(0).toUpperCase() + appId.slice(1);
+            return rawAppId;
         }
     }
 
