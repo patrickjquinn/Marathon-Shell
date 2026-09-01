@@ -48,7 +48,13 @@ Item {
         anchors.right: parent.right
         y: -height
         width: parent.width
-        height: showInlineReply ? 140 : 72
+        // Derived from the row it has to hold, not a fixed 72/140. The
+        // title and body are scaled type tokens while these heights were
+        // physical px, so at 1.5x the two lines overflowed the card and
+        // painted over the status bar and the surface underneath.
+        height: showInlineReply
+                ? mainContent.height + replyRow.height + MSpacing.sm + MSpacing.xs * 2
+                : mainContent.height + MSpacing.md
         elevation: 0
         radius: 0
         visible: false
@@ -61,7 +67,8 @@ Item {
                 id: mainContent
 
                 width: parent.width - MSpacing.md * 2
-                height: 56
+                // Whichever is taller: the icon tile or the two text lines.
+                height: Math.max(iconTile.height, textColumn.implicitHeight)
                 anchors.left: parent.left
                 anchors.leftMargin: MSpacing.md
                 anchors.verticalCenter: showInlineReply ? undefined : parent.verticalCenter
@@ -70,24 +77,26 @@ Item {
                 spacing: MSpacing.md
 
                 Rectangle {
-                    width: 48
-                    height: 48
+                    id: iconTile
+                    width: Math.round(48 * (Constants.scaleFactor || 1.0))
+                    height: width
                     radius: MRadius.md
                     color: MColors.elevated
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
                         name: (currentToast && currentToast.icon) ? currentToast.icon : "bell"
-                        size: 24
+                        size: Math.round(24 * (Constants.scaleFactor || 1.0))
                         color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
                 }
 
                 Column {
-                    width: parent.width - 48 - MSpacing.md
+                    id: textColumn
+                    width: parent.width - iconTile.width - MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: Math.round(2 * (Constants.scaleFactor || 1.0))
 
                     MLabel {
                         text: (currentToast && currentToast.title) ? currentToast.title : ""
@@ -110,8 +119,9 @@ Item {
             }
 
             Row {
+                id: replyRow
                 width: parent.width - MSpacing.xs * 2
-                height: 48
+                height: Math.round(48 * (Constants.scaleFactor || 1.0))
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: mainContent.bottom
                 anchors.topMargin: MSpacing.sm
