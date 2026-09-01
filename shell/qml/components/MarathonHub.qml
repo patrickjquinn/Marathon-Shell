@@ -221,17 +221,23 @@ Rectangle {
             required property bool isRead
 
             width: list.width
+
+            // The freedesktop app_name is a display name picked by the
+            // sender -- "Messages", "Thunderbird". Fold it once here so
+            // every helper below compares against the same key.
+            readonly property string appKey: String(appId || "").toLowerCase()
+
             unread: !isRead
-            avatarTint: hub.tintFor(appId)
-            avatarText: hub.monogramFor(title, appId)
-            avatarIcon: appId === "phone" ? "phone" : ""
-            avatarUsesTealBorder: appId === "phone"
-            avatarTextColor: hub.avatarTextFor(appId)
+            avatarTint: hub.tintFor(appKey)
+            avatarText: hub.monogramFor(title, appKey)
+            avatarIcon: appKey === "phone" ? "phone" : ""
+            avatarUsesTealBorder: appKey === "phone"
+            avatarTextColor: hub.avatarTextFor(appKey)
             name: title
             time: hub.relativeTime(timestamp)
-            account: hub.accountFor(appId)
+            account: hub.accountFor(appKey)
             snippet: body
-            visible: hub.matchesCategory(appId)
+            visible: hub.appIdInCategory(appKey, hub.selectedCategory)
             height: visible ? implicitHeight : 0
 
             onActivated: hub.notificationTapped(0, appId, title)
@@ -279,8 +285,8 @@ Rectangle {
         return first.charAt(0) + last.charAt(0);
     }
 
-    function accountFor(rawAppId) {
-        const appId = String(rawAppId || "").toLowerCase();
+    // appId here is the delegate's pre-folded appKey.
+    function accountFor(appId) {
         switch (appId) {
         case "messages":
         case "imessage":
@@ -303,19 +309,14 @@ Rectangle {
         }
     }
 
-    // Was a second, case-sensitive copy of appIdInCategory's ladder, so the
-    // chips counted one way and the list filtered another. One predicate.
-    function matchesCategory(appId) {
-        return hub.selectedCategory === "all"
-            || hub.appIdInCategory(appId, hub.selectedCategory);
-    }
 
-    // appId is the freedesktop app_name, which is a human-readable display
-    // name chosen by the sending app -- "Messages", "Thunderbird", "Mail".
-    // These comparisons were case-sensitive against lowercase literals, so
-    // every real notification fell through to false and the Messages / Mail
-    // / Work / Calls chips all read 0 while All read the true total.
+    // The single membership predicate: it answers both which rows a chip
+    // shows and what each chip counts. These used to be two independently
+    // case-sensitive ladders, so the chips counted one way and the list
+    // filtered another, and both missed real traffic entirely.
     function appIdInCategory(rawAppId, category) {
+        if (category === "all")
+            return true;
         const appId = String(rawAppId || "").toLowerCase();
         if (category === "messages")
             return appId === "messages" || appId === "imessage";

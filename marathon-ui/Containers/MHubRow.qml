@@ -35,9 +35,8 @@ Item {
     // three scaled type tokens (subhead + caption + footnote); at 1.5x
     // their line-boxes alone exceed 72 physical px, so a fixed 72 clipped
     // the snippet. Scale the minimum and let real content raise it.
-    readonly property real vPadding: Math.round(10 * scaleFactor)
     implicitHeight: Math.max(Math.round(72 * scaleFactor),
-                             textColumn.implicitHeight + vPadding * 2)
+                             textColumn.implicitHeight + MSpacing.sm * 2)
 
     Rectangle {
         anchors.fill: parent
@@ -104,7 +103,7 @@ Item {
         anchors.left: avatar.right
         anchors.leftMargin: Math.round(14 * row.scaleFactor)
         anchors.right: parent.right
-        anchors.rightMargin: Math.round(20 * row.scaleFactor)
+        anchors.rightMargin: MSpacing.lg
         anchors.verticalCenter: parent.verticalCenter
         spacing: Math.round(2 * row.scaleFactor)
 
@@ -117,7 +116,7 @@ Item {
                 id: nameText
                 anchors.left: parent.left
                 anchors.right: timeText.left
-                anchors.rightMargin: Math.round(10 * row.scaleFactor)
+                anchors.rightMargin: MSpacing.sm
                 anchors.verticalCenter: parent.verticalCenter
                 text: row.name
                 color: MColors.textPrimary

@@ -9,6 +9,8 @@ import QtQuick.Effects
 Item {
     id: toastContainer
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     property var toastQueue: []
     property var currentToast: null
     property bool showInlineReply: false
@@ -78,7 +80,7 @@ Item {
 
                 Rectangle {
                     id: iconTile
-                    width: Math.round(48 * (Constants.scaleFactor || 1.0))
+                    width: Math.round(48 * toastContainer.scaleFactor)
                     height: width
                     radius: MRadius.md
                     color: MColors.elevated
@@ -86,7 +88,7 @@ Item {
 
                     Icon {
                         name: (currentToast && currentToast.icon) ? currentToast.icon : "bell"
-                        size: Math.round(24 * (Constants.scaleFactor || 1.0))
+                        size: Math.round(24 * toastContainer.scaleFactor)
                         color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
@@ -96,7 +98,7 @@ Item {
                     id: textColumn
                     width: parent.width - iconTile.width - MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Math.round(2 * (Constants.scaleFactor || 1.0))
+                    spacing: Math.round(2 * toastContainer.scaleFactor)
 
                     MLabel {
                         text: (currentToast && currentToast.title) ? currentToast.title : ""
@@ -121,7 +123,7 @@ Item {
             Row {
                 id: replyRow
                 width: parent.width - MSpacing.xs * 2
-                height: Math.round(48 * (Constants.scaleFactor || 1.0))
+                height: Math.round(48 * toastContainer.scaleFactor)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: mainContent.bottom
                 anchors.topMargin: MSpacing.sm

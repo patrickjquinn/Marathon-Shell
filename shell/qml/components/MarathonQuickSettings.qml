@@ -23,6 +23,8 @@ import QtQuick
 Item {
     id: quickSettings
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     // The running app surface to blur behind the QS chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (a dark tint covers the wallpaper).
@@ -234,14 +236,18 @@ Item {
         id: shadeScroll
 
         anchors.fill: parent
-        // Leave the drag handle at the bottom uncovered.
-        anchors.bottomMargin: MSpacing.md * 2 + 6
-        clip: true
-        contentWidth: width
-        contentHeight: content.height + MSpacing.lg * 2
+        // Leave the drag handle at the bottom uncovered. Ask it for its
+        // geometry rather than restating it -- resizing the handle would
+        // otherwise silently re-clip the last row.
+        anchors.bottomMargin: dragHandle.height + MSpacing.md * 2
+        // Clipping forces a scissor and breaks batching across the whole
+        // shade, and `content` animates its opacity while the shade opens.
+        // Only pay for it when there is actually something to scroll.
+        clip: interactive
+        contentHeight: content.y + content.height + MSpacing.lg
         boundsBehavior: Flickable.StopAtBounds
         interactive: contentHeight > height
-        flickDeceleration: 4000
+        flickDeceleration: MMotion.flickDecelerationFast
 
         Column {
             id: content
@@ -394,7 +400,7 @@ Item {
                 // side workaround for MNowBar not scaling its own geometry.
                 // MNowBar now sizes to its text, so ask it instead of guessing.
                 height: Math.max(nowBar.implicitHeight,
-                                 Math.round(56 * (Constants.scaleFactor || 1.0)))
+                                 Math.round(56 * quickSettings.scaleFactor))
 
                 QSContactShadow {}
 
@@ -522,6 +528,7 @@ Item {
 
     // ── Drag handle ─────────────────────────────────────────
     Rectangle {
+        id: dragHandle
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: MSpacing.md

@@ -1162,7 +1162,11 @@ MApp {
                 MEmptyState {
                     anchors.centerIn: parent
                     width: parent.width - 48
-                    visible: (!root.collections["popular"] || root.collections["popular"].length === 0) && !root.catalogLoading
+                    // Mirrors the ListView's own `visible: model.length > 0`
+                    // above, so the list and its empty state can never both
+                    // be hidden -- the split-predicate shape that left
+                    // Discover rendering a void with nothing to explain it.
+                    visible: !appsList.visible && !root.catalogLoading
                     iconName: "grid"
                     iconSize: 64
                     title: "No catalog yet"

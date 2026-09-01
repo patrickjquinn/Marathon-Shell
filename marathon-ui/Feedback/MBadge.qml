@@ -29,8 +29,8 @@ Rectangle {
                         : Math.max(Math.round(18 * scaleFactor),
                                    contentText.implicitHeight + Math.round(4 * scaleFactor))
     implicitWidth: dot ? dotSize
-                       : Math.max(implicitHeight,
-                                  contentText.implicitWidth + Math.round(14 * scaleFactor))
+                       : Math.max(root.implicitHeight,
+                                  contentText.implicitWidth + Math.round(14 * root.scaleFactor))
 
     radius: dot ? width / 2 : height / 2
     color: badgeColor

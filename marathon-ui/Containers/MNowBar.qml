@@ -33,9 +33,8 @@ Item {
     // fits its own content and the DS 36 acts as a floor. Height depends
     // on width here, never the reverse — both labels elide instead of
     // wrapping, so their line count is fixed and this cannot cycle.
-    readonly property real vPadding: Math.round(6 * scaleFactor)
     implicitHeight: Math.max(Math.round(36 * scaleFactor),
-                             textColumn.implicitHeight + vPadding * 2)
+                             textColumn.implicitHeight + Math.round(6 * scaleFactor) * 2)
 
     // Variant + content.
     property string variant: "music"          // "music" | "call" | "nav" | "timer"
@@ -77,7 +76,7 @@ Item {
         anchors.fill: parent
         anchors.leftMargin: Math.round((root.variant === "call" ? 14 : 6) * root.scaleFactor)
         anchors.rightMargin: Math.round(12 * root.scaleFactor)
-        spacing: Math.round(10 * root.scaleFactor)
+        spacing: MSpacing.sm
 
         // Icon badge.
         Item {
@@ -174,8 +173,12 @@ Item {
 
             Row {
                 id: visualiser
+                // Bar thickness, the gap between bars and a bar's resting
+                // height are all the same 2 design-px. Computed once here
+                // rather than as three bindings per bar across five bars.
+                readonly property real unit: Math.max(2, Math.round(2 * root.scaleFactor))
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Math.max(1, Math.round(2 * root.scaleFactor))
+                spacing: visualiser.unit
                 visible: root.variant === "music"
 
                 // Five teal bars, heights [6, 10, 4, 8, 5] per DS §02.
@@ -186,8 +189,7 @@ Item {
                         required property int index
                         required property int modelData
                         readonly property real fullHeight: Math.round(bar.modelData * root.scaleFactor)
-                        readonly property real restHeight: Math.max(2, Math.round(2 * root.scaleFactor))
-                        width: Math.max(2, Math.round(2 * root.scaleFactor))
+                        width: visualiser.unit
                         height: bar.fullHeight
                         radius: width / 2
                         anchors.verticalCenter: parent.verticalCenter
@@ -201,12 +203,12 @@ Item {
                             running: root.playing && root.visible
                             NumberAnimation {
                                 from: bar.fullHeight
-                                to: bar.restHeight
+                                to: visualiser.unit
                                 duration: 280 + bar.index * 70
                                 easing.type: Easing.InOutQuad
                             }
                             NumberAnimation {
-                                from: bar.restHeight
+                                from: visualiser.unit
                                 to: bar.fullHeight
                                 duration: 280 + bar.index * 70
                                 easing.type: Easing.InOutQuad
