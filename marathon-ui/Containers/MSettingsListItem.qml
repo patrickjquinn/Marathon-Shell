@@ -22,7 +22,13 @@ Rectangle {
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     width: parent ? parent.width : 0
-    height: Math.round((subtitle !== "" ? 72 : 56) * scaleFactor)
+    // Publish the natural size as implicitHeight so callers can override
+    // height (collapse to 0, animate) and still ask what it wants to be.
+    // Same defect class as MEmptyState: a caller binding height to
+    // implicitHeight got 0 and the unclipped content painted over whatever
+    // sat above the row.
+    implicitHeight: Math.round((subtitle !== "" ? 72 : 56) * scaleFactor)
+    height: implicitHeight
     color: "transparent"
     // Default a11y wiring -- every settings row is announced as an interactive
     // list item with title + value/subtitle. Toggles get CheckBox role with
