@@ -147,7 +147,7 @@ Page {
                 width: parent.width - MSpacing.xl * 2
                 iconName: "message-circle"
                 title: conversationsPage.selectedTab === "pinned" ? "No pinned conversations" : conversationsPage.selectedTab === "archive" ? "Archive is empty" : "No conversations yet"
-                message: "Tap the compose button at the top right to start a new conversation"
+                message: "Tap the compose button at the top right to start a new conversation."
             }
 
             delegate: Item {

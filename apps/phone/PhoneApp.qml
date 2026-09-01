@@ -487,19 +487,31 @@ MApp {
                     // not subject to ColumnLayout's fillHeight redistribution.
                     Item {
                         id: actionRow
-                        anchors.left: parent.left
-                        anchors.right: parent.right
+
+                        // Match the keypad's grid exactly rather than insetting
+                        // by a separate margin. This anchored left/right with a
+                        // 24 px inset and split into thirds, while dialPadGrid
+                        // uses an 18 px gutter and caps cellSize at 180 and is
+                        // centre-aligned — two different column geometries. The
+                        // contacts and backspace buttons landed 27 px left and
+                        // 25 px right of the keys directly above them.
+                        width: dialPadGrid.width
+                        anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.leftMargin: 24
-                        anchors.rightMargin: 24
                         anchors.bottomMargin: 56
                         height: 96
 
                         Row {
                             anchors.fill: parent
+                            // Mirror the Grid's cell + columnSpacing model.
+                            // Splitting into thirds gives each slot
+                            // cellSize + 12 instead of cellSize + 18, which
+                            // left the outer two icons ~6 px inside the keys
+                            // above them even after the width was matched.
+                            spacing: dialPadGrid.columnSpacing
 
                             Item {
-                                width: parent.width / 3
+                                width: dialPadGrid.cellSize
                                 height: parent.height
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -525,7 +537,7 @@ MApp {
                             }
 
                             Item {
-                                width: parent.width / 3
+                                width: dialPadGrid.cellSize
                                 height: parent.height
                                 Rectangle {
                                     id: callButton
@@ -583,7 +595,7 @@ MApp {
                             }
 
                             Item {
-                                width: parent.width / 3
+                                width: dialPadGrid.cellSize
                                 height: parent.height
                                 Rectangle {
                                     anchors.centerIn: parent

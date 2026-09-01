@@ -296,7 +296,7 @@ MApp {
                             visible: galleryApp.albums.length === 0
                             iconName: "folder"
                             iconSize: 64
-                            title: "No Albums Yet"
+                            title: "No albums yet"
                             message: "Your photo library is empty."
                         }
                     }
@@ -409,7 +409,7 @@ MApp {
                         visible: galleryApp.photos.length === 0
                         iconName: "image"
                         iconSize: 64
-                        title: "No Photos"
+                        title: "No photos"
                         message: "Your photo library is empty."
                     }
                 }
@@ -562,7 +562,7 @@ MApp {
                         visible: galleryApp.memoryClusters.length === 0
                         iconName: "calendar-heart"
                         iconSize: 64
-                        title: "No Memories Yet"
+                        title: "No memories yet"
                         message: "Anniversary throwbacks will appear here as your library grows over the years."
                     }
                 }

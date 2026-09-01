@@ -220,7 +220,7 @@ Rectangle {
                 width: parent.width - MSpacing.xl * 2
                 iconName: "message-circle"
                 title: "No messages yet"
-                message: "Send a message to start the conversation"
+                message: "Send a message to start the conversation."
             }
 
             delegate: Column {

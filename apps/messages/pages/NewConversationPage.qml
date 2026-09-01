@@ -149,7 +149,7 @@ Rectangle {
                 width: parent.width - MSpacing.xl * 2
                 iconName: "users"
                 title: "No contacts found"
-                message: "Try a different search or enter a phone number"
+                message: "Try a different search or enter a phone number."
             }
 
             ListView {

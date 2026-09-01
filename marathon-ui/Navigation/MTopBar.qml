@@ -102,15 +102,29 @@ Rectangle {
 
     // Optional back chevron — DS calls it out as the left-side
     // affordance when present, sitting at the same baseline as title.
+    // Every inset below is scaled. barHeight already was (96 * scaleFactor)
+    // while the margins, the back button and the action spacing were raw
+    // pixels — so raising userScaleFactor grew the bar but left its
+    // contents pinned to the same physical offsets. At 1.50 the title
+    // crowded the bottom edge and the back target stayed 36 px, under the
+    // 44 px minimum. Same failure mode as the OOBE clipping: a container
+    // that scales around children that do not.
+    readonly property real insetSm: Math.round(8 * scaleFactor)
+    readonly property real insetMd: Math.round(12 * scaleFactor)
+    readonly property real insetLg: Math.round(16 * scaleFactor)
+    readonly property real insetXl: Math.round(20 * scaleFactor)
+    // Floor at 44 px: the minimum touch target, regardless of scale.
+    readonly property real backSize: Math.max(44, Math.round(36 * scaleFactor))
+
     Item {
         id: backHit
         visible: root.showBack
-        width: visible ? 36 : 0
-        height: 36
+        width: visible ? root.backSize : 0
+        height: root.backSize
         anchors.left: parent.left
-        anchors.leftMargin: 12
+        anchors.leftMargin: root.insetMd
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 12
+        anchors.bottomMargin: root.insetMd
 
         Text {
             anchors.centerIn: parent
@@ -132,18 +146,20 @@ Rectangle {
     Row {
         id: leadingItem
         anchors.left: backHit.visible ? backHit.right : parent.left
-        anchors.leftMargin: backHit.visible ? 8 : 20
+        anchors.leftMargin: backHit.visible ? root.insetSm : root.insetXl
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 14
-        spacing: 8
+        anchors.bottomMargin: Math.round(14 * root.scaleFactor)
+        spacing: root.insetSm
     }
 
     Text {
         id: titleText
         anchors.left: leadingItem.children.length > 0 ? leadingItem.right : (backHit.visible ? backHit.right : parent.left)
-        anchors.leftMargin: leadingItem.children.length > 0 ? 10 : (backHit.visible ? 4 : 20)
+        anchors.leftMargin: leadingItem.children.length > 0
+                            ? Math.round(10 * root.scaleFactor)
+                            : (backHit.visible ? Math.round(4 * root.scaleFactor) : root.insetXl)
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 16
+        anchors.bottomMargin: root.insetLg
         text: root.title
         color: MColors.textPrimary
         font.pixelSize: titleFontSize
@@ -155,9 +171,9 @@ Rectangle {
     Row {
         id: actionsItem
         anchors.right: parent.right
-        anchors.rightMargin: 20
+        anchors.rightMargin: root.insetXl
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
+        anchors.bottomMargin: root.insetXl
         spacing: 14
     }
 }

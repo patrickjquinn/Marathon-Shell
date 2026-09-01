@@ -87,11 +87,22 @@ MApp {
                     inboxPage.oauthError = false;
                 }
                 function onOauthLoginFailed(code, message) {
-                    if (code === "oauth_not_configured") {
+                    // Never relay `message` verbatim. The helper reports
+                    // developer diagnostics — the keyring failure arrives as
+                    // "MARATHON_PERM_SECRET_SERVICE not granted — app manifest
+                    // must declare \"secret-service\" permission", which named
+                    // an env var and a manifest key on a sign-in screen and
+                    // gave the user nothing they could act on. Map to copy a
+                    // person can use; keep the raw text in the log.
+                    Logger.warn("Mail", "OAuth login failed [" + code + "]: " + message);
+                    if (code === "oauth_not_configured")
                         inboxPage.oauthMessage = "OAuth sign-in isn't enabled in this build. Use Sign in with IMAP instead.";
-                    } else {
-                        inboxPage.oauthMessage = message;
-                    }
+                    else if (code === "secret_service_unavailable" || /secret[-_ ]service|keyring/i.test(message))
+                        inboxPage.oauthMessage = "Marathon can't reach the keyring, so it can't store your account securely. Sign in with IMAP instead.";
+                    else if (/network|timeout|resolve|connect/i.test(message))
+                        inboxPage.oauthMessage = "Couldn't reach the sign-in service. Check your connection and try again.";
+                    else
+                        inboxPage.oauthMessage = "Sign-in didn't complete. Please try again.";
                     inboxPage.oauthError = true;
                 }
             }
@@ -183,6 +194,11 @@ MApp {
                         }
                         MButton {
                             Layout.alignment: Qt.AlignHCenter
+                            // Shared column width. MButton hugs its
+                            // label, so a stacked group rendered at
+                            // 352/388/424 px — visibly ragged.
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: Math.round(320 * Constants.scaleFactor)
                             Layout.topMargin: MSpacing.sm
                             text: "Sign in with Google"
                             variant: "primary"
@@ -193,6 +209,11 @@ MApp {
                         }
                         MButton {
                             Layout.alignment: Qt.AlignHCenter
+                            // Shared column width. MButton hugs its
+                            // label, so a stacked group rendered at
+                            // 352/388/424 px — visibly ragged.
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: Math.round(320 * Constants.scaleFactor)
                             text: "Sign in with Microsoft"
                             variant: "secondary"
                             onClicked: {
@@ -202,6 +223,11 @@ MApp {
                         }
                         MButton {
                             Layout.alignment: Qt.AlignHCenter
+                            // Shared column width. MButton hugs its
+                            // label, so a stacked group rendered at
+                            // 352/388/424 px — visibly ragged.
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: Math.round(320 * Constants.scaleFactor)
                             text: "Sign in with IMAP"
                             variant: "secondary"
                             onClicked: navigationStack.push(setupComponent)

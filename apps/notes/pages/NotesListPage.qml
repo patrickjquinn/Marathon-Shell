@@ -416,8 +416,8 @@ Page {
                     width: parent.width - 48
                     iconName: "file-text"
                     iconSize: 64
-                    title: "No Notes Yet"
-                    message: "Tap the + in the header to write your first note"
+                    title: "No notes yet"
+                    message: "Tap the + in the header to write your first note."
                 }
             }
 
@@ -544,8 +544,8 @@ Page {
                         width: parent.width - 48
                         iconName: "archive"
                         iconSize: 64
-                        title: "No Folders Yet"
-                        message: "Add #tags to your notes to group them into folders"
+                        title: "No folders yet"
+                        message: "Add #tags to your notes to group them into folders."
                     }
                 }
 
@@ -823,8 +823,8 @@ Page {
                         width: parent.width - 48
                         iconName: "check"
                         iconSize: 64
-                        title: "No Tasks Yet"
-                        message: "Add a checkbox line like '- [ ] thing to do' inside any note"
+                        title: "No tasks yet"
+                        message: "Add a checkbox line like '- [ ] thing to do' inside any note."
                     }
                 }
             }

@@ -560,8 +560,8 @@ MApp {
                         visible: playlist.length === 0
                         iconName: "music-2"
                         iconSize: 96
-                        title: "No Music Yet"
-                        message: "Your music library is empty. Add some music files to get started!"
+                        title: "No music yet"
+                        message: "Your music library is empty. Add some music files to get started."
                     }
 
                     delegate: Item {

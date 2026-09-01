@@ -353,7 +353,7 @@ Rectangle {
                 iconName: "calendar"
                 iconSize: 48
                 title: "No events"
-                message: "Tap + to add one for this day"
+                message: "Tap + to add one for this day."
             }
 
             ListView {

@@ -81,7 +81,12 @@ Rectangle {
             radius: MRadius.md
             color: MColors.elev3
             anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
+// One rule for the whole row: leading icon and trailing
+            // value/chevron both sit on the title's line. Centring the icon on
+            // the row while the value tracks the title would reintroduce the
+            // same split this fix removes, just on the other side.
+            anchors.verticalCenter: titleColumn.verticalCenter
+            anchors.verticalCenterOffset: -Math.round((titleColumn.height - titleText.height) / 2)
 
             Icon {
                 id: iconImage
@@ -104,6 +109,8 @@ Rectangle {
 
             // Title — Subhead 15 / 500 per DS Row spec.
             Text {
+                id: titleText
+
                 text: title
                 color: MColors.textPrimary
                 font.family: MTypography.fontFamily
@@ -132,8 +139,16 @@ Rectangle {
         Item {
             id: rightContent
 
+            // Align to the TITLE, not the row. Both this and titleColumn used
+            // parent.verticalCenter — which coincide only when there is no
+            // subtitle. With one, the column centres and pushes the title above
+            // centre while the value stays on it: "Clock Position" sat 34 px
+            // above its own "Center" value, while single-line rows lined up
+            // exactly. Anchoring here keeps value, chevron and toggle on the
+            // title's optical line in both cases.
             anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenter: titleColumn.verticalCenter
+            anchors.verticalCenterOffset: -Math.round((titleColumn.height - titleText.height) / 2)
             width: showToggle ? Math.round(76 * root.scaleFactor) : showChevron ? (valueText.visible ? valueText.width + Math.round(36 * root.scaleFactor) : Math.round(20 * root.scaleFactor)) : (valueText.visible ? valueText.width : 0)
             height: parent.height
 

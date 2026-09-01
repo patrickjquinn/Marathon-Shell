@@ -67,7 +67,7 @@ Rectangle {
                 visible: tabsPage.tabs ? tabsPage.tabs.count === 0 : true
                 anchors.centerIn: parent
                 title: "No open tabs"
-                message: "Tap the button below to create a new tab"
+                message: "Tap the button below to create a new tab."
             }
         }
 

@@ -233,64 +233,97 @@ Item {
 
             // 3. Permission row — 32×32 icon chip + title + subtitle, no chevron.
             // DS .m-row: padding 14/16, gap 14, min-height 60.
-            Item {
+            // One row per requested permission. This rendered only
+            // `permission` — the single current one — while descriptionText()
+            // below lists every entry in allPermissions. Mail asks for storage
+            // AND network, so the dialog read "requesting access to storage and
+            // network" above a list showing Storage alone: the user was asked
+            // to approve something the UI never showed them.
+            Column {
                 width: parent.width
-                height: Math.max(Math.round(60 * Constants.scaleFactor), permissionRow.implicitHeight + Math.round(28 * Constants.scaleFactor))
 
-                Row {
-                    id: permissionRow
+                Repeater {
+                    model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
+                           ? permissionDialog.allPermissions
+                           : (permissionDialog.permission ? [permissionDialog.permission] : [])
 
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.rightMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Math.round(14 * Constants.scaleFactor)
+                    delegate: Item {
+                        id: permRow
 
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.round(32 * Constants.scaleFactor)
-                        height: width
-                        radius: MRadius.md
-                        color: MColors.elev3
+                        required property string modelData
+                        required property int index
 
-                        Icon {
-                            anchors.centerIn: parent
-                            name: permissionDialog.permissionIconName(permissionDialog.permission)
-                            size: Math.round(18 * Constants.scaleFactor)
-                            color: MColors.textPrimary
-                        }
-                    }
+                        width: parent.width
+                        height: Math.max(Math.round(60 * Constants.scaleFactor),
+                                         rowBody.implicitHeight + Math.round(28 * Constants.scaleFactor))
 
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - Math.round(46 * Constants.scaleFactor)
-                        spacing: 2
-
-                        Text {
-                            text: permissionDialog.permissionTitle(permissionDialog.permission)
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: Math.round(15 * Constants.scaleFactor)
-                            font.weight: MTypography.weightMedium
-                            font.letterSpacing: -0.1
-                            elide: Text.ElideRight
-                            width: parent.width
+                        // Hairline between stacked rows only — the card already
+                        // draws its own edge above the first one.
+                        Rectangle {
+                            visible: permRow.index > 0
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
+                            height: Math.max(1, Math.round(1 * Constants.scaleFactor))
+                            color: MColors.borderSubtle !== undefined ? MColors.borderSubtle : Qt.rgba(1, 1, 1, 0.06)
                         }
 
-                        // Wrap instead of elide — "Read and write files on
-                        // your devi…" / "Access system-level features (re…"
-                        // cut off the meaningful half of the sentence.
-                        Text {
-                            text: permissionDialog.permissionSubtitle(permissionDialog.permission)
-                            color: MColors.textSecondary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: Math.round(13 * Constants.scaleFactor)
-                            font.weight: MTypography.weightRegular
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                            visible: text.length > 0
-                            maximumLineCount: 2
+                        Row {
+                            id: rowBody
+
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
+                            anchors.rightMargin: Math.round(22 * Constants.scaleFactor)
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Math.round(14 * Constants.scaleFactor)
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.round(32 * Constants.scaleFactor)
+                                height: width
+                                radius: MRadius.md
+                                color: MColors.elev3
+
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: permissionDialog.permissionIconName(permRow.modelData)
+                                    size: Math.round(18 * Constants.scaleFactor)
+                                    color: MColors.textPrimary
+                                }
+                            }
+
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - Math.round(46 * Constants.scaleFactor)
+                                spacing: 2
+
+                                Text {
+                                    text: permissionDialog.permissionTitle(permRow.modelData)
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: Math.round(15 * Constants.scaleFactor)
+                                    font.weight: MTypography.weightMedium
+                                    font.letterSpacing: -0.1
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+
+                                // Wrap instead of elide — "Read and write files on
+                                // your devi…" cut off the meaningful half.
+                                Text {
+                                    text: permissionDialog.permissionSubtitle(permRow.modelData)
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: Math.round(13 * Constants.scaleFactor)
+                                    font.weight: MTypography.weightRegular
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
+                                    visible: text.length > 0
+                                    maximumLineCount: 2
+                                }
+                            }
                         }
                     }
                 }
