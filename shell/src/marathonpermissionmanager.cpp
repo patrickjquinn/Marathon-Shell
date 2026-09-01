@@ -222,20 +222,44 @@ void MarathonPermissionManager::processPendingRequests() {
     // Process requests for the FIRST app in the queue
     QString                              appId = m_pendingRequests.first().appId;
 
+    // Re-check each buffered request against the CURRENT decision before
+    // batching it. requestPermission() checks status only at request time, so
+    // anything that arrived while an earlier prompt was open was never
+    // re-examined: the user granted storage in the first prompt and was then
+    // asked for storage again the moment it closed. Browser did exactly that
+    // -- one dialog for "storage and network", then a second for "storage".
     QStringList                          batch;
+    QStringList                          alreadyGranted;
+    QStringList                          alreadyDenied;
     QMutableListIterator<PendingRequest> i(m_pendingRequests);
     while (i.hasNext()) {
         const PendingRequest &req = i.next();
-        if (req.appId == appId) {
-            if (!batch.contains(req.permission)) {
-                batch.append(req.permission);
-            }
-            i.remove();
+        if (req.appId != appId)
+            continue;
+
+        const PermissionStatus status = getPermissionStatus(appId, req.permission);
+        if (status == Granted) {
+            if (!alreadyGranted.contains(req.permission))
+                alreadyGranted.append(req.permission);
+        } else if (status == Denied) {
+            if (!alreadyDenied.contains(req.permission))
+                alreadyDenied.append(req.permission);
+        } else if (!batch.contains(req.permission)) {
+            batch.append(req.permission);
         }
+        i.remove();
     }
 
+    // Emit after draining the queue -- these signals can re-enter.
+    for (const QString &perm : alreadyGranted)
+        emit permissionGranted(appId, perm);
+    for (const QString &perm : alreadyDenied)
+        emit permissionDenied(appId, perm);
+
     if (batch.isEmpty()) {
-        checkQueue(); // Should normally not happen
+        // Everything buffered for this app was already decided; move on to
+        // the next app rather than showing an empty prompt.
+        checkQueue();
         return;
     }
 

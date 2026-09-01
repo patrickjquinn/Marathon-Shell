@@ -1919,6 +1919,23 @@ Item {
         z: Constants.zIndexModalOverlay + 50
     }
 
+    // A permission prompt is a system modal and has to own input while it is
+    // up. Browser focuses its URL bar as it loads, which raised the on-screen
+    // keyboard straight over the dialog: the prompt was cut off mid-sentence
+    // and Deny/Allow sat behind the keyboard with no way to reach them, and
+    // no way to dismiss the prompt either. Retract the keyboard whenever a
+    // prompt opens -- shell-side, so it holds for every app rather than
+    // depending on each one not focusing a field at the wrong moment.
+    Connections {
+        target: PermissionManager
+        function onPromptActiveChanged() {
+            if (PermissionManager.promptActive && virtualKeyboard.active) {
+                Logger.info("Shell", "Retracting keyboard for permission prompt");
+                virtualKeyboard.active = false;
+            }
+        }
+    }
+
     Connections {
         function onWifiConnectedChanged() {
             if (NetworkManagerCpp.wifiConnected)
