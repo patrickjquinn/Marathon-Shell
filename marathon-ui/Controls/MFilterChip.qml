@@ -1,6 +1,7 @@
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
+import MarathonOS.Shell
 
 // Marathon DS · filter chip (pill).
 //
@@ -19,11 +20,17 @@ Rectangle {
 
     signal activated
 
-    implicitHeight: 32
-    implicitWidth: row.implicitWidth + 28
+    // The label uses MTypography.sizeFootnote, which scales — but the pill
+    // around it did not. At userScaleFactor 1.50 the text grew inside a fixed
+    // 32 px chip with fixed 28 px padding, so the count collided with the
+    // label ("All0") and the row overflowed its viewport.
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
+    implicitHeight: Math.round(32 * scaleFactor)
+    implicitWidth: row.implicitWidth + Math.round(28 * scaleFactor)
     radius: MRadius.full
     color: active ? MColors.marathonTealBright : "transparent"
-    border.width: 1
+    border.width: Math.max(1, Math.round(1 * scaleFactor))
     border.color: active ? MColors.tealBorder : MColors.whiteOverlay08
 
     Behavior on color {
@@ -36,7 +43,7 @@ Rectangle {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: Math.round(4 * chip.scaleFactor)
 
         Text {
             text: chip.label

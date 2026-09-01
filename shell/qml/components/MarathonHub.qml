@@ -122,10 +122,27 @@ Rectangle {
                 }
             }
 
-            // Filter chip row
-            Row {
+            // Filter chip row — horizontally flickable.
+            //
+            // This was a bare Row of five fixed chips. Nothing clipped it and
+            // nothing scrolled it, so once the chips exceeded the viewport the
+            // last one was simply cut off at the screen edge: at
+            // userScaleFactor 1.50 "Calls" rendered as "Ca" and was
+            // unreachable. Flicking keeps every category reachable at any
+            // scale, and clip stops the overflow bleeding into the pane
+            // beside it.
+            Flickable {
                 width: parent.width
-                spacing: 6
+                height: chipRow.implicitHeight
+                contentWidth: chipRow.implicitWidth
+                contentHeight: chipRow.implicitHeight
+                flickableDirection: Flickable.HorizontalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+
+            Row {
+                id: chipRow
+                spacing: Math.round(6 * (Constants.scaleFactor || 1.0))
 
                 MFilterChip {
                     label: "All"
@@ -157,6 +174,7 @@ Rectangle {
                     active: hub.selectedCategory === "call"
                     onActivated: hub.selectedCategory = "call"
                 }
+            }
             }
         }
     }
