@@ -34,7 +34,11 @@ WebEngineView {
     settings.localContentCanAccessRemoteUrls: false
     settings.spatialNavigationEnabled: false
     settings.touchIconsEnabled: false
-    settings.focusOnNavigationEnabled: true
+    // false: with this on, every navigation handed focus to the web view,
+    // and any page that autofocuses a field yanked the on-screen keyboard up
+    // over the content the user had just tapped through to. Mobile browsers
+    // leave focus where the user put it.
+    settings.focusOnNavigationEnabled: false
     settings.playbackRequiresUserGesture: true
     settings.webRTCPublicInterfacesOnly: true
     settings.dnsPrefetchEnabled: false

@@ -10,20 +10,55 @@ Rectangle {
 
     property var bookmarks: []
 
+    // The page the browser is currently showing, so this page can offer to
+    // bookmark it. This replaced the always-on star inside the address
+    // pill, which cost the host the room it needed to render.
+    property string currentPageUrl: ""
+    property string currentPageTitle: ""
+    property bool currentPageBookmarked: false
+    property bool bookmarksDisabled: false
+
     signal bookmarkSelected(string url)
     signal deleteBookmark(string url)
+    signal toggleCurrentBookmark
 
     color: MColors.background
+
+    // A plain sibling above the list, NOT a ListView.header: a header whose
+    // size settles after the view does leaves the list scrolled with the
+    // row's top half under the drawer tab bar, and positionViewAtBeginning
+    // races the same bindings that cause it.
+    MSettingsListItem {
+        id: bookmarkCurrentRow
+
+        readonly property bool actionable: /^https?:\/\//.test(bookmarksPage.currentPageUrl)
+
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        visible: actionable
+        height: actionable ? implicitHeight : 0
+        title: bookmarksPage.currentPageBookmarked ? "Remove bookmark" : "Bookmark this page"
+        subtitle: bookmarksPage.currentPageTitle || bookmarksPage.currentPageUrl
+        iconName: bookmarksPage.currentPageBookmarked ? "star" : "plus"
+        enabled: !bookmarksPage.bookmarksDisabled
+        opacity: bookmarksPage.bookmarksDisabled ? 0.45 : 1
+        onSettingClicked: bookmarksPage.toggleCurrentBookmark()
+    }
 
     ListView {
         id: bookmarksList
 
-        anchors.fill: parent
+        anchors.top: bookmarkCurrentRow.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
         clip: true
         model: bookmarksPage.bookmarks
 
         Text {
             visible: bookmarksPage.bookmarks.length === 0
+            anchors.verticalCenterOffset: Math.round(30 * (Constants.scaleFactor || 1.0))
             anchors.centerIn: parent
             text: "No bookmarks yet"
             font.pixelSize: MTypography.sizeLarge
