@@ -2,11 +2,10 @@ import MarathonApp.Gallery
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls  // StackView attached property (root.StackView.view)
 import QtQuick.Layouts
 
 // Marathon DS · Gallery (screens-apps-2.jsx:GalleryApp).

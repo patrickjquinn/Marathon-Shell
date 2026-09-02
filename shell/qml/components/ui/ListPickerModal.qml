@@ -1,6 +1,3 @@
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 

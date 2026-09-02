@@ -1,6 +1,5 @@
 import MarathonApp.Clock
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQml.Models

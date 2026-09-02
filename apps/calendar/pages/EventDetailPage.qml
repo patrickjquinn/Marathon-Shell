@@ -1,11 +1,9 @@
-import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls  // StackView attached property (root.StackView.view)
 import QtQuick.Layouts
 
 MPage {

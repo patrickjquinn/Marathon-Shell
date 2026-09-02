@@ -1,4 +1,3 @@
-import MarathonApp.Messages
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick

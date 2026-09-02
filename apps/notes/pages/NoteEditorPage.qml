@@ -1,4 +1,3 @@
-import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Modals

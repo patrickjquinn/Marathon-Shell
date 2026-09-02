@@ -1,4 +1,3 @@
-import MarathonApp.Clock
 import QtQuick
 
 Image {

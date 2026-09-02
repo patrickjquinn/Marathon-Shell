@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import MarathonOS.Services
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme

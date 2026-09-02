@@ -1,9 +1,7 @@
-import MarathonApp.Terminal
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {

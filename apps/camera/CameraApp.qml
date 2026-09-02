@@ -6,8 +6,6 @@ import MarathonUI.Modals
 import MarathonUI.Theme
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Controls
-import QtMultimedia 6.0
 
 MApp {
     id: cameraApp

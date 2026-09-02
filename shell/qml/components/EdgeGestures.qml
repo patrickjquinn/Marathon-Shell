@@ -1,4 +1,3 @@
-import MarathonUI.Theme
 import QtQuick
 
 Item {

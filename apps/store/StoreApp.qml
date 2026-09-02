@@ -1,13 +1,10 @@
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Controls
 import MarathonUI.Core
-import MarathonUI.Effects
 import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 // Marathon Store — Flathub-backed catalog with the JSX-spec UI.

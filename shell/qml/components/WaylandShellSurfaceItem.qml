@@ -1,4 +1,3 @@
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtWayland.Compositor

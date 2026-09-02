@@ -1,7 +1,6 @@
 import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls

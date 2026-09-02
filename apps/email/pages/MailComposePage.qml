@@ -2,14 +2,11 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import MarathonOS.Services
-import MarathonUI.Containers
 import MarathonUI.Controls
-import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 // Day 9 — compose sheet pushed onto the Mail stack from inbox "compose"
 // action or message-view "reply" action.

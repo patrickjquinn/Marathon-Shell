@@ -2,14 +2,11 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import MarathonOS.Services
-import MarathonUI.Containers
-import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 // Classic-password IMAP/SMTP account setup. Reached from the no-account
 // state on EmailApp.qml's inbox via "Sign in with IMAP". This is the

@@ -1,14 +1,11 @@
 import MarathonOS.Shell
 import MarathonOS.Services
 import MarathonUI.Containers
-import MarathonUI.Controls
 import MarathonUI.Core
-import MarathonUI.Effects
-import MarathonUI.Lists
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls  // StackView attached property (root.StackView.view)
 import QtQuick.Layouts
 import "pages"
 
