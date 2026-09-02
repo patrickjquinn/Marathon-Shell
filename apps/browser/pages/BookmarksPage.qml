@@ -17,6 +17,11 @@ Rectangle {
     property string currentPageTitle: ""
     property bool currentPageBookmarked: false
     property bool bookmarksDisabled: false
+    // Supplied by BrowserApp so this page shares the app's single scheme
+    // predicate rather than carrying a third regex dialect of its own.
+    property var schemeOf: function (url) {
+        return /^https?:\/\//.test(url || "") ? "secure" : "none";
+    }
 
     signal bookmarkSelected(string url)
     signal deleteBookmark(string url)
@@ -31,7 +36,7 @@ Rectangle {
     MSettingsListItem {
         id: bookmarkCurrentRow
 
-        readonly property bool actionable: /^https?:\/\//.test(bookmarksPage.currentPageUrl)
+        readonly property bool actionable: bookmarksPage.schemeOf(bookmarksPage.currentPageUrl) !== "none"
 
         anchors.top: parent.top
         anchors.left: parent.left
@@ -50,6 +55,18 @@ Rectangle {
         onSettingClicked: bookmarksPage.toggleCurrentBookmark()
     }
 
+    // A sibling of the list, not a child of it: a ListView reparents its
+    // children onto contentItem, whose width is unbounded, so centreIn there
+    // let the message run off the edge of the drawer.
+    MEmptyState {
+        anchors.centerIn: bookmarksList
+        width: bookmarksList.width - MSpacing.lg * 2
+        visible: bookmarksPage.bookmarks.length === 0
+        iconName: "star"
+        title: "No bookmarks yet"
+        message: "Pages you bookmark show up here."
+    }
+
     ListView {
         id: bookmarksList
 
@@ -59,15 +76,6 @@ Rectangle {
         anchors.bottom: parent.bottom
         clip: true
         model: bookmarksPage.bookmarks
-
-        Text {
-            visible: bookmarksPage.bookmarks.length === 0
-            anchors.verticalCenterOffset: Math.round(30 * (Constants.scaleFactor || 1.0))
-            anchors.centerIn: parent
-            text: "No bookmarks yet"
-            font.pixelSize: MTypography.sizeLarge
-            color: MColors.textTertiary
-        }
 
         delegate: MSettingsListItem {
             property real swipeX: 0

@@ -337,7 +337,7 @@ MApp {
         switchToTab(newTab.tabId);
         if (focusAddress !== false) {
             Qt.callLater(function () {
-                browserApp.focusAddressBar(true);
+                browserApp.ensureAddressBarFocus(true);
             });
         }
         return newTab.tabId;
@@ -412,15 +412,13 @@ MApp {
         partialText = partialText.toLowerCase();
         for (var i = 0; i < bookmarks.length; i++) {
             var url = bookmarks[i].url.toLowerCase();
-            var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "");
-            var hostOnly = cleanUrl.split("/")[0];
+            var hostOnly = displayHostFor(url);
             if (hostOnly.startsWith(partialText))
                 return hostOnly;
         }
         for (var j = 0; j < history.length; j++) {
             var hUrl = history[j].url.toLowerCase();
-            var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "");
-            var hHostOnly = hCleanUrl.split("/")[0];
+            var hHostOnly = displayHostFor(hUrl);
             if (hHostOnly.startsWith(partialText))
                 return hHostOnly;
         }
@@ -554,10 +552,6 @@ MApp {
         var currentTab = getCurrentTab();
         u.text = currentTab ? displayHostFor(currentTab.url) : "";
         u.cursorPosition = 0;
-    }
-
-    function focusAddressBar(selectAllText) {
-        ensureAddressBarFocus(selectAllText);
     }
 
     function openDrawer() {
@@ -1015,6 +1009,7 @@ MApp {
                         }
                     }
                 }
+
             }
 
 
@@ -1126,6 +1121,12 @@ MApp {
                     // release handler that reads it directly always sees 0
                     // and the gesture silently never navigates.
                     property real dragX: 0
+                    // Latched at grab. History cannot change mid-drag, and the
+                    // Translate below runs every frame -- it used to do a
+                    // currentWebView() lookup and two Chromium property reads
+                    // per frame, on the one path that must not stutter.
+                    property bool canBack: false
+                    property bool canFwd: false
 
                     target: null
                     xAxis.enabled: true
@@ -1137,11 +1138,14 @@ MApp {
                             dragX = activeTranslation.x;
                     }
                     onActiveChanged: {
-                        if (active)
+                        var view = browserApp.currentWebView();
+                        if (active) {
+                            canBack = !!(view && view.canGoBack);
+                            canFwd = !!(view && view.canGoForward);
                             return;
+                        }
                         var dx = dragX;
                         dragX = 0;
-                        var view = browserApp.currentWebView();
                         if (!view)
                             return;
                         if (dx > 70 && view.canGoBack) {
@@ -1166,11 +1170,10 @@ MApp {
                         // resists rather than slides when there is nothing
                         // to pop.
                         x: {
-                            var view = browserApp.currentWebView();
                             var t = barSwipe.dragX * 0.35;
-                            if (t > 0 && !(view && view.canGoBack))
+                            if (t > 0 && !barSwipe.canBack)
                                 t = t * 0.25;
-                            if (t < 0 && !(view && view.canGoForward))
+                            if (t < 0 && !barSwipe.canFwd)
                                 t = t * 0.25;
                             return Math.max(-64, Math.min(64, t));
                         }
@@ -1266,7 +1269,7 @@ MApp {
 
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Math.round(4 * (Constants.scaleFactor || 1.0))
+                            spacing: MSpacing.xs
                             visible: !urlInput.activeFocus
 
                             Icon {
@@ -1292,14 +1295,19 @@ MApp {
                                 // centred; capped at what the pill has spare
                                 // after the badge, then elides.
                                 anchors.verticalCenter: parent.verticalCenter
+                                // implicitWidth here is a plain metric of the
+                                // text, so capping width by it does not feed
+                                // back. It did under fontSizeMode:
+                                // HorizontalFit, which derives implicitWidth
+                                // from the fitted size -- width and
+                                // implicitWidth then drove each other through
+                                // repeated layout passes on every navigation.
                                 width: Math.min(implicitWidth, hostRow.avail
                                                 - (schemeBadge.visible ? schemeBadge.width + hostRow.spacing : 0))
                                 text: urlInput.text
                                 color: MColors.text
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeBody
-                                fontSizeMode: Text.HorizontalFit
-                                minimumPixelSize: Math.round(MTypography.sizeBody * 0.55)
                                 elide: Text.ElideRight
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
@@ -1324,14 +1332,16 @@ MApp {
                             anchors.rightMargin: MSpacing.xs
                             verticalAlignment: TextInput.AlignVCenter
                             // While idle the glyphs are drawn by hostLabel
-                            // below -- a Text can elide and shrink-to-fit,
-                            // a TextInput can only clip, which turned the
-                            // host into "duck<half a glyph>". The input's
-                            // own text goes transparent rather than the
-                            // input invisible, because forceActiveFocus on
-                            // an invisible item is a no-op (see the focus
-                            // retry machinery above).
-                            color: activeFocus ? MColors.text : "transparent"
+                            // below -- a Text can elide, a TextInput can only
+                            // clip, which turned the host into "duck<half a
+                            // glyph>". Hidden by opacity, not visible:false:
+                            // forceActiveFocus on an invisible item is a
+                            // no-op, while an opacity-0 item still takes
+                            // focus and IS culled by the scene graph, unlike
+                            // a transparent colour which still lays the text
+                            // out and uploads its glyphs.
+                            color: MColors.text
+                            opacity: activeFocus ? 1 : 0
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             selectByMouse: true
@@ -1471,27 +1481,11 @@ MApp {
                             }
 
                             Connections {
-                                function onTabsChanged() {
-                                    if (!urlInput.activeFocus) {
-                                        var currentTab = getCurrentTab();
-                                        var host = currentTab ? browserApp.displayHostFor(currentTab.url) : "";
-                                        if (currentTab && host !== urlInput.text) {
-                                            urlInput.text = host;
-                                            urlInput.cursorPosition = 0;
-                                        }
-                                    }
-                                }
-
                                 function onCurrentTabIndexChanged() {
-                                    var currentTab = getCurrentTab();
-                                    if (!urlInput.activeFocus) {
-                                        urlInput.text = currentTab ? browserApp.displayHostFor(currentTab.url) : "";
-                                        urlInput.cursorPosition = 0;
-                                    }
-
                                     browserApp._syncAddressBarFromCurrentTab();
+                                    var currentTab = getCurrentTab();
                                     if (currentTab && currentTab.isNewTab)
-                                        browserApp.focusAddressBar(true);
+                                        browserApp.ensureAddressBarFocus(true);
                                 }
 
                                 target: browserApp
@@ -1578,7 +1572,7 @@ MApp {
                             anchors.centerIn: parent
                             name: {
                                 var currentTab = getCurrentTab();
-                                return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "square" : "refresh-cw";
+                                return (currentTab && currentTab.isLoading) ? "square" : "refresh-cw";
                             }
                             size: Constants.iconSizeSmall
                             color: MColors.text
@@ -1651,12 +1645,14 @@ MApp {
             }
         }
 
-        // Right-edge drawer gesture — must be a SIBLING of the content
-        // column, not a child. It regressed back INSIDE the Column, and a
-        // child with vertical anchors makes the Column abandon positioning:
-        // urlBar was left at its default y=0, drawn OVER the top of every
-        // page, while the bottom slot the layout reserves for it stayed an
-        // empty black band. One misplaced item, three visible symptoms.
+        // Right-edge drawer gesture. Kept as an overlay MouseArea above the
+        // web view ON PURPOSE. Re-expressing it as a DragHandler on
+        // contentArea -- so its bounds came from ordinary stacking instead of
+        // the two explicit exclusions below -- was tried and reverted:
+        // WebEngineView consumes the drag before a QML handler on its parent
+        // sees it, and the swipe stopped opening the drawer at all. An
+        // overlay is what puts the gesture above web content; the exclusions
+        // are that decision's price, not a bandaid.
         MouseArea {
             id: rightEdgeGesture
 
@@ -1912,24 +1908,32 @@ MApp {
                         drawer.bookmarksPage.bookmarks = Qt.binding(function () {
                             return browserApp.bookmarks;
                         });
+                        // Gated on isDrawerOpen: the drawer is instantiated
+                        // eagerly, so ungated these re-ran on every Chromium
+                        // titleChanged -- several per page load -- to lay out
+                        // a subtitle nobody was looking at, and re-scanned the
+                        // bookmark list on every navigation.
                         drawer.bookmarksPage.currentPageUrl = Qt.binding(function () {
-                            var t = browserApp.getCurrentTab();
+                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
                             return t ? (t.url || "") : "";
                         });
                         drawer.bookmarksPage.currentPageTitle = Qt.binding(function () {
-                            var t = browserApp.getCurrentTab();
+                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
                             return t ? (t.title || "") : "";
                         });
                         // Referencing browserApp.bookmarks inside the binding
                         // is what re-evaluates it when a bookmark is added or
                         // removed -- isBookmarked() alone notifies nothing.
                         drawer.bookmarksPage.currentPageBookmarked = Qt.binding(function () {
-                            var t = browserApp.getCurrentTab();
-                            return browserApp.bookmarks.length >= 0 && t ? isBookmarked(t.url) : false;
+                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
+                            return !!t && browserApp.bookmarks.some(function (b) {
+                                return b.url === t.url;
+                            });
                         });
                         drawer.bookmarksPage.bookmarksDisabled = Qt.binding(function () {
                             return browserApp.isPrivateMode;
                         });
+                        drawer.bookmarksPage.schemeOf = browserApp.schemeBadgeFor;
                         drawer.bookmarksPage.toggleCurrentBookmark.connect(function () {
                             if (browserApp.isPrivateMode) {
                                 browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
