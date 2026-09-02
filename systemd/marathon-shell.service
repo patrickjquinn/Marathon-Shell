@@ -5,6 +5,14 @@ After=graphical-session-pre.target
 PartOf=graphical-session.target
 Before=graphical-session.target
 
+# Refuse to start when a Marathon compositor is already up (the greetd
+# path, which is how every shipped image launches the shell). Two
+# compositors cannot share the DRM master or the socket name, and the
+# loser destroys the winner's socket on its way out. %t is the user
+# manager's runtime dir ($XDG_RUNTIME_DIR). This MUST live in [Unit] --
+# systemd silently ignores Condition* in [Service].
+ConditionPathExists=!%t/marathon-wayland-0
+
 [Service]
 Type=simple
 ExecStart=marathon-shell-session
@@ -15,7 +23,12 @@ TimeoutStopSec=10
 # Environment
 Environment=XDG_SESSION_TYPE=wayland
 Environment=XDG_CURRENT_DESKTOP=marathon
-Environment=QT_QPA_PLATFORM=wayland
+# No QT_QPA_PLATFORM here. Marathon Shell IS the compositor, and
+# marathon-shell-session respects a caller-supplied QT_QPA_PLATFORM by
+# design, so setting "wayland" told the compositor to start as a Wayland
+# CLIENT: it failed with "Failed to create wl_display", aborted, and
+# Restart=on-failure looped it -- taking the running compositor's socket
+# with it. Leave it unset and let the session script pick eglfs.
 
 # Logging
 StandardOutput=journal
