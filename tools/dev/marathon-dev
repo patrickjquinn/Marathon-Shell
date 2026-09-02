@@ -75,12 +75,24 @@ cmd_close() {
     # Walk the running marathon-app-runner processes and SIGTERM them.
     # Used to reset the foreground state between captures during a
     # scripted UX audit.
-    appId="${1:-}"
-    if [ -n "$appId" ]; then
-        pkill -TERM -f "marathon-app-runner --app-id $appId" 2>/dev/null
-    else
-        pkill -TERM -f "marathon-app-runner --app-id" 2>/dev/null
+    #
+    # Matching "--app-id <id>" made this a silent no-op: the runner is
+    # exec'd inside bwrap and, with the warm pool enabled, keeps its
+    # `--pool` argv even after adopting an app, so the app id appears in
+    # no process's argv. Only the unsandboxed WebEngine apps ever
+    # matched. Match the runner by comm instead -- truncated to 15 chars
+    # as "marathon-app-ru", and comm cannot self-match this script the
+    # way pkill -f does.
+    #
+    # The pool gives us no way to tell which runner hosts which app, so
+    # a specific app id can no longer be singled out; closing one closes
+    # all. Say so rather than pretending it worked.
+    if [ -n "${1:-}" ]; then
+        echo "marathon-dev: warm-pool runners carry no app id; closing all apps" >&2
     fi
+    for p in $(ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}'); do
+        kill -TERM "$p" 2>/dev/null || true
+    done
 }
 
 cmd_screenshot() {
@@ -141,7 +153,7 @@ usage:
   marathon-dev sleep              # turn panel off
   marathon-dev unlock <pin>       # auth PIN + unlock session
   marathon-dev launch <app-id>    # navigate the shell to an app
-  marathon-dev close [app-id]     # SIGTERM the running app(s)
+  marathon-dev close              # SIGTERM every running app
   marathon-dev screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
 
 All commands require the shell to be running. Most reach the shell via
