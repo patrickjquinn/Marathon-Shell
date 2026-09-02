@@ -1,5 +1,13 @@
 #pragma once
 
+// clazy:excludeall=const-signal-or-slot
+//
+// Every object in this file is a D-Bus adaptor. Their property getters are
+// deliberately public slots because that is what exports them as D-Bus
+// methods -- a plain const member function is not callable over the bus.
+// clazy sees "const getter marked as a slot" and reports 38 findings here,
+// all of which are the intended design rather than a mistake.
+
 #include <QHash>
 #include <QObject>
 #include <QDBusContext>
