@@ -65,7 +65,6 @@ source="
 	50-modemmanager-priority.conf
 	device-profile.conf
 	20-modesetting.conf
-	marathon-shell.service
 	marathon-mailserver.service
 	greetd-marathon.toml
 	marathon.slice
@@ -101,11 +100,8 @@ package() {
 	install -Dm644 "$srcdir/20-modesetting.conf" \
 		"$pkgdir/etc/X11/xorg.conf.d/20-modesetting.conf"
 
-	install -Dm644 "$srcdir/marathon-shell.service" \
-		"$pkgdir/usr/lib/systemd/system/marathon-shell.service"
-
-	# QMF messageserver5 — user-scope long-lived sync daemon.
-	# WantedBy=marathon-shell.service so it activates with the shell.
+	# QMF messageserver5 -- user-scope long-lived sync daemon, started
+	# with the user session (WantedBy=default.target).
 	install -Dm644 "$srcdir/marathon-mailserver.service" \
 		"$pkgdir/usr/lib/systemd/user/marathon-mailserver.service"
 
@@ -318,7 +314,6 @@ a50ccf62ea599793e1fd1dea46ed3f545087ccb9a6a4a23f0ebe5a2c188c9a3cbfdf9521534f31fb
 eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf
 494ee0683e7b8c8ea6034fba867d33839b7e5227ce83a885a94170380151784cf105562567899191e53a44a8b0a63dbf27a0e0f726ab4fb0cfd5fab02b55ac66  device-profile.conf
 a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb42b16994af9bed4506491d49f47504b8ffd4981f40d38a2e  20-modesetting.conf
-17ba6bb2983a53715a65475815dd9cbf24bbe5badbdd85e351d903cb2faafc69d48dfcc0ad316d1cd52709530cf15623cb694c7c32d02f2d3d8b5d9c87c0bcb2  marathon-shell.service
 059e2963443a8df6d93976901981f71084da5772f625ebb44ed8302ec66ffac8a69e9b78bba44b75b6fc335a2a0e2b2f610adb5a912d3762b29d897fc7432745  marathon-mailserver.service
 962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
 4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
