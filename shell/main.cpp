@@ -1196,7 +1196,8 @@ int main(int argc, char *argv[]) {
     // The shell's single QQuickWindow is the root object (Main.qml Window).
     // Wire the FPS monitor to its frame-swap signal now that it exists.
     if (fpsOverlay) {
-        for (QObject *root : engine.rootObjects()) {
+        const auto rootObjects = engine.rootObjects();
+        for (QObject *root : rootObjects) {
             if (auto *win = qobject_cast<QQuickWindow *>(root)) {
                 fpsMonitor->attach(win);
                 qInfo() << "[MarathonShell] FPS overlay enabled";
@@ -1250,7 +1251,8 @@ int main(int argc, char *argv[]) {
             QObject::connect(appScanner, &MarathonAppScanner::appDiscovered, &app, grantProtected);
             QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
                              [appModel, appRegistry, grantProtected](int) {
-                                 for (const QString &id : appRegistry->getAllAppIds())
+                                 const auto allAppIds = appRegistry->getAllAppIds();
+                                 for (const QString &id : allAppIds)
                                      grantProtected(id);
                                  appModel->loadFromRegistry(appRegistry);
                              });

@@ -119,7 +119,8 @@ QString CgroupManager::readShellCgroupPath() {
         return {};
     const QByteArray data = f.readAll();
     f.close();
-    for (const QByteArray &line : data.split('\n')) {
+    const auto lines = data.split('\n');
+    for (const QByteArray &line : lines) {
         // cgroup v2 unified hierarchy: a single line starting "0::/...".
         if (line.startsWith("0::"))
             return QString::fromUtf8(line.mid(3)).trimmed();

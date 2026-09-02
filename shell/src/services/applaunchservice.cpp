@@ -408,7 +408,8 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
         if (rawPerms.canConvert<QStringList>()) {
             perms = rawPerms.toStringList();
         } else if (rawPerms.canConvert<QVariantList>()) {
-            for (const QVariant &v : rawPerms.toList())
+            const auto permEntries = rawPerms.toList();
+            for (const QVariant &v : permEntries)
                 perms << v.toString();
         }
 

@@ -61,7 +61,8 @@ bool MarathonAppScanner::scanSingleApp(const QString &appId) {
     if (appId.isEmpty() || !m_registry)
         return false;
 
-    for (const QString &searchPath : getSearchPaths()) {
+    const auto searchPaths = getSearchPaths();
+    for (const QString &searchPath : searchPaths) {
         const QString appDir       = searchPath + QStringLiteral("/") + appId;
         const QString manifestPath = getManifestPath(appDir);
         if (manifestPath.isEmpty())

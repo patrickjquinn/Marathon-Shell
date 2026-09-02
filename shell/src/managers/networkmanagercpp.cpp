@@ -946,7 +946,8 @@ QVariantList NetworkManagerCpp::getVpnConnections() const {
         return vpnList;
     }
 
-    for (const QDBusObjectPath &path : connectionsReply.value()) {
+    const auto connectionPaths = connectionsReply.value();
+    for (const QDBusObjectPath &path : connectionPaths) {
         QDBusInterface          connectionInterface("org.freedesktop.NetworkManager", path.path(),
                                                     "org.freedesktop.NetworkManager.Settings.Connection",
                                                     QDBusConnection::systemBus());
@@ -1009,7 +1010,8 @@ void NetworkManagerCpp::disconnectVpn(const QString &connectionId) const {
         return;
     }
 
-    for (const QDBusObjectPath &path : activeConnsReply.value()) {
+    const auto activeConnPaths = activeConnsReply.value();
+    for (const QDBusObjectPath &path : activeConnPaths) {
         QDBusInterface activeConn("org.freedesktop.NetworkManager", path.path(),
                                   "org.freedesktop.NetworkManager.Connection.Active",
                                   QDBusConnection::systemBus());
@@ -1041,7 +1043,8 @@ bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) const {
         return false;
     }
 
-    for (const QDBusObjectPath &path : activeConnsReply.value()) {
+    const auto activeConnPaths = activeConnsReply.value();
+    for (const QDBusObjectPath &path : activeConnPaths) {
         QDBusInterface activeConn("org.freedesktop.NetworkManager", path.path(),
                                   "org.freedesktop.NetworkManager.Connection.Active",
                                   QDBusConnection::systemBus());

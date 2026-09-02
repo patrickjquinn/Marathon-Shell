@@ -12,7 +12,8 @@ void WordTrie::insert(const QString &word) {
         return;
 
     Node *current = m_root.get();
-    for (const QChar &ch : word.toLower()) {
+    const auto lowered = word.toLower();
+    for (const QChar &ch : lowered) {
         if (current->children.find(ch) == current->children.end()) {
             current->children[ch] = std::make_unique<Node>();
         }

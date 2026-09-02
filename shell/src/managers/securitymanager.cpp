@@ -636,7 +636,8 @@ int SecurityManager::queryFaillockAttempts() const {
     QString output = process.readAllStandardOutput();
 
     int     count = 0;
-    for (const QString &line : output.split('\n')) {
+    const auto lines = output.split('\n');
+    for (const QString &line : lines) {
         if (line.contains("marathon-shell")) {
             count++;
         }

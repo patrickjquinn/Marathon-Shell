@@ -98,11 +98,13 @@ void MarathonPermissionManager::loadPermissions() {
 
     QJsonObject root = doc.object();
 
-    for (const QString &appId : root.keys()) {
+    const auto appIds = root.keys();
+    for (const QString &appId : appIds) {
         QJsonObject         appPerms = root.value(appId).toObject();
         QMap<QString, bool> permissions;
 
-        for (const QString &permission : appPerms.keys()) {
+        const auto permissionKeys = appPerms.keys();
+        for (const QString &permission : permissionKeys) {
             permissions[permission] = appPerms.value(permission).toBool();
         }
 

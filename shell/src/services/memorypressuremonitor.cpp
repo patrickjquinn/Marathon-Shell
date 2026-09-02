@@ -53,7 +53,8 @@ void MemoryPressureMonitor::poll() {
     // stalled" (i.e. nobody can make progress). "some" is the right metric
     // for "backgrounded apps about to be killed" — full means we're past
     // that point already.
-    for (const QByteArray &line : data.split('\n')) {
+    const auto lines = data.split('\n');
+    for (const QByteArray &line : lines) {
         if (!line.startsWith("some "))
             continue;
         const int idx = line.indexOf("avg10=");
