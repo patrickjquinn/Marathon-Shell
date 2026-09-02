@@ -8,14 +8,17 @@ Tests the user-reported chain:
   - OOBE → home transition with selected scale persisting
   - back-swipe from OOBE pages pops in-stack (not "background app")
 
-Each step takes a screenshot named NN-step-name.png. The visual_diff
-helper auto-bootstraps a golden on first run; subsequent runs flag
-regressions automatically.
+Each step takes a screenshot named NN-step-name.png. Goldens are not
+compared here any more: the previous ones were auto-bootstrapped from a
+run where OOBE never advanced, so they encoded the Welcome frame and
+"passed" it forever. What this scenario asserts now is that OOBE
+actually completes -- which is what unblocks scenarios 03/04/05.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 import time
 
@@ -23,9 +26,31 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from qemu_driver import QemuDriver  # noqa: E402
 
 
+# The passcode OOBE sets, and therefore the one the rest of the harness
+# must use to unlock. Matches the PIN the project's device docs use.
+OOBE_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
+
+
+def frame_delta(drv: QemuDriver, a: str, b: str) -> float:
+    """Fraction of pixels differing between two captured screenshots."""
+    pa, pb = drv.run_dir / f"{a}.png", drv.run_dir / f"{b}.png"
+    if not (pa.exists() and pb.exists()):
+        return 0.0
+    try:
+        from PIL import Image
+        import numpy as np
+    except ImportError:
+        return 0.0
+    xa = np.asarray(Image.open(pa).convert("RGB"), dtype=np.int16)
+    xb = np.asarray(Image.open(pb).convert("RGB"), dtype=np.int16)
+    if xa.shape != xb.shape:
+        return 1.0
+    d = np.abs(xa - xb).max(axis=-1)
+    return float((d > 12).sum() / d.size)
+
+
 def run(drv: QemuDriver, since: str) -> int:
     fails = 0
-    GOLDEN = Path(__file__).parent.parent / "golden" / "02_oobe"
 
     # Skip if firstRunComplete is already true — we're not in OOBE.
     rc, out, _ = drv.ssh(
@@ -38,40 +63,72 @@ def run(drv: QemuDriver, since: str) -> int:
     # 01. Welcome screen
     drv.screenshot("01-welcome")
 
-    # The OOBE buttons live near the bottom centre. Coordinates assume
-    # the 720x1440 QEMU canvas. We'll learn the real Continue/Get-Started
-    # button bounds from a future tag-finder; for now we centre-tap the
-    # bottom 200 px band.
-    cx, cy = drv.width // 2, drv.height - 180
-    drv.tap(cx, cy)
-    time.sleep(2)
-    drv.screenshot("02-after-welcome-tap")
+    # Advance OOBE by tapping the primary button, which this design puts
+    # bottom-RIGHT, not bottom-centre. The old code centre-tapped the
+    # bottom band -- landing ~17 px left of the button's edge -- so OOBE
+    # never advanced past Welcome: all six "step" screenshots were the
+    # same frame, both visual_diffs compared Welcome against a golden
+    # bootstrapped from Welcome, and firstRunComplete stayed false, which
+    # silently skipped scenarios 03/04/05 on every fresh image.
+    NEXT = (int(drv.width * 0.733), int(drv.height * 0.868))
+    SKIP = (int(drv.width * 0.840), int(drv.height * 0.131))
 
-    # 02. Scale picker — the build-20 fix proves out here. Pick the
-    # 1.25 option (5th in the list at the time of writing). We can't
-    # precisely target the row without ydotool + Accessible.name, so
-    # walk the radio list top-down and screenshot each step.
-    drv.screenshot("03-scale-picker")
-    # Tap the row at roughly 45% canvas height — that's where 1.25 sits.
-    drv.tap(cx, int(drv.height * 0.45))
-    time.sleep(1)
-    drv.screenshot("04-scale-picked-125")
-    fails += 0 if drv.visual_diff("04-scale-picked-125",
-                                   GOLDEN / "04-scale-picked-125.png") else 1
+    def oobe_done() -> bool:
+        rc, out, _ = drv.ssh(
+            "grep -E '^firstRunComplete=true' '/home/user/.config/"
+            "marathon-os/Marathon Shell.conf' 2>/dev/null && echo yes || echo no")
+        return "yes" in out
 
-    # Continue to the next OOBE page.
-    drv.tap(cx, cy)
-    time.sleep(2)
-    drv.screenshot("05-after-scale")
+    # "Create a passcode" keypad, measured on the 720x1440 canvas. This
+    # page has only Back/Next -- no Skip -- and Next does nothing until
+    # six digits are entered, which is where the walkthrough used to
+    # stall for good.
+    PAD = {"1": (208, 570), "2": (360, 570), "3": (511, 570),
+           "4": (208, 721), "5": (360, 721), "6": (511, 721),
+           "7": (208, 873), "8": (360, 873), "9": (511, 873),
+           "0": (360, 1024)}
 
-    # 03. PIN setup — confirm the keypad renders with visible (post-fix)
-    # hit-area outlines. We just screenshot here; tap-driving a 6-digit
-    # PIN needs ydotool which we add in scenario 04.
-    drv.screenshot("06-pin-screen")
-    fails += 0 if drv.visual_diff("06-pin-screen",
-                                   GOLDEN / "06-pin-screen.png") else 1
+    def type_pin():
+        for ch in OOBE_PIN:
+            drv.tap(*PAD[ch])
+            time.sleep(0.35)
+        time.sleep(0.8)
 
-    print(f"==> OOBE walkthrough complete with {fails} visual regressions")
+    # Walk the pages. The page count is not fixed (seven dots at the time
+    # of writing) and some pages need input before Next does anything, so
+    # drive it adaptively: tap Next, and if the frame did not change,
+    # assume this page wants the passcode and type it before retrying.
+    # That avoids hard-coding which page index is the passcode page.
+    for step in range(2, 16):
+        if oobe_done():
+            break
+        prev = f"{step:02d}-before-next"
+        drv.screenshot(prev)
+        drv.tap(*NEXT)
+        time.sleep(1.5)
+        cur = f"{step:02d}-oobe-step"
+        drv.screenshot(cur)
+        if frame_delta(drv, prev, cur) < 0.02:
+            type_pin()                       # passcode / confirm page
+            drv.screenshot(f"{step:02d}-pin-typed")
+            drv.tap(*NEXT)
+            time.sleep(1.5)
+            drv.screenshot(f"{step:02d}-after-pin-next")
+
+    # Late pages may still offer Skip (e.g. optional account setup).
+    if not oobe_done():
+        drv.tap(*SKIP)
+        time.sleep(2.5)
+        drv.screenshot("90-after-skip")
+
+    if not oobe_done():
+        print("  FAIL  OOBE did not complete — 03/04/05 will skip")
+        fails += 1
+    else:
+        drv.screenshot("99-oobe-complete")
+        print("  OK    OOBE complete (firstRunComplete=true)")
+
+    print(f"==> OOBE walkthrough finished with {fails} failure(s)")
     return fails
 
 

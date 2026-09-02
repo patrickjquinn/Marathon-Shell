@@ -29,6 +29,7 @@ rebuild pending). The Browser chrome (URL bar, tabs) IS exercised.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 import time
 import subprocess
@@ -64,16 +65,39 @@ def runner_pids(drv: QemuDriver) -> set[int]:
     return {int(t) for t in out.split() if t.isdigit()}
 
 
-def wake_display(drv: QemuDriver):
-    """Turn the panel on before capturing anything.
+# The passcode scenario 02 provisions during OOBE.
+DEV_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
 
-    Doze display-off is default-on, so a guest left idle blanks the
-    screen. Every screendump then comes back uniformly black and every
-    frame comparison reads 0% -- which looks exactly like "the app never
-    drew". Costs one call; saves a whole run.
+
+def wake_display(drv: QemuDriver):
+    """Wake the panel and stop the session locking mid-run.
+
+    Two traps, both of which make a healthy shell look broken.
+
+    Doze display-off is default-on, so an idle guest blanks the screen
+    and every screendump comes back uniformly black.
+
+    Worse, the session idle-LOCKS, and the lock screen sits above
+    everything: launches happen behind it and taps land on the PIN
+    keypad, so before/after frames are identical and every app reads as
+    "input produced no visible change". A full 07 run looked exactly
+    like that -- 14 apps, every delta 0.00% -- against a shell that was
+    working fine. Unlocking is not an option for a generic harness: the
+    PIN is whatever OOBE was given.
+
+    SettingsManager.screenTimeout == 0 is "Never", and it gates off both
+    the screen-off timer and the lock timer, so set that for the run.
     """
     drv.ssh("marathon-dev wake 2>/dev/null || true")
+    drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
+            "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
+            "SetProperty sv screenTimeout i 0 2>/dev/null || true")
     time.sleep(1.0)
+    # If the session already locked, clear it -- screenTimeout=0 only
+    # prevents the NEXT lock, it does not dismiss a lock already up, and
+    # the lock screen composites above the app so every tap lands on it.
+    drv.ssh(f"marathon-dev unlock {DEV_PIN} 2>/dev/null || true")
+    time.sleep(1.5)
 
 
 def reset_runners(drv: QemuDriver):
@@ -198,7 +222,10 @@ RECIPES: dict[str, tuple] = {
     # Music: tap the chevron-down at top-left (≈30, 80) which dismisses
     # the Now Playing surface back to the Library view — a huge frame
     # change. Bottom-tab variants miss the MouseArea by a few pixels.
-    "music":       ("tap", 30, 80, 0.02),
+    # Music: tap the "Library" bottom tab. The old target was a
+    # chevron-down at (30, 80) that this UI no longer has, so the tap
+    # hit dead space and the app read as unresponsive.
+    "music":       ("tap", 540, 1287, 0.02),
 
     # Gallery: tap the "Search" bottom tab (4th of 4). The header has a
     # search glyph too but it's small (1px feedback); the bottom-bar
@@ -213,16 +240,24 @@ RECIPES: dict[str, tuple] = {
     # Email: no account configured, so the surface is the OOBE
     # "Add a mail account" screen — there's no MTabBar yet. Tap the
     # primary "Sign in with Google" button (large filled CTA, centre).
-    "email":       ("tap", 360, 750, 0.01),
+    # Email: the "Sign in with Google" CTA sits at y=828 on the account
+    # setup surface, not 750 -- the old y landed in the copy above it.
+    "email":       ("tap", 360, 828, 0.01),
 
     # Browser: tap the URL bar centre — focuses + raises keyboard.
-    "browser":     ("tap", 360, 1340, 0.005),
+    # Browser: the address bar moved when the bottom bar was rebuilt --
+    # it is now centre-left at (313, 1285), with the tab controls to its
+    # right. y=1340 was below it, in the home-pill strip.
+    "browser":     ("tap", 313, 1285, 0.005),
 
     # Store: scroll the catalog.
     "store":       ("swipe", 360, 900, 360, 600, 0.005),
 
     # Terminal: tap "+" (bottom-right) to toggle the keyboard overlay.
-    "terminal":    ("tap", 685, 1245, 0.005),
+    # Terminal: collapse the Esc/Tab/Ctrl key row with the chevron at its
+    # right end. y=1245 sat above the row entirely. Collapsing repaints a
+    # large band, unlike typing a single glyph.
+    "terminal":    ("tap", 688, 1307, 0.005),
 }
 
 
@@ -274,40 +309,47 @@ def run(drv: QemuDriver, since: str) -> int:
 
         runners_after_launch = runner_pids(drv)
 
-        # Settle render — apps with WebEngine init (browser, maps) need
-        # extra time. The 2 s baseline lets MApp.Component.onCompleted
-        # finish + dialog suppression race settle; without it the matrix
-        # screenshots at the moment the previous app's freeze-frame is
-        # still on screen and EVERY app reports 0% delta.
-        time.sleep(3.0 if app_id in ("browser", "maps") else 2.0)
+        # Wait for the app to actually be on screen before touching it.
+        #
+        # A fixed 2 s sleep was not enough. reset_runners() closes every
+        # app first, so each launch here is fully cold, and cold QML
+        # under the software renderer can take well past 10 s to reach a
+        # first frame -- scenario 03 polls up to 12 s for exactly this.
+        # Tapping at 2 s hit the launcher, or a half-built scene, and the
+        # before/after frames then differed by ~0.01%, which reads as
+        # "the app ignored the input" when the app simply was not there
+        # yet.
+        #
+        # Poll until the frame stops being the pre-launch one, then let
+        # it settle. WebEngine apps get longer to finish compositing.
+        drv.screenshot(f"{app_id}-prelaunch")
+        for _ in range(14):
+            time.sleep(1.0)
+            drv.screenshot(f"{app_id}-before")
+            if frame_delta(drv, f"{app_id}-before", f"{app_id}-prelaunch") > 0.02:
+                break
+        time.sleep(2.5 if app_id in ("browser", "maps") else 1.5)
         drv.screenshot(f"{app_id}-before")
 
-        # marathon-touchctl creates a fresh /dev/uinput every invocation
-        # and waits only 400 ms for libinput to bind. Across 14 sequential
-        # apps that race fires often enough to drop ~half of the real
-        # recipe taps. Run the warm-up tap AND the recipe tap through ONE
-        # marathon-touchctl stdin pipe so libinput sees a single
-        # persistent touch device for both.
+        # Drive input through the QemuDriver, not marathon-touchctl.
+        #
+        # This scenario shelled out to marathon-touchctl directly,
+        # bypassing drv.tap/drv.swipe. Those deliberately default to the
+        # QMP virtio-tablet path because, as qemu_driver documents,
+        # marathon-touchctl "is present in the image and exits 0 under
+        # QEMU while injecting nothing the compositor ever sees". So every
+        # recipe here landed on the right pixel and did nothing: 10 of 11
+        # apps reported ~0.01% delta, i.e. "unresponsive", while 04 and 05
+        # -- which go through the driver -- passed against the same shell.
+        #
+        # touchctl remains available on real hardware via
+        # MARATHON_USE_TOUCHCTL=1, which drv.tap honours.
         if recipe[0] == "tap":
             _, x, y, min_diff = recipe
-            program = (
-                "tap 1 1\n"
-                "sleep 150\n"
-                f"tap {x} {y}\n"
-            )
-            drv.ssh(
-                ". /tmp/marathon-touchctl.env 2>/dev/null; "
-                f"printf '{program}' | marathon-touchctl -")
+            drv.tap(x, y)
         elif recipe[0] == "swipe":
             _, x1, y1, x2, y2, min_diff = recipe
-            program = (
-                "tap 1 1\n"
-                "sleep 150\n"
-                f"swipe {x1} {y1} {x2} {y2} 22\n"
-            )
-            drv.ssh(
-                ". /tmp/marathon-touchctl.env 2>/dev/null; "
-                f"printf '{program}' | marathon-touchctl -")
+            drv.swipe(x1, y1, x2, y2, steps=22)
         else:
             print(f"     FAIL  unknown recipe verb {recipe[0]}")
             fails += 1

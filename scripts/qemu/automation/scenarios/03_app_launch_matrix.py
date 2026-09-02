@@ -26,6 +26,7 @@ which lets a synthetic DBus caller (us) bypass the per-app PID check.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 import time
 
@@ -72,16 +73,39 @@ def runner_pids(drv: QemuDriver) -> set[int]:
     return {int(t) for t in out.split() if t.isdigit()}
 
 
-def wake_display(drv: QemuDriver):
-    """Turn the panel on before capturing anything.
+# The passcode scenario 02 provisions during OOBE.
+DEV_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
 
-    Doze display-off is default-on, so a guest left idle blanks the
-    screen. Every screendump then comes back uniformly black and every
-    frame comparison reads 0% -- which looks exactly like "the app never
-    drew". Costs one call; saves a whole run.
+
+def wake_display(drv: QemuDriver):
+    """Wake the panel and stop the session locking mid-run.
+
+    Two traps, both of which make a healthy shell look broken.
+
+    Doze display-off is default-on, so an idle guest blanks the screen
+    and every screendump comes back uniformly black.
+
+    Worse, the session idle-LOCKS, and the lock screen sits above
+    everything: launches happen behind it and taps land on the PIN
+    keypad, so before/after frames are identical and every app reads as
+    "input produced no visible change". A full 07 run looked exactly
+    like that -- 14 apps, every delta 0.00% -- against a shell that was
+    working fine. Unlocking is not an option for a generic harness: the
+    PIN is whatever OOBE was given.
+
+    SettingsManager.screenTimeout == 0 is "Never", and it gates off both
+    the screen-off timer and the lock timer, so set that for the run.
     """
     drv.ssh("marathon-dev wake 2>/dev/null || true")
+    drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
+            "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
+            "SetProperty sv screenTimeout i 0 2>/dev/null || true")
     time.sleep(1.0)
+    # If the session already locked, clear it -- screenTimeout=0 only
+    # prevents the NEXT lock, it does not dismiss a lock already up, and
+    # the lock screen composites above the app so every tap lands on it.
+    drv.ssh(f"marathon-dev unlock {DEV_PIN} 2>/dev/null || true")
+    time.sleep(1.5)
 
 
 def reset_runners(drv: QemuDriver):
