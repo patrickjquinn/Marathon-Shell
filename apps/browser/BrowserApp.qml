@@ -28,6 +28,11 @@ MApp {
     property var tabViewsById: ({})
     property real drawerProgress: 0
     property bool isDrawerOpen: false
+    // On screen, as opposed to settled open: true from the first pixel of the
+    // drag-in until the close animation ends. drawerContainer's own visible
+    // binding is this expression; anything gated on drawer visibility should
+    // use this rather than isDrawerOpen, which only flips on release.
+    readonly property bool drawerVisible: drawerProgress > 0 || isDragging
     property bool isDragging: false
     property var drawerRef: null
     property var webView: null
@@ -538,7 +543,10 @@ MApp {
         var m = u.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^\/?#]+)/);
         if (!m)
             return u;
-        return m[1].replace(/^.*@/, "").replace(/:\d+$/, "").replace(/^www\./, "");
+        // The port stays. Autocomplete feeds navigateTo, so dropping it sent
+        // "192.168.1.5:8080" to :443 instead; and in the bar a non-default
+        // port is part of where you actually are.
+        return m[1].replace(/^.*@/, "").replace(/^www\./, "");
     }
 
     function _syncAddressBarFromCurrentTab() {
@@ -1886,7 +1894,7 @@ MApp {
             width: parent.width * 0.85
             height: parent.height
             x: parent.width - (width * drawerProgress)
-            visible: drawerProgress > 0 || isDragging
+            visible: browserApp.drawerVisible
             clip: true
 
             BrowserDrawer {
@@ -1908,24 +1916,29 @@ MApp {
                         drawer.bookmarksPage.bookmarks = Qt.binding(function () {
                             return browserApp.bookmarks;
                         });
-                        // Gated on isDrawerOpen: the drawer is instantiated
-                        // eagerly, so ungated these re-ran on every Chromium
-                        // titleChanged -- several per page load -- to lay out
-                        // a subtitle nobody was looking at, and re-scanned the
-                        // bookmark list on every navigation.
+                        // Gated on drawerVisible, which is what
+                        // drawerContainer itself uses: the drawer is on screen
+                        // from the first pixel of the drag, while isDrawerOpen
+                        // does not flip until release -- gating on that left
+                        // the bookmark row collapsed for the whole slide, then
+                        // popping in and shoving the list down. Still skips
+                        // the work while the drawer is closed, which is the
+                        // point: ungated these re-ran on every Chromium
+                        // titleChanged and rescanned the bookmarks per
+                        // navigation, for a panel nobody was looking at.
                         drawer.bookmarksPage.currentPageUrl = Qt.binding(function () {
-                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
                             return t ? (t.url || "") : "";
                         });
                         drawer.bookmarksPage.currentPageTitle = Qt.binding(function () {
-                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
                             return t ? (t.title || "") : "";
                         });
                         // Referencing browserApp.bookmarks inside the binding
                         // is what re-evaluates it when a bookmark is added or
                         // removed -- isBookmarked() alone notifies nothing.
                         drawer.bookmarksPage.currentPageBookmarked = Qt.binding(function () {
-                            var t = browserApp.isDrawerOpen ? browserApp.getCurrentTab() : null;
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
                             return !!t && browserApp.bookmarks.some(function (b) {
                                 return b.url === t.url;
                             });
