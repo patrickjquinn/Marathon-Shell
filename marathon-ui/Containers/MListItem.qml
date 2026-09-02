@@ -222,12 +222,15 @@ Rectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        property real mouseX: 0
-        property real mouseY: 0
+        // Press origin for the ripple. Named pressX/pressY, not mouseX/mouseY:
+        // those are MouseArea's own live cursor position, and shadowing them
+        // made the name ambiguous inside this scope.
+        property real pressX: 0
+        property real pressY: 0
 
         onPressed: function (mouse) {
-            mouseX = mouse.x;
-            mouseY = mouse.y;
+            pressX = mouse.x;
+            pressY = mouse.y;
             root.pressed = true;
         }
 

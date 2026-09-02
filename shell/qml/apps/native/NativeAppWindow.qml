@@ -13,10 +13,16 @@ MApp {
     property string nativeTitle: ""
     property string nativeAppIcon: ""
     property int surfaceId: -1
-    property bool isMinimized: false
     property bool isNative: true
     property var surfaceItemRef: null
-    readonly property bool revealReady: surfaceItemRef && surfaceItemRef.hasSentInitialSize && surfaceItemRef.hasFirstFrame
+
+    // Both of these are declared and driven by MApp. Redeclaring them here
+    // shadowed the base, so MApp.minimize() set a property nobody read and
+    // the shell's isMinimized never changed. isMinimized now simply inherits;
+    // revealReady overrides the BASE BINDING, because a native window's
+    // reveal must wait for the Wayland surface's first frame rather than
+    // MApp's next-tick default.
+    revealReady: surfaceItemRef && surfaceItemRef.hasSentInitialSize && surfaceItemRef.hasFirstFrame
 
     signal requestClose(bool skipNative)
 

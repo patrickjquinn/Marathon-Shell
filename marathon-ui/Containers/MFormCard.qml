@@ -1,4 +1,3 @@
-import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick

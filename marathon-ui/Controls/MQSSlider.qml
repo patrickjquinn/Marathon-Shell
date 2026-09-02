@@ -157,7 +157,7 @@ Item {
                     property int _lastHapticStep: -1
                     onPressed: {
                         _lastHapticStep = -1;
-                        drag(mouseX);
+                        applyDragAt(mouseX);
                     }
                     onReleased: {
                         // Release haptic = settle confirmation.
@@ -165,9 +165,10 @@ Item {
                     }
                     onPositionChanged: {
                         if (pressed)
-                            drag(mouseX);
+                            applyDragAt(mouseX);
                     }
-                    function drag(x) {
+                    // Not drag(): that is MouseArea's own grouped property.
+                    function applyDragAt(x) {
                         const f = Math.max(0, Math.min(1, x / track.width));
                         root.value = root.from + f * (root.to - root.from);
                         const step = Math.round(root.value / 5) * 5;   // every 5%

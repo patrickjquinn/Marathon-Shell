@@ -1,6 +1,5 @@
 import QtQuick
 import MarathonUI.Theme
-import MarathonUI.Core
 
 Column {
     id: root

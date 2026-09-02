@@ -10,7 +10,11 @@ Item {
     property bool checked: false
     property string text: ""
     property bool disabled: false
-    property string state: "default"
+    // Named controlState, not state: `state` is QQuickItem's own property, the
+    // one the States/Transitions system selects on. Shadowing it silently
+    // disables that machinery for this component and for anything that
+    // subclasses it.
+    property string controlState: "default"
 
     signal toggled(bool checked)
     signal clicked
@@ -35,7 +39,7 @@ Item {
         toggle()
 
     function toggle() {
-        if (!disabled && state === "default") {
+        if (!disabled && controlState === "default") {
             checked = !checked;
             toggled(checked);
             // Haptic moved to the check-icon scale spring onStopped —
@@ -142,7 +146,7 @@ Item {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        enabled: !root.disabled && root.state === "default"
+        enabled: !root.disabled && root.controlState === "default"
         cursorShape: Qt.PointingHandCursor
         hoverEnabled: true
 

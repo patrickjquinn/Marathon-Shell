@@ -1,7 +1,6 @@
 import QtQuick
 import MarathonUI.Theme
 import MarathonOS.Shell
-import MarathonUI.Core
 
 Rectangle {
     id: root

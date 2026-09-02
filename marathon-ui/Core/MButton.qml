@@ -49,7 +49,11 @@ Item {
     property string iconName: ""
     property bool iconLeft: true
     property bool disabled: false
-    property string state: "default"          // "default" | "loading" | "success"
+    // Named controlState, not state: `state` is QQuickItem's own property, the
+    // one the States/Transitions system selects on. Shadowing it silently
+    // disables that machinery for this component and for anything that
+    // subclasses it.
+    property string controlState: "default"          // "default" | "loading" | "success"
 
     // Cast-down glow is opt-in. Qt's MultiEffect renders the halo to an
     // FBO whose composite geometry ignores ancestor clip, so the 24 px DS
@@ -92,13 +96,13 @@ Item {
     Accessible.role: Accessible.Button
     Accessible.name: text
     Accessible.description: variant + " button"
-    Accessible.onPressAction: if (!disabled && state === "default")
+    Accessible.onPressAction: if (!disabled && controlState === "default")
         clicked()
 
     focus: true
-    Keys.onReturnPressed: if (!disabled && state === "default")
+    Keys.onReturnPressed: if (!disabled && controlState === "default")
         clicked()
-    Keys.onSpacePressed: if (!disabled && state === "default")
+    Keys.onSpacePressed: if (!disabled && controlState === "default")
         clicked()
 
     // ── Primary cast-down glow ─────────────────────────────────
@@ -235,7 +239,7 @@ Item {
             anchors.centerIn: parent
             spacing: 8
             layoutDirection: root.iconLeft ? Qt.LeftToRight : Qt.RightToLeft
-            opacity: root.state === "loading" ? 0 : 1
+            opacity: root.controlState === "loading" ? 0 : 1
             Behavior on opacity {
                 NumberAnimation {
                     duration: MMotion.quick
@@ -243,7 +247,7 @@ Item {
             }
 
             Icon {
-                visible: root.iconName !== "" && root.state === "default"
+                visible: root.iconName !== "" && root.controlState === "default"
                 anchors.verticalCenter: parent.verticalCenter
                 name: root.iconName
                 size: root.iconSize
@@ -287,8 +291,8 @@ Item {
             // buttons (e.g., Add to Cart → ✓).
             size: Math.round(root.iconSize * 1.6)
             color: root.isPrimary ? "#000000" : MColors.success
-            visible: root.state === "success"
-            scale: root.state === "success" ? 1 : 0
+            visible: root.controlState === "success"
+            scale: root.controlState === "success" ? 1 : 0
             // Stiff spring + critical damping — success should LAND
             // decisively, no overshoot. Coupled with the size jump,
             // the user perceives the button completing rather than
@@ -298,7 +302,7 @@ Item {
                     spring: MMotion.stiffnessSpatialFor("tap")
                     damping: MMotion.dampingCritical
                     epsilon: MMotion.epsilon
-                    onStopped: if (root.state === "success")
+                    onStopped: if (root.controlState === "success")
                         MHaptics.success()
                 }
             }
@@ -309,7 +313,7 @@ Item {
         MouseArea {
             id: mouseArea
             anchors.fill: parent
-            enabled: !root.disabled && root.state === "default"
+            enabled: !root.disabled && root.controlState === "default"
 
             onPressed: {
                 MHaptics.lightImpact();

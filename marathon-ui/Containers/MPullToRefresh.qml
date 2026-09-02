@@ -12,7 +12,6 @@ Item {
     property alias contentItem: contentFlickable
     property real threshold: 80
     property bool refreshing: false
-    property bool enabled: true
 
     signal refreshTriggered
 

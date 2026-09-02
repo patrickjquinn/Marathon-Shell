@@ -1,4 +1,3 @@
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
@@ -8,7 +7,11 @@ Rectangle {
     property string iconSource: ""
     property alias source: buttonImage.source
     property bool disabled: false
-    property string state: "default"
+    // Named controlState, not state: `state` is QQuickItem's own property, the
+    // one the States/Transitions system selects on. Shadowing it silently
+    // disables that machinery for this component and for anything that
+    // subclasses it.
+    property string controlState: "default"
     // Override at the call site with a meaningful label (e.g. "Lock device").
     property string a11yName: ""
 
@@ -22,7 +25,7 @@ Rectangle {
     Accessible.role: Accessible.Button
     Accessible.name: a11yName.length > 0 ? a11yName : (iconSource.length > 0 ? iconSource : "Button")
     Accessible.onPressAction: {
-        if (!disabled && state === "default") {
+        if (!disabled && controlState === "default") {
             clicked();
         }
     }
@@ -46,7 +49,7 @@ Rectangle {
         id: mouseArea
 
         anchors.fill: parent
-        enabled: !root.disabled && root.state === "default"
+        enabled: !root.disabled && root.controlState === "default"
         onPressed: function (mouse) {
             root.pressed();
         }
