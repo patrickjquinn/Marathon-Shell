@@ -47,34 +47,70 @@ def busctl_launch(drv: QemuDriver, app_id: str) -> bool:
     return rc == 0 and "true" in out.lower()
 
 
-def busctl_close(drv: QemuDriver, app_id: str):
-    # Synthetic home — return to launcher by killing app-runner. Faster
-    # and less flake-prone than driving the bottom-pill swipe-up gesture.
-    drv.ssh(f"pkill -TERM -f 'marathon-app-runner --app-id {app_id}' || true")
-    time.sleep(0.4)
 
 
-def app_runner_pid(drv: QemuDriver, app_id: str) -> int | None:
-    """PID of a live app-runner, or None.
+def runner_pids(drv: QemuDriver) -> set[int]:
+    """PIDs of every live app-runner.
 
-    This deliberately does NOT match on the app id. The runner is exec'd
-    inside bwrap, and with the warm pool enabled it keeps its `--pool`
-    argv even after adopting an app -- the app id appears in no process's
-    argv at all. Matching "--app-id <id>" therefore only ever succeeded
-    for the two unsandboxed WebEngine apps (browser, maps), which is why
-    every other app reported "no app-runner pid" while its screenshot
-    showed the app running perfectly, and why scenario 07 skipped its
-    pixel-delta check -- the part that does the real work.
-
-    Matching on comm keeps both things the callers actually need: a
-    launch adds a runner, a crash removes one. Note comm is truncated to
-    15 chars ("marathon-app-ru"), and matching comm rather than the full
-    cmdline also avoids pgrep self-matching our own ssh command.
+    Not matched by app id: the runner is exec'd inside bwrap and, with
+    the warm pool enabled, keeps its `--pool` argv even after adopting
+    an app, so the app id appears in no process's argv. comm is
+    truncated to 15 chars ("marathon-app-ru"); matching comm rather
+    than the full cmdline also stops pgrep self-matching our own ssh
+    command.
     """
     rc, out, _ = drv.ssh(
-        "ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}' | tail -1")
-    out = out.strip()
-    return int(out) if out.isdigit() else None
+        "ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}'")
+    return {int(t) for t in out.split() if t.isdigit()}
+
+
+def wake_display(drv: QemuDriver):
+    """Turn the panel on before capturing anything.
+
+    Doze display-off is default-on, so a guest left idle blanks the
+    screen. Every screendump then comes back uniformly black and every
+    frame comparison reads 0% -- which looks exactly like "the app never
+    drew". Costs one call; saves a whole run.
+    """
+    drv.ssh("marathon-dev wake 2>/dev/null || true")
+    time.sleep(1.0)
+
+
+def reset_runners(drv: QemuDriver):
+    """Close running apps so the next launch starts on page one.
+
+    The old close pkill'd "marathon-app-runner --app-id <id>", which
+    matches nothing under the warm pool -- so "ensure clean state" was
+    a silent no-op and each app was relaunched on whatever page the
+    previous iteration left it on, quietly invalidating recipes that
+    assume a first page.
+
+    marathon-dev close is the shell's own supported path; fall back to
+    signalling the runners directly on images that predate it.
+    """
+    rc, _, _ = drv.ssh("marathon-dev close 2>/dev/null")
+    if rc != 0:
+        for pid in runner_pids(drv):
+            drv.ssh(f"kill -TERM {pid} 2>/dev/null || true")
+    time.sleep(1.5)
+
+
+def frame_delta(drv: QemuDriver, a: str, b: str) -> float:
+    """Fraction of pixels differing between two captured screenshots."""
+    pa, pb = drv.run_dir / f"{a}.png", drv.run_dir / f"{b}.png"
+    if not (pa.exists() and pb.exists()):
+        return 0.0
+    try:
+        from PIL import Image
+        import numpy as np
+    except ImportError:
+        return 0.0
+    xa = np.asarray(Image.open(pa).convert("RGB"), dtype=np.int16)
+    xb = np.asarray(Image.open(pb).convert("RGB"), dtype=np.int16)
+    if xa.shape != xb.shape:
+        return 1.0
+    d = np.abs(xa - xb).max(axis=-1)
+    return float((d > 12).sum() / d.size)
     for line in out.splitlines():
         line = line.strip()
         if line.isdigit():
@@ -216,6 +252,7 @@ def run(drv: QemuDriver, since: str) -> int:
                 f"{app_id} {perm} true true >/dev/null 2>&1")
     drv.ssh("\n".join(grant_script))
 
+    wake_display(drv)
     fails = 0
 
     for app_id, recipe in RECIPES.items():
@@ -225,26 +262,17 @@ def run(drv: QemuDriver, since: str) -> int:
             print(f"     SKIP  no recipe (QEMU-specific gap; see comment)")
             continue
 
-        # Ensure clean state.
-        busctl_close(drv, app_id)
-        time.sleep(0.3)
+        # Clean slate: the recipes below tap coordinates that assume the
+        # app's FIRST page, so a resident instance left on a sub-page
+        # would silently invalidate them.
+        reset_runners(drv)
 
         if not busctl_launch(drv, app_id):
             print(f"     FAIL  busctl LaunchApp returned !true")
             fails += 1
             continue
 
-        # Surface attach window matches scenario 03.
-        pid = None
-        for _ in range(20):
-            pid = app_runner_pid(drv, app_id)
-            if pid:
-                break
-            time.sleep(0.5)
-        if not pid:
-            print(f"     FAIL  no app-runner pid after 10 s")
-            fails += 1
-            continue
+        runners_after_launch = runner_pids(drv)
 
         # Settle render — apps with WebEngine init (browser, maps) need
         # extra time. The 2 s baseline lets MApp.Component.onCompleted
@@ -283,7 +311,6 @@ def run(drv: QemuDriver, since: str) -> int:
         else:
             print(f"     FAIL  unknown recipe verb {recipe[0]}")
             fails += 1
-            busctl_close(drv, app_id)
             continue
 
         # Press-state feedback animates ~120-200 ms; persistent state
@@ -301,11 +328,13 @@ def run(drv: QemuDriver, since: str) -> int:
             fails += 1
 
         # Crash check after interaction — the recipe shouldn't kill the runner.
-        if not app_runner_pid(drv, app_id):
-            print(f"     FAIL  app-runner died during interaction")
+        # A runner disappearing across the interaction means the recipe
+        # killed the app. Compare counts rather than a specific pid --
+        # pool adoption reuses the spare's pid, so there is no stable
+        # per-app pid to track.
+        if len(runner_pids(drv)) < len(runners_after_launch):
+            print(f"     FAIL  an app-runner died during interaction")
             fails += 1
-
-        busctl_close(drv, app_id)
 
     return fails
 
