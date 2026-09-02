@@ -41,7 +41,11 @@ Rectangle {
         title: bookmarksPage.currentPageBookmarked ? "Remove bookmark" : "Bookmark this page"
         subtitle: bookmarksPage.currentPageTitle || bookmarksPage.currentPageUrl
         iconName: bookmarksPage.currentPageBookmarked ? "star" : "plus"
-        enabled: !bookmarksPage.bookmarksDisabled
+        // Dimmed but still tappable: Item.enabled false propagates to the
+        // row's own MouseArea, so the tap never reached the handler and the
+        // "Bookmarks are disabled in Private Browsing" toast it raises was
+        // dead code. A disabled-looking control that explains itself when
+        // pressed beats one that silently does nothing.
         opacity: bookmarksPage.bookmarksDisabled ? 0.45 : 1
         onSettingClicked: bookmarksPage.toggleCurrentBookmark()
     }

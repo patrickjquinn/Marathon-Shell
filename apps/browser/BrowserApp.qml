@@ -45,7 +45,6 @@ MApp {
     property bool _pendingAddressBarFocus: false
     property bool _pendingAddressBarSelectAll: false
     property int _pendingAddressBarAttempts: 0
-    property bool addressBarWantsFocus: false
 
     function updateCurrentWebView() {
         var currentTab = getCurrentTab();
@@ -519,9 +518,26 @@ MApp {
     // view -- users saw "https", "ckgo.com/", "e_website", never the one
     // thing an address bar exists to answer. Tapping the bar still swaps in
     // the full URL, selected, for editing.
+    // http and https render identically once the scheme is hidden, so the bar
+    // has to say which it is. "insecure" only for plaintext http on a real
+    // host -- about:blank and friends get no badge rather than a wrong one.
+    function schemeBadgeFor(url) {
+        var u = (url || "").toString();
+        if (/^https:\/\//i.test(u))
+            return "secure";
+        if (/^http:\/\//i.test(u))
+            return "insecure";
+        return "none";
+    }
+
     function displayHostFor(url) {
         var u = (url || "").toString();
-        var m = u.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^\/]+)/);
+        // The authority ends at the first / ? or #. Matching [^/]+ alone let
+        // a query string into the capture, and the greedy userinfo strip then
+        // turned "https://evil.com?x=@paypal.com" into a bar reading
+        // "paypal.com" -- an address bar naming the attacker's choice of site
+        // is worse than one showing nothing.
+        var m = u.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^\/?#]+)/);
         if (!m)
             return u;
         return m[1].replace(/^.*@/, "").replace(/:\d+$/, "").replace(/^www\./, "");
@@ -861,7 +877,7 @@ MApp {
                                 id: webView
 
                                 anchors.fill: parent
-                                focus: !urlInput.activeFocus && !browserApp.addressBarWantsFocus
+                                focus: !urlInput.activeFocus
                                 url: tabDelegate.url
                                 profile: isPrivateMode ? privateProfile : normalProfile
                                 active: isAppActive && (tabDelegate.index === currentTabIndex)
@@ -1237,30 +1253,57 @@ MApp {
                             onClicked: urlInput.forceActiveFocus()
                         }
 
-                        Text {
-                            id: hostLabel
+                        // Badge and host travel together as one centred
+                        // group. Anchoring the badge to hostLabel.left put it
+                        // outside the pill and the clip ate it -- hostLabel
+                        // spans the full width and merely centres its own
+                        // glyphs, so its left edge is the pill's, not the
+                        // text's.
+                        Row {
+                            id: hostRow
 
-                            // Wider than the input it fronts: the input
-                            // keeps a fat editing margin, but display only
-                            // needs a whisker each side -- "duckduckgo.com"
-                            // vs "duckduckgo.c...", and an elided host is a
-                            // spoofer's friend.
-                            anchors.left: parent.left
-                            anchors.right: actionRow.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: MSpacing.xs
-                            anchors.rightMargin: 2
+                            readonly property real avail: actionRow.x - MSpacing.xs * 2
+
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Math.round(4 * (Constants.scaleFactor || 1.0))
                             visible: !urlInput.activeFocus
-                            text: urlInput.text
-                            color: MColors.text
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeBody
-                            fontSizeMode: Text.HorizontalFit
-                            minimumPixelSize: Math.round(MTypography.sizeBody * 0.55)
-                            elide: Text.ElideRight
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+
+                            Icon {
+                                id: schemeBadge
+
+                                readonly property string badgeState: {
+                                    var t = getCurrentTab();
+                                    return browserApp.schemeBadgeFor(t ? t.url : "");
+                                }
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: badgeState !== "none"
+                                width: visible ? implicitWidth : 0
+                                name: badgeState === "secure" ? "lock-simple" : "warning"
+                                size: Math.round(MTypography.sizeBody * 0.85)
+                                color: badgeState === "secure" ? MColors.textSecondary : MColors.warning
+                            }
+
+                            Text {
+                                id: hostLabel
+
+                                // Only as wide as it needs, so the pair stays
+                                // centred; capped at what the pill has spare
+                                // after the badge, then elides.
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, hostRow.avail
+                                                - (schemeBadge.visible ? schemeBadge.width + hostRow.spacing : 0))
+                                text: urlInput.text
+                                color: MColors.text
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeBody
+                                fontSizeMode: Text.HorizontalFit
+                                minimumPixelSize: Math.round(MTypography.sizeBody * 0.55)
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                         }
 
                         TextInput {
@@ -1302,7 +1345,6 @@ MApp {
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     browserApp.isEditingAddress = true;
-                                    browserApp.addressBarWantsFocus = false;
                                     urlInput.userTypedSinceFocus = false;
                                     var currentTab = getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
@@ -1321,6 +1363,14 @@ MApp {
                                     urlInput.userTypedSinceFocus = false;
                                     _clearAddressSuggestions();
                                     urlInput.cursorPosition = 0;
+                                    // Focusing swaps in the full URL for
+                                    // editing; blurring has to put the host
+                                    // back. Without this, tapping the bar then
+                                    // tapping the page away left the raw URL
+                                    // shrunk and elided in the pill until the
+                                    // next navigation -- the exact state the
+                                    // host-only display exists to avoid.
+                                    browserApp._syncAddressBarFromCurrentTab();
                                 }
                             }
                             Component.onCompleted: {
@@ -1616,7 +1666,19 @@ MApp {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
+            // Stop short of urlBar. Moving this out of the Column gave it the
+            // full screen height at z:1000, and the bar's rightmost control --
+            // the tab button, freshly shrunk to the 44px floor -- was left
+            // with 1px of itself outside the strip. Tapping the tab count did
+            // nothing: this handler took the press and released at progress 0.
+            anchors.bottomMargin: urlBar.height
             width: Constants.gestureEdgeWidth
+            // ...and it must yield to the drawer it opens. At z:1000 it also
+            // outranked drawerContainer, eating the right edge of everything
+            // inside: half of each TabCard's close button, the bookmark row's
+            // right end. Gated on isDrawerOpen, not drawerProgress, which
+            // this handler drives itself mid-drag.
+            enabled: !browserApp.isDrawerOpen
             z: 1000
             onPressed: mouse => {
                 startX = mouse.x + rightEdgeGesture.x;
