@@ -37,7 +37,19 @@ else
     QMLDIR_ROOTS=()
     [ -d "$BUILD_DIR/MarathonUI"  ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR")
     [ -d "$BUILD_DIR/shell/qml"   ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/shell/qml")
-    [ -d "$BUILD_DIR/apps"        ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/apps")
+    # Apps do NOT build into $BUILD_DIR -- they build into build-apps/, and
+    # each app is its own import root (build-apps/apps/<app>/MarathonApp/<X>).
+    # The old single "-I $BUILD_DIR/apps" pointed at a directory that has
+    # never existed, so qmllint could not resolve one app-internal type: every
+    # page an app referenced by name (ScalePage, WallpaperPage, AddCityDialog,
+    # SoundPickerPage...) was reported "not resolved", and every alias into
+    # them "cannot resolve". 21 warnings that were lint blindness rather than
+    # defects -- and worse, whatever real problems sit behind those types were
+    # invisible.
+    APPS_BUILD_DIR="${APPS_BUILD_DIR:-build-apps}"
+    for _approot in "$APPS_BUILD_DIR"/apps/*/; do
+        [ -d "$_approot" ] && QMLDIR_ROOTS+=("-I" "$_approot")
+    done
 
     QML_FILES=()
     while IFS= read -r -d '' f; do QML_FILES+=("$f"); done < <(
