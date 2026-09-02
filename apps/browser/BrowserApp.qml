@@ -1140,8 +1140,8 @@ MApp {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: MSpacing.sm
-                    anchors.rightMargin: MSpacing.sm
+                    anchors.leftMargin: MSpacing.xs
+                    anchors.rightMargin: MSpacing.xs
                     spacing: MSpacing.xs
 
                     transform: Translate {
@@ -1169,8 +1169,8 @@ MApp {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall
-                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
 
@@ -1518,8 +1518,8 @@ MApp {
                     // control size instead of 0.8x. Hidden while editing so
                     // the field takes the room instead.
                     Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall
-                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
                         visible: !urlInput.activeFocus
@@ -1556,31 +1556,32 @@ MApp {
                         }
                     }
 
+                    // Safari's tab affordance: the count inside a rounded
+                    // square. The old icon-plus-"(1)" pairing was the widest
+                    // control in the bar -- 1.6x a touch target for one
+                    // glyph and three characters of tertiary text.
                     Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall * 1.6
-                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
 
-                        Row {
+                        Rectangle {
                             anchors.centerIn: parent
-                            anchors.horizontalCenterOffset: -MSpacing.xs
-                            spacing: 3
-
-                            Icon {
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "grid-3x3"
-                                size: Constants.iconSizeSmall
-                                color: MColors.text
-                            }
+                            width: Math.round(parent.width * 0.62)
+                            height: width
+                            radius: Math.round(width * 0.28)
+                            color: "transparent"
+                            border.width: Math.max(2, Math.round(width * 0.07))
+                            border.color: MColors.text
 
                             Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "(" + tabs.count + ")"
-                                font.pixelSize: MTypography.sizeSmall * 0.85
-                                font.weight: Font.Normal
-                                color: MColors.textTertiary
-                                visible: tabs.count > 0
+                                anchors.centerIn: parent
+                                text: tabs.count > 99 ? ":D" : tabs.count
+                                font.pixelSize: Math.round(parent.height * 0.52)
+                                font.weight: Font.DemiBold
+                                font.family: MTypography.fontFamily
+                                color: MColors.text
                             }
                         }
 
