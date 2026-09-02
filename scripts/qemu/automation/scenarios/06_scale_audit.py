@@ -36,14 +36,17 @@ def set_config(drv: QemuDriver, factor: float) -> None:
 
 
 def restart_shell(drv: QemuDriver) -> None:
-    # The user-systemd manager needs the user's XDG_RUNTIME_DIR + DBUS env.
-    # `machinectl shell user@` would set both but isn't always available;
-    # `runuser -u user -- systemctl --user restart` lets pam_systemd resolve
-    # the user session and forward the unit.
-    drv.ssh(
-        "runuser -u user -- env XDG_RUNTIME_DIR=/run/user/1000 "
-        "systemctl --user restart marathon-shell.service"
-    )
+    # greetd owns the compositor on every shipped image, so restart it.
+    #
+    # This used to restart the systemd USER unit, which does not own the
+    # running shell -- it STARTS A SECOND ONE. Together with that unit's
+    # (since removed) QT_QPA_PLATFORM=wayland, the duplicate aborted with
+    # "Failed to create wl_display", Restart=on-failure looped it, and it
+    # took the real compositor's Wayland socket down with it, so every
+    # later scenario found a shell with no socket and could launch
+    # nothing. wait_shell_up() never caught it either: greetd's shell was
+    # still running, so pgrep reported "up" immediately.
+    drv.ssh("systemctl restart greetd")
 
 
 def wait_shell_up(drv: QemuDriver, timeout: int = 40) -> bool:
