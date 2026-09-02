@@ -1,4 +1,3 @@
-import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme

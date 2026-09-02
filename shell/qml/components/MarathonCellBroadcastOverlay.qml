@@ -70,8 +70,13 @@ Item {
         function onBroadcastReceived(broadcast) {
             if (typeof HapticManager !== "undefined")
                 HapticManager.vibratePattern(overlay.weaPattern, 0);
-            if (typeof AudioManagerCpp !== "undefined" && AudioManagerCpp.playAlert)
-                AudioManagerCpp.playAlert("wea-attention");
+            // AudioManagerCpp has no play method -- it is the mixer
+            // (setVolume/setMuted/streams). The guard `&& playAlert` meant
+            // that resolved to undefined and the branch was skipped in
+            // silence, so a Wireless Emergency Alert made no sound at all.
+            // AudioPolicyControllerCpp is what actually plays shell sounds,
+            // as IncomingCallOverlay already does for the ringtone.
+            AudioPolicyControllerCpp.playAlarmSound();
         }
         target: CellBroadcastManagerCpp
     }

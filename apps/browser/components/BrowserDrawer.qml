@@ -1,6 +1,5 @@
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -21,6 +20,7 @@ Rectangle {
     signal newTabRequested
     signal bookmarkSelected(string url)
     signal historySelected(string url)
+    signal toggleCurrentBookmark
 
     anchors.fill: parent
     color: MColors.background
@@ -81,6 +81,7 @@ Rectangle {
                     drawer.bookmarkSelected(url);
                     drawer.closed();
                 }
+                onToggleCurrentBookmark: drawer.toggleCurrentBookmark()
             }
 
             HistoryPage {

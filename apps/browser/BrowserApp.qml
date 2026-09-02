@@ -1947,19 +1947,6 @@ MApp {
                             return browserApp.isPrivateMode;
                         });
                         drawer.bookmarksPage.schemeOf = browserApp.schemeBadgeFor;
-                        drawer.bookmarksPage.toggleCurrentBookmark.connect(function () {
-                            if (browserApp.isPrivateMode) {
-                                browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
-                                return;
-                            }
-                            var t = browserApp.getCurrentTab();
-                            if (!t)
-                                return;
-                            if (isBookmarked(t.url))
-                                removeBookmark(t.url);
-                            else
-                                addBookmark(t.url, t.title);
-                        });
                     }
 
                     if (drawer.historyPage)
@@ -2009,6 +1996,19 @@ MApp {
                 onTabSelected: tabId => {
                     switchToTab(tabId);
                     closeDrawer();
+                }
+                onToggleCurrentBookmark: {
+                    if (browserApp.isPrivateMode) {
+                        browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
+                        return;
+                    }
+                    var t = browserApp.getCurrentTab();
+                    if (!t)
+                        return;
+                    if (isBookmarked(t.url))
+                        removeBookmark(t.url);
+                    else
+                        addBookmark(t.url, t.title);
                 }
                 onNewTabRequested: {
                     var tabId = createNewTab();
