@@ -71,7 +71,7 @@ class SecurityManager : public QObject {
 
     Q_INVOKABLE void authenticatePassword(const QString &password);
     Q_INVOKABLE void authenticateQuickPIN(const QString &pin);
-    Q_INVOKABLE void authenticateBiometric(BiometricType type = Fingerprint);
+    Q_INVOKABLE void authenticateBiometric(SecurityManager::BiometricType type = Fingerprint);
     Q_INVOKABLE void cancelAuthentication();
 
     Q_INVOKABLE void setQuickPIN(const QString &pin, const QString &systemPassword);
@@ -82,7 +82,7 @@ class SecurityManager : public QObject {
     Q_INVOKABLE bool    setQuickPINFirstRun(const QString &pin);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
 
-    Q_INVOKABLE bool    isBiometricEnrolled(BiometricType type) const;
+    Q_INVOKABLE bool    isBiometricEnrolled(SecurityManager::BiometricType type) const;
 
     Q_INVOKABLE void    resetLockout();
 

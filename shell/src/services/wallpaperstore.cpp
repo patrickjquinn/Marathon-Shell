@@ -2,6 +2,7 @@
 #include "src/managers/settingsmanager.h"
 #include <QVariant>
 #include <QVariantMap>
+#include <utility>   // std::as_const
 
 WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent)
     : QObject(parent)
@@ -34,7 +35,6 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
         wp("Pulse", "pulse.svg", true),
         wp("Dawn", "dawn.svg", true),
     };
-    emit wallpapersChanged();
 
     if (m_settingsManager && !m_settingsManager->wallpaperPath().isEmpty()) {
         setCurrentWallpaper(m_settingsManager->wallpaperPath());
@@ -107,7 +107,7 @@ void WallpaperStore::setIsDark(bool isDark) {
 }
 
 void WallpaperStore::refreshIsDark() {
-    for (const QVariant &entry : m_wallpapers) {
+    for (const QVariant &entry : std::as_const(m_wallpapers)) {
         const QVariantMap map = entry.toMap();
         if (map.value("path").toString() == m_currentWallpaper) {
             setIsDark(map.value("isDark").toBool());

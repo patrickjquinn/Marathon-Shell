@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QSet>
+#include <utility>   // std::as_const
 
 DesktopFileParser::DesktopFileParser(QObject *parent)
     : QObject(parent) {}
@@ -35,7 +36,7 @@ QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths,
         qDebug() << "[DesktopFileParser] Found" << desktopFiles.count() << "desktop files in"
                  << path;
 
-        for (const QFileInfo &fileInfo : desktopFiles) {
+        for (const QFileInfo &fileInfo : std::as_const(desktopFiles)) {
             QVariantMap app = parseDesktopFile(fileInfo.absoluteFilePath());
             if (!app.isEmpty()) {
 
@@ -409,7 +410,7 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
 
     if (app.contains("purismFormFactor")) {
         QStringList formFactors = app["purismFormFactor"].toStringList();
-        for (const QString &factor : formFactors) {
+        for (const QString &factor : std::as_const(formFactors)) {
             if (factor.contains("Mobile", Qt::CaseInsensitive)) {
                 qDebug() << "[DesktopFileParser]   Mobile-friendly via X-Purism-FormFactor:"
                          << factor;
@@ -420,7 +421,7 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
 
     if (app.contains("kdeFormFactors")) {
         QStringList formFactors = app["kdeFormFactors"].toStringList();
-        for (const QString &factor : formFactors) {
+        for (const QString &factor : std::as_const(formFactors)) {
             if (factor.contains("handset", Qt::CaseInsensitive) ||
                 factor.contains("phone", Qt::CaseInsensitive)) {
                 qDebug() << "[DesktopFileParser]   Mobile-friendly via X-KDE-FormFactors:"
@@ -434,7 +435,7 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
     // intentionally pass mobile QA (Calls, Chats, Portfolio, etc.).
     if (app.contains("categories")) {
         QStringList categories = app["categories"].toStringList();
-        for (const QString &cat : categories) {
+        for (const QString &cat : std::as_const(categories)) {
             if (cat.compare("Mobile", Qt::CaseInsensitive) == 0 ||
                 cat.compare("Phone", Qt::CaseInsensitive) == 0) {
                 qDebug() << "[DesktopFileParser]   Mobile-friendly via Categories:" << cat;

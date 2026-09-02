@@ -8,6 +8,7 @@
 #include <QDebug>
 #ifdef HAVE_QT_CONCURRENT
 #include <QtConcurrent>
+#include <utility>   // std::as_const
 #endif
 
 MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *parent)
@@ -105,7 +106,7 @@ int MarathonAppScanner::performScan() {
     int         discoveredCount = 0;
     QStringList searchPaths     = getSearchPaths();
 
-    for (const QString &searchPath : searchPaths) {
+    for (const QString &searchPath : std::as_const(searchPaths)) {
         QDir dir(searchPath);
 
         if (!dir.exists()) {
@@ -118,7 +119,7 @@ int MarathonAppScanner::performScan() {
         QStringList appDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
         appDirs.sort();
 
-        for (const QString &appDir : appDirs) {
+        for (const QString &appDir : std::as_const(appDirs)) {
             QString appPath      = dir.absoluteFilePath(appDir);
             QString manifestPath = appPath + "/manifest.json";
 
@@ -203,12 +204,12 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.isProtected = obj.value("protected").toBool(false);
 
     QJsonArray permissionsArray = obj.value("permissions").toArray();
-    for (const auto &value : permissionsArray) {
+    for (const auto &value : std::as_const(permissionsArray)) {
         info.permissions.append(value.toString());
     }
 
     QJsonArray keywordsArray = obj.value("searchKeywords").toArray();
-    for (const auto &value : keywordsArray) {
+    for (const auto &value : std::as_const(keywordsArray)) {
         info.searchKeywords.append(value.toString());
     }
 
@@ -216,27 +217,27 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.deepLinksJson       = QJsonDocument(deepLinksObj).toJson(QJsonDocument::Compact);
 
     QJsonArray categoriesArray = obj.value("categories").toArray();
-    for (const auto &value : categoriesArray) {
+    for (const auto &value : std::as_const(categoriesArray)) {
         info.categories.append(value.toString());
     }
 
     QJsonArray uriSchemesArray = obj.value("handlesUriSchemes").toArray();
-    for (const auto &value : uriSchemesArray) {
+    for (const auto &value : std::as_const(uriSchemesArray)) {
         info.handlesUriSchemes.append(value.toString());
     }
 
     QJsonArray defaultForArray = obj.value("defaultFor").toArray();
-    for (const auto &value : defaultForArray) {
+    for (const auto &value : std::as_const(defaultForArray)) {
         info.defaultFor.append(value.toString());
     }
 
     QJsonArray bgCapArray = obj.value("backgroundCapabilities").toArray();
-    for (const auto &value : bgCapArray) {
+    for (const auto &value : std::as_const(bgCapArray)) {
         info.backgroundCapabilities.append(value.toString());
     }
 
     QJsonArray qtModulesArray = obj.value("requiresQtModules").toArray();
-    for (const auto &value : qtModulesArray) {
+    for (const auto &value : std::as_const(qtModulesArray)) {
         info.requiresQtModules.append(value.toString());
     }
 

@@ -95,9 +95,9 @@ class PowerPolicyController : public QObject {
     // DisplayPolicyController::forceScreenOn (r293 backlight fix).
     Q_INVOKABLE bool              deepSleep();
 
-    Q_INVOKABLE PowerButtonAction powerButtonAction(bool screenOn, bool sessionLocked) const;
+    Q_INVOKABLE PowerPolicyController::PowerButtonAction powerButtonAction(bool screenOn, bool sessionLocked) const;
 
-    Q_INVOKABLE SleepAction       sleepAction(bool sessionLocked) const;
+    Q_INVOKABLE PowerPolicyController::SleepAction       sleepAction(bool sessionLocked) const;
 
     Q_INVOKABLE void              performCriticalPowerAction();
 

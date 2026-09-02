@@ -1,4 +1,5 @@
 #include "WordTrie.h"
+#include <utility>   // std::as_const
 
 WordTrie::WordTrie()
     : m_root(std::make_unique<Node>())
@@ -32,7 +33,7 @@ QStringList WordTrie::getCompletions(const QString &prefix, int maxResults) cons
     Node       *current     = m_root.get();
     QString     lowerPrefix = prefix.toLower();
 
-    for (const QChar &ch : lowerPrefix) {
+    for (const QChar &ch : std::as_const(lowerPrefix)) {
         auto it = current->children.find(ch);
         if (it == current->children.end()) {
             return results;

@@ -1,6 +1,7 @@
 #include "notificationmodel.h"
 #include "dbus/notificationdatabase.h"
 #include <QDebug>
+#include <utility>   // std::as_const
 
 NotificationModel::NotificationModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -174,7 +175,7 @@ Notification *NotificationModel::getNotification(int id) {
 
 void NotificationModel::updateUnreadCount() {
     int count = 0;
-    for (Notification *notification : m_notifications) {
+    for (Notification *notification : std::as_const(m_notifications)) {
         if (!notification->isRead()) {
             count++;
         }
@@ -207,7 +208,7 @@ void NotificationModel::loadFromDatabase(NotificationDatabase *database) {
     m_notifications.clear();
     m_notificationIndex.clear();
 
-    for (const auto &record : records) {
+    for (const auto &record : std::as_const(records)) {
         Notification *notification = new Notification(record.id, record.appId, record.title,
                                                       record.body, record.iconPath, this);
         notification->setIsRead(record.read);

@@ -36,7 +36,13 @@
 #include <QCoreApplication>
 #include <QFile>
 
-static RateLimiter   g_ipcRateLimiter;
+// Function-local rather than namespace-scope: constructed on first use
+// (thread-safe since C++11) instead of running a throwing initialiser
+// before main().
+static RateLimiter &ipcRateLimiter() {
+    static RateLimiter limiter;
+    return limiter;
+}
 static constexpr int RATE_LIMIT_MAX_CALLS = 30;
 static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
 
@@ -64,8 +70,8 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
         return true;
 
     const QString sender = ctx.message().service();
-    if (!g_ipcRateLimiter.tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
-        double rate = g_ipcRateLimiter.getRate(sender, method);
+    if (!ipcRateLimiter().tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
+        double rate = ipcRateLimiter().getRate(sender, method);
         SecurityLogger::logRateLimitExceeded(sender, method, static_cast<int>(rate));
         return false;
     }

@@ -52,7 +52,6 @@ MotionDaemon::MotionDaemon(QObject *parent)
     m_sampleTimer.start();
     m_minuteTimer.start();
     qInfo() << "[MotionDaemon] Started (source:" << (m_demoMode ? "demo" : m_iioBaseDir) << ")";
-    emit availableChanged();
 }
 
 MotionDaemon::~MotionDaemon() = default;

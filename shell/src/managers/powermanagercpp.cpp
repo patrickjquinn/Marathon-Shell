@@ -62,7 +62,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
         QDBusReply<QString> criticalReply = m_upowerInterface->call("GetCriticalAction");
         if (criticalReply.isValid() && !criticalReply.value().isEmpty()) {
             m_criticalAction = criticalReply.value();
-            emit criticalActionChanged();
         }
         qInfo() << "[PowerManagerCpp] UPower critical action:" << m_criticalAction;
         setupDBusConnections();

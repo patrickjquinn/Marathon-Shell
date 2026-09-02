@@ -7,11 +7,15 @@
 
 extern "C" {
 #include "fifo-v1-server.h"
+#include <utility>   // std::as_const
 }
 
 // ── Manager ────────────────────────────────────────────────────────────
 
-static const struct wp_fifo_manager_v1_interface s_managerImpl = {
+// constexpr: these tables are capture-less lambdas, whose conversion to a
+// function pointer is a constant expression, so the whole struct can live in
+// .rodata with no pre-main initialiser that could throw uncatchably.
+static constexpr struct wp_fifo_manager_v1_interface s_managerImpl = {
     /* destroy */
     [](struct wl_client *, struct wl_resource *resource) { wl_resource_destroy(resource); },
     /* get_fifo */
@@ -77,7 +81,7 @@ void FifoManagerV1::bindManager(struct wl_client *client, void *data, uint32_t v
 void FifoManagerV1::onFrameSwapped() {
     // Latch deadline crossed for every fifo surface. Each fifo decides
     // whether it had an active barrier and clears it.
-    for (FifoV1 *fifo : m_fifos)
+    for (FifoV1 *fifo : std::as_const(m_fifos))
         fifo->onLatchDeadline();
 }
 

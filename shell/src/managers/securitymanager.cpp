@@ -11,10 +11,12 @@
 #include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QDir>
-#include <QtConcurrent/QtConcurrent>
+#include <QtConcurrent/QtConcurrentRun>   // QtConcurrent::run -- the whole
+                                          // module header pulls in far more.
 #include <unistd.h>
 #include <pwd.h>
 #include <sys/types.h>
+#include <utility>   // std::as_const
 
 SecurityManager *SecurityManager::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new SecurityManager(engine);

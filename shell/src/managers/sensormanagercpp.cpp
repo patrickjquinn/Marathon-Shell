@@ -62,10 +62,8 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
         m_lightBackend     = true;
         m_proximityBackend = !m_iioProxPath.isEmpty();
         m_available        = true;
-        emit availableChanged();
         if (m_proximityBackend) {
             m_proximityAvailable = true;
-            emit proximityAvailableChanged();
         }
         return;
     }
@@ -75,7 +73,6 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
     m_lightBackend     = m_light->connectToBackend();
 
     m_available = m_proximityBackend || m_lightBackend;
-    emit availableChanged();
 
     if (m_proximityBackend) {
         connect(m_proximity, &QProximitySensor::readingChanged, this,
@@ -87,7 +84,6 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
         // running right now. Reflect "backend wired" here; runtime
         // activation is decoupled via setProximityActive().
         m_proximityAvailable = true;
-        emit proximityAvailableChanged();
         qInfo() << "[SensorManagerCpp] Proximity sensor backend connected (idle)";
     } else {
         qInfo() << "[SensorManagerCpp] No proximity sensor backend";

@@ -5,6 +5,7 @@
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
 #include <QUrl>
+#include <utility>   // std::as_const
 
 MPRIS2Controller::MPRIS2Controller(QObject *parent)
     : QObject(parent)
@@ -58,7 +59,7 @@ void MPRIS2Controller::setupDBusMonitoring() {
 }
 
 void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &oldOwner,
-                                          const QString &newOwner) {
+                                          const QString &newOwner) const {
     Q_UNUSED(oldOwner);
 
     if (!name.startsWith("org.mpris.MediaPlayer2."))
@@ -99,7 +100,7 @@ void MPRIS2Controller::scanForPlayers() {
     QStringList services = reply.value();
     QStringList mprisPlayers;
 
-    for (const QString &service : services) {
+    for (const QString &service : std::as_const(services)) {
         if (service.startsWith("org.mpris.MediaPlayer2.")) {
             mprisPlayers.append(service);
         }

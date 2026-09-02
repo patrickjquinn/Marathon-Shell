@@ -36,6 +36,7 @@ class Hunspell {
 #include <QStringConverter>
 #include <QTextStream>
 #include "WordTrie.h"
+#include <utility>   // std::as_const
 
 class WordEngine::Private {
   public:
@@ -163,7 +164,7 @@ QString WordEngine::dictionaryPath() {
           << "/usr/share/myspell/dicts"
           << "/usr/local/share/hunspell" << QDir::homePath() + "/.local/share/hunspell";
 
-    for (const QString &path : paths) {
+    for (const QString &path : std::as_const(paths)) {
         if (QFile::exists(path)) {
             return path;
         }
@@ -237,7 +238,7 @@ QString WordEngineWorker::findDictionaryPath(const QString &language) {
                 << "/usr/share/myspell/dicts"
                 << "/usr/local/share/hunspell";
 
-    for (const QString &basePath : searchPaths) {
+    for (const QString &basePath : std::as_const(searchPaths)) {
         QDir dir(basePath);
         if (dir.exists(language + ".dic")) {
             return dir.filePath(language);
@@ -245,7 +246,7 @@ QString WordEngineWorker::findDictionaryPath(const QString &language) {
     }
 
     QString langCode = language.left(2);
-    for (const QString &basePath : searchPaths) {
+    for (const QString &basePath : std::as_const(searchPaths)) {
         QDir        dir(basePath);
         QStringList dicFiles = dir.entryList(QStringList(langCode + "*.dic"));
         if (!dicFiles.isEmpty()) {
@@ -299,7 +300,9 @@ void WordEngineWorker::computePredictions(const QString &prefix, int maxResults)
                 break;
 
             QString word = QString::fromStdString(s);
-            if (word.toLower().startsWith(lowerPrefix) &&
+            // CaseInsensitive rather than toLower(): the latter allocates a
+            // new QString for every candidate word in the trie walk.
+            if (word.startsWith(lowerPrefix, Qt::CaseInsensitive) &&
                 !results.contains(word, Qt::CaseInsensitive)) {
                 results.append(word);
             }
@@ -323,7 +326,7 @@ bool WordEngineWorker::loadTrieFromDictionary(const QString &dicPath) {
     }
 
     QTextStream stream(&file);
-    QString     firstLine = stream.readLine();
+    stream.readLine();   // skip the header row; its value is not used
 
     int         loadedCount = 0;
     const int   MAX_WORDS   = 50000;

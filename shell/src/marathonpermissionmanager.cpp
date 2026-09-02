@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QTimer>
+#include <utility>   // std::as_const
 
 MarathonPermissionManager *MarathonPermissionManager::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new MarathonPermissionManager(engine);

@@ -5,6 +5,7 @@
 #include "hapticmanager.h"
 
 #include <QModelIndex>
+#include <utility>   // std::as_const
 
 NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, SettingsManager *settings,
                                                AudioPolicyController *audioPolicy,
@@ -33,8 +34,6 @@ NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, Setting
             map.insert("persistent", false);
             m_notifications.append(map);
         }
-        if (!m_notifications.isEmpty())
-            emit notificationsChanged();
         connect(m_model, &NotificationModel::notificationAdded, this,
                 &NotificationServiceCpp::onNotificationAdded);
         connect(m_model, &NotificationModel::notificationDismissed, this,
@@ -117,7 +116,7 @@ void NotificationServiceCpp::markAllAsRead() {
     if (!m_model)
         return;
 
-    for (const QVariant &item : m_notifications) {
+    for (const QVariant &item : std::as_const(m_notifications)) {
         const QVariantMap map = item.toMap();
         if (!map.value("read").toBool())
             m_model->markAsRead(map.value("id").toInt());
@@ -135,7 +134,7 @@ void NotificationServiceCpp::markAllAsRead() {
 void NotificationServiceCpp::clearAll() {
     QList<int> ids;
     ids.reserve(m_notifications.size());
-    for (const QVariant &item : m_notifications)
+    for (const QVariant &item : std::as_const(m_notifications))
         ids.append(item.toMap().value("id").toInt());
 
     for (int id : ids)

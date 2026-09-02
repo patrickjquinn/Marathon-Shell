@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QByteArray>
 #include <QStandardPaths>
+#include <utility>   // std::as_const
 
 namespace {
 
@@ -49,7 +50,7 @@ namespace {
                                       QStringLiteral("fonts/Sora.ttf"));
 
         QString resolved;
-        for (const auto &c : candidates) {
+        for (const auto &c : std::as_const(candidates)) {
             if (!c.isEmpty() && QFile::exists(c)) {
                 resolved = c;
                 break;

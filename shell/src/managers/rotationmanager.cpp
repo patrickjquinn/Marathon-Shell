@@ -11,7 +11,6 @@ RotationManager::RotationManager(QObject *parent)
 
     if (m_sensor->connectToBackend()) {
         m_available = true;
-        emit availableChanged();
 
         connect(m_sensor, &QOrientationSensor::readingChanged, this,
                 &RotationManager::onOrientationReadingChanged);

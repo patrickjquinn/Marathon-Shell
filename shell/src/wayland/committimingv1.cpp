@@ -10,7 +10,10 @@ extern "C" {
 
 // ── Manager ────────────────────────────────────────────────────────────
 
-static const struct wp_commit_timing_manager_v1_interface s_managerImpl = {
+// constexpr: these tables are capture-less lambdas, whose conversion to a
+// function pointer is a constant expression, so the whole struct can live in
+// .rodata with no pre-main initialiser that could throw uncatchably.
+static constexpr struct wp_commit_timing_manager_v1_interface s_managerImpl = {
     /* destroy */
     [](struct wl_client *, struct wl_resource *resource) { wl_resource_destroy(resource); },
     /* get_timer */

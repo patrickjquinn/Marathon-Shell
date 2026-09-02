@@ -2,6 +2,7 @@
 #include "marathonappregistry.h"
 #include <QDebug>
 #include <algorithm>
+#include <utility>   // std::as_const
 
 AppModel::AppModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -189,7 +190,7 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
 
     QStringList appIds = registry->getAllAppIds();
     appIds.sort();
-    for (const QString &appId : appIds) {
+    for (const QString &appId : std::as_const(appIds)) {
         QVariantMap appInfo = registry->getApp(appId);
 
         QString     id      = appInfo.value("id").toString();

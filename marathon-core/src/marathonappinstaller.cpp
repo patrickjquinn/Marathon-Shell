@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QDebug>
 #include <syslog.h>
+#include <utility>   // std::as_const
 
 MarathonAppInstaller::MarathonAppInstaller(MarathonAppRegistry *registry,
                                            MarathonAppScanner *scanner, QObject *parent)
@@ -85,7 +86,7 @@ bool MarathonAppInstaller::copyDirectory(const QString &source, const QString &d
 
     QFileInfoList entries = sourceDir.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries);
 
-    for (const QFileInfo &entry : entries) {
+    for (const QFileInfo &entry : std::as_const(entries)) {
         QString srcPath = entry.absoluteFilePath();
         QString dstPath = destination + "/" + entry.fileName();
 

@@ -137,12 +137,17 @@ static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
 
 static QFile       *logFile   = nullptr;
 static QTextStream *logStream = nullptr;
-static QMutex       logMutex;
+// Function-local: a namespace-scope QMutex runs an initialiser before main()
+// that can throw where nothing can catch it.
+static QMutex &logMutex() {
+    static QMutex m;
+    return m;
+}
 static bool         g_debugEnabled = false;
 static void         marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                            const QString &msg) {
 
-    QMutexLocker locker(&logMutex);
+    QMutexLocker locker(&logMutex());
 
     if (!g_debugEnabled && type == QtWarningMsg) {
 
@@ -205,6 +210,7 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 }
 
 #include "src/components/mpris_types.h"
+#include <utility>   // std::as_const
 
 int main(int argc, char *argv[]) {
 
@@ -1235,7 +1241,7 @@ int main(int argc, char *argv[]) {
                 auto *info = appRegistry->getAppInfo(appId);
                 if (!info || !info->isProtected)
                     return;
-                for (const QString &perm : info->permissions) {
+                for (const QString &perm : std::as_const(info->permissions)) {
                     if (!perm.isEmpty())
                         permissionManager->setPermission(appId, perm, true, true);
                 }

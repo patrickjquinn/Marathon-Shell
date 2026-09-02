@@ -13,8 +13,17 @@
 #include <QUrl>
 
 namespace {
+// Function-local statics: compiled once on first use, with no pre-main
+// initialiser that could throw uncatchably (which a namespace-scope
+// QRegularExpression has).
+    const QRegularExpression &versionSep() {
+        static const QRegularExpression re{QStringLiteral("[.\\-]")};
+        return re;
+    }
     constexpr int kAutoCheckIntervalMs = 6 * 60 * 60 * 1000; // 6 hours
-    const QString kDefaultRepo         = QStringLiteral("patrickjquinn/Marathon-Shell");
+    // Literal type: a namespace-scope QString dynamically initialises before
+    // main() and can throw uncatchably.
+    constexpr auto kDefaultRepo        = QLatin1StringView("patrickjquinn/Marathon-Shell");
 } // namespace
 
 UpdateService::UpdateService(QObject *parent)
@@ -153,8 +162,8 @@ void UpdateService::openInBrowser() {
 }
 
 int UpdateService::compareVersion(const QString &a, const QString &b) {
-    const QStringList ap = a.split(QRegularExpression("[.\\-]"), Qt::SkipEmptyParts);
-    const QStringList bp = b.split(QRegularExpression("[.\\-]"), Qt::SkipEmptyParts);
+    const QStringList ap = a.split(versionSep(), Qt::SkipEmptyParts);
+    const QStringList bp = b.split(versionSep(), Qt::SkipEmptyParts);
     const int         n  = qMax(ap.size(), bp.size());
     for (int i = 0; i < n; ++i) {
         const QString as  = i < ap.size() ? ap.at(i) : QStringLiteral("0");

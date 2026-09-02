@@ -41,6 +41,19 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+
+// Function-local statics: compiled once on first use, with no pre-main
+// initialiser that could throw uncatchably (which a namespace-scope
+// QRegularExpression has).
+static const QRegularExpression &whitespace() {
+    static const QRegularExpression re{QStringLiteral("\\s+")};
+    return re;
+}
+static const QRegularExpression &nonIdentifier() {
+    static const QRegularExpression re{QStringLiteral("[^A-Za-z0-9_]")};
+    return re;
+}
+
 #ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
@@ -307,7 +320,7 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
         if (line.startsWith("prefer "))
             continue;
 
-        const QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        const QStringList parts = line.split(whitespace(), Qt::SkipEmptyParts);
         const bool        looksLikeTypeDecl = parts.size() >= 3 && parts.last().endsWith(".qml") &&
             !line.startsWith("module ") && !line.startsWith("plugin ") &&
             !line.startsWith("classname ") && !line.startsWith("typeinfo ") &&
@@ -367,7 +380,7 @@ static QmldirInfo parseQmldirForComponent(const QString &qmldirPath, const QStri
         }
 
         if (line.startsWith(componentName + ' ')) {
-            const QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            const QStringList parts = line.split(whitespace(), Qt::SkipEmptyParts);
             if (parts.size() >= 2)
                 out.componentVersion = parts.at(1).trimmed();
         }
@@ -428,14 +441,23 @@ static void touchOwnResidentPages() {
         const QList<QByteArray> f = l.simplified().split(' ');
         if (f.size() < 2)
             continue;
-        const QByteArray perms = f.at(1);
+        const QByteArray &perms = f.at(1);
         if (perms.size() < 4 || perms.at(0) != 'r' || perms.at(3) != 'p')
             continue; // need readable + private
         const QByteArray path = f.size() >= 6 ? f.at(5) : QByteArray();
         if (path.startsWith("/dev") || path.startsWith("[vsyscall]") || path.startsWith("[vvar]"))
             continue;
-        unsigned long start = 0, end = 0;
-        if (::sscanf(l.constData(), "%lx-%lx", &start, &end) != 2)
+        // strtoull, not sscanf: sscanf's %lx reports nothing on overflow or
+        // on a malformed line -- it just leaves the variable unset and returns
+        // a count that looks fine. A bad range here would have us dereference
+        // a wild address in the touch loop below.
+        const QList<QByteArray> range = f.at(0).split('-');
+        if (range.size() != 2)
+            continue;
+        bool                startOk = false, endOk = false;
+        const unsigned long start = range.at(0).toULong(&startOk, 16);
+        const unsigned long end   = range.at(1).toULong(&endOk, 16);
+        if (!startOk || !endOk || end <= start)
             continue;
         for (unsigned long a = start; a < end; a += 4096)
             sink += *reinterpret_cast<const volatile unsigned char *>(a);
@@ -1192,8 +1214,7 @@ int main(int argc, char *argv[]) {
         // and registration silently failed. There is at most one runner
         // per app id, and the shell already routes per-app via the
         // same identifier, so AppRunner.<appId> is unique and stable.
-        const QString sanitizedAppId = QString(appId).replace(
-            QRegularExpression(QStringLiteral("[^A-Za-z0-9_]")), QStringLiteral("_"));
+        const QString sanitizedAppId = QString(appId).replace(nonIdentifier(), QStringLiteral("_"));
         const QString serviceName =
             QStringLiteral("org.marathonos.AppRunner.%1").arg(sanitizedAppId);
         auto bus = QDBusConnection::sessionBus();
@@ -1319,3 +1340,5 @@ int main(int argc, char *argv[]) {
 }
 
 #include "main.moc"
+
+

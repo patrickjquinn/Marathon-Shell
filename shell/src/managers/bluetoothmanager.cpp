@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <utility>   // std::as_const
 
 // Soft-unblock a kernel rfkill switch by type. Direct sysfs write rather
 // than shelling out to /usr/sbin/rfkill — Alpine's util-linux rfkill has
@@ -323,7 +324,7 @@ void BluetoothManager::refreshDevices() {
         return;
     }
 
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         if (auto *dev = qobject_cast<BluetoothDevice *>(obj)) {
             dev->updateProperties();
         }
@@ -533,7 +534,7 @@ void BluetoothManager::onPropertiesChanged(const QString &interface, const QVari
 }
 
 BluetoothDevice *BluetoothManager::findDeviceByPath(const QString &path) {
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         BluetoothDevice *device = qobject_cast<BluetoothDevice *>(obj);
         if (device && device->path() == path) {
             return device;
@@ -543,7 +544,7 @@ BluetoothDevice *BluetoothManager::findDeviceByPath(const QString &path) {
 }
 
 BluetoothDevice *BluetoothManager::findDeviceByAddress(const QString &address) {
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         BluetoothDevice *device = qobject_cast<BluetoothDevice *>(obj);
         if (device && device->address() == address) {
             return device;

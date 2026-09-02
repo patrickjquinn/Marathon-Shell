@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <utility>   // std::as_const
 
 CalendarManagerCpp::CalendarManagerCpp(SettingsClient *settings, NotificationClient *notifications,
                                        QObject *parent)
@@ -14,7 +15,6 @@ CalendarManagerCpp::CalendarManagerCpp(SettingsClient *settings, NotificationCli
     , m_notifications(notifications) {
     load();
     updateNextEventId();
-    emit eventsLoaded();
 
     m_checkTimer = new QTimer(this);
     m_checkTimer->setInterval(60 * 1000);
@@ -109,7 +109,7 @@ QVariantList CalendarManagerCpp::getAllEvents() const {
 
 void CalendarManagerCpp::checkReminders() {
     const QDateTime now = QDateTime::currentDateTime();
-    for (const QVariant &entry : m_events) {
+    for (const QVariant &entry : std::as_const(m_events)) {
         const QVariantMap event = entry.toMap();
         if (!shouldTriggerEvent(event, now))
             continue;
@@ -164,7 +164,7 @@ void CalendarManagerCpp::save() {
 
 void CalendarManagerCpp::updateNextEventId() {
     int maxId = 0;
-    for (const QVariant &entry : m_events) {
+    for (const QVariant &entry : std::as_const(m_events)) {
         const QVariantMap event = entry.toMap();
         maxId                   = std::max(maxId, event.value("id").toInt());
     }
@@ -243,7 +243,7 @@ void CalendarManagerCpp::triggerNotification(const QVariantMap &event) {
 QString CalendarManagerCpp::triggerKeyForEvent(const QVariantMap &event,
                                                const QDateTime   &now) const {
     return QString("%1_%2_%3")
-        .arg(event.value("id").toInt())
-        .arg(now.date().toString("yyyy-MM-dd"))
-        .arg(now.time().toString("HH:mm"));
+        .arg(QString::number(event.value("id").toInt()),
+             now.date().toString("yyyy-MM-dd"),
+             now.time().toString("HH:mm"));
 }

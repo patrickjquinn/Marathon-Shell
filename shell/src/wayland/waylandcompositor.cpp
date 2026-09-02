@@ -31,6 +31,7 @@
 
 #include "util/frametiming.h"
 #include "util/rtprio.h"
+#include <utility>   // std::as_const
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -304,7 +305,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 }
 
 WaylandCompositor::~WaylandCompositor() {
-    for (auto process : m_processes.keys()) {
+    // keyBegin/keyEnd, not keys(): the latter allocates an entire QList
+    // just to walk it once, in a destructor.
+    for (auto it = m_processes.keyBegin(), end = m_processes.keyEnd(); it != end; ++it) {
+        QProcess *process = *it;
         if (process->state() != QProcess::NotRunning) {
             process->terminate();
             if (!process->waitForFinished(3000)) {

@@ -10,6 +10,7 @@
 #include <QStandardPaths>
 #include <QNetworkRequest>
 #include <QUrl>
+#include <utility>   // std::as_const
 
 MarathonAppStoreService::MarathonAppStoreService(MarathonAppInstaller *installer, QObject *parent)
     : QObject(parent)
@@ -177,7 +178,7 @@ QVariantList MarathonAppStoreService::searchApps(const QString &query) {
     QVariantList results;
     QString      lowerQuery = query.toLower();
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app         = item.toMap();
         QString     name        = app.value("name").toString().toLower();
         QString     description = app.value("description").toString().toLower();
@@ -193,7 +194,7 @@ QVariantList MarathonAppStoreService::searchApps(const QString &query) {
 }
 
 QVariantMap MarathonAppStoreService::getApp(const QString &appId) {
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app = item.toMap();
         if (app.value("id").toString() == appId) {
             return app;
@@ -206,7 +207,7 @@ QVariantMap MarathonAppStoreService::getApp(const QString &appId) {
 QVariantList MarathonAppStoreService::getFeaturedApps() {
     QVariantList featured;
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app = item.toMap();
         if (app.value("featured").toBool()) {
             featured.append(app);
@@ -225,11 +226,11 @@ QVariantList MarathonAppStoreService::getFeaturedApps() {
 QVariantList MarathonAppStoreService::getAppsByCategory(const QString &category) {
     QVariantList results;
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap  app        = item.toMap();
         QVariantList categories = app.value("categories").toList();
 
-        for (const QVariant &cat : categories) {
+        for (const QVariant &cat : std::as_const(categories)) {
             if (cat.toString() == category) {
                 results.append(app);
                 break;
@@ -337,7 +338,7 @@ QVariantList MarathonAppStoreService::getAvailableUpdates() {
     // cross-check against locally-installed versions reported by
     // MarathonAppRegistry; the catalog flag is the v1 of that.
     QVariantList updates;
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app = item.toMap();
         if (app.value("updateAvailable").toBool())
             updates.append(app);

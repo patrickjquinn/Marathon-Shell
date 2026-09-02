@@ -58,7 +58,7 @@ class MarathonPermissionManager : public QObject {
 
     Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);
 
-    Q_INVOKABLE PermissionStatus getPermissionStatus(const QString &appId,
+    Q_INVOKABLE MarathonPermissionManager::PermissionStatus getPermissionStatus(const QString &appId,
                                                      const QString &permission);
 
     Q_INVOKABLE QStringList      getAvailablePermissions();

@@ -9,6 +9,7 @@
 #include <QDBusMetaType>
 #include <QProcess>
 #include <QRegularExpression>
+#include <utility>   // std::as_const
 
 AudioManagerCpp *AudioManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new AudioManagerCpp(engine);
@@ -99,12 +100,10 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
         QRegularExpressionMatch         match = re.match(output);
         if (match.hasMatch()) {
             m_currentVolume = match.captured(1).toDouble();
-            emit volumeChanged();
         }
 
         if (output.contains("[MUTED]")) {
             m_muted = true;
-            emit mutedChanged();
         }
 
         parseWpctlStatus();
@@ -274,7 +273,7 @@ void AudioManagerCpp::parseWpctlStatus() {
     bool        inStreamsSection = false;
 
     QStringList lines = output.split('\n');
-    for (const QString &line : lines) {
+    for (const QString &line : std::as_const(lines)) {
         if (line.contains("Sinks:", Qt::CaseInsensitive)) {
             inSinksSection   = true;
             inStreamsSection = false;

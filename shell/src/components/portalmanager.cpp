@@ -5,12 +5,16 @@
 #include <QDebug>
 #include <QUuid>
 
-const QString PORTAL_SERVICE            = "org.freedesktop.portal.Desktop";
-const QString PORTAL_PATH               = "/org/freedesktop/portal/desktop";
-const QString PORTAL_ACCESS_INTERFACE   = "org.freedesktop.portal.Access";
-const QString PORTAL_CAMERA_INTERFACE   = "org.freedesktop.portal.Camera";
-const QString PORTAL_LOCATION_INTERFACE = "org.freedesktop.portal.Location";
-const QString PORTAL_REQUEST_INTERFACE  = "org.freedesktop.portal.Request";
+// QLatin1StringView, not QString: a namespace-scope QString runs a dynamic
+// initialiser before main() that can throw where nothing can catch it. These
+// are literal types -- no allocation, no dynamic init -- and convert
+// implicitly wherever a QString is expected.
+constexpr auto PORTAL_SERVICE            = QLatin1StringView("org.freedesktop.portal.Desktop");
+constexpr auto PORTAL_PATH               = QLatin1StringView("/org/freedesktop/portal/desktop");
+constexpr auto PORTAL_ACCESS_INTERFACE   = QLatin1StringView("org.freedesktop.portal.Access");
+constexpr auto PORTAL_CAMERA_INTERFACE   = QLatin1StringView("org.freedesktop.portal.Camera");
+constexpr auto PORTAL_LOCATION_INTERFACE = QLatin1StringView("org.freedesktop.portal.Location");
+constexpr auto PORTAL_REQUEST_INTERFACE  = QLatin1StringView("org.freedesktop.portal.Request");
 
 PortalManager::PortalManager(QObject *parent)
     : QObject(parent)
@@ -90,7 +94,7 @@ bool PortalManager::isPortalAvailable(const QString &portalName) const {
 
 QString PortalManager::getRequestHandleToken(const QString &appId) {
 
-    return QString("marathon_req_%1_%2").arg(appId).arg(QUuid::createUuid().toString(QUuid::Id128));
+    return QString("marathon_req_%1_%2").arg(appId, QUuid::createUuid().toString(QUuid::Id128));
 }
 
 void PortalManager::requestCameraAccess(const QString &appId) {

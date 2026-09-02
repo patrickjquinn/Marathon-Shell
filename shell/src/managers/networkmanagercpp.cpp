@@ -14,6 +14,7 @@
 #include <QDir>
 #include <QFile>
 #include <algorithm>
+#include <utility>   // std::as_const
 
 namespace {
 // Soft-block (block=true) or unblock every kernel rfkill switch whose `type`
@@ -205,7 +206,7 @@ void NetworkManagerCpp::detectHardwareAvailability() {
 
     QList<QDBusObjectPath> devices = devicesReply.value();
 
-    for (const QDBusObjectPath &devicePath : devices) {
+    for (const QDBusObjectPath &devicePath : std::as_const(devices)) {
         QDBusInterface device("org.freedesktop.NetworkManager", devicePath.path(),
                               "org.freedesktop.NetworkManager.Device",
                               QDBusConnection::systemBus());
@@ -301,7 +302,7 @@ void NetworkManagerCpp::queryConnectionState() {
     QString                wifiDevicePath;
     QString                ethernetName;
 
-    for (const QDBusObjectPath &connPath : activeConns) {
+    for (const QDBusObjectPath &connPath : std::as_const(activeConns)) {
         QDBusInterface conn("org.freedesktop.NetworkManager", connPath.path(),
                             "org.freedesktop.NetworkManager.Connection.Active",
                             QDBusConnection::systemBus());
@@ -531,7 +532,7 @@ void NetworkManagerCpp::scanAccessPoints() {
 
     m_availableNetworks.clear();
 
-    for (const QDBusObjectPath &apPath : accessPoints) {
+    for (const QDBusObjectPath &apPath : std::as_const(accessPoints)) {
         processAccessPoint(apPath.path());
     }
 
@@ -625,7 +626,7 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
     QString apPath;
     bool    isSecured = false;
 
-    for (const QVariant &netVar : m_availableNetworks) {
+    for (const QVariant &netVar : std::as_const(m_availableNetworks)) {
         QVariantMap net = netVar.toMap();
         if (net["ssid"].toString() == ssid) {
             apPath    = net["path"].toString();
@@ -803,7 +804,9 @@ void NetworkManagerCpp::setAirplaneMode(bool enabled) {
     static const QStringList kRadioTypes{QStringLiteral("wlan"), QStringLiteral("wwan"),
                                          QStringLiteral("bluetooth")};
     const int touched = setRfkillSoftByTypes(kRadioTypes, enabled);
-    qDebug() << "[NetworkManagerCpp] Airplane rfkill switches touched:" << touched;
+    if (touched == 0)
+        qWarning() << "[NetworkManagerCpp] Airplane mode toggled but no rfkill "
+                      "switches responded -- radios may still be live";
 
     // Keep NM's WirelessEnabled in agreement so the Wi-Fi tile reflects it,
     // and re-enable Wi-Fi when leaving airplane mode.

@@ -11,6 +11,7 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <utility>   // std::as_const
 
 static bool isAccessDenied(const QDBusError &e) {
     return e.type() == QDBusError::AccessDenied;
@@ -2794,7 +2795,7 @@ int NotificationClient::sendNotification(const QString &appId, const QString &ti
     QStringList actions;
     if (options.contains("actions")) {
         QVariantList actionList = options.value("actions").toList();
-        for (const QVariant &a : actionList) {
+        for (const QVariant &a : std::as_const(actionList)) {
             actions << a.toString() << a.toString();
         }
     }

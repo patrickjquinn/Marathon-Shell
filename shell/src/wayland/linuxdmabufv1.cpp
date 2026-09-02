@@ -107,7 +107,9 @@ namespace {
     // client should never attach this buffer to a surface (we emit a
     // .release immediately so the client discards it), but if it does,
     // wayland-server handles the destroy cleanly.
-    const struct wl_buffer_interface kStubBufferImpl = {
+    // constexpr: a capture-less lambda converts to a function pointer at
+    // compile time, so this needs no throwing pre-main initialiser.
+    constexpr struct wl_buffer_interface kStubBufferImpl = {
         [](struct wl_client *, struct wl_resource *resource) { wl_resource_destroy(resource); },
     };
 

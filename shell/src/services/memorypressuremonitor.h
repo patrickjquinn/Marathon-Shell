@@ -36,7 +36,7 @@ class MemoryPressureMonitor : public QObject {
     }
 
   signals:
-    void pressureLevelChanged(PressureLevel level, double avg10);
+    void pressureLevelChanged(MemoryPressureMonitor::PressureLevel level, double avg10);
 
   private:
     void          poll();

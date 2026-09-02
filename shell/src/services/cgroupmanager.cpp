@@ -8,6 +8,7 @@
 #include <QThread>
 
 #include <csignal>
+#include <utility>   // std::as_const
 
 Q_LOGGING_CATEGORY(lcCgroup, "marathon.lifecycle.cgroup")
 

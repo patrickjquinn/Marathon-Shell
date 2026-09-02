@@ -8,6 +8,7 @@
 #include <QProcess>
 #include <QTemporaryDir>
 #include <syslog.h>
+#include <utility>   // std::as_const
 
 static bool copyDirRecursively(const QString &sourceDir, const QString &destDir) {
     QDir src(sourceDir);
@@ -206,7 +207,9 @@ bool MarathonAppPackager::verifyPackageStructure(const QString &extractedDir) {
     }
 
     QJsonParseError error;
-    QJsonDocument   doc = QJsonDocument::fromJson(manifestFile.readAll(), &error);
+    // Parsed only to validate the manifest -- the document itself is not
+    // needed here, only `error`.
+    (void)QJsonDocument::fromJson(manifestFile.readAll(), &error);
     manifestFile.close();
 
     if (error.error != QJsonParseError::NoError) {
@@ -294,7 +297,7 @@ bool MarathonAppPackager::verifyArchiveNoSymlinks(const QString &zipPath) {
     QString     output = QString::fromUtf8(zipInfoVerbose.readAllStandardOutput());
     QStringList lines  = output.split('\n');
 
-    for (const QString &line : lines) {
+    for (const QString &line : std::as_const(lines)) {
         // zipinfo output lines start with file attributes; symlinks start with 'l'
         QString trimmed = line.trimmed();
         if (trimmed.isEmpty())

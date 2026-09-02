@@ -33,9 +33,18 @@
 #include <QtWaylandCompositor/QWaylandSurface>
 #include <QtWaylandCompositor/QWaylandXdgSurface>
 #include <QtWaylandCompositor/QWaylandXdgToplevel>
+#include <utility>   // std::as_const
 #endif
 
 namespace {
+
+// Function-local statics: compiled once on first use, with no pre-main
+// initialiser that could throw uncatchably (which a namespace-scope
+// QRegularExpression has).
+const QRegularExpression &nonSlug() {
+    static const QRegularExpression re{QStringLiteral("[^a-z0-9]+")};
+    return re;
+}
 
 // The bwrap argument list is flattened into a single command string here and
 // re-parsed with QProcess::splitCommand on the compositor side. That round
@@ -721,7 +730,10 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         static QHash<QString, ManifestBits> manifestCache;
 
         const QString                       appId = app.value("id").toString();
-        auto                                it    = manifestCache.constFind(appId);
+        // const_iterator throughout: insert() returns a (mutable) iterator, so
+        // assigning it back to a const_iterator-initialised variable mixed the
+        // two types.
+        QHash<QString, ManifestBits>::const_iterator it = manifestCache.constFind(appId);
         if (it == manifestCache.constEnd()) {
             ManifestBits bits;
             QFile        mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
@@ -734,7 +746,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                 bits.chromiumFlags =
                     root.value(QStringLiteral("chromiumFlags")).toString().trimmed();
             }
-            it = manifestCache.insert(appId, bits);
+            it = QHash<QString, ManifestBits>::const_iterator(manifestCache.insert(appId, bits));
         }
         if (requiresQt.isEmpty())
             requiresQt = it->requiresQt;
@@ -1746,7 +1758,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     QString effectiveAppId = xdgAppId;
     if (effectiveAppId.isEmpty() && !title.isEmpty())
         effectiveAppId =
-            "native-app-" + title.toLower().replace(QRegularExpression("[^a-z0-9]+"), "-");
+            "native-app-" + title.toLower().replace(nonSlug(), "-");
     if (effectiveAppId.isEmpty())
         effectiveAppId = QStringLiteral("native-surface-%1").arg(surfaceId);
 

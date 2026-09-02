@@ -253,7 +253,7 @@ void HapticManager::playEvdevRumble(int durationMs) {
         qWarning() << "[HapticManager] FF play write failed:" << ::strerror(errno);
 }
 
-void HapticManager::stopEvdevRumble() {
+void HapticManager::stopEvdevRumble() const {
     if (m_ffFd < 0 || m_ffEffectId < 0)
         return;
 

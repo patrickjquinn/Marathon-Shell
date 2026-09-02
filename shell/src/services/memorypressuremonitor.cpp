@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QLoggingCategory>
+#include <utility>   // std::as_const
 
 Q_LOGGING_CATEGORY(lcPSI, "marathon.lifecycle.pressure")
 

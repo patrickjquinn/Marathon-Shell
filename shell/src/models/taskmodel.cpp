@@ -1,5 +1,6 @@
 #include "taskmodel.h"
 #include <QDebug>
+#include <utility>   // std::as_const
 
 TaskModel::TaskModel(QObject *parent)
     : QAbstractListModel(parent) {
@@ -113,7 +114,7 @@ Task *TaskModel::getTaskByAppId(const QString &appId) {
 
 Task *TaskModel::getTaskBySurfaceId(int surfaceId) {
 
-    for (Task *task : m_tasks) {
+    for (Task *task : std::as_const(m_tasks)) {
         if (task && task->surfaceId() == surfaceId) {
             return task;
         }

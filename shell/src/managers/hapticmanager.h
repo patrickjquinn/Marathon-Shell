@@ -51,7 +51,7 @@ class HapticManager : public QObject {
     bool    detectEvdevRumble();   // Librem 5 pwm-vibrator: evdev FF_RUMBLE
     void    writeVibrator(int value);
     void    playEvdevRumble(int durationMs);
-    void    stopEvdevRumble();
+    void    stopEvdevRumble() const;
 
     bool    m_available;
     bool    m_enabled;

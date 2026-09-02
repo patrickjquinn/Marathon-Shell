@@ -12,6 +12,15 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QRegularExpression>
+#include <utility>   // std::as_const
+
+// Function-local statics: compiled once on first use, with no pre-main
+// initialiser that could throw uncatchably (which a namespace-scope
+// QRegularExpression has).
+static const QRegularExpression &whitespace() {
+    static const QRegularExpression re{QStringLiteral("\\s+")};
+    return re;
+}
 
 UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(AppModel *appModel, MarathonAppRegistry *registry,
                                                  MarathonAppScanner  *scanner,
@@ -78,7 +87,7 @@ QVariantList UnifiedSearchServiceCpp::search(const QString &query) {
     QVector<RankedResult> ranked;
     ranked.reserve(m_items.size());
 
-    for (const SearchItem &item : m_items) {
+    for (const SearchItem &item : std::as_const(m_items)) {
         const int score = computeScore(item, normalized);
         if (score <= 0)
             continue;
@@ -190,7 +199,7 @@ UnifiedSearchServiceCpp::SearchItem UnifiedSearchServiceCpp::itemForApp(QObject 
     item.keywords = {appName.toLower(), appId.toLower()};
 
     const QStringList nameParts =
-        appName.toLower().split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        appName.toLower().split(whitespace(), Qt::SkipEmptyParts);
     item.keywords.append(nameParts);
 
     item.searchText = appName.toLower() + " " + appId.toLower();
