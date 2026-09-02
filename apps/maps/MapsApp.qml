@@ -187,7 +187,7 @@ MApp {
                 if (typeof LocationService !== "undefined" && LocationService)
                     LocationService.start();
                 if (mapsApp.pendingLocationCallback) {
-                    mapsApp.pendingLocationCallback();
+                    mapsApp.pendingLocationCallback(); // qmllint disable use-proper-function
                     mapsApp.pendingLocationCallback = null;
                 }
             }

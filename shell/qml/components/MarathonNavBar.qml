@@ -285,7 +285,7 @@ Rectangle {
                     // with no class. Duck-type the property access — qmllint
                     // will flag it as missing-property, but it resolves at
                     // runtime.
-                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
+                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
                 } else if (isAppOpen) {
                     var oldProgress = gestureProgress;
@@ -345,7 +345,7 @@ Rectangle {
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
-                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400;
+                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400; // qmllint disable missing-property
                 // Dismiss on any of: upward fling (velocity < -500), drag
                 // pulled the panel below threshold, or a deliberate upward
                 // swipe of ≥40 px while QS is open (the documented

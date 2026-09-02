@@ -3,7 +3,9 @@ import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls  // StackView attached property (root.StackView.view)
+import QtQuick.Controls // qmllint disable unused-imports
+// ^ required at runtime for the StackView attached property (root.StackView.view);
+//   qmllint does not count attached-property use, so it reports it unused.
 import QtQuick.Layouts
 
 MPage {

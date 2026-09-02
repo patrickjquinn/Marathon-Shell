@@ -35,7 +35,7 @@ Rectangle {
     MSettingsListItem {
         id: bookmarkCurrentRow
 
-        readonly property bool actionable: bookmarksPage.schemeOf(bookmarksPage.currentPageUrl) !== "none"
+        readonly property bool actionable: bookmarksPage.schemeOf(bookmarksPage.currentPageUrl) !== "none" // qmllint disable use-proper-function
 
         anchors.top: parent.top
         anchors.left: parent.left

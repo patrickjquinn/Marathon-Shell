@@ -3,6 +3,7 @@ import MarathonUI.Containers
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
+import "pages"
 
 MApp {
     id: templateApp
