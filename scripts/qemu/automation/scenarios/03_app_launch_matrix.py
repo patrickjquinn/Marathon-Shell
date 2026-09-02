@@ -57,18 +57,27 @@ def busctl(drv: QemuDriver, method: str, arg: str = "") -> tuple[int, str, str]:
     return drv.ssh(cmd)
 
 
-def app_runner_pid(drv: QemuDriver, appid: str) -> int | None:
-    # Match the marathon-app-runner binary in /proc/<pid>/comm or argv[0],
-    # not the full cmdline — otherwise pgrep self-matches because the ssh
-    # remote-command literally contains "marathon-app-runner --app-id X".
+def app_runner_pid(drv: QemuDriver, app_id: str) -> int | None:
+    """PID of a live app-runner, or None.
+
+    This deliberately does NOT match on the app id. The runner is exec'd
+    inside bwrap, and with the warm pool enabled it keeps its `--pool`
+    argv even after adopting an app -- the app id appears in no process's
+    argv at all. Matching "--app-id <id>" therefore only ever succeeded
+    for the two unsandboxed WebEngine apps (browser, maps), which is why
+    every other app reported "no app-runner pid" while its screenshot
+    showed the app running perfectly, and why scenario 07 skipped its
+    pixel-delta check -- the part that does the real work.
+
+    Matching on comm keeps both things the callers actually need: a
+    launch adds a runner, a crash removes one. Note comm is truncated to
+    15 chars ("marathon-app-ru"), and matching comm rather than the full
+    cmdline also avoids pgrep self-matching our own ssh command.
+    """
     rc, out, _ = drv.ssh(
-        "ps -e -o pid=,comm=,args= "
-        f"| awk '$2 ~ /^marathon-app/ && /--app-id {appid}\\>/ {{print $1; exit}}'"
-    )
+        "ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}' | tail -1")
     out = out.strip()
-    if not out or not out.isdigit():
-        return None
-    return int(out)
+    return int(out) if out.isdigit() else None
 
 
 def coredumps_since(drv: QemuDriver, since: str) -> int:

@@ -55,9 +55,26 @@ def busctl_close(drv: QemuDriver, app_id: str):
 
 
 def app_runner_pid(drv: QemuDriver, app_id: str) -> int | None:
-    rc, out, _ = drv.ssh(f"pgrep -f 'app-runner --app-id {app_id}'")
-    if rc != 0:
-        return None
+    """PID of a live app-runner, or None.
+
+    This deliberately does NOT match on the app id. The runner is exec'd
+    inside bwrap, and with the warm pool enabled it keeps its `--pool`
+    argv even after adopting an app -- the app id appears in no process's
+    argv at all. Matching "--app-id <id>" therefore only ever succeeded
+    for the two unsandboxed WebEngine apps (browser, maps), which is why
+    every other app reported "no app-runner pid" while its screenshot
+    showed the app running perfectly, and why scenario 07 skipped its
+    pixel-delta check -- the part that does the real work.
+
+    Matching on comm keeps both things the callers actually need: a
+    launch adds a runner, a crash removes one. Note comm is truncated to
+    15 chars ("marathon-app-ru"), and matching comm rather than the full
+    cmdline also avoids pgrep self-matching our own ssh command.
+    """
+    rc, out, _ = drv.ssh(
+        "ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}' | tail -1")
+    out = out.strip()
+    return int(out) if out.isdigit() else None
     for line in out.splitlines():
         line = line.strip()
         if line.isdigit():
