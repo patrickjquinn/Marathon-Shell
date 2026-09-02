@@ -55,13 +55,13 @@ else
     while IFS= read -r -d '' f; do QML_FILES+=("$f"); done < <(
         find shell/qml apps marathon-ui -name '*.qml' -not -path '*/build*/*' -print0 2>/dev/null)
     if [ "${#QML_FILES[@]}" -gt 0 ]; then
-        # Enabled levels: errors fail, warnings reported. Plugin-based
-        # checks (binding loops, unqualified access) are on by default.
+        # Per-category levels live in .qmllint.ini at the repo root, which
+        # qmllint discovers by walking up from each file. Do NOT pass
+        # --compiler / --unqualified / --unused-imports here: an explicit
+        # flag overrides the config file, which is how the [compiler] notes
+        # used to drown out the handful of real findings.
         "$QMLLINT" \
             "${QMLDIR_ROOTS[@]}" \
-            --compiler=warning \
-            --unqualified=warning \
-            --unused-imports=warning \
             "${QML_FILES[@]}"
         if [ $? -ne 0 ]; then
             errors=1
@@ -90,7 +90,12 @@ echo "[lint] ${#SOURCES[@]} C++ sources to check"
 CLAZY="$(command -v clazy-standalone || true)"
 if [ -n "$CLAZY" ]; then
     echo "[lint] clazy-standalone via $CLAZY"
+    # --header-filter keeps the report to our own headers. Without it clazy
+    # lints Qt's installed headers too -- QtWebEngineQuickDepends alone
+    # accounted for 12 no-module-include findings in /usr/include/qt6 that
+    # nobody here can fix.
     "$CLAZY" -p "$BUILD_DIR" \
+        --header-filter="$PWD/(shell|apps|marathon-ui|marathon-core|marathon-services)/" \
         -checks=level0,level1,no-overloaded-signal,no-non-pod-global-static \
         "${SOURCES[@]}" 2>&1 || errors=1
 else

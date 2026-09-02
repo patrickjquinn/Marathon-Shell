@@ -12,6 +12,9 @@ build-tests/
 *.jsc
 *.log
 *.ini
+# ...but the qmllint config is project policy and must be shared: it is what
+# keeps the 8500 advisory [compiler] notes from burying the real findings.
+!.qmllint.ini
 check_output.cpp
 .cache/
 compile_commands.json
