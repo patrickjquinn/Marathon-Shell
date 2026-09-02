@@ -133,6 +133,22 @@ function(add_marathon_app APP_NAME)
     ${ARG_RESOURCES}
     OUTPUT_DIRECTORY
     "${MODULE_OUTPUT_DIR}"
+    # Without these the QML compiler cannot resolve the design-system
+    # singletons, and every binding that touches one falls back to the
+    # interpreter. It is the single biggest lever on app QML performance
+    # here: MColors, MTypography, MSpacing and Constants alone account for
+    # 1921 un-compiled bindings across the apps -- and zero in the shell,
+    # which links these modules and so resolves them fine.
+    DEPENDENCIES
+    MarathonUI.Theme
+    MarathonUI.Core
+    MarathonUI.Controls
+    MarathonUI.Containers
+    MarathonUI.Navigation
+    MarathonUI.Feedback
+    MarathonUI.Modals
+    MarathonUI.Effects
+    MarathonOS.Shell
     NO_PLUGIN_OPTIONAL)
 
   set_property(TARGET ${APP_NAME} APPEND PROPERTY QT_QML_IMPORT_PATH
