@@ -69,6 +69,10 @@ def run(drv: QemuDriver, since: str) -> int:
         "gkr-pam: unable to locate daemon",
         # auditd nuisances on a sandboxed PAM stack.
         "audit:",
+        # The QEMU kernel is built without BPF LSM, so systemd cannot
+        # link its restrict_filesystems program. Nothing to fix here --
+        # it is a kernel capability, not a failure of the image.
+        "bpf-restrict-fs",
     ]
     if not drv.assert_no_journal_errors_since(since, allowlist=allow):
         fails += 1

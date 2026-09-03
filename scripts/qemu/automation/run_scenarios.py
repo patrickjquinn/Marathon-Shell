@@ -99,7 +99,13 @@ def launch_qemu(img: Path) -> subprocess.Popen:
         "root=LABEL=pmOS_root rw rootwait "
         "systemd.wants=network.target "
         "systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target "
-        "systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci "
+        "systemd.mask=systemd-cryptsetup@pmOS_root.service "
+        # gpt-auto names the instance after the partition it finds, which
+        # here is "root", not "pmOS_root" -- so the mask above never
+        # matched and systemd-cryptsetup@root.service failed on every
+        # boot, trying to load a LUKS superblock off an unencrypted
+        # partition. That was the entirety of 01_boot_smoke's failure.
+        "systemd.mask=systemd-cryptsetup@root.service module_blacklist=vmw_vmci "
         "loglevel=4 console=tty0 console=ttyAMA0,115200")
     cmd = [
         "qemu-system-aarch64",
