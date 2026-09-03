@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Marathon Notification Service
+Comment=Marathon OS Notification D-Bus Service
+Exec=/usr/bin/marathon-notification-service
+OnlyShowIn=marathon;
+AutostartCondition=unless-session marathon
+X-Marathon-Autostart-Phase=Initialization
+NoDisplay=true

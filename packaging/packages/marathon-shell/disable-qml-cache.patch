@@ -1,0 +1,81 @@
+--- a/shell/CMakeLists.txt
++++ b/shell/CMakeLists.txt
+@@ -260,6 +260,7 @@ qt6_add_qml_module(marathon-shell
+     URI "MarathonOS.Shell"
+     VERSION 1.0
+     QML_FILES ${QML_FILES}
++    NO_CACHEGEN
+     RESOURCES
+         ${RESOURCE_FILES}
+ )
+@@ -270,6 +271,7 @@ qt6_add_qml_module(marathon-ui-theme
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-themeplugin
+     QML_FILES ${THEME_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Containers
+@@ -283,6 +285,7 @@ qt6_add_qml_module(marathon-ui-containers
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-containersplugin
+     QML_FILES ${CONTAINERS_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Core
+@@ -297,6 +300,7 @@ qt6_add_qml_module(marathon-ui-core
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-coreplugin
+     QML_FILES ${CORE_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Controls
+@@ -314,6 +318,7 @@ qt6_add_qml_module(marathon-ui-controls
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-controlsplugin
+     QML_FILES ${CONTROLS_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Lists
+@@ -324,6 +329,7 @@ qt6_add_qml_module(marathon-ui-lists
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-listsplugin
+     QML_FILES ${LISTS_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Navigation
+@@ -334,6 +340,7 @@ qt6_add_qml_module(marathon-ui-navigation
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-navigationplugin
+     QML_FILES ${NAVIGATION_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Feedback
+@@ -347,6 +354,7 @@ qt6_add_qml_module(marathon-ui-feedback
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-feedbackplugin
+     QML_FILES ${FEEDBACK_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Modals
+@@ -358,6 +366,7 @@ qt6_add_qml_module(marathon-ui-modals
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-modalsplugin
+     QML_FILES ${MODALS_QML_FILES}
++    NO_CACHEGEN
+ )
+ 
+ # Marathon UI - Effects
+@@ -369,6 +378,7 @@ qt6_add_qml_module(marathon-ui-effects
+     VERSION 1.0
+     PLUGIN_TARGET marathon-ui-effectsplugin
+     QML_FILES ${EFFECTS_QML_FILES}
++    NO_CACHEGEN
+ )
+
