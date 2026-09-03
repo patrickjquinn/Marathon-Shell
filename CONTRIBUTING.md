@@ -1,289 +1,325 @@
-# Contributing to Marathon OS
+# Contributing to Marathon Shell
 
-Thank you for your interest in contributing to Marathon OS! This guide will help you get started.
+Thank you for your interest in contributing to Marathon Shell. This document provides guidelines for contributing to the project.
 
-## Project Vision
+## Code of Conduct
 
-Marathon OS is a BlackBerry 10-inspired mobile Linux distribution that prioritizes:
-- **Responsiveness:** Sub-16ms touch latency, instant feel
-- **Battery life:** Days-long standby on mobile hardware
-- **Security:** Landlock LSM, seccomp sandboxing, Wayland-only
-- **Openness:** 100% free software, no proprietary blobs required (where possible)
+Be respectful and professional in all interactions. Focus on constructive technical discussions.
 
-## Ways to Contribute
+## Getting Started
 
-### 1. Device Support
-Add support for new ARM64 mobile devices:
-- Create device configuration in `devices/<codename>/`
-- Test boot, display, touch, WiFi, modem
-- Document hardware status
-- Submit PR with working configuration
+### Development Environment Setup
 
-**Highly wanted devices:**
-- OnePlus 6T (fajita) - nearly identical to OnePlus 6
-- Xiaomi Poco F1 (beryllium) - same SDM845 SoC
-- OnePlus 7/7 Pro - SDM855, needs new SoC fragment
-- Raspberry Pi 4/5 - generic ARM64 testing platform
+1. Clone the repository with submodules:
+   ```bash
+   git clone --recursive https://github.com/patrickjquinn/Marathon-Shell.git
+   cd Marathon-Shell
+   ```
 
-### 2. Performance Tuning
-- Device-specific power profiles
-- GPU-specific optimizations
-- Alternative I/O schedulers for specific flash controllers
-- Memory management improvements
+2. Install dependencies (see README.md for platform-specific instructions)
 
-### 3. Documentation
-- Translate docs to other languages
-- Add troubleshooting scenarios
-- Create video guides
-- Improve existing documentation clarity
+3. Build the project:
+   ```bash
+   ./scripts/build-all.sh
+   ```
 
-### 4. Testing
-- Test on different devices
-- Report boot issues, hardware compatibility
-- Validate performance metrics
-- Test edge cases (modem, suspend/resume, etc.)
-
-### 5. Integration
-- App ecosystem development
-- System services integration
-- Hardware enablement (cameras, sensors)
+4. Run the shell:
+   ```bash
+   ./run.sh
+   ```
 
 ## Development Workflow
 
-### Setting Up
+### File Locations
 
-1. **Fork the repository:**
-   ```bash
-   # On GitHub, click "Fork"
-   git clone https://github.com/YOUR_USERNAME/Marathon-Image.git
-   cd Marathon-Image
-   ```
+- **Source files** - Edit files in `./apps/`, `./shell/`, `./marathon-ui/`
+- **Build artifacts** - Never edit files in `./build/`, `~/.local/share/marathon-apps/`
 
-2. **Add upstream remote:**
-   ```bash
-   git remote add upstream https://github.com/MarathonOS/Marathon-Image.git
-   git fetch upstream
-   ```
-
-3. **Create a branch:**
-   ```bash
-   git checkout -b feature/your-feature-name
-   # or
-   git checkout -b device/device-codename
-   ```
+See [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for detailed workflow information.
 
 ### Making Changes
 
-1. **Follow the structure:**
-   - Device configs: `devices/<codename>/device.conf`
-   - SoC configs: `devices/<soc>/kernel-config.fragment`
-   - System configs: `configs/`
-   - Documentation: `docs/`
-
-2. **Test your changes:**
+1. Create a feature branch:
    ```bash
-   # Build for your device
-   ./scripts/build-and-flash.sh <device>
-   
-   # Validate on device
-   ./scripts/validate-system.sh
+   git checkout -b feature/your-feature-name
    ```
 
-3. **Document your work:**
-   - Update relevant docs in `docs/`
-   - Add comments to config files
-   - Update device support matrix in `docs/DEVICE_SUPPORT.md`
+2. Make your changes in source files
 
-### Submitting Changes
-
-1. **Commit your work:**
+3. Test your changes:
    ```bash
-   git add .
-   git commit -m "device: add support for Device Name"
-   # or
-   git commit -m "docs: improve kernel config explanations"
+   ./run.sh
    ```
 
-2. **Push to your fork:**
+4. Validate QML if you modified QML files:
    ```bash
-   git push origin feature/your-feature-name
+   ./scripts/validate-qml.sh
    ```
 
-3. **Create Pull Request:**
-   - Go to GitHub and create PR
-   - Fill in the PR template
-   - Link to any related issues
+5. Commit your changes:
+   ```bash
+   git add <files>
+   git commit -m "Description of changes"
+   ```
 
-## Commit Message Format
-
-Use conventional commit style:
-
-```
-type(scope): brief description
-
-Longer description if needed.
-
-- Additional details
-- Can be in bullet points
-
-Closes #123
-```
-
-**Types:**
-- `device:` - New device support or fixes
-- `config:` - System configuration changes
-- `kernel:` - Kernel config modifications
-- `docs:` - Documentation updates
-- `scripts:` - Build/helper script changes
-- `fix:` - Bug fixes
-- `perf:` - Performance improvements
-- `refactor:` - Code restructuring
-
-**Examples:**
-```
-device: add support for OnePlus 6T (fajita)
-
-Adds device configuration for OnePlus 6T which shares SDM845
-SoC with OnePlus 6. Tested boot, display, touch, and WiFi.
-
-- Reuses sdm845/kernel-config.fragment
-- Minimal changes from enchilada config
-- All core features working
-
-Closes #45
-```
-
-```
-perf: optimize zram compression for ARM64
-
-Switched from zstd to lz4 for faster compression/decompression
-on ARM64 devices with limited CPU power.
-
-Benchmarks show 2x faster swapping with only 10% worse compression ratio.
-```
+6. Push to your fork and create a pull request
 
 ## Code Style
 
-### Shell Scripts
-- Use `#!/bin/bash` shebang
-- Use `set -e` for error handling
-- Add comments for complex logic
-- Use meaningful variable names in CAPS for env vars
+### C++ Style
 
-### Configuration Files
-- Include comments explaining each option
-- Group related options together
-- Reference documentation links where helpful
+Follow Qt coding conventions:
 
-### Documentation
-- Use Markdown
-- Include code examples
-- Keep line length reasonable (~80-100 chars)
-- Use proper headings hierarchy
+- Use `camelCase` for methods and properties
+- Use `PascalCase` for class names
+- Use `m_` prefix for private member variables
+- Use meaningful variable names
+- Comment complex logic
+- Use `Q_PROPERTY` for QML-exposed properties
+- Include header guards in all header files
 
-## Testing Requirements
+Example:
+```cpp
+class NetworkManager : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool connected READ isConnected NOTIFY connectedChanged)
+  
+public:
+    explicit NetworkManager(QObject *parent = nullptr);
+    bool isConnected() const { return m_connected; }
+  
+signals:
+    void connectedChanged();
+  
+private:
+    bool m_connected;
+};
+```
 
-### For Device Support PRs
-Must test and document status of:
-- [ ] Kernel boots to shell
-- [ ] Display works (framebuffer or DRM)
-- [ ] Touch input responsive
-- [ ] WiFi connects
-- [ ] GPU acceleration (glmark2-wayland)
-- [ ] Suspend/resume (if supported)
-- [ ] Modem (if phone device)
-- [ ] Audio output
-- [ ] Battery reporting
+### QML Style
 
-### For Performance Tuning PRs
-- [ ] Provide before/after benchmarks
-- [ ] Test on at least one device
-- [ ] Document any trade-offs
-- [ ] Explain rationale for changes
+- Use `camelCase` for property names
+- Use `PascalCase` for component names
+- Indent with 4 spaces
+- Group properties logically
+- Place signal handlers after property declarations
+- Use MarathonUI components instead of basic QtQuick controls
 
-### For Kernel Config PRs
-- [ ] Explain why option is needed
-- [ ] Verify kernel still builds
-- [ ] Test boot on reference device
-- [ ] Document any size/performance impact
+Example:
+```qml
+MPage {
+    id: myPage
+    title: "My Page"
+  
+    property string customProperty: "value"
+  
+    signal customSignal()
+  
+    content: MLabel {
+        text: "Hello"
+        color: MColors.textPrimary
+    }
+  
+    onCustomSignal: {
+        // Handle signal
+    }
+}
+```
 
-## Device Support Checklist
+### File Naming
 
-When adding a new device:
+- QML files: `PascalCase.qml` (e.g., `MarathonShell.qml`)
+- C++ headers: `lowercase.h` (e.g., `networkmanager.h`)
+- C++ sources: `lowercase.cpp` (e.g., `networkmanager.cpp`)
+- Scripts: `kebab-case.sh` (e.g., `build-apps.sh`)
 
-1. **Create device directory:**
-   ```bash
-   mkdir -p devices/<codename>
-   ```
+## Commit Messages
 
-2. **Create `device.conf`:**
-   ```bash
-   cp devices/enchilada/device.conf devices/<codename>/
-   # Edit with device-specific values
-   ```
+Write clear, descriptive commit messages:
 
-3. **Test build:**
-   ```bash
-   ./scripts/build-and-flash.sh <codename>
-   ```
+**Good:**
+```
+Add WiFi password dialog to settings
 
-4. **Flash and validate:**
-   ```bash
-   # Flash to device
-   # Boot and test
-   ./scripts/validate-system.sh
-   ```
+- Implement MPasswordDialog component
+- Add password validation
+- Connect to NetworkManager D-Bus API
+- Add error handling for connection failures
+```
 
-5. **Document in PR:**
-   - Hardware specs (CPU, RAM, storage)
-   - What works / doesn't work
-   - Known issues
-   - Photos/video of working device (optional but awesome)
+**Bad:**
+```
+Fixed stuff
+WIP
+Updates
+```
 
-6. **Update `docs/DEVICE_SUPPORT.md`:**
-   - Add device to support matrix
-   - Document any quirks
+Format:
+- First line: Brief summary (50 characters or less)
+- Blank line
+- Detailed description with bullet points if needed
+- Reference issue numbers if applicable: `Fixes #123`
 
-## Review Process
+## Pull Request Guidelines
 
-1. **Automated checks:**
-   - Basic linting
-   - File structure validation
+### Before Submitting
 
-2. **Manual review:**
-   - Maintainer reviews code
-   - Tests on available hardware
-   - Provides feedback
+- Test your changes thoroughly
+- Run QML validation: `./scripts/validate-qml.sh`
+- Verify no new console warnings or errors
+- Check that existing functionality still works
+- Update documentation if needed
+- Add comments for complex code
 
-3. **Approval and merge:**
-   - Once approved, PR is merged
-   - Your contribution is credited
+### Pull Request Description
 
-## Community Guidelines
+Include:
+- What changes were made
+- Why the changes were necessary
+- How to test the changes
+- Screenshots for UI changes
+- Any breaking changes or migration notes
 
-- **Be respectful:** Treat everyone with respect
-- **Be patient:** Maintainers are volunteers
-- **Be helpful:** Help other contributors
-- **Be constructive:** Provide actionable feedback
-- **Be collaborative:** Work together to improve the project
+### Review Process
 
-## Questions or Help?
+- Address reviewer feedback promptly
+- Make requested changes in new commits (don't force-push during review)
+- Respond to review comments
+- Be open to suggestions and alternative approaches
 
-- **GitHub Issues:** Report bugs or request features
-- **GitHub Discussions:** Ask questions, share ideas
-- **Pull Requests:** Submit your contributions
-- **Email:** patrick@jquinn.com (for sensitive issues only)
+## Testing
+
+### Manual Testing
+
+1. Build and run the shell
+2. Test the specific feature you modified
+3. Test related features to check for regressions
+4. Test on target platform (Linux with Wayland)
+5. Check console for errors or warnings
+
+### QML Validation
+
+```bash
+./scripts/validate-qml.sh
+```
+
+Fix any warnings or errors reported by qmllint.
+
+### Unit Tests
+
+If applicable, add unit tests for new C++ code:
+
+```cpp
+// tests/test_myfeature.cpp
+# include <QtTest>
+
+class TestMyFeature : public QObject {
+    Q_OBJECT
+  
+private slots:
+    void testBasicFunctionality();
+};
+
+void TestMyFeature::testBasicFunctionality() {
+    // Test code
+    QVERIFY(condition);
+}
+
+QTEST_MAIN(TestMyFeature)
+# include "test_myfeature.moc"
+```
+
+## Documentation
+
+### When to Update Documentation
+
+Update documentation when you:
+- Add a new feature
+- Change existing behavior
+- Add new configuration options
+- Modify the build process
+- Change the architecture
+
+### Documentation Locations
+
+- `README.md` - Overview and quick start
+- `docs/ARCHITECTURE.md` - System architecture
+- `docs/APP_DEVELOPMENT.md` - App development guide
+- `docs/DEVELOPER_GUIDE.md` - Developer tools
+
+- Other docs in `docs/` for specific topics
+
+### Documentation Style
+
+- Use clear, technical language
+- Include code examples where helpful
+- Avoid marketing language or hyperbole
+- Use consistent terminology
+- Keep documentation up-to-date with code changes
+
+## Bug Reports
+
+### Before Filing a Bug
+
+1. Check if the issue already exists
+2. Verify the issue on latest code
+3. Test with debug logging: `MARATHON_DEBUG=1 ./run.sh`
+
+### Bug Report Format
+
+Include:
+- Marathon Shell version or commit hash
+- Operating system and version
+- Qt version
+- Steps to reproduce
+- Expected behavior
+- Actual behavior
+- Console output (with `MARATHON_DEBUG=1`)
+- Screenshots if applicable
+
+## Feature Requests
+
+### Proposing New Features
+
+1. Check if the feature has been discussed
+2. Explain the use case and benefits
+3. Describe the proposed implementation
+4. Consider alternative approaches
+5. Be open to feedback and discussion
+
+### Feature Request Format
+
+Include:
+- Description of the feature
+- Use case / problem it solves
+- Proposed implementation (if you have ideas)
+- Mockups or examples (if applicable)
+- Willingness to implement it yourself
+
+## Community
+
+### Getting Help
+
+- Check documentation in `docs/`
+- Search existing issues
+- Create a new issue with clear description
+- Be patient and respectful
+
+### Communication Guidelines
+
+- Be respectful and professional
+- Focus on technical merit
+- Provide constructive feedback
+- Assume good intentions
+- Help newcomers
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License (for configuration/build files) or GPL-3.0+ (for code that links with Marathon Shell).
+By contributing to Marathon Shell, you agree that your contributions will be licensed under the Apache License 2.0.
 
-See [LICENSE](LICENSE) for details.
+## Questions?
 
----
+If you have questions about contributing, please create an issue or reach out through the project's communication channels.
 
-**Thank you for contributing to Marathon OS!** 
-
-Together, we're building the mobile Linux experience we've always wanted.
-
+Thank you for contributing to Marathon Shell!
 
