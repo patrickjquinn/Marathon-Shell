@@ -51,13 +51,26 @@ def run(drv: QemuDriver, since: str) -> int:
 
     print("  visual: home should match qs-dismissed within 5% pixel diff")
     GOLDEN = Path(__file__).parent.parent / "golden" / "04_quick_settings"
-    if not drv.visual_diff("03-qs-dismissed", GOLDEN / "home.png", threshold=0.05):
-        # First run: bootstrap from current shot.
-        (GOLDEN).mkdir(parents=True, exist_ok=True)
-        shot = drv.run_dir / "03-qs-dismissed.png"
+    # Bootstrap ONLY when there is no golden yet.
+    #
+    # This used to bootstrap whenever the comparison FAILED, and never
+    # incremented `fails`. So a mismatch overwrote the baseline with the
+    # very shot that failed and printed OK: the check could not fail
+    # twice for the same reason, every run left the golden modified in
+    # the working tree, and any regression quietly became the new
+    # expectation. The committed golden had been laundered that way into
+    # a frame with a permission dialog covering the home screen.
+    golden = GOLDEN / "home.png"
+    shot = drv.run_dir / "03-qs-dismissed.png"
+    if not golden.exists():
+        GOLDEN.mkdir(parents=True, exist_ok=True)
         if shot.exists():
-            (GOLDEN / "home.png").write_bytes(shot.read_bytes())
-            print("  OK    bootstrapped home golden")
+            golden.write_bytes(shot.read_bytes())
+            print("  OK    bootstrapped home golden (no baseline existed)")
+            print("        review it before committing -- it is now the expectation")
+    elif not drv.visual_diff("03-qs-dismissed", golden, threshold=0.05):
+        print("  FAIL  home differs from the golden by more than 5%")
+        fails += 1
 
     return fails
 
