@@ -159,40 +159,35 @@ class QemuDriver:
             print(f"          {r.stdout.decode(errors='replace').strip()}")
             return False
         except FileNotFoundError:
-            # ImageMagick fallback. AE under -fuzz returns "differing-px",
-            # but ImageMagick6 vs 7 disagree on whether that's an int or
-            # a scientific-notation float, so parse as float first. Also
-            # try `magick compare` (IM7) before plain `compare` (IM6).
-            for binary in (["magick", "compare"], ["compare"]):
-                try:
-                    r = subprocess.run(
-                        [*binary, "-metric", "AE", "-fuzz", "5%",
-                         str(golden), str(shot), str(diff_out)],
-                        capture_output=True)
-                    break
-                except FileNotFoundError:
-                    continue
-            else:
-                print(f"  WARN  no visual-diff backend (odiff / "
-                      f"ImageMagick) — skipping {label}")
-                return True
-            # AE metric output:
-            #   IM6 ("compare"):  "12345" — a plain integer pixel count
-            #   IM7 ("magick compare", Q16-HDRI): "6.79e+10 (1.0368e+06)"
-            #     The first number is a channel-difference sum scaled by
-            #     HDRI quantization — useless. The parenthesized number
-            #     IS the pixel-count, calibrated against white-vs-black
-            #     (720×1440 = 1.0368e+06). Parse the paren if present,
-            #     else fall through to the leading number.
-            text = (r.stderr or b"0").decode(errors="replace").strip()
-            m = re.search(r"\(([\d.eE+-]+)\)", text)
-            raw = m.group(1) if m else text.split()[0] if text else "0"
+            # No odiff. Compute the differing-pixel fraction directly
+            # rather than parsing ImageMagick's AE metric.
+            #
+            # AE was unreliable across builds: this host's `magick
+            # compare -metric AE` returns "4.74723e+09 (4.74723e+09)" for
+            # a 720x1440 image whose true differing-pixel count is
+            # 343631. Both numbers are a channel-difference sum, not a
+            # count, so dividing by width*height reported 457873% and the
+            # threshold check was meaningless in either direction.
+            #
+            # Same metric the interaction scenario uses: per-pixel max
+            # channel delta, thresholded at 12/255 to ignore antialiasing
+            # and PNG quantisation noise.
             try:
-                differing = int(float(raw))
-            except ValueError:
-                differing = 0
-            total = self.width * self.height
-            frac = differing / max(1, total)
+                from PIL import Image
+                import numpy as np
+            except ImportError:
+                print(f"  WARN  no visual-diff backend (odiff / Pillow) "
+                      f"-- skipping {label}")
+                return True
+            a = np.asarray(Image.open(golden).convert("RGB"), dtype=np.int16)
+            b = np.asarray(Image.open(shot).convert("RGB"), dtype=np.int16)
+            if a.shape != b.shape:
+                print(f"  FAIL  visual diff: {label} -- size mismatch "
+                      f"{a.shape[1]}x{a.shape[0]} vs {b.shape[1]}x{b.shape[0]}")
+                return False
+            delta = np.abs(a - b).max(axis=-1)
+            differing = int((delta > 12).sum())
+            frac = differing / max(1, delta.size)
             ok = frac <= threshold
             tag = "OK" if ok else "FAIL"
             print(f"  {tag}  visual diff: {label}  {differing}px ({frac:.3%})")

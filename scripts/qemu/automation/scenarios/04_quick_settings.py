@@ -49,27 +49,22 @@ def run(drv: QemuDriver, since: str) -> int:
     time.sleep(0.6)
     drv.screenshot("03-qs-dismissed")
 
-    print("  visual: home should match qs-dismissed within 5% pixel diff")
-    GOLDEN = Path(__file__).parent.parent / "golden" / "04_quick_settings"
-    # Bootstrap ONLY when there is no golden yet.
+    # Compare against THIS run's own home shot, not a stored golden.
     #
-    # This used to bootstrap whenever the comparison FAILED, and never
-    # incremented `fails`. So a mismatch overwrote the baseline with the
-    # very shot that failed and printed OK: the check could not fail
-    # twice for the same reason, every run left the golden modified in
-    # the working tree, and any regression quietly became the new
-    # expectation. The committed golden had been laundered that way into
-    # a frame with a permission dialog covering the home screen.
-    golden = GOLDEN / "home.png"
-    shot = drv.run_dir / "03-qs-dismissed.png"
-    if not golden.exists():
-        GOLDEN.mkdir(parents=True, exist_ok=True)
-        if shot.exists():
-            golden.write_bytes(shot.read_bytes())
-            print("  OK    bootstrapped home golden (no baseline existed)")
-            print("        review it before committing -- it is now the expectation")
-    elif not drv.visual_diff("03-qs-dismissed", golden, threshold=0.05):
-        print("  FAIL  home differs from the golden by more than 5%")
+    # What this scenario is actually asserting is that dismissing quick
+    # settings puts you back on the home screen you started from. A
+    # checked-in golden cannot express that here: the image carries
+    # settings between runs, and scenario 06 walks userScaleFactor, so
+    # the home grid reflows (4 columns vs 5, different app set) between
+    # one run and the next. The stored golden failed at 33% for exactly
+    # that reason -- nothing was broken, the baseline was from a run at a
+    # different scale.
+    #
+    # Same-run comparison is immune to that and tests the real property.
+    print("  visual: dismissing QS returns to the home screen it started from")
+    if not drv.visual_diff("03-qs-dismissed",
+                           drv.run_dir / "01-home.png", threshold=0.05):
+        print("  FAIL  QS dismissal did not restore the starting home screen")
         fails += 1
 
     return fails
