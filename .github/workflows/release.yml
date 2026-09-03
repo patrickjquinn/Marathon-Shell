@@ -126,6 +126,17 @@ jobs:
           command -v qemu-system-aarch64
           ls /usr/share/AAVMF/ 2>/dev/null || ls /usr/share/qemu-efi-aarch64/ 2>/dev/null || true
 
+      - name: Allow unprivileged user namespaces
+        # mkosi calls acquire_privileges() -> fix_userns_capabilities(),
+        # which prctl()s itself into a user namespace. Ubuntu 24.04 blocks
+        # that for unprivileged processes through AppArmor, so the bake
+        # died with "PermissionError: [Errno 1] Operation not permitted"
+        # from mkosi/sandbox.py before writing a single byte of image.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 2>/dev/null || true
+          echo "userns restrict: $(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 'n/a')"
+
       - name: Bootstrap the build trees
         # Must run BEFORE the apk is staged. bootstrap.sh clones duranium
         # with `git clone`, which needs the target directory to be absent
