@@ -105,7 +105,12 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
+# No upper bound. A capped range (6.4...6.10.1) turned away a contributor
+# building against newer Qt (#48), and raising the cap to 6.12 only moved
+# the wall -- CMake treats the range as inclusive, so the next Qt release
+# breaks the configure step again for everyone. 6.4 is a real floor; the
+# ceiling was never anything but maintenance debt.
+find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core
     Gui
     Qml
