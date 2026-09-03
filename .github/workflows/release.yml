@@ -159,11 +159,8 @@ jobs:
         # duranium sets ToolsTree=default, which mkosi resolves against the
         # HOST distribution. On the Fedora workstation this is developed on
         # that yields a Fedora tools tree and everything resolves. On an
-        # Ubuntu runner it yields a Debian one, and two things break:
+        # Ubuntu runner it yields a Debian one, which breaks:
         #
-        #   E: Unable to locate package ukify
-        #        duranium lists `ukify` in ToolsTreePackages -- the Fedora
-        #        name. Debian ships it as systemd-ukify.
         #   E: Package 'grub-pc-bin' has no installation candidate
         #        pulled in by mkosi's own Debian defaults; it is x86-only
         #        and this tools tree is arm64.
