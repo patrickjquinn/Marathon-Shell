@@ -48,7 +48,10 @@ qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
 # Boot the extracted kernel+initrd directly instead of via UEFI/UKI — the
 # systemd-boot path can't discover root on the QEMU image (masked
 # cryptsetup + gpt-auto), so it hangs in the initrd. See lib/extract-uki.sh.
-UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1)"
+# `|| true`: under `set -euo pipefail` an unmatched glob makes ls exit 2,
+# pipefail carries it through head, and the assignment kills the script
+# before the explicit "no UKI found" check below can report anything.
+UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1 || true)"
 [ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
 . "$SCRIPT_DIR/extract-uki.sh"
 extract_uki_kernel_initrd "$UKI" /tmp/marathon-qemu-uki || exit 1

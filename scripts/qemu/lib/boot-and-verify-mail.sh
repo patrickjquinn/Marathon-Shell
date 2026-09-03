@@ -28,7 +28,10 @@ echo "==> image: $IMG"
 # because QEMU has no LUKS — so a UKI/pflash boot hangs in the initrd
 # and SSH fails with "timed out during banner exchange". Same fix
 # boot-and-verify-shell.sh already carries. See lib/extract-uki.sh.
-UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1)"
+# `|| true`: under `set -euo pipefail` an unmatched glob makes ls exit 2,
+# pipefail carries it through head, and the assignment kills the script
+# before the explicit "no UKI found" check below can report anything.
+UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1 || true)"
 [ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
 . "$SCRIPT_DIR/extract-uki.sh"
 extract_uki_kernel_initrd "$UKI" /tmp/duranium-mail-uki || exit 1

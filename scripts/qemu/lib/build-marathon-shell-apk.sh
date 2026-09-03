@@ -76,9 +76,15 @@ apk add --no-cache --quiet \
 # install it from /local-apks with --allow-untrusted. find_library() in
 # our CMakeLists.txt needs libQmfClient.so + qmailstore.h to land at the
 # canonical /usr/lib + /usr/include/qt6/QmfClient paths.
-QMF_DEV_APK="$(ls /local-apks/qmf-dev-*.apk 2>/dev/null | head -1)"
-QMF_LIBS_APK="$(ls /local-apks/qmf-libs-*.apk 2>/dev/null | head -1)"
-QMF_MS_APK="$(ls /local-apks/qmf-messageserver-*.apk 2>/dev/null | head -1)"
+# `|| true` is load-bearing under `set -euo pipefail`: when the glob
+# matches nothing, ls exits 2, pipefail propagates that through `head`,
+# and the assignment aborts the whole script with no message on stderr
+# (it was sent to /dev/null). Locally /local-apks always holds qmf apks
+# from an earlier build so it never fired; on a clean CI runner the
+# directory is empty and the build died silently one minute in.
+QMF_DEV_APK="$(ls /local-apks/qmf-dev-*.apk 2>/dev/null | head -1 || true)"
+QMF_LIBS_APK="$(ls /local-apks/qmf-libs-*.apk 2>/dev/null | head -1 || true)"
+QMF_MS_APK="$(ls /local-apks/qmf-messageserver-*.apk 2>/dev/null | head -1 || true)"
 if [ -n "$QMF_DEV_APK" ] && [ -n "$QMF_LIBS_APK" ] && [ -n "$QMF_MS_APK" ]; then
     apk add --no-cache --quiet --allow-untrusted \
         "$QMF_LIBS_APK" "$QMF_MS_APK" "$QMF_DEV_APK" 2>&1 | tail -3 || true
