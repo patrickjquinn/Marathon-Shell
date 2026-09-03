@@ -1,8 +1,7 @@
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonOS.Shell 1.0
+import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 
 Item {
@@ -50,13 +49,10 @@ Item {
         opacity: 0
         scale: 0.9
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.05)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.05)
+            lineWidth: 1
         }
 
         Column {
@@ -99,7 +95,7 @@ Item {
 
                     anchors.fill: parent
                     onClicked: {
-                        Logger.info("AppContextMenu", "App info for: " + appData.name);
+                        Logger.info("AppContextMenu", "App info for: " + contextMenu.appData.name);
                         HapticManager.light();
                         appInfo();
                         hide();
@@ -152,11 +148,11 @@ Item {
 
                     anchors.fill: parent
                     onClicked: {
-                        Logger.info("AppContextMenu", "Uninstall: " + appData.name);
+                        Logger.info("AppContextMenu", "Uninstall: " + contextMenu.appData.name);
                         HapticManager.medium();
                         uninstall();
                         hide();
-                        UIStore.showConfirmDialog("Uninstall " + appData.name + "?", "This app will be removed from your device.", function () {
+                        UIStore.showConfirmDialog("Uninstall " + contextMenu.appData.name + "?", "This app will be removed from your device.", function () {
                             Logger.info("AppContextMenu", "Confirmed uninstall");
                         });
                     }

@@ -1,0 +1,304 @@
+/* ============================================================
+   Marathon Design System — site chrome
+   Layered ON TOP of marathon-tokens.css. Side nav, content sections,
+   spec callouts, swatch grids, do/don't blocks. Uses Marathon visual
+   language to document Marathon visual language.
+   ============================================================ */
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bb10-black);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+.ds-app {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+/* ---------- SIDEBAR ---------- */
+.ds-sidebar {
+  position: sticky; top: 0; height: 100vh;
+  background: var(--bb10-deep);
+  border-right: 1px solid var(--w-04);
+  padding: 28px 0;
+  overflow-y: auto;
+  z-index: 10;
+}
+.ds-sidebar::-webkit-scrollbar { width: 4px; }
+.ds-sidebar::-webkit-scrollbar-thumb { background: var(--w-08); border-radius: 2px; }
+
+.ds-brand {
+  padding: 0 22px 24px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--w-04);
+  margin-bottom: 16px;
+}
+.ds-brand-mark {
+  width: 36px; height: 36px;
+  border-radius: 4px;
+  background: var(--teal-gradient);
+  display: flex; align-items: center; justify-content: center;
+  color: #000;
+  font-weight: 800;
+  font-size: 20px;
+  box-shadow: 0 0 16px var(--teal-halo), inset 0 1px 0 rgba(255,255,255,0.3);
+  border: 1px solid var(--teal-border);
+}
+.ds-brand-text { line-height: 1.1; }
+.ds-brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.1px; }
+.ds-brand-version { font-size: 11px; color: var(--text-secondary); margin-top: 2px; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+
+.ds-nav-group {
+  padding: 14px 22px 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.4;
+  color: var(--text-secondary); text-transform: uppercase;
+}
+.ds-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 22px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: color var(--t-quick), background var(--t-quick), border-color var(--t-quick);
+}
+.ds-nav-item:hover { color: var(--text-primary); background: var(--w-02); }
+.ds-nav-item.active {
+  color: var(--teal-bright);
+  border-left-color: var(--teal-bright);
+  background: rgba(0,191,165,0.06);
+}
+
+/* ---------- CONTENT ---------- */
+.ds-main {
+  padding: 56px 64px 120px;
+  max-width: 1100px;
+}
+.ds-section { padding: 48px 0; border-top: 1px solid var(--w-04); }
+.ds-section:first-child { border-top: 0; padding-top: 16px; }
+.ds-section-eyebrow {
+  font-size: 11px; letter-spacing: 1.6; font-weight: 700;
+  color: var(--teal-bright); text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.ds-section-title {
+  font-size: 48px; font-weight: 200; letter-spacing: -1.2px;
+  line-height: 1.05; margin: 0;
+}
+.ds-section-lede {
+  font-size: 18px; font-weight: 300; color: var(--text-primary);
+  line-height: 1.5; max-width: 720px;
+  margin: 18px 0 0;
+  text-wrap: pretty;
+}
+
+/* Subheadings */
+.ds-h3 {
+  font-size: 24px; font-weight: 300; letter-spacing: -0.3px;
+  margin: 48px 0 12px;
+  line-height: 1.2;
+}
+.ds-h4 {
+  font-size: 14px; font-weight: 600; letter-spacing: 0.3px;
+  color: var(--text-secondary); text-transform: uppercase;
+  margin: 24px 0 12px;
+}
+.ds-p {
+  font-size: 15px; line-height: 1.6; color: var(--text-primary);
+  max-width: 720px;
+  margin: 8px 0; text-wrap: pretty;
+}
+.ds-p code { font-family: var(--font-mono); font-size: 13px; color: var(--teal-bright); background: var(--elev-2); padding: 1px 6px; border-radius: 3px; }
+
+/* ---------- Spec table ---------- */
+.ds-spec {
+  width: 100%;
+  border: 1px solid var(--w-04);
+  border-radius: 4px;
+  background: var(--elev-1);
+  margin: 16px 0;
+  overflow: hidden;
+}
+.ds-spec-row {
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--w-04);
+  align-items: center;
+  font-size: 13px;
+}
+.ds-spec-row:first-child { border-top: 0; }
+.ds-spec-row .k { color: var(--text-secondary); }
+.ds-spec-row .v { font-family: var(--font-mono); color: var(--text-primary); font-size: 12px; }
+.ds-spec-row .desc { color: var(--text-secondary); text-align: right; font-size: 12px; }
+
+/* ---------- Cards / specimen ---------- */
+.ds-grid { display: grid; gap: 16px; margin: 24px 0; }
+.ds-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.ds-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.ds-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.ds-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+.ds-grid.cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+.ds-specimen {
+  background: var(--elev-1);
+  border: 1px solid var(--w-04);
+  border-radius: 4px;
+  padding: 24px;
+}
+.ds-specimen-large { padding: 36px; }
+.ds-specimen-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 18px;
+  font-size: 11px; color: var(--text-secondary);
+  letter-spacing: 1.2; text-transform: uppercase; font-weight: 600;
+}
+.ds-specimen-caption {
+  font-size: 12px; color: var(--text-secondary);
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+}
+
+/* ---------- Swatches ---------- */
+.ds-swatch {
+  background: var(--elev-1);
+  border: 1px solid var(--w-04);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.ds-swatch-fill {
+  height: 88px;
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  padding: 12px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: #fff;
+}
+.ds-swatch-meta {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 12px;
+}
+.ds-swatch-name { color: var(--text-primary); font-weight: 600; font-size: 12.5px; }
+.ds-swatch-hex { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; }
+.ds-swatch-token { color: var(--text-tertiary); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2px; }
+
+/* ---------- Do / Don't ---------- */
+.ds-rule {
+  background: var(--elev-1);
+  border: 1px solid var(--w-04);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+}
+.ds-rule::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 3px;
+}
+.ds-rule.do::before    { background: var(--teal-bright); box-shadow: 0 0 8px var(--teal-glow); }
+.ds-rule.dont::before  { background: var(--error); }
+.ds-rule-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.4;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.ds-rule.do .ds-rule-label   { color: var(--teal-bright); }
+.ds-rule.dont .ds-rule-label { color: var(--error); }
+.ds-rule-text { font-size: 14px; line-height: 1.5; color: var(--text-primary); }
+
+/* ---------- Inline color spec ---------- */
+.ds-token-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--w-04);
+  font-size: 13px;
+}
+.ds-token-chip {
+  width: 24px; height: 24px; border-radius: 4px;
+  border: 1px solid var(--w-08);
+  flex-shrink: 0;
+}
+.ds-token-name { font-weight: 500; color: var(--text-primary); width: 180px; }
+.ds-token-var  { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); width: 200px; }
+.ds-token-hex  { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.ds-token-use  { color: var(--text-secondary); margin-left: auto; font-size: 12px; }
+
+/* ---------- Type specimens ---------- */
+.ds-type-row {
+  display: grid;
+  grid-template-columns: 240px 80px 60px 60px 1fr;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--w-04);
+  align-items: baseline;
+  gap: 16px;
+}
+.ds-type-row:last-child { border-bottom: 0; }
+.ds-type-sample { color: var(--text-primary); line-height: 1.1; }
+.ds-type-cell { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.ds-type-name { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+
+/* ---------- Spacing scale ---------- */
+.ds-space-row {
+  display: grid;
+  grid-template-columns: 60px 120px 80px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--w-04);
+}
+.ds-space-bar {
+  height: 24px;
+  background: var(--teal-bright);
+  box-shadow: 0 0 8px var(--teal-halo);
+}
+
+/* ---------- Phone showcase frame ---------- */
+.ds-phone {
+  width: 195px; height: 422px;
+  background: #000;
+  border: 1px solid #1a1a1a;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 12px 28px -10px rgba(0,0,0,0.5);
+}
+.ds-phone-scaled {
+  transform: scale(0.5);
+  transform-origin: top left;
+  width: 390px; height: 844px;
+}
+
+/* anchor offset for sticky nav */
+.ds-anchor { scroll-margin-top: 16px; }
+
+/* nice section divider */
+.ds-rule-line {
+  height: 1px; background: var(--w-04);
+  margin: 28px 0;
+  border: 0;
+}
+
+/* small inline badge */
+.ds-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  background: var(--elev-2);
+  border: 1px solid var(--w-08);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.ds-badge.teal { background: rgba(0,191,165,0.10); border-color: var(--teal-border); color: var(--teal-bright); }

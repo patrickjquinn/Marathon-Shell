@@ -1,4 +1,6 @@
 #include "securitymanager.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include "securitylogger.h"
 #include <QDebug>
 #include <QDBusReply>
@@ -9,11 +11,18 @@
 #include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QDir>
-#include <QtConcurrent/QtConcurrent>
+#include <QtConcurrent/QtConcurrentRun>   // QtConcurrent::run -- the whole
+                                          // module header pulls in far more.
 #include <unistd.h>
 #include <pwd.h>
 #include <sys/types.h>
+#include <utility>   // std::as_const
 
+SecurityManager *SecurityManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SecurityManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 SecurityManager::SecurityManager(QObject *parent)
     : QObject(parent)
     , m_authMode(SystemPassword)
@@ -52,11 +61,8 @@ SecurityManager::SecurityManager(QObject *parent)
 SecurityManager::~SecurityManager() {
     if (m_fprintdDevice) {
         m_fprintdDevice->call("Release");
-        delete m_fprintdDevice;
     }
-    if (m_fprintdManager) {
-        delete m_fprintdManager;
-    }
+    // m_fprintdDevice and m_fprintdManager are parented to this; Qt will delete them
 }
 
 void SecurityManager::setAuthMode(AuthMode mode) {
@@ -168,6 +174,15 @@ void SecurityManager::authenticatePassword(const QString &password) {
 
     if (password.isEmpty()) {
         emit authenticationFailed("Password cannot be empty");
+        return;
+    }
+
+    // Reject re-entrant calls while a previous attempt is still in flight.
+    // Without this, replacing the watcher's future drops the in-flight result on the floor --
+    // the lockout counter doesn't increment under rapid attempts, weakening rate limiting.
+    if (m_passwordAuthWatcher && m_passwordAuthWatcher->isRunning()) {
+        qDebug() << "[SecurityManager] Auth already in flight -- rejecting re-entrant attempt";
+        emit authenticationFailed("Authentication already in progress");
         return;
     }
 
@@ -329,6 +344,12 @@ void SecurityManager::authenticateQuickPIN(const QString &pin) {
         return;
     }
 
+    if (m_quickPINAuthWatcher && m_quickPINAuthWatcher->isRunning()) {
+        qDebug() << "[SecurityManager] Quick PIN auth already in flight -- rejecting re-entrant";
+        emit authenticationFailed("Authentication already in progress");
+        return;
+    }
+
     qDebug() << "[SecurityManager] Starting async Quick PIN verification";
     QFuture<bool> future = QtConcurrent::run([this, pin]() { return verifyQuickPIN(pin); });
 
@@ -380,6 +401,27 @@ void SecurityManager::setQuickPIN(const QString &pin, const QString &systemPassw
     }
 }
 
+bool SecurityManager::setQuickPINFirstRun(const QString &pin) {
+    // Refuse if a PIN is already configured -- prevents this entry point
+    // being abused after OOBE to bypass the system-password check.
+    if (m_hasQuickPIN) {
+        qWarning() << "[SecurityManager] setQuickPINFirstRun rejected: PIN already set";
+        return false;
+    }
+    if (pin.length() < 4) {
+        qWarning() << "[SecurityManager] setQuickPINFirstRun rejected: PIN too short";
+        return false;
+    }
+    if (!storeQuickPIN(pin)) {
+        emit authenticationFailed("Failed to store Quick PIN");
+        return false;
+    }
+    m_hasQuickPIN = true;
+    emit quickPINChanged();
+    qInfo() << "[SecurityManager] Quick PIN set during first-run setup";
+    return true;
+}
+
 void SecurityManager::removeQuickPIN(const QString &systemPassword) {
     qDebug() << "[SecurityManager] Removing Quick PIN (requires system password verification)";
 
@@ -411,7 +453,7 @@ void SecurityManager::initFingerprintDevice() {
     if (!m_fprintdManager->isValid()) {
         qWarning() << "[SecurityManager] fprintd Manager interface invalid:"
                    << m_fprintdManager->lastError().message();
-        delete m_fprintdManager;
+        // m_fprintdManager is parented to this; Qt will delete it on destruction
         m_fprintdManager       = nullptr;
         m_fingerprintAvailable = false;
         return;
@@ -433,7 +475,7 @@ void SecurityManager::initFingerprintDevice() {
     if (!m_fprintdDevice->isValid()) {
         qWarning() << "[SecurityManager] fprintd Device interface invalid:"
                    << m_fprintdDevice->lastError().message();
-        delete m_fprintdDevice;
+        // m_fprintdDevice is parented to this; Qt will delete it on destruction
         m_fprintdDevice        = nullptr;
         m_fingerprintAvailable = false;
         return;
@@ -585,7 +627,7 @@ void SecurityManager::updateLockoutStatus() {
     }
 }
 
-int SecurityManager::queryFaillockAttempts() {
+int SecurityManager::queryFaillockAttempts() const {
     QString  username = getCurrentUsername();
     QProcess process;
     process.start("faillock", QStringList() << "--user" << username);
@@ -594,7 +636,8 @@ int SecurityManager::queryFaillockAttempts() {
     QString output = process.readAllStandardOutput();
 
     int     count = 0;
-    for (const QString &line : output.split('\n')) {
+    const auto lines = output.split('\n');
+    for (const QString &line : lines) {
         if (line.contains("marathon-shell")) {
             count++;
         }

@@ -189,14 +189,14 @@ import MarathonOS.Shell
 MApp {
     id: myApp
     appId: "myapp"
-    
+  
     Connections {
         target: typeof NavigationRouter !== 'undefined' ? NavigationRouter : null
-        
+      
         function onDeepLinkRequested(appId, route, params) {
             if (appId === myApp.appId) {
                 Logger.info("MyApp", "Deep link requested: " + route)
-                
+              
                 switch (route) {
                     case "history":
                         navigationStack.push(historyPageComponent)

@@ -38,7 +38,7 @@ SwipeView {
         SpringAnimation {
             spring: MMotion.springMedium
             damping: MMotion.dampingMedium
-            epsilon: MMotion.epsilon
+            epsilon: MMotion.epsilonSpatial
         }
     }
 

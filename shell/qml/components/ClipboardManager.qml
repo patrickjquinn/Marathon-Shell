@@ -1,6 +1,7 @@
-import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonOS.Shell 1.0
+import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 
 Rectangle {
@@ -90,16 +91,13 @@ Rectangle {
                 radius: Constants.borderRadiusSmall
                 color: Qt.rgba(255, 255, 255, 0.05)
                 border.width: Constants.borderWidthThin
-                border.color: itemMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
+                border.color: itemMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
                 layer.enabled: true
 
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: parent.radius - 1
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.03)
+                MTopHairline {
+                    radius: parent.radius
+                    color: Qt.rgba(255, 255, 255, 0.03)
+                    lineWidth: 1
                 }
 
                 Row {

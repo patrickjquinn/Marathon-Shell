@@ -1,0 +1,61 @@
+#!/bin/sh
+
+echo "Marathon OS base configuration installed."
+echo "Reloading systemd and udev configurations..."
+
+if [ -x /bin/systemctl ]; then
+	systemctl daemon-reload || true
+	
+	# Enable essential services
+	echo "Enabling NetworkManager..."
+	systemctl enable NetworkManager || true
+	
+	echo "Enabling ModemManager..."
+	systemctl enable ModemManager || true
+	
+	echo "Enabling zram..."
+	systemctl enable systemd-zram-setup@zram0.service || true
+	
+	# shell.service enablement handled via symlinks in APKBUILD
+fi
+
+if [ -x /bin/udevadm ]; then
+	udevadm control --reload-rules || true
+	udevadm trigger || true
+fi
+
+echo "Applying sysctl settings..."
+if [ -x /sbin/sysctl ]; then
+	sysctl --system || true
+fi
+
+if id user >/dev/null 2>&1; then
+	echo "Adding user to required groups..."
+	for group in audio video input plugdev netdev wheel; do
+		if getent group "$group" >/dev/null 2>&1; then
+			adduser user "$group" 2>/dev/null || true
+		fi
+	done
+
+	# Enable linger (loginctl doesn't work during package install)
+	mkdir -p /var/lib/systemd/linger
+	touch /var/lib/systemd/linger/user
+fi
+
+# Patch /etc/pam.d/greetd to include pam_systemd. The upstream Alpine
+# greetd package ships /etc/pam.d/greetd with only base-{auth,account,
+# password,session} — base-session does NOT pull in pam_systemd on
+# Alpine, so greetd's auto-login session never triggers the user
+# systemd manager, the user D-Bus broker never starts, and
+# /run/user/$UID/bus is missing. marathon-shell-session falls back to
+# `dbus-run-session --` which spawns an isolated bus the rest of the
+# user session can't reach.
+# Fix: add `session optional pam_systemd.so` so pam_open_session()
+# wakes user@$UID.service. Idempotent: skip if already present.
+if [ -f /etc/pam.d/greetd ] && ! grep -q pam_systemd /etc/pam.d/greetd; then
+	echo "Patching /etc/pam.d/greetd: adding pam_systemd.so..."
+	sed -i '/^session.*include.*base-session/a session   optional   pam_systemd.so' /etc/pam.d/greetd
+fi
+
+echo "Marathon OS base configuration complete."
+exit 0

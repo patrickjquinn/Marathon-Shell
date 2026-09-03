@@ -1,0 +1,24 @@
+# HackberryPi CM5 enclosure-specific config.
+#
+# Loaded via `include usercfg-hackberrypi.txt` from
+# /boot/usercfg.txt (shipped by device-raspberry-pi5-marathon). Pi
+# firmware silently skips a missing include, so a vanilla Pi 5 /
+# CM5 port doesn't trip over the include line when this package
+# isn't installed.
+
+# HyperPixel 4 Square + edt-ft5x06 touch + MAX17048 fuel gauge +
+# pwm-backlight on GPIO19 / rp1_pwm0 ch3. .dtbo built from
+# hackberrypi.dts in this aport.
+dtoverlay=hackberrypi
+
+# Free GPIO 14/15 for HyperPixel — the panel uses DPI on those pins,
+# which collides with the BT UART. We disable the BT UART on the
+# HackberryPi build only; vanilla Pi 5 keeps Bluetooth working.
+dtoverlay=disable-bt
+
+# Force the CM5's USB OTG controller into host mode. Without this the
+# internal RP2040 USB-HID BlackBerry keyboard (BBQ10/Q20) never
+# enumerates — the OTG port stays in device mode and the keyboard
+# appears dead from userspace. Lifted from ZitaoTech's official
+# Hackberry CM5 Ubuntu boot config.
+dtoverlay=dwc2,dr_mode=host

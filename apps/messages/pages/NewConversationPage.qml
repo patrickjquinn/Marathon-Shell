@@ -1,13 +1,9 @@
-import MarathonApp.Messages
-import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 Rectangle {
     id: newConversationPage
@@ -107,10 +103,10 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
                         placeholderText: "Phone number or contact name"
-                        text: selectedContactName || selectedContact
-                        enabled: selectedContact.length === 0
+                        text: newConversationPage.selectedContactName || newConversationPage.selectedContact
+                        enabled: newConversationPage.selectedContact.length === 0
                         onTextChanged: {
-                            if (selectedContact.length === 0)
+                            if (newConversationPage.selectedContact.length === 0)
                                 searchTimer.restart();
                         }
                     }
@@ -119,8 +115,8 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         iconName: "chevron-right"
                         iconSize: Constants.touchTargetMedium
-                        variant: (selectedContact.length > 0 || isValidNumber) ? "primary" : "ghost"
-                        enabled: selectedContact.length > 0 || isValidNumber
+                        variant: (newConversationPage.selectedContact.length > 0 || newConversationPage.isValidNumber) ? "primary" : "ghost"
+                        enabled: newConversationPage.selectedContact.length > 0 || newConversationPage.isValidNumber
                         onClicked: {
                             HapticService.medium();
                             startConversation();
@@ -135,18 +131,22 @@ Rectangle {
                 interval: 300
                 repeat: false
                 onTriggered: {
-                    if (recipientInput.text.length > 0 && typeof ContactsManager !== 'undefined')
+                    if (recipientInput.text.length > 0)
                         contactsList.model = ContactsManager.searchContacts(recipientInput.text);
                 }
             }
 
+            // anchors.centerIn is ILLEGAL on a Column child and silently
+            // breaks the entire Column (the To: bar + contacts list below).
+            // horizontalCenter is allowed; the empty state flows just under
+            // the input bar with breathing room above.
             MEmptyState {
                 visible: contactsList.count === 0 && recipientInput.text.length > 2
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - MSpacing.xl * 2
                 iconName: "users"
                 title: "No contacts found"
-                message: "Try a different search or enter a phone number"
+                message: "Try a different search or enter a phone number."
             }
 
             ListView {
@@ -157,7 +157,7 @@ Rectangle {
                 clip: true
                 spacing: MSpacing.xs
                 topMargin: MSpacing.sm
-                model: typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
+                model: ContactsManager.contacts
 
                 delegate: Item {
                     width: contactsList.width

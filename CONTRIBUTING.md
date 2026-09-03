@@ -83,14 +83,14 @@ Example:
 class NetworkManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ isConnected NOTIFY connectedChanged)
-    
+  
 public:
     explicit NetworkManager(QObject *parent = nullptr);
     bool isConnected() const { return m_connected; }
-    
+  
 signals:
     void connectedChanged();
-    
+  
 private:
     bool m_connected;
 };
@@ -110,16 +110,16 @@ Example:
 MPage {
     id: myPage
     title: "My Page"
-    
+  
     property string customProperty: "value"
-    
+  
     signal customSignal()
-    
+  
     content: MLabel {
         text: "Hello"
         color: MColors.textPrimary
     }
-    
+  
     onCustomSignal: {
         // Handle signal
     }
@@ -211,11 +211,11 @@ If applicable, add unit tests for new C++ code:
 
 ```cpp
 // tests/test_myfeature.cpp
-#include <QtTest>
+# include <QtTest>
 
 class TestMyFeature : public QObject {
     Q_OBJECT
-    
+  
 private slots:
     void testBasicFunctionality();
 };
@@ -226,7 +226,7 @@ void TestMyFeature::testBasicFunctionality() {
 }
 
 QTEST_MAIN(TestMyFeature)
-#include "test_myfeature.moc"
+# include "test_myfeature.moc"
 ```
 
 ## Documentation

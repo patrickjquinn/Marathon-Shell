@@ -1,7 +1,7 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
 
 Rectangle {
     id: alarmOverlay
@@ -12,7 +12,8 @@ Rectangle {
         currentAlarm = alarm;
         visible = true;
         swipeUpText.opacity = 1;
-        swipeAnimation.start();
+        if (!MMotion.reduceMotion)
+            swipeAnimation.start();
     }
 
     function dismiss() {
@@ -75,7 +76,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: currentAlarm ? currentAlarm.label : "Alarm"
+            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : "Alarm"
             color: MColors.text
             font.pixelSize: MTypography.sizeXLarge
             font.weight: MTypography.weightBold
@@ -228,6 +229,6 @@ Rectangle {
             });
         }
 
-        target: typeof AlarmManagerCpp !== 'undefined' ? AlarmManagerCpp : null
+        target: AlarmManagerCpp
     }
 }

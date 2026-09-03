@@ -26,9 +26,9 @@ Rectangle {
         spacing: Constants.spacingSmall
 
         Text {
-            visible: label !== ""
-            text: label
-            color: hasError ? "#CC0000" : "#FFFFFF"
+            visible: inputContainer.label !== ""
+            text: inputContainer.label
+            color: inputContainer.hasError ? "#CC0000" : "#FFFFFF"
             font.pixelSize: Constants.fontSizeSmall
             font.weight: Font.Medium
             font.family: MTypography.fontFamily
@@ -41,7 +41,7 @@ Rectangle {
             color: "#1A1A1A"
             border.width: Constants.borderWidthMedium
             border.color: {
-                if (hasError)
+                if (inputContainer.hasError)
                     return "#CC0000";
 
                 if (textInput.activeFocus)
@@ -55,11 +55,11 @@ Rectangle {
 
                 anchors.fill: parent
                 anchors.margins: 12
-                color: disabled ? "#666666" : "#FFFFFF"
+                color: inputContainer.disabled ? "#666666" : "#FFFFFF"
                 font.pixelSize: Constants.fontSizeMedium
                 font.family: MTypography.fontFamily
-                echoMode: password ? TextInput.Password : TextInput.Normal
-                enabled: !disabled
+                echoMode: inputContainer.password ? TextInput.Password : TextInput.Normal
+                enabled: !inputContainer.disabled
                 verticalAlignment: TextInput.AlignVCenter
                 onTextChanged: inputContainer.inputTextChanged(text)
                 onAccepted: inputContainer.accepted()
@@ -72,7 +72,7 @@ Rectangle {
 
                 Text {
                     visible: parent.text === "" && !parent.activeFocus
-                    text: placeholder
+                    text: inputContainer.placeholder
                     color: "#666666"
                     font: parent.font
                     anchors.verticalCenter: parent.verticalCenter
@@ -87,8 +87,8 @@ Rectangle {
         }
 
         Text {
-            visible: hasError
-            text: errorText
+            visible: inputContainer.hasError
+            text: inputContainer.errorText
             color: "#CC0000"
             font.pixelSize: Constants.fontSizeSmall
             font.family: MTypography.fontFamily

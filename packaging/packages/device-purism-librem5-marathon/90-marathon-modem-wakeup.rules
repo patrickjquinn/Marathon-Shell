@@ -1,0 +1,29 @@
+# Marathon Librem 5 modem USB autosuspend + wakeup enable.
+#
+# The Librem 5's BroadMobi BM818 modem presents as a USB device
+# (Qualcomm-licensed MSM bridge — vendor 2020 product 2060) on the
+# i.MX 8MQ's xhci-hcd. By default the kernel sets `wakeup: disabled`
+# on this device, which is fatal for power: the runtime suspend path
+# requires a usable wake source, so a wakeup-disabled device CANNOT
+# enter runtime_suspended. Result: USB polls run continuously, ~36
+# interrupts/sec on xhci-hcd:usb1, and the modem draws full power
+# even when the cellular radio is idle.
+#
+# Fix: enable `wakeup` so the kernel can runtime-suspend the modem
+# between cell-tower polls and wake it on incoming traffic. Combined
+# with the 500 ms autosuspend_delay the device already advertises,
+# this brings runtime_suspended_time from ~13% to >90% in steady-
+# state idle, eliminates the per-second xhci interrupt baseline, and
+# saves ~0.1-0.2 W continuous draw.
+#
+# Without this rule the symptom is exactly what we measured on
+# 2026-06-30 r281: device at 56 °C battery with all 4 cores idle,
+# modem at runtime_status=active 99% of uptime, xhci-hcd:usb1 ticking
+# at 36 Hz forever.
+#
+# Companion to the schedutil governor restoration (PWR-1) — the two
+# fixes together are responsible for the bulk of the L5's idle-power
+# improvement on Marathon.
+
+SUBSYSTEM=="usb", ATTR{idVendor}=="2020", ATTR{idProduct}=="2060", \
+    ATTR{power/wakeup}="enabled", ATTR{power/control}="auto"

@@ -3,11 +3,13 @@ import QtQuick.Effects
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
+import MarathonOS.Shell
 
 Rectangle {
     id: root
 
     property bool showBack: true
+    property string backLabel: "Back"
     property int activeAction: 0
     property alias actions: actionRepeater.model
     property alias signatureButton: sigButton
@@ -18,7 +20,8 @@ Rectangle {
     signal signatureClicked
     signal overflowClicked
 
-    height: 108
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    height: Math.round(108 * scaleFactor)
     color: MColors.glassActionbar
 
     border.width: 1
@@ -39,8 +42,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.topMargin: -16
-        height: 16
+        anchors.topMargin: -Math.round(16 * root.scaleFactor)
+        height: Math.round(16 * root.scaleFactor)
         gradient: Gradient {
             GradientStop {
                 position: 0.0
@@ -63,8 +66,8 @@ Rectangle {
             id: backButton
             visible: root.showBack
             anchors.verticalCenter: parent.verticalCenter
-            width: 72
-            height: 44
+            width: Math.round(72 * root.scaleFactor)
+            height: Math.round(44 * root.scaleFactor)
             radius: MRadius.md
             color: "transparent"
 
@@ -80,7 +83,8 @@ Rectangle {
 
             Row {
                 anchors.centerIn: parent
-                spacing: 6
+                // DS button icon-to-text gap = 8 (matches MButton's contentRow).
+                spacing: Math.round(8 * root.scaleFactor)
 
                 Text {
                     text: "◀"
@@ -91,7 +95,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: "Back"
+                    text: root.backLabel
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
@@ -101,7 +105,7 @@ Rectangle {
 
             Rectangle {
                 anchors.right: parent.right
-                anchors.rightMargin: -12
+                anchors.rightMargin: -Math.round(12 * root.scaleFactor)
                 anchors.top: parent.top
                 anchors.topMargin: parent.height * 0.2
                 anchors.bottom: parent.bottom
@@ -132,7 +136,7 @@ Rectangle {
             height: parent.height
             width: {
                 var totalWidth = parent.width - parent.anchors.leftMargin - parent.anchors.rightMargin;
-                var usedWidth = (root.showBack ? backButton.width : 0) + 68 + (root.showOverflow ? overflowButton.width : 0);
+                var usedWidth = (root.showBack ? backButton.width : 0) + Math.round(68 * root.scaleFactor) + (root.showOverflow ? overflowButton.width : 0);
                 var spacingCount = (root.showBack ? 1 : 0) + 1 + (root.showOverflow ? 1 : 0);
                 return totalWidth - usedWidth - (parent.spacing * spacingCount);
             }
@@ -173,20 +177,20 @@ Rectangle {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 3
+                            height: Math.max(2, Math.round(3 * root.scaleFactor))
 
                             gradient: Gradient {
                                 GradientStop {
                                     position: 0.0
-                                    color: isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
                                 }
                                 GradientStop {
                                     position: 0.5
-                                    color: isActive ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
                                 }
                                 GradientStop {
                                     position: 1.0
-                                    color: isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
                                 }
                             }
                         }
@@ -195,8 +199,8 @@ Rectangle {
                             anchors.horizontalCenter: topIndicator.horizontalCenter
                             anchors.top: topIndicator.bottom
                             width: topIndicator.width
-                            height: 35
-                            visible: isActive
+                            height: Math.round(35 * root.scaleFactor)
+                            visible: actionTab.isActive
                             opacity: 0.6
                             gradient: Gradient {
                                 GradientStop {
@@ -223,13 +227,13 @@ Rectangle {
                         }
 
                         Rectangle {
-                            visible: isActive
+                            visible: actionTab.isActive
                             anchors.right: parent.right
-                            anchors.rightMargin: -8
+                            anchors.rightMargin: -Math.round(8 * root.scaleFactor)
                             anchors.top: parent.top
-                            anchors.topMargin: -2
+                            anchors.topMargin: -Math.round(2 * root.scaleFactor)
                             anchors.bottom: parent.bottom
-                            width: 12
+                            width: Math.round(12 * root.scaleFactor)
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
                                 GradientStop {
@@ -248,19 +252,22 @@ Rectangle {
                             layer.enabled: true
                             layer.effect: MultiEffect {
                                 blurEnabled: true
-                                blurMax: 4
+                                blurMax: MBlur.xs
                             }
                             opacity: 0.4
                         }
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 6
+                            // DS tab icon-to-label gap = 6 (vertical stack
+                            // intentionally tighter than the horizontal
+                            // button gap — closer reads as one item).
+                            spacing: Math.round(6 * root.scaleFactor)
 
                             Icon {
                                 name: modelData.icon || ""
-                                size: 22
-                                color: isActive ? MColors.textPrimary : MColors.textSecondary
+                                size: Math.round(22 * root.scaleFactor)
+                                color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Behavior on color {
@@ -272,7 +279,7 @@ Rectangle {
 
                             Text {
                                 text: modelData.label || ""
-                                color: isActive ? MColors.textPrimary : MColors.textSecondary
+                                color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Normal
                                 font.family: MTypography.fontFamily
@@ -303,8 +310,8 @@ Rectangle {
 
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: 68
-            height: 68
+            width: Math.round(68 * root.scaleFactor)
+            height: Math.round(68 * root.scaleFactor)
             radius: 34
             color: "transparent"
             border.width: 3
@@ -313,8 +320,8 @@ Rectangle {
             Rectangle {
                 id: sigButton
                 anchors.centerIn: parent
-                width: 62
-                height: 62
+                width: Math.round(62 * root.scaleFactor)
+                height: Math.round(62 * root.scaleFactor)
                 radius: 31
 
                 gradient: Gradient {
@@ -343,13 +350,10 @@ Rectangle {
                     }
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: parent.radius - 1
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.1)
+                MTopHairline {
+                    radius: parent.radius
+                    color: Qt.rgba(1, 1, 1, 0.1)
+                    lineWidth: 1
                 }
 
                 Rectangle {
@@ -371,7 +375,7 @@ Rectangle {
 
                 Icon {
                     name: "plus"
-                    size: 28
+                    size: Math.round(28 * root.scaleFactor)
                     color: MColors.textOnAccent
                     anchors.centerIn: parent
                 }
@@ -389,7 +393,7 @@ Rectangle {
             id: overflowButton
             visible: root.showOverflow
             anchors.verticalCenter: parent.verticalCenter
-            width: 54
+            width: Math.round(54 * root.scaleFactor)
             height: parent.height
             radius: MRadius.md
             color: "transparent"
@@ -397,7 +401,7 @@ Rectangle {
             Text {
                 text: "•••"
                 color: MColors.textSecondary
-                font.pixelSize: 18
+                font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 anchors.centerIn: parent
             }

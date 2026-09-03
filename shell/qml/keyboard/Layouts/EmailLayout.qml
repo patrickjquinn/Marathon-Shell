@@ -32,6 +32,8 @@ Item {
                 model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
 
                 Key {
+                    required property string modelData
+
                     width: row1.keyWidth
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
@@ -59,6 +61,8 @@ Item {
                 model: ["a", "s", "d", "f", "g", "h", "j", "k", "l", "@"]
 
                 Key {
+                    required property string modelData
+
                     width: row2.keyWidth
                     text: modelData
                     displayText: (modelData === "@" || !layout.shifted) ? modelData : modelData.toUpperCase()
@@ -77,11 +81,15 @@ Item {
         }
 
         Row {
+            id: row3
+            readonly property real unitWidth: (width - spacing * 8) / 11.4
+            readonly property real sideKeyWidth: unitWidth * 1.7
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Key {
-                width: Math.round(60 * Constants.scaleFactor)
+                width: row3.sideKeyWidth
                 iconName: layout.shifted ? "chevrons-up" : "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted
@@ -94,7 +102,9 @@ Item {
                 model: ["z", "x", "c", "v", "b", "n", "m"]
 
                 Key {
-                    width: Math.round(55 * Constants.scaleFactor)
+                    required property string modelData
+
+                    width: row3.unitWidth
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
                     onClicked: {
@@ -104,7 +114,7 @@ Item {
             }
 
             Key {
-                width: Math.round(60 * Constants.scaleFactor)
+                width: row3.sideKeyWidth
                 iconName: "delete"
                 isSpecial: true
                 onClicked: {
@@ -120,11 +130,14 @@ Item {
         }
 
         Row {
+            id: row4
+            readonly property real availableWidth: width - spacing * 7
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Key {
-                width: Math.round(55 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.12
                 text: "123"
                 displayText: "123"
                 isSpecial: true
@@ -134,25 +147,25 @@ Item {
             }
 
             Key {
-                width: Math.round(40 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.08
                 text: "."
                 displayText: "."
             }
 
             Key {
-                width: Math.round(40 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.08
                 text: "_"
                 displayText: "_"
             }
 
             Key {
-                width: Math.round(40 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.08
                 text: "-"
                 displayText: "-"
             }
 
             Key {
-                width: Math.round(120 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.30
                 text: " "
                 displayText: "space"
                 onClicked: {
@@ -161,7 +174,7 @@ Item {
             }
 
             Key {
-                width: Math.round(55 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.12
                 text: ".com"
                 displayText: ".com"
                 isSpecial: true
@@ -171,7 +184,7 @@ Item {
             }
 
             Key {
-                width: Math.round(50 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.10
                 text: ".net"
                 displayText: ".net"
                 isSpecial: true
@@ -181,7 +194,7 @@ Item {
             }
 
             Key {
-                width: Math.round(60 * Constants.scaleFactor)
+                width: row4.availableWidth * 0.12
                 iconName: "corner-down-left"
                 isSpecial: true
                 onClicked: {

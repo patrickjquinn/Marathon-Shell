@@ -1,4 +1,3 @@
-import MarathonApp.Test
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -6,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var testApp
+
     Flickable {
         anchors.fill: parent
         contentHeight: notifColumn.height
@@ -229,7 +230,7 @@ Item {
                                 HapticService.medium();
                                 for (var i = 0; i < 10; i++) {
                                     NotificationService.sendNotification("test", "Burst Test " + (i + 1), "Testing notification system under load", {
-                                        "icon": "zap"
+                                        "icon": "lightning"
                                     });
                                 }
                                 Logger.info("TestApp", "Sent 10 burst notifications");

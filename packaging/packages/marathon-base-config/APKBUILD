@@ -1,0 +1,320 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-base-config
+pkgver=1.0.0
+pkgrel=38
+pkgdesc="Marathon OS base system configuration and tuning"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="all"
+license="Apache-2.0"
+# Marathon doesn't ship full-disk encryption (Pi 5 / CM5 with HyperPixel
+# has no UI for it pre-shell). Stub-provide unl0kr-agent so apk doesn't
+# pull unl0kr-3.5.1, which would conflict with f0rmz-3.4.2 that
+# postmarketos-duranium 11-r0 requires. Upstream pmaports bumped unl0kr
+# to 3.5.1 without bumping f0rmz; this resolves the conflict locally.
+provides="unl0kr-agent=999.0.0-r0"
+depends="
+	systemd
+	dbus
+	dbus-systemd
+	mesa-gbm
+	mesa-egl
+	mesa-dri-gallium
+	mesa-gles
+	mesa-va-gallium
+	mesa-utils
+	pipewire
+	pipewire-pulse
+	wireplumber
+	modemmanager
+	networkmanager
+	mobile-broadband-provider-info
+	e2fsprogs
+	f2fs-tools
+	zram-init-systemd
+	htop
+	iw
+	nano
+	tmux
+	font-noto
+	ttf-dejavu
+        greetd
+	callaudiod
+"
+# callaudiod handles modem-to-codec voice routing on phones.
+# Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
+# Alpine doesn't ship it. Without this dep no voice audio reaches
+# the other end on Librem 5 (only HiFi UCM verb is shipped for the
+# wm8962 codec). callaudiod's baked-in L5 mixer route does what the
+# missing verb would do. Comments must live outside the depends="..."
+# string -- abuild splits the whole quoted block on whitespace and
+# turns `# callaudiod handles modem-to-codec` into separate fake
+# package names (`#`, `handles`, `modem-to-codec`), which then make
+# the apk solver either skip them silently (mkosi build) or refuse
+# to install (apk add). r30 shipped with that bug; r31 corrects it.
+install="$pkgname.post-install"
+options="!check"
+source="
+	99-marathon.conf
+	50-marathon-zram.conf
+	60-marathon-cpufreq.rules
+	60-marathon-iosched.rules
+	60-gpu-acceleration.rules
+	50-marathon-limits.conf
+	50-pipewire-priority.conf
+	50-modemmanager-priority.conf
+	device-profile.conf
+	20-modesetting.conf
+	marathon-mailserver.service
+	greetd-marathon.toml
+	marathon.slice
+"
+package() {
+	install -Dm644 "$srcdir/99-marathon.conf" \
+		"$pkgdir/etc/sysctl.d/99-marathon.conf"
+	install -Dm644 "$srcdir/50-marathon-zram.conf" \
+		"$pkgdir/etc/systemd/zram-generator.conf.d/50-marathon.conf"
+	install -Dm644 "$srcdir/60-marathon-cpufreq.rules" \
+		"$pkgdir/etc/udev/rules.d/60-marathon-cpufreq.rules"
+	install -Dm644 "$srcdir/60-marathon-iosched.rules" \
+		"$pkgdir/etc/udev/rules.d/60-marathon-iosched.rules"
+	install -Dm644 "$srcdir/60-gpu-acceleration.rules" \
+		"$pkgdir/etc/udev/rules.d/60-gpu-acceleration.rules"
+	install -Dm644 "$srcdir/50-marathon-limits.conf" \
+		"$pkgdir/etc/security/limits.d/50-marathon.conf"
+	install -d "$pkgdir"/etc/systemd/system/pipewire.service.d
+	install -Dm644 "$srcdir/50-pipewire-priority.conf" \
+		"$pkgdir/etc/systemd/system/pipewire.service.d/50-priority.conf"
+	install -d "$pkgdir"/etc/systemd/system/ModemManager.service.d
+	install -Dm644 "$srcdir/50-modemmanager-priority.conf" \
+		"$pkgdir/etc/systemd/system/ModemManager.service.d/50-priority.conf"
+	# Device-agnostic default device profile, shipped as an .example. Device
+	# overlays (packages/device-*-marathon) install the real
+	# /etc/marathon/device-profile.conf; absent that, the shell falls back to
+	# its built-in defaults. GPU driver env is NOT global — it moved to the
+	# per-device overlays (the Adreno/freedreno env now lives in the OnePlus
+	# overlay, not here where it shipped wrongly to every device).
+	install -Dm644 "$srcdir/device-profile.conf" \
+		"$pkgdir/etc/marathon/device-profile.conf.example"
+	install -d "$pkgdir"/etc/X11/xorg.conf.d
+	install -Dm644 "$srcdir/20-modesetting.conf" \
+		"$pkgdir/etc/X11/xorg.conf.d/20-modesetting.conf"
+
+	# QMF messageserver5 -- user-scope long-lived sync daemon, started
+	# with the user session (WantedBy=default.target).
+	install -Dm644 "$srcdir/marathon-mailserver.service" \
+		"$pkgdir/usr/lib/systemd/user/marathon-mailserver.service"
+
+	# Enable user-systemd linger for `user` at first boot. Equivalent to
+	# `loginctl enable-linger user` — systemd-logind reads this marker
+	# during boot and starts user@<uid>.service immediately, populating
+	# XDG_RUNTIME_DIR + the user-bus socket so apps that need them
+	# (Mail's marathon-mailserver, MPRIS clients, future Wallet) can
+	# talk to the user manager from any session, including non-tty SSH.
+	#
+	# Without this, pmOS+greetd auto-login doesn't trigger pam_systemd,
+	# the user manager never starts, and `systemctl --user` hangs.
+	install -d "$pkgdir/var/lib/systemd/linger"
+	touch "$pkgdir/var/lib/systemd/linger/user"
+
+	# User-level slice with Delegate=yes — the shell carves marathon-apps
+	# subgroups under this for per-app cgroup.freeze (Phase B perf
+	# overhaul). See marathon-shell-session for the systemd-run hook.
+	install -Dm644 "$srcdir/marathon.slice" \
+		"$pkgdir/usr/lib/systemd/user/marathon.slice"
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/config.toml"
+	install -d "$pkgdir"/etc/systemd/system/graphical.target.wants
+	ln -sf /usr/lib/systemd/system/greetd.service \
+		"$pkgdir/etc/systemd/system/graphical.target.wants/greetd.service"
+	# Avoid console login racing with greetd on tty1.
+	# Use /usr/lib/systemd/system-preset rather than an /etc/systemd/system
+	# mask symlink: mkosi's apk install runs systemd-preset as a trigger
+	# during install, BEFORE mkosi.postinst can clean up. A /etc-level mask
+	# makes preset-all emit "Failed to preset unit: ... is masked" which
+	# apk counts toward its exit-code-2 error tally and aborts the entire
+	# image build. Preset-based disable is cleaner anyway: reversible at
+	# runtime with `systemctl enable getty@tty1`.
+	install -dm755 "$pkgdir/usr/lib/systemd/system-preset"
+	cat > "$pkgdir/usr/lib/systemd/system-preset/10-marathon-no-getty-tty1.preset" <<'PRESET'
+# Marathon owns tty1 via greetd; don't auto-spawn getty there.
+disable getty@tty1.service
+
+# NetworkManager-wait-online blocks network-online.target until NM
+# reports a connection. On first boot before WiFi associates, it waits
+# up to 90 seconds before timing out — visible to the user as a 1–2
+# minute kernel-log freeze at boot. Marathon services don't actually
+# need network-online.target as a hard dep (NM up + DHCP later is
+# fine), so disable it. If a future service genuinely needs network
+# before starting, fix that service to use After=NetworkManager.service
+# instead of network-online.target.
+disable NetworkManager-wait-online.service
+
+# iwd is pulled in by postmarketos-base-ui-wifi-iwd as a sibling of
+# wpa_supplicant. NetworkManager uses wpa_supplicant, not iwd —
+# leaving iwd auto-enabled wastes 5–10 MB RSS + 350 ms boot time and
+# both daemons race for nl80211 on the same wiphy. wpa_supplicant
+# stays enabled.
+disable iwd.service
+PRESET
+
+	# User-scope preset: disable gnome-keyring-daemon + xdg-desktop-portal
+	# auto-start. Marathon doesn't use gnome-keyring (we have our own
+	# SecretService impl); the keyring daemon dangles, spams
+	# "couldn't unlock the login keyring" on every PAM session, and its
+	# socket sitting in basic.target.wants drags xdg-desktop-portal's
+	# start into a failed-dependency cascade. Disabling both at user
+	# scope kills the whole noise tree.
+	install -dm755 "$pkgdir/usr/lib/systemd/user-preset"
+	cat > "$pkgdir/usr/lib/systemd/user-preset/10-marathon-no-keyring.preset" <<'PRESET'
+# We don't use gnome-keyring; mask its auto-start sockets/services so they
+# don't fail the xdg-desktop-portal dep chain.
+disable gnome-keyring-daemon.service
+disable gnome-keyring-daemon.socket
+
+# xdg-desktop-portal needs graphical-session.target active to start.
+# Marathon's compositor runs in marathon-shell-bin (not a freedesktop
+# session manager), so graphical-session.target never activates and the
+# portal's Requisite chain fails with "dep failed" twice per boot.
+# Disable until we ship flatpak apps that actually need portal RPCs
+# (file pickers / screencast). When that day arrives, fix it by adding
+# a marathon-shell-session script that does
+# `systemctl --user start graphical-session.target` after the compositor
+# is up.
+disable xdg-desktop-portal.service
+disable xdg-desktop-portal-gtk.service
+disable xdg-desktop-portal-wlr.service
+PRESET
+
+	# xdg-desktop-portal.service is shipped as `static` (no [Install]
+	# section), so a preset `disable` is a no-op. Mask it for all user
+	# sessions via /etc/systemd/user (equivalent to system-wide for the
+	# user manager). Without this the graphical-session.target's Wants=
+	# still pulls it in, it fails with "Dependency failed for Portal",
+	# and we get 2 noisy lines per session. The /dev/null symlink kills
+	# the activation cleanly.
+	install -d "$pkgdir/etc/systemd/user"
+	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal.service"
+	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal-gtk.service"
+	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal-wlr.service"
+
+	# Ship a placeholder /etc/resolv.conf so avahi-daemon (Type=dbus
+	# activated, can start before NM has written its own file) has
+	# something to read on boot. Without this we see one-shot
+	# "avahi-daemon: Failed to open /etc/resolv.conf: Invalid argument"
+	# at boot until NetworkManager overwrites the file ~1s later.
+	# 127.0.0.1 is a safe placeholder — NM will replace it.
+	install -Dm644 /dev/stdin "$pkgdir/etc/resolv.conf" <<'EOF'
+# Placeholder for early-boot resolvers. NetworkManager overwrites this
+# as soon as a connection is up; the file just needs to exist + be a
+# valid resolv.conf shape so avahi/glibc don't log a failure at start.
+nameserver 127.0.0.1
+EOF
+
+	# wireplumber drop-in: disable the BlueZ + BLE-MIDI monitors. The CM5
+	# uses dtoverlay=disable-bt (the on-SoC bluetooth is wired to the GPIO
+	# pins HyperPixel needs), so bluez-daemon never runs and the monitor
+	# logs "BlueZ system service is not available" on every wireplumber
+	# start. monitor.bluez=disabled silences it cleanly. Per
+	# pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/bluetooth.html
+	install -dm755 "$pkgdir/etc/wireplumber/wireplumber.conf.d"
+	cat > "$pkgdir/etc/wireplumber/wireplumber.conf.d/10-marathon-no-bluez.conf" <<'EOF'
+# Marathon: disable BlueZ + BLE-MIDI monitors. We boot with
+# dtoverlay=disable-bt on Pi 5 / CM5 — no bluez daemon ever runs and
+# without this drop-in wireplumber spams "BlueZ system service is not
+# available" on every shell session.
+wireplumber.profiles = {
+  main = {
+    monitor.bluez = disabled
+    monitor.bluez-midi = disabled
+  }
+}
+EOF
+
+	# plymouth-quit.service drop-in: hold the splash visible for 4s.
+	# plymouth-quit fires when multi-user.target is reached (well before
+	# greetd starts). Total userspace boot is ~5 s on the CM5+r179 image
+	# so 4 s here keeps the Marathon mark visible essentially through
+	# the whole boot — the shell takes over the panel ~1 s later.
+	install -d "$pkgdir/etc/systemd/system/plymouth-quit.service.d"
+	cat > "$pkgdir/etc/systemd/system/plymouth-quit.service.d/10-marathon-hold-splash.conf" <<'EOF'
+[Service]
+ExecStartPre=/usr/bin/sleep 4
+EOF
+
+	# plymouth-start.service drop-in: wait for /dev/fb0 to exist before
+	# launching plymouthd. drm-rp1-dpi binds at the same instant
+	# plymouth-start fires; without this the fbdev backend opens nothing
+	# and the splash silently disappears. 3 s cap so a broken panel
+	# never wedges boot.
+	install -d "$pkgdir/etc/systemd/system/plymouth-start.service.d"
+	cat > "$pkgdir/etc/systemd/system/plymouth-start.service.d/10-marathon-wait-fb.conf" <<'EOF'
+[Service]
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -e /dev/fb0 ] && exit 0; sleep 0.05; done; exit 0'
+EOF
+
+	# avahi-daemon drop-in: start after NetworkManager so /etc/resolv.conf
+	# (which NM writes) exists when avahi opens it. Without this we log
+	# "Failed to open /etc/resolv.conf: Invalid argument" on cold boot
+	# because avahi races NM and tries to read a half-broken symlink.
+	install -d "$pkgdir/etc/systemd/system/avahi-daemon.service.d"
+	cat > "$pkgdir/etc/systemd/system/avahi-daemon.service.d/10-marathon-order.conf" <<'EOF'
+[Unit]
+After=NetworkManager.service
+Wants=NetworkManager.service
+EOF
+
+	# Volatile journald (Android logd-style ring buffer in tmpfs).
+	# Persistent journal on the SD card corrupts on every long-press
+	# power-off ("File system.journal corrupted or uncleanly shut
+	# down" on every cold boot). Marathon's debuggability story is
+	# `journalctl -f` over SSH against the *current* boot, not
+	# multi-boot history. Field debug: drop
+	# /etc/systemd/journald.conf.d/99-debug.conf with
+	# Storage=persistent to override.
+	install -d "$pkgdir/usr/lib/systemd/journald.conf.d"
+	cat > "$pkgdir/usr/lib/systemd/journald.conf.d/50-marathon.conf" <<'EOF'
+[Journal]
+Storage=volatile
+RuntimeMaxUse=32M
+RuntimeKeepFree=64M
+RuntimeMaxFileSize=8M
+RuntimeMaxFiles=4
+MaxLevelStore=info
+MaxLevelSyslog=info
+ForwardToSyslog=no
+ForwardToWall=no
+Compress=yes
+Seal=no
+SplitMode=none
+EOF
+
+	# Narrow Qt logging — *.warning=true on the device floods the
+	# journal with every Qt category warning across every subsystem.
+	# Phosh, Lomiri, Sailfish all default Qt-quiet in production.
+	# marathon.* keep their info/warning/critical channels so our
+	# shell-side diagnostics remain visible.
+	install -d "$pkgdir/etc/environment.d"
+	cat > "$pkgdir/etc/environment.d/50-marathon-qt.conf" <<'EOF'
+QT_LOGGING_RULES=*.debug=false;*.info=false;qt.qpa.*=false;qt.scenegraph.*=false;qt.quick.*=false;qt.qml.*=false;qt.text.*=false;qt.accessibility.*=false;qt.widgets.*=false;qt.gui.*=false;qt.network.*=false;qt.svg.*=false;marathon.*.warning=true;marathon.*.critical=true
+EOF
+
+	# Enable graphical target by default
+	ln -sf /usr/lib/systemd/system/graphical.target \
+		"$pkgdir/etc/systemd/system/default.target"
+}
+sha512sums="
+e1b37d47f0ac4b6f7bb65e904c976f276eaddafe300469832ca101ea88d519d6b3dcb01c2c0acc3ed4b15feb12b391662837c06860410cc025f1e37e52efc985  99-marathon.conf
+68ec412f971bd5e77394f75c617e9d00de495dac37b4f1ceba102a116475d20a6d6752bd85cd997fe422e4436461453b804b0f6a145ad3a321b8720f9e12c4eb  50-marathon-zram.conf
+c7309e95d28497e8c340f09a52afb75fcc16195d76d7438be24a9620a496b2ef4af7ab428f8aa152e66b0291972639f7e6484cb54702131e5400e80ae7c955f2  60-marathon-cpufreq.rules
+9a0718c33d79a1c5ad284643db4bf57ce360224e9ad806e04d33f9d32804615398d70a452d7b5504fd030c79c4a414c43096134a1d18dcf5cab2065cb1757ae9  60-marathon-iosched.rules
+40ad9b1ad62ab31ab2e2a7b8497b4d87b9f906f079d0987e090a456164a93100f5630fa90c97b8fdc90e14f62f637c828883f872919bce5e310456f707264488  60-gpu-acceleration.rules
+a50ccf62ea599793e1fd1dea46ed3f545087ccb9a6a4a23f0ebe5a2c188c9a3cbfdf9521534f31fbab0c64361daaecfcf542ae5cbee12a353b6ccba3ea325a47  50-marathon-limits.conf
+80d4b35fc079fe96d3fe6672427765b7c884481551cf09af6da7c1de095ecd0aba8bacdf53f8c3b4f9c69ccfcb6ceea8a3dc44fa4ce9f98c8880384145edcf5b  50-pipewire-priority.conf
+eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf
+494ee0683e7b8c8ea6034fba867d33839b7e5227ce83a885a94170380151784cf105562567899191e53a44a8b0a63dbf27a0e0f726ab4fb0cfd5fab02b55ac66  device-profile.conf
+a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb42b16994af9bed4506491d49f47504b8ffd4981f40d38a2e  20-modesetting.conf
+059e2963443a8df6d93976901981f71084da5772f625ebb44ed8302ec66ffac8a69e9b78bba44b75b6fc335a2a0e2b2f610adb5a912d3762b29d897fc7432745  marathon-mailserver.service
+962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
+4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
+"

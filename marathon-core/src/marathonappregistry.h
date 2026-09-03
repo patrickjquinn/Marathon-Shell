@@ -10,14 +10,14 @@ class MarathonAppRegistry : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum AppType {
+    enum AppType : quint8 {
         System,
         Marathon,
         Native
     };
     Q_ENUM(AppType)
 
-    enum AppRoles {
+    enum AppRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         IconRole,
@@ -31,7 +31,9 @@ class MarathonAppRegistry : public QAbstractListModel {
         DeepLinksRole,
         CategoriesRole,
         HandlesUriSchemesRole,
-        DefaultForRole
+        DefaultForRole,
+        BackgroundCapabilitiesRole,
+        RequiresQtModulesRole
     };
 
     struct AppInfo {
@@ -49,6 +51,8 @@ class MarathonAppRegistry : public QAbstractListModel {
         QStringList categories;
         QStringList handlesUriSchemes;
         QStringList defaultFor;
+        QStringList backgroundCapabilities;
+        QStringList requiresQtModules;
 
         AppInfo() = default;
         AppInfo(const QString &id, const QString &name, const QString &icon, AppType type,
@@ -84,6 +88,7 @@ class MarathonAppRegistry : public QAbstractListModel {
     Q_INVOKABLE bool        isProtected(const QString &appId) const;
     Q_INVOKABLE bool        hasApp(const QString &appId) const;
     Q_INVOKABLE QStringList getAllAppIds() const;
+    Q_INVOKABLE QStringList getBackgroundCapabilities(const QString &appId) const;
 
     void                    registerAppInfo(const AppInfo &info);
     AppInfo                *getAppInfo(const QString &appId);

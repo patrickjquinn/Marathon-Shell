@@ -9,10 +9,8 @@ if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
-if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
-endif()
+# NOTE: Qt 6.5+ policies (QTP0001/QTP0004) are set AFTER find_package(Qt6)
+# because qt_policy command is only available after Qt6 is loaded
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,18 +27,21 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
     endif()
     
     # Optimize for size on embedded (older ARM has limited RAM)
+    # Only on Release. Strip qDebug/qInfo there too so production phones
+    # don't pay the log overhead. Debug/RelWithDebInfo (incl. aarch64
+    # developer hosts like Apple Silicon) keep the channels live so the
+    # security audit logger and other qInfo() callers actually work.
     if(CMAKE_BUILD_TYPE MATCHES "Release")
         add_compile_options(-Os -fdata-sections -ffunction-sections)
         add_link_options(-Wl,--gc-sections)
-        message(STATUS "   ✓ Size optimization (-Os) enabled for embedded")
+        add_compile_definitions(
+            QT_NO_DEBUG_OUTPUT
+            QT_NO_INFO_OUTPUT
+        )
+        message(STATUS "   ✓ Release: size optimization + debug/info logs stripped")
+    else()
+        message(STATUS "   ✓ Non-Release: keeping qDebug/qInfo enabled for observability")
     endif()
-    
-    # Disable debug output to reduce overhead
-    add_compile_definitions(
-        QT_NO_DEBUG_OUTPUT
-        QT_NO_INFO_OUTPUT
-    )
-    message(STATUS "   ✓ Debug output disabled for performance")
 endif()
 
 # Enable QML Language Server support for IDE/VS Code
@@ -104,10 +105,9 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
+find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
     Core
     Gui
-    Widgets
     Qml
     Quick
     QuickControls2
@@ -115,10 +115,36 @@ find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     DBus
     Sql
     Multimedia
-    Location
     Positioning
     Sensors
+    WebSockets
 )
+# Qt6::Location was a hard requirement when Marathon's Maps app used
+# QtLocation's OSM Map block. After Maps was rewritten to use
+# WebEngine + MapLibre GL JS (see docs/redesign/...), no target links
+# Qt6::Location and the QML side imports through qml6-module-qtlocation
+# at runtime instead. Treat it as optional so we build on Debian
+# Bookworm, which has qt6-positioning-dev but ships QtLocation only
+# from Trixie onwards.
+find_package(Qt6 6.4 COMPONENTS Location QUIET)
+if(TARGET Qt6::Location)
+    message(STATUS "Qt6::Location found (build environment ships QtLocation)")
+else()
+    message(STATUS "Qt6::Location not found - Maps falls back to MapLibre GL JS via WebEngine")
+endif()
+
+# Qt 6.5+ QML policies - must be AFTER find_package so Qt6_VERSION is defined
+# QTP0001: Use ':/qt/qml/' as the default QML resource prefix
+# QTP0004: Generate qmldir file for each directory with .qml files
+if(COMMAND qt_policy)
+    if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+        qt_policy(SET QTP0001 NEW)
+        qt_policy(SET QTP0004 NEW)
+        message(STATUS "Qt ${Qt6_VERSION} >= 6.5.0 - QTP0001/QTP0004 policies enabled")
+    else()
+        message(STATUS "Qt ${Qt6_VERSION} < 6.5.0 - QTP0001/QTP0004 policies skipped (Droidian compat)")
+    endif()
+endif()
 
 # GuiPrivate is optional: it's a Qt-internal module (unstable across Qt versions).
 # We only use it when explicitly enabled.
@@ -175,11 +201,15 @@ if(TARGET Qt6::WaylandCompositor)
         message(STATUS "Qt WaylandCompositorPrivate not found - text-input-v3 disabled")
         set(HAVE_WAYLAND_PRIVATE FALSE)
     endif()
+
 else()
         message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)
     endif()
 endif()
+
+# Vendored third-party libraries (Oxford step counter, maplibre, etc.)
+add_subdirectory(thirdparty)
 
 # Marathon Core library (shared app management logic)
 add_subdirectory(marathon-core)
@@ -193,6 +223,22 @@ add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
 add_subdirectory(tools/marathon-sandbox)
 
+# Optional WPE WebKit runner. Phase 2 of project_wpe_webview_plan —
+# only built if wpe-webkit-2.0 + wpebackend-fdo-1.0 are available
+# (Marathon's main/wpewebkit aport ships them). On dev hosts without
+# those headers the runner is silently skipped so the rest of the
+# shell still builds.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(_WPE_PROBE QUIET wpe-webkit-2.0 wpebackend-fdo-1.0)
+    if(_WPE_PROBE_FOUND)
+        message(STATUS "Marathon: building marathon-webview-runner (WPE WebKit found)")
+        add_subdirectory(tools/marathon-webview-runner)
+    else()
+        message(STATUS "Marathon: skipping marathon-webview-runner (no wpe-webkit-2.0)")
+    endif()
+endif()
+
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -203,6 +249,11 @@ include(GNUInstallDirs)
 
 # Install session launcher script
 install(PROGRAMS platforms/generic/marathon-shell-session
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Remote-driver helper (wake / unlock / screenshot over SSH).
+install(PROGRAMS tools/dev/marathon-dev
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -226,6 +277,7 @@ install(FILES polkit/org.marathonos.shell.policy
 install(DIRECTORY shell/resources/wallpapers/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/wallpapers
     FILES_MATCHING PATTERN "*.jpg" PATTERN "*.png" PATTERN "*.jpeg" PATTERN "*.webp"
+                   PATTERN "*.svg"
 )
 
 # Sounds

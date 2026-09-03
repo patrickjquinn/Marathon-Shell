@@ -1,0 +1,7 @@
+# Marathon OS FSTAB Template
+# Optimized filesystem layout for mobile devices
+
+# Root filesystem - ext4 for stability
+/dev/mmcblk0p17  /      ext4  noatime,errors=remount-ro                       0 1
+# Home directory - F2FS for flash optimization
+/dev/mmcblk0p18  /home  f2fs  noatime,discard,fastboot,mode=adaptive          0 2

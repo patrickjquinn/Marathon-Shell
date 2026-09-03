@@ -1,0 +1,10 @@
+build/
+build-apps/
+.vscode/
+*.user
+*.autosave
+.DS_Store
+.qtc_clangd/
+*.qmlc
+*.jsc
+

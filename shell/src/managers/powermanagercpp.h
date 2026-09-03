@@ -10,9 +10,19 @@
 #include <QSet>
 
 #include <QDBusContext>
+#include <qqml.h>
 
 class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_OBJECT
+    QML_NAMED_ELEMENT(PowerManagerService)
+    QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static PowerManagerCpp *create(QQmlEngine *, QJSEngine *);
 
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
 
@@ -38,7 +48,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(QString criticalAction READ criticalAction NOTIFY criticalActionChanged)
 
   public:
-    enum PowerProfile {
+    enum PowerProfile : quint8 {
         Performance,
         Balanced,
         PowerSaver
@@ -46,7 +56,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_ENUM(PowerProfile)
 
     explicit PowerManagerCpp(QObject *parent = nullptr);
-    ~PowerManagerCpp();
+    ~PowerManagerCpp() override;
 
     int batteryLevel() const {
         return m_batteryLevel;
@@ -119,6 +129,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_INVOKABLE bool setRtcAlarm(qint64 epochTime);
     Q_INVOKABLE bool clearRtcAlarm();
 
+    Q_INVOKABLE void updateActivity();
+
   signals:
     void batteryLevelChanged();
     void warningLevelChanged();
@@ -149,7 +161,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
   private:
     void                    setupDBusConnections();
     void                    simulateBatteryUpdate();
-    void                    applyCPUGovernor(PowerProfile profile);
+    void                    applyCPUGovernor(PowerProfile profile) const;
     void                    checkCPUGovernorSupport();
     void                    checkWakelockSupport();
     void                    checkRtcAlarmSupport();
@@ -169,6 +181,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     bool                    m_isCharging;
     bool                    m_isPluggedIn;
     bool                    m_isPowerSaveMode;
+    // Pre-saver settings captured on entry so exit restores them exactly.
+    int                     m_preSaverIdleTimeout = 0;
+    QString                 m_preSaverProfile;
     int                     m_estimatedBatteryTime;
     bool                    m_hasUPower;
     bool                    m_hasLogind;

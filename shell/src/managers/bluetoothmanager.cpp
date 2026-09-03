@@ -5,7 +5,41 @@
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
 #include <QDebug>
-#include <QProcess>
+#include <QDir>
+#include <QFile>
+#include <utility>   // std::as_const
+
+// Soft-unblock a kernel rfkill switch by type. Direct sysfs write rather
+// than shelling out to /usr/sbin/rfkill — Alpine's util-linux rfkill has
+// a libsmartcols regression that SIGABRTs in xstrdup on `rfkill list` and
+// occasionally on `rfkill unblock` under empty-row conditions. The kernel
+// /sys/class/rfkill/* API is stable since 2.6.35 and write-permitted to
+// root only (we already are root via marathon-shell's session). Returns
+// the number of switches unblocked.
+static int unblockRfkillByType(const QString &type) {
+    QDir dir(QStringLiteral("/sys/class/rfkill"));
+    if (!dir.exists())
+        return 0;
+    int               touched = 0;
+    const QStringList entries = dir.entryList(QStringList{QStringLiteral("rfkill*")}, QDir::Dirs);
+    for (const QString &entry : entries) {
+        const QString base = dir.absoluteFilePath(entry);
+        QFile         typeFile(base + QStringLiteral("/type"));
+        if (!typeFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QString readType = QString::fromUtf8(typeFile.readAll()).trimmed();
+        typeFile.close();
+        if (readType != type)
+            continue;
+        QFile softFile(base + QStringLiteral("/soft"));
+        if (!softFile.open(QIODevice::WriteOnly | QIODevice::Text))
+            continue;
+        if (softFile.write("0\n") > 0)
+            ++touched;
+        softFile.close();
+    }
+    return touched;
+}
 
 BluetoothDevice::BluetoothDevice(const QString &path, QObject *parent)
     : QObject(parent)
@@ -237,8 +271,6 @@ void BluetoothManager::initializeAdapter() {
         });
 }
 
-void BluetoothManager::connectToBlueZ() {}
-
 void BluetoothManager::updateAdapterProperties() {
     if (!m_adapter)
         return;
@@ -292,7 +324,7 @@ void BluetoothManager::refreshDevices() {
         return;
     }
 
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         if (auto *dev = qobject_cast<BluetoothDevice *>(obj)) {
             dev->updateProperties();
         }
@@ -321,8 +353,9 @@ void BluetoothManager::setEnabled(bool enabled) {
     qDebug() << "[BluetoothManager] Setting powered to" << enabled;
 
     if (enabled) {
-
-        QProcess::execute("rfkill", {"unblock", "bluetooth"});
+        const int unblocked = unblockRfkillByType(QStringLiteral("bluetooth"));
+        if (unblocked == 0)
+            qDebug() << "[BluetoothManager] no rfkill bluetooth entries found to unblock";
     }
 }
 
@@ -501,7 +534,7 @@ void BluetoothManager::onPropertiesChanged(const QString &interface, const QVari
 }
 
 BluetoothDevice *BluetoothManager::findDeviceByPath(const QString &path) {
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         BluetoothDevice *device = qobject_cast<BluetoothDevice *>(obj);
         if (device && device->path() == path) {
             return device;
@@ -511,7 +544,7 @@ BluetoothDevice *BluetoothManager::findDeviceByPath(const QString &path) {
 }
 
 BluetoothDevice *BluetoothManager::findDeviceByAddress(const QString &address) {
-    for (QObject *obj : m_devices) {
+    for (QObject *obj : std::as_const(m_devices)) {
         BluetoothDevice *device = qobject_cast<BluetoothDevice *>(obj);
         if (device && device->address() == address) {
             return device;

@@ -432,5 +432,5 @@ Questions about code signing:
 - **Forum**: https://forum.marathonos.org/c/development
 - **Documentation**: https://docs.marathonos.org/signing
 
-Remember: Keep your private key secure! 🔐
+Remember: Keep your private key secure!
 

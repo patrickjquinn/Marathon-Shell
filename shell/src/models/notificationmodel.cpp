@@ -1,6 +1,7 @@
 #include "notificationmodel.h"
 #include "dbus/notificationdatabase.h"
 #include <QDebug>
+#include <utility>   // std::as_const
 
 NotificationModel::NotificationModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -58,9 +59,27 @@ int NotificationModel::roleId(const QString &name) const {
     return -1;
 }
 
+// Transient notifications -- screenshots, missed calls, incoming SMS -- are
+// model-only: they never reach NotificationDatabase, so they cannot draw
+// from the same counter as the rows that do. They used to share m_nextId,
+// which does not advance SQLite's AUTOINCREMENT, so the next persisted
+// notification was handed an id already in use and silently replaced the
+// transient row in m_notificationIndex -- orphaning it, so it could never
+// be dismissed and its unread count stuck forever.
+//
+// Negative ids for transient, positive for database-backed. Disjoint by
+// construction, and both remain valid keys for dismiss/markAsRead.
 int NotificationModel::addNotification(const QString &appId, const QString &title,
                                        const QString &body, const QString &icon) {
-    int id = m_nextId++;
+    return addNotificationWithId(m_nextTransientId--, appId, title, body, icon);
+}
+
+int NotificationModel::addNotificationWithId(int id, const QString &appId, const QString &title,
+                                             const QString &body, const QString &icon) {
+    // Only database-backed ids feed the persisted generator.
+    if (id > 0 && id >= m_nextId) {
+        m_nextId = id + 1;
+    }
 
     beginInsertRows(QModelIndex(), 0, 0);
     Notification *notification = new Notification(id, appId, title, body, icon, this);
@@ -68,12 +87,29 @@ int NotificationModel::addNotification(const QString &appId, const QString &titl
     m_notificationIndex[id] = notification;
     endInsertRows();
 
+    trimToCap();
+
     updateUnreadCount();
     emit countChanged();
     emit notificationAdded(id);
 
     qDebug() << "[NotificationModel] Added notification:" << title << "from" << appId;
     return id;
+}
+
+// The database prunes itself to the same cap, but the in-memory model had no
+// bound at all -- one QObject per notification, for the life of the process.
+// Past the cap it would also have shown rows whose database records had
+// already been pruned, which then vanished on the next restart.
+void NotificationModel::trimToCap() {
+    while (m_notifications.size() > kMaxNotifications) {
+        Notification *oldest = m_notifications.takeLast();
+        if (!oldest) {
+            continue;
+        }
+        m_notificationIndex.remove(oldest->id());
+        oldest->deleteLater();
+    }
 }
 
 void NotificationModel::dismissNotification(int id) {
@@ -139,7 +175,7 @@ Notification *NotificationModel::getNotification(int id) {
 
 void NotificationModel::updateUnreadCount() {
     int count = 0;
-    for (Notification *notification : m_notifications) {
+    for (Notification *notification : std::as_const(m_notifications)) {
         if (!notification->isRead()) {
             count++;
         }
@@ -172,7 +208,7 @@ void NotificationModel::loadFromDatabase(NotificationDatabase *database) {
     m_notifications.clear();
     m_notificationIndex.clear();
 
-    for (const auto &record : records) {
+    for (const auto &record : std::as_const(records)) {
         Notification *notification = new Notification(record.id, record.appId, record.title,
                                                       record.body, record.iconPath, this);
         notification->setIsRead(record.read);

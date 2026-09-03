@@ -11,9 +11,19 @@
 #include <QFutureWatcher>
 #include <QRandomGenerator>
 #include <security/pam_appl.h>
+#include <qqml.h>
 
 class SecurityManager : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(SecurityManagerCpp)
+    QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static SecurityManager *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(AuthMode authMode READ authMode WRITE setAuthMode NOTIFY authModeChanged)
     Q_PROPERTY(bool hasQuickPIN READ hasQuickPIN NOTIFY quickPINChanged)
     Q_PROPERTY(
@@ -24,9 +34,9 @@ class SecurityManager : public QObject {
 
   public:
     explicit SecurityManager(QObject *parent = nullptr);
-    ~SecurityManager();
+    ~SecurityManager() override;
 
-    enum AuthMode {
+    enum AuthMode : quint8 {
         SystemPassword,
         QuickPIN,
         Biometric,
@@ -34,7 +44,7 @@ class SecurityManager : public QObject {
     };
     Q_ENUM(AuthMode)
 
-    enum BiometricType {
+    enum BiometricType : quint8 {
         Fingerprint,
         FaceRecognition
     };
@@ -57,17 +67,22 @@ class SecurityManager : public QObject {
         return m_failedAttempts;
     }
 
-    void                setAuthMode(AuthMode mode);
+    void             setAuthMode(AuthMode mode);
 
-    Q_INVOKABLE void    authenticatePassword(const QString &password);
-    Q_INVOKABLE void    authenticateQuickPIN(const QString &pin);
-    Q_INVOKABLE void    authenticateBiometric(BiometricType type = Fingerprint);
-    Q_INVOKABLE void    cancelAuthentication();
+    Q_INVOKABLE void authenticatePassword(const QString &password);
+    Q_INVOKABLE void authenticateQuickPIN(const QString &pin);
+    Q_INVOKABLE void authenticateBiometric(SecurityManager::BiometricType type = Fingerprint);
+    Q_INVOKABLE void cancelAuthentication();
 
-    Q_INVOKABLE void    setQuickPIN(const QString &pin, const QString &systemPassword);
+    Q_INVOKABLE void setQuickPIN(const QString &pin, const QString &systemPassword);
+    // First-run / OOBE entry -- sets the Quick PIN WITHOUT requiring a system
+    // password. Only succeeds while no Quick PIN is configured yet (i.e. true
+    // first boot). Subsequent changes go through setQuickPIN which still
+    // requires authentication.
+    Q_INVOKABLE bool    setQuickPINFirstRun(const QString &pin);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
 
-    Q_INVOKABLE bool    isBiometricEnrolled(BiometricType type) const;
+    Q_INVOKABLE bool    isBiometricEnrolled(SecurityManager::BiometricType type) const;
 
     Q_INVOKABLE void    resetLockout();
 
@@ -110,7 +125,7 @@ class SecurityManager : public QObject {
     void                  updateLockoutStatus();
     void                  recordFailedAttempt();
     void                  resetFailedAttempts();
-    int                   queryFaillockAttempts();
+    int                   queryFaillockAttempts() const;
 
     AuthMode              m_authMode;
     bool                  m_hasQuickPIN;

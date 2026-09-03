@@ -12,11 +12,14 @@ QDBusArgument &operator<<(QDBusArgument &argument, const GeoClueTimestamp &ts) {
     return argument;
 }
 
+// Qt-DBus mandates this exact signature so operator chaining (arg >> a >> b)
+// works; the returned reference is always to QDBus's stable internal arg,
+// never a temporary.
 const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp &ts) {
     argument.beginStructure();
     argument >> ts.seconds >> ts.microseconds;
     argument.endStructure();
-    return argument;
+    return argument; // NOLINT(bugprone-return-const-ref-from-parameter)
 }
 
 LocationManager::LocationManager(QObject *parent)
@@ -44,12 +47,7 @@ LocationManager::~LocationManager() {
     if (m_active) {
         stop();
     }
-    if (m_client) {
-        delete m_client;
-    }
-    if (m_manager) {
-        delete m_manager;
-    }
+    // m_client and m_manager are parented to this; Qt will delete them
 }
 
 void LocationManager::connectToGeoclue() {
@@ -66,7 +64,7 @@ void LocationManager::connectToGeoclue() {
         return;
     }
 
-    qInfo() << "[LocationManager] ✓ Connected to Geoclue2";
+    qInfo() << "[LocationManager] Connected to Geoclue2";
     m_available = true;
     emit availableChanged();
 
@@ -139,7 +137,7 @@ void LocationManager::start() {
                 } else {
                     m_active = true;
                     emit activeChanged();
-                    qInfo() << "[LocationManager] ✓ Location updates started";
+                    qInfo() << "[LocationManager] Location updates started";
                 }
                 call->deleteLater();
             });
@@ -207,6 +205,6 @@ void LocationManager::updateLocation(const QString &locationPath) {
 
     emit locationChanged();
 
-    qInfo() << "[LocationManager] ✓ Location:" << m_latitude << "," << m_longitude
+    qInfo() << "[LocationManager] Location:" << m_latitude << "," << m_longitude
             << "accuracy:" << m_accuracy << "m";
 }

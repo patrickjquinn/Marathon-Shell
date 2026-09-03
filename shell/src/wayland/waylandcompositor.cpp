@@ -1,4 +1,10 @@
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/committimingv1.h"
+#include "src/wayland/fifov1.h"
+#include "src/wayland/linuxdmabufv1.h"
+#include "src/wayland/wldrm.h"
+#include "src/wayland/securitycontextv1.h"
+#include "src/wayland/textinputv3.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -11,10 +17,21 @@
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
 #include <QWaylandInputMethodControl>
+#include <QWaylandQuickSurface>
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include <QScreen>
+#include <QGuiApplication>
+#include <qpa/qplatformnativeinterface.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <cstring>
 #include "textinputv3.h"
+
+#include "util/frametiming.h"
+#include "util/rtprio.h"
+#include <utility>   // std::as_const
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -38,21 +55,19 @@ static bool wlVerbose() {
 }
 
 static bool appLogsEnabled() {
-    return envBool("MARATHON_APP_LOGS", false) || envBool("MARATHON_DEBUG", false);
+    // Default ON. Without app logs in journald, browser/maps/etc cold-start
+    // hangs are undebuggable — the audit lost 6 minutes diagnosing a WebEngine
+    // ZINK init failure that was already in stderr but nobody was reading it.
+    // Set MARATHON_APP_LOGS=0 to silence in performance-critical builds.
+    return envBool("MARATHON_APP_LOGS", true);
 }
 
 static bool appLogsAllEnabled() {
     return envBool("MARATHON_APP_LOGS_ALL", false);
 }
 
-#ifdef Q_OS_LINUX
-#include <sched.h>
-#include <pthread.h>
-#endif
-
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
-    : QWaylandCompositor()
-    , m_window(window)
+    : m_window(window)
     , m_nextSurfaceId(1)
     , m_output(nullptr)
     , m_hasIdleInhibitor(false) {
@@ -104,12 +119,58 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputDisabled, this,
             [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(false); });
 
+    // wp_security_context_v1 — lets sandbox engines (marathon-app-runner,
+    // future Flatpak) tag connections with a fixed (engine, app_id,
+    // instance_id) triple. The compositor (and any portal proxies that
+    // consult it) can then enforce per-app policy independent of the
+    // client's own assertion. Runtime wiring (marathon-app-runner using
+    // this to make its bwrap'd apps connect on a separate FD) lands in a
+    // follow-up commit; this enables the global so the runtime side can
+    // be developed against a real implementation.
+    m_securityContextManager = new SecurityContextManagerV1(this);
+
+    // wp_fifo_v1 — queued-presentation barriers. Surfaces with
+    // set_barrier / wait_barrier get FIFO ordering enforced at the
+    // Qt scene-graph swap boundary (QQuickWindow::frameSwapped). Apps
+    // that bind this protocol (SDL3, Chromium Ozone, future Mesa
+    // presentation loop) get the strict frame-N-before-N+1 guarantee
+    // they need for jank-free animation.
+    m_fifoManager = new FifoManagerV1(this, window);
+
+    // wp_commit_timing_v1 — per-commit presentation timestamps. Pairs
+    // with fifo-v1 to give clients (SDL3, Chromium, Mesa) the
+    // deadline-driven scheduling primitives they prefer for animation.
+    // Tracked but not yet enforced at present time — see committimingv1.h
+    // for the honesty note on the public-API constraint.
+    m_commitTimingManager = new CommitTimingManagerV1(this);
+
+    // zwp_linux_dmabuf_v1 v4 — Marathon's own implementation that
+    // advertises the v4 feedback layer (main_device + tranche_*) on
+    // top of Qt's existing v3 plugin. Chromium binds the higher
+    // version for feedback events; Qt's v3 plugin handles actual buffer
+    // import. See linuxdmabufv1.h for the scope honesty and the
+    // hypothesis the spike is testing.
+    m_linuxDmabufManager = new LinuxDmabufManagerV1(this);
+
+    // wl_drm — device discovery for Mesa's wayland-egl clients (apps). Qt's
+    // v3 dmabuf carries no render-device identity and the v4 feedback global
+    // above is gated off (it breaks Qt buffer import), so on Mesa 26.1.1 app
+    // clients can't find the etnaviv render node and drop to llvmpipe. wl_drm
+    // names /dev/dri/renderD128 + advertises PRIME so Mesa renders on etnaviv
+    // while buffers still import through Qt's v3 dmabuf. See wldrm.h.
+    m_wlDrmManager = new WlDrmManager(this);
+
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 enabled";
     } else {
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 disabled";
     }
+    // Note: wp_presentation (QWaylandPresentationTime) is intentionally NOT
+    // wired up here. Qt 6.10.2 on Fedora exposes the class only via private
+    // headers; using it would tie Marathon to Qt's private API. Re-add when
+    // either (a) we standardize on a Qt version with the public class, or
+    // (b) we decide the private-header dependency is acceptable.
 
     connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
             [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
@@ -117,6 +178,25 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 if (wlVerbose() && newFocus)
                     qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
                              << newFocus;
+            });
+
+    // Create QWaylandQuickSurface, not the default plain QWaylandSurface.
+    // Qt's QtQuick render path (QWaylandSurfaceTextureProvider::setBufferRef in
+    // qwaylandquickitem.cpp) does `qobject_cast<QWaylandQuickSurface*>(surface)`
+    // and then dereferences the result UNCONDITIONALLY on the hardware-buffer
+    // path (`surface->bufferSize()`), guarded only for the useTextureAlpha
+    // branch. With the base QWaylandCompositor's createDefaultSurface() handing
+    // back a plain QWaylandSurface, that cast is always null, so the first GPU
+    // (dmabuf) frame segfaults the compositor in QWaylandSurface::bufferSize.
+    // Shared-memory clients took the image() path and never hit it, which is
+    // why this only surfaced once apps began rendering through dmabuf. Handling
+    // surfaceRequested is the standard pattern for a QtQuick compositor built on
+    // the non-quick QWaylandCompositor base; the surface auto-registers via its
+    // initialize() in the constructor, and Qt owns it through the wl_surface
+    // resource lifecycle exactly as createDefaultSurface() would.
+    connect(this, &QWaylandCompositor::surfaceRequested, this,
+            [this](QWaylandClient *client, uint id, int version) {
+                new QWaylandQuickSurface(this, client, id, version);
             });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
@@ -139,11 +219,96 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     setCompositorRealtimePriority();
 
+    // ── Present pipeline (opt-in: MARATHON_PRESENT_PIPELINE) ──────────
+    // Default QtWayland throttles client scroll to ~15fps on this in-process
+    // compositor: it sends wl_surface.frame callbacks from afterRendering
+    // (frame END, cross-thread-queued to the GUI loop) and the on-demand
+    // threaded render loop sleeps between frames, so a client's commit waits
+    // ~1 vblank to be scheduled and its callback arrives only after our frame
+    // -- a serialized ~4-vblank round trip (measured: client swap blocks
+    // ~67ms, both sides idle). This collapses it to a 1-frame pipeline.
+    m_presentPipeline = envBool("MARATHON_PRESENT_PIPELINE", false);
+    if (m_presentPipeline && m_window && m_output) {
+        m_output->setAutomaticFrameCallback(false);
+        // beforeSynchronizing runs on the render thread while the GUI thread
+        // is blocked in sync -- the safe point to touch wl_display. Sending
+        // the frame callback here (frame START, before our own present) hands
+        // the client the full frame interval to render its next buffer
+        // concurrently, instead of only after our frame completes.
+        connect(
+            m_window, &QQuickWindow::beforeSynchronizing, this,
+            [this]() {
+                if (m_output)
+                    m_output->sendFrameCallbacks();
+            },
+            Qt::DirectConnection);
+        // While a client is actively committing, free-run the on-demand loop
+        // at vsync so its just-committed buffer composites on the very next
+        // vblank instead of the scheduler sleeping and missing it. Credits are
+        // refreshed on every client commit (redraw) and decay to 0 when
+        // commits stop -> compositor idles back to 0fps (preserves Doze).
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this]() {
+                const int c = m_activeFrameCredits.loadRelaxed();
+                if (c > 0) {
+                    m_activeFrameCredits.storeRelaxed(c - 1);
+                    QMetaObject::invokeMethod(
+                        m_window, [w = m_window]() { w->update(); }, Qt::QueuedConnection);
+                }
+            },
+            Qt::DirectConnection);
+        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame "
+                   "callbacks + commit-gated vsync free-run)";
+    }
+
+    m_discardFrontBuffer = envBool("MARATHON_DISCARD_FRONT", false);
+    if (m_discardFrontBuffer)
+        qInfo() << "[WaylandCompositor] Front-buffer discard ENABLED (eager client "
+                   "buffer release)";
+
+    if (envBool("MARATHON_FRAME_TIMING", false)) {
+        marathon::diag::installFrameTimingTracker(m_window, QStringLiteral("compositor"));
+        qInfo() << "[WaylandCompositor] Frame-timing diagnostics enabled";
+    }
+
+    // ── Present stats (opt-in: MARATHON_PRESENT_STATS) ───────────────
+    // One log line per second: compositor frames + client commits. Cheap
+    // enough not to backpressure the log pipe (unlike QSG_RENDER_TIMING),
+    // so scroll rate stays measurable while the meter is on.
+    if (envBool("MARATHON_PRESENT_STATS", false) && m_window) {
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this]() { m_frameSwapCount.fetchAndAddRelaxed(1); }, Qt::DirectConnection);
+        auto *statsTimer = new QTimer(this);
+        statsTimer->setInterval(1000);
+        connect(statsTimer, &QTimer::timeout, this, [this]() {
+            const int frames  = m_frameSwapCount.fetchAndStoreRelaxed(0);
+            const int commits = m_clientCommitCount.fetchAndStoreRelaxed(0);
+            qInfo().nospace() << "[PresentStats] compositor=" << frames
+                              << "fps client_commits=" << commits << "/s";
+        });
+        statsTimer->start();
+        qInfo() << "[WaylandCompositor] Present stats ENABLED (1Hz compositor/client "
+                   "rate meter)";
+    }
+
     m_window->installEventFilter(this);
+
+    // AUTO-LAUNCH TEST: only kick off if the optional dev helper is installed.
+    QTimer::singleShot(15000, this, [this]() {
+        if (QFile::exists("/usr/bin/marathon-app-debug")) {
+            qInfo() << "[WaylandCompositor] Auto-launching debug app";
+            launchApp("/usr/bin/marathon-app-debug");
+        }
+    });
 }
 
 WaylandCompositor::~WaylandCompositor() {
-    for (auto process : m_processes.keys()) {
+    // keyBegin/keyEnd, not keys(): the latter allocates an entire QList
+    // just to walk it once, in a destructor.
+    for (auto it = m_processes.keyBegin(), end = m_processes.keyEnd(); it != end; ++it) {
+        QProcess *process = *it;
         if (process->state() != QProcess::NotRunning) {
             process->terminate();
             if (!process->waitForFinished(3000)) {
@@ -272,6 +437,13 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("WAYLAND_DISPLAY", socketName());
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
+    env.insert("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
+    // Apps default to the GPU scenegraph; opt back to SHM/software per-board.
+    if (envBool("MARATHON_APPS_FORCE_SOFTWARE", false))
+        env.insert("QT_QUICK_BACKEND", "software");
+
+    qDebug() << "[WaylandCompositor] Setting WAYLAND_DISPLAY=" << socketName()
+             << "for child process";
 
     {
         const QByteArray debugEnv = qgetenv("MARATHON_DEBUG").trimmed().toLower();
@@ -280,9 +452,27 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
             env.insert("QT_FORCE_STDERR_LOGGING", "1");
         }
     }
-    const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
+    const bool forceShm      = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
+    const bool appsUseVulkan = envBool("MARATHON_APPS_USE_VULKAN", false);
+    QString    rhiBackend    = env.value("QSG_RHI_BACKEND").trimmed().toLower();
+    QString    quickBackend  = env.value("QT_QUICK_BACKEND").trimmed().toLower();
+    bool       usingVulkan   = (rhiBackend == "vulkan") || (quickBackend == "vulkan");
+    if (isRunner && usingVulkan && !appsUseVulkan) {
+        env.insert("QSG_RHI_BACKEND", "opengl");
+        env.remove("QT_QUICK_BACKEND");
+        usingVulkan = false;
+        rhiBackend  = QStringLiteral("opengl");
+        quickBackend.clear();
+        qInfo()
+            << "[WaylandCompositor] App runner forced to OpenGL (set MARATHON_APPS_USE_VULKAN=1 "
+               "to override)";
+    }
     if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
-        env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
+        if (forceShm) {
+            env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "shm");
+        } else if (!usingVulkan) {
+            env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "wayland-egl");
+        }
     }
 
     env.insert("GDK_BACKEND", "wayland");
@@ -332,8 +522,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         if (!output.isEmpty()) {
             QString tail = safeProcess->property("marathonStdoutTail").toString();
             tail += output;
-            if (tail.size() > 64 * 1024)
-                tail = tail.right(64 * 1024);
+            if (tail.size() > qsizetype{64} * 1024)
+                tail = tail.right(qsizetype{64} * 1024);
             safeProcess->setProperty("marathonStdoutTail", tail);
 
             if (wlVerbose() && !output.trimmed().isEmpty())
@@ -366,8 +556,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         if (!error.isEmpty()) {
             QString tail = safeProcess->property("marathonStderrTail").toString();
             tail += error;
-            if (tail.size() > 64 * 1024)
-                tail = tail.right(64 * 1024);
+            if (tail.size() > qsizetype{64} * 1024)
+                tail = tail.right(qsizetype{64} * 1024);
             safeProcess->setProperty("marathonStderrTail", tail);
 
             if (wlVerbose() && !error.trimmed().isEmpty())
@@ -418,7 +608,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     });
 
-    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", true);
+    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", false);
 
     const QString dbusConfigPath = runtimeDir + "/marathon-dbus-restricted.conf";
     if (useSandbox && !isRunner) {
@@ -571,8 +761,27 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
 
+    // Client commit meter (harmless when the 1Hz stats timer isn't running).
+    connect(surface, &QWaylandSurface::redraw, this,
+            [this]() { m_clientCommitCount.fetchAndAddRelaxed(1); });
+
+    if (m_presentPipeline) {
+        // Each client commit (redraw) refreshes the free-run credits and
+        // schedules a frame, keeping the compositor at vsync while the app
+        // animates. 4 frames (~64ms) of tail bridges brief commit gaps (fling
+        // momentum ticks) without holding the loop awake once motion stops.
+        connect(surface, &QWaylandSurface::redraw, this, [this]() {
+            m_activeFrameCredits.storeRelaxed(4);
+            if (m_window)
+                m_window->update();
+        });
+    }
+
     if (auto *inputControl = surface->inputMethodControl()) {
         qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
+        // QWaylandInputMethodControl::enabledChanged isn't exported in the public
+        // Qt build, so the Qt5 pointer-to-member form fails to link. The SIGNAL/
+        // SLOT macro form uses MOC's string dispatch and works without the symbol.
         connect(inputControl, SIGNAL(enabledChanged(bool)), this,
                 SLOT(handleTextInputEnabled(bool)));
     } else {
@@ -604,6 +813,34 @@ void WaylandCompositor::activateSurface(int surfaceId) {
             qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
     } else {
         qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
+    }
+}
+
+// A minimized surface's views stop delivering wl_surface.frame callbacks,
+// so a throttled client never commits again — and a restored view with no
+// current buffer paints nothing, which never resumes the callbacks either.
+// Firing the pending callbacks breaks that deadlock at restore.
+void WaylandCompositor::nudgeSurface(int surfaceId) {
+    QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    if (!surface)
+        return;
+    // Callbacks alone only unblock a client already waiting mid-frame; an
+    // idle client needs a reason to redraw before a fresh view can take a
+    // buffer. A same-state configure forces ack + commit, like restore does.
+    surface->sendFrameCallbacks();
+    QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
+    if (xdg && xdg->toplevel()) {
+        QWaylandXdgToplevel *top  = xdg->toplevel();
+        const QSize          size = surface->destinationSize();
+        if (!size.isEmpty()) {
+            // Mirror the toplevel's true state: dropping activated here
+            // told every nudged app it was deactivated, demoting its RT
+            // render priority and throttling it (felt like lost HW accel).
+            QList<int> states{1};
+            if (top->activated())
+                states << 4;
+            top->sendConfigure(size, states);
+        }
     }
 }
 
@@ -641,6 +878,25 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
 
     qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
             << toplevel->title();
+
+    // Send an initial xdg_toplevel.configure as soon as the toplevel is created
+    // so the client can ack + commit its first content buffer. The QML side
+    // (WaylandShellSurfaceItem.sendSizeToApp) only fires after the surface item
+    // gets a non-zero size, which depends on layout/loader timing -- the
+    // surface can sit unconfigured for arbitrarily long, and Qt's qtwayland
+    // client decides "window inexposed" and stops painting. By sending the
+    // output size up-front, the client always gets a first configure within
+    // milliseconds of mapping and can proceed to attach + commit its buffer.
+    if (m_output && m_output->window()) {
+        const QSize outputSize = m_output->window()->size();
+        if (outputSize.width() > 0 && outputSize.height() > 0) {
+            QList<QWaylandXdgToplevel::State> states;
+            states << QWaylandXdgToplevel::ActivatedState << QWaylandXdgToplevel::MaximizedState;
+            toplevel->sendConfigure(outputSize, states);
+            qInfo() << "[WaylandCompositor] Sent initial configure" << outputSize << "for surfaceId"
+                    << surfaceId;
+        }
+    }
 
     emit                          surfaceCreated(surface, surfaceId, xdgSurface);
 
@@ -900,17 +1156,23 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
 
 void WaylandCompositor::setCompositorRealtimePriority() {
 #ifdef Q_OS_LINUX
-    struct sched_param param;
-    param.sched_priority = 75;
-
-    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
-        qInfo() << "[WaylandCompositor] ✓ Compositor thread set to RT priority 75 (SCHED_FIFO)";
-    } else {
-        qWarning()
-            << "[WaylandCompositor]  Failed to set RT priority (need CAP_SYS_NICE or limits.conf)";
-    }
-#else
-    qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";
+    // Elevate the QSGRenderThread (NOT the main thread that runs this
+    // constructor). beforeSynchronizing fires on the render thread, so a
+    // DirectConnection lambda runs in the right context for setsched.
+    if (!m_window)
+        return;
+    connect(
+        m_window, &QQuickWindow::beforeSynchronizing, this,
+        []() {
+            static bool primed = false;
+            if (primed)
+                return;
+            primed = true;
+            if (const int rc = marathon::rt::setCurrentThreadPriority(1); rc != 0)
+                qWarning() << "[WaylandCompositor] QSGRenderThread RT elevation failed:"
+                           << strerror(rc);
+        },
+        Qt::DirectConnection);
 #endif
 }
 
@@ -975,12 +1237,181 @@ void WaylandCompositor::setCompositorActive(bool active) {
     if (!m_window)
         return;
 
-    if (active == m_window->isVisible())
+    if (active) {
+        // Always re-assert display power on wake, even if the window already
+        // reports visible. Window-visibility is NOT a reliable proxy for CRTC
+        // power: a raced double-toggle or a partial wake can leave the window
+        // visible while the CRTC sits at ACTIVE=0 -- and the old
+        // `active == isVisible()` early-return then skipped the CRTC re-enable
+        // outright, leaving the panel dark with no recovery (an unwakeable
+        // screen). setDisplayPowerState is idempotent, so re-asserting a live
+        // CRTC is a cheap no-op. Power the pipeline on BEFORE resuming page
+        // flips so the first flip lands on a live CRTC (a sleeping one wedges
+        // eglfs_kms with EINVAL).
+        setDisplayPowerState(true);
+        if (!m_window->isVisible()) {
+            qDebug() << "[WaylandCompositor] Resuming compositor window";
+            m_window->setVisible(true);
+        }
+        return;
+    }
+
+    // Suspending. Idempotent: if the window is already hidden we are already
+    // suspended, nothing to do.
+    if (!m_window->isVisible())
+        return;
+    qDebug() << "[WaylandCompositor] Suspending compositor window";
+
+    // Hide first, then ask the scene graph to release its GL
+    // resources. Without this, the render thread keeps trying to flip into
+    // a soon-to-be DPMS-off CRTC and eglfs_kms wedges with EINVAL on
+    // virtio-gpu (the page-flip cannot land on a sleeping connector).
+    m_window->setVisible(false);
+    m_window->releaseResources();
+
+    // Now that page flips are halted, power the CRTC/panel down. Turning
+    // off only the backlight LED (DisplayManagerCpp) leaves the DCSS
+    // display controller scanning out 720x1440@63Hz to a still-powered
+    // DSI panel — measured at ~3W in Doze, because continuous scanout
+    // pins the memory-controller + interconnect devfreq at 800MHz (floor
+    // is 169MHz) and the mxsfb-dsi panel regulators (avdd/avee) never
+    // gate. A real DPMS-off stops scanout, drops the memory bus, and
+    // powers the panel rails down — the single biggest standby win.
+    setDisplayPowerState(false);
+}
+
+// Cache the DRM master fd + CRTC id + ACTIVE property id from Qt's
+// eglfs_kms integration. Returns true if we have everything needed to
+// drive the CRTC's ACTIVE property ourselves. Idempotent.
+//
+// We take Qt's OWN master fd (via QPlatformNativeInterface "dri_fd")
+// rather than open()ing /dev/dri/card* ourselves — only the DRM master
+// may issue a modeset, and Qt eglfs holds mastership on the card. A
+// second open() would be a non-master fd and every atomic commit would
+// return EACCES.
+bool WaylandCompositor::initAtomicDisplay() {
+    if (m_atomicDisplayReady)
+        return true;
+    if (m_atomicDisplayFailed)
+        return false;
+
+    QPlatformNativeInterface *ni = QGuiApplication::platformNativeInterface();
+    if (!ni || !m_window) {
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+    QScreen *screen = m_window->screen();
+    if (!screen) {
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    void *fdPtr   = ni->nativeResourceForIntegration(QByteArrayLiteral("dri_fd"));
+    void *crtcPtr = ni->nativeResourceForScreen(QByteArrayLiteral("dri_crtcid"), screen);
+    m_driFd       = fdPtr ? static_cast<int>(reinterpret_cast<qintptr>(fdPtr)) : -1;
+    m_crtcId      = crtcPtr ? static_cast<uint32_t>(reinterpret_cast<qintptr>(crtcPtr)) : 0;
+
+    if (m_driFd < 0 || m_crtcId == 0) {
+        qWarning() << "[WaylandCompositor] atomic display init: no dri_fd/crtcid from eglfs"
+                   << "(fd" << m_driFd << "crtc" << m_crtcId << ") — DPMS disabled";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    // Enable atomic on this fd (harmless if eglfs_kms_atomic already did).
+    drmSetClientCap(m_driFd, DRM_CLIENT_CAP_ATOMIC, 1);
+
+    // Resolve the CRTC's "ACTIVE" property id.
+    drmModeObjectProperties *props =
+        drmModeObjectGetProperties(m_driFd, m_crtcId, DRM_MODE_OBJECT_CRTC);
+    if (!props) {
+        qWarning() << "[WaylandCompositor] atomic display init: cannot read CRTC props";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+    for (uint32_t i = 0; i < props->count_props; ++i) {
+        drmModePropertyRes *p = drmModeGetProperty(m_driFd, props->props[i]);
+        if (!p)
+            continue;
+        if (qstrcmp(p->name, "ACTIVE") == 0)
+            m_crtcActivePropId = props->props[i];
+        drmModeFreeProperty(p);
+    }
+    drmModeFreeObjectProperties(props);
+
+    if (m_crtcActivePropId == 0) {
+        qWarning() << "[WaylandCompositor] atomic display init: no ACTIVE prop on CRTC";
+        m_atomicDisplayFailed = true;
+        return false;
+    }
+
+    qInfo() << "[WaylandCompositor] atomic display ready: fd" << m_driFd << "crtc" << m_crtcId
+            << "ACTIVE prop" << m_crtcActivePropId;
+    m_atomicDisplayReady = true;
+    return true;
+}
+
+// DPMS transition for the primary output via a DIRECT libdrm atomic
+// commit of the CRTC's ACTIVE property. Gated behind MARATHON_DOZE_DPMS
+// (default off).
+//
+// Why not Qt's QPlatformScreen::setPowerState: on i.MX8MQ + mxsfb + nwl
+// DSI, a full CRTC teardown (zeroing MODE_ID + CRTC_ID) fails atomic
+// validation because a plane+framebuffer is still bound to a now-
+// modeless CRTC — the panel wedges dark and only a reboot recovers.
+// This is swaywm/wlroots#1889, filed on this exact hardware. The clean
+// path Phosh/wlroots uses — and what we replicate here — is to toggle
+// ONLY the CRTC ACTIVE property, leaving MODE_ID intact.
+//
+// VALIDATED on-device 2026-07-01 (instrumented): ACTIVE=0/1 commits
+// return 0, readback confirms the value sticks, wake is clean across
+// many cycles (NO wedge — unlike Qt's setPowerState), and the panel's
+// AVDD rail gates on ACTIVE=0. This is the correct, shippable display-
+// off for the DSI panel.
+//
+// HOWEVER it does NOT unlock the DDR self-refresh win we hoped for:
+// with the CRTC confirmed disabled, the memory-controller stays pinned
+// at 800MHz. A dev_pm_qos MIN_FREQUENCY=166.9MHz floor (held by a NON-
+// display consumer — it survives CRTC disable) excludes the usable
+// 25/100MHz DDR OPPs. Dropping the DDR to self-refresh is therefore a
+// kernel/DTB task (find + release that QoS holder), independent of this
+// compositor change. See the "standby power floor" / "doze dpms" notes.
+//
+// Render must already be paused (setVisible(false)+releaseResources)
+// before ACTIVE=0, and restored to ACTIVE=1 before render resumes —
+// callers in setCompositorActive guarantee that ordering.
+void WaylandCompositor::setDisplayPowerState(bool on) {
+    // DEFAULT ON as of 2026-07-01. Validated: the atomic CRTC ACTIVE=0
+    // display-off drops Doze draw from ~2.8W to ~0.1W (measured; matches
+    // the i.MX8MQ ~105mW deep-idle floor), and the wake path re-lights
+    // the panel reliably — 15/15 physical doze/wake cycles incl. 30s
+    // deep-idle holds, after the backlight-after-CRTC ordering fix in
+    // DisplayManagerCpp::setScreenState + forceBacklightOn(). Set
+    // MARATHON_DOZE_DPMS=0 to disable (e.g. bring-up on other panels).
+    static const bool enabled = envBool("MARATHON_DOZE_DPMS", true);
+    if (!enabled)
+        return;
+    if (!initAtomicDisplay())
         return;
 
-    qDebug() << "[WaylandCompositor]" << (active ? "Resuming" : "Suspending")
-             << "compositor window";
-    m_window->setVisible(active);
+    drmModeAtomicReq *req = drmModeAtomicAlloc();
+    if (!req)
+        return;
+    drmModeAtomicAddProperty(req, m_crtcId, m_crtcActivePropId, on ? 1 : 0);
+
+    // ALLOW_MODESET: toggling ACTIVE is a modeset-class change. No page
+    // flip event requested (nullptr user_data) — this is a blocking
+    // synchronous commit, appropriate for a screen on/off transition.
+    const int ret = drmModeAtomicCommit(m_driFd, req, DRM_MODE_ATOMIC_ALLOW_MODESET, nullptr);
+    drmModeAtomicFree(req);
+
+    if (ret != 0) {
+        qWarning() << "[WaylandCompositor] CRTC ACTIVE=" << on << "atomic commit failed:" << ret
+                   << strerror(-ret);
+        return;
+    }
+    qInfo() << "[WaylandCompositor] display" << (on ? "ON" : "OFF")
+            << "via CRTC ACTIVE atomic commit";
 }
 
 void WaylandCompositor::setOutputOrientation(const QString &orientation) {
@@ -1053,6 +1484,11 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
                 contentItem->setX(0);
                 contentItem->setY(H);
                 break;
+
+            default:
+                qWarning() << "[WaylandCompositor] Unexpected rotation angle:" << rotation
+                           << "(expected 0/90/180/270); leaving content position unchanged";
+                break;
         }
     } else {
         qWarning() << "[WaylandCompositor] No content item to rotate";
@@ -1097,27 +1533,88 @@ bool WaylandCompositor::checkIdleInhibitors() {
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
-    if (watched == m_window &&
-        (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-        int        key      = keyEvent->key();
+    if (watched == m_window) {
+        const auto type = event->type();
+        // Emit userActivity() on any human-input signal — not just the
+        // edge-triggered Begin/Press events. Without TouchUpdate /
+        // MouseMove we miss "user is scrolling / dragging in the
+        // foreground app" which is the dominant interaction pattern;
+        // the idle-screen-off timer then fires mid-gesture. Wheel +
+        // KeyRelease are belt-and-braces for kbd-only paths.
+        if (type == QEvent::TouchBegin || type == QEvent::TouchUpdate ||
+            type == QEvent::MouseButtonPress || type == QEvent::MouseMove ||
+            type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            emit userActivity();
+        }
 
-        if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
+        if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+            int        key      = keyEvent->key();
 
-            if (event->type() == QEvent::KeyPress) {
-                return true;
-            }
-
-            if (event->type() == QEvent::KeyRelease) {
-                if (key == Qt::Key_Escape) {
-                    emit systemBackTriggered();
-                } else {
-                    emit systemHomeTriggered();
+            if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
+                if (type == QEvent::KeyPress) {
+                    return true;
                 }
-                return true;
+                if (type == QEvent::KeyRelease) {
+                    if (key == Qt::Key_Escape) {
+                        emit systemBackTriggered();
+                    } else {
+                        emit systemHomeTriggered();
+                    }
+                    return true;
+                }
             }
         }
     }
 
     return QObject::eventFilter(watched, event);
+}
+
+void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended) {
+    if (appId.isEmpty())
+        return;
+
+    // xdg-shell v6 state code (Qt 6.10's public State enum stops at
+    // ActivatedState=4; the wire protocol number is in
+    // qwayland-server-xdg-shell.h:state_suspended=9).
+    constexpr int        kStateSuspended = 9;
+
+    QWaylandXdgToplevel *toplevel = nullptr;
+    int                  foundId  = -1;
+    for (auto it = m_xdgSurfaceMap.constBegin(); it != m_xdgSurfaceMap.constEnd(); ++it) {
+        QWaylandXdgSurface *xdgSurface = it.value();
+        if (!xdgSurface || !xdgSurface->surface())
+            continue;
+        if (xdgSurface->surface()->property("appId").toString() != appId)
+            continue;
+        auto *candidate =
+            xdgSurface->surface()->property("xdgToplevel").value<QWaylandXdgToplevel *>();
+        if (!candidate)
+            continue;
+        toplevel = candidate;
+        // clang-analyzer can't see the qInfo() << foundId read through QDebug's
+        // stream operator, so it flags this store as dead. The qInfo line below
+        // is the read; the value is genuinely used.
+        foundId = it.key(); // NOLINT(clang-analyzer-deadcode.DeadStores)
+        break;
+    }
+    if (!toplevel)
+        return;
+
+    QList<int> states;
+    if (toplevel->activated())
+        states << static_cast<int>(QWaylandXdgToplevel::ActivatedState);
+    if (toplevel->maximized())
+        states << static_cast<int>(QWaylandXdgToplevel::MaximizedState);
+    if (toplevel->fullscreen())
+        states << static_cast<int>(QWaylandXdgToplevel::FullscreenState);
+    if (toplevel->resizing())
+        states << static_cast<int>(QWaylandXdgToplevel::ResizingState);
+    if (suspended)
+        states << kStateSuspended;
+
+    const QSize size = (m_output && m_output->window()) ? m_output->window()->size() : QSize(0, 0);
+    toplevel->sendConfigure(size, states);
+    qInfo() << "[WaylandCompositor] xdg-suspend appId=" << appId << "suspended=" << suspended
+            << "surfaceId=" << foundId;
 }

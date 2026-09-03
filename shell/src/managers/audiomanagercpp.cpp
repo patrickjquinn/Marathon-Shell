@@ -1,4 +1,6 @@
 #include "audiomanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include "platform.h"
 #include <QDebug>
 #include <QDBusInterface>
@@ -7,6 +9,13 @@
 #include <QDBusMetaType>
 #include <QProcess>
 #include <QRegularExpression>
+#include <utility>   // std::as_const
+
+AudioManagerCpp *AudioManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new AudioManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 
 AudioStreamModel::AudioStreamModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -85,18 +94,16 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
         QProcess process;
         process.start("wpctl", {"get-volume", "@DEFAULT_AUDIO_SINK@"});
         process.waitForFinished();
-        QString                 output = process.readAllStandardOutput();
+        QString                         output = process.readAllStandardOutput();
 
-        QRegularExpression      re("Volume: ([0-9.]+)");
-        QRegularExpressionMatch match = re.match(output);
+        static const QRegularExpression re("Volume: ([0-9.]+)");
+        QRegularExpressionMatch         match = re.match(output);
         if (match.hasMatch()) {
             m_currentVolume = match.captured(1).toDouble();
-            emit volumeChanged();
         }
 
         if (output.contains("[MUTED]")) {
             m_muted = true;
-            emit mutedChanged();
         }
 
         parseWpctlStatus();
@@ -255,10 +262,10 @@ void AudioManagerCpp::parseWpctlStatus() {
         return;
     }
 
-    QString            output = process.readAllStandardOutput();
-    QList<AudioStream> streams;
+    QString                         output = process.readAllStandardOutput();
+    QList<AudioStream>              streams;
 
-    QRegularExpression streamRe(
+    static const QRegularExpression streamRe(
         "^\\s+[│├─]+\\s+(\\d+)\\.\\s+(.+?)\\s+\\[vol:\\s+([0-9.]+)(?:\\s+MUTED)?\\]",
         QRegularExpression::MultilineOption);
 
@@ -266,7 +273,7 @@ void AudioManagerCpp::parseWpctlStatus() {
     bool        inStreamsSection = false;
 
     QStringList lines = output.split('\n');
-    for (const QString &line : lines) {
+    for (const QString &line : std::as_const(lines)) {
         if (line.contains("Sinks:", Qt::CaseInsensitive)) {
             inSinksSection   = true;
             inStreamsSection = false;
@@ -347,7 +354,7 @@ bool AudioManagerCpp::initPulseAudio() {
 
     pa_context_set_state_callback(m_pa_context, &AudioManagerCpp::paContextStateCallback, this);
 
-    if (pa_context_connect(m_pa_context, NULL, PA_CONTEXT_NOFLAGS, NULL) < 0) {
+    if (pa_context_connect(m_pa_context, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
         cleanupPulseAudio();
         return false;
     }

@@ -1,0 +1,21 @@
+[Unit]
+Description=Greetd Display Manager
+After=systemd-user-sessions.service
+After=getty@tty1.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/greetd --config /etc/greetd/config.toml
+Restart=always
+RestartSec=1s
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+[Install]
+WantedBy=graphical.target
+Alias=display-manager.service
+

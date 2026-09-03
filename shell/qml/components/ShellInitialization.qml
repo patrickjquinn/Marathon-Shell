@@ -10,14 +10,18 @@ QtObject {
 
     function initialize(shellRef, rootWindow) {
         root.shell = shellRef;
-        Constants.updateScreenSize(shellRef.width, shellRef.height, Screen.pixelDensity * 25.4);
+        // Prefer ScreenMetricsCpp.dpi when available so MARATHON_FORCE_DPI
+        // (used for QEMU validation) takes effect; fall back to Qt's
+        // pixelDensity-derived DPI on real hardware.
+        var deviceDpi = (typeof ScreenMetricsCpp !== 'undefined' && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : Screen.pixelDensity * 25.4;
+        Constants.updateScreenSize(shellRef.width, shellRef.height, deviceDpi);
         UIStore.shellRef = shellRef;
-        Logger.info("ShellInitialization", "Screen size: " + shellRef.width + "x" + shellRef.height + " @ " + Math.round(Screen.pixelDensity * 25.4) + " DPI");
+        Logger.info("ShellInitialization", "Screen size: " + shellRef.width + "x" + shellRef.height + " @ " + Math.round(deviceDpi) + " DPI");
         Logger.info("ShellInitialization", "Scale factor: " + Constants.scaleFactor + " (base: " + (Constants.screenHeight / Constants.baseHeight) + " x user: " + Constants.userScaleFactor + ")");
         shellRef.forceActiveFocus();
         Logger.info("ShellInitialization", "Marathon Shell initialized");
         root.compositor = root.initializeCompositor(rootWindow);
-        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled)
+        if (BluetoothManagerCpp.enabled)
             root.startBluetoothReconnect(shellRef);
 
         root.logSystemServices();
@@ -25,10 +29,6 @@ QtObject {
     }
 
     function initializeCompositor(rootWindow) {
-        if (typeof WaylandCompositorManager === 'undefined') {
-            Logger.info("ShellInitialization", "Wayland Compositor not available on this platform (expected on macOS)");
-            return null;
-        }
         if (!rootWindow) {
             Logger.info("ShellInitialization", "No root window provided (Wayland not available)");
             return null;
@@ -42,13 +42,7 @@ QtObject {
     }
 
     function logSystemServices() {
-        Logger.info("ShellInitialization", "System Services:");
-        Logger.info("ShellInitialization", "  - NetworkManager: " + (typeof NetworkManagerCpp !== 'undefined' ? "✓" : "✗"));
-        Logger.info("ShellInitialization", "  - PowerManager: " + (typeof PowerManagerService !== 'undefined' ? "✓" : "✗"));
-        Logger.info("ShellInitialization", "  - AudioManager: " + (typeof AudioManagerCpp !== 'undefined' ? "✓" : "✗"));
-        Logger.info("ShellInitialization", "  - BluetoothManager: " + (typeof BluetoothManagerCpp !== 'undefined' ? "✓" : "✗"));
-        Logger.info("ShellInitialization", "  - ModemManager: " + (typeof ModemManagerCpp !== 'undefined' ? "✓" : "✗"));
-        Logger.info("ShellInitialization", "  - MPRIS2Controller: " + (typeof MPRIS2Controller !== 'undefined' ? "✓" : "✗"));
+        Logger.info("ShellInitialization", "System Services initialized: NetworkManager, PowerManager, AudioManager, BluetoothManager, ModemManager, MPRIS2Controller");
     }
 
     function startBluetoothReconnect(shellRef) {
@@ -61,14 +55,13 @@ QtObject {
             if (root.compositor)
                 root.compositor.setCompositorActive(on);
         });
-        if (typeof RotationManager !== "undefined" && RotationManager)
-            RotationManager.orientationChanged.connect(function () {
-                var orientation = RotationManager.currentOrientation;
-                if (root.compositor)
-                    Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
+        RotationManager.orientationChanged.connect(function () {
+            var orientation = RotationManager.currentOrientation;
+            if (root.compositor)
+                Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
 
-                if (root.compositor)
-                    root.compositor.setOutputOrientation(orientation);
-            });
+            if (root.compositor)
+                root.compositor.setOutputOrientation(orientation);
+        });
     }
 }

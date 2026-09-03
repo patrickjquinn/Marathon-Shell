@@ -31,7 +31,7 @@ ApplicationWindow {
             spacing: 15
 
             Text {
-                text: "╔═══════════════════════════════════════════════════════════╗\n" + "║      Marathon Shell - Internal Service Status         ║\n" + "╚═══════════════════════════════════════════════════════════╝"
+                text: "+-----------------------------------------------------------+\n" + "|      Marathon Shell - Internal Service Status         |\n" + "+-----------------------------------------------------------+"
                 font.family: "monospace"
                 font.pixelSize: 14
                 color: "#00ff00"
@@ -51,14 +51,14 @@ ApplicationWindow {
                     spacing: 5
 
                     Text {
-                        text: "🔵 BLUETOOTH (BluetoothManagerCpp)"
+                        text: "BLUETOOTH (BluetoothManagerCpp)"
                         font.pixelSize: 16
                         font.bold: true
                         color: "#00aaff"
                     }
 
                     Text {
-                        text: typeof BluetoothManagerCpp !== 'undefined' ? "✅ Backend available" : "❌ Backend NOT available"
+                        text: typeof BluetoothManagerCpp !== 'undefined' ? "Backend available" : "Backend NOT available"
                         font.family: "monospace"
                         color: typeof BluetoothManagerCpp !== 'undefined' ? "#00ff00" : "#ff0000"
                     }
@@ -114,14 +114,14 @@ ApplicationWindow {
                     spacing: 5
 
                     Text {
-                        text: "💡 DISPLAY (DisplayManagerCpp)"
+                        text: "DISPLAY (DisplayManagerCpp)"
                         font.pixelSize: 16
                         font.bold: true
                         color: "#ffaa00"
                     }
 
                     Text {
-                        text: typeof DisplayManagerCpp !== 'undefined' ? "✅ Backend available" : "❌ Backend NOT available"
+                        text: typeof DisplayManagerCpp !== 'undefined' ? "Backend available" : "Backend NOT available"
                         font.family: "monospace"
                         color: typeof DisplayManagerCpp !== 'undefined' ? "#00ff00" : "#ff0000"
                     }
@@ -163,27 +163,27 @@ ApplicationWindow {
                     spacing: 5
 
                     Text {
-                        text: "🔊 AUDIO (AudioManagerCpp)"
+                        text: "AUDIO (AudioManagerCpp)"
                         font.pixelSize: 16
                         font.bold: true
                         color: "#ff00aa"
                     }
 
                     Text {
-                        text: typeof AudioManagerCpp !== 'undefined' ? "✅ Backend available" : "❌ Backend NOT available"
+                        text: typeof AudioManagerCpp !== 'undefined' ? "Backend available" : "Backend NOT available"
                         font.family: "monospace"
                         color: typeof AudioManagerCpp !== 'undefined' ? "#00ff00" : "#ff0000"
                     }
 
                     Text {
-                        text: typeof AudioManagerCpp !== 'undefined' ? ("masterVolume: " + AudioManagerCpp.masterVolume) : ""
+                        text: typeof AudioManagerCpp !== 'undefined' ? ("volume: " + AudioManagerCpp.volume) : ""
                         font.family: "monospace"
                         color: "#ffffff"
                         visible: typeof AudioManagerCpp !== 'undefined'
                     }
 
                     Text {
-                        text: typeof AudioManagerCpp !== 'undefined' ? ("isMuted: " + AudioManagerCpp.isMuted) : ""
+                        text: typeof AudioManagerCpp !== 'undefined' ? ("muted: " + AudioManagerCpp.muted) : ""
                         font.family: "monospace"
                         color: "#ffffff"
                         visible: typeof AudioManagerCpp !== 'undefined'
@@ -205,14 +205,14 @@ ApplicationWindow {
                     spacing: 5
 
                     Text {
-                        text: "📡 NETWORK (NetworkManagerCpp)"
+                        text: "NETWORK (NetworkManagerCpp)"
                         font.pixelSize: 16
                         font.bold: true
                         color: "#00ffaa"
                     }
 
                     Text {
-                        text: typeof NetworkManagerCpp !== 'undefined' ? "✅ Backend available" : "❌ Backend NOT available"
+                        text: typeof NetworkManagerCpp !== 'undefined' ? "Backend available" : "Backend NOT available"
                         font.family: "monospace"
                         color: typeof NetworkManagerCpp !== 'undefined' ? "#00ff00" : "#ff0000"
                     }
@@ -268,14 +268,14 @@ ApplicationWindow {
                     spacing: 5
 
                     Text {
-                        text: "🔋 POWER (PowerManagerCpp)"
+                        text: "POWER (PowerManagerCpp)"
                         font.pixelSize: 16
                         font.bold: true
                         color: "#aaff00"
                     }
 
                     Text {
-                        text: typeof PowerManagerCpp !== 'undefined' ? "✅ Backend available" : "❌ Backend NOT available"
+                        text: typeof PowerManagerCpp !== 'undefined' ? "Backend available" : "Backend NOT available"
                         font.family: "monospace"
                         color: typeof PowerManagerCpp !== 'undefined' ? "#00ff00" : "#ff0000"
                     }
@@ -304,7 +304,7 @@ ApplicationWindow {
             }
 
             Text {
-                text: "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                text: "\n--------------------------------------------"
                 font.family: "monospace"
                 color: "#666666"
             }

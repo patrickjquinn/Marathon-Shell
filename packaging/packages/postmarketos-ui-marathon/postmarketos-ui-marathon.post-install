@@ -1,0 +1,15 @@
+#!/bin/sh
+# Add Flathub remote on first install. Flatpak resolves the .flatpakrepo
+# file we shipped in /etc/flatpak/remotes.d/ but only adds it for the
+# system installation when explicitly invoked; calling remote-add here
+# makes it deterministic and idempotent.
+#
+# --if-not-exists makes this safe across upgrades. Failure is non-fatal:
+# users without network at provision time can re-run later.
+
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak remote-add --system --if-not-exists flathub \
+        /etc/flatpak/remotes.d/flathub.flatpakrepo 2>/dev/null || true
+fi
+
+exit 0

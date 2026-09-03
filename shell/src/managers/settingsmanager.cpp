@@ -3,14 +3,25 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
+#include <QJSEngine>
+#include <QQmlEngine>
+#include <QScopeGuard>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
+
+SettingsManager *SettingsManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SettingsManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 
 SettingsManager::SettingsManager(QObject *parent)
     : QObject(parent)
     , m_settings("marathon-os", "Marathon Shell")
     , m_userScaleFactor(1.0)
-    , m_wallpaperPath("qrc:/wallpapers/wallpaper.jpg")
+    , m_wallpaperPath("qrc:/wallpapers/slate-aurora.svg")
     , m_deviceName("Marathon OS")
     , m_autoLock(true)
     , m_autoLockTimeout(300)
@@ -28,30 +39,90 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_dndEnabled(false)
     , m_vibrationEnabled(true)
     , m_audioProfile("normal")
-    , m_screenTimeout(120000)
+    , m_screenTimeout(300000)
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
+    // Default ON: the consumer home grid should not surface terminals,
+    // foot servers, htop, marathon-test etc. The DesktopFileParser ships
+    // an explicit kHiddenDevTools deny-list + an X-Purism/X-KDE/Mobile
+    // form-factor allowlist; both only kick in when this gate is true.
+    // Users with a developer leaning can toggle the gate off in Settings
+    // → Apps and get the full freedesktop list back.
     , m_filterMobileFriendlyApps(true)
-    , m_hiddenApps()
     , m_appSortOrder("alphabetical")
     , m_appGridColumns(0)
     , m_searchNativeApps(true)
     , m_showNotificationBadges(true)
-    , m_appNotificationSettings()
     , m_showFrequentApps(false)
-    , m_defaultApps()
     , m_firstRunComplete(false)
-    , m_enabledQuickSettingsTiles()
-    , m_quickSettingsTileOrder()
     , m_keyboardAutoCorrection(true)
     , m_keyboardAutoCapitalize(true)
     , m_keyboardPredictiveText(true)
     , m_keyboardWordFling(true)
     , m_keyboardPredictiveSpacing(false)
     , m_keyboardHapticStrength("medium")
-    , m_keyboardLanguage("en_US") {
+    , m_keyboardLanguage("en_US")
+    , m_unifiedPushFallbackEnabled(false) {
     load();
+
+    // Watch the conf file for external changes (Settings app process writes,
+    // OOBE writes, etc) and live-reload so the shell reflects them without
+    // a restart. The Settings app runs as a separate marathon-app-runner
+    // process — it pokes QSettings into the same file but the shell's
+    // SettingsManager only sees that file if we watch it.
+    m_watcher          = new QFileSystemWatcher(this);
+    const QString path = m_settings.fileName();
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        m_watcher->addPath(path);
+    }
+    // Also watch the parent dir — some editors rewrite the file (delete +
+    // create) and the watcher loses the original inode; re-adding the path
+    // when the dir notifies gets us back on track.
+    const QString dir = QFileInfo(path).absolutePath();
+    if (!dir.isEmpty()) {
+        m_watcher->addPath(dir);
+    }
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this,
+            &SettingsManager::onSettingsFileChanged);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this, path](const QString &) {
+        // Re-arm: if the watched file got swapped via rename, the path
+        // disappears from m_watcher->files(). Add it back.
+        if (QFileInfo::exists(path) && !m_watcher->files().contains(path)) {
+            m_watcher->addPath(path);
+            onSettingsFileChanged(path);
+        }
+    });
+}
+
+void SettingsManager::onSettingsFileChanged(const QString &path) {
+    // Guard against echoing our own writes back through load().
+    if (m_inSelfWrite) {
+        return;
+    }
+    // Debounce — QFileSystemWatcher may fire multiple times for a single
+    // logical write (QSettings does write-temp + rename). 50 ms is enough
+    // to coalesce the burst without making Settings UI feel sluggish.
+    QTimer::singleShot(50, this, [this, path]() {
+        m_settings.sync();
+        const qreal   prevScale = m_userScaleFactor;
+        const QString prevWp    = m_wallpaperPath;
+        load();
+        // Re-add the path in case the rename invalidated the watch handle.
+        if (m_watcher && !m_watcher->files().contains(path) && QFileInfo::exists(path)) {
+            m_watcher->addPath(path);
+        }
+        // Emit only the properties that actually changed so QML re-bindings
+        // don't churn unnecessarily.
+        if (!qFuzzyCompare(prevScale, m_userScaleFactor)) {
+            qInfo() << "[SettingsManager] external write: userScaleFactor" << prevScale << "->"
+                    << m_userScaleFactor;
+            emit userScaleFactorChanged();
+        }
+        if (prevWp != m_wallpaperPath) {
+            emit wallpaperPathChanged();
+        }
+    });
 }
 
 namespace {
@@ -68,12 +139,12 @@ namespace {
         if (!env.isEmpty()) {
             return QString::fromLocal8Bit(env);
         }
-        const QString sys = defaultSystemDataDir();
+        QString sys = defaultSystemDataDir();
         if (QDir(sys).exists())
             return sys;
 
         const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-        const QString user = home + "/.local/share/marathon-shell";
+        QString       user = home + "/.local/share/marathon-shell";
         if (QDir(user).exists())
             return user;
 
@@ -156,7 +227,7 @@ void SettingsManager::load() {
 
     m_userScaleFactor = m_settings.value("ui/userScaleFactor", 1.0).toReal();
     m_wallpaperPath =
-        m_settings.value("ui/wallpaperPath", assetUrl("wallpapers/wallpaper.jpg")).toString();
+        m_settings.value("ui/wallpaperPath", assetUrl("wallpapers/slate-aurora.svg")).toString();
     m_wallpaperPath = migrateQrcToFile(m_wallpaperPath, dataDir);
 
     m_deviceName               = m_settings.value("system/deviceName", "Marathon OS").toString();
@@ -183,8 +254,10 @@ void SettingsManager::load() {
     m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
     m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
-    m_screenTimeout  = m_settings.value("display/screenTimeout", 120000).toInt();
-    m_autoBrightness = m_settings.value("display/autoBrightness", false).toBool();
+    m_screenTimeout = m_settings.value("display/screenTimeout", 300000).toInt();
+    // Default ON — adaptive brightness should "just work" out of the box
+    // (it never drops below the visible floor). Users can disable it.
+    m_autoBrightness = m_settings.value("display/autoBrightness", true).toBool();
     m_statusBarClockPosition =
         m_settings.value("display/statusBarClockPosition", "center").toString();
 
@@ -192,33 +265,56 @@ void SettingsManager::load() {
         m_settings.value("notifications/showOnLockScreen", true).toBool();
 
     m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", true).toBool();
-    m_hiddenApps               = m_settings.value("apps/hiddenApps", QStringList()).toStringList();
-    m_appSortOrder             = m_settings.value("apps/sortOrder", "alphabetical").toString();
-    m_appGridColumns           = m_settings.value("apps/gridColumns", 0).toInt();
-    m_searchNativeApps         = m_settings.value("apps/searchNativeApps", true).toBool();
-    m_showNotificationBadges   = m_settings.value("apps/showBadges", true).toBool();
+    // Terminal default-hidden so a consumer phone doesn't ship a shell
+    // prompt as a first-class launcher entry. Still reachable via
+    // Settings → Apps → Hidden Apps.
+    m_hiddenApps     = m_settings.value("apps/hiddenApps", QStringList{"terminal"}).toStringList();
+    m_appSortOrder   = m_settings.value("apps/sortOrder", "alphabetical").toString();
+    m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();
+    m_searchNativeApps       = m_settings.value("apps/searchNativeApps", true).toBool();
+    m_showNotificationBadges = m_settings.value("apps/showBadges", true).toBool();
     m_appNotificationSettings =
         m_settings.value("notifications/appSettings", QVariantMap()).toMap();
     m_showFrequentApps = m_settings.value("apps/showFrequentApps", false).toBool();
 
+    // Seed defaultXxx from the marathon-shipped app IDs so the role
+    // resolver (used by web-link openers, mailto: handlers, dialer
+    // intents) has something to resolve to on a clean install. Without
+    // these seeds every "open in default…" path is broken until the
+    // user manually picks an app in Settings — which doesn't happen
+    // because there's no UI surface that prompts. Marathon app IDs:
+    //   browser, camera, email (defaultFor "mail"), gallery,
+    //   messages, music, phone (defaultFor "dialer").
+    // video/files are intentionally empty — Marathon doesn't ship a
+    // first-party video player or file manager today; let the resolver
+    // fall back to the user's manual pick.
+    //
+    // QSettings::value's fallback fires only when the key is ABSENT. A
+    // previous shell launch may have committed empty strings (rXXX
+    // wrote them eagerly) — for that case we treat empty-string as
+    // "unseeded" and substitute the marathon ID; persistence happens
+    // on the next save().
+    const auto pickDefault = [this](const char *key, const QString &fallback) -> QString {
+        const QString v = m_settings.value(key, fallback).toString();
+        return v.isEmpty() ? fallback : v;
+    };
     QVariantMap defaultApps;
-    defaultApps["browser"]   = m_settings.value("apps/defaultBrowser", "").toString();
-    defaultApps["dialer"]    = m_settings.value("apps/defaultDialer", "").toString();
-    defaultApps["messaging"] = m_settings.value("apps/defaultMessaging", "").toString();
-    defaultApps["email"]     = m_settings.value("apps/defaultEmail", "").toString();
-    defaultApps["camera"]    = m_settings.value("apps/defaultCamera", "").toString();
-    defaultApps["gallery"]   = m_settings.value("apps/defaultGallery", "").toString();
-    defaultApps["music"]     = m_settings.value("apps/defaultMusic", "").toString();
+    defaultApps["browser"]   = pickDefault("apps/defaultBrowser", QStringLiteral("browser"));
+    defaultApps["dialer"]    = pickDefault("apps/defaultDialer", QStringLiteral("phone"));
+    defaultApps["messaging"] = pickDefault("apps/defaultMessaging", QStringLiteral("messages"));
+    defaultApps["email"]     = pickDefault("apps/defaultEmail", QStringLiteral("email"));
+    defaultApps["camera"]    = pickDefault("apps/defaultCamera", QStringLiteral("camera"));
+    defaultApps["gallery"]   = pickDefault("apps/defaultGallery", QStringLiteral("gallery"));
+    defaultApps["music"]     = pickDefault("apps/defaultMusic", QStringLiteral("music"));
     defaultApps["video"]     = m_settings.value("apps/defaultVideo", "").toString();
     defaultApps["files"]     = m_settings.value("apps/defaultFiles", "").toString();
     m_defaultApps            = defaultApps;
 
     m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
 
-    QStringList defaultTiles = {
-        "wifi",     "bluetooth",  "flight",    "cellular",   "rotation", "autobrightness",
-        "location", "hotspot",    "vibration", "nightlight", "torch",    "notifications",
-        "battery",  "screenshot", "settings",  "lock",       "power"};
+    QStringList defaultTiles = {"wifi",       "bluetooth", "flight",     "cellular", "rotation",
+                                "hotspot",    "vibration", "nightlight", "torch",    "battery",
+                                "screenshot", "alarm",     "settings",   "lock",     "power"};
     m_enabledQuickSettingsTiles =
         m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
     m_quickSettingsTileOrder =
@@ -232,6 +328,9 @@ void SettingsManager::load() {
     m_keyboardHapticStrength    = m_settings.value("keyboard/hapticStrength", "medium").toString();
     m_keyboardLanguage          = m_settings.value("keyboard/language", "en_US").toString();
 
+    m_unifiedPushFallbackEnabled =
+        m_settings.value("notifications/unifiedPushFallback", false).toBool();
+
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
     qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
@@ -242,6 +341,16 @@ void SettingsManager::load() {
 }
 
 void SettingsManager::save() {
+    // Mark this write as self-originated so the QFileSystemWatcher callback
+    // doesn't echo the value back through load() and re-emit *Changed signals
+    // we already emitted from the setter.
+    m_inSelfWrite   = true;
+    auto resetGuard = qScopeGuard([this]() {
+        // Re-arm after a short delay so the watcher's notification (which
+        // fires asynchronously after sync()) is filtered by the guard.
+        QTimer::singleShot(200, this, [this]() { m_inSelfWrite = false; });
+    });
+    Q_UNUSED(resetGuard)
 
     m_settings.setValue("ui/userScaleFactor", m_userScaleFactor);
     m_settings.setValue("ui/wallpaperPath", m_wallpaperPath);
@@ -303,20 +412,41 @@ void SettingsManager::save() {
     m_settings.setValue("keyboard/hapticStrength", m_keyboardHapticStrength);
     m_settings.setValue("keyboard/language", m_keyboardLanguage);
 
+    m_settings.setValue("notifications/unifiedPushFallback", m_unifiedPushFallbackEnabled);
+
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
 }
 
+void SettingsManager::setUnifiedPushFallbackEnabled(bool enabled) {
+    if (m_unifiedPushFallbackEnabled == enabled)
+        return;
+    m_unifiedPushFallbackEnabled = enabled;
+    save();
+    emit unifiedPushFallbackEnabledChanged();
+}
+
 void SettingsManager::setUserScaleFactor(qreal factor) {
-    if (qFuzzyCompare(m_userScaleFactor, factor)) {
+    // Clamp to the union of every scale the OOBE + Settings ScalePage
+    // expose (0.75 .. 1.5). A corrupt or out-of-band value reaching
+    // save() would persist nonsense to the user's conf and the next
+    // load() would feed it back into every layout binding — better to
+    // reject at the door and log the offender than to plaster it across
+    // disk and chase the symptom later.
+    const qreal clamped = qBound<qreal>(0.5, factor, 2.0);
+    if (!qFuzzyCompare(clamped, factor)) {
+        qWarning() << "[SettingsManager] userScaleFactor" << factor << "out of range, clamped to"
+                   << clamped;
+    }
+    if (qFuzzyCompare(m_userScaleFactor, clamped)) {
         return;
     }
 
-    m_userScaleFactor = factor;
+    m_userScaleFactor = clamped;
     save();
     emit userScaleFactorChanged();
 
-    qDebug() << "[SettingsManager] userScaleFactor changed to" << factor;
+    qInfo() << "[SettingsManager] userScaleFactor persisted at" << clamped;
 }
 
 void SettingsManager::setWallpaperPath(const QString &path) {
@@ -479,6 +609,10 @@ void SettingsManager::setAudioProfile(const QString &profile) {
 }
 
 void SettingsManager::setScreenTimeout(int ms) {
+    // FIXME: SettingsManager::screenTimeout (ms) duplicates DisplayManagerCpp::screenTimeout (s).
+    // The settings UI writes to DisplayManagerCpp; this property is only reachable via the
+    // Settings1.GetState/SetProperty D-Bus interface. Treat DisplayManagerCpp as canonical;
+    // unify in a follow-up refactor (will require plumbing DisplayManager into SettingsObject).
     if (m_screenTimeout == ms)
         return;
     m_screenTimeout = ms;

@@ -52,4 +52,4 @@ The terminal uses:
 
 ## Notes
 
-⚠️ **Process Isolation**: Currently apps run in-process with the shell. Crash protection is active but not a complete solution. Multi-process architecture is planned.
+**Process Isolation**: Currently apps run in-process with the shell. Crash protection is active but not a complete solution. Multi-process architecture is planned.

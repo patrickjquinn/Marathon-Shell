@@ -1,4 +1,3 @@
-import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -45,7 +44,7 @@ Rectangle {
 
                 Text {
                     anchors.centerIn: parent
-                    text: callerName.charAt(0).toUpperCase()
+                    text: incomingCallScreen.callerName.charAt(0).toUpperCase()
                     font.pixelSize: MTypography.sizeXLarge * 3
                     font.weight: Font.Bold
                     color: MColors.accent
@@ -81,21 +80,27 @@ Rectangle {
                     font.pixelSize: MTypography.sizeSmall
                     font.weight: Font.Medium
                     color: MColors.textSecondary
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerName
+                    text: incomingCallScreen.callerName
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: text
                 }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerNumber
+                    text: incomingCallScreen.callerNumber
                     font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
             }
         }
@@ -112,6 +117,13 @@ Rectangle {
                 border.width: Constants.borderWidthThick
                 border.color: "#C0392B"
 
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Decline call from %1").arg(incomingCallScreen.callerName)
+                Accessible.onPressAction: {
+                    TelephonyService.hangup();
+                    hide();
+                }
+
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
@@ -123,9 +135,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined')
-                            TelephonyService.hangup();
-
+                        TelephonyService.hangup();
                         hide();
                     }
                 }
@@ -139,6 +149,13 @@ Rectangle {
                 border.width: Constants.borderWidthThick
                 border.color: "#229954"
 
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Answer call from %1").arg(incomingCallScreen.callerName)
+                Accessible.onPressAction: {
+                    TelephonyService.answer();
+                    hide();
+                }
+
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
@@ -149,9 +166,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined')
-                            TelephonyService.answer();
-
+                        TelephonyService.answer();
                         hide();
                     }
                 }

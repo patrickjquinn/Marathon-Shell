@@ -1,4 +1,3 @@
-import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -29,13 +28,13 @@ Item {
         id: countdownTimer
 
         interval: 1000
-        running: isRunning
+        running: timerPage.isRunning
         repeat: true
         onTriggered: {
-            if (remainingSeconds > 0) {
-                remainingSeconds--;
+            if (timerPage.remainingSeconds > 0) {
+                timerPage.remainingSeconds--;
             } else {
-                isRunning = false;
+                timerPage.isRunning = false;
                 HapticService.heavy();
             }
         }
@@ -50,7 +49,7 @@ Item {
             anchors.top: parent.top
             anchors.topMargin: MSpacing.xl
             anchors.horizontalCenter: parent.horizontalCenter
-            text: formatTime(remainingSeconds)
+            text: formatTime(timerPage.remainingSeconds)
             color: MColors.textPrimary
             font.pixelSize: Math.min(MTypography.sizeHuge * 1.8, Math.round(parent.width * 0.22))
             font.weight: Font.Light
@@ -62,9 +61,9 @@ Item {
             anchors.top: timeText.bottom
             anchors.topMargin: MSpacing.lg
             anchors.horizontalCenter: parent.horizontalCenter
-            width: quickWidth
+            width: timerPage.quickWidth
             spacing: MSpacing.md
-            visible: isIdle
+            visible: timerPage.isIdle
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -111,24 +110,24 @@ Item {
             spacing: MSpacing.lg
 
             MButton {
-                text: isRunning ? "Pause" : "Start"
+                text: timerPage.isRunning ? "Pause" : "Start"
                 variant: "primary"
-                enabled: remainingSeconds > 0
+                enabled: timerPage.remainingSeconds > 0
                 onClicked: {
                     HapticService.light();
-                    isRunning = !isRunning;
+                    timerPage.isRunning = !timerPage.isRunning;
                 }
             }
 
             MButton {
                 text: "Reset"
                 variant: "secondary"
-                enabled: remainingSeconds > 0 || totalSeconds > 0
+                enabled: timerPage.remainingSeconds > 0 || timerPage.totalSeconds > 0
                 onClicked: {
                     HapticService.light();
-                    isRunning = false;
-                    remainingSeconds = 0;
-                    totalSeconds = 0;
+                    timerPage.isRunning = false;
+                    timerPage.remainingSeconds = 0;
+                    timerPage.totalSeconds = 0;
                 }
             }
         }

@@ -1,0 +1,12 @@
+if(NOT DEFINED IN OR NOT DEFINED OUT)
+    message(FATAL_ERROR "IN and OUT must be set")
+endif()
+
+file(STRINGS "${IN}" _lines)
+set(_out "")
+foreach(_line IN LISTS _lines)
+    if(NOT _line MATCHES "^prefer " AND NOT _line MATCHES "^typeinfo ")
+        string(APPEND _out "${_line}\n")
+    endif()
+endforeach()
+file(WRITE "${OUT}" "${_out}")

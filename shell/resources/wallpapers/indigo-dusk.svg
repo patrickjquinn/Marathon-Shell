@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="dusk1" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#1de9b6" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#3b3bb0" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#dusk1)"/>
+  <g fill="#fff">
+    <circle cx="0" cy="0" r="0.4" opacity="0.05"/>
+    <circle cx="169" cy="511" r="0.8" opacity="0.20"/>
+    <circle cx="338" cy="178" r="1.2000000000000002" opacity="0.10"/>
+    <circle cx="117" cy="689" r="0.4" opacity="0.25"/>
+    <circle cx="286" cy="356" r="0.8" opacity="0.15"/>
+    <circle cx="65" cy="23" r="1.2000000000000002" opacity="0.05"/>
+    <circle cx="234" cy="534" r="0.4" opacity="0.20"/>
+    <circle cx="13" cy="201" r="0.8" opacity="0.10"/>
+    <circle cx="182" cy="712" r="1.2000000000000002" opacity="0.25"/>
+    <circle cx="351" cy="379" r="0.4" opacity="0.15"/>
+    <circle cx="130" cy="46" r="0.8" opacity="0.05"/>
+    <circle cx="299" cy="557" r="1.2000000000000002" opacity="0.20"/>
+    <circle cx="78" cy="224" r="0.4" opacity="0.10"/>
+    <circle cx="247" cy="735" r="0.8" opacity="0.25"/>
+    <circle cx="26" cy="402" r="1.2000000000000002" opacity="0.15"/>
+    <circle cx="195" cy="69" r="0.4" opacity="0.05"/>
+    <circle cx="364" cy="580" r="0.8" opacity="0.20"/>
+    <circle cx="143" cy="247" r="1.2000000000000002" opacity="0.10"/>
+    <circle cx="312" cy="758" r="0.4" opacity="0.25"/>
+    <circle cx="91" cy="425" r="0.8" opacity="0.15"/>
+    <circle cx="260" cy="92" r="1.2000000000000002" opacity="0.05"/>
+    <circle cx="39" cy="603" r="0.4" opacity="0.20"/>
+    <circle cx="208" cy="270" r="0.8" opacity="0.10"/>
+    <circle cx="377" cy="781" r="1.2000000000000002" opacity="0.25"/>
+    <circle cx="156" cy="448" r="0.4" opacity="0.15"/>
+    <circle cx="325" cy="115" r="0.8" opacity="0.05"/>
+    <circle cx="104" cy="626" r="1.2000000000000002" opacity="0.20"/>
+    <circle cx="273" cy="293" r="0.4" opacity="0.10"/>
+    <circle cx="52" cy="804" r="0.8" opacity="0.25"/>
+    <circle cx="221" cy="471" r="1.2000000000000002" opacity="0.15"/>
+  </g>
+</svg>

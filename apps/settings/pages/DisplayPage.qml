@@ -70,7 +70,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Left"
                                 subtitle: "Best for right-side notches"
-                                value: (SettingsManagerCpp.statusBarClockPosition === "left") ? "✓" : ""
+                                value: (SettingsManagerCpp.statusBarClockPosition === "left") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "left";
                                     HapticService.light();
@@ -80,7 +80,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Center"
                                 subtitle: "Default position"
-                                value: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "✓" : ""
+                                value: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "center";
                                     HapticService.light();
@@ -90,7 +90,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Right"
                                 subtitle: "Best for left-side notches"
-                                value: (SettingsManagerCpp.statusBarClockPosition === "right") ? "✓" : ""
+                                value: (SettingsManagerCpp.statusBarClockPosition === "right") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "right";
                                     HapticService.light();
@@ -161,20 +161,17 @@ SettingsPageTemplate {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
-                    toggleValue: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
+                    toggleValue: DisplayManagerCpp.autoBrightnessEnabled
                     onToggleChanged: value => {
-                        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                            DisplayManagerCpp.autoBrightnessEnabled = value;
+                        DisplayManagerCpp.autoBrightnessEnabled = value;
                     }
                 }
 
                 MSettingsListItem {
                     title: "Screen Timeout"
-                    value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.screenTimeoutString : ""
+                    value: DisplayManagerCpp.screenTimeoutString
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(screenTimeoutPageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("screentimeout")
                 }
             }
 
@@ -204,18 +201,14 @@ SettingsPageTemplate {
                     title: "UI Scale"
                     subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(scalePageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("scale")
                 }
 
                 MSettingsListItem {
                     title: "Wallpaper"
                     subtitle: "Change background image"
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(wallpaperPageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("wallpaper")
                 }
             }
 

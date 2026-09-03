@@ -7,6 +7,7 @@ set(CORE_QML_FILES
     MTextInput.qml
     MTextArea.qml
     MLabel.qml
+    MText.qml
     MDateTimePicker.qml
     MImageButton.qml
     MEmptyState.qml
@@ -15,8 +16,10 @@ set(CORE_QML_FILES
     MResponsive.qml
     MGrid.qml
     MContainer.qml
-    LucideGlyphs.js
+    PhosphorGlyphs.js
     MAppIcon.qml
+    MHaloedDisplay.qml
+    MMarathonMark.qml
 )
 
 # Mark singleton
@@ -29,7 +32,8 @@ qt6_add_qml_module(marathon-ui-core
     VERSION 2.0
     QML_FILES ${CORE_QML_FILES}
     RESOURCES
-        fonts/lucide.ttf
+        fonts/Phosphor-Light.ttf
+        fonts/Phosphor-Bold.ttf
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Core
 )
 
@@ -42,7 +46,7 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-ui-core ${CORE_QML_FILES})
 endif()
 
-install(TARGETS marathon-ui-core
+install(TARGETS marathon-ui-core marathon-ui-coreplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Core
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Core
 )
@@ -57,6 +61,8 @@ install(FILES ${CORE_QML_FILES}
     DESTINATION ${MARATHON_UI_DIR}/Core
 )
 
-install(FILES fonts/lucide.ttf
+install(FILES
+    fonts/Phosphor-Light.ttf
+    fonts/Phosphor-Bold.ttf
     DESTINATION ${MARATHON_UI_DIR}/Core/fonts
 )

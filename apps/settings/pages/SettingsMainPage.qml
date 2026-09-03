@@ -6,6 +6,32 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
+// DS Settings · screens-apps-1.jsx:SettingsApp (23 · Settings).
+//
+// Strict rule: NO placeholder strings. Every visible value is bound to
+// a real service. Where a service doesn't yet exist (account/profile,
+// Marathon Intelligence, named Focus modes, Wallet & Passkeys), the row
+// is omitted rather than faked. When the service ships, the row comes
+// back. Shipping a fake "On-device · 3.2 GB model" reads as a broken
+// demo, not a polished OS.
+//
+// Concretely omitted (vs the JSX reference):
+//   • Profile hero card — no AccountService / UserService exists.
+//     SessionStore tracks lock state, not identity.
+//   • MARATHON INTELLIGENCE section — no LLMService / on-device model
+//     manager exists. The "On" value and "3.2 GB model" subtitle would
+//     be lies.
+//   • Focus row — only the boolean DnD toggle exists (kept in DEVICE);
+//     no named-mode Focus service with active-until timestamps.
+//   • Wallet & Passkeys — no credential storage / FIDO2 service exists.
+//
+// What stays — every row binds to a real store:
+//   SystemStatusStore  wifiNetwork · bluetoothDevices · storageUsed/Total
+//   SystemControlStore isBluetoothOn · isAirplaneModeOn · isDndMode · brightness · volume
+//   SecurityManagerCpp hasQuickPIN · fingerprintAvailable
+//   SettingsManagerCpp hiddenApps · appSortOrder · filterMobileFriendlyApps ·
+//                      searchNativeApps · showNotificationBadges · showFrequentApps
+//   NotificationServiceCpp / SystemStatusStore notificationCount
 Page {
     id: mainPage
 
@@ -13,6 +39,49 @@ Page {
 
     signal navigateToPage(string page)
     signal requestClose
+
+    // Derived summaries are property bindings, not functions — Qt's
+    // binding analyzer cannot see through function calls to track
+    // dependencies, so a `value: foo()` binding evaluates exactly once
+    // and never refreshes when the underlying store changes.
+    //
+    // First connected bluetooth device name, if any. Falls back to
+    // "On"/"Off" (still real state) when no device is connected.
+    // SystemStatusStore is a sandboxed IPC client in the runner — older
+    // builds of the client don't expose bluetoothDevices/storageTotal/
+    // isCharging, which threw "Cannot read property 'length' of undefined"
+    // at every render and broke the page. Guard each access.
+    readonly property string btConnectedName: {
+        const devs = SystemStatusStore.bluetoothDevices || [];
+        for (let i = 0; i < devs.length; i++) {
+            const d = devs[i];
+            if (d && d.connected)
+                return d.name || d.alias || "";
+        }
+        return "";
+    }
+    readonly property string btSummary: !SystemControlStore.isBluetoothOn ? "Off" : (btConnectedName !== "" ? btConnectedName : "On")
+
+    readonly property string storageSummary: {
+        const t = SystemStatusStore.storageTotal || 0;
+        if (!(t > 0))
+            return "";
+        const used = SystemStatusStore.storageUsed || 0;
+        const free = Math.max(0, t - used);
+        return free.toFixed(0) + " GB free";
+    }
+
+    readonly property string batterySummary: {
+        const lvl = SystemStatusStore.batteryLevel;
+        if (typeof lvl !== "number" || lvl < 0)
+            return "";
+        return SystemStatusStore.isCharging ? lvl + "% · Charging" : lvl + "%";
+    }
+
+    readonly property string securitySummary: {
+        const pin = SecurityManagerCpp.hasQuickPIN ? "PIN set" : "No PIN";
+        return SecurityManagerCpp.fingerprintAvailable ? pin + " · Fingerprint" : pin;
+    }
 
     Component.onCompleted: {
         Logger.info("SettingsMainPage", "Initialized");
@@ -38,292 +107,239 @@ Page {
             topPadding: 24
             bottomPadding: 24
 
-            Text {
-                text: "Settings"
-                color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeXLarge
-                font.weight: Font.Bold
-                font.family: MTypography.fontFamily
+            // ── Title ──────────────────────────────────────────────
+            // DS Title 1 — 34/200 with -0.8 tracking.
+            Item {
+                width: parent.width - 48
+                height: titleText.implicitHeight
+
+                Text {
+                    id: titleText
+                    text: "Settings"
+                    color: MColors.textPrimary
+                    font.pixelSize: MTypography.sizeTitle1
+                    font.weight: MTypography.weightExtraLight
+                    font.letterSpacing: MTypography.trackingTitle1
+                    font.family: MTypography.fontFamily
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
 
+            // ── CONNECTIVITY ───────────────────────────────────────
             MSection {
-                title: "Network & Connectivity"
-                subtitle: "Manage your network connections"
+                title: "Connectivity"
+                eyebrow: true
                 width: parent.width - 48
 
                 MSettingsListItem {
-                    title: "WiFi"
-                    subtitle: SystemStatusStore.wifiConnected ? ("Connected" + (SystemStatusStore.wifiNetwork ? " • " + SystemStatusStore.wifiNetwork : "")) : "Not connected"
+                    title: "Wi-Fi"
                     iconName: "wifi"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("wifi");
-                    }
+                    value: SystemStatusStore.wifiConnected ? (SystemStatusStore.wifiNetwork || "On") : "Off"
+                    onSettingClicked: mainPage.navigateToPage("wifi")
                 }
 
                 MSettingsListItem {
                     title: "Bluetooth"
-                    subtitle: SystemControlStore.isBluetoothOn ? "On" : "Off"
                     iconName: "bluetooth"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("bluetooth");
-                    }
+                    value: mainPage.btSummary
+                    onSettingClicked: mainPage.navigateToPage("bluetooth")
                 }
 
                 MSettingsListItem {
                     title: "Mobile Network"
-                    subtitle: "Manage cellular data"
                     iconName: "signal"
                     showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("cellular");
-                    }
+                    onSettingClicked: mainPage.navigateToPage("cellular")
                 }
 
                 MSettingsListItem {
                     title: "Airplane Mode"
-                    subtitle: "Turn off all wireless connections"
                     iconName: "plane"
                     showToggle: true
                     toggleValue: SystemControlStore.isAirplaneModeOn
-                    onToggleChanged: value => {
-                        SystemControlStore.toggleAirplaneMode();
-                    }
+                    onToggleChanged: value => SystemControlStore.toggleAirplaneMode()
                 }
             }
 
+            // ── DEVICE ─────────────────────────────────────────────
             MSection {
-                title: "Display & Brightness"
-                subtitle: "Customize your screen settings"
+                title: "Device"
+                eyebrow: true
                 width: parent.width - 48
 
                 MSettingsListItem {
-                    title: "Display Settings"
-                    subtitle: "Brightness, rotation, and screen timeout"
+                    title: "Display & Brightness"
                     iconName: "sun"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("display");
-                    }
+                    value: SystemControlStore.brightness + "%"
+                    onSettingClicked: mainPage.navigateToPage("display")
                 }
-            }
-
-            MSection {
-                title: "Sound & Notifications"
-                subtitle: "Manage audio and notification settings"
-                width: parent.width - 48
 
                 MSettingsListItem {
-                    title: "Sound Settings"
-                    subtitle: "Volume, ringtones, and notification sounds"
+                    title: "Sound"
                     iconName: "volume-2"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("sound");
-                    }
+                    value: SystemControlStore.volume + "%"
+                    onSettingClicked: mainPage.navigateToPage("sound")
                 }
 
                 MSettingsListItem {
                     title: "Notifications"
-                    subtitle: "Manage app notifications"
                     iconName: "bell"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("notifications");
-                    }
+                    value: (typeof SystemStatusStore !== "undefined" && SystemStatusStore && SystemStatusStore.notificationCount > 0) ? SystemStatusStore.notificationCount + " unread" : ""
+                    onSettingClicked: mainPage.navigateToPage("notifications")
                 }
 
                 MSettingsListItem {
                     title: "Do Not Disturb"
-                    subtitle: "Silence notifications and calls"
                     iconName: "moon"
                     showToggle: true
                     toggleValue: SystemControlStore.isDndMode
-                    onToggleChanged: value => {
-                        SystemControlStore.toggleDndMode();
-                    }
+                    onToggleChanged: value => SystemControlStore.toggleDndMode()
                 }
-            }
-
-            MSection {
-                title: "Storage & Battery"
-                subtitle: "Manage device resources"
-                width: parent.width - 48
 
                 MSettingsListItem {
                     title: "Storage"
-                    subtitle: "Manage storage and apps"
                     iconName: "hard-drive"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("storage");
-                    }
+                    value: mainPage.storageSummary
+                    onSettingClicked: mainPage.navigateToPage("storage")
                 }
 
                 MSettingsListItem {
                     title: "Battery"
-                    subtitle: "Power saver, battery usage, and profiles"
                     iconName: "battery"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("battery");
-                    }
+                    value: mainPage.batterySummary
+                    onSettingClicked: mainPage.navigateToPage("battery")
                 }
             }
 
-            MSection {
-                title: "System"
-                subtitle: "Device information and preferences"
-                width: parent.width - 48
-
-                MSettingsListItem {
-                    title: "App Manager"
-                    subtitle: "Install and manage applications"
-                    iconName: "package"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("appmanager");
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Keyboard"
-                    subtitle: "Language, auto-correct, and input options"
-                    iconName: "keyboard"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("keyboard");
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "About Device"
-                    subtitle: "Device name, OS version, and information"
-                    iconName: "info"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("about");
-                    }
-                }
-            }
-
+            // ── SECURITY & PRIVACY ─────────────────────────────────
             MSection {
                 title: "Security & Privacy"
-                subtitle: "Lock screen, authentication, and security"
+                eyebrow: true
                 width: parent.width - 48
 
                 MSettingsListItem {
                     title: "Security"
-                    subtitle: "Lock screen, PIN, fingerprint, and authentication"
+                    subtitle: mainPage.securitySummary
                     iconName: "shield"
                     showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("security");
-                    }
+                    onSettingClicked: mainPage.navigateToPage("security")
                 }
             }
 
+            // ── SYSTEM ─────────────────────────────────────────────
             MSection {
-                title: "Customization"
-                subtitle: "Personalize your Marathon experience"
+                title: "System"
+                eyebrow: true
+                width: parent.width - 48
+
+                MSettingsListItem {
+                    title: "About"
+                    iconName: "info"
+                    showChevron: true
+                    onSettingClicked: mainPage.navigateToPage("about")
+                }
+
+                MSettingsListItem {
+                    title: "Software Updates"
+                    iconName: "download"
+                    showChevron: true
+                    onSettingClicked: mainPage.navigateToPage("updates")
+                }
+
+                MSettingsListItem {
+                    title: "Keyboard"
+                    iconName: "keyboard"
+                    showChevron: true
+                    onSettingClicked: mainPage.navigateToPage("keyboard")
+                }
+
+                MSettingsListItem {
+                    title: "App Manager"
+                    iconName: "package"
+                    showChevron: true
+                    onSettingClicked: mainPage.navigateToPage("appmanager")
+                }
+
+                MSettingsListItem {
+                    title: "Accounts"
+                    iconName: "users"
+                    showChevron: true
+                    onSettingClicked: mainPage.navigateToPage("accounts")
+                }
+
+                MSettingsListItem {
+                    title: "Terminal"
+                    iconName: "terminal-window"
+                    showChevron: true
+                    onSettingClicked: AppLifecycleManager.launchAppWithRoute("terminal", "", "{}")
+                }
+            }
+
+            // ── APPS & LAYOUT ──────────────────────────────────────
+            MSection {
+                title: "Apps & Layout"
+                eyebrow: true
                 width: parent.width - 48
 
                 MSettingsListItem {
                     title: "Quick Settings"
-                    subtitle: "Customize Quick Settings tiles"
                     iconName: "settings-2"
                     showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("quicksettings");
-                    }
+                    onSettingClicked: mainPage.navigateToPage("quicksettings")
                 }
-            }
-
-            MSection {
-                title: "Apps & Filters"
-                subtitle: "Control which apps are displayed"
-                width: parent.width - 48
 
                 MSettingsListItem {
                     title: "Hidden Apps"
-                    subtitle: SettingsManagerCpp.hiddenApps.length + " app(s) hidden"
                     iconName: "eye-off"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("hiddenapps");
-                    }
+                    value: SettingsManagerCpp.hiddenApps.length > 0 ? SettingsManagerCpp.hiddenApps.length + " hidden" : ""
+                    onSettingClicked: mainPage.navigateToPage("hiddenapps")
                 }
 
                 MSettingsListItem {
                     title: "Default Apps"
-                    subtitle: "Choose apps for specific actions"
                     iconName: "star"
                     showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("defaultapps");
-                    }
+                    onSettingClicked: mainPage.navigateToPage("defaultapps")
                 }
 
                 MSettingsListItem {
                     title: "App Sorting & Layout"
-                    subtitle: {
-                        var sortText = SettingsManagerCpp.appSortOrder === "alphabetical" ? "Alphabetical" : SettingsManagerCpp.appSortOrder === "frequent" ? "Most Used" : SettingsManagerCpp.appSortOrder === "recent" ? "Recently Added" : "Custom";
-                        var gridText = SettingsManagerCpp.appGridColumns === 0 ? "Auto" : SettingsManagerCpp.appGridColumns + " columns";
-                        return sortText + " • " + gridText;
-                    }
                     iconName: "layout-grid"
-                    showChevron: true
-                    onSettingClicked: {
-                        mainPage.navigateToPage("appsort");
+                    value: {
+                        const o = SettingsManagerCpp.appSortOrder;
+                        return o === "alphabetical" ? "A–Z" : o === "frequent" ? "Most Used" : o === "recent" ? "Recent" : "Custom";
                     }
+                    onSettingClicked: mainPage.navigateToPage("appsort")
                 }
 
                 MSettingsListItem {
                     title: "Filter Non-Mobile Apps"
-                    subtitle: "Only show apps optimized for mobile screens"
                     iconName: "smartphone"
                     showToggle: true
                     toggleValue: SettingsManagerCpp.filterMobileFriendlyApps
                     onToggleChanged: value => {
                         SettingsManagerCpp.filterMobileFriendlyApps = value;
-                        Logger.info("Settings", "Mobile app filter: " + value + " (restart required)");
                     }
                 }
 
                 MSettingsListItem {
                     title: "Search Native Apps"
-                    subtitle: "Include system apps in search results"
                     iconName: "search"
                     showToggle: true
                     toggleValue: SettingsManagerCpp.searchNativeApps
                     onToggleChanged: value => {
                         SettingsManagerCpp.searchNativeApps = value;
-                        Logger.info("Settings", "Search native apps: " + value);
                     }
                 }
 
                 MSettingsListItem {
                     title: "Show Notification Badges"
-                    subtitle: "Display unread counts on app icons"
                     iconName: "bell-ring"
                     showToggle: true
                     toggleValue: SettingsManagerCpp.showNotificationBadges
                     onToggleChanged: value => {
                         SettingsManagerCpp.showNotificationBadges = value;
-                        Logger.info("Settings", "Notification badges: " + value);
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Show Frequent Apps"
-                    subtitle: "Display most used apps at the top"
-                    iconName: "trending-up"
-                    showToggle: true
-                    toggleValue: SettingsManagerCpp.showFrequentApps
-                    onToggleChanged: value => {
-                        SettingsManagerCpp.showFrequentApps = value;
-                        Logger.info("Settings", "Show frequent apps: " + value);
                     }
                 }
             }

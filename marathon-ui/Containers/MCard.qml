@@ -21,7 +21,17 @@ Rectangle {
     readonly property real shadowMargin4: Math.max(1, Math.round(4 * scaleFactor))
 
     implicitWidth: parent ? parent.width : 300
-    implicitHeight: contentItem.childrenRect.height + MSpacing.md * 2
+    // implicitHeight derived from contentItem.childrenRect.height caused
+    // a binding loop when contentItem has anchors.fill: parent (always)
+    // AND a child uses anchors.fill or centerIn inside it (common with
+    // RowLayout/Column). Qt's chain: MCard.implicitHeight ←
+    // contentItem.childrenRect.height ← contentItem.height ← MCard.height
+    // ← MCard.implicitHeight. Almost every call site either sets
+    // Layout.preferredHeight explicitly or wraps content in a
+    // self-sizing Column/RowLayout — so a fixed minimum is harmless and
+    // breaks the loop. Override Layout.preferredHeight at the call site
+    // if you need a different size.
+    implicitHeight: Math.round(80 * scaleFactor)
 
     radius: MRadius.md
     color: MElevation.getSurface(elevation)
@@ -33,10 +43,10 @@ Rectangle {
     Rectangle {
         id: shadowLayer
         anchors.fill: parent
-        anchors.topMargin: shadowMargin3
-        anchors.leftMargin: -shadowMargin1
-        anchors.rightMargin: -shadowMargin1
-        anchors.bottomMargin: -shadowMargin4
+        anchors.topMargin: root.shadowMargin3
+        anchors.leftMargin: -root.shadowMargin1
+        anchors.rightMargin: -root.shadowMargin1
+        anchors.bottomMargin: -root.shadowMargin4
         z: -1
         radius: root.radius
         opacity: 0.4
@@ -58,8 +68,8 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        anchors.topMargin: shadowMargin1
-        anchors.bottomMargin: -shadowMargin1
+        anchors.topMargin: root.shadowMargin1
+        anchors.bottomMargin: -root.shadowMargin1
         z: -2
         radius: root.radius
         color: Qt.rgba(0, 0, 0, 0.8)
@@ -80,23 +90,16 @@ Rectangle {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: shadowMargin1
-        radius: root.radius > shadowMargin1 ? root.radius - shadowMargin1 : 0
-        color: "transparent"
-        border.width: borderWidth
-        border.color: MElevation.getBorderInner(elevation)
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: shadowMargin2
-        radius: root.radius > shadowMargin2 ? root.radius - shadowMargin2 : 0
-        color: "transparent"
-        border.width: borderWidth
-        border.color: Qt.rgba(1, 1, 1, 0.02)
-        opacity: elevation >= 2 ? 1 : 0
+    // Inner highlight — DS prescribes an asymmetric "lit from above"
+    // edge treatment: a single 1 px bright stroke on the TOP edge,
+    // not a full 4-sided ring. Matches the m-card CSS spec
+    // `inset 0 1px 0 var(--w-06)`. MTopHairline traces the top arc
+    // so the highlight follows the card's corner radius.
+    MTopHairline {
+        radius: root.radius
+        color: MElevation.getBorderInner(root.elevation)
+        lineWidth: root.borderWidth
+        inset: root.shadowMargin1
     }
 
     Item {
@@ -111,17 +114,17 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        enabled: interactive
+        enabled: root.interactive
 
         onPressed: function (mouse) {
-            if (interactive) {
+            if (root.interactive) {
                 root.pressed = true;
                 ripple.trigger(Qt.point(mouse.x, mouse.y));
             }
         }
         onReleased: root.pressed = false
         onCanceled: root.pressed = false
-        onClicked: if (interactive)
+        onClicked: if (root.interactive)
             root.clicked()
     }
 }

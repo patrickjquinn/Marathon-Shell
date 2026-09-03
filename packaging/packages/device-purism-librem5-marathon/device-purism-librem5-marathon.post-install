@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Symlink Marathon greetd config (relative path)
+ln -sf marathon-config.toml /etc/greetd/config.toml
+
+# Enable services
+systemctl enable greetd
+systemctl enable NetworkManager
+# ModemManager talks to the BroadMobi BM818 via the broadmobi plugin
+# directly. No eg25-manager — that's PinePhone-only.
+systemctl enable ModemManager
+systemctl enable upower
+# iwd intentionally NOT enabled — NetworkManager uses wpa_supplicant.
+systemctl enable bluetooth
+systemctl enable pipewire
+systemctl enable pipewire-pulse
+systemctl enable wireplumber
+# Enable GPS location gathering at boot (modem ships with it disabled).
+systemctl enable marathon-modem-location
+# NOTE: marathon-gpu-select is enabled via a shipped wants-symlink in the
+# APKBUILD (systemctl enable is a no-op in the mkosi buildroot), not here.
+
+# --- mask noisy/broken upstream units --------------------------------------
+#
+# librem5-base-defaults.librem5-lockdown-support.service:
+#   Upstream pmaports unit that loads st_lsm6dsx{,_i2c,_spi} on boot.
+#   We blacklist that module family via cmdline (sensor stack lives in
+#   marathon-shell's own SensorManager). Without masking, the unit fails
+#   every boot, polluting the journal red ledger.
+systemctl mask librem5-base-defaults.librem5-lockdown-support.service 2>/dev/null || true
+
+# systemd-repart.service:
+#   Duranium ships /usr/lib/repart.d/{10-usr-verity,11-usr,...}.conf that
+#   assume a usr-verity partition Marathon doesn't build. The unit exits
+#   1 every boot. Partition expansion is handled by Marathon's
+#   /init.sh PMOS_FORCE_PARTITION_RESIZE — repart was never wired into
+#   this image's flow. Masking eliminates the failure noise.
+systemctl mask systemd-repart.service 2>/dev/null || true
+
+exit 0

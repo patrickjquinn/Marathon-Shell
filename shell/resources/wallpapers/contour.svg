@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="contour-glow" cx="0.5" cy="0.6398" r="0.45">
+      <stop offset="0" stop-color="#1de9b6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#contour-glow)"/>
+  <g fill="none">
+    <ellipse cx="195" cy="540" rx="38" ry="23.56" stroke="#5dffdc" stroke-width="1.2" opacity="0.550" fill="none"/>
+    <ellipse cx="195" cy="540" rx="66" ry="40.92" stroke="#1de9b6" stroke-width="0.55" opacity="0.510" fill="none"/>
+    <ellipse cx="195" cy="540" rx="94" ry="58.28" stroke="#1de9b6" stroke-width="0.55" opacity="0.470" fill="none"/>
+    <ellipse cx="195" cy="540" rx="122" ry="75.64" stroke="#1de9b6" stroke-width="0.55" opacity="0.430" fill="none"/>
+    <ellipse cx="195" cy="540" rx="150" ry="93.00" stroke="#1de9b6" stroke-width="0.55" opacity="0.390" fill="none"/>
+    <ellipse cx="195" cy="540" rx="178" ry="110.36" stroke="#1de9b6" stroke-width="0.55" opacity="0.350" fill="none"/>
+    <ellipse cx="195" cy="540" rx="206" ry="127.72" stroke="#1de9b6" stroke-width="0.55" opacity="0.310" fill="none"/>
+    <ellipse cx="195" cy="540" rx="234" ry="145.08" stroke="#1de9b6" stroke-width="0.55" opacity="0.270" fill="none"/>
+    <ellipse cx="195" cy="540" rx="262" ry="162.44" stroke="#1de9b6" stroke-width="0.55" opacity="0.230" fill="none"/>
+    <ellipse cx="195" cy="540" rx="290" ry="179.80" stroke="#1de9b6" stroke-width="0.55" opacity="0.190" fill="none"/>
+    <ellipse cx="195" cy="540" rx="318" ry="197.16" stroke="#1de9b6" stroke-width="0.55" opacity="0.150" fill="none"/>
+    <ellipse cx="195" cy="540" rx="346" ry="214.52" stroke="#1de9b6" stroke-width="0.55" opacity="0.110" fill="none"/>
+  </g>
+  <g>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#1de9b6" stroke-width="0.7" opacity="0.35"/>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#5dffdc" stroke-width="0.3" opacity="0.24499999999999997"/>
+  </g>
+  <circle cx="195" cy="540" r="2.5" fill="#5dffdc" opacity="0.95"/>
+</svg>

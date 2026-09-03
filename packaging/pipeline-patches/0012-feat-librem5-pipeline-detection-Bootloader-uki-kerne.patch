@@ -1,0 +1,154 @@
+From bf247dbf2aabbaf4ade20c74a1909970bbdbc0ac Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 09:59:01 +0100
+Subject: [PATCH 12/15] =?UTF-8?q?feat(librem5):=20pipeline=20detection=20?=
+ =?UTF-8?q?=E2=80=94=20Bootloader=3Duki,=20kernel=20pin,=20/etc=20stash?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Make the duranium pipeline aware of Librem 5 (i.MX 8M Quad) as a sibling
+of the Raspberry Pi 5 / CM5 boot path. Both boot via a raw-kernel +
+postmarketos-mkinitfs flow (no UEFI, no real systemd-boot consumer);
+both need the /etc stash dance because postmarketos-mkinitfs has no
+systemd-confext-initrd equivalent and PID 1 would otherwise start on
+an empty /etc.
+
+Concrete changes:
+
+* mkosi.finalize: add `LIBREM5_UBOOT_BOOT` flag detected when PMOS_DEVICE
+  starts with `purism-librem5`. Pairs with the existing PI_BASE_FIRMWARE_
+  BOOT for the /etc stash logic (extracted to a `NEED_ETC_STASH` umbrella
+  flag).
+
+* mkosi-configure.py: Librem 5 forces `Bootloader=uki` like Pi 5 — mkosi
+  builds the kernel-install Type 2 entry (so the multi-DTB upstream
+  device-purism-librem5 deviceinfo doesn't trip the
+  "Type 1 boot entries support only single devicetree" check). The
+  next pipeline step (LIBREM5_UBOOT_BOOT branch in mkosi.finalize, not
+  yet written) will extract kernel + initramfs + three DTB variants
+  from the UKI for the U-Boot boot.scr layout.
+
+* mkosi-configure.py: move the `linux-rpi=6.12.85-r0` pin out of the
+  base image's Packages= list into a per-device conditional. The
+  pin was a Pi 5-specific workaround for raspberrypi/linux#7196
+  (Alpine edge linux-rpi 6.18.35 has a Pi 5 initrd NULL-deref);
+  Librem 5 needs `linux-purism-librem5` instead, and other future
+  devices have their own kernels.
+
+* mkosi.images/base/mkosi.conf: drop the linux-rpi pin lines (moved
+  to mkosi-configure.py per above).
+
+First end-to-end Librem 5 build completes after these changes — 6.1 GB
+GPT image with linux-purism-librem5 6.6.139, marathon-shell-r180, all
+the device-purism-librem5-marathon-r5 stack. Still needs the actual
+LIBREM5_UBOOT_BOOT branch in mkosi.finalize to compose a bootable /boot
+layout (vmlinuz + initramfs + DTBs + boot.scr + sector-33 raw-write of
+phone-boot.img). Captured separately.
+---
+ mkosi.finalize               | 17 ++++++++++++++++-
+ mkosi.images/base/mkosi.conf | 15 ++++-----------
+ scripts/mkosi-configure.py   | 25 +++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 12 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 0f6603f..826b0a4 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -123,8 +123,23 @@ if [ "${PMOS_DEVICE#raspberry-pi}" != "$PMOS_DEVICE" ] || \
+    [ "${PMOS_DEVICE#rpi}" != "$PMOS_DEVICE" ]; then
+     PI_BASE_FIRMWARE_BOOT=1
+ fi
++
++# Librem 5 (i.MX 8M Quad) also boots via raw kernel + postmarketos-mkinitfs
++# from a U-Boot SPL chain — no UEFI, no systemd-boot, no
++# systemd-confext-initrd.service in the initramfs. Needs the same /etc
++# stash dance as the Pi (without it PID 1 systemd starts on empty /etc
++# and hangs).
++LIBREM5_UBOOT_BOOT=""
++if [ "${PMOS_DEVICE#purism-librem5}" != "$PMOS_DEVICE" ]; then
++    LIBREM5_UBOOT_BOOT=1
++fi
++
++NEED_ETC_STASH=""
++[ -n "$PI_BASE_FIRMWARE_BOOT" ] && NEED_ETC_STASH=1
++[ -n "$LIBREM5_UBOOT_BOOT" ] && NEED_ETC_STASH=1
++
+ PI_ETC_STASH=""
+-if [ -n "$PI_BASE_FIRMWARE_BOOT" ] && [ -d "$BUILDROOT/etc" ]; then
++if [ -n "$NEED_ETC_STASH" ] && [ -d "$BUILDROOT/etc" ]; then
+     PI_ETC_STASH=$(mktemp -d)
+     cp -a "$BUILDROOT/etc/." "$PI_ETC_STASH/"
+ fi
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index 6057eeb..9d7e1fb 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -54,17 +54,10 @@ Packages=
+ 	# resolvers still see us via avahi's network broadcast, on-device
+ 	# resolution falls back to avahi-resolve / getent.)
+ 	avahi
+-	# Pin linux-rpi to 6.12.85-r0 (last 6.12.y LTS shipped in Alpine
+-	# v3.23/main/aarch64). Alpine edge's current 6.18.35-r0 has a
+-	# NULL-pointer-deref in __mod_node_page_state() during udev init
+-	# in initrd on Pi 5 / CM5 hardware (raspberrypi/linux#7196) — boot
+-	# never reaches userspace; HyperPixel shows nothing.
+-	# The pinned APK lives at mkosi.packages/linux-rpi-6.12.85-r0.apk
+-	# (mkosi builds a local repo from that dir). The `=` form is an
+-	# apk exact-version match, so apk falls back to the local copy
+-	# instead of dragging the broken edge build.
+-	linux-rpi=6.12.85-r0
+-	linux-rpi-dev=6.12.85-r0
++	# linux-rpi=6.12.85-r0 pin moved into mkosi-configure.py — only
++	# Pi 5 / CM5 devices need it (Alpine edge linux-rpi 6.18.35-r0 has a
++	# Pi 5-specific NULL-deref). Librem 5 + OP6 + other devices need
++	# their own kernel package and would error on linux-rpi.
+ RemovePackages=
+ 	linux-postmarketos-lts
+ 	# Ideally this could be excluded in packaging, but it's difficult
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 0c94f5f..f0ef311 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -55,6 +55,21 @@ def main() -> int:
+         #  the needle.)
+         if device.startswith("raspberry-pi") or device.startswith("rpi"):
+             config["Bootloader"] = "uki"
++        # Librem 5: boots via U-Boot reading kernel + initramfs + a
++        # board-rev-selected DTB from an ext4 boot partition. SPL+U-Boot
++        # blob lives at byte 33 KiB of the eMMC (raw-written by
++        # build-image.py post-mkosi). Bootloader=uki tells mkosi to
++        # build a UKI (containing kernel + initramfs, ignoring its
++        # systemd-boot install step since the Pi 5 path also uses uki
++        # without a real EFI loader). mkosi.finalize then extracts the
++        # kernel + initramfs to /boot/vmlinuz + /boot/initramfs and
++        # drops the three DTB variants (imx8mq-librem5-r2/r3/r4.dtb)
++        # alongside, matching the upstream device-purism-librem5
++        # uboot-script.cmd layout. None of these wants systemd-boot at
++        # /usr/lib/systemd/boot/efi; the Pi 5 branch silently ignores
++        # the missing binary too.
++        if device.startswith("purism-librem5"):
++            config["Bootloader"] = "uki"
+     elif image == "base":
+         # base gets device+UI packages resolved from pmaports
+         existing = config.get("Packages", [])
+@@ -77,6 +92,16 @@ def main() -> int:
+         extra_overlays = []
+         if has_overlay:
+             extra_overlays.append(marathon_overlay)
++        # Pi 5 / CM5 only: pin linux-rpi to 6.12.85-r0. Alpine edge's
++        # linux-rpi 6.18.35-r0 has a Pi 5-specific NULL-deref in
++        # __mod_node_page_state during initrd udev. Marathon ships the
++        # pinned APK in mkosi.packages/linux-rpi-6.12.85-r0.apk. Other
++        # devices (Librem 5 = linux-purism-librem5, OnePlus 6 =
++        # linux-postmarketos-qcom-sdm845, etc.) get their kernel via
++        # device-*-marathon's dep chain.
++        if device.startswith("raspberry-pi") or device.startswith("rpi"):
++            extra_overlays.extend(["linux-rpi=6.12.85-r0",
++                                   "linux-rpi-dev=6.12.85-r0"])
+         # Layer-2 enclosure overlay: for raspberry-pi5-marathon, pull in
+         # device-hackberrypi-cm5-marathon when its APK is present in
+         # mkosi.packages/. Vanilla Pi 5 / CM5 dev boards skip building
+-- 
+2.53.0
+

@@ -1,6 +1,3 @@
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
@@ -17,9 +14,12 @@ Modal {
         spacing: 0
 
         Repeater {
-            model: options
+            model: listPickerModal.options
 
             Rectangle {
+                required property int index
+                required property var modelData
+
                 width: parent.width
                 height: Constants.listItemHeight
                 color: "transparent"

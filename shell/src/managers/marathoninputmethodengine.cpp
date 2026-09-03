@@ -31,8 +31,6 @@ void MarathonInputMethodEngine::connectToInputMethod() {
 
     connect(m_inputMethod, &QInputMethod::visibleChanged, this,
             &MarathonInputMethodEngine::onInputMethodVisibleChanged);
-    connect(m_inputMethod, &QInputMethod::animatingChanged, this,
-            &MarathonInputMethodEngine::onInputMethodAnimatingChanged);
     connect(m_inputMethod, &QInputMethod::cursorRectangleChanged, this,
             &MarathonInputMethodEngine::onCursorRectangleChanged);
 }
@@ -246,8 +244,6 @@ void MarathonInputMethodEngine::onInputMethodVisibleChanged() {
 
     emit hasActiveFocusChanged();
 }
-
-void MarathonInputMethodEngine::onInputMethodAnimatingChanged() {}
 
 void MarathonInputMethodEngine::onCursorRectangleChanged() {
     emit cursorPositionChanged();

@@ -34,6 +34,11 @@ Page {
             }
 
             MSection {
+                // Calendar uses the Title-3 + subtitle variant deliberately
+                // so the date subhead and "n events" descriptor can both
+                // surface — eyebrow mode is for settings-list headers
+                // where the subtitle would read as noise.
+                eyebrow: false
                 title: calendarApp.selectedDate ? Qt.formatDate(calendarApp.selectedDate, "MMMM d, yyyy") : "Upcoming Events"
                 subtitle: {
                     var count = eventListRepeater.count;
@@ -76,7 +81,7 @@ Page {
             }
 
             Connections {
-                function onDataChanged() {
+                function onEventsChanged() {
                     updateTrigger++;
                 }
 

@@ -1,5 +1,6 @@
-#include <QApplication>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQuickWindow>
 #include <QQuickStyle>
 #include <QDebug>
 #include <QQmlContext>
@@ -12,11 +13,22 @@
 #include <QInputDevice>
 #include <QDBusMetaType>
 #include <QElapsedTimer>
+#include <QFileSystemWatcher>
+#include <QSet>
+#include <QTimer>
+#include <QSurfaceFormat>
+#include <QColorSpace>
+#include <QOffscreenSurface>
+#include <QOpenGLContext>
+#include <QOpenGLFunctions>
 
-#ifdef Q_OS_LINUX
-#include <sched.h>
-#include <pthread.h>
-#endif
+#include "util/rtprio.h"
+#include <cstring>
+
+#include <QSocketNotifier>
+#include <csignal>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "src/components/desktopfileparser.h"
 #include "src/components/crashhandler.h"
@@ -25,16 +37,26 @@
 #include "src/managers/alarmmanagercpp.h"
 #include "src/services/applaunchservice.h"
 #include "src/services/applifecyclemanager.h"
+#include "src/services/backgroundtaskobserver.h"
+#include "src/services/memorypressuremonitor.h"
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
+#include "src/services/unifiedpushdistributor.h"
+#include "src/services/marathonntfyclient.h"
+#include "src/services/carrierprovisioning.h"
+#include "src/services/flatpakmanager.h"
+#include "src/services/motiondaemon.h"
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
+#include "src/managers/deviceprofile.h"
 #include "src/managers/displaymanagercpp.h"
+#include "src/managers/powerkeylistener.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
+#include "src/managers/cellbroadcastmanager.h"
 #include "src/managers/modemmanagercpp.h"
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
@@ -44,10 +66,14 @@
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "src/services/marathonappstoreservice.h"
+#include "src/services/updateservice.h"
 #include "contactsmanager.h"
 #include "telephonyservice.h"
 #include "callhistorymanager.h"
 #include "smsservice.h"
+#include "mmsmanager.h"
+#include "davsyncengine.h"
+#include "davcalendarstore.h"
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
@@ -95,12 +121,9 @@
 
 #ifdef HAVE_WAYLAND
 #include "src/wayland/waylandcompositor.h"
+#include "src/diag/fpsmonitor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
-#endif
-
-#ifdef HAVE_WEBENGINE
-#include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
 
 template <typename T, typename... Args>
@@ -114,12 +137,17 @@ static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
 
 static QFile       *logFile   = nullptr;
 static QTextStream *logStream = nullptr;
-static QMutex       logMutex;
+// Function-local: a namespace-scope QMutex runs an initialiser before main()
+// that can throw where nothing can catch it.
+static QMutex &logMutex() {
+    static QMutex m;
+    return m;
+}
 static bool         g_debugEnabled = false;
 static void         marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                            const QString &msg) {
 
-    QMutexLocker locker(&logMutex);
+    QMutexLocker locker(&logMutex());
 
     if (!g_debugEnabled && type == QtWarningMsg) {
 
@@ -128,7 +156,12 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
             msg.contains("libEGL warning: failed to get driver name for fd -1") ||
             msg.contains("MESA-LOADER: failed to retrieve device information") ||
-            msg.contains("Failed to initialize EGL display")) {
+            msg.contains("Failed to initialize EGL display") ||
+            // Qt6 prints this from libQt6Qml when the QML debugger code
+            // path is linked, regardless of whether the build defined
+            // QT_QML_DEBUG. It's noise in production. Filter unless the
+            // user explicitly asked for debug output via $MARATHON_DEBUG.
+            msg.contains("QML debugging is enabled")) {
             return;
         }
     }
@@ -177,10 +210,19 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 }
 
 #include "src/components/mpris_types.h"
+#include <utility>   // std::as_const
 
 int main(int argc, char *argv[]) {
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
+
+    // Curved-edge AA via geometry where FBO MSAA is unavailable. Etnaviv
+    // (GC7000Lite) hides MSAA renderbuffers — without this Shape strokes,
+    // squircle hairlines, and ShapePath outlines render aliased. Cost is
+    // a few extra triangles per Shape; the scenegraph already supports
+    // this code path. See doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph-renderer.html.
+    if (!qEnvironmentVariableIsSet("QSG_ANTIALIASING_METHOD"))
+        qputenv("QSG_ANTIALIASING_METHOD", "vertex");
 
     registerMprisTypes();
 
@@ -196,27 +238,215 @@ int main(int argc, char *argv[]) {
 
     const QString profileEnv  = qgetenv("MARATHON_PROFILE");
     const bool    profileMode = (profileEnv == "1" || profileEnv.toLower() == "true");
+
+    QGuiApplication::setApplicationName("Marathon Shell");
+    QGuiApplication::setOrganizationName("Marathon OS");
+
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
+
+    // AA_ShareOpenGLContexts was previously set as an implicit side effect
+    // of QtWebEngineQuick::initialize(). After the WebEngine refactor moved
+    // that init to marathon-app-runner, the shell lost the attribute and
+    // its QSG scenegraph hits a SIGSEGV on LLVMpipe at first-frame init
+    // (reproduced in duranium r49 QEMU). Set it explicitly here so the
+    // attribute stays even when the shell never imports WebEngine.
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    // EGLFS allows exactly one top-level QWindow with one surface format
+    // at a time. Any secondary QWindow with a different format triggers
+    // "EGLFS: OpenGL windows cannot be mixed with others." → SIGABRT and
+    // the shell dies. Suppress native sibling creation for QWidget-like
+    // children (popups, tooltips, drag indicators) so the shell only
+    // ever has the one main QQuickWindow. (Observed: every WebEngine
+    // app launch was creating a second native window in the shell
+    // process and abort-ing.)
+    QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
+    // Force every QML Popup / Menu to Popup.Item rendering (not Popup.Window).
+    // QQuickMenu honours this attribute at qquickmenu.cpp:323; without it,
+    // any future Qt Controls component (or third-party QML) that opts into
+    // Popup.Window would create a host-side top-level QWindow with the
+    // wrong surfaceType and trip qeglfswindow.cpp:79 ("OpenGL windows
+    // cannot be mixed with others").
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuWindows);
+
+    // Baseline scenegraph defaults — sRGB blending, vsync, 24/8 depth+stencil.
+    // MSAA samples are chosen AFTER QGuiApplication constructs the QPA plugin
+    // (needs an EGLDisplay to probe). See the probe block below.
+    //
+    // RenderableType: OpenGLES, not OpenGL. Etnaviv (GC7000Lite on i.MX 8M
+    // Quad) only exposes a GLES profile; if Qt asks EGLFS for a desktop
+    // OpenGL context it fails eglChooseConfig and falls back to a
+    // different EGLConfig than every secondary surface — which is what
+    // tripped "windows cannot be mixed" on every WebEngine launch.
+    // Explicit major/minor + GLES profile pins the EGLConfig so both
+    // the main shell window AND any internal surface Qt creates use
+    // the same config.
+    {
+        // GLES level and framebuffer alpha come from the DeviceProfile, not
+        // hardcoded L5 constants — a device whose GPU stack does GLES3 (e.g.
+        // the Vivante blob) declares GLES_LEVEL=3.0, and a device whose CRTC
+        // is ARGB declares SURFACE_ALPHA=1. Defaults still match the Librem 5
+        // (GLES 2.0, no alpha) so an un-provisioned device is unchanged.
+        const DeviceProfile &dp  = DeviceProfile::instance();
+        QSurfaceFormat       fmt = QSurfaceFormat::defaultFormat();
+        fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+        fmt.setMajorVersion(dp.glesMajor());
+        fmt.setMinorVersion(dp.glesMinor());
+        fmt.setProfile(QSurfaceFormat::NoProfile);
+        fmt.setColorSpace(QColorSpace::SRgb);
+        fmt.setSamples(0);
+        fmt.setSwapInterval(1);
+        fmt.setDepthBufferSize(24);
+        fmt.setStencilBufferSize(8);
+        // Framebuffer alpha is CRTC-dependent. The Librem 5 i.MX 8M Quad LCDIF
+        // DSI CRTC is XRGB8888 (no alpha): asking Qt for an EGLConfig with
+        // alpha=8 returns an ARGB8888 surface whose pixel format does not
+        // match the CRTC, DRM rejects every drmModePageFlip with EINVAL, and
+        // the panel never updates. So we set alpha ONLY when the device
+        // profile says its CRTC has an alpha channel; otherwise we leave Qt's
+        // defaults (which land on the XRGB-matching EGLConfig).
+        if (dp.surfaceHasAlpha())
+            fmt.setAlphaBufferSize(8);
+        QSurfaceFormat::setDefaultFormat(fmt);
+    }
+
+    QGuiApplication app(argc, argv);
+
+    // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
+    // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW
+    // can't do FBO MSAA. Default to 0 here, controlled by MARATHON_LAYER_SAMPLES.
+    //
+    // The previous version probed via QOffscreenSurface + QOpenGLContext, which
+    // crashed the compositor in QEglFSWindow::QEglFSWindow during a later
+    // surface map (the probe corrupts shared EGL state for the eglfs_kms QPA
+    // underlying QtWaylandCompositor — repro: launch Notes ~12 min after boot,
+    // SIGABRT at libQt6EglFSDeviceIntegration top of stack). Opt into the
+    // probe with MARATHON_ENABLE_MSAA_PROBE=1 on hosts where MSAA is wanted
+    // (desktop dev with virgl/llvmpipe).
+    {
+        bool      envOk      = false;
+        const int envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
+        int       chosen     = envOk ? envSamples : 0;
+
+        if (qEnvironmentVariableIntValue("MARATHON_ENABLE_MSAA_PROBE") != 0) {
+            int               maxSamples = 0;
+            bool              hasFboMsaa = false;
+            QOffscreenSurface sfc;
+            sfc.setFormat(QSurfaceFormat::defaultFormat());
+            sfc.create();
+            QOpenGLContext ctx;
+            if (sfc.isValid() && ctx.create() && ctx.makeCurrent(&sfc)) {
+                ctx.functions()->glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+                hasFboMsaa = ctx.hasExtension("GL_EXT_framebuffer_multisample") ||
+                    ctx.format().majorVersion() >= 3;
+                ctx.doneCurrent();
+            }
+            const int requested = envOk ? envSamples : 4;
+            chosen              = (hasFboMsaa && maxSamples >= requested) ? requested : 0;
+            qInfo() << "[MarathonShell] MSAA probe: GL_MAX_SAMPLES=" << maxSamples
+                    << "ext=" << hasFboMsaa << "→ chosen=" << chosen;
+        }
+
+        QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+        fmt.setSamples(chosen);
+        QSurfaceFormat::setDefaultFormat(fmt);
+    }
+
+    // Pin our oom_score_adj at the persistent-system end of the ladder.
+    // Android uses PERSISTENT_PROC_ADJ=-800 for system_server-class
+    // processes; Marathon's shell hosts the in-process compositor, 30+
+    // service singletons, and DBus well-known names — losing it strands
+    // every running app. It must be the last thing the OOM killer
+    // considers under memory pressure.
+    //
+    // We write this ourselves rather than relying on a launch wrapper —
+    // but only best-effort. Values below 0 require CAP_SYS_RESOURCE, and
+    // we DELIBERATELY do NOT grant it via file caps on this binary.
+    //
+    // DO NOT `setcap cap_sys_resource`/`cap_sys_nice` on marathon-shell-bin.
+    // File caps make the process AT_SECURE=1, and both glibc and musl then
+    // route env lookups through secure_getenv(), which returns NULL for
+    // DBUS_SESSION_BUS_ADDRESS — QDBusConnection::sessionBus() never
+    // connects, org.marathonos.Shell never registers, and every shell↔app
+    // IPC path dies (pill back-swipe, notifications, WiFi/BT/brightness).
+    // Verified live on L5 2026-07-04: file caps present → shell OFF the
+    // session bus; `setcap -r` → session bus restored, back-swipe works.
+    // (An earlier comment here claimed aarch64 glibc kept
+    // DBUS_SESSION_BUS_ADDRESS through AT_SECURE — that was WRONG and
+    // caused the regression this replaces. The qputenv re-derive below is
+    // also insufficient against AT_SECURE: secure_getenv ignores the env
+    // regardless of qputenv. It only helps the no-caps respawn case.)
+    //
+    // The negative oom_score_adj is instead pinned by the system-level
+    // marathon-shell-oom.service sidecar (runs as root, finds the shell
+    // PID, writes -800) — keeping file caps OFF the binary. The best-effort
+    // self-write below still lands when the process already has the cap
+    // ambiently (e.g. a dev host run as root).
+    {
+        // Force DBUS_SESSION_BUS_ADDRESS via XDG_RUNTIME_DIR/bus regardless
+        // of whether it's already in the env. On musl, file caps make us
+        // AT_SECURE=1; the dynamic linker leaves the env in /proc/self/environ
+        // but libdbus's call into __secure_getenv() can return NULL, leaving
+        // QDBusConnection::sessionBus() permanently disconnected
+        // ("Not connected to D-Bus server"). qputenv re-installs the value
+        // in our process env at a fresh address libc-internal getenv resolves
+        // cleanly. Without this every shell respawn after the initial greetd
+        // start loses IPC to its own apps — Notes / Settings / etc see
+        // "The name is not activatable" on every call.
+        const QByteArray xdg = qgetenv("XDG_RUNTIME_DIR");
+        if (!xdg.isEmpty())
+            qputenv("DBUS_SESSION_BUS_ADDRESS", QByteArray("unix:path=") + xdg + "/bus");
+
+        QFile oomWrite(QStringLiteral("/proc/self/oom_score_adj"));
+        if (oomWrite.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            const QByteArray target("-800\n");
+            if (oomWrite.write(target) != target.size()) {
+                qWarning() << "[MarathonShell] oom_score_adj write short:"
+                           << oomWrite.errorString();
+            }
+            oomWrite.close();
+        }
+
+        // Read back to confirm.
+        QFile oomRead(QStringLiteral("/proc/self/oom_score_adj"));
+        if (oomRead.open(QIODevice::ReadOnly)) {
+            const int score = oomRead.readAll().trimmed().toInt();
+            oomRead.close();
+            if (score > 0) {
+                qWarning() << "[MarathonShell] oom_score_adj=" << score
+                           << "(expected -800). marathon-shell-oom.service"
+                              " sidecar not active yet? Under memory pressure"
+                              " the shell may be killed before its apps."
+                              " (Do NOT 'fix' with setcap — file caps break"
+                              " the D-Bus session bus.)";
+            } else {
+                qInfo() << "[MarathonShell] oom_score_adj=" << score << "(PERSISTENT_PROC bias)";
+            }
+        }
+    }
+
+    // Logging filter rules must go AFTER QGuiApplication: the QGuiApplication
+    // constructor processes QT_LOGGING_RULES and Qt config-file rules,
+    // which can override anything set earlier in main.
     if (debugEnabled) {
-
-        QString rules =
-
-            QStringLiteral("*.debug=true\n") + QStringLiteral("*.info=true\n") +
-            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n")
-
-            + QStringLiteral("qt.*.debug=false\n") + QStringLiteral("qt.*.info=false\n") +
-            QStringLiteral("qt.*.warning=true\n")
-
-            + QStringLiteral("qml.debug=true\n") + QStringLiteral("js.debug=true\n") +
-            QStringLiteral("default.debug=true\n") + QStringLiteral("default.info=true\n") +
-            QStringLiteral("default.warning=true\n");
-
+        // Order matters here: in QLoggingCategory rules the LAST matching pattern
+        // wins. We start with broad enables, then disable qt.* spam, then turn the
+        // qt.* warnings back on. The bare *.<level>=true *also* enables qInfo for
+        // the "default" category (qInfo() / qDebug() with no qCDebug category).
+        QString rules = QStringLiteral("*.debug=true\n") + QStringLiteral("*.info=true\n") +
+            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
+            QStringLiteral("qt.*.debug=false\n") + QStringLiteral("qt.*.info=false\n") +
+            QStringLiteral("qt.*.warning=true\n") + QStringLiteral("qml.debug=true\n") +
+            QStringLiteral("js.debug=true\n");
         if (profileMode) {
             rules += QStringLiteral("qt.scenegraph.time.*=true\n");
             rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
         }
         QLoggingCategory::setFilterRules(rules);
     } else {
-
         QString rules = QStringLiteral("*.debug=false\n") + QStringLiteral("*.info=false\n") +
             QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
             QStringLiteral("qt.qpa.*=false\n") + QStringLiteral("qt.pointer.*=false\n") +
@@ -229,21 +459,6 @@ int main(int argc, char *argv[]) {
         QLoggingCategory::setFilterRules(rules);
     }
 
-    QApplication::setApplicationName("Marathon Shell");
-    QApplication::setOrganizationName("Marathon OS");
-
-#ifdef HAVE_WEBENGINE
-    QtWebEngineQuick::initialize();
-#endif
-
-    QApplication::setHighDpiScaleFactorRoundingPolicy(
-        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-
-    QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
-    QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
-
-    QApplication  app(argc, argv);
-
     CrashHandler *crashHandler = CrashHandler::instance();
     crashHandler->install();
     crashHandler->setCrashCallback([](const QString &msg) {
@@ -253,15 +468,11 @@ int main(int argc, char *argv[]) {
     qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
 
 #ifdef Q_OS_LINUX
-    struct sched_param param;
-    param.sched_priority = 85;
-    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
-        qInfo()
-            << "[MarathonShell] ✓ Main thread (input handling) set to RT priority 85 (SCHED_FIFO)";
-    } else {
-        qWarning() << "[MarathonShell]  Failed to set RT priority for input handling";
-        qInfo() << "[MarathonShell]   Configure /etc/security/limits.d/99-marathon.conf:";
-        qInfo() << "[MarathonShell]     @marathon-users  -  rtprio  90";
+    // Shell main thread = SCHED_RR/2; render thread is set to RR/1 from
+    // WaylandCompositor. See docs/RT_SCHEDULING.md for the full hierarchy.
+    if (const int rc = marathon::rt::setCurrentThreadPriority(2); rc != 0) {
+        qWarning() << "[MarathonShell] Main thread RT elevation failed:" << strerror(rc)
+                   << "-- grant CAP_SYS_NICE or rtprio in /etc/security/limits.d/.";
     }
 #endif
 
@@ -310,6 +521,15 @@ int main(int argc, char *argv[]) {
     qInfo() << "Wayland Compositor support disabled (not available on this platform)";
 #endif
 
+    // Force QtRendering for every Text — Qt 6 documents QtTextRendering as
+    // the default but Alpine's Qt6 build defaults to NativeRendering, which
+    // routes font-family lookup through fontconfig and silently falls back
+    // to Noto Sans (Sora lives only in the per-app QML resource, not in
+    // the system fontconfig cache). Without this every Text without an
+    // explicit renderType drops out of Sora — the lock clock looks right
+    // (explicit Text.QtRendering) while the home grid labels don't.
+    QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
+
     QQmlApplicationEngine engine;
 
     qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
@@ -321,32 +541,74 @@ int main(int argc, char *argv[]) {
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
 
     engine.addImageProvider("lunasvgqrc", new LunaSvgImageProvider());
-    qInfo() << "[MarathonShell] ✓ LunaSVG image provider registered";
+    qInfo() << "[MarathonShell] LunaSVG image provider registered";
 
     auto *ctx = engine.rootContext();
 
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
-    createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
-    qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
+    // DeviceProfile is a process-lifetime singleton (already loaded early for
+    // the surface format); expose the same instance to QML so the UI can key
+    // off declared device traits instead of env sniffing.
+    qmlRegisterSingletonInstance<DeviceProfile>("MarathonOS.Shell", 1, 0, "DeviceProfile",
+                                                &DeviceProfile::instance());
 
-    auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
-    auto *wallpaperStore  = new WallpaperStore(settingsManager, &app);
+    auto *mpris2Controller = new MPRIS2Controller(&app);
+    qmlRegisterSingletonInstance<MPRIS2Controller>("MarathonOS.Shell", 1, 0, "MPRIS2Controller",
+                                                   mpris2Controller);
+    qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
+
+    auto *settingsManager = new SettingsManager(&app);
+    qmlRegisterSingletonInstance<SettingsManager>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
+                                                  settingsManager);
+    auto *wallpaperStore = new WallpaperStore(settingsManager, &app);
     qmlRegisterSingletonInstance<WallpaperStore>("MarathonOS.Shell", 1, 0, "WallpaperStore",
                                                  wallpaperStore);
 
     createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
     }
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
+
+    // MARATHON_LAYER_SAMPLES → QML Constants.layerSamples. Default 4 (the
+    // QML design system was authored against), env override 0 on GPUs
+    // without HW multisample renderbuffers (etnaviv GC7000Lite on the
+    // i.MX 8M Quad). Without this gate every layer-wrapped QML item
+    // tries to allocate a 4× MSAA renderbuffer, the alloc fails, Qt logs
+    // "Layer requested 4 samples but multisample renderbuffers are not
+    // supported" at ~100 lines/sec during animations. See memory
+    // [Etnaviv MSAA trap].
+    bool      samplesOk       = false;
+    const int envLayerSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &samplesOk);
+    const int layerSamples    = samplesOk ? envLayerSamples : 4;
+    ctx->setContextProperty("MARATHON_LAYER_SAMPLES", layerSamples);
+
+    // MARATHON_GPU_HDR → QML Constants.gpuHdr. Default false. When true,
+    // AppBackdropBlur (and other halo / glow primitives) requests an
+    // RGBA16F ShaderEffectSource to keep gamma-precise compositing. On
+    // etnaviv that allocation fails with "QSGRhiLayer: Attempted to set
+    // unsupported texture format 8" — the GC7000Lite doesn't expose
+    // RGBA16F as a colour-buffer attachment. Falling back to RGBA8
+    // gives a slightly darker halo around bright pixels but no warnings
+    // and no perf hit.
+    const bool gpuHdr = qEnvironmentVariableIntValue("MARATHON_GPU_HDR") != 0;
+    ctx->setContextProperty("MARATHON_GPU_HDR", gpuHdr);
 
 #ifdef HAVE_WAYLAND
     ctx->setContextProperty("HAVE_WAYLAND", true);
 #else
     ctx->setContextProperty("HAVE_WAYLAND", false);
 #endif
+
+    // MARATHON_FPS_OVERLAY -> live on-screen FPS counter (top-right).
+    // Diagnostic: shows real presented-frame rate during interaction so
+    // framerate regressions on the GC7000Lite are visible without journald.
+    const bool fpsOverlay = qEnvironmentVariableIntValue("MARATHON_FPS_OVERLAY") != 0;
+    auto      *fpsMonitor = new FpsMonitor(&app);
+    ctx->setContextProperty("fpsMonitor", fpsMonitor);
+    ctx->setContextProperty("MARATHON_FPS_OVERLAY", fpsOverlay);
 
     createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
@@ -358,42 +620,68 @@ int main(int argc, char *argv[]) {
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
     }
 
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
-    auto *appModel          = createObject<AppModel>(ctx, "AppModel", &app);
-    auto *taskModel         = createObject<TaskModel>(ctx, "TaskModel", &app);
-    auto *notificationModel = createObject<NotificationModel>(ctx, "NotificationModel", &app);
-    auto *navigationRouter  = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
+    auto *appModel  = createObject<AppModel>(ctx, "AppModel", &app);
+    auto *taskModel = new TaskModel(&app);
+    qmlRegisterSingletonInstance<TaskModel>("MarathonOS.Shell", 1, 0, "TaskModel", taskModel);
+    auto *notificationModel = new NotificationModel(&app);
+    qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
+                                                    notificationModel);
+    auto *navigationRouter = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
     createObject<StateManagerCpp>(ctx, "StateManager", &app);
 
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
-    auto *networkManager   = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
-    auto *powerManager     = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
-    auto *rotationManager  = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager   = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
-                                                             rotationManager, &app);
-    auto *audioManager     = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
-    auto *modemManager     = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
-    auto *sensorManager    = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    auto *networkManager = new NetworkManagerCpp(&app);
+    qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
+                                                    networkManager);
+    auto *powerManager = new PowerManagerCpp(&app);
+    qmlRegisterSingletonInstance<PowerManagerCpp>("MarathonOS.Shell", 1, 0, "PowerManagerService",
+                                                  powerManager);
+    auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
+    auto *displayManager  = new DisplayManagerCpp(powerManager, rotationManager, &app);
+    qmlRegisterSingletonInstance<DisplayManagerCpp>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
+                                                    displayManager);
+    // Lazy-claim the orientation sensor: only run it while the panel
+    // is actually on. RotationManager keeps the sensor stopped until
+    // this signal flips it true; lsm6dsx (or whatever backend) sees
+    // zero traffic with the screen off.
+    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, rotationManager,
+                     &RotationManager::setScreenOn);
+    auto *audioManager = new AudioManagerCpp(&app);
+    qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
+                                                  audioManager);
+    auto *modemManager         = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *cellBroadcastManager = new CellBroadcastManager(&app);
+    ctx->setContextProperty("CellBroadcastManagerCpp", cellBroadcastManager);
+    qmlRegisterSingletonInstance<CellBroadcastManager>(
+        "MarathonOS.Shell", 1, 0, "CellBroadcastManagerCpp", cellBroadcastManager);
+    auto *sensorManager = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
-    auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
+    auto *hapticManager    = new HapticManager(&app);
+    qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
+                                                hapticManager);
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
-    auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+    auto *securityManager = new SecurityManager(&app);
+    qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
+                                                  securityManager);
 
-    auto *appLaunchService =
-        createObject<AppLaunchService>(ctx, "AppLaunchService", appModel, taskModel, &app);
+    auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
+    qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
+                                                   appLaunchService);
     createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,
                                           appScanner, settingsManager, navigationRouter,
                                           appLaunchService, &app);
@@ -419,32 +707,140 @@ int main(int argc, char *argv[]) {
     }
 
     auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
-    ctx->setContextProperty("AppLifecycleManager", appLifecycleManager);
+    qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
+                                                      "AppLifecycleManager", appLifecycleManager);
 
-    auto *hapticsObj =
-        qobject_cast<HapticManager *>(ctx->contextProperty("HapticManager").value<QObject *>());
+    // PowerPolicyController takes the lifecycle manager so its
+    // enterDoze() / exitDoze() can flip the freeze-debounce window
+    // and freeze background apps immediately on screen-off. AppLifecycle
+    // is constructed above on line ~670 so this dependency order is safe.
+    auto *powerPolicyController =
+        new PowerPolicyController(powerManager, displayManager, appLifecycleManager, &app);
+    qmlRegisterSingletonInstance<PowerPolicyController>(
+        "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
-    auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
-    ctx->setContextProperty("PowerPolicyControllerCpp", powerPolicyController);
+    // Phosh-pattern lazy sensor claim. Proximity runs only during active
+    // voice calls; ambient light runs only while auto-brightness is on.
+    // Push initial state once, then let the signal wires keep it in sync.
+    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
+                     sensorManager, [sensorManager, powerPolicyController]() {
+                         sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
+                     });
+    sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
+    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, sensorManager,
+                     [sensorManager, settingsManager]() {
+                         sensorManager->setLightActive(settingsManager->autoBrightness());
+                     });
+    sensorManager->setLightActive(settingsManager->autoBrightness());
 
     auto *displayPolicyController =
         new DisplayPolicyController(displayManager, settingsManager, &app);
-    ctx->setContextProperty("DisplayPolicyControllerCpp", displayPolicyController);
-    createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
-                                         displayPolicyController, displayManager, hapticsObj, &app);
+    qmlRegisterSingletonInstance<DisplayPolicyController>(
+        "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
+
+    // Resume-from-suspend bridge. External suspends (logind IdleAction,
+    // lid switch, RTC alarm — anything not going through
+    // PowerPolicyController::sleep) never tell the shell the screen
+    // went off. m_screenOn stays stale TRUE across the sleep; on the
+    // power-key wake the policy then reads screenOn=true and chooses
+    // LockAndTurnScreenOff → bl_power=4 → backlight stays off, even
+    // though the shell is fully alive (touch works, journal moves).
+    // forceScreenOn() unconditionally re-issues setScreenState(true)
+    // (re-writes bl_power AND brightness) and always emits
+    // screenOnChanged so dimState.restore + idleScreenTimer.restart
+    // run on the resume edge — not deferred to a second power press.
+    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, displayPolicyController,
+                     &DisplayPolicyController::forceScreenOn);
+
+    // If anything triggered S3 while Marathon-Doze was active (manual
+    // `systemctl suspend`, critical-battery handler, scheduled wake),
+    // bring us cleanly out of Doze on resume — otherwise m_dozing
+    // stays stuck TRUE and the next power-key press would call
+    // exitDoze on an already-unblanked screen. exitDoze is idempotent
+    // so this is a no-op when we weren't dozing.
+    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
+                     &PowerPolicyController::exitDoze);
+
+    // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
+    // the power button. PowerKeyListener reads /dev/input/event* directly,
+    // which is essential when a marathon-app-runner subprocess has Wayland
+    // focus — in that case Qt routes KEY_POWER to the runner's window and
+    // MarathonShell.qml's Keys.onReleased never fires, so the shell would
+    // otherwise miss the wake press entirely. The runner has no reason
+    // (and no code) to forward KEY_POWER upstream.
+    //
+    // Both event sources (QML Keys.onReleased when shell has focus,
+    // PowerKeyListener when it doesn't) invoke the same
+    // handlePowerButtonPress; a 200 ms dedupe there absorbs the case
+    // where both fire for the same physical press.
+    auto *powerKeyListener    = new PowerKeyListener(&app);
+    auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
+        ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
+        hapticManager, &app);
+    // Key-DOWN stamps the hold-start so the release handler can tell a long
+    // press (power menu) from a short press (screen toggle). Without this the
+    // raw /dev/input release ran the screen-off action even for the release
+    // that ends a long press, blanking the screen the moment the menu appeared.
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, powerBatteryHandler,
+                     [powerBatteryHandler]() { powerBatteryHandler->notePowerButtonDown(); });
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
+                     [powerBatteryHandler, displayPolicyController]() {
+                         const bool screenOn =
+                             displayPolicyController ? displayPolicyController->screenOn() : true;
+                         // sessionLocked=false is a reasonable fallback — the
+                         // lock/unlock decision in powerButtonAction only
+                         // matters for the screen-ON path (LockAndTurnScreenOff
+                         // vs TurnScreenOff), and the screen-OFF wake path
+                         // (TurnScreenOn) is agnostic to it.
+                         powerBatteryHandler->handlePowerButtonPress(false, screenOn);
+                     });
     auto *audioPolicyController =
-        new AudioPolicyController(audioManager, settingsManager, hapticsObj, &app);
-    ctx->setContextProperty("AudioPolicyControllerCpp", audioPolicyController);
-    auto *notificationService = createObject<NotificationServiceCpp>(
-        ctx, "NotificationService", notificationModel, settingsManager, audioPolicyController,
-        hapticsObj, &app);
+        new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
+    qmlRegisterSingletonInstance<AudioPolicyController>(
+        "MarathonOS.Shell", 1, 0, "AudioPolicyControllerCpp", audioPolicyController);
+    auto *notificationService = new NotificationServiceCpp(
+        notificationModel, settingsManager, audioPolicyController, hapticManager, &app);
+    qmlRegisterSingletonInstance<NotificationServiceCpp>(
+        "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
     auto *systemStatusStore =
         new SystemStatusStore(powerManager, networkManager, bluetoothManager, modemManager,
                               notificationService, settingsManager, &app);
     qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
                                                     systemStatusStore);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
-        ctx, "ScreenshotService", audioPolicyController, hapticsObj, notificationService, &app);
+        ctx, "ScreenshotService", audioPolicyController, hapticManager, notificationService, &app);
+
+    // SIGUSR1 → live screenshot to $MARATHON_SCREENSHOT_PATH (default
+    // /tmp/marathon-shot.png). Unlike --screenshot-after which quits
+    // after one capture, this lets a driver loop:
+    //   kill -USR1 $(pgrep marathon-shell-bin)
+    //   scp .../marathon-shot.png .
+    //   marathon-touchctl tap …  # advance OOBE / app
+    //   kill -USR1 …             # capture next page
+    // without restarting the shell (which would reset OOBE state).
+    {
+        static int sigPipe[2] = {-1, -1};
+        if (::pipe2(sigPipe, O_CLOEXEC | O_NONBLOCK) == 0) {
+            struct sigaction sa;
+            std::memset(&sa, 0, sizeof(sa));
+            sa.sa_handler = [](int) {
+                const char b = '1';
+                ::write(sigPipe[1], &b, 1);
+            };
+            sigemptyset(&sa.sa_mask);
+            ::sigaction(SIGUSR1, &sa, nullptr);
+            auto *sn = new QSocketNotifier(sigPipe[0], QSocketNotifier::Read, &app);
+            QObject::connect(sn, &QSocketNotifier::activated, &app, [screenshotService]() {
+                char drain[16];
+                ::read(sigPipe[0], drain, sizeof(drain));
+                const QString path =
+                    qEnvironmentVariable("MARATHON_SCREENSHOT_PATH", "/tmp/marathon-shot.png");
+                const bool ok = screenshotService->saveScreenshotTo(path);
+                qInfo() << "[Screenshot] SIGUSR1 →" << path << (ok ? "OK" : "FAIL");
+            });
+            qInfo() << "[Screenshot] SIGUSR1 handler armed (default path /tmp/marathon-shot.png)";
+        }
+    }
     auto *systemControlStore = new SystemControlStore(
         networkManager, bluetoothManager, displayManager, flashlightManager, modemManager,
         settingsManager, alarmManager, locationManager, hapticManager, powerManager, audioManager,
@@ -461,7 +857,7 @@ int main(int argc, char *argv[]) {
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }
 
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
@@ -476,17 +872,17 @@ int main(int argc, char *argv[]) {
                                  << "[MarathonShell] Audio playback stopped - released wakelock";
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Audio playback wakelock integration enabled";
+    qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
     auto *platform = createObject<PlatformCpp>(ctx, "Platform", &app);
     ctx->setContextProperty("PlatformCpp", platform);
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
-    qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
+    qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
     auto *wordEngine = createObject<WordEngine>(ctx, "WordEngine", &app);
     wordEngine->setLanguage("en_US");
     wordEngine->setEnabled(true);
-    qInfo() << "[MarathonShell] ✓ Word Engine initialized";
+    qInfo() << "[MarathonShell] Word Engine initialized";
     auto *emojiPredictor = new EmojiPredictor(&app);
     qmlRegisterSingletonInstance<EmojiPredictor>("MarathonOS.Shell", 1, 0, "EmojiPredictor",
                                                  emojiPredictor);
@@ -513,7 +909,7 @@ int main(int argc, char *argv[]) {
     if (!bus.isConnected()) {
         qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
     } else {
-        qInfo() << "[MarathonShell] ✓ Connected to D-Bus session bus";
+        qInfo() << "[MarathonShell] Connected to D-Bus session bus";
 
         NotificationDatabase *notifDb = new NotificationDatabase(&app);
         if (!notifDb->initialize()) {
@@ -525,8 +921,17 @@ int main(int argc, char *argv[]) {
         auto *freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
         if (freedesktopNotif->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
+            qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }
+
+        auto *unifiedPush = createObject<UnifiedPushDistributor>(
+            ctx, "UnifiedPushDistributor", notificationService, settingsManager, &app);
+        if (unifiedPush->registerService()) {
+            qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
+        }
+        createObject<MarathonNtfyClient>(ctx, "NtfyClient", unifiedPush, &app);
+
+        createObject<CarrierProvisioning>(ctx, "CarrierProvisioning", &app);
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
@@ -534,26 +939,85 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
     }
 
-    auto *permissionManager =
-        createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
-    qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
+    auto *permissionManager = new MarathonPermissionManager(&app);
+    qmlRegisterSingletonInstance<MarathonPermissionManager>("MarathonOS.Shell", 1, 0,
+                                                            "PermissionManager", permissionManager);
+    qInfo() << "[MarathonShell] Permission Manager initialized";
 
-    createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
-    qInfo() << "[MarathonShell] ✓ App Store Service initialized";
+    QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
+                     &MarathonPermissionManager::dismissForApp);
+
+    auto *appStoreService =
+        createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
+    qInfo() << "[MarathonShell] App Store Service initialized";
+
+    auto *flatpakManager = createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
+    if (debugEnabled && flatpakManager->available()) {
+        QObject::connect(flatpakManager, &FlatpakManager::installedAppsChanged, &app,
+                         [flatpakManager]() {
+                             const QVariantList apps = flatpakManager->installedApps();
+                             qInfo() << "[FlatpakManager] installed:" << apps.size();
+                             if (!apps.isEmpty())
+                                 flatpakManager->requestPermissions(
+                                     apps.first().toMap().value("ref").toString());
+                         });
+        QObject::connect(flatpakManager, &FlatpakManager::permissionsReady, &app,
+                         [](const QString &ref, const QVariantMap &perms) {
+                             qInfo() << "[FlatpakManager] perms for" << ref
+                                     << "sections=" << perms.keys();
+                         });
+        flatpakManager->refresh();
+    }
+
+    // Activity Rings backend — feeds the lock-screen Activity NowBar
+    // and the Active Frames Health frame off IIO accelerometer samples
+    // through the vendored Oxford C-Step-Counter. Falls back to a
+    // demo generator on hardware without an IIO accel device or when
+    // MARATHON_MOTION_DEMO=1.
+    createObject<MotionDaemon>(ctx, "ActivityService", &app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
     auto *callHistoryManager = createObject<CallHistoryManager>(ctx, "CallHistoryManager", &app);
     auto *smsService         = createObject<SMSService>(ctx, "SMSService", &app);
+    auto *mmsManager         = createObject<MmsManager>(ctx, "MmsManager", &app);
+    smsService->setMmsManager(mmsManager);
+    auto *updateService    = createObject<UpdateService>(ctx, "UpdateService", &app);
+    auto *davCalendarStore = createObject<DavCalendarStore>(ctx, "DavCalendarStore", &app);
+    auto *davSyncEngine =
+        createObject<DavSyncEngine>(ctx, "DavSyncEngine", contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
-                                         navigationRouter, telephonyService, &app);
+                                         navigationRouter, telephonyService, smsService, &app);
     createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
-        powerManager, displayPolicyController, displayManager, audioPolicyController, hapticsObj,
-        telephonyService, smsService, &app);
+        powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,
+        telephonyService, smsService, sensorManager, &app);
 
     callHistoryManager->setContactsManager(contactsManager);
     smsService->setContactsManager(contactsManager);
+
+    // Bridges system-observed activity (audio playback, active calls) into
+    // AppLifecycleManager capability claims so backgrounded apps holding a
+    // capability are kept warm (BackgroundActive) and never frozen.
+    new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
+                               telephonyService, &app);
+
+    // PSI memory pressure listener. Marathon's policy ladder mirrors the
+    // industry split: at Moderate (Linux PSI some-avg10 ≥ 5%) apps get a
+    // low-memory hint; at Critical (≥ 40%) we proactively kill the
+    // longest-frozen app, matching Android's lmkd-on-PSI behavior
+    // (psi_partial_stall_ms=70ms on high-perf devices triggers low-mem;
+    // 700ms triggers critical). systemd-oomd at the slice level is the
+    // belt-and-suspenders fallback if our listener dies.
+    auto *pressureMonitor = new MemoryPressureMonitor(&app);
+    QObject::connect(pressureMonitor, &MemoryPressureMonitor::pressureLevelChanged,
+                     appLifecycleManager,
+                     [appLifecycleManager](MemoryPressureMonitor::PressureLevel level, double) {
+                         if (level >= MemoryPressureMonitor::High)
+                             appLifecycleManager->broadcastLowMemory();
+                         if (level >= MemoryPressureMonitor::Critical)
+                             appLifecycleManager->killOldestFrozenApp();
+                     });
 
     QObject::connect(telephonyService, &TelephonyService::callStateChanged, audioRoutingManager,
                      [audioRoutingManager](const QString &state) {
@@ -563,7 +1027,7 @@ int main(int argc, char *argv[]) {
                              audioRoutingManager->stopCallAudio();
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Audio routing wired to telephony";
+    qInfo() << "[MarathonShell] Audio routing wired to telephony";
 
     auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
     createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
@@ -572,8 +1036,10 @@ int main(int argc, char *argv[]) {
         auto *ipc = new ShellIpcServer(
             permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
-            audioManager, audioPolicyController, networkManager, hapticsObj, securityManager,
-            sensorManager, locationManager, alarmManager, appLaunchService, &app);
+            audioManager, audioPolicyController, networkManager, hapticManager, securityManager,
+            sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
+            davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
+            &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
@@ -613,7 +1079,7 @@ int main(int argc, char *argv[]) {
 
                                  callHistoryManager->addCall(lastCalledNumber, callType,
                                                              callStartTime, duration);
-                                 qInfo() << "[MarathonShell] ✓ Call logged:" << callType
+                                 qInfo() << "[MarathonShell] Call logged:" << callType
                                          << lastCalledNumber << duration << "s";
 
                                  callStartTime = 0;
@@ -622,7 +1088,7 @@ int main(int argc, char *argv[]) {
                              }
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
+    qInfo() << "[MarathonShell] Call history wired to telephony";
 
     appModel->loadFromRegistry(appRegistry);
 
@@ -685,7 +1151,7 @@ int main(int argc, char *argv[]) {
         qCritical() << "";
 
     } else {
-        qInfo() << "[MarathonShell] ✓ MarathonUI modules found";
+        qInfo() << "[MarathonShell] MarathonUI modules found";
         if (themeCheck1.exists())
             qDebug() << "  - Using user-local installation";
         else if (themeCheck2.exists())
@@ -727,6 +1193,19 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // The shell's single QQuickWindow is the root object (Main.qml Window).
+    // Wire the FPS monitor to its frame-swap signal now that it exists.
+    if (fpsOverlay) {
+        const auto rootObjects = engine.rootObjects();
+        for (QObject *root : rootObjects) {
+            if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+                fpsMonitor->attach(win);
+                qInfo() << "[MarathonShell] FPS overlay enabled";
+                break;
+            }
+        }
+    }
+
     QTimer::singleShot(
         0, &app, [&app, settingsManager, appModel, appRegistry, appScanner, permissionManager]() {
             const QStringList searchPaths = {
@@ -763,7 +1242,7 @@ int main(int argc, char *argv[]) {
                 auto *info = appRegistry->getAppInfo(appId);
                 if (!info || !info->isProtected)
                     return;
-                for (const QString &perm : info->permissions) {
+                for (const QString &perm : std::as_const(info->permissions)) {
                     if (!perm.isEmpty())
                         permissionManager->setPermission(appId, perm, true, true);
                 }
@@ -772,7 +1251,8 @@ int main(int argc, char *argv[]) {
             QObject::connect(appScanner, &MarathonAppScanner::appDiscovered, &app, grantProtected);
             QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
                              [appModel, appRegistry, grantProtected](int) {
-                                 for (const QString &id : appRegistry->getAllAppIds())
+                                 const auto allAppIds = appRegistry->getAllAppIds();
+                                 for (const QString &id : allAppIds)
                                      grantProtected(id);
                                  appModel->loadFromRegistry(appRegistry);
                              });
@@ -782,8 +1262,47 @@ int main(int argc, char *argv[]) {
 #else
         appScanner->scanApplications();
 #endif
+
+            QStringList flatpakDirs;
+            for (const QString &p :
+                 {QStringLiteral("/var/lib/flatpak/exports/share/applications"),
+                  QDir::homePath() +
+                      QStringLiteral("/.local/share/flatpak/exports/share/applications")}) {
+                if (QDir(p).exists())
+                    flatpakDirs.append(p);
+            }
+            if (!flatpakDirs.isEmpty()) {
+                auto *flatpakWatcher = new QFileSystemWatcher(&app);
+                flatpakWatcher->addPaths(flatpakDirs);
+
+                auto *debounce = new QTimer(&app);
+                debounce->setSingleShot(true);
+                debounce->setInterval(500);
+
+                QObject::connect(flatpakWatcher, &QFileSystemWatcher::directoryChanged, debounce,
+                                 qOverload<>(&QTimer::start));
+
+                QObject::connect(
+                    debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, filterMobile]() {
+                        DesktopFileParser  parser;
+                        const QVariantList apps =
+                            parser.scanApplications(flatpakDirs, filterMobile);
+
+                        QSet<QString> seen;
+                        for (const QVariant &v : apps)
+                            seen.insert(v.toMap().value(QStringLiteral("id")).toString());
+
+                        const QStringList existing =
+                            appModel->appIdsByType(QStringLiteral("flatpak"));
+                        for (const QString &id : existing) {
+                            if (!seen.contains(id))
+                                appModel->removeApp(id);
+                        }
+                        appModel->addApps(apps);
+                    });
+            }
         });
 
     qDebug() << "Marathon OS Shell started";
-    return app.exec();
+    return QGuiApplication::exec();
 }

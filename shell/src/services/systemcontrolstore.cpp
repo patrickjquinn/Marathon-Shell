@@ -47,9 +47,8 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_bluetoothManager) {
-        setIsBluetoothOn(m_bluetoothManager->enabled());
         connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
-                [this]() { setIsBluetoothOn(m_bluetoothManager->enabled()); });
+                &SystemControlStore::isBluetoothOnChanged);
     }
 
     if (m_displayManager) {
@@ -133,6 +132,20 @@ void SystemControlStore::toggleWifi() {
     }
 }
 
+bool SystemControlStore::isBluetoothOn() const {
+    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
+}
+
+int SystemControlStore::brightness() const {
+    // Live-read so we don't ship a cached 0% that was captured before
+    // the backlight device finished probing. Same passthrough pattern
+    // as isBluetoothOn().
+    if (!m_displayManager)
+        return 0;
+    return static_cast<int>(
+        std::round(std::clamp(m_displayManager->brightness(), 0.0, 1.0) * 100.0));
+}
+
 void SystemControlStore::toggleBluetooth() {
     if (m_bluetoothManager) {
         m_bluetoothManager->setEnabled(!m_bluetoothManager->enabled());
@@ -187,8 +200,6 @@ void SystemControlStore::toggleDndMode() {
         m_audioPolicyController->setDoNotDisturb(!m_isDndMode);
     }
 }
-
-void SystemControlStore::toggleAlarm() {}
 
 void SystemControlStore::toggleLowPowerMode() {
     if (m_powerManager) {
@@ -252,6 +263,17 @@ void SystemControlStore::setBrightness(int value) {
     setBrightnessValue(clamped);
 }
 
+void SystemControlStore::setBrightnessFromUser(int value) {
+    int clamped = std::clamp(value, 0, 100);
+    if (m_displayManager) {
+        // Routes through the learning path so the adaptive curve is taught;
+        // the plain setBrightness above stays silent for idle-dim/programmatic.
+        m_displayManager->setBrightnessFromUser(static_cast<double>(clamped) / 100.0);
+    }
+    setBrightnessValue(clamped);
+    emit userBrightnessChanged(clamped);
+}
+
 void SystemControlStore::setVolume(int value) {
     int clamped = std::clamp(value, 0, 100);
     if (m_audioManager) {
@@ -286,14 +308,6 @@ void SystemControlStore::setIsWifiOn(bool enabled) {
     }
     m_isWifiOn = enabled;
     emit isWifiOnChanged();
-}
-
-void SystemControlStore::setIsBluetoothOn(bool enabled) {
-    if (m_isBluetoothOn == enabled) {
-        return;
-    }
-    m_isBluetoothOn = enabled;
-    emit isBluetoothOnChanged();
 }
 
 void SystemControlStore::setIsAirplaneModeOn(bool enabled) {

@@ -7,6 +7,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <syslog.h>
+#include <utility>   // std::as_const
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
     : QObject(parent) {
@@ -245,7 +246,7 @@ bool MarathonAppVerifier::isTrustedKey(const QString &keyFingerprint) {
     QDir        keysDir(trustedKeysDir);
     QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 
-    for (const QString &keyFile : keyFiles) {
+    for (const QString &keyFile : std::as_const(keyFiles)) {
         if (keyFile.contains(keyFingerprint, Qt::CaseInsensitive)) {
             return true;
         }
@@ -285,7 +286,7 @@ bool MarathonAppVerifier::removeTrustedKey(const QString &keyFingerprint) {
     QDir        keysDir(trustedKeysDir);
     QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 
-    for (const QString &keyFile : keyFiles) {
+    for (const QString &keyFile : std::as_const(keyFiles)) {
         if (keyFile.contains(keyFingerprint, Qt::CaseInsensitive)) {
             QString fullPath = trustedKeysDir + "/" + keyFile;
             if (QFile::remove(fullPath)) {

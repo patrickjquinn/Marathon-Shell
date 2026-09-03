@@ -1,17 +1,14 @@
 #pragma once
 
-#include <QObject>
-#include <QString>
-#include <QVariant>
 #include <QDBusConnection>
 #include <QDBusInterface>
-#include <QDBusPendingCallWatcher>
-#include <QTimer>
-
-#include <QTimer>
-#include <QMap>
-#include <QVariant>
 #include <QDBusObjectPath>
+#include <QDBusPendingCallWatcher>
+#include <QMap>
+#include <QObject>
+#include <QString>
+#include <QTimer>
+#include <QVariant>
 
 typedef QMap<QString, QVariant>             PropertyMap;
 typedef QMap<QString, PropertyMap>          InterfaceMap;
@@ -158,7 +155,6 @@ class BluetoothManager : public QObject {
     void updateAdapterProperties();
     void refreshDevices();
 
-    void connectToBlueZ();
     BluetoothDevice *findDeviceByPath(const QString &path);
     BluetoothDevice *findDeviceByAddress(const QString &address);
     void             addDevice(const QString &path);

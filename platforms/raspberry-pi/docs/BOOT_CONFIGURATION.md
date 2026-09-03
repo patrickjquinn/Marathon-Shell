@@ -125,7 +125,7 @@ sudo reboot
    greeter-session=lightdm-gtk-greeter
    
    # NOT Wayland-based:
-   # greeter-session=pi-greeter-labwc  ❌
+   # greeter-session=pi-greeter-labwc 
    ```
 
 2. **Missing permissions**
@@ -370,7 +370,7 @@ groups pi
 # Should include: video render
 ```
 
-All checks passed? **You're ready to reboot into Marathon Shell!** 🚀
+All checks passed? **You're ready to reboot into Marathon Shell!**
 
 ---
 

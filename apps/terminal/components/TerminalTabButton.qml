@@ -1,9 +1,7 @@
-import MarathonApp.Terminal
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
@@ -32,7 +30,7 @@ Rectangle {
         Icon {
             name: "terminal"
             size: 16
-            color: active ? "black" : MColors.text
+            color: root.active ? "black" : MColors.text
             Layout.alignment: Qt.AlignVCenter
         }
 
@@ -41,9 +39,9 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
             text: root.title
             font.pixelSize: MTypography.sizeBody
-            font.weight: active ? MTypography.weightDemiBold : MTypography.weightNormal
+            font.weight: root.active ? MTypography.weightDemiBold : MTypography.weightNormal
             font.family: MTypography.fontFamily
-            color: active ? "black" : MColors.text
+            color: root.active ? "black" : MColors.text
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
@@ -57,7 +55,7 @@ Rectangle {
             visible: root.canClose
             onClicked: root.closeClicked()
             Layout.alignment: Qt.AlignVCenter
-            iconColor: active ? "black" : MColors.text
+            iconColor: root.active ? "black" : MColors.text
         }
     }
 

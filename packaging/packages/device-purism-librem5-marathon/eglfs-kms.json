@@ -1,0 +1,6 @@
+{
+  "device": "/dev/dri/by-path/platform-30320000.lcd-controller-card",
+  "hwcursor": false,
+  "pbuffers": true,
+  "atomic": true
+}

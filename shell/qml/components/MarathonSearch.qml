@@ -26,7 +26,7 @@ Item {
     }
 
     function setKeyboardVisible(show) {
-        if (typeof InputMethodEngine !== "undefined" && (!Platform || !Platform.hasHardwareKeyboard)) {
+        if (!Platform.hasHardwareKeyboard) {
             InputMethodEngine.showKeyboard(show);
         }
     }
@@ -356,7 +356,7 @@ Item {
     }
 
     Behavior on opacity {
-        enabled: !active
+        enabled: !searchOverlay.active
 
         NumberAnimation {
             duration: 200

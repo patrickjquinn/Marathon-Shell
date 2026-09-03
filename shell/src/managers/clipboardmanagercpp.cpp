@@ -94,7 +94,7 @@ QVariantList ClipboardManagerCpp::parseHistory(const QVariant &raw) const {
         QVariantList     list;
         const QJsonArray arr = doc.array();
         list.reserve(arr.size());
-        for (const QJsonValue &value : arr) {
+        for (const auto &value : arr) {
             if (!value.isObject())
                 continue;
             list.append(value.toObject().toVariantMap());

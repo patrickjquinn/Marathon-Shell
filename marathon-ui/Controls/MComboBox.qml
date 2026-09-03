@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string label: ""
     property variant options: []
@@ -130,7 +133,7 @@ Item {
                     }
 
                     Keys.onDownPressed: {
-                        if (root.expanded && filteredOptions.length > 0) {
+                        if (root.expanded && root.filteredOptions.length > 0) {
                             listView.currentIndex = 0;
                             listView.forceActiveFocus();
                         }
@@ -142,7 +145,7 @@ Item {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: 18
+                    size: Math.round(18 * root.scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.expanded ? 180 : 0
@@ -159,7 +162,7 @@ Item {
 
     Rectangle {
         id: dropdownMenu
-        visible: root.expanded && filteredOptions.length > 0
+        visible: root.expanded && root.filteredOptions.length > 0
         y: inputContainer.y + inputContainer.height + MSpacing.xs
         width: parent.width
         height: Math.min(listView.contentHeight, root.maxVisibleItems * 44)
@@ -192,17 +195,14 @@ Item {
             shadowColor: Qt.rgba(0, 0, 0, 0.6)
             shadowVerticalOffset: 4
             shadowBlur: 0.6
-            blurMax: 16
+            blurMax: MBlur.md
             paddingRect: Qt.rect(0, 0, 0, 20)
         }
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: MColors.highlightSubtle
+        MTopHairline {
+            radius: parent.radius
+            color: MColors.highlightSubtle
+            lineWidth: 1
         }
 
         ListView {
@@ -234,7 +234,7 @@ Item {
                 required property int index
 
                 width: listView.width
-                height: 44
+                height: Math.round(44 * scaleFactor)
                 color: {
                     if (index === listView.currentIndex && listView.activeFocus)
                         return MColors.marathonTealHoverGradient;

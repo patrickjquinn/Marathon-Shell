@@ -12,16 +12,16 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │                       Marathon Shell Process                     │
-├─────────────────────────────────────────────────────────────────┤
+├------------------------------------------------------------┤
 │  QML Shell UI (MarathonShell.qml)                               │
 │  ├── App Grid                                                    │
 │  ├── Task Switcher                                               │
 │  ├── Hub (Notifications)                                         │
 │  ├── Quick Settings                                              │
 │  └── Status Bar                                                  │
-├─────────────────────────────────────────────────────────────────┤
+├------------------------------------------------------------┤
 │  C++ Backend (main.cpp, src/)                                    │
 │  ├── WaylandCompositor (QtWaylandCompositor)                    │
 │  ├── AppLifecycleManager                                         │
@@ -33,19 +33,19 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 │      ├── BluetoothManager (BlueZ D-Bus)                          │
 │      ├── ModemManagerCpp (ModemManager D-Bus)                    │
 │      └── Security Manager (PAM)                                  │
-├─────────────────────────────────────────────────────────────────┤
+├------------------------------------------------------------┤
 │  Marathon Core Library (libmarathon-core.a)                      │
 │  ├── MarathonAppPackager                                         │
 │  ├── MarathonAppVerifier (GPG)                                   │
 │  ├── MarathonAppInstaller                                        │
 │  └── Permission Manager                                          │
-├─────────────────────────────────────────────────────────────────┤
+├------------------------------------------------------------┤
 │  Qt6 Framework                                                   │
 │  ├── QtQuick & QML Engine                                        │
 │  ├── QtWaylandCompositor                                         │
 │  ├── QtDBus                                                      │
 │  └── QtMultimedia                                                │
-└─────────────────────────────────────────────────────────────────┘
+└------------------------------------------------------------┘
          │                           │                    │
          ▼                           ▼                    ▼
     Wayland Protocol          D-Bus Services        Marathon Apps

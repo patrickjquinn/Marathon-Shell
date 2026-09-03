@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <pattern id="mesh-fine" width="6" height="6" patternUnits="userSpaceOnUse">
+      <path d="M 6 0 L 0 0 0 6" fill="none" stroke="rgba(255,255,255,0.022)" stroke-width="0.3"/>
+    </pattern>
+    <pattern id="mesh-main" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(29,233,182,0.07)" stroke-width="0.5"/>
+    </pattern>
+    <radialGradient id="mesh-vignette" cx="0.5" cy="0.6398" r="0.85">
+      <stop offset="0.35" stop-color="#040404" stop-opacity="0"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0.75"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#mesh-fine)"/>
+  <rect width="390" height="844" fill="url(#mesh-main)"/>
+  <line x1="0" y1="540" x2="390" y2="540" stroke="#1de9b6" stroke-width="0.9" opacity="0.55"/>
+  <line x1="195" y1="0" x2="195" y2="844" stroke="#1de9b6" stroke-width="0.9" opacity="0.55"/>
+  <circle cx="195" cy="540" r="3" fill="#5dffdc" opacity="0.95"/>
+  <circle cx="195" cy="540" r="10" fill="#1de9b6" opacity="0.18"/>
+  <rect width="390" height="844" fill="url(#mesh-vignette)"/>
+</svg>

@@ -56,8 +56,8 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: timeoutMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : ((typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
-                                border.width: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Constants.borderWidthMedium : 0
+                                color: timeoutMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : ((DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent")
+                                border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 
                                 Behavior on color {
@@ -79,8 +79,8 @@ SettingsPageTemplate {
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
                                     color: "transparent"
-                                    border.width: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
-                                    border.color: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? MColors.marathonTeal : MColors.border
+                                    border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
+                                    border.color: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? MColors.marathonTeal : MColors.border
 
                                     Rectangle {
                                         anchors.centerIn: parent
@@ -88,7 +88,7 @@ SettingsPageTemplate {
                                         height: Constants.iconSizeSmall
                                         radius: Constants.iconSizeSmall / 2
                                         color: MColors.marathonTeal
-                                        visible: typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
+                                        visible: DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
                                     }
                                 }
 
@@ -98,7 +98,7 @@ SettingsPageTemplate {
                                     color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
-                                    font.weight: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Font.DemiBold : Font.Normal
+                                    font.weight: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Font.DemiBold : Font.Normal
                                 }
                             }
 
@@ -108,8 +108,7 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 onClicked: {
                                     var value = SettingsManagerCpp.screenTimeoutValue(modelData);
-                                    if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                        DisplayManagerCpp.screenTimeout = value;
+                                    DisplayManagerCpp.screenTimeout = value;
 
                                     Logger.info("ScreenTimeoutPage", "Screen timeout changed to: " + modelData);
                                 }

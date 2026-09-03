@@ -31,7 +31,7 @@ class LocationManager : public QObject {
 
   public:
     explicit LocationManager(QObject *parent = nullptr);
-    ~LocationManager();
+    ~LocationManager() override;
 
     bool available() const {
         return m_available;

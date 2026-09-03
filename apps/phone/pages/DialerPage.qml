@@ -1,4 +1,3 @@
-import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -111,6 +110,7 @@ Rectangle {
 
                         anchors.centerIn: parent
                         text: modelData.digit
+                        a11yName: modelData.digit === "*" ? qsTr("Star") : modelData.digit === "#" ? qsTr("Pound") : modelData.digit
                         buttonSize: Math.min(parent.width, parent.height) - 10
                         iconSize: 24
                         variant: "secondary"
@@ -137,6 +137,7 @@ Rectangle {
 
             MIconButton {
                 iconName: "delete"
+                a11yName: qsTr("Backspace")
                 iconSize: 28
                 variant: "secondary"
                 disabled: dialedNumber.length === 0

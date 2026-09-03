@@ -1,7 +1,6 @@
-import QtQuick
+import MarathonUI.Effects
 import MarathonUI.Theme
-import MarathonUI.Core
-import MarathonUI.Controls
+import QtQuick
 
 Rectangle {
     id: root
@@ -37,13 +36,10 @@ Rectangle {
 
     layer.enabled: false
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.highlightSubtle
+    MTopHairline {
+        radius: parent.radius
+        color: MColors.highlightSubtle
+        lineWidth: 1
     }
 
     Column {

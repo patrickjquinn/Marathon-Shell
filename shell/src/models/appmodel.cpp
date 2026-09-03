@@ -2,6 +2,7 @@
 #include "marathonappregistry.h"
 #include <QDebug>
 #include <algorithm>
+#include <utility>   // std::as_const
 
 AppModel::AppModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -28,17 +29,19 @@ QVariant AppModel::data(const QModelIndex &index, int role) const {
         case IconRole: return app->icon();
         case TypeRole: return app->type();
         case ExecRole: return app->exec();
+        case FlatpakRefRole: return app->flatpakRef();
         default: return QVariant();
     }
 }
 
 QHash<int, QByteArray> AppModel::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[IdRole]   = "id";
-    roles[NameRole] = "name";
-    roles[IconRole] = "icon";
-    roles[TypeRole] = "type";
-    roles[ExecRole] = "exec";
+    roles[IdRole]         = "id";
+    roles[NameRole]       = "name";
+    roles[IconRole]       = "icon";
+    roles[TypeRole]       = "type";
+    roles[ExecRole]       = "exec";
+    roles[FlatpakRefRole] = "flatpakRef";
     return roles;
 }
 
@@ -53,7 +56,8 @@ App *AppModel::getAppAtIndex(int index) {
 }
 
 void AppModel::addApp(const QString &id, const QString &name, const QString &icon,
-                      const QString &type, const QString &exec) {
+                      const QString &type, const QString &exec, const QStringList &permissions,
+                      const QString &flatpakRef) {
 
     if (m_appIndex.contains(id)) {
         qDebug() << "[AppModel] App already exists:" << id;
@@ -70,13 +74,13 @@ void AppModel::addApp(const QString &id, const QString &name, const QString &ico
         return;
     }
 
-    if (type != "native" && type != "marathon" && type != "system") {
+    if (type != "native" && type != "marathon" && type != "system" && type != "flatpak") {
         qWarning() << "[AppModel] Invalid app type:" << type << "for ID:" << id;
         return;
     }
 
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
-    App *app = new App(id, name, icon, type, exec, this);
+    App *app = new App(id, name, icon, type, exec, permissions, flatpakRef, this);
     m_apps.append(app);
     m_appIndex[id] = app;
     endInsertRows();
@@ -102,12 +106,14 @@ void AppModel::addApps(const QVariantList &apps) {
 
         if (id.isEmpty() || name.isEmpty() || icon.isEmpty())
             continue;
-        if (type != "native" && type != "marathon" && type != "system")
+        if (type != "native" && type != "marathon" && type != "system" && type != "flatpak")
             continue;
         if (m_appIndex.contains(id))
             continue;
 
-        newApps.append(new App(id, name, icon, type, exec, this));
+        const QStringList perms = appMap.value("permissions").toStringList();
+        const QString     ref   = appMap.value("flatpakRef").toString();
+        newApps.append(new App(id, name, icon, type, exec, perms, ref, this));
     }
 
     if (newApps.isEmpty())
@@ -184,7 +190,7 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
 
     QStringList appIds = registry->getAllAppIds();
     appIds.sort();
-    for (const QString &appId : appIds) {
+    for (const QString &appId : std::as_const(appIds)) {
         QVariantMap appInfo = registry->getApp(appId);
 
         QString     id      = appInfo.value("id").toString();
@@ -196,7 +202,7 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
         if (typeInt == MarathonAppRegistry::Native) {
             type = "native";
         } else if (typeInt == MarathonAppRegistry::System) {
-            type = "marathon";
+            type = "system";
         }
 
         QString absolutePath = appInfo.value("absolutePath").toString();
@@ -208,13 +214,15 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
             icon = "file://" + icon;
         }
 
+        const QStringList permissions = appInfo.value("permissions").toStringList();
+
         if (m_appIndex.contains(id)) {
             qDebug() << "[AppModel] Updating app from registry:" << id;
 
             removeApp(id);
-            addApp(id, name, icon, type);
+            addApp(id, name, icon, type, QString(), permissions);
         } else {
-            addApp(id, name, icon, type);
+            addApp(id, name, icon, type, QString(), permissions);
             qDebug() << "[AppModel] Added app from registry:" << id;
         }
     }
@@ -236,6 +244,15 @@ void AppModel::cleanupMissingApps(const QStringList &registryAppIds) {
             removeApp(hardcodedId);
         }
     }
+}
+
+QStringList AppModel::appIdsByType(const QString &type) const {
+    QStringList ids;
+    for (const App *app : m_apps) {
+        if (app->type() == type)
+            ids.append(app->id());
+    }
+    return ids;
 }
 
 void AppModel::sortAppsByName() {

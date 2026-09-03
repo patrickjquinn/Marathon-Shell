@@ -1,0 +1,12 @@
+#!/bin/sh
+# device-hackberrypi-cm5-marathon post-install
+#
+# - Enable the dwc2 IRQ steering oneshot (sysinit.target.wants symlink
+#   is already shipped; this is just a safety net for envs where preset
+#   processing didn't fire).
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable marathon-irq-dwc2.service 2>/dev/null || true
+fi
+
+exit 0

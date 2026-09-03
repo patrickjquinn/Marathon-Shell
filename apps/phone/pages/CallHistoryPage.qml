@@ -1,4 +1,3 @@
-import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -45,12 +44,13 @@ Rectangle {
         topMargin: MSpacing.md
         model: phoneApp.callHistory
 
-        Text {
+        MEmptyState {
             anchors.centerIn: parent
+            width: parent.width - MSpacing.xl * 2
             visible: historyList.count === 0
-            text: "No call history"
-            font.pixelSize: MTypography.sizeLarge
-            color: MColors.textSecondary
+            iconName: "phone"
+            title: "No recent calls"
+            message: "Calls you make and receive will show up here. Tap Dial to make your first call."
         }
 
         delegate: Rectangle {

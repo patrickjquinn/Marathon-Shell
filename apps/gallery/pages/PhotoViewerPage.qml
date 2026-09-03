@@ -1,7 +1,4 @@
-import MarathonApp.Gallery
-import MarathonApp.Gallery
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -28,7 +25,7 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: {
+        onClicked: function(mouse) {
             if (mouse.y > parent.height * 0.1 && mouse.y < parent.height * 0.9)
                 photoViewer.hide();
         }
@@ -40,7 +37,8 @@ Rectangle {
         anchors.centerIn: parent
         width: parent.width
         height: parent.height
-        source: photo ? photo.path : ""
+        source: photoViewer.photo ? photoViewer.photo.path : ""
+        sourceSize: Qt.size(width, height)
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         cache: true
@@ -85,8 +83,8 @@ Rectangle {
                 iconSize: Constants.iconSizeLarge
                 iconColor: "#FF4444"
                 onClicked: {
-                    if (photo && typeof MediaLibraryManager !== 'undefined') {
-                        MediaLibraryManager.deletePhoto(photo.id);
+                    if (photoViewer.photo) {
+                        MediaLibraryManager.deletePhoto(photoViewer.photo.id);
                         photoViewer.hide();
                     }
                 }

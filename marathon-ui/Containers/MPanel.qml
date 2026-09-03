@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string header: ""
     property alias content: panelContent.data
@@ -46,13 +49,10 @@ Rectangle {
 
     layer.enabled: false
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.highlightSubtle
+    MTopHairline {
+        radius: parent.radius
+        color: MColors.highlightSubtle
+        lineWidth: 1
     }
 
     Column {
@@ -98,7 +98,7 @@ Rectangle {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: 18
+                    size: Math.round(18 * root.scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.collapsed ? -90 : 0

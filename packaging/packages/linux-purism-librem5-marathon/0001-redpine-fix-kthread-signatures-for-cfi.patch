@@ -1,0 +1,136 @@
+From: Patrick Quinn <patrick@jquinn.com>
+Date: 2026-06-23
+Subject: [PATCH] redpine: fix kthread function signatures for kCFI
+
+The out-of-tree Silicon Labs Redpine RS9116 driver (drivers/net/wireless/
+redpine/) declares its kthread functions with the wrong signature:
+
+    static void rsi_tx_scheduler_thread(struct rsi_common *common)
+    static void rsi_coex_scheduler_thread(struct rsi_common *common)
+    void        rsi_sdio_rx_thread(struct rsi_common *common)
+
+then passes them to kthread_run() through rsi_create_kthread()'s `void *
+func_ptr` parameter. kthread_run() expects `int (*)(void *)`. The implicit
+cast through a `void *` parameter slot bypasses the C type system but
+NOT kCFI: at runtime, kthread() calls the function pointer with a kCFI
+hash check for `int (*)(void *)` (0x89fb613d), the actual function has
+the hash for its declared signature, and the check fires.
+
+With CONFIG_CFI_CLANG=y and CONFIG_CFI_PERMISSIVE=n (Alpine's default
+linux-purism-librem5 build), each mismatch is "Internal error: Oops -
+CFI" — the offending thread is killed. On the Librem 5 with an RS9116
+M.2 card, three threads die at driver load:
+
+    CFI failure at kthread+0x124/0x1cc (target: rsi_tx_scheduler_thread)
+    CFI failure at kthread+0x124/0x1cc (target: rsi_coex_scheduler_thread)
+    CFI failure at kthread+0x124/0x1cc (target: rsi_sdio_rx_thread)
+
+The driver itself appears to come up — firmware loads, BT side works via
+the BT subsystem path — but no wlan0 ever registers because the TX and
+RX paths are gone. NetworkManager reports WIFI-HW: missing.
+
+Fix is the standard kthread idiom: declare each function as
+`int func(void *data)`, cast `data` to the real argument type inside the
+body, and tighten rsi_create_kthread()'s function-pointer parameter to
+`int (*)(void *)` so future signature drift gets caught at compile time.
+The bare `return;` in rsi_sdio_rx_thread's error path becomes `return 0;`.
+
+kthread_complete_and_exit() is __noreturn so no trailing `return 0;` is
+needed at end-of-function — the compiler accepts it.
+
+Same fix applies to the in-tree drivers/net/wireless/rsi/ tree (mainline
+has the same signature pattern — `void func(struct rsi_common *)` with
+the cast hidden in rsi_create_kthread). That tree isn't loaded on the
+L5 (rsi_91x and rsi_sdio are blacklisted in /usr/lib/modprobe.d/rsi.conf
+in favour of the out-of-tree redpine driver) so we don't patch it here.
+Upstream fix should mirror this against drivers/net/wireless/rsi/ as well.
+
+Signed-off-by: Patrick Quinn <patrick@jquinn.com>
+---
+diff -urN orig/drivers/net/wireless/redpine/rsi_91x_coex.c new/drivers/net/wireless/redpine/rsi_91x_coex.c
+--- a/drivers/net/wireless/redpine/rsi_91x_coex.c
++++ b/drivers/net/wireless/redpine/rsi_91x_coex.c
+@@ -87,12 +87,14 @@
+ /**
+  * rsi_coex_scheduler_thread() - This function is a kernel thread to schedule
+  *			       the coex packets to device
+- * @common: Pointer to the driver private structure.
++ * @data: Driver private structure (cast from void *) — kthread signature.
+  *
+- * Return: None.
++ * Return: 0 on thread exit (kthread_complete_and_exit is __noreturn so this
++ *         is unreachable, but kCFI requires the int(void *) signature).
+  */
+-static void rsi_coex_scheduler_thread(struct rsi_common *common)
++static int rsi_coex_scheduler_thread(void *data)
+ {
++	struct rsi_common *common = data;
+ 	int status = 0;
+ 	struct rsi_coex_ctrl_block *coex_cb =
+ 		(struct rsi_coex_ctrl_block *)common->coex_cb;
+diff -urN orig/drivers/net/wireless/redpine/rsi_91x_main.c new/drivers/net/wireless/redpine/rsi_91x_main.c
+--- a/drivers/net/wireless/redpine/rsi_91x_main.c
++++ b/drivers/net/wireless/redpine/rsi_91x_main.c
+@@ -600,12 +600,14 @@
+ /**
+  * rsi_tx_scheduler_thread() - This function is a kernel thread to send the
+  *			       packets to the device.
+- * @common: Pointer to the driver private structure.
++ * @data: Driver private structure (cast from void *) — kthread signature.
+  *
+- * Return: None.
++ * Return: 0 on thread exit (kthread_complete_and_exit is __noreturn so this
++ *         is unreachable, but kCFI requires the int(void *) signature).
+  */
+-static void rsi_tx_scheduler_thread(struct rsi_common *common)
++static int rsi_tx_scheduler_thread(void *data)
+ {
++	struct rsi_common *common = data;
+ 	int status = 0;
+ 	struct rsi_hw *adapter = common->priv;
+ 	u32 timeout = EVENT_WAIT_FOREVER;
+diff -urN orig/drivers/net/wireless/redpine/rsi_91x_sdio_ops.c new/drivers/net/wireless/redpine/rsi_91x_sdio_ops.c
+--- a/drivers/net/wireless/redpine/rsi_91x_sdio_ops.c
++++ b/drivers/net/wireless/redpine/rsi_91x_sdio_ops.c
+@@ -74,8 +74,9 @@
+ 	return status;
+ }
+
+-void rsi_sdio_rx_thread(struct rsi_common *common)
++int rsi_sdio_rx_thread(void *data)
+ {
++	struct rsi_common *common = data;
+ 	struct rsi_hw *adapter = common->priv;
+ 	struct rsi_91x_sdiodev *sdev = adapter->rsi_dev;
+ 	struct sk_buff *skb;
+@@ -99,7 +100,7 @@
+ 			if (status) {
+ 				redpine_dbg(ERR_ZONE, "Failed to read the packet\n");
+ 				dev_kfree_skb(skb);
+-				return;
++				return 0;
+ 			}
+ 			dev_kfree_skb(skb);
+ 			if (sdev->rx_q.num_rx_pkts > 0)
+diff -urN orig/drivers/net/wireless/redpine/rsi_common.h new/drivers/net/wireless/redpine/rsi_common.h
+--- a/drivers/net/wireless/redpine/rsi_common.h
++++ b/drivers/net/wireless/redpine/rsi_common.h
+@@ -73,7 +73,7 @@
+
+ static inline int rsi_create_kthread(struct rsi_common *common,
+ 				     struct rsi_thread *thread,
+-				     void *func_ptr,
++				     int (*func_ptr)(void *),
+ 				     u8 *name)
+ {
+ 	init_completion(&thread->completion);
+diff -urN orig/drivers/net/wireless/redpine/rsi_sdio.h new/drivers/net/wireless/redpine/rsi_sdio.h
+--- a/drivers/net/wireless/redpine/rsi_sdio.h
++++ b/drivers/net/wireless/redpine/rsi_sdio.h
+@@ -185,5 +185,5 @@
+ int rsi_sdio_determine_event_timeout(struct rsi_hw *adapter);
+ int rsi_sdio_check_buffer_status(struct rsi_hw *adapter, u8 q_num);
+ int rsi_read_intr_status_reg(struct rsi_hw *adapter);
+-void rsi_sdio_rx_thread(struct rsi_common *common);
++int rsi_sdio_rx_thread(void *data);
+ #endif

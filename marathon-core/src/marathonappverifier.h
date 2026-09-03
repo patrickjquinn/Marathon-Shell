@@ -8,7 +8,7 @@ class MarathonAppVerifier : public QObject {
     Q_OBJECT
 
   public:
-    enum VerificationResult {
+    enum VerificationResult : quint8 {
         Valid,
         InvalidSignature,
         UntrustedKey,
@@ -22,8 +22,8 @@ class MarathonAppVerifier : public QObject {
 
     explicit MarathonAppVerifier(QObject *parent = nullptr);
 
-    Q_INVOKABLE VerificationResult verifyPackage(const QString &packagePath);
-    Q_INVOKABLE VerificationResult verifyDirectory(const QString &appDir);
+    Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyPackage(const QString &packagePath);
+    Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyDirectory(const QString &appDir);
 
     Q_INVOKABLE bool        signManifest(const QString &manifestPath, const QString &signaturePath,
                                          const QString &keyId = QString());
@@ -41,7 +41,7 @@ class MarathonAppVerifier : public QObject {
 
   signals:
     void verificationStarted();
-    void verificationComplete(VerificationResult result);
+    void verificationComplete(MarathonAppVerifier::VerificationResult result);
     void error(const QString &message);
 
   private:

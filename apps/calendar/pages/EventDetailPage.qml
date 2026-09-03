@@ -1,18 +1,18 @@
-import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls // qmllint disable unused-imports
+// ^ required at runtime for the StackView attached property (root.StackView.view);
+//   qmllint does not count attached-property use, so it reports it unused.
 import QtQuick.Layouts
 
 MPage {
     id: root
 
     property var event: ({})
-    property var onDelete: null
+    property var deleteCallback: null
 
     title: "Event Details"
     showBackButton: true
@@ -66,8 +66,8 @@ MPage {
             text: "Delete Event"
             variant: "secondary"
             onClicked: {
-                if (root.onDelete)
-                    root.onDelete(root.event.id);
+                if (root.deleteCallback)
+                    root.deleteCallback(root.event.id);  // qmllint disable use-proper-function
 
                 root.StackView.view.pop();
             }

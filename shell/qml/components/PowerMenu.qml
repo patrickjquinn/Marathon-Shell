@@ -1,4 +1,6 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -106,13 +108,10 @@ Item {
                     border.color: MColors.border
                     scale: sleepMouseArea.pressed ? 0.95 : 1
 
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 1
-                        radius: parent.radius - 1
-                        color: "transparent"
-                        border.width: 1
-                        border.color: MColors.borderSubtle
+                    MTopHairline {
+                        radius: parent.radius
+                        color: MColors.borderSubtle
+                        lineWidth: 1
                     }
 
                     Column {
@@ -173,13 +172,10 @@ Item {
                     border.color: MColors.border
                     scale: rebootMouseArea.pressed ? 0.95 : 1
 
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 1
-                        radius: parent.radius - 1
-                        color: "transparent"
-                        border.width: 1
-                        border.color: MColors.borderSubtle
+                    MTopHairline {
+                        radius: parent.radius
+                        color: MColors.borderSubtle
+                        lineWidth: 1
                     }
 
                     Column {

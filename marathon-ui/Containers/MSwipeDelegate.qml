@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property alias contentItem: contentContainer.data
     property list<QtObject> leftActions
@@ -18,7 +21,7 @@ Item {
     signal swipeFinished
 
     width: parent.width
-    height: 88
+    height: Math.round(88 * scaleFactor)
     clip: true
 
     Row {
@@ -27,20 +30,20 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: childrenRect.width
-        visible: leftActions.length > 0
+        visible: root.leftActions.length > 0
 
         Repeater {
             model: root.leftActions
 
             Rectangle {
-                width: 80
+                width: Math.round(80 * scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.success
 
                 Icon {
                     anchors.centerIn: parent
                     name: modelData.icon || ""
-                    size: 24
+                    size: Math.round(24 * scaleFactor)
                     color: MColors.textOnAccent
                 }
 
@@ -64,20 +67,20 @@ Item {
         anchors.bottom: parent.bottom
         width: childrenRect.width
         layoutDirection: Qt.RightToLeft
-        visible: rightActions.length > 0
+        visible: root.rightActions.length > 0
 
         Repeater {
             model: root.rightActions
 
             Rectangle {
-                width: 80
+                width: Math.round(80 * scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.error
 
                 Icon {
                     anchors.centerIn: parent
                     name: modelData.icon || ""
-                    size: 24
+                    size: Math.round(24 * scaleFactor)
                     color: MColors.textOnAccent
                 }
 
@@ -107,7 +110,7 @@ Item {
             SpringAnimation {
                 spring: MMotion.springHeavy
                 damping: MMotion.dampingHeavy
-                epsilon: MMotion.epsilon
+                epsilon: MMotion.epsilonSpatial
             }
         }
 
@@ -116,8 +119,8 @@ Item {
             anchors.fill: parent
             drag.target: contentContainer
             drag.axis: Drag.XAxis
-            drag.minimumX: rightActions.length > 0 ? -rightActionsRow.width : 0
-            drag.maximumX: leftActions.length > 0 ? leftActionsRow.width : 0
+            drag.minimumX: root.rightActions.length > 0 ? -rightActionsRow.width : 0
+            drag.maximumX: root.leftActions.length > 0 ? leftActionsRow.width : 0
 
             property real startX: 0
 
@@ -131,11 +134,11 @@ Item {
                 var absDistance = Math.abs(swipeDistance);
 
                 if (absDistance > root.threshold) {
-                    if (swipeDistance > 0 && leftActions.length > 0) {
+                    if (swipeDistance > 0 && root.leftActions.length > 0) {
                         contentContainer.x = leftActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();
-                    } else if (swipeDistance < 0 && rightActions.length > 0) {
+                    } else if (swipeDistance < 0 && root.rightActions.length > 0) {
                         contentContainer.x = -rightActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();

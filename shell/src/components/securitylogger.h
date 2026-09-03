@@ -4,11 +4,12 @@
 #include <QString>
 #include <QDateTime>
 #include <QMutex>
+#include <QtGlobal>
 #include <syslog.h>
 
 class SecurityLogger {
   public:
-    enum EventType {
+    enum EventType : quint8 {
         AuthSuccess,
         AuthFailure,
         AuthLockout,
@@ -18,7 +19,8 @@ class SecurityLogger {
         SandboxViolation,
         RateLimitExceeded,
         PathTraversalBlocked,
-        InvalidInput
+        InvalidInput,
+        EmergencyDial
     };
 
     static void initialize(const QString &appName = "marathon-shell") {
@@ -88,23 +90,54 @@ class SecurityLogger {
                 .arg(source, field, reason));
     }
 
+    // Audit trail for emergency dials. Logs metadata only -- never call
+    // content / DTMF / audio. The dialed number is kept (it is, by design,
+    // an emergency number -- these are public). Operator + emergencyOnly +
+    // gpsAvailable help debug field reports without dragging in coordinates.
+    static void logEmergencyDial(const QString &number, const QString &modemPath,
+                                 const QString &networkOperator, bool emergencyOnly,
+                                 bool gpsAvailable) {
+        log(EmergencyDial,
+            QString("Emergency dial: number=%1 modem=%2 operator=%3 emergencyOnly=%4 gps=%5")
+                .arg(number, modemPath, networkOperator, emergencyOnly ? "yes" : "no",
+                     gpsAvailable ? "yes" : "no"));
+    }
+
   private:
     static void log(EventType type, const QString &message) {
         QString fullMessage = QString("[SECURITY] %1").arg(message);
-        qWarning().noquote() << fullMessage;
 
+        // Choose the Qt log channel that matches the event severity, so callers
+        // tailing the shell log see the right colour/level. Syslog priority is
+        // selected separately below so syslog stays informative regardless.
         int priority = LOG_AUTH;
         switch (type) {
             case AuthSuccess:
-            case PermissionGranted: priority |= LOG_INFO; break;
+            case PermissionGranted:
+                qInfo().noquote() << fullMessage;
+                priority |= LOG_INFO;
+                break;
+            case EmergencyDial:
+                // qWarning so it always lands in the journal, even when info
+                // is suppressed for the default category. Emergency-call audit
+                // visibility matters more than log-level cleanliness here.
+                qWarning().noquote() << fullMessage;
+                priority |= LOG_NOTICE;
+                break;
             case AuthFailure:
             case PermissionDenied:
-            case PermissionRequested: priority |= LOG_WARNING; break;
+            case PermissionRequested:
+                qWarning().noquote() << fullMessage;
+                priority |= LOG_WARNING;
+                break;
             case AuthLockout:
             case SandboxViolation:
             case RateLimitExceeded:
             case PathTraversalBlocked:
-            case InvalidInput: priority |= LOG_ALERT; break;
+            case InvalidInput:
+                qCritical().noquote() << fullMessage;
+                priority |= LOG_ALERT;
+                break;
         }
 
         syslog(priority, "%s", fullMessage.toUtf8().constData());

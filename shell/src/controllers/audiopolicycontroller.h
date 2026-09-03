@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QUrl>
+#include <qqml.h>
 
 class AudioManagerCpp;
 class HapticManager;
@@ -13,6 +14,8 @@ class QMediaPlayer;
 
 class AudioPolicyController : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(AudioPolicyControllerCpp)
+    QML_SINGLETON
 
   public:
     explicit AudioPolicyController(AudioManagerCpp *audioManager, SettingsManager *settings,
@@ -22,6 +25,7 @@ class AudioPolicyController : public QObject {
     Q_INVOKABLE void setMuted(bool muted);
 
     Q_INVOKABLE void setDoNotDisturb(bool enabled);
+    Q_INVOKABLE bool isDoNotDisturb() const;
     Q_INVOKABLE void setVibrationEnabled(bool enabled);
     Q_INVOKABLE void setAudioProfile(const QString &profile);
 

@@ -1,10 +1,17 @@
 #include "KeyboardSettingsStore.h"
 
+#include <QJSEngine>
 #include <QMetaMethod>
 #include <QMetaProperty>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QTimer>
+
+KeyboardSettingsStore *KeyboardSettingsStore::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new KeyboardSettingsStore(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 
 KeyboardSettingsStore::KeyboardSettingsStore(QObject *parent)
     : QObject(parent)
@@ -86,7 +93,7 @@ QString KeyboardSettingsStore::getLanguageName(const QString &languageId) const 
 
 QString KeyboardSettingsStore::getFlag(const QString &languageId) const {
     const QVariant value = m_languageFlags.value(languageId);
-    return value.isValid() ? value.toString() : QStringLiteral("🌐");
+    return value.isValid() ? value.toString() : QStringLiteral("");
 }
 
 void KeyboardSettingsStore::resolveSettingsManager() {

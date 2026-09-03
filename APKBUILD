@@ -31,13 +31,17 @@ depends="
 	dbus
 	networkmanager
 	modemmanager
+	mmsd-tng
+	mobile-broadband-provider-info
 	upower
+	power-profiles-daemon
 	polkit
 	bluez
 	geoclue
 	xdg-desktop-portal
 	hunspell
 	hunspell-en
+	at-spi2-core
 	"
 makedepends="
 	cmake
@@ -116,18 +120,37 @@ check() {
 
 package() {
 	cd "$builddir"
-	
+
 	# Install main shell
 	DESTDIR="$pkgdir" cmake --install build
-	
+
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
-	
+
 	# Install marathon-config.json
 	install -Dm644 "$builddir/marathon-config.json" \
 		"$pkgdir/usr/share/marathon-shell/marathon-config.json"
-	
-	# Session script is installed from platforms/generic/ and resolves prefix dynamically.
+
+	# Platform integration: systemd unit, greetd config, session script, .desktop
+	install -Dm644 "$builddir/platforms/generic/marathon-shell.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-shell.service"
+	install -Dm755 "$builddir/platforms/generic/marathon-shell-session" \
+		"$pkgdir/usr/bin/marathon-shell-session"
+	install -Dm644 "$builddir/platforms/generic/marathon-shell.toml" \
+		"$pkgdir/etc/greetd/marathon-shell.toml"
+	install -Dm644 "$builddir/platforms/generic/marathon.desktop" \
+		"$pkgdir/usr/share/wayland-sessions/marathon.desktop"
+
+	# PAM, udev, limits — required for password auth, brightness, RT scheduling
+	install -Dm644 "$builddir/pam.d/marathon-shell" \
+		"$pkgdir/etc/pam.d/marathon-shell"
+	install -Dm644 "$builddir/scripts/90-backlight.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/90-backlight.rules"
+	install -Dm644 /dev/stdin "$pkgdir/etc/security/limits.d/99-marathon.conf" <<-EOF
+		# Marathon Shell — non-root processes need this for SCHED_RR render threads
+		*       hard    rtprio  10
+		*       soft    rtprio  10
+		EOF
 }
 
 sha512sums=""

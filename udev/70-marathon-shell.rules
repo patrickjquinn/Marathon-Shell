@@ -9,8 +9,16 @@ SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="uaccess"
 KERNEL=="event[0-9]*", SUBSYSTEM=="input", TAG+="uaccess"
 SUBSYSTEM=="input", TAG+="uaccess"
 
-# Backlight control
-SUBSYSTEM=="backlight", RUN+="/bin/chmod 0666 /sys/class/backlight/%k/brightness"
+# Backlight control. Both `brightness` (PWM duty cycle) AND `bl_power`
+# (FB_BLANK_* state — 0=on, 4=POWERDOWN) need to be writable so the shell
+# can blank/wake the panel via the backlight controller. Qt eglfs_kms's
+# DPMS path via QPlatformScreen::setPowerState is unreliable on i.MX8MQ +
+# mxsfb-dsi: the legacy drmModeConnectorSetProperty(DPMS) doesn't
+# consistently re-issue the panel's prepare/enable callbacks on Off→On,
+# so the panel can wedge dark. Backlight-only blank sidesteps that
+# entirely — the compositor keeps drawing, but the user sees a dark
+# screen because the LED driver is at FB_BLANK_POWERDOWN.
+SUBSYSTEM=="backlight", RUN+="/bin/chmod 0666 /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power"
 
 # LEDs (notification LED, torch, etc.)
 SUBSYSTEM=="leds", RUN+="/bin/chmod 0666 /sys/class/leds/%k/brightness"

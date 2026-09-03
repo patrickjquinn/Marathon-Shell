@@ -24,7 +24,7 @@ class ContactsManager : public QObject {
 
   public:
     explicit ContactsManager(QObject *parent = nullptr);
-    ~ContactsManager();
+    ~ContactsManager() override;
 
     QVariantList             contacts() const;
     int                      count() const;

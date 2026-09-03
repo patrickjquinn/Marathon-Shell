@@ -1,0 +1,380 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-shell
+pkgver=1.0.0
+pkgrel=360
+pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+depends="
+	qt6-qtbase
+	qt6-qtbase-sqlite
+	qt6-qtdeclarative
+	qt6-qtwayland
+	qt6-qtwebengine
+	qt6-qtwebchannel
+	qt6-qtmultimedia
+	qt6-qtsensors
+	qt6-qtsvg
+	qt6-qtvirtualkeyboard
+	qt6-qtlocation
+	qt6-qtpositioning
+	qt6-qtspeech
+	qt6-qt5compat
+	hunspell
+	hunspell-en-us
+	libpulse
+	wayland
+	wayland-protocols
+	mesa
+	mesa-gbm
+	mesa-egl
+	mesa-gl
+	mesa-dri-gallium
+	mesa-gles
+	mesa-vulkan-virtio
+	vulkan-loader
+	pipewire
+	pipewire-pulse
+	wireplumber
+	pulseaudio-utils
+	networkmanager
+	upower
+	modemmanager
+	mmsd-tng
+	mobile-broadband-provider-info
+	geoclue
+	bluez
+	iio-sensor-proxy
+	at-spi2-core
+	bash
+	coreutils
+	util-linux
+	dbus
+	polkit
+	greetd
+	libcap
+	bubblewrap
+	ffmpeg
+	gst-plugins-base
+	gst-plugins-good
+	qmf
+	qmf-libs
+	qmf-messageserver
+	python3
+	py3-evdev
+	iw
+	libcap-utils
+	"
+makedepends="
+	cmake
+	samurai
+	qt6-qtbase-dev
+	qt6-qtdeclarative-dev
+	qt6-qtwayland-dev
+	qt6-qtwebengine-dev
+	qt6-qtwebchannel-dev
+	qt6-qtmultimedia-dev
+	qt6-qtsensors-dev
+	qt6-qtsvg-dev
+	qt6-qtlocation-dev
+	qt6-qtpositioning-dev
+	qt6-qtspeech-dev
+	hunspell-dev
+	pulseaudio-dev
+	pipewire-dev
+	wayland-dev
+	wayland-protocols
+	mesa-dev
+	libdrm-dev
+	dbus-dev
+	eudev-dev
+	libinput-dev
+	git
+	linux-pam-dev
+	qmf-dev
+	"
+install="$pkgname.post-install"
+subpackages="$pkgname-doc"
+# The shell source is this repo. scripts/qemu/lib/build-marathon-shell-apk.sh
+# stages the working tree into /var/cache/distfiles as
+# marathon-shell-$pkgver.tar.gz and re-runs `abuild -F checksum`, so the URL
+# below is NEVER fetched on the normal build path — what ships is the tree you
+# built from. The URL exists only so a standalone `abuild` outside that script
+# still resolves. It tracks a moving branch and is therefore NOT reproducible:
+# prefer the build script, or pin this to a commit before relying on it.
+source="
+	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/ux-overhaul.tar.gz
+	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
+	marathon-shell-session
+	marathon-touchctl
+	marathon-shell-oom-pin
+	systemd/marathon-shell-oom.service
+	marathon-iw-setcap.service
+	marathon-cpu-governor.service
+	marathon-mm-tune.service
+	pam-marathon-shell
+	90-backlight.rules
+	99-marathon-rtprio.conf
+	marathon-shell-tmpfiles.conf
+	"
+builddir="$srcdir/Marathon-Shell-main"
+options="!check"
+
+prepare() {
+	default_prepare
+
+	# Extract asyncfuture submodule.
+	# When pmbootstrap --src copies the host repo, third-party/asyncfuture/
+	# is already populated from the git submodule, so the tarball unpack
+	# is skipped by abuild — in that case the cp would fail. Only copy
+	# when the submodule slot is empty.
+	mkdir -p "$builddir/third-party/asyncfuture"
+	if [ -z "$(ls -A "$builddir/third-party/asyncfuture" 2>/dev/null)" ]; then
+		cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
+	fi
+
+	# Note: do NOT inject NO_CACHEGEN into qt6_add_qml_module() blocks.
+	# r184 and earlier did, to save peak build RAM, but that ships the
+	# .apk without .qmlc bytecode and every QML file gets parsed + JIT-
+	# compiled at runtime on the device's CPU. On i.MX 8M Quad that
+	# means each OOBE page transition is paying full V4 JIT cost on
+	# already-saturated cores — measurable contributor to the r11/r12
+	# perf complaints. The build host has enough RAM; let Qt cachegen
+	# do its job.
+
+	# EMERGENCY FIX: strip heavy assets from resources.qrc to prevent OOM during ARM build
+	sed -i '/sounds\//d' "$builddir/shell/resources.qrc"
+	sed -i '/wallpapers\//d' "$builddir/shell/resources.qrc"
+
+	find "$builddir" -exec touch {} +
+}
+
+build() {
+	cd "$builddir"
+	rm -rf build build-apps build-dmabuf
+
+	# Disable QML cache to reduce memory usage during build
+	export QML_DISABLE_DISK_CACHE=1
+	export QT_DISABLE_QML_CACHE=1
+
+	# Release build with -O3 + auto-vectorisation. NEON is mandatory in
+	# ARMv8 (always on aarch64), so the win comes from -ftree-vectorize
+	# firing on hot loops the size-target -Os would have left scalar.
+	# -ffp-contract=fast lets GCC fuse mul+add into FMA where the
+	# hardware supports it (Cortex-A76 and Kryo-385 both do).
+	local _opt_flags="-O3 -DNDEBUG -ftree-vectorize -ffp-contract=fast"
+
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_C_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build
+
+	cmake -B build-apps -S apps -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build-apps
+
+	# linux-dmabuf-v1 v4 compositor plugin (etnaviv HW app rendering). A
+	# standalone Qt client-buffer-integration that advertises the render
+	# device via v4 main_device feedback AND imports dmabuf buffers — stock
+	# Qt only ships a v3 plugin (no feedback) so Mesa 26.1+ on etnaviv can't
+	# discover renderD128 and falls back to llvmpipe (software). Loaded at
+	# runtime via QT_WAYLAND_HARDWARE_INTEGRATION=linux-dmabuf-v1. See
+	# shell/wayland-plugins/dmabuf-v1/CMakeLists.txt for the C+CXX rationale.
+	cmake -B build-dmabuf -S shell/wayland-plugins/dmabuf-v1 -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_C_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build-dmabuf
+}
+
+package() {
+	cd "$builddir"
+
+	# Main shell + apps
+	DESTDIR="$pkgdir" cmake --install build
+	DESTDIR="$pkgdir" cmake --install build-apps
+
+	# linux-dmabuf-v1 v4 compositor plugin -> Qt's server-side integration dir.
+	install -Dm755 build-dmabuf/libqt-wayland-compositor-linux-dmabuf-v1.so \
+		"$pkgdir/usr/lib/qt6/plugins/wayland-graphics-integration-server/libqt-wayland-compositor-linux-dmabuf-v1.so"
+
+	# cmake doesn't install app shared libs
+	for lib in build-apps/*/lib*.so; do
+		if [ -f "$lib" ]; then
+			appname=$(basename "$lib")
+			install -Dm755 "$lib" "$pkgdir/usr/lib/$appname"
+		fi
+	done
+
+	for plugindir in build-apps/apps/*/MarathonApp/*; do
+		if [ -d "$plugindir" ]; then
+			appname=$(basename "$plugindir")
+			appname_lower=$(echo "$appname" | tr '[:upper:]' '[:lower:]')
+			plugin="$plugindir/lib${appname_lower}plugin.so"
+			if [ -f "$plugin" ]; then
+				install -Dm755 "$plugin" \
+					"$pkgdir/usr/share/marathon-apps/MarathonApp/$appname/$(basename $plugin)"
+			fi
+			qmldir="$plugindir/qmldir"
+			if [ -f "$qmldir" ]; then
+				install -Dm644 "$qmldir" \
+					"$pkgdir/usr/share/marathon-apps/MarathonApp/$appname/qmldir"
+			fi
+		fi
+	done
+
+	# Optional shell config
+	if [ -f "$builddir/marathon-config.json" ]; then
+		install -Dm644 "$builddir/marathon-config.json" \
+			"$pkgdir/usr/share/marathon-shell/marathon-shell.json"
+	fi
+
+	# Session script (overrides whatever upstream cmake install dropped under
+	# /usr/local -- make sure /usr/bin/marathon-shell-session is OUR pmOS one).
+	install -Dm755 "$srcdir/marathon-shell-session" \
+		"$pkgdir/usr/bin/marathon-shell-session"
+
+	# Do NOT setcap marathon-shell-bin. File caps mark the process
+	# non-dumpable (kernel sets AT_SECURE=1), which puts libdbus into
+	# secure mode — and libdbus's session-bus connect refuses to trust
+	# DBUS_SESSION_BUS_ADDRESS from the environment when AT_SECURE is on.
+	# Net effect: QDBusConnection::sessionBus().isConnected() returns
+	# false, ShellIpcServer can't register org.marathonos.Shell, every
+	# app→shell IPC breaks, LocationManager/Telephony/etc all fail.
+	#
+	# What we give up: writing oom_score_adj < 0 (PERSISTENT_PROC bias);
+	# SCHED_RR via cap_sys_nice (was already blocked at cgroup level by
+	# user.slice's RT runtime constraint anyway — so the cap was inert).
+	# Both losses are acceptable trades for a working session bus.
+	#
+	# Future: bind a small system-level marathon-shell-oom.service that
+	# finds the shell PID and writes oom_score_adj — keeps caps off the
+	# binary while restoring OOM ranking.
+	:
+
+	# QEMU/test-only synthetic touch driver. Creates a virtual touchscreen
+	# via /dev/uinput so the QEMU automation harness can drive real
+	# evdev events into libinput → the Wayland compositor, instead of
+	# the virtio-tablet "mouse" path which mis-tests touch gestures.
+	install -Dm755 "$srcdir/marathon-touchctl" \
+		"$pkgdir/usr/bin/marathon-touchctl"
+
+	# OOM-score pinning sidecar (PWR-2). The shell needs oom_score_adj
+	# = -800 so apps + services get reaped before the shell itself, but
+	# user-instance systemd lacks CAP_SYS_RESOURCE — see the rationale
+	# block in marathon-shell-session around "Do NOT setcap" — so we
+	# ship a tiny system-level service that polls for the shell PID
+	# and writes the score directly. Enabled by post-install.
+	install -Dm755 "$srcdir/marathon-shell-oom-pin" \
+		"$pkgdir/usr/libexec/marathon-shell-oom-pin"
+	install -Dm644 "$srcdir/marathon-shell-oom.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-shell-oom.service"
+
+	# Marathon-Doze needs cap_net_admin on /usr/sbin/iw so the shell
+	# (uid 1000) can flip wifi PSM on Doze enter / exit. Set on every
+	# boot via a oneshot to survive `apk upgrade iw` (which strips
+	# caps). Enabled by the post-install hook.
+	install -Dm644 "$srcdir/marathon-iw-setcap.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-iw-setcap.service"
+
+	# Ondemand cpufreq governor — schedutil boosts to max on any
+	# RT-task wake, and the L5 stack has ~25 SCHED_FIFO threaded
+	# IRQ handlers firing ~1000 IRQs/s. Under schedutil the cluster
+	# sits at 1.5 GHz 58.8% of active time (measured 2026-07-01);
+	# under ondemand that drops to 11.7%. Estimated 500-800 mW save.
+	install -Dm644 "$srcdir/marathon-cpu-governor.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-cpu-governor.service"
+
+	# MM + I/O scheduler boot-time tuning (verified Pixel parity, not
+	# XDA folklore). Swappiness 100, page-cluster 0. (I/O scheduler is
+	# set by 60-marathon-iosched.rules — udev is the winning mechanism,
+	# it re-fires on device add/change and overrides any service write.)
+	install -Dm644 "$srcdir/marathon-mm-tune.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-mm-tune.service"
+
+	# Enable the boot-tuning + oom services via /usr symlinks, NOT the
+	# post-install `systemctl enable` (which writes /etc symlinks). On
+	# the immutable duranium image /etc is a systemd-confext overlay whose
+	# runtime .wants symlinks are NOT honored at boot — systemd computes
+	# its transaction before/independent of the mutable /etc layer, so an
+	# /etc-enabled service silently never starts (verified 2026-07-01:
+	# governor stuck at schedutil, swappiness at kernel default, across
+	# clean reboots). Baked /usr .wants symlinks ARE honored (same as
+	# ModemManager et al). This is the deterministic, immutable-friendly
+	# enablement.
+	mkdir -p "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	for _svc in marathon-shell-oom marathon-iw-setcap marathon-cpu-governor marathon-mm-tune; do
+		ln -sf "../$_svc.service" \
+			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
+	done
+
+	# PAM stack -- required for screen unlock + biometric auth.
+	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
+	# images (postmarketOS Duranium) keep /usr verifiable. A tmpfiles.d
+	# snippet symlinks the real path into /etc at first boot; on non-
+	# immutable images the same symlink exists and resolves through /usr.
+	install -Dm644 "$srcdir/pam-marathon-shell" \
+		"$pkgdir/usr/share/factory/etc/pam.d/marathon-shell"
+
+	# Backlight udev rule -- non-root brightness control.
+	install -Dm644 "$srcdir/90-backlight.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/90-backlight.rules"
+
+	# rtprio limit so app render threads can elevate to SCHED_RR without
+	# requiring per-binary setcap. Also factory-symlinked into /etc.
+	install -Dm644 "$srcdir/99-marathon-rtprio.conf" \
+		"$pkgdir/usr/share/factory/etc/security/limits.d/99-marathon-rtprio.conf"
+
+	# tmpfiles.d creates the /etc symlinks pointing at the factory files
+	# in /usr at first boot. Works identically on Duranium and standard
+	# postmarketOS images.
+	install -Dm644 "$srcdir/marathon-shell-tmpfiles.conf" \
+		"$pkgdir/usr/lib/tmpfiles.d/marathon-shell.conf"
+
+	# MarathonUI ships qmlcachegen bytecode inside each submodule's pure-QML
+	# plugin .so; the generated qmldir carries `prefer :/qt/qml/MarathonUI/<Mod>/`
+	# to redirect Qt to that compiled copy instead of parsing the loose .qml at
+	# every process start. Stripping those lines (the old default) forced Qt to
+	# recompile all 9 submodules from source on every app launch -- the primary
+	# cause of the ~10s cold-start. Production keeps them so the bytecode is used.
+	# The pure-QML plugin loads via the identical mechanism the per-app plugins
+	# already use successfully. Set MARATHON_STRIP_QML_PREFER=1 only for the dev
+	# hot-deploy loop, where loose-.qml override on-device needs `prefer` gone.
+	if [ "${MARATHON_STRIP_QML_PREFER:-0}" = "1" ]; then
+		for qmldir in "$pkgdir"/usr/lib/qt6/qml/MarathonUI/*/qmldir; do
+			if [ -f "$qmldir" ]; then
+				sed -i '/^linktarget /d; /^optional plugin /d; /^prefer /d' "$qmldir"
+			fi
+		done
+	fi
+
+}
+
+# sha512sums regenerate with `abuild checksum` on build host.
+sha512sums="
+1c66550c57c95c688fa8a91b41fbdd6ee7c9f085c949c61de9f647f526bd9c36bdb6b24d2cb472509c619f1842a60679b3bb736c99827de9f178623f39e29837  marathon-shell-1.0.0.tar.gz
+34fad6dcde02924afa5579115a9a97d9b83dedda2586e460b55a52ed622e2e81394317fe63c9307bc627e202931ab8f32e8c87426373d7b937e462be0c7cc97e  asyncfuture.tar.gz
+21359e4cfc2b535ce6124c6ab1407e8b6d0807b4a5c7d196f81d67e5a945f1987840ba79685a256d9c7f06677d79df790b273f8a99be11fcbaa9b146668d8e16  marathon-shell-session
+dd624d17ddbe9b59024da1da26fe85ffe6649fedf4bada2c9e7e2ada1bd0f510a887e63c4abfa5227429b2eb8c3bd76152b18aad62978b9a2c3e731942f98fd7  marathon-touchctl
+269a02a215eded90eef472a037f66a852b8530c49d95f6d734069767747020b620787226f0ebc4cc697de2073ccbd330f7748e22b3aca36173aaf900815b4b9e  pam-marathon-shell
+6c7adb8400b3bb32fe108bfb5ebb0bbbaf1b3e08ebaaabaf2116c32b90f55f88340f88aad81b2d888c4c61c8ca745350c15182a90bcdf1305c51a43ecaa59133  90-backlight.rules
+8290f5c45f3ba269ae7c17c3204c569386eb0aac88dcff8a480bdca09c73fe6ea9f4007d9d01de54a2ce8844acca87601a1722581d5d8f5c65a0356ea978b055  99-marathon-rtprio.conf
+30813482a4c89137dfd85cd8ad9fd108c8b6bb44e1138a5d8c3a0d49143f11105f7e65e8a0f99d8e651409b5ff21e4830420e992d495e9b2e6ebeded817a516f  marathon-shell-tmpfiles.conf
+"

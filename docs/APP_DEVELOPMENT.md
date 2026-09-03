@@ -2,7 +2,7 @@
 
 ## Overview
 
-Marathon OS apps can be built as **pure QML** (fast iteration) or **hybrid QML + C++** (native performance). The build system supports both approaches seamlessly.
+Marathon OS apps can be built as **pure QML** (fast iteration) or **hybrid QML + C++** (native performance). The build system supports both approaches cleanly.
 
 ## Architecture
 
@@ -78,11 +78,11 @@ MApp {
     id: myApp
     appId: "myapp"
     appName: "My App"
-    
+  
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+      
         Text {
             anchors.centerIn: parent
             text: "Hello Marathon!"
@@ -126,20 +126,20 @@ target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::Multimedia)
 
 **Create `apps/myapp/src/myplugin.h`:**
 ```cpp
-#pragma once
+# pragma once
 
-#include <QObject>
-#include <QQmlEngine>
+# include <QObject>
+# include <QQmlEngine>
 
 class MyEngine : public QObject {
     Q_OBJECT
     QML_ELEMENT
-    
+  
 public:
     explicit MyEngine(QObject *parent = nullptr);
-    
+  
     Q_INVOKABLE QString doSomethingNative();
-    
+  
 signals:
     void dataReady(const QString &data);
 };
@@ -147,7 +147,7 @@ signals:
 
 **Create `apps/myapp/src/myplugin.cpp`:**
 ```cpp
-#include "myplugin.h"
+# include "myplugin.h"
 
 MyEngine::MyEngine(QObject *parent) : QObject(parent) {}
 
@@ -163,14 +163,14 @@ import MarathonApp.MyApp
 
 MApp {
     id: myApp
-    
+  
     MyEngine {
         id: engine
         onDataReady: (data) => {
             console.log("Got data:", data)
         }
     }
-    
+  
     content: Rectangle {
         Button {
             text: "Call C++"
@@ -221,7 +221,7 @@ rm -rf build-apps
    ```bash
    # Quick: Just copy QML files
    cp -r apps/myapp /Users/patrick.quinn/.local/share/marathon-apps/
-   
+ 
    # Full: Rebuild with CMake
    ./scripts/build-apps.sh
    ```

@@ -10,6 +10,7 @@
 #include <QStandardPaths>
 #include <QNetworkRequest>
 #include <QUrl>
+#include <utility>   // std::as_const
 
 MarathonAppStoreService::MarathonAppStoreService(MarathonAppInstaller *installer, QObject *parent)
     : QObject(parent)
@@ -54,8 +55,15 @@ QString MarathonAppStoreService::getDownloadCachePath() {
 }
 
 void MarathonAppStoreService::loadCachedCatalog() {
-    QString cachePath = getCatalogCachePath();
-    QFile   file(cachePath);
+    // This service is the in-process catalog cache for any C++ code
+    // that wants a Marathon-format manifest list (mapp packages, not
+    // flatpaks). The QML Store app reads flathub.org directly via
+    // XHR — see apps/store/StoreApp.qml. Apart from refreshCatalog()
+    // wiring, this method just rehydrates whatever the last
+    // refreshCatalog() reply wrote to disk; it doesn't fall back to
+    // a bundled stub.
+    const QString cachePath = getCatalogCachePath();
+    QFile         file(cachePath);
 
     if (!file.exists()) {
         qDebug() << "[MarathonAppStoreService] No cached catalog found";
@@ -170,7 +178,7 @@ QVariantList MarathonAppStoreService::searchApps(const QString &query) {
     QVariantList results;
     QString      lowerQuery = query.toLower();
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app         = item.toMap();
         QString     name        = app.value("name").toString().toLower();
         QString     description = app.value("description").toString().toLower();
@@ -186,7 +194,7 @@ QVariantList MarathonAppStoreService::searchApps(const QString &query) {
 }
 
 QVariantMap MarathonAppStoreService::getApp(const QString &appId) {
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app = item.toMap();
         if (app.value("id").toString() == appId) {
             return app;
@@ -199,14 +207,14 @@ QVariantMap MarathonAppStoreService::getApp(const QString &appId) {
 QVariantList MarathonAppStoreService::getFeaturedApps() {
     QVariantList featured;
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap app = item.toMap();
         if (app.value("featured").toBool()) {
             featured.append(app);
         }
     }
 
-    if (featured.isEmpty() && m_catalog.size() > 0) {
+    if (featured.isEmpty() && !m_catalog.empty()) {
         for (int i = 0; i < qMin(5, m_catalog.size()); ++i) {
             featured.append(m_catalog.at(i));
         }
@@ -218,11 +226,11 @@ QVariantList MarathonAppStoreService::getFeaturedApps() {
 QVariantList MarathonAppStoreService::getAppsByCategory(const QString &category) {
     QVariantList results;
 
-    for (const QVariant &item : m_catalog) {
+    for (const QVariant &item : std::as_const(m_catalog)) {
         QVariantMap  app        = item.toMap();
         QVariantList categories = app.value("categories").toList();
 
-        for (const QVariant &cat : categories) {
+        for (const QVariant &cat : std::as_const(categories)) {
             if (cat.toString() == category) {
                 results.append(app);
                 break;
@@ -323,8 +331,18 @@ void MarathonAppStoreService::handleDownloadFinished() {
 }
 
 QVariantList MarathonAppStoreService::getAvailableUpdates() {
-
+    // An app reports a pending update when its catalog entry sets
+    // `updateAvailable: true` (catalog-source-of-truth: the server
+    // already knows whether the device's installed version is older
+    // than the one in the catalog). A full implementation would
+    // cross-check against locally-installed versions reported by
+    // MarathonAppRegistry; the catalog flag is the v1 of that.
     QVariantList updates;
+    for (const QVariant &item : std::as_const(m_catalog)) {
+        QVariantMap app = item.toMap();
+        if (app.value("updateAvailable").toBool())
+            updates.append(app);
+    }
     return updates;
 }
 

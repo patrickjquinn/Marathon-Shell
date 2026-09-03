@@ -1,6 +1,6 @@
+import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -121,7 +121,7 @@ MApp {
         color: MColors.background
 
         Column {
-            property int currentView: 0
+            property int currentView: 1     // default to Clock pane (index 1)
 
             anchors.fill: parent
             spacing: 0
@@ -131,12 +131,14 @@ MApp {
                 height: parent.height - tabBar.height
                 currentIndex: parent.currentView
 
-                ClockPage {
-                    id: clockPage
-                }
-
+                // Index order MUST match the tab labels in MTabBar below:
+                // 0 World · 1 Clock · 2 Alarm · 3 Timer · 4 Stopwatch (no tab).
                 WorldClockPage {
                     id: worldClockPage
+                }
+
+                ClockPage {
+                    id: clockPage
                 }
 
                 AlarmPage {
@@ -156,14 +158,18 @@ MApp {
                 id: tabBar
 
                 width: parent.width
+                activeTab: parent.currentView
+                // DS ref-clock — World · Clock · Alarm · Timer (4 tabs).
+                // Stopwatch is reachable from the Timer tab's segmented
+                // control to keep the bottom bar at the DS-limited 4.
                 tabs: [
-                    {
-                        "label": "Clock",
-                        "icon": "clock"
-                    },
                     {
                         "label": "World",
                         "icon": "globe"
+                    },
+                    {
+                        "label": "Clock",
+                        "icon": "clock"
                     },
                     {
                         "label": "Alarm",
@@ -172,10 +178,6 @@ MApp {
                     {
                         "label": "Timer",
                         "icon": "timer"
-                    },
-                    {
-                        "label": "Stopwatch",
-                        "icon": "watch"
                     }
                 ]
                 onTabSelected: index => {

@@ -1,3 +1,5 @@
+import MarathonOS.Shell 1.0
+import MarathonUI.Effects
 import QtQuick
 
 Rectangle {
@@ -35,14 +37,10 @@ Rectangle {
                 layer.smooth: true
                 scale: predictionMouseArea.pressed ? 0.95 : 1
 
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: parent.radius - 1
-                    color: "transparent"
-                    border.width: Constants.borderWidthThin
-                    border.color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
-                    antialiasing: parent.antialiasing
+                MTopHairline {
+                    radius: parent.radius
+                    color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
+                    lineWidth: Constants.borderWidthThin
                 }
 
                 Text {

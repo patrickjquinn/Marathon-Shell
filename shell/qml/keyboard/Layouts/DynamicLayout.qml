@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonOS.Shell
 
 Item {
     id: dynamicLayout
@@ -48,7 +49,7 @@ Item {
                     id: keyRow
 
                     property var rowData: rowDelegate.modelData
-                    property bool isLastRow: index === (dynamicLayout.layoutData.rows.length - 1)
+                    property bool isLastRow: rowDelegate.index === (dynamicLayout.layoutData.rows.length - 1)
                     property int charKeyCount: keyRow.rowData.keys.length
                     property real sideKeyWidth: isLastRow ? Math.floor(keyRow.width * 0.15) : 0
                     property real totalSideWidth: sideKeyWidth * 2
@@ -162,7 +163,7 @@ Item {
             Key {
                 width: row4.availableWidth * 0.08
                 text: "emoji"
-                displayText: "😀"
+                displayText: ""
                 isSpecial: true
                 fontFamily: "Noto Color Emoji"
                 onClicked: {

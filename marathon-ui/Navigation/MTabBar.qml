@@ -2,7 +2,20 @@ import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
+import MarathonOS.Shell
 
+// Marathon DS · Tab bar (ds-components.jsx:DSBars · marathon-tokens.css).
+//
+// 70 px tall, glass-tabbar over a 14 px blur, 1 px border-glass top
+// edge + 1 px inner highlight. Up to 4 tabs, equal-width, flex
+// column layout (icon 20 + 4 gap + label 12/500).
+//
+// Active state:
+//   • top indicator: 2 px teal-gradient bar inset 12 % from each
+//     side of the cell (not edge-to-edge).
+//   • soft halo: 28 px tall radial-gradient ellipse at top, teal
+//     at 0.28 alpha fading to transparent.
+//   • color shifts: secondary → primary text + glyph.
 Rectangle {
     id: root
 
@@ -11,21 +24,144 @@ Rectangle {
 
     signal tabSelected(int index)
 
-    height: 70
+    // ── Shrink-on-scroll · iOS 26 / M3 Expressive chrome ───────────
+    // Same scrollSource contract as MTopBar / MBottomBar — bind to
+    // a Flickable to enable shrink-on-down, expand-on-up. Unbound =
+    // legacy fixed-height.
+    property var scrollSource: null
+    property bool minimized: false
+    property real _lastContentY: 0
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real barHeight: Math.round(70 * scaleFactor)
+    readonly property real barHeightMin: Math.round(44 * scaleFactor)
+    height: minimized ? barHeightMin : barHeight
     color: MColors.glassTabbar
 
-    border.width: 1
-    border.color: MColors.borderGlass
+    Behavior on height {
+        SpringAnimation {
+            spring: MMotion.stiffnessSpatialFor("modal")
+            damping: MMotion.dampingSpatialFor("modal")
+            epsilon: MMotion.epsilonSpatial
+        }
+    }
+
+    Connections {
+        target: root.scrollSource
+        function onContentYChanged() {
+            if (!root.scrollSource)
+                return;
+            var cy = root.scrollSource.contentY;
+            if (cy > root._lastContentY + 8 && cy > 20)
+                root.minimized = true;
+            else if (cy < root._lastContentY - 8)
+                root.minimized = false;
+            root._lastContentY = cy;
+        }
+    }
+
+    // Top hairline divider per DS.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: MColors.borderGlass
+    }
+    // Inner highlight.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: 1
+        height: 1
+        color: Qt.rgba(1, 1, 1, 0.05)
+    }
+
+    // ── Shared sliding indicator + halo ────────────────────────
+    // ONE indicator + halo for the whole bar; x slides on a spring to
+    // the active tab. iOS Control Center / M3E pattern: active state
+    // slides, never swaps. Placed BEFORE the Row of tab buttons so
+    // it paints UNDERNEATH the icons + labels (paint order = source
+    // order for siblings with default z).
+    readonly property real _tabWidth: tabRepeater.count > 0 ? root.width / tabRepeater.count : root.width
+
+    Canvas {
+        id: sharedGlow
+        x: root.activeTab * root._tabWidth
+        width: root._tabWidth
+        height: Math.round(32 * root.scaleFactor)
+        anchors.top: parent.top
+        anchors.topMargin: 2
+
+        Behavior on x {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilonSpatial
+            }
+        }
+
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            const cx = width / 2;
+            const cy = 0;
+            const rx = width * 0.55;
+            const ry = height;
+            ctx.translate(cx, cy);
+            ctx.scale(rx / ry, 1);
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+            grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
+            grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
+            grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(-ry, 0, ry * 2, ry);
+            ctx.restore();
+        }
+    }
 
     Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: -1
-        anchors.leftMargin: -1
-        anchors.rightMargin: -1
-        color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.05)
-        z: 1
+        id: sharedIndicator
+        x: root.activeTab * root._tabWidth + root._tabWidth * 0.12
+        width: root._tabWidth * 0.76
+        anchors.top: parent.top
+        height: Math.max(2, Math.round(2 * root.scaleFactor))
+
+        Behavior on x {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilonSpatial
+            }
+        }
+        Behavior on width {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilonSpatial
+            }
+        }
+
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop {
+                position: 0.0
+                color: MColors.marathonTealDark
+            }
+            GradientStop {
+                position: 0.5
+                color: MColors.marathonTealBright
+            }
+            GradientStop {
+                position: 1.0
+                color: MColors.marathonTealDark
+            }
+        }
     }
 
     Row {
@@ -35,138 +171,51 @@ Rectangle {
         Repeater {
             id: tabRepeater
 
-            Rectangle {
+            Item {
                 id: tabButton
                 width: root.width / tabRepeater.count
                 height: parent.height
-                color: index === root.activeTab ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
 
                 property bool selected: index === root.activeTab
 
                 scale: tabMouseArea.pressed ? 0.96 : 1.0
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: MMotion.sm
-                    }
-                }
-
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springMedium
-                        damping: MMotion.springMedium
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
                     }
                 }
 
-                Rectangle {
-                    id: indicatorRect
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 3
-
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: selected ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: selected ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: selected ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                    }
-                }
-
-                Rectangle {
-                    anchors.horizontalCenter: indicatorRect.horizontalCenter
-                    anchors.top: indicatorRect.bottom
-                    width: indicatorRect.width
-                    height: 35
-                    visible: selected
-                    opacity: 0.6
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
-                        }
-                        GradientStop {
-                            position: 0.25
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.10)
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.05)
-                        }
-                        GradientStop {
-                            position: 0.75
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.02)
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: "transparent"
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: selected
-                    anchors.right: parent.right
-                    anchors.rightMargin: -8
-                    anchors.top: parent.top
-                    anchors.topMargin: -2
-                    anchors.bottom: parent.bottom
-                    width: 12
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop {
-                            position: 0.0
-                            color: Qt.rgba(0, 0, 0, 0.4)
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: Qt.rgba(0, 0, 0, 0.15)
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: "transparent"
-                        }
-                    }
-                    opacity: 0.4
-                }
-
+                // Per-delegate indicator + halo removed — the shared
+                // sharedGlow/sharedIndicator above this Row handle it.
                 Column {
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: Math.round(4 * root.scaleFactor)
 
                     Icon {
-                        name: modelData.icon || ""
-                        size: 20
-                        color: selected ? MColors.textPrimary : MColors.textSecondary
                         anchors.horizontalCenter: parent.horizontalCenter
-
+                        name: modelData.icon || ""
+                        size: Math.round(20 * root.scaleFactor)
+                        color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
                         Behavior on color {
                             ColorAnimation {
-                                duration: MMotion.sm
+                                duration: MMotion.quick
                             }
                         }
                     }
 
                     Text {
-                        text: modelData.label || ""
-                        color: selected ? MColors.textPrimary : MColors.textSecondary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.Normal
-                        font.family: MTypography.fontFamily
                         anchors.horizontalCenter: parent.horizontalCenter
+                        text: modelData.label || ""
+                        color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeCaption
+                        font.weight: Font.Medium
 
                         Behavior on color {
                             ColorAnimation {
-                                duration: MMotion.sm
+                                duration: MMotion.quick
                             }
                         }
                     }
@@ -175,7 +224,6 @@ Rectangle {
                 MouseArea {
                     id: tabMouseArea
                     anchors.fill: parent
-
                     onPressed: MHaptics.lightImpact()
                     onClicked: {
                         root.activeTab = index;

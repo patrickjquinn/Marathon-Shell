@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -56,7 +57,6 @@ Item {
         border.width: Constants.borderWidthMedium
         border.color: MColors.error
         opacity: 0
-        layer.enabled: true
 
         MouseArea {
             id: swipeArea
@@ -66,7 +66,7 @@ Item {
             drag.axis: Drag.YAxis
             drag.minimumY: -errorCard.height
             drag.maximumY: 100
-            onReleased: {
+            onReleased: function(mouse) {
                 if (errorCard.y > 50)
                     errorToast.hide();
                 else
@@ -161,10 +161,6 @@ Item {
                 wrapMode: Text.WordWrap
                 visible: errorToast.errorMessage.length > 0
             }
-        }
-
-        layer.effect: ShaderEffect {
-            property real blur: 16
         }
     }
 

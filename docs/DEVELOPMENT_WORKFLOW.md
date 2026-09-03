@@ -1,5 +1,15 @@
 # Development Workflow
 
+**Start here:** every dev task in Marathon is driven by the
+`marathon` CLI at `scripts/marathon`. Read
+[**DEV_CLI.md**](DEV_CLI.md) first — it's the primary reference for
+build, deploy, snapshot, unlock, launch, tail logs, doctor, probes,
+multi-device, sessions, benchmarks. `marathon quickstart` also walks
+new developers through the essentials.
+
+The sections below cover the source/install layout that any dev task
+should understand.
+
 ## Source File Locations
 
 Marathon Shell uses a build-and-install workflow where source files are separate from installed runtime files.
@@ -26,7 +36,7 @@ Build artifacts are installed to these locations:
 ./build-apps/                    - App build artifacts (auto-generated)
 ```
 
-**Important:** Files in `~/.local/share/marathon-apps/` are overwritten on every build. Changes made to these files will be lost.
+Important: Files in `~/.local/share/marathon-apps/` are overwritten on every build. Changes made to these files will be lost.
 
 ---
 
@@ -279,8 +289,8 @@ qmllint apps/phone/pages/DialerPage.qml
 
 ### "App not found" after changes
 
-**Cause:** App not properly installed
-**Solution:**
+Cause: App not properly installed
+Solution:
 ```bash
 ./scripts/build-apps.sh
 # Check install
@@ -289,16 +299,16 @@ ls -la ~/.local/share/marathon-apps/
 
 ### Changes not appearing
 
-**Cause:** Edited installed files instead of source files
-**Solution:**
+Cause: Edited installed files instead of source files
+Solution:
 1. Discard changes in `~/.local/share/marathon-apps/`
 2. Make edits in `./apps/`
 3. Run `./scripts/build-apps.sh`
 
 ### Build errors after pulling changes
 
-**Cause:** Stale build artifacts or CMake cache
-**Solution:**
+Cause: Stale build artifacts or CMake cache
+Solution:
 ```bash
 # Clean rebuild
 CLEAN=1 ./run.sh
@@ -310,8 +320,8 @@ rm -rf build build-apps build-ui
 
 ### Wayland compositor crashes
 
-**Cause:** Various (compositor bugs, driver issues)
-**Debug:**
+Cause: Various (compositor bugs, driver issues)
+Debug:
 ```bash
 MARATHON_DEBUG=1 ./run.sh 2>&1 | tee crash.log
 # Check crash.log for stack trace
@@ -389,5 +399,5 @@ diff -r ./apps/phone ~/.local/share/marathon-apps/phone  # Compare source vs ins
 
 - [App Development Guide](APP_DEVELOPMENT.md) - Creating Marathon apps
 
-- [Developer CLI Guide](DEVELOPER_GUIDE.md) - Using marathon-dev tool
+- [Developer CLI Guide](DEV_CLI.md) - Using the marathon CLI
 - [Code Signing Guide](CODE_SIGNING_GUIDE.md) - GPG signing for apps

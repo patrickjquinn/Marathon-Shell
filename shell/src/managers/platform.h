@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QFile>
 #include <QDebug>
+#include <utility>   // std::as_const
 
 namespace Platform {
 
@@ -78,7 +79,7 @@ namespace Platform {
         QString     currentHandlers;
         bool        hasKeyboardEV = false;
 
-        for (const QString &line : lines) {
+        for (const QString &line : std::as_const(lines)) {
             if (line.trimmed().isEmpty()) {
                 if (!currentDeviceName.isEmpty() && hasKeyboardEV) {
                     if (currentHandlers.contains("kbd", Qt::CaseInsensitive)) {

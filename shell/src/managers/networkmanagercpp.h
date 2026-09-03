@@ -7,9 +7,19 @@
 #include <QDBusConnection>
 #include <QDBusReply>
 #include <QTimer>
+#include <qqml.h>
 
 class NetworkManagerCpp : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static NetworkManagerCpp *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(bool wifiEnabled READ wifiEnabled NOTIFY wifiEnabledChanged)
     Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY wifiConnectedChanged)
     Q_PROPERTY(QString wifiSsid READ wifiSsid NOTIFY wifiSsidChanged)
@@ -27,7 +37,7 @@ class NetworkManagerCpp : public QObject {
 
   public:
     explicit NetworkManagerCpp(QObject *parent = nullptr);
-    ~NetworkManagerCpp();
+    ~NetworkManagerCpp() override;
 
     bool wifiEnabled() const {
         return m_wifiEnabled;
@@ -83,10 +93,10 @@ class NetworkManagerCpp : public QObject {
     Q_INVOKABLE void         stopHotspot();
     Q_INVOKABLE bool         isHotspotActive() const;
 
-    Q_INVOKABLE QVariantList getVpnConnections();
-    Q_INVOKABLE void         connectVpn(const QString &connectionId);
-    Q_INVOKABLE void         disconnectVpn(const QString &connectionId);
-    Q_INVOKABLE bool         isVpnConnected(const QString &connectionId);
+    Q_INVOKABLE QVariantList getVpnConnections() const;
+    Q_INVOKABLE void         connectVpn(const QString &connectionId) const;
+    Q_INVOKABLE void         disconnectVpn(const QString &connectionId) const;
+    Q_INVOKABLE bool         isVpnConnected(const QString &connectionId) const;
 
   signals:
     void wifiEnabledChanged();
@@ -124,21 +134,27 @@ class NetworkManagerCpp : public QObject {
     bool            m_wifiEnabled;
     bool            m_wifiConnected;
     QString         m_wifiSsid;
-    int             m_wifiSignalStrength;
-    bool            m_ethernetConnected;
-    QString         m_ethernetConnectionName;
-    QString         m_activeWifiDevicePath;
-    QString         m_activeApPath;
-    bool            m_bluetoothEnabled;
-    bool            m_airplaneModeEnabled;
-    bool            m_wifiAvailable;
-    bool            m_bluetoothAvailable;
-    bool            m_hasNetworkManager;
-    QVariantList    m_availableNetworks;
-    QString         m_wifiDevicePath;
-    QTimer         *m_scanTimer;
-    QString         m_hotspotConnectionPath;
-    bool            m_hotspotActive;
+    // SSID we last asked NetworkManager to activate but haven't yet seen
+    // come online via PropertiesChanged. Used to fire connectionSuccess
+    // on real activation rather than the eager AddAndActivateConnection
+    // reply — without that gating the WiFi password dialog dismisses
+    // before authentication completes.
+    QString      m_pendingConnectSsid;
+    int          m_wifiSignalStrength;
+    bool         m_ethernetConnected;
+    QString      m_ethernetConnectionName;
+    QString      m_activeWifiDevicePath;
+    QString      m_activeApPath;
+    bool         m_bluetoothEnabled;
+    bool         m_airplaneModeEnabled;
+    bool         m_wifiAvailable;
+    bool         m_bluetoothAvailable;
+    bool         m_hasNetworkManager;
+    QVariantList m_availableNetworks;
+    QString      m_wifiDevicePath;
+    QTimer      *m_scanTimer;
+    QString      m_hotspotConnectionPath;
+    bool         m_hotspotActive;
 };
 
 #endif

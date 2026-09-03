@@ -1,6 +1,7 @@
-import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonOS.Shell 1.0
+import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 
 Item {
@@ -41,15 +42,12 @@ Item {
         color: Qt.rgba(0, 0, 0, 0.95)
         border.width: 1
         border.color: MColors.border
-        visible: showing
+        visible: connectionToast.showing
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.03)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.03)
+            lineWidth: 1
         }
 
         Row {
@@ -57,14 +55,14 @@ Item {
             spacing: Constants.spacingMedium
 
             Icon {
-                name: iconName
+                name: connectionToast.iconName
                 size: Constants.iconSizeMedium
                 color: MColors.accent
                 anchors.verticalCenter: parent.verticalCenter
             }
 
             Text {
-                text: message
+                text: connectionToast.message
                 color: MColors.text
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
@@ -92,7 +90,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false;
+            connectionToast.showing = false;
         }
     }
 
@@ -105,17 +103,17 @@ Item {
 
     Connections {
         function onIsWifiOnChanged() {
-            if (initialized && SystemStatusStore.isWifiOn)
+            if (connectionToast.initialized && SystemStatusStore.isWifiOn)
                 show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
         }
 
         function onIsBluetoothOnChanged() {
-            if (initialized && SystemStatusStore.isBluetoothOn)
+            if (connectionToast.initialized && SystemStatusStore.isBluetoothOn)
                 show("Bluetooth enabled", "bluetooth");
         }
 
         function onIsAirplaneModeChanged() {
-            if (!initialized)
+            if (!connectionToast.initialized)
                 return;
 
             if (SystemStatusStore.isAirplaneMode)

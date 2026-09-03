@@ -91,9 +91,7 @@ class SystemStatusStore : public QObject {
         return m_ethernetConnected;
     }
 
-    bool isBluetoothOn() const {
-        return m_isBluetoothOn;
-    }
+    bool         isBluetoothOn() const;
     QVariantList bluetoothDevices() const {
         return m_bluetoothDevices;
     }
@@ -152,6 +150,7 @@ class SystemStatusStore : public QObject {
     }
 
     Q_INVOKABLE void updateTime();
+    void             scheduleNextMinute();
     Q_INVOKABLE void addNotification(const QString &title, const QString &message,
                                      const QString &app);
     Q_INVOKABLE void removeNotification(int notificationId);
@@ -208,7 +207,6 @@ class SystemStatusStore : public QObject {
     void                    setWifiNetwork(const QString &network);
     void                    setWifiConnected(bool connected);
     void                    setEthernetConnected(bool connected);
-    void                    setIsBluetoothOn(bool enabled);
     void                    setBluetoothDevices(const QVariantList &devices);
     void                    setBluetoothConnectedDevicesCount(int count);
     void                    setIsBluetoothConnected(bool connected);
@@ -245,7 +243,6 @@ class SystemStatusStore : public QObject {
     bool                    m_wifiConnected     = false;
     bool                    m_ethernetConnected = false;
 
-    bool                    m_isBluetoothOn = false;
     QVariantList            m_bluetoothDevices;
     int                     m_bluetoothConnectedDevicesCount = 0;
     bool                    m_isBluetoothConnected           = false;

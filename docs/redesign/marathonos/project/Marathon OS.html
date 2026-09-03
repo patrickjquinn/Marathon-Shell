@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Marathon OS — Design Sheet</title>
+<link rel="stylesheet" href="marathon-tokens.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+</style>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Lucide icon pack (used by Icon component) -->
+<script>
+(function () {
+  var v = '@phos' + 'phor-icons/web' + '@' + '2.1.1';
+  ['light','bold','duotone','fill'].forEach(function (w) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://unpkg.com/' + v + '/src/' + w + '/style.css';
+    document.head.appendChild(l);
+  });
+})();
+</script>
+
+<!-- Design canvas + shell + screens -->
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="app-icons.jsx"></script>
+<script type="text/babel" src="wallpapers.jsx"></script>
+<script type="text/babel" src="screens-shell.jsx"></script>
+<script type="text/babel" src="screens-apps-1.jsx"></script>
+<script type="text/babel" src="screens-apps-2.jsx"></script>
+<script type="text/babel" src="screens-modern.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const PHONE_W = 390;
+const PHONE_H = 844;
+
+// Plate the artboard with a sharp-cornered "device" frame. Marathon's
+// engineering aesthetic favors 0-radius — the phone is a slab, not a pebble.
+function Phone({ children }) {
+  return (
+    <div style={{
+      width: PHONE_W, height: PHONE_H,
+      borderRadius: 0,
+      overflow: 'hidden',
+      position: 'relative',
+      border: '1px solid #1a1a1a',
+      boxShadow: '0 30px 60px -20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
+      background: '#000',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// Link card directing to the standalone Marathon Design System doc — every
+// component on the canvas is drawn from that system; the doc is the
+// authoritative reference.
+function DesignSystemCard() {
+  return (
+    <DCArtboard id="ds-ref" label="00 · Design System reference" width={PHONE_W} height={PHONE_H}>
+      <div style={{
+        width: PHONE_W, height: PHONE_H,
+        borderRadius: 4,
+        background: 'linear-gradient(180deg, #040404 0%, #0a0a0b 100%)',
+        border: '1px solid var(--teal-border)',
+        boxShadow: '0 12px 30px -10px rgba(0,0,0,0.6), 0 0 32px rgba(0,191,165,0.18)',
+        padding: 36,
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: -80, right: -80, width: 280, height: 280,
+          background: 'radial-gradient(circle, rgba(0,191,165,0.18), transparent 65%)',
+          filter: 'blur(20px)', pointerEvents: 'none',
+        }}/>
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 4,
+            background: 'var(--teal-gradient)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#000', fontSize: 32, fontWeight: 800,
+            boxShadow: '0 0 24px rgba(0,191,165,0.45), inset 0 1px 0 rgba(255,255,255,0.3)',
+            border: '1px solid var(--teal-border)',
+          }}>M</div>
+          <div style={{ fontSize: 11, color: 'var(--teal-bright)', letterSpacing: 1.4, fontWeight: 700, textTransform: 'uppercase', marginTop: 24 }}>
+            Design System · v1.0
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 200, letterSpacing: -0.6, marginTop: 8, lineHeight: 1.1 }}>
+            Every screen here is built from the Marathon Design System.
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 14, lineHeight: 1.55 }}>
+            Foundations, components, patterns, and Qt 6.7 engineering — all documented in one reference.
+          </div>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>
+            What's documented
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 13 }}>
+            {[
+              'Color · type · icons',
+              'Spacing · layout · shape',
+              'Elevation · motion',
+              'Buttons · inputs · cards',
+              'Bars · dialogs · HUD',
+              'Hub · Spotlight · Frames',
+              'Voice & tone',
+              'Qt 6.7 implementation',
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--teal-bright)', flexShrink: 0 }}/>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <a href="design-system/Marathon Design System.html" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginTop: 24, padding: '14px 18px',
+            background: 'var(--teal-gradient)', color: '#000',
+            borderRadius: 4, textDecoration: 'none',
+            border: '1px solid var(--teal-border)',
+            boxShadow: '0 0 16px var(--teal-halo), inset 0 1px 0 rgba(255,255,255,0.3)',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Open the design system</span>
+            <span style={{ fontSize: 18 }}>→</span>
+          </a>
+        </div>
+      </div>
+    </DCArtboard>
+  );
+}
+
+// DCSection filters children by element.type === DCArtboard, so artboards
+// must be authored as <DCArtboard> directly (not wrapped in a custom comp).
+// Helper just constructs the element to keep call sites compact.
+function ab(id, label, ScreenComp) {
+  return (
+    <DCArtboard key={id} id={id} label={label} width={PHONE_W} height={PHONE_H}>
+      <Phone><ScreenComp/></Phone>
+    </DCArtboard>
+  );
+}
+
+// Wallpaper artboards render raw — no device chrome, no rounded edges,
+// no title pill. Pure visual specimen; the artboard's own label below
+// the card names it.
+function wall(id, label, WallpaperComp) {
+  return (
+    <DCArtboard key={id} id={id} label={label} width={PHONE_W} height={PHONE_H}>
+      <div style={{ width: PHONE_W, height: PHONE_H, position: 'relative', overflow: 'hidden' }}>
+        <WallpaperComp/>
+      </div>
+    </DCArtboard>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="shell" title="Shell" subtitle="System surfaces — Active Frames home, lock, switcher, drawers">
+        <DesignSystemCard/>
+        {ab('boot',          '00 · Boot',                BootSplash)}
+        {ab('lock',          '01 · Lock · clean',        LockScreen)}
+        {ab('lock-now',      '02 · Lock · Now Bar',      LockNowBar)}
+        {ab('lock-media',    '03 · Lock · media',        LockMedia)}
+        {ab('home-frames',   '04 · Home · Active Frames', ActiveFramesHome)}
+        {ab('home',          '05 · Home · App grid',     HomePage1)}
+        {ab('drawer',        '06 · App drawer',          AppDrawer)}
+        {ab('task',          '07 · Task switcher',       TaskSwitcher)}
+        {ab('qs',            '08 · Quick Settings',      QuickSettings)}
+        {ab('hub',           '09 · Hub',                 HubScreen)}
+        {ab('spotlight',     '10 · Spotlight · AI search', Spotlight)}
+      </DCSection>
+
+      <DCSection id="intelligence" title="Marathon Intelligence" subtitle="On-device AI woven through the system (2026)">
+        {ab('mi',          '11 · Assistant',     MarathonIntelligence)}
+        {ab('wallet',      '12 · Wallet · passkeys', WalletApp)}
+        {ab('focus',       '13 · Focus modes',   FocusModes)}
+        {ab('privacy',     '14 · Privacy dashboard', PrivacyDashboard)}
+      </DCSection>
+
+      <DCSection id="overlays" title="System Overlays" subtitle="Modals, toasts, keyboard, calls">
+        {ab('perm', '15 · Permission',    PermissionDialog)}
+        {ab('call', '16 · Incoming call', IncomingCall)}
+        {ab('hud',  '17 · System HUD',    SystemHUD)}
+        {ab('kb',   '18 · Keyboard',      KeyboardActive)}
+      </DCSection>
+
+      <DCSection id="oobe" title="OOBE" subtitle="First-run setup flow">
+        {ab('oobe-lang',    '19 · Language',  OOBELanguage)}
+        {ab('oobe-wifi',    '20 · Wi-Fi',     OOBEWifi)}
+        {ab('oobe-passkey', '21 · Passkey',   OOBEPasskey)}
+        {ab('oobe-done',    '22 · All set',   OOBEFinish)}
+      </DCSection>
+
+      <DCSection id="settings" title="Settings" subtitle="Marathon's most-reused row pattern">
+        {ab('settings',         '23 · Settings', SettingsApp)}
+        {ab('settings-display', '24 · Display',  SettingsDisplay)}
+      </DCSection>
+
+      <DCSection id="comm" title="Communication" subtitle="Phone, Messages, Mail">
+        {ab('phone',      '25 · Phone · Dialer',    PhoneDialer)}
+        {ab('msg-list',   '26 · Messages · List',   MessagesList)}
+        {ab('msg-thread', '27 · Messages · Thread', MessagesThread)}
+        {ab('mail',       '28 · Mail · Inbox',      MailInbox)}
+      </DCSection>
+
+      <DCSection id="discover" title="Web & Store" subtitle="Browser, App Store">
+        {ab('browser', '29 · Browser',   BrowserApp)}
+        {ab('store',   '30 · App Store', StoreDiscover)}
+      </DCSection>
+
+      <DCSection id="media" title="Media & Capture" subtitle="Music, Camera, Gallery">
+        {ab('music',   '31 · Music · Now Playing', MusicNowPlaying)}
+        {ab('camera',  '32 · Camera',              CameraApp)}
+        {ab('gallery', '33 · Gallery',             GalleryApp)}
+      </DCSection>
+
+      <DCSection id="utils" title="Utilities" subtitle="Calendar, Clock, Calculator, Maps, Notes">
+        {ab('calendar', '34 · Calendar',   CalendarApp)}
+        {ab('clock',    '35 · Clock',      ClockApp)}
+        {ab('calc',     '36 · Calculator', CalculatorApp)}
+        {ab('maps',     '37 · Maps',       MapsApp)}
+        {ab('notes',    '38 · Notes',      NotesApp)}
+      </DCSection>
+
+      <DCSection id="wallpapers" title="Wallpapers" subtitle="Slate Aurora is the default — ten alternates ship with the system. All resolution-independent SVG, palette-locked to Marathon teal + neutrals. Each anchors on a horizon at the golden ratio.">
+        {wall('wp-aurora',  '39 · Slate Aurora', WallpaperSlateAurora)}
+        {wall('wp-longrun', '40 · Long Run',     WallpaperLongRun)}
+        {wall('wp-track',   '41 · Track',        WallpaperFlowfield)}
+        {wall('wp-mesh',    '42 · Mesh',         WallpaperMesh)}
+        {wall('wp-contour', '43 · Contour',      WallpaperTopographic)}
+        {wall('wp-stride',  '44 · Stride',       WallpaperDrift)}
+        {wall('wp-striae',  '45 · Striae',       WallpaperStriae)}
+        {wall('wp-half',    '46 · Halftone',     WallpaperHalftone)}
+        {wall('wp-pulse',   '47 · Pulse',        WallpaperPulse)}
+        {wall('wp-dawn',    '48 · Dawn',         WallpaperTwilight)}
+        {wall('wp-tundra',  '49 · Tundra',       WallpaperTundra)}
+        {wall('wp-carbon',  '50 · Carbon',       WallpaperCarbon)}
+        {wall('wp-indigo',  '51 · Indigo Dusk',  WallpaperIndigoDusk)}
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import MarathonUI.Controls
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -150,7 +150,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                if (!isPairing)
+                if (!bluetoothPairDialog.isPairing)
                     bluetoothPairDialog.hide();
             }
         }
@@ -168,7 +168,6 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        layer.enabled: true
 
         Column {
             id: contentColumn
@@ -229,8 +228,8 @@ Item {
                 radius: Constants.borderRadiusSmall
                 color: MColors.backgroundLight || Qt.darker(MColors.background, 1.05)
                 border.width: pinInput.activeFocus || passkeyInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: errorMessage !== "" ? MColors.error : ((pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.accent : MColors.border)
-                visible: pairingMode === "pin" || pairingMode === "passkey"
+                border.color: bluetoothPairDialog.errorMessage !== "" ? MColors.error : ((pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.accent : MColors.border)
+                visible: bluetoothPairDialog.pairingMode === "pin" || bluetoothPairDialog.pairingMode === "passkey"
 
                 Row {
                     anchors.fill: parent
@@ -247,7 +246,7 @@ Item {
                     TextInput {
                         id: pinInput
 
-                        visible: pairingMode === "pin"
+                        visible: bluetoothPairDialog.pairingMode === "pin"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: MTypography.sizeBody
@@ -255,7 +254,7 @@ Item {
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
-                        enabled: !isPairing
+                        enabled: !bluetoothPairDialog.isPairing
                         selectByMouse: true
                         Keys.onReturnPressed: {
                             if (pinInput.text.length >= 4)
@@ -274,7 +273,7 @@ Item {
                     TextInput {
                         id: passkeyInput
 
-                        visible: pairingMode === "passkey"
+                        visible: bluetoothPairDialog.pairingMode === "passkey"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: MTypography.sizeBody
@@ -282,7 +281,7 @@ Item {
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
-                        enabled: !isPairing
+                        enabled: !bluetoothPairDialog.isPairing
                         selectByMouse: true
                         Keys.onReturnPressed: {
                             if (passkeyInput.text.length === 6)
@@ -313,14 +312,14 @@ Item {
                 color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.1)
                 border.width: Constants.borderWidthMedium
                 border.color: MColors.accent
-                visible: pairingMode === "confirm"
+                visible: bluetoothPairDialog.pairingMode === "confirm"
 
                 Column {
                     anchors.centerIn: parent
                     spacing: Constants.spacingSmall
 
                     Text {
-                        text: displayedPasskey
+                        text: bluetoothPairDialog.displayedPasskey
                         font.pixelSize: MTypography.sizeGigantic
                         font.weight: Font.Light
                         font.family: MTypography.fontMonospace || "monospace"
@@ -330,7 +329,7 @@ Item {
                     }
 
                     Text {
-                        text: "Verify this code matches on " + deviceName
+                        text: "Verify this code matches on " + bluetoothPairDialog.deviceName
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
@@ -346,7 +345,7 @@ Item {
                 color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
                 border.width: Constants.borderWidthThin
                 border.color: MColors.error
-                visible: errorMessage !== "" && !isPairing
+                visible: bluetoothPairDialog.errorMessage !== "" && !bluetoothPairDialog.isPairing
 
                 Row {
                     anchors.fill: parent
@@ -364,7 +363,7 @@ Item {
                     Text {
                         id: errorText
 
-                        text: errorMessage
+                        text: bluetoothPairDialog.errorMessage
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.error
@@ -377,7 +376,7 @@ Item {
             Column {
                 width: parent.width
                 spacing: Constants.spacingSmall
-                visible: isPairing
+                visible: bluetoothPairDialog.isPairing
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -386,12 +385,12 @@ Item {
                     BusyIndicator {
                         width: Constants.iconSizeMedium
                         height: Constants.iconSizeMedium
-                        running: isPairing
+                        running: bluetoothPairDialog.isPairing
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
                     Text {
-                        text: "Pairing with " + deviceName + "..."
+                        text: "Pairing with " + bluetoothPairDialog.deviceName + "..."
                         font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
@@ -404,7 +403,7 @@ Item {
                 width: parent.width
                 height: Constants.touchTargetMedium
                 spacing: Constants.spacingMedium
-                visible: !isPairing
+                visible: !bluetoothPairDialog.isPairing
 
                 Rectangle {
                     width: (parent.width - Constants.spacingMedium) / 2
@@ -415,7 +414,7 @@ Item {
                     border.color: MColors.border
 
                     Text {
-                        text: pairingMode === "confirm" ? "Reject" : "Cancel"
+                        text: bluetoothPairDialog.pairingMode === "confirm" ? "Reject" : "Cancel"
                         font.pixelSize: MTypography.sizeLarge
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
@@ -427,7 +426,7 @@ Item {
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected");
                             HapticManager.light();
-                            if (pairingMode === "confirm")
+                            if (bluetoothPairDialog.pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(false);
                             else
                                 bluetoothPairDialog.cancelled();
@@ -448,7 +447,7 @@ Item {
                     opacity: canPair() ? 1 : 0.5
 
                     Text {
-                        text: pairingMode === "confirm" ? "Accept" : "Pair"
+                        text: bluetoothPairDialog.pairingMode === "confirm" ? "Accept" : "Pair"
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
@@ -463,11 +462,11 @@ Item {
                             Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
                             HapticManager.medium();
                             bluetoothPairDialog.showPairing();
-                            if (pairingMode === "confirm")
+                            if (bluetoothPairDialog.pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(true);
-                            else if (pairingMode === "pin")
+                            else if (bluetoothPairDialog.pairingMode === "pin")
                                 bluetoothPairDialog.pairRequested(pinInput.text);
-                            else if (pairingMode === "passkey")
+                            else if (bluetoothPairDialog.pairingMode === "passkey")
                                 bluetoothPairDialog.pairRequested(passkeyInput.text);
                             else
                                 bluetoothPairDialog.pairRequested("");
@@ -477,14 +476,14 @@ Item {
             }
 
             Text {
-                text: getHelpText(pairingMode)
+                text: getHelpText(bluetoothPairDialog.pairingMode)
                 font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width
                 wrapMode: Text.WordWrap
-                visible: !isPairing
+                visible: !bluetoothPairDialog.isPairing
             }
         }
 
@@ -492,10 +491,6 @@ Item {
             id: translateTransform
 
             y: dialogCard.height
-        }
-
-        layer.effect: ShaderEffect {
-            property real blur: 32
         }
     }
 

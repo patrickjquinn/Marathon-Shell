@@ -1,42 +1,27 @@
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
 
+// The scaffold app developers copy. It hand-rolled a title bar and a scroll
+// view that MPage already provides, and set `content:` on MActionBar -- a
+// property MActionBar does not have, so the title never rendered. Nothing
+// caught it because `template` is deliberately absent from apps/CMakeLists.txt
+// (it must not ship on the home grid), so it is never built.
+//
+// MPage gives you the title bar, the scrolling content area and the safe-area
+// insets. Put your content in `content:` and let it do that work.
 MPage {
     id: mainPage
 
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.background
+    title: "Template App"
 
+    content: [
         Column {
-            anchors.fill: parent
-            spacing: 0
-
-            MActionBar {
-                width: parent.width
-                showBack: false
-
-                content: MLabel {
-                    text: "Template App"
-                    variant: "primary"
-                    font.weight: Font.DemiBold
-                }
-            }
-
-            MScrollView {
-                width: parent.width
-                height: parent.height - parent.children[0].height
-                contentWidth: width
-
-                Column {
-                    width: parent.width
-                    padding: MSpacing.lg
-                    spacing: MSpacing.lg
+            width: mainPage.width
+            padding: MSpacing.lg
+            spacing: MSpacing.lg
 
                     MEmptyState {
                         width: parent.width - parent.padding * 2
@@ -114,9 +99,7 @@ MPage {
                                 Logger.info("TemplateApp", "Secondary button clicked");
                             }
                         }
-                    }
-                }
             }
         }
-    }
+    ]
 }

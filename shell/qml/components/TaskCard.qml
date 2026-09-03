@@ -1,6 +1,6 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -24,7 +24,10 @@ Item {
     property bool nativeSurfaceActive: false
     property Item registeredSurfaceItem: null
     readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
-    readonly property bool useRegisteredSurface: taskCard.registeredSurfaceItem !== null
+    // Plain bool, not a derived property binding: Qt's binding-loop detector
+    // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
+    // fanning out signals. Updated explicitly from updateRegisteredSurface().
+    property bool useRegisteredSurface: false
 
     signal closed
     signal taskClosed(string appId)
@@ -41,15 +44,28 @@ Item {
     }
 
     function updateRegisteredSurface() {
-        if (typeof SurfaceRegistry === "undefined" || !SurfaceRegistry) {
-            registeredSurfaceItem = null;
-            return;
-        }
         if (taskCard.surfaceId <= 0) {
             registeredSurfaceItem = null;
+            useRegisteredSurface = false;
             return;
         }
         registeredSurfaceItem = SurfaceRegistry.getSurfaceItem(taskCard.surfaceId);
+        useRegisteredSurface = registeredSurfaceItem !== null;
+    }
+
+    onWaylandSurfaceChanged: refreshNativeSurface()
+    onSurfaceIdChanged: updateRegisteredSurface()
+    onTaskSwitcherVisibleChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    onHaveWaylandChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    Component.onCompleted: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
     }
 
     Rectangle {
@@ -60,10 +76,19 @@ Item {
         anchors.fill: parent
         anchors.margins: 8
         color: MColors.glassTitlebar
-        radius: Constants.borderRadiusSharp
-        border.width: Constants.borderWidthThin
+        // DS card chrome — 4 px corners. Previously Constants.borderRadiusSharp
+        // (=0) made every Active Frames tile a flat box, breaking continuity
+        // with the rest of the shell's rounded language.
+        radius: MRadius.md
+        border.width: 1
         border.color: MColors.borderSubtle
-        antialiasing: Constants.enableAntialiasing
+        antialiasing: true
+        // Clip children to the rounded corners. Without this, the banner
+        // (sharp-cornered Rectangle anchored to the bottom edge) renders
+        // its solid fill into the bottom-left/right corner pixels that
+        // lie OUTSIDE cardRoot's rounded shape — visually making the
+        // handle look wider than the card body.
+        clip: true
         scale: closing ? 0.7 : 1
         opacity: closing ? 0 : 1
 
@@ -88,8 +113,7 @@ Item {
                         }
                         TaskModel.closeTask(taskCard.id);
                     } else {
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.closeApp(taskCard.appId);
+                        AppLifecycleManager.closeApp(taskCard.appId);
                     }
                     cardRoot.closing = false;
                 }
@@ -126,12 +150,10 @@ Item {
                     var appIcon = taskCard.icon;
                     var appType = taskCard.type;
                     Qt.callLater(function () {
-                        if (typeof AppLifecycleManager !== 'undefined') {
-                            if (appType !== "native")
-                                AppLifecycleManager.restoreApp(appId);
-                            else
-                                AppLifecycleManager.bringToForeground(appId);
-                        }
+                        if (appType !== "native")
+                            AppLifecycleManager.restoreApp(appId);
+                        else
+                            AppLifecycleManager.bringToForeground(appId);
                         UIStore.restoreApp(appId, appTitle, appIcon);
                         taskCard.closed();
                     });
@@ -192,10 +214,6 @@ Item {
                                         liveApp = null;
                                         return;
                                     }
-                                    if (typeof AppLifecycleManager === 'undefined') {
-                                        liveApp = null;
-                                        return;
-                                    }
                                     var instance = AppLifecycleManager.getAppInstance(taskCard.appId);
                                     liveApp = instance;
                                     if (liveApp)
@@ -239,7 +257,7 @@ Item {
                                         previewContainer.liveApp = null;
                                     }
 
-                                    target: typeof AppLifecycleManager !== "undefined" ? AppLifecycleManager : null
+                                    target: AppLifecycleManager
                                 }
 
                                 Connections {
@@ -264,10 +282,19 @@ Item {
                                 ShaderEffectSource {
                                     id: liveSnapshot
 
-                                    anchors.top: parent.top
+                                    // App is rendered at full device aspect (W:H = screenWidth:screenHeight).
+                                    // The card preview area has its own aspect — fit the app preview INTO it
+                                    // letterbox-style, preserving the app's true proportions. The prior
+                                    // `width: parent.width; height: (sH/sW)*width` formula always made the
+                                    // preview as TALL as the device, which on a 1:2 portrait screen meant
+                                    // the rendered texture overflowed the (shorter) card preview area and
+                                    // visually clipped the bottom — making the preview look squished + cropped.
+                                    property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
+                                    property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
+                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
                                     sourceItem: previewContainer.liveApp
                                     live: false
                                     recursive: true
@@ -283,22 +310,28 @@ Item {
                                     }
                                 }
 
-                                Timer {
-                                    id: livePreviewRefreshTimer
-
-                                    interval: 200
-                                    repeat: true
-                                    running: taskCard.taskSwitcherVisible && previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
-                                    onTriggered: liveSnapshot.scheduleUpdate()
-                                }
+                                // Periodic 200 ms snapshot refresh REMOVED — it was
+                                // causing visible flicker when entering card mode.
+                                // The card-mode-enter animation transforms the live
+                                // app surface mid-capture, and re-snapshotting every
+                                // 200 ms during that animation produced inconsistent
+                                // textures (a frame of mid-transform, then the next
+                                // frame, etc.) that read as flashing. Snapshot is
+                                // now taken once when the switcher becomes visible
+                                // and when grid moving/dragging stops (see
+                                // Connections above), iOS-style frozen preview.
 
                                 Loader {
                                     id: nativeSurfaceLoader
 
-                                    anchors.top: parent.top
+                                    // Same aspect-preserving fit as liveSnapshot above — without it
+                                    // the native (Wayland) surface preview gets stretched/cropped.
+                                    property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
+                                    property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
+                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
                                     visible: taskCard.type === "native"
                                     active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
@@ -460,8 +493,15 @@ Item {
                 preventStealing: false
                 propagateComposedEvents: false
                 onPressed: mouse => {
-                    var p = closeButtonRect.mapToItem(handleTapArea, 0, 0);
-                    if (mouse.x >= p.x && mouse.x <= p.x + closeButtonRect.width && mouse.y >= p.y && mouse.y <= p.y + closeButtonRect.height) {
+                    // Mirror the close button's expanded MouseArea bounds
+                    // (anchors.margins: -16) — otherwise this banner-wide tap
+                    // area steals taps in the 16 px ring meant to enlarge the
+                    // close target.
+                    var hitMargin = 16;
+                    var p = closeButtonRect.mapToItem(handleTapArea, -hitMargin, -hitMargin);
+                    var w = closeButtonRect.width + (hitMargin * 2);
+                    var h = closeButtonRect.height + (hitMargin * 2);
+                    if (mouse.x >= p.x && mouse.x <= p.x + w && mouse.y >= p.y && mouse.y <= p.y + h) {
                         mouse.accepted = false;
                         return;
                     }
@@ -482,12 +522,10 @@ Item {
                         var appIcon = taskCard.icon;
                         var appType = taskCard.type;
                         Qt.callLater(function () {
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                if (appType !== "native")
-                                    AppLifecycleManager.restoreApp(appId);
-                                else
-                                    AppLifecycleManager.bringToForeground(appId);
-                            }
+                            if (appType !== "native")
+                                AppLifecycleManager.restoreApp(appId);
+                            else
+                                AppLifecycleManager.bringToForeground(appId);
                             UIStore.restoreApp(appId, appTitle, appIcon);
                             taskCard.closed();
                         });
@@ -535,23 +573,37 @@ Item {
                     id: closeButtonContainer
 
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Constants.iconSizeMedium
-                    height: Constants.iconSizeMedium
+                    width: Math.round(44 * Constants.scaleFactor)
+                    height: Math.round(44 * Constants.scaleFactor)
 
                     Rectangle {
                         id: closeButtonRect
 
                         anchors.centerIn: parent
-                        width: Math.round(32 * Constants.scaleFactor)
-                        height: Math.round(32 * Constants.scaleFactor)
+                        width: Math.round(44 * Constants.scaleFactor)
+                        height: Math.round(44 * Constants.scaleFactor)
                         radius: MRadius.sm
-                        color: MColors.surface
+                        color: closeButtonArea.pressed ? MColors.elevated : MColors.surface
+                        scale: closeButtonArea.pressed ? 0.92 : 1
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: MMotion.xs
+                            }
+                        }
+
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 80
+                                easing.type: Easing.OutCubic
+                            }
+                        }
 
                         Text {
                             anchors.centerIn: parent
                             text: "×"
                             color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeLarge
+                            font.pixelSize: MTypography.sizeXLarge
                             font.weight: Font.Bold
                         }
 
@@ -559,7 +611,7 @@ Item {
                             id: closeButtonArea
 
                             anchors.fill: parent
-                            anchors.margins: -12
+                            anchors.margins: -16
                             z: 1000
                             preventStealing: true
                             onPressed: mouse => {
@@ -599,30 +651,6 @@ Item {
         }
     }
 
-    Behavior on scale {
-        enabled: Constants.enableAnimations
-
-        NumberAnimation {
-            duration: 250
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    onWaylandSurfaceChanged: refreshNativeSurface()
-    onSurfaceIdChanged: updateRegisteredSurface()
-    onTaskSwitcherVisibleChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    onHaveWaylandChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    Component.onCompleted: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-
     Connections {
         function onSurfaceRegistered(surfaceId) {
             if (surfaceId === taskCard.surfaceId)
@@ -634,6 +662,15 @@ Item {
                 updateRegisteredSurface();
         }
 
-        target: typeof SurfaceRegistry !== "undefined" ? SurfaceRegistry : null
+        target: SurfaceRegistry
+    }
+
+    Behavior on scale {
+        enabled: Constants.enableAnimations
+
+        NumberAnimation {
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
     }
 }

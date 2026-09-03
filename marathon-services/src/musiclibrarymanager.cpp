@@ -234,7 +234,7 @@ void MusicLibraryManager::onScanProgress(int current, int total) {
     emit scanProgressChanged(m_scanProgress);
 }
 
-void MusicLibraryManager::onScanFinished(QList<Track> tracks) {
+void MusicLibraryManager::onScanFinished(const QList<Track> &tracks) {
     qDebug() << "[MusicLibraryManager] Async scan finished. Processing" << tracks.size()
              << "tracks";
 

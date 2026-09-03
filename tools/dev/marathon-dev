@@ -1,0 +1,164 @@
+#!/bin/sh
+# marathon-dev — small remote helper for driving the shell over SSH.
+#
+# Subcommands:
+#   wake                turn the panel on (no auth required)
+#   unlock <pin>        verify PIN and unlock the session
+#   screenshot [path]   trigger SIGUSR1 capture (path defaults to /tmp/marathon-shot.png)
+#   sleep               turn the panel off
+#
+# All D-Bus calls hit the marathon-shell session bus. When invoked as
+# root over SSH (no XDG_RUNTIME_DIR), we fall back to running the call
+# as the `user` account.
+set -eu
+
+call_bus() {
+    # The shell registers `org.marathonos.Shell` on user 1000's session
+    # bus. dbus AUTH EXTERNAL ties the connection to the caller's UID,
+    # so root can't dial the socket directly even though /run/user/1000/bus
+    # is mode 0666 — we have to drop to user 1000 first. sudo -E + explicit
+    # XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS keeps the env pointed at
+    # the right bus across the uid switch.
+    if [ "$(id -u)" -eq 1000 ]; then
+        export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+        busctl --user "$@"
+    else
+        sudo -E -u user env \
+            XDG_RUNTIME_DIR=/run/user/1000 \
+            DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+            busctl --user "$@"
+    fi
+}
+
+cmd_wake() {
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Display \
+        org.marathonos.Shell.Display1 Wake
+}
+
+cmd_sleep() {
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Display \
+        org.marathonos.Shell.Display1 SetScreenState b false
+}
+
+cmd_unlock() {
+    pin="${1:-}"
+    if [ -z "$pin" ]; then
+        echo "marathon-dev unlock: missing PIN" >&2
+        exit 2
+    fi
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Security \
+        org.marathonos.Shell.Security1 AuthenticateQuickPIN s "$pin"
+}
+
+cmd_launch() {
+    appId="${1:-}"
+    if [ -z "$appId" ]; then
+        echo "marathon-dev launch: missing app id" >&2
+        exit 2
+    fi
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+        org.marathonos.Shell.Navigation1 LaunchApp s "$appId" >/dev/null
+    # Wait until a marathon-app-runner for this id is running. Required
+    # for scripted audits — without this, the next screenshot fires
+    # before the new app's surface is composited.
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if pgrep -f "marathon-app-runner --app-id $appId" >/dev/null 2>&1; then
+            sleep 2
+            return 0
+        fi
+        sleep 1
+    done
+    return 0
+}
+
+cmd_close() {
+    # Walk the running marathon-app-runner processes and SIGTERM them.
+    # Used to reset the foreground state between captures during a
+    # scripted UX audit.
+    #
+    # Matching "--app-id <id>" made this a silent no-op: the runner is
+    # exec'd inside bwrap and, with the warm pool enabled, keeps its
+    # `--pool` argv even after adopting an app, so the app id appears in
+    # no process's argv. Only the unsandboxed WebEngine apps ever
+    # matched. Match the runner by comm instead -- truncated to 15 chars
+    # as "marathon-app-ru", and comm cannot self-match this script the
+    # way pkill -f does.
+    #
+    # The pool gives us no way to tell which runner hosts which app, so
+    # a specific app id can no longer be singled out; closing one closes
+    # all. Say so rather than pretending it worked.
+    if [ -n "${1:-}" ]; then
+        echo "marathon-dev: warm-pool runners carry no app id; closing all apps" >&2
+    fi
+    for p in $(ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}'); do
+        kill -TERM "$p" 2>/dev/null || true
+    done
+}
+
+cmd_screenshot() {
+    # The shell's SIGUSR1 handler writes to $MARATHON_SCREENSHOT_PATH
+    # (default /tmp/marathon-shot.png) — that's the shell's env at startup,
+    # not the path we want to deliver to. Capture there, then move.
+    path="${1:-/tmp/marathon-shot.png}"
+    pid="$(pidof marathon-shell-bin)"
+    if [ -z "$pid" ]; then
+        echo "marathon-dev screenshot: marathon-shell-bin not running" >&2
+        exit 1
+    fi
+    shell_path="$(tr '\0' '\n' </proc/"$pid"/environ 2>/dev/null \
+        | sed -n 's/^MARATHON_SCREENSHOT_PATH=//p')"
+    shell_path="${shell_path:-/tmp/marathon-shot.png}"
+    # Clear any stale file so we can detect a fresh write.
+    rm -f "$shell_path" 2>/dev/null || true
+    kill -USR1 "$pid"
+    # Wait for the file to appear, then wait for two consecutive same-size
+    # samples to confirm the write has finished (Qt's QImage::save isn't
+    # atomic; cp/scp racing the writer produces truncated PNGs).
+    for _ in 1 2 3 4 5 6 7 8; do
+        [ -s "$shell_path" ] && break
+        sleep 0.5
+    done
+    last=-1
+    for _ in 1 2 3 4 5 6; do
+        cur=$(stat -c %s "$shell_path" 2>/dev/null || echo 0)
+        if [ "$cur" -gt 0 ] && [ "$cur" = "$last" ]; then
+            break
+        fi
+        last=$cur
+        sleep 0.4
+    done
+    if [ ! -s "$shell_path" ]; then
+        echo "marathon-dev screenshot: $shell_path empty or missing" >&2
+        exit 1
+    fi
+    if [ "$shell_path" != "$path" ]; then
+        cp "$shell_path" "$path"
+    fi
+    echo "captured: $path"
+}
+
+case "${1:-}" in
+    wake)        shift; cmd_wake "$@" ;;
+    sleep|off)   shift; cmd_sleep "$@" ;;
+    unlock)      shift; cmd_unlock "$@" ;;
+    launch)      shift; cmd_launch "$@" ;;
+    close)       shift; cmd_close "$@" ;;
+    screenshot)  shift; cmd_screenshot "$@" ;;
+    ""|--help|-h)
+        cat <<EOF
+marathon-dev — remote shell driver
+
+usage:
+  marathon-dev wake               # turn panel on
+  marathon-dev sleep              # turn panel off
+  marathon-dev unlock <pin>       # auth PIN + unlock session
+  marathon-dev launch <app-id>    # navigate the shell to an app
+  marathon-dev close              # SIGTERM every running app
+  marathon-dev screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
+
+All commands require the shell to be running. Most reach the shell via
+its session-bus interface (org.marathonos.Shell.* at /org/marathonos/Shell).
+EOF
+        ;;
+    *) echo "marathon-dev: unknown subcommand: $1" >&2; exit 2 ;;
+esac

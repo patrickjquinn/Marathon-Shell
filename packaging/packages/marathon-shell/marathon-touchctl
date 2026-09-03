@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Synthetic touch + key injector for Marathon QEMU testing.
+
+Creates a virtual multi-touch device via /dev/uinput so libinput +
+Marathon's Wayland compositor see real touch events — not "mouse" events
+from QEMU's virtio-tablet, which mis-tests gesture code paths.
+
+Read one command per line from argv or stdin:
+    tap X Y                       — single tap at (X, Y), 80 ms hold
+    longtap X Y                   — 600 ms hold
+    swipe X1 Y1 X2 Y2 [STEPS]     — N-step drag (default 24)
+    key NAME                      — virtual keypress (KEY_ENTER, KEY_VOLUMEDOWN, …)
+    sleep MS                      — wait
+
+X/Y are in screen pixels and assume a 720×1440 canvas; override with
+MARATHON_TOUCH_WIDTH / MARATHON_TOUCH_HEIGHT.
+
+Coordinates land on touchscreen ABS axes scaled to 0..32767. libinput
+picks the device up automatically because it advertises BTN_TOUCH +
+ABS_MT_SLOT.
+
+Examples:
+    marathon-touchctl tap 360 1090
+    marathon-touchctl swipe 360 100 360 1300
+    cat scenario.txt | marathon-touchctl -
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import time
+
+try:
+    from evdev import UInput, ecodes as e, AbsInfo
+except ImportError:
+    sys.stderr.write(
+        "marathon-touchctl: python-evdev missing — apk add py3-evdev\n")
+    sys.exit(2)
+
+
+WIDTH = int(os.environ.get("MARATHON_TOUCH_WIDTH", "720"))
+HEIGHT = int(os.environ.get("MARATHON_TOUCH_HEIGHT", "1440"))
+ABS_MAX = 32767
+
+
+def make_device():
+    caps = {
+        e.EV_KEY: [e.BTN_TOUCH],
+        e.EV_ABS: [
+            (e.ABS_X, AbsInfo(0, 0, ABS_MAX, 0, 0, ABS_MAX // WIDTH)),
+            (e.ABS_Y, AbsInfo(0, 0, ABS_MAX, 0, 0, ABS_MAX // HEIGHT)),
+            (e.ABS_MT_SLOT, AbsInfo(0, 0, 4, 0, 0, 0)),
+            (e.ABS_MT_TRACKING_ID, AbsInfo(0, -1, 65535, 0, 0, 0)),
+            (e.ABS_MT_POSITION_X, AbsInfo(0, 0, ABS_MAX, 0, 0, ABS_MAX // WIDTH)),
+            (e.ABS_MT_POSITION_Y, AbsInfo(0, 0, ABS_MAX, 0, 0, ABS_MAX // HEIGHT)),
+        ],
+    }
+    return UInput(caps, name="marathon-touchctl", version=0x1)
+
+
+def to_abs(x: int, y: int) -> tuple[int, int]:
+    return (
+        max(0, min(ABS_MAX, int(x * ABS_MAX / WIDTH))),
+        max(0, min(ABS_MAX, int(y * ABS_MAX / HEIGHT))),
+    )
+
+
+def tap(ui: UInput, x: int, y: int, hold_ms: int = 80, tracking_id: int = 1):
+    ax, ay = to_abs(x, y)
+    ui.write(e.EV_ABS, e.ABS_MT_SLOT, 0)
+    ui.write(e.EV_ABS, e.ABS_MT_TRACKING_ID, tracking_id)
+    ui.write(e.EV_ABS, e.ABS_MT_POSITION_X, ax)
+    ui.write(e.EV_ABS, e.ABS_MT_POSITION_Y, ay)
+    ui.write(e.EV_KEY, e.BTN_TOUCH, 1)
+    ui.write(e.EV_ABS, e.ABS_X, ax)
+    ui.write(e.EV_ABS, e.ABS_Y, ay)
+    ui.syn()
+    time.sleep(hold_ms / 1000.0)
+    ui.write(e.EV_ABS, e.ABS_MT_SLOT, 0)
+    ui.write(e.EV_ABS, e.ABS_MT_TRACKING_ID, -1)
+    ui.write(e.EV_KEY, e.BTN_TOUCH, 0)
+    ui.syn()
+
+
+def swipe(ui: UInput, x1: int, y1: int, x2: int, y2: int,
+          steps: int = 24, duration_ms: int = 400, tracking_id: int = 2):
+    ax1, ay1 = to_abs(x1, y1)
+    ax2, ay2 = to_abs(x2, y2)
+    ui.write(e.EV_ABS, e.ABS_MT_SLOT, 0)
+    ui.write(e.EV_ABS, e.ABS_MT_TRACKING_ID, tracking_id)
+    ui.write(e.EV_ABS, e.ABS_MT_POSITION_X, ax1)
+    ui.write(e.EV_ABS, e.ABS_MT_POSITION_Y, ay1)
+    ui.write(e.EV_KEY, e.BTN_TOUCH, 1)
+    ui.write(e.EV_ABS, e.ABS_X, ax1)
+    ui.write(e.EV_ABS, e.ABS_Y, ay1)
+    ui.syn()
+    per = duration_ms / 1000.0 / max(1, steps)
+    for i in range(1, steps + 1):
+        tx = int(ax1 + (ax2 - ax1) * i / steps)
+        ty = int(ay1 + (ay2 - ay1) * i / steps)
+        ui.write(e.EV_ABS, e.ABS_MT_POSITION_X, tx)
+        ui.write(e.EV_ABS, e.ABS_MT_POSITION_Y, ty)
+        ui.write(e.EV_ABS, e.ABS_X, tx)
+        ui.write(e.EV_ABS, e.ABS_Y, ty)
+        ui.syn()
+        time.sleep(per)
+    ui.write(e.EV_ABS, e.ABS_MT_SLOT, 0)
+    ui.write(e.EV_ABS, e.ABS_MT_TRACKING_ID, -1)
+    ui.write(e.EV_KEY, e.BTN_TOUCH, 0)
+    ui.syn()
+
+
+def key(ui: UInput, code_name: str):
+    code = getattr(e, code_name, None)
+    if code is None:
+        sys.stderr.write(f"marathon-touchctl: unknown key {code_name}\n")
+        return
+    ui.write(e.EV_KEY, code, 1)
+    ui.syn()
+    time.sleep(0.05)
+    ui.write(e.EV_KEY, code, 0)
+    ui.syn()
+
+
+def parse_and_run(ui: UInput, line: str):
+    parts = line.strip().split()
+    if not parts or parts[0].startswith("#"):
+        return
+    cmd = parts[0]
+    args = parts[1:]
+    if cmd == "tap" and len(args) >= 2:
+        tap(ui, int(args[0]), int(args[1]))
+    elif cmd == "longtap" and len(args) >= 2:
+        tap(ui, int(args[0]), int(args[1]), hold_ms=600)
+    elif cmd == "swipe" and len(args) >= 4:
+        steps = int(args[4]) if len(args) >= 5 else 24
+        swipe(ui, int(args[0]), int(args[1]), int(args[2]), int(args[3]), steps=steps)
+    elif cmd == "key" and len(args) >= 1:
+        key(ui, args[0])
+    elif cmd == "sleep" and len(args) >= 1:
+        time.sleep(int(args[0]) / 1000.0)
+    else:
+        sys.stderr.write(f"marathon-touchctl: unknown: {line!r}\n")
+
+
+def main():
+    ui = make_device()
+    # Give libinput a beat to notice the new device.
+    time.sleep(0.4)
+    try:
+        if len(sys.argv) > 1 and sys.argv[1] != "-":
+            parse_and_run(ui, " ".join(sys.argv[1:]))
+        else:
+            for line in sys.stdin:
+                parse_and_run(ui, line)
+    finally:
+        ui.close()
+
+
+if __name__ == "__main__":
+    main()

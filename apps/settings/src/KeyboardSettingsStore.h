@@ -1,5 +1,8 @@
 #pragma once
 
+class QQmlEngine;
+class QJSEngine;
+
 #include <QPointer>
 #include <QVariantMap>
 #include <QObject>
@@ -10,6 +13,13 @@ class KeyboardSettingsStore : public QObject {
     Q_OBJECT
     QML_ELEMENT
     QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static KeyboardSettingsStore *create(QQmlEngine *, QJSEngine *);
 
     Q_PROPERTY(QString currentLanguage READ currentLanguage WRITE setCurrentLanguage NOTIFY
                    currentLanguageChanged)

@@ -2,7 +2,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Controls
 
 Rectangle {
     id: callOverlay
@@ -19,21 +18,15 @@ Rectangle {
         callerName = name || "Unknown";
         isRinging = true;
         visible = true;
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
-            AudioPolicyControllerCpp.playRingtone();
-
-        if (typeof HapticManager !== 'undefined')
-            HapticManager.vibrate(1000);
-
+        AudioPolicyControllerCpp.playRingtone();
+        HapticManager.vibrate(1000);
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
 
     function hide() {
         isRinging = false;
         visible = false;
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
-            AudioPolicyControllerCpp.stopRingtone();
-
+        AudioPolicyControllerCpp.stopRingtone();
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
@@ -88,7 +81,7 @@ Rectangle {
                         opacity: 0
 
                         SequentialAnimation on scale {
-                            running: callOverlay.isRinging
+                            running: MMotion.gate(callOverlay.isRinging)
                             loops: Animation.Infinite
 
                             PauseAnimation {
@@ -116,7 +109,7 @@ Rectangle {
                 }
 
                 SequentialAnimation on scale {
-                    running: callOverlay.isRinging
+                    running: MMotion.gate(callOverlay.isRinging)
                     loops: Animation.Infinite
 
                     NumberAnimation {
@@ -151,7 +144,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerName
+                    text: callOverlay.callerName
                     font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
@@ -160,7 +153,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerNumber
+                    text: callOverlay.callerNumber
                     font.pixelSize: MTypography.sizeLarge
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
@@ -201,9 +194,7 @@ Rectangle {
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call declined");
                             HapticManager.medium();
-                            if (typeof TelephonyService !== 'undefined')
-                                TelephonyService.hangup();
-
+                            TelephonyService.hangup();
                             declined();
                             hide();
                         }
@@ -254,13 +245,10 @@ Rectangle {
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call answered");
                             HapticManager.heavy();
-                            if (typeof TelephonyService !== 'undefined')
-                                TelephonyService.answer();
-
+                            TelephonyService.answer();
                             answered();
                             hide();
-                            if (typeof UIStore !== 'undefined')
-                                UIStore.openApp("phone", "Phone", "");
+                            UIStore.openApp("phone", "Phone", "");
                         }
                     }
 

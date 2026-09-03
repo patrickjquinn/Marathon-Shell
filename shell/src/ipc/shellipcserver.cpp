@@ -20,6 +20,7 @@
 #include "sensormanagercpp.h"
 #include "locationmanager.h"
 #include "alarmmanagercpp.h"
+#include "../services/marathonappstoreservice.h"
 
 #include <QDBusConnection>
 #include <QDBusError>
@@ -34,7 +35,12 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                NetworkManagerCpp *networkManager, HapticManager *hapticManager,
                                SecurityManager *securityManager, SensorManagerCpp *sensorManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
-                               AppLaunchService *appLaunchService, QObject *parent)
+                               AudioRoutingManager *audioRoutingManager,
+                               UpdateService *updateService, DavSyncEngine *davSyncEngine,
+                               MarathonAppStoreService *appStoreService,
+                               AppLaunchService        *appLaunchService,
+                               AppLifecycleManager     *lifecycleManager,
+                               MarathonAppRegistry *appRegistry, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
     , m_contacts(contacts)
@@ -54,7 +60,13 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_sensorManager(sensorManager)
     , m_locationManager(locationManager)
     , m_alarmManager(alarmManager)
-    , m_appLaunchService(appLaunchService) {}
+    , m_audioRoutingManager(audioRoutingManager)
+    , m_updateService(updateService)
+    , m_davSyncEngine(davSyncEngine)
+    , m_appStoreService(appStoreService)
+    , m_appLaunchService(appLaunchService)
+    , m_lifecycleManager(lifecycleManager)
+    , m_appRegistry(appRegistry) {}
 
 bool ShellIpcServer::registerOnSessionBus() {
     auto bus = QDBusConnection::sessionBus();
@@ -64,6 +76,10 @@ bool ShellIpcServer::registerOnSessionBus() {
     }
 
     qInfo() << "[ShellIpcServer] Registering DBus service org.marathonos.Shell…";
+    if (qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0) {
+        qWarning() << "[ShellIpcServer] !!! MARATHON_TEST_TRUSTED is set -- IPC caller "
+                      "verification is bypassed. Do NOT use in production.";
+    }
     if (!bus.registerService("org.marathonos.Shell")) {
 
         qWarning() << "[ShellIpcServer] Failed to register service org.marathonos.Shell:"
@@ -75,7 +91,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *contactsObj = new ContactsObject(m_contacts, m_permissions, m_appLaunchService, this);
     auto *callHistoryObj =
         new CallHistoryObject(m_callHistory, m_permissions, m_appLaunchService, this);
-    auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService, this);
+    auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
+                                             m_audioRoutingManager, this);
     auto *smsObj       = new SmsObject(m_sms, m_permissions, m_appLaunchService, this);
     auto *mediaObj =
         new MediaLibraryObject(m_mediaLibrary, m_permissions, m_appLaunchService, this);
@@ -94,8 +111,14 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *sensorObj  = new SensorObject(m_sensorManager, m_appLaunchService, this);
     auto *locObj     = new LocationObject(m_locationManager, m_appLaunchService, this);
     auto *alarmObj   = new AlarmObject(m_alarmManager, m_appLaunchService, this);
+    auto *updatesObj = new UpdatesObject(m_updateService, m_permissions, m_appLaunchService, this);
+    auto *davObj     = new DavObject(m_davSyncEngine, m_permissions, m_appLaunchService, this);
+    auto *appStoreObj =
+        new AppStoreObject(m_appStoreService, m_permissions, m_appLaunchService, this);
+    auto *lifecycleObj =
+        new AppLifecycleObject(m_lifecycleManager, m_appRegistry, m_appLaunchService, this);
 
-    bool  ok = true;
+    bool ok = true;
     ok &= bus.registerObject("/org/marathonos/Shell/Permissions", permObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Contacts", contactsObj,
@@ -131,6 +154,14 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/Location", locObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Alarm", alarmObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/Updates", updatesObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/Dav", davObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/AppStore", appStoreObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/AppLifecycle", lifecycleObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
 
     if (!ok) {

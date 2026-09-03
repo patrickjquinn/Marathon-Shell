@@ -1,6 +1,6 @@
+import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -45,7 +45,7 @@ MApp {
         if (navStack)
             navStack.push("pages/EventDetailPage.qml", {
                 "event": event,
-                "onDelete": eventId => {
+                "deleteCallback": eventId => {
                     calendarApp.deleteEvent(eventId);
                 }
             });
@@ -75,7 +75,7 @@ MApp {
         onDataChanged: calendarApp.eventsChanged()
     }
 
-    content: StackView {
+    content: MStackView {
         id: stackView
 
         anchors.fill: parent
@@ -106,80 +106,39 @@ MApp {
                     id: tabBar
 
                     width: parent.width
-                    activeTab: calendarApp.currentView
+                    // Map four UI tabs onto the two pages we ship for now.
+                    // Day → list page (page 1), Month → grid page (page 0),
+                    // Year/Search defer to Month until those panes ship.
+                    activeTab: calendarApp.currentView === 1 ? 0 : 1
                     tabs: [
+                        {
+                            "label": "Day",
+                            "icon": "clock"
+                        },
                         {
                             "label": "Month",
                             "icon": "calendar"
                         },
                         {
-                            "label": "List",
-                            "icon": "list"
+                            "label": "Year",
+                            "icon": "archive"
+                        },
+                        {
+                            "label": "Search",
+                            "icon": "search"
                         }
                     ]
                     onTabSelected: index => {
                         HapticService.light();
-                        calendarApp.currentView = index;
+                        // Day=0 → list pane (index 1 in our StackLayout)
+                        // Month=1 → grid pane (index 0)
+                        // Year/Search default to grid until panes land.
+                        calendarApp.currentView = (index === 0) ? 1 : 0;
                     }
                 }
             }
-
-            MIconButton {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: MSpacing.lg
-                iconName: "plus"
-                iconSize: 28
-                variant: "primary"
-                shape: "circular"
-                onClicked: {
-                    stackView.push("pages/EventCreationPage.qml", {
-                        "onSave": event => {
-                            calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring);
-                        }
-                    });
-                }
-            }
-        }
-
-        pushEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: stackView.width
-                to: 0
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        pushExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: -stackView.width * 0.3
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        popEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: -stackView.width * 0.3
-                to: 0
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        popExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: stackView.width
-                duration: MMotion.md
-                easing.type: Easing.OutCubic
-            }
+            // FAB removed — compose now lives in the page header (JSX
+            // ref-calendar moves the action up to the title bar).
         }
     }
 }

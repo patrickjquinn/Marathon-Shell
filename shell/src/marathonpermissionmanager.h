@@ -1,20 +1,35 @@
 #pragma once
 
+class QQmlEngine;
+class QJSEngine;
+
+#include <QHash>
+#include <QMap>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
-#include <QMap>
 #include <QVariantMap>
+#include <qqml.h>
 
 class MarathonPermissionManager : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(PermissionManager)
+    QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static MarathonPermissionManager *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(bool promptActive READ promptActive NOTIFY promptActiveChanged)
     Q_PROPERTY(QString currentAppId READ currentAppId NOTIFY currentRequestChanged)
     Q_PROPERTY(QString currentPermission READ currentPermission NOTIFY currentRequestChanged)
     Q_PROPERTY(QStringList currentPermissions READ currentPermissions NOTIFY currentRequestChanged)
 
   public:
-    enum PermissionStatus {
+    enum PermissionStatus : quint8 {
         NotRequested,
         Granted,
         Denied,
@@ -34,11 +49,16 @@ class MarathonPermissionManager : public QObject {
     Q_INVOKABLE void setPermissions(const QString &appId, const QStringList &permissions,
                                     bool granted, bool remember = true);
 
+    Q_INVOKABLE void dismissAll();
+    // Drop any active or queued prompt belonging to appId. Called when
+    // an app-runner exits — without this the shell keeps showing the
+    // dead app's dialog over every subsequent foreground app.
+    Q_INVOKABLE void             dismissForApp(const QString &appId);
     Q_INVOKABLE QStringList      getAppPermissions(const QString &appId);
 
     Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);
 
-    Q_INVOKABLE PermissionStatus getPermissionStatus(const QString &appId,
+    Q_INVOKABLE MarathonPermissionManager::PermissionStatus getPermissionStatus(const QString &appId,
                                                      const QString &permission);
 
     Q_INVOKABLE QStringList      getAvailablePermissions();
@@ -71,22 +91,30 @@ class MarathonPermissionManager : public QObject {
     void processPendingRequests();
 
   private:
-    void                               loadPermissions();
-    void                               savePermissions();
-    QString                            getPermissionsFilePath();
-    void                               checkQueue();
+    void    loadPermissions();
+    void    savePermissions();
+    QString getPermissionsFilePath();
+    void    checkQueue();
+    // Protected built-in apps (manifest "protected": true) get the permissions
+    // they declare in their manifest pre-granted on first lookup. Without this
+    // the system Messages/Phone/Camera nag the user with a permission popup the
+    // very first time they're opened — for capabilities those apps cannot
+    // possibly function without. Cached per appId after the first manifest
+    // read; revocation still flows through m_permissions and wins.
+    QSet<QString>                         protectedManifestPermissions(const QString &appId) const;
 
-    QMap<QString, QMap<QString, bool>> m_permissions;
+    QMap<QString, QMap<QString, bool>>    m_permissions;
+    mutable QHash<QString, QSet<QString>> m_protectedManifestCache;
 
-    bool                               m_promptActive;
-    QString                            m_currentAppId;
-    QString                            m_currentPermission;
-    QStringList                        m_currentPermissions;
+    bool                                  m_promptActive;
+    QString                               m_currentAppId;
+    QString                               m_currentPermission;
+    QStringList                           m_currentPermissions;
 
-    QMap<QString, QString>             m_permissionDescriptions;
+    QMap<QString, QString>                m_permissionDescriptions;
 
-    class PortalManager               *m_portalManager;
-    class QTimer                      *m_batchTimer;
+    class PortalManager                  *m_portalManager;
+    class QTimer                         *m_batchTimer;
 
     struct PendingRequest {
         QString appId;

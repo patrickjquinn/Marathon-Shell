@@ -59,10 +59,9 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
     }
 
     if (m_bluetoothManager) {
-        setIsBluetoothOn(m_bluetoothManager->enabled());
         updateBluetoothDevices();
         connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
-                [this]() { setIsBluetoothOn(m_bluetoothManager->enabled()); });
+                &SystemStatusStore::isBluetoothOnChanged);
         connect(m_bluetoothManager, &BluetoothManager::pairedDevicesChanged, this,
                 [this]() { updateBluetoothDevices(); });
     }
@@ -96,11 +95,25 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
                 [this]() { updateTime(); });
     }
 
+    // Clock display is "HH:mm" / "h:mm AP" -- second-granularity, so 59 of
+    // every 60 wakeups from a 1Hz timer notified properties that nobody re-
+    // rendered for. Snap the timer to the next minute boundary so we wake up
+    // exactly when the displayed time changes, not 60x more often than that.
     updateTime();
-    m_timeTimer.setInterval(1000);
-    m_timeTimer.setSingleShot(false);
-    connect(&m_timeTimer, &QTimer::timeout, this, &SystemStatusStore::updateTime);
-    m_timeTimer.start();
+    m_timeTimer.setSingleShot(true);
+    connect(&m_timeTimer, &QTimer::timeout, this, [this]() {
+        updateTime();
+        scheduleNextMinute();
+    });
+    scheduleNextMinute();
+}
+
+void SystemStatusStore::scheduleNextMinute() {
+    // Fire at the next :00 of the wall-clock minute. Add a few ms of slack so
+    // the timer doesn't fire just before the minute rolls over due to drift.
+    const QDateTime now      = QDateTime::currentDateTime();
+    const int       msToNext = 60'000 - (now.time().second() * 1000 + now.time().msec()) + 5;
+    m_timeTimer.start(msToNext);
 }
 
 void SystemStatusStore::updateTime() {
@@ -242,12 +255,8 @@ void SystemStatusStore::setEthernetConnected(bool connected) {
     emit ethernetConnectedChanged();
 }
 
-void SystemStatusStore::setIsBluetoothOn(bool enabled) {
-    if (m_isBluetoothOn == enabled) {
-        return;
-    }
-    m_isBluetoothOn = enabled;
-    emit isBluetoothOnChanged();
+bool SystemStatusStore::isBluetoothOn() const {
+    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
 }
 
 void SystemStatusStore::setBluetoothDevices(const QVariantList &devices) {

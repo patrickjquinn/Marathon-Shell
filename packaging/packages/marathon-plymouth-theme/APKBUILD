@@ -1,0 +1,93 @@
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-plymouth-theme
+pkgver=1.0.0
+pkgrel=7
+pkgdesc="Marathon OS boot splash for plymouth"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="Apache-2.0"
+arch="noarch"
+options="!check"
+depends="plymouth"
+# We override /usr/share/plymouth/plymouthd.defaults (owned by the
+# upstream plymouth package AND by postmarketos-bootsplash, the latter
+# pulled in transitively by postmarketos-duranium-initramfs). apk needs
+# explicit replaces= permission for the overlap.
+replaces="plymouth postmarketos-bootsplash"
+install="$pkgname.post-install $pkgname.post-upgrade"
+source="
+	marathon.plymouth
+	marathon.script
+	marathon-logo.png
+	progress-track.png
+	progress-fill.png
+	"
+
+package() {
+	# Install the theme files into plymouth's themes directory.
+	install -Dm644 "$srcdir/marathon.plymouth" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon.plymouth"
+	install -Dm644 "$srcdir/marathon.script" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon.script"
+	install -Dm644 "$srcdir/marathon-logo.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon-logo.png"
+	install -Dm644 "$srcdir/progress-track.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/progress-track.png"
+	install -Dm644 "$srcdir/progress-fill.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
+
+	# Override /usr/share/plymouth/plymouthd.defaults with our theme
+	# selection. This file is Plymouth's last-resort default lookup
+	# (after /etc/plymouth/plymouthd.conf which doesn't exist on first
+	# boot before systemd-tmpfiles runs). The apk's `replaces=plymouth`
+	# directive above grants permission to overwrite the upstream
+	# plymouth package's copy.
+	#
+	# Why /usr/share/plymouth/plymouthd.defaults rather than the
+	# initramfs: Plymouth on Duranium starts from the rootfs path after
+	# /usr is verity-mounted, NOT from a baked-in initramfs theme. The
+	# pre-built linux-rpi kernel apk doesn't carry a plymouth theme
+	# selection so the resolution falls through to plymouthd.defaults
+	# which is exactly where we want our override.
+	install -d "$pkgdir/usr/share/plymouth"
+	cat > "$pkgdir/usr/share/plymouth/plymouthd.defaults" <<-EOF
+		[Daemon]
+		Theme=marathon
+		ShowDelay=0
+		DeviceTimeout=8
+		# On the HackberryPi CM5 + HyperPixel, plymouth's auto-renderer picks
+		# /dev/dri/card0 (vc4 HDMI, disconnected) instead of /dev/dri/card2
+		# (rp1-dpi, the actual HyperPixel) because card0 sorts first. The
+		# drm renderer then can't find a CRTC and silently falls back to no
+		# visible output. Setting Renderer=fbdev tells plymouth to render
+		# into /dev/fb0 instead — that fb is wired to fbcon on the rp1-dpi
+		# panel, so the Marathon splash lands directly on the HyperPixel.
+		Renderer=fbdev
+	EOF
+	chmod 644 "$pkgdir/usr/share/plymouth/plymouthd.defaults"
+
+	# Belt-and-braces: factory→/etc/plymouth/plymouthd.conf for second
+	# boot onward, when /etc has been provisioned. Plymouth reads /etc
+	# in preference to /usr/share so this becomes the user-visible
+	# config and matches what plymouth-set-default-theme would write.
+	install -d "$pkgdir/usr/share/factory/etc/plymouth"
+	cat > "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf" <<-EOF
+		[Daemon]
+		Theme=marathon
+		Renderer=fbdev
+	EOF
+	chmod 644 "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf"
+
+	install -d "$pkgdir/usr/lib/tmpfiles.d"
+	cat > "$pkgdir/usr/lib/tmpfiles.d/marathon-plymouth.conf" <<-EOF
+		C /etc/plymouth/plymouthd.conf 0644 - - - /usr/share/factory/etc/plymouth/plymouthd.conf
+	EOF
+	chmod 644 "$pkgdir/usr/lib/tmpfiles.d/marathon-plymouth.conf"
+}
+
+sha512sums="
+9f3b0121725bbf40cbe6288c6dd83807ea0175c3944694ac1bb01cb0e4d4aca67741a46664720aa55ae5d1ad0abbe8aeaa9502babef8e9d07495d91e0b48aebc  marathon.plymouth
+e3ca311ed0284111afbce1d743ef43924b4f60bf2882a16df8cbf2df0c859a7c368db5abc86641f45b5e95992a677ccec95597b488cc4b61faf07805fda59c97  marathon.script
+92bc51d97bba7cb6d8a73b567f0ed6487c1a7b678287177e1265bc0ace1e217dcd1854908e34ccfa0cb3de7b83f0ee1a97a102e0e43b92fdd19bf0b2e6356847  marathon-logo.png
+2bc10ce1294e1f59519d640b210825cfd4201daa170a00d8f9e7ebfdaa69afafd861994e3631ebc2059ca7ec5d327361b9bc2b6c0f25b0632c6924a51f2b2656  progress-track.png
+c78ba5dabf8b5daf2399bdb3f7de48ace351e2263ce1477253c41051c4d377beacf680f5f2fb4d29c6f5c9cd4b9ad939f264ac9fc11031c0d061f327980eccf9  progress-fill.png
+"

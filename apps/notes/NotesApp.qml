@@ -1,8 +1,9 @@
+import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 MApp {
     id: notesApp
@@ -43,9 +44,17 @@ MApp {
         }
     }
 
+    property bool savePending: false
+
     function saveNotes() {
+        if (typeof PermissionManager !== "undefined" && !PermissionManager.hasPermission(appId, "storage")) {
+            notesApp.savePending = true;
+            PermissionManager.requestPermission(appId, "storage");
+            return;
+        }
         var data = JSON.stringify(notes);
         SettingsManagerCpp.set("notes/data", data);
+        notesApp.savePending = false;
     }
 
     function createNote(title, content) {
@@ -112,11 +121,20 @@ MApp {
         loadNotes();
     }
 
+    Connections {
+        function onPermissionGranted(grantedAppId, permission) {
+            if (grantedAppId === notesApp.appId && permission === "storage" && notesApp.savePending)
+                notesApp.saveNotes();
+        }
+
+        target: typeof PermissionManager !== "undefined" ? PermissionManager : null
+    }
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
 
-        StackView {
+        MStackView {
             id: navigationStack
 
             property var backConnection: null
@@ -136,60 +154,6 @@ MApp {
             Component.onDestruction: {
                 if (backConnection)
                     notesApp.backPressed.disconnect(backConnection);
-            }
-
-            pushEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: navigationStack.width
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            pushExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: -navigationStack.width * 0.3
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: -navigationStack.width * 0.3
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0
-                    to: 1
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: navigationStack.width
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
             }
         }
 

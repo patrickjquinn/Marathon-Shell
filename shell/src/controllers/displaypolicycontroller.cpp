@@ -25,6 +25,13 @@ DisplayPolicyController::DisplayPolicyController(DisplayManagerCpp *displayManag
                 m_displayManager->setAutoBrightness(m_settingsManager->autoBrightness());
             emit autoBrightnessEnabledChanged();
         });
+
+        // Initial sync — SettingsManager is the source of truth and may
+        // already have auto-brightness ON at boot, in which case the
+        // changed signal never fires and DisplayManager would otherwise
+        // never enable the ambient-light engine.
+        if (m_displayManager)
+            m_displayManager->setAutoBrightness(m_settingsManager->autoBrightness());
     }
 
     if (m_displayManager) {
@@ -110,4 +117,13 @@ void DisplayPolicyController::turnScreenOff() {
         m_screenOn = false;
         emit screenOnChanged();
     }
+}
+
+void DisplayPolicyController::forceScreenOn() {
+    if (m_displayManager)
+        m_displayManager->setScreenState(true);
+    m_screenOn = true;
+    // Unconditional emit — the suspend-resume edge needs QML hooks to
+    // run even when m_screenOn was already stale TRUE going into sleep.
+    emit screenOnChanged();
 }

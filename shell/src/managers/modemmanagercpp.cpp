@@ -3,6 +3,10 @@
 #include <QDBusReply>
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
+#include <QDBusVariant>
+#include <QDBusPendingCall>
+#include <QDBusPendingReply>
+#include <QDBusPendingCallWatcher>
 #include <QRandomGenerator>
 
 ModemManagerCpp::ModemManagerCpp(QObject *parent)
@@ -25,8 +29,25 @@ ModemManagerCpp::ModemManagerCpp(QObject *parent)
     qDebug() << "[ModemManagerCpp] Initializing";
 
     m_stateMonitor = new QTimer(this);
-    m_stateMonitor->setInterval(5000);
-    connect(m_stateMonitor, &QTimer::timeout, this, &ModemManagerCpp::queryModemState);
+    // 60s safety-net poll for cosmetic status-bar fields (signal bars,
+    // operator name, network type). Incoming calls and SMS come via
+    // ModemManager's CallAdded / SMS signals from the daemon side; this
+    // poll is only a backstop for property drift the signal subscriptions
+    // may have missed. 5s here was burning ~17280 D-Bus calls/day for
+    // properties that change on the minute-scale.
+    m_stateMonitor->setInterval(60000);
+    connect(m_stateMonitor, &QTimer::timeout, this, [this]() {
+        // If we lost the race with ModemManager at shell startup, the
+        // initial discoverModem() returned no objects and InterfacesAdded
+        // never fired (modem was already there from MM's perspective).
+        // Retry discovery on every tick until we latch on; this is what
+        // makes the cellular icon appear after a cold boot where the
+        // shell came up before ModemManager finished publishing the
+        // Modem object path on the system bus.
+        if (m_hasModemManager && !m_modemAvailable)
+            discoverModem();
+        queryModemState();
+    });
 
     m_dbusRetryTimer = new QTimer(this);
     m_dbusRetryTimer->setSingleShot(true);
@@ -62,7 +83,7 @@ void ModemManagerCpp::initializeDBusConnection() {
     if (m_mmInterface->isValid()) {
         m_hasModemManager = true;
         m_dbusRetryCount  = 0;
-        qInfo() << "[ModemManagerCpp] ✓ Connected to ModemManager D-Bus";
+        qInfo() << "[ModemManagerCpp] Connected to ModemManager D-Bus";
         setupDBusConnections();
         discoverModem();
         m_stateMonitor->start();
@@ -101,6 +122,33 @@ void ModemManagerCpp::setupDBusConnections() {
     }
 }
 
+void ModemManagerCpp::attachModemPropertySubscriptions() {
+    if (m_modemPath.isEmpty())
+        return;
+
+    // Per-interface PropertiesChanged. Path-scoped so we don't catch
+    // unrelated PropertiesChanged on every sibling object the daemon
+    // emits — the system bus argument-path match keeps this cheap.
+    QDBusConnection bus     = QDBusConnection::systemBus();
+    const QString   props   = QStringLiteral("org.freedesktop.DBus.Properties");
+    const QString   changed = QStringLiteral("PropertiesChanged");
+
+    bus.connect("org.freedesktop.ModemManager1", m_modemPath, props, changed, this,
+                SLOT(onModemPropertiesChanged()));
+
+    qDebug() << "[ModemManagerCpp] Subscribed to PropertiesChanged on" << m_modemPath;
+}
+
+void ModemManagerCpp::onModemPropertiesChanged() {
+    // The 60s safety-net stays armed (queryModemState fires it via the
+    // m_stateMonitor timer) — this push-driven path just makes us
+    // react instantly on real changes instead of waiting up to a
+    // minute for the next poll. queryModemState is idempotent and
+    // cheap (six property fetches against an already-cached daemon
+    // path), so we don't bother filtering by changed_props here.
+    queryModemState();
+}
+
 void ModemManagerCpp::discoverModem() {
     if (!m_hasModemManager)
         return;
@@ -136,8 +184,8 @@ void ModemManagerCpp::discoverModem() {
     }
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString       path       = it.key().path();
-        InterfaceList interfaces = it.value();
+        QString              path       = it.key().path();
+        const InterfaceList &interfaces = it.value();
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem")) {
             m_modemPath      = path;
@@ -145,6 +193,7 @@ void ModemManagerCpp::discoverModem() {
             emit modemAvailableChanged();
             qInfo() << "[ModemManagerCpp] Modem found:" << m_modemPath;
 
+            attachModemPropertySubscriptions();
             queryModemState();
             return;
         }
@@ -167,15 +216,83 @@ void ModemManagerCpp::queryModemState() {
     if (!modem.isValid())
         return;
 
+    // Query SIM presence via the Modem's Sim property (object path, empty = no SIM)
+    QVariant simPathVar = modem.property("Sim");
+    bool hasSim = simPathVar.isValid() && !simPathVar.value<QDBusObjectPath>().path().isEmpty() &&
+        simPathVar.value<QDBusObjectPath>().path() != "/";
+    if (m_simPresent != hasSim) {
+        m_simPresent = hasSim;
+        emit simPresentChanged();
+        qInfo() << "[ModemManagerCpp] SIM present:" << m_simPresent;
+    }
+
+    // Query modem enabled state
+    uint modemState = modem.property("State").toUInt();
+    bool enabled    = (modemState >= 3); // MM_MODEM_STATE_ENABLED = 3
+    if (m_modemEnabled != enabled) {
+        m_modemEnabled = enabled;
+        emit modemEnabledChanged();
+    }
+
+    // Reconcile mobile-data (bearer) state from the REAL modem state rather
+    // than trusting the cached bool that enable/disableData() set
+    // optimistically. MM_MODEM_STATE_CONNECTING (10) / CONNECTED (11) means a
+    // data bearer is up (or coming up); anything below means no active data.
+    // Without this the Mobile tile showed a stale/wrong state at boot and
+    // never reflected a connect/disconnect that originated anywhere else
+    // (NetworkManager, mmcli, coverage loss). CONNECTING is treated as "on"
+    // so the tile doesn't flicker off during the ~1s dial-up transition.
+    const bool dataConnected = (modemState >= 10);
+    if (m_dataEnabled != dataConnected) {
+        m_dataEnabled = dataConnected;
+        emit dataEnabledChanged();
+        qInfo() << "[ModemManagerCpp] Mobile data active:" << m_dataEnabled
+                << "(modemState=" << modemState << ")";
+    }
+
+    // Primary source: Modem.SignalQuality — a (ub) tuple of (percentage,
+    // recent). ModemManager keeps this updated from extended URC parsing
+    // without needing Setup() on the Signal interface, so we get a real
+    // number out of the box.
+    //
+    // QDBusInterface::property() refuses to read this without an explicit
+    // qDBusRegisterMetaType<…>() because (ub) isn't a Qt-native type. Make
+    // the raw Properties.Get call and unpack the wrapped QDBusArgument by
+    // hand — no metatype registration required.
+    {
+        QDBusMessage getSq = QDBusMessage::createMethodCall(
+            "org.freedesktop.ModemManager1", m_modemPath, "org.freedesktop.DBus.Properties", "Get");
+        getSq << QStringLiteral("org.freedesktop.ModemManager1.Modem")
+              << QStringLiteral("SignalQuality");
+        QDBusMessage rsq = QDBusConnection::systemBus().call(getSq);
+        if (rsq.type() != QDBusMessage::ErrorMessage && !rsq.arguments().isEmpty()) {
+            QDBusVariant        inner  = rsq.arguments().at(0).value<QDBusVariant>();
+            const QDBusArgument arg    = inner.variant().value<QDBusArgument>();
+            uint                pct    = 0;
+            bool                recent = false;
+            arg.beginStructure();
+            arg >> pct >> recent;
+            arg.endStructure();
+            int strength = qBound(0, static_cast<int>(pct), 100);
+            if (m_signalStrength != strength) {
+                m_signalStrength = strength;
+                emit signalStrengthChanged();
+            }
+        }
+    }
+
+    // Secondary: Modem.Signal.Rssi — only populated if userspace called
+    // Setup(rate). Phosh / Calls do this; Marathon currently does not.
+    // If the value is present we prefer it (it's higher-frequency); the
+    // SignalQuality path above keeps us from showing zero bars when
+    // nothing has called Setup yet.
     QDBusInterface modemSignal("org.freedesktop.ModemManager1", m_modemPath,
                                "org.freedesktop.ModemManager1.Modem.Signal",
                                QDBusConnection::systemBus());
-
     if (modemSignal.isValid()) {
         QVariant signalVar = modemSignal.property("Rssi");
-        if (signalVar.isValid()) {
-            int rssi = signalVar.toInt();
-
+        if (signalVar.isValid() && signalVar.toDouble() != 0.0) {
+            int rssi     = signalVar.toInt();
             int strength = qBound(0, (rssi + 100) * 2, 100);
             if (m_signalStrength != strength) {
                 m_signalStrength = strength;
@@ -195,11 +312,24 @@ void ModemManagerCpp::queryModemState() {
             emit operatorNameChanged();
         }
 
+        QString opCode = modem3gpp.property("OperatorCode").toString();
+        if (m_operatorCode != opCode) {
+            m_operatorCode = opCode;
+            emit operatorCodeChanged();
+        }
+
         uint registrationState = modem3gpp.property("RegistrationState").toUInt();
         bool isRegistered      = (registrationState == 1 || registrationState == 5);
         if (m_registered != isRegistered) {
             m_registered = isRegistered;
             emit registeredChanged();
+        }
+
+        // MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING = 5
+        bool isRoaming = (registrationState == 5);
+        if (m_roaming != isRoaming) {
+            m_roaming = isRoaming;
+            emit roamingChanged();
         }
     }
 
@@ -208,6 +338,41 @@ void ModemManagerCpp::queryModemState() {
     if (m_networkType != netType) {
         m_networkType = netType;
         emit networkTypeChanged();
+    }
+
+    // Emergency-call posture: Voice.EmergencyOnly is true when only 112/911-class
+    // calls will be accepted (no SIM, PIN-locked, limited service). Sim.EmergencyNumbers
+    // surfaces the EF_ECC list -- readable while PIN-locked. The lock-screen
+    // affordance reads both; we never hard-code the list (3GPP TS 22.101 + the SIM provide it).
+    QDBusInterface modemVoice("org.freedesktop.ModemManager1", m_modemPath,
+                              "org.freedesktop.ModemManager1.Modem.Voice",
+                              QDBusConnection::systemBus());
+    if (modemVoice.isValid()) {
+        QVariant emergencyOnlyVar = modemVoice.property("EmergencyOnly");
+        if (emergencyOnlyVar.isValid()) {
+            const bool eo = emergencyOnlyVar.toBool();
+            if (m_emergencyOnly != eo) {
+                m_emergencyOnly = eo;
+                emit emergencyOnlyChanged();
+                qInfo() << "[ModemManagerCpp] Emergency-only:" << m_emergencyOnly;
+            }
+        }
+    }
+
+    QString simPath = simPathVar.value<QDBusObjectPath>().path();
+    if (!simPath.isEmpty() && simPath != "/") {
+        QDBusInterface sim("org.freedesktop.ModemManager1", simPath,
+                           "org.freedesktop.ModemManager1.Sim", QDBusConnection::systemBus());
+        if (sim.isValid()) {
+            QStringList simEcc = sim.property("EmergencyNumbers").toStringList();
+            if (m_simEmergencyNumbers != simEcc) {
+                m_simEmergencyNumbers = simEcc;
+                emit simEmergencyNumbersChanged();
+            }
+        }
+    } else if (!m_simEmergencyNumbers.isEmpty()) {
+        m_simEmergencyNumbers.clear();
+        emit simEmergencyNumbersChanged();
     }
 }
 
@@ -266,7 +431,7 @@ void ModemManagerCpp::enableData() {
     qDebug() << "[ModemManagerCpp] Enabling mobile data";
 
     if (!m_hasModemManager || !m_modemAvailable || m_modemPath.isEmpty()) {
-        qWarning() << "[ModemManagerCpp] Cannot enable data: no modem available";
+        qDebug() << "[ModemManagerCpp] Cannot enable data: no modem available";
         return;
     }
 
@@ -283,18 +448,29 @@ void ModemManagerCpp::enableData() {
     QVariantMap properties;
     properties["apn"] = "";
 
-    QDBusReply<void> reply = simpleInterface.call("Connect", properties);
-    if (!reply.isValid()) {
-        qWarning() << "[ModemManagerCpp] Failed to enable data:" << reply.error().message();
-        return;
-    }
+    // Async — Simple.Connect dials up a data bearer and can block for SECONDS.
+    // A blocking QDBusReply here froze the whole compositor (the shell pumps
+    // the D-Bus event loop on the GUI thread), so tapping "Mobile" stalled the
+    // UI. Fire-and-forget; queryModemState() reconciles the true connected
+    // state from the modem's PropertiesChanged. Set the tile optimistically so
+    // it responds instantly.
+    QDBusPendingCall         pending = simpleInterface.asyncCall("Connect", properties);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [](QDBusPendingCallWatcher *w) {
+                QDBusPendingReply<QDBusObjectPath> reply = *w;
+                if (reply.isError())
+                    qWarning() << "[ModemManagerCpp] Failed to enable data:"
+                               << reply.error().message();
+                w->deleteLater();
+            });
 
     m_dataEnabled   = true;
     m_dataConnected = true;
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] ✓ Mobile data enabled";
+    qInfo() << "[ModemManagerCpp] Mobile data connect requested";
 }
 
 void ModemManagerCpp::disableData() {
@@ -312,22 +488,30 @@ void ModemManagerCpp::disableData() {
         return;
     }
 
-    QDBusReply<void> reply = simpleInterface.call("Disconnect", "/");
-    if (!reply.isValid()) {
-        qWarning() << "[ModemManagerCpp] Failed to disable data:" << reply.error().message();
-        return;
-    }
+    // Async for the same reason as Connect — Disconnect can block. "/" means
+    // "all bearers". Pass it as a D-Bus object path (the argument type is `o`).
+    QDBusPendingCall pending =
+        simpleInterface.asyncCall("Disconnect", QVariant::fromValue(QDBusObjectPath("/")));
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [](QDBusPendingCallWatcher *w) {
+                QDBusPendingReply<> reply = *w;
+                if (reply.isError())
+                    qWarning() << "[ModemManagerCpp] Failed to disable data:"
+                               << reply.error().message();
+                w->deleteLater();
+            });
 
     m_dataEnabled   = false;
     m_dataConnected = false;
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] ✓ Mobile data disabled";
+    qWarning() << "[ModemManagerCpp] Mobile data disabled";
 }
 
 void ModemManagerCpp::setApn(const QString &apn, const QString &username, const QString &password) {
-    qInfo() << "[ModemManagerCpp] Setting APN:" << apn;
+    qWarning() << "[ModemManagerCpp] Setting APN:" << apn;
 
     m_apn         = apn;
     m_apnUsername = username;
@@ -372,7 +556,7 @@ void ModemManagerCpp::setApn(const QString &apn, const QString &username, const 
             emit dataEnabledChanged();
             emit dataConnectedChanged();
 
-            qInfo() << "[ModemManagerCpp] ✓ Connected with custom APN";
+            qInfo() << "[ModemManagerCpp] Connected with custom APN";
         });
     }
 }

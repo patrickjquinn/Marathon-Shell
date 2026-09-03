@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonApp.Settings
-import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -148,6 +147,8 @@ SettingsPageTemplate {
                                 Layout.preferredHeight: Constants.iconSizeLarge + MSpacing.sm
                                 Layout.alignment: Qt.AlignVCenter
                                 source: model.icon || "qrc:/images/app-icon-placeholder.svg"
+                                sourceSize.width: Constants.iconSizeLarge + MSpacing.sm
+                                sourceSize.height: Constants.iconSizeLarge + MSpacing.sm
                                 fillMode: Image.PreserveAspectFit
                                 asynchronous: true
                                 onStatusChanged: {

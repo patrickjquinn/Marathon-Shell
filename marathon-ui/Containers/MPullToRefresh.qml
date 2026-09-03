@@ -1,15 +1,17 @@
 import QtQuick
 import MarathonUI.Feedback
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Effects
 
 Item {
     id: root
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     property alias contentItem: contentFlickable
     property real threshold: 80
     property bool refreshing: false
-    property bool enabled: true
 
     signal refreshTriggered
 
@@ -18,14 +20,14 @@ Item {
     Item {
         id: indicator
         anchors.horizontalCenter: parent.horizontalCenter
-        y: -height + (contentFlickable.contentY < 0 ? Math.min(-contentFlickable.contentY, threshold) : 0)
-        width: 40
-        height: 40
-        visible: contentFlickable.contentY < 0 || refreshing
+        y: -height + (contentFlickable.contentY < 0 ? Math.min(-contentFlickable.contentY, root.threshold) : 0)
+        width: Math.round(40 * root.scaleFactor)
+        height: Math.round(40 * root.scaleFactor)
+        visible: contentFlickable.contentY < 0 || root.refreshing
 
         MActivityIndicator {
             anchors.centerIn: parent
-            size: 32
+            size: Math.round(32 * root.scaleFactor)
             running: root.refreshing
             color: MColors.marathonTeal
         }
@@ -33,13 +35,13 @@ Item {
         Rectangle {
             visible: !root.refreshing
             anchors.centerIn: parent
-            width: 32
-            height: 32
+            width: Math.round(32 * root.scaleFactor)
+            height: Math.round(32 * root.scaleFactor)
             radius: 16
             color: "transparent"
             border.width: 3
             border.color: MColors.marathonTeal
-            opacity: Math.min(-contentFlickable.contentY / threshold, 1.0)
+            opacity: Math.min(-contentFlickable.contentY / root.threshold, 1.0)
 
             Canvas {
                 anchors.fill: parent
@@ -75,7 +77,7 @@ Item {
             if (!root.enabled || root.refreshing)
                 return;
 
-            if (contentY < -threshold && !dragging && atYBeginning) {
+            if (contentY < -root.threshold && !dragging && atYBeginning) {
                 root.refreshing = true;
                 if (MHaptics.enabled)
                     MHaptics.medium();

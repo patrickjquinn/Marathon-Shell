@@ -65,16 +65,16 @@ Marathon-Shell (monorepo)
 target_link_libraries(your-target PRIVATE MarathonCore)
 
 # Include headers (automatically available)
-#include "marathonapppackager.h"
-#include "marathonappverifier.h"
-#include "marathonappinstaller.h"
+# include "marathonapppackager.h"
+# include "marathonappverifier.h"
+# include "marathonappinstaller.h"
 ```
 
 ### In C++ Code
 
 ```cpp
-#include "marathonapppackager.h"
-#include "marathonappverifier.h"
+# include "marathonapppackager.h"
+# include "marathonappverifier.h"
 
 // Package an app
 MarathonAppPackager packager;

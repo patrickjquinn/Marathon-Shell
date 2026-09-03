@@ -11,6 +11,10 @@ qt6_add_qml_module(marathon-ui-controls
         MRadioGroup.qml
         MDropdown.qml
         MComboBox.qml
+        MQSTile.qml
+        MQSSlider.qml
+        MFilterChip.qml
+        MTextField.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Controls
 )
 
@@ -29,10 +33,14 @@ if(QMLLINT_AVAILABLE)
         MRadioGroup.qml
         MDropdown.qml
         MComboBox.qml
+        MQSTile.qml
+        MQSSlider.qml
+        MFilterChip.qml
+        MTextField.qml
     )
 endif()
 
-install(TARGETS marathon-ui-controls
+install(TARGETS marathon-ui-controls marathon-ui-controlsplugin
     LIBRARY DESTINATION ${MARATHON_UI_DIR}/Controls
     RUNTIME DESTINATION ${MARATHON_UI_DIR}/Controls
 )
@@ -51,5 +59,9 @@ install(FILES
     MRadioGroup.qml
     MDropdown.qml
     MComboBox.qml
+    MQSTile.qml
+    MQSSlider.qml
+    MFilterChip.qml
+    MTextField.qml
     DESTINATION ${MARATHON_UI_DIR}/Controls
 )

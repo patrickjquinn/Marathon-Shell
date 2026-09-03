@@ -2,6 +2,7 @@ build/
 build-apps/
 build-release/
 build-ui/
+build-tests/
 .vscode/
 *.user
 *.autosave
@@ -11,9 +12,50 @@ build-ui/
 *.jsc
 *.log
 *.ini
+# ...but the qmllint config is project policy and must be shared: it is what
+# keeps the 8500 advisory [compiler] notes from burying the real findings.
+!.qmllint.ini
 check_output.cpp
-cmake/
 .cache/
 compile_commands.json
 build-tests/
+build-power/
 CMakeFiles/
+
+# Deployment artifacts (generated manually, not part of source)
+*.tar
+libs_to_deploy.txt
+
+# Profiling output
+profile_data.qtd
+
+# Editor/scripted-edit backups
+*.bak
+*.orig
+shell_perf.log
+
+# Local, per-developer editor and tooling config (not shared)
+CLAUDE.md
+
+# Local build trees produced by scripts/build-all.sh, podman-build/build.sh, etc.
+build-podman/
+
+.claude/
+
+# Per-deployment OAuth client IDs (see oauth-clients.env.example).
+# Not secrets — PKCE installed-app means the client_id alone can't be
+# used to impersonate. Gitignored anyway so each release / fork picks
+# its own IDs without colliding with upstream Marathon's quota.
+tools/marathon-mail-oauth/oauth-clients.env
+# Rust cargo build artefacts under each Rust crate
+tools/marathon-mail-oauth/target/
+
+# WiFi preset for dev/QA images — never commit credentials.
+scripts/qemu/wifi-preset.conf
+tests/screenshots/
+
+# Flashing artifacts — written into the repo root by mtkclient (hwparam.json
+# carries per-device MEID/SOC-ID) and by NXP uuu. Machine-specific, not ours.
+hwparam.json
+uuu.inputlog
+*.inputlog

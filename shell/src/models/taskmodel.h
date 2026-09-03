@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QImage>
 #include <QPointer>
+#include <qqml.h>
 
 class Task : public QObject {
     Q_OBJECT
@@ -108,10 +109,12 @@ class Task : public QObject {
 
 class TaskModel : public QAbstractListModel {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged)
 
   public:
-    enum TaskRoles {
+    enum TaskRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         AppIdRole,
         TitleRole,
@@ -124,7 +127,7 @@ class TaskModel : public QAbstractListModel {
     };
 
     explicit TaskModel(QObject *parent = nullptr);
-    ~TaskModel();
+    ~TaskModel() override;
 
     int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;

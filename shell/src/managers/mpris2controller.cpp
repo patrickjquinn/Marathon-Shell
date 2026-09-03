@@ -5,12 +5,12 @@
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
 #include <QUrl>
+#include <utility>   // std::as_const
 
 MPRIS2Controller::MPRIS2Controller(QObject *parent)
     : QObject(parent)
     , m_playerInterface(nullptr)
     , m_positionTimer(nullptr)
-    , m_scanTimer(nullptr)
     , m_hasActivePlayer(false)
     , m_playerName("")
     , m_desktopEntry("")
@@ -34,11 +34,12 @@ MPRIS2Controller::MPRIS2Controller(QObject *parent)
     m_positionTimer->setInterval(1000);
     connect(m_positionTimer, &QTimer::timeout, this, &MPRIS2Controller::updatePosition);
 
-    m_scanTimer = new QTimer(this);
-    m_scanTimer->setInterval(10000);
-    connect(m_scanTimer, &QTimer::timeout, this, &MPRIS2Controller::scanForPlayers);
-    m_scanTimer->start();
-
+    // scanForPlayers() at startup catches players already on the bus when
+    // the shell starts; setupDBusMonitoring() above subscribes to
+    // NameOwnerChanged so new players are detected the moment they
+    // register. A periodic poll on top was pure overhead — wake up every
+    // 10s, scan the entire D-Bus session-bus name list, find nothing new.
+    // Removed 2026-06-25 after observing ~2 D-Bus round-trips/s at idle.
     scanForPlayers();
 
     qInfo() << "[MPRIS2Controller] Initialized and monitoring for media players";
@@ -58,7 +59,7 @@ void MPRIS2Controller::setupDBusMonitoring() {
 }
 
 void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &oldOwner,
-                                          const QString &newOwner) {
+                                          const QString &newOwner) const {
     Q_UNUSED(oldOwner);
 
     if (!name.startsWith("org.mpris.MediaPlayer2."))
@@ -69,7 +70,20 @@ void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &ol
     } else {
         qDebug() << "[MPRIS2Controller] New media player detected:" << name;
     }
-    scanForPlayers();
+
+    // Defer the rescan to a fresh event-loop turn. scanForPlayers() ->
+    // connectToPlayer() constructs a QDBusInterface, whose ctor makes a
+    // BLOCKING introspection call on the session bus. Running that
+    // reentrantly from inside this NameOwnerChanged dispatch fails
+    // (QDBusInterface::isValid() comes back false) and the player is
+    // dropped with no retry -- so a player that registers while the shell
+    // is already running is seen but never adopted, and the NowBar stays
+    // "Nothing playing". Only players present at startup were picked up,
+    // because that scan runs from the ctor (not reentrant). The queued
+    // singleShot(0) breaks the reentrancy: the scan runs after this
+    // dispatch unwinds, when a blocking introspection call is safe.
+    // (Removal needs no introspection, so it worked either way.)
+    QTimer::singleShot(0, this, &MPRIS2Controller::scanForPlayers);
 }
 
 void MPRIS2Controller::scanForPlayers() {
@@ -86,7 +100,7 @@ void MPRIS2Controller::scanForPlayers() {
     QStringList services = reply.value();
     QStringList mprisPlayers;
 
-    for (const QString &service : services) {
+    for (const QString &service : std::as_const(services)) {
         if (service.startsWith("org.mpris.MediaPlayer2.")) {
             mprisPlayers.append(service);
         }
@@ -126,7 +140,7 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
     if (!m_playerInterface->isValid()) {
         qWarning() << "[MPRIS2Controller] Failed to connect to" << busName << ":"
                    << m_playerInterface->lastError().message();
-        delete m_playerInterface;
+        // m_playerInterface is parented to this; Qt will delete it on destruction
         m_playerInterface = nullptr;
         return;
     }
@@ -157,7 +171,7 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
 
     qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
 
-    qInfo() << "[MPRIS2Controller] ✓ Connected to" << m_playerName;
+    qInfo() << "[MPRIS2Controller] Connected to" << m_playerName;
 
     QDBusConnection::sessionBus().connect(
         busName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "PropertiesChanged",
@@ -170,9 +184,14 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
 
     m_positionTimer->start();
 
-    QTimer *metadataTimer = new QTimer(this);
-    connect(metadataTimer, &QTimer::timeout, this, &MPRIS2Controller::updateMetadata);
-    metadataTimer->start(2000);
+    // No metadata-refresh timer. The PropertiesChanged subscription set
+    // up at the top of this function delivers every title / artist /
+    // album / artwork change push-style (mandated by the MPRIS2 spec).
+    // The previous 2-second poll was burning ~43200 D-Bus calls/day per
+    // player for a property set that, in steady state, doesn't change
+    // for the duration of the track. If a player ships a broken
+    // PropertiesChanged emitter, that's an upstream bug to fix in the
+    // player — not a justification to poll forever in every host.
 
     emit activePlayerChanged();
 }
@@ -188,7 +207,7 @@ void MPRIS2Controller::disconnectFromPlayer() {
         }
 
         m_positionTimer->stop();
-        delete m_playerInterface;
+        // m_playerInterface is parented to this; Qt will delete it on destruction
         m_playerInterface = nullptr;
         m_currentBusName.clear();
         m_hasActivePlayer = false;
@@ -447,7 +466,7 @@ void MPRIS2Controller::next() {
     if (!m_playerInterface)
         return;
 
-    const qint64 podcastThreshold = 20 * 60 * 1000000;
+    const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
 
     if (m_canSeek && m_trackLength > podcastThreshold) {
         qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength
@@ -465,7 +484,7 @@ void MPRIS2Controller::previous() {
     if (!m_playerInterface)
         return;
 
-    const qint64 podcastThreshold = 20 * 60 * 1000000;
+    const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
 
     if (m_canSeek && m_trackLength > podcastThreshold) {
         qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength

@@ -1,8 +1,17 @@
 import QtQuick
 import QtQuick.Controls
+// Constants is the shell's scale/DPI singleton — sibling MListTile
+// imports it the same way. Without this, every MScrollView usage
+// raises "ReferenceError: Constants is not defined" at scene load and
+// silently downgrades the scroll bar width + edge scroll affordance
+// to 0, breaking scrolling visuals app-wide (Calendar, Settings,
+// Mail, etc.).
+import MarathonOS.Shell
 
 Flickable {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     default property alias content: contentContainer.data
 
@@ -40,7 +49,7 @@ Flickable {
     ScrollBar.vertical: ScrollBar {
         id: vbar
         policy: ScrollBar.AsNeeded
-        width: 6
+        width: Math.round(6 * root.scaleFactor)
         active: root.moving || root.flicking || edgeScrollArea.containsMouse
     }
 
@@ -49,7 +58,7 @@ Flickable {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 20
+        width: Math.round(20 * root.scaleFactor)
         hoverEnabled: true
         preventStealing: true
         z: 100

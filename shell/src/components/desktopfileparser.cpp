@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QRegularExpression>
+#include <QSet>
+#include <utility>   // std::as_const
 
 DesktopFileParser::DesktopFileParser(QObject *parent)
     : QObject(parent) {}
@@ -34,17 +36,17 @@ QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths,
         qDebug() << "[DesktopFileParser] Found" << desktopFiles.count() << "desktop files in"
                  << path;
 
-        for (const QFileInfo &fileInfo : desktopFiles) {
+        for (const QFileInfo &fileInfo : std::as_const(desktopFiles)) {
             QVariantMap app = parseDesktopFile(fileInfo.absoluteFilePath());
             if (!app.isEmpty()) {
 
                 if (filterMobileFriendly) {
                     if (isMobileFriendly(app)) {
                         apps.append(app);
-                        qDebug() << "[DesktopFileParser] ✓ Mobile-friendly:"
+                        qDebug() << "[DesktopFileParser] Mobile-friendly:"
                                  << app["name"].toString();
                     } else {
-                        qDebug() << "[DesktopFileParser] ✗ Not mobile-friendly (filtered):"
+                        qDebug() << "[DesktopFileParser] Not mobile-friendly (filtered):"
                                  << app["name"].toString();
                     }
                 } else {
@@ -126,6 +128,8 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
         } else if (key == "X-KDE-FormFactors") {
 
             app["kdeFormFactors"] = value.split(';', Qt::SkipEmptyParts);
+        } else if (key == "X-Flatpak") {
+            app["flatpakRef"] = value;
         }
     }
 
@@ -134,9 +138,44 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
         return QVariantMap();
     }
 
+    // Marathon is Wayland-only — there's no X server, so X-only apps
+    // would just spin forever on the loading splash. Skip them at
+    // discovery time so they never reach the home grid.
+    static const QSet<QString> kX11OnlyBinaries{
+        "xterm",    "uxterm",  "xclock", "xcalc", "xeyes",  "xlogo",    "xev",    "xinit",   "xrdb",
+        "xfontsel", "xkbcomp", "xkill",  "xset",  "xsetbg", "xsetroot", "xrandr", "xdpyinfo"};
+    const QStringList execTokens = app["exec"].toString().split(' ', Qt::SkipEmptyParts);
+    QString           binaryName;
+    for (const QString &tok : execTokens) {
+        if (tok.startsWith('-'))
+            continue;
+        binaryName = QFileInfo(tok).fileName();
+        break;
+    }
+    if (kX11OnlyBinaries.contains(binaryName)) {
+        qDebug() << "[DesktopFileParser] Skipping X11-only app:" << binaryName;
+        return QVariantMap();
+    }
+
     QFileInfo fileInfo(filePath);
     QString   id = fileInfo.completeBaseName();
     app["id"]    = id;
+
+    if (app.value("exec").toString().startsWith(QStringLiteral("FLATPAK:"))) {
+        app["type"] = "flatpak";
+
+        if (!app.contains("flatpakRef")) {
+            // Older flatpak exports omit X-Flatpak; the ref is the last
+            // non-option token of the Exec line.
+            const QStringList tokens = app["exec"].toString().split(' ', Qt::SkipEmptyParts);
+            for (auto it = tokens.crbegin(); it != tokens.crend(); ++it) {
+                if (!it->startsWith('-') && it->contains('.')) {
+                    app["flatpakRef"] = *it;
+                    break;
+                }
+            }
+        }
+    }
 
     file.close();
     return app;
@@ -147,10 +186,11 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     if (it != m_iconCache.constEnd())
         return it.value();
 
+    static const QString kIconFallback = QStringLiteral("layout-grid");
+
     if (iconName.isEmpty()) {
-        const QString fallback = "grid";
-        m_iconCache.insert(iconName, fallback);
-        return fallback;
+        m_iconCache.insert(iconName, kIconFallback);
+        return kIconFallback;
     }
 
     if (iconName.startsWith('/')) {
@@ -158,9 +198,8 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
             m_iconCache.insert(iconName, iconName);
             return iconName;
         }
-        const QString fallback = "grid";
-        m_iconCache.insert(iconName, fallback);
-        return fallback;
+        m_iconCache.insert(iconName, kIconFallback);
+        return kIconFallback;
     }
 
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
@@ -270,22 +309,22 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
 
 QString DesktopFileParser::cleanExecLine(const QString &exec) {
 
-    QString            cleaned = exec;
-    QRegularExpression re("%[fFuUdDnNickvm]");
+    QString                         cleaned = exec;
+    static const QRegularExpression re("%[fFuUdDnNickvm]");
     cleaned.remove(re);
     cleaned = cleaned.trimmed();
 
     QStringList windowFlags = {"--new-window", "-new-window",    "--new-tab",
                                "-new-tab",     "--new-instance", "-new-instance"};
 
+    QStringList tokens = cleaned.split(' ', Qt::SkipEmptyParts);
     for (const QString &flag : windowFlags) {
-        if (cleaned.contains(flag)) {
-            cleaned.remove(flag);
-            cleaned = cleaned.trimmed();
+        if (tokens.removeAll(flag) > 0) {
             qInfo() << "[DesktopFileParser] *** REMOVED window control flag:" << flag
                     << "to enable compositor embedding";
         }
     }
+    cleaned = tokens.join(' ');
 
     if (cleaned.startsWith("gapplication launch ")) {
         QString     appId = cleaned.mid(20).trimmed();
@@ -343,10 +382,35 @@ QString DesktopFileParser::cleanExecLine(const QString &exec) {
 }
 
 bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
+    // Known dev/admin/diagnostic tools that ship as standard .desktop
+    // entries on Alpine + postmarketOS but are NOT consumer surfaces.
+    // Hiding by id (= .desktop basename) keeps the home grid free of
+    // Foot / Foot Client / Foot Server / Htop / Test Suite / Alacritty
+    // / Camera Dev Pre etc. without needing every fork to know about
+    // freedesktop's NoDisplay convention.
+    static const QSet<QString> kHiddenDevTools{
+        "alacritty",
+        "foot",
+        "foot-client",
+        "foot-server",
+        "htop",
+        "btop",
+        "lxterminal",
+        "xterm",
+        "uxterm",
+        "qterminal",
+        "marathon-test",
+        "marathon-dev",
+        "marathon-camera-dev-pre",
+    };
+    const QString idLower =
+        QFileInfo(app.value("desktopFile").toString()).completeBaseName().toLower();
+    if (kHiddenDevTools.contains(idLower))
+        return false;
 
     if (app.contains("purismFormFactor")) {
         QStringList formFactors = app["purismFormFactor"].toStringList();
-        for (const QString &factor : formFactors) {
+        for (const QString &factor : std::as_const(formFactors)) {
             if (factor.contains("Mobile", Qt::CaseInsensitive)) {
                 qDebug() << "[DesktopFileParser]   Mobile-friendly via X-Purism-FormFactor:"
                          << factor;
@@ -357,7 +421,7 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
 
     if (app.contains("kdeFormFactors")) {
         QStringList formFactors = app["kdeFormFactors"].toStringList();
-        for (const QString &factor : formFactors) {
+        for (const QString &factor : std::as_const(formFactors)) {
             if (factor.contains("handset", Qt::CaseInsensitive) ||
                 factor.contains("phone", Qt::CaseInsensitive)) {
                 qDebug() << "[DesktopFileParser]   Mobile-friendly via X-KDE-FormFactors:"
@@ -365,6 +429,61 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
                 return true;
             }
         }
+    }
+
+    // GNOME/freedesktop "Mobile" category — used by post-GTK4 apps that
+    // intentionally pass mobile QA (Calls, Chats, Portfolio, etc.).
+    if (app.contains("categories")) {
+        QStringList categories = app["categories"].toStringList();
+        for (const QString &cat : std::as_const(categories)) {
+            if (cat.compare("Mobile", Qt::CaseInsensitive) == 0 ||
+                cat.compare("Phone", Qt::CaseInsensitive) == 0) {
+                qDebug() << "[DesktopFileParser]   Mobile-friendly via Categories:" << cat;
+                return true;
+            }
+        }
+    }
+
+    // Curated allowlist — GTK4/libadwaita and KDE Plasma apps that ship as
+    // adaptive by default but don't bother declaring the hint. Keyed on the
+    // desktop file basename (= app id) so themes/forks don't drift it.
+    static const QSet<QString> kCuratedAdaptive{
+        // GNOME Circle / adaptive-by-default
+        "org.gnome.Calendar",
+        "org.gnome.Calls",
+        "org.gnome.Chess",
+        "org.gnome.Contacts",
+        "org.gnome.Loupe",
+        "org.gnome.Maps",
+        "org.gnome.Music",
+        "org.gnome.Papers",
+        "org.gnome.Snapshot",
+        "org.gnome.TextEditor",
+        "org.gnome.Weather",
+        "org.gnome.clocks",
+        "org.gnome.font-viewer",
+        // Phosh / Mobian first-party
+        "sm.puri.Chatty",
+        "sm.puri.Phosh",
+        "org.sigxcpu.Phosh",
+        // KDE Plasma Mobile
+        "org.kde.angelfish",
+        "org.kde.calindori",
+        "org.kde.kalk",
+        "org.kde.kasts",
+        "org.kde.kclock",
+        "org.kde.koko",
+        "org.kde.neochat",
+        "org.kde.tokodon",
+        // Useful daily-drivers known to work in 720 px / single-column
+        "org.gnome.Console",
+        "io.github.tchx84.Flatseal",
+        "page.codeberg.libre_menteur.LibreMenteur",
+    };
+    const QString id = QFileInfo(app.value("desktopFile").toString()).completeBaseName();
+    if (kCuratedAdaptive.contains(id)) {
+        qDebug() << "[DesktopFileParser]   Mobile-friendly via curated allowlist:" << id;
+        return true;
     }
 
     return false;

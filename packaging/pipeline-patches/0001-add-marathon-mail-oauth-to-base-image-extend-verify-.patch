@@ -1,0 +1,4780 @@
+From 0610d4fd8f95d45c057687ed89d42098f50bb6bd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 19 May 2026 21:03:57 +0100
+Subject: [PATCH 01/15] add marathon-mail-oauth to base image + extend
+ verify-mail.sh
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Rust OAuth/Secret-Service helper packaged under
+Marathon-Image/packages/marathon-mail-oauth now lands at
+/usr/bin/marathon-mail-oauth via mkosi.images/base/mkosi.conf
+Packages=. Marathon's mail credential plugins (marathonoauth +
+marathonclassic) refuse to function without it; this is the
+runtime piece that completes the Day-10 to Day-13 series.
+
+Three new pieces in marathon-extras/:
+
+- build-marathon-mail-oauth-apk.sh: podman+abuild wrapper that
+  mirrors build-marathon-shell-apk.sh's shape. Tar-streams the
+  Marathon-Shell tree into the abuild distfiles cache so cargo
+  builds against the local tree when MARATHON_SHELL_SRC is set.
+  Uses --net=host because abuild's options="net" allow-list still
+  hits crates.io's CDN through host networking.
+
+- build-marathon-shell-apk.sh: added qmf-dev install from
+  /local-apks (mounted RO from mkosi.packages/). Without this the
+  marathon-shell cmake configure step couldn't find libQmfClient
+  and MARATHON_HAS_QMF stayed FALSE, silently dropping the entire
+  Mail backend from the resulting apk.
+
+- verify-mail.sh: hard-asserts /usr/bin/marathon-mail-oauth exists
+  and is +x, then runs a smoke command with the permission gate
+  cleared. Confirms the binary loads under musl AND that the
+  env-var gate from Day 10 refuses Secret-Service access with the
+  structured "permission_denied" JSON envelope. Together with the
+  earlier 2b checks (libmarathonoauth.so, libmarathonclassic.so,
+  MarathonOS.Services qmldir) the harness now covers every Mail
+  artefact end-to-end — 12/12 green on r66 + marathon-mail-oauth.
+---
+ marathon-extras/StoreApp.qml                  | 1757 +++++++++++++++++
+ marathon-extras/boot-and-verify-mail.sh       |   83 +
+ marathon-extras/build-and-boot-phaseB.sh      |   92 +
+ .../build-marathon-base-config-apk.sh         |   56 +
+ .../build-marathon-mail-oauth-apk.sh          |  103 +
+ marathon-extras/build-marathon-shell-apk.sh   |  121 ++
+ marathon-extras/build-mesa-virgl-apk.sh       |  128 ++
+ marathon-extras/build-qmf-apk.sh              |  110 ++
+ marathon-extras/flathub.gpg                   |  Bin 0 -> 2844 bytes
+ marathon-extras/marathon-store-handler        |  115 ++
+ marathon-extras/marathon-store-refresh-state  |   54 +
+ .../marathon-store-refresh.service.template   |    7 +
+ .../marathon-store-refresh.timer.template     |   13 +
+ marathon-extras/verify-dynamic.sh             |  156 ++
+ marathon-extras/verify-lifecycle.sh           |  108 +
+ marathon-extras/verify-mail.sh                |  109 +
+ marathon-extras/xdg-terminal-exec             | 1484 ++++++++++++++
+ mkosi.conf                                    |    4 +-
+ mkosi.images/base/mkosi.conf                  |   13 +
+ 19 files changed, 4511 insertions(+), 2 deletions(-)
+ create mode 100644 marathon-extras/StoreApp.qml
+ create mode 100755 marathon-extras/boot-and-verify-mail.sh
+ create mode 100755 marathon-extras/build-and-boot-phaseB.sh
+ create mode 100755 marathon-extras/build-marathon-base-config-apk.sh
+ create mode 100755 marathon-extras/build-marathon-mail-oauth-apk.sh
+ create mode 100755 marathon-extras/build-marathon-shell-apk.sh
+ create mode 100755 marathon-extras/build-mesa-virgl-apk.sh
+ create mode 100755 marathon-extras/build-qmf-apk.sh
+ create mode 100644 marathon-extras/flathub.gpg
+ create mode 100755 marathon-extras/marathon-store-handler
+ create mode 100755 marathon-extras/marathon-store-refresh-state
+ create mode 100644 marathon-extras/marathon-store-refresh.service.template
+ create mode 100644 marathon-extras/marathon-store-refresh.timer.template
+ create mode 100644 marathon-extras/verify-dynamic.sh
+ create mode 100755 marathon-extras/verify-lifecycle.sh
+ create mode 100755 marathon-extras/verify-mail.sh
+ create mode 100644 marathon-extras/xdg-terminal-exec
+
+diff --git a/marathon-extras/StoreApp.qml b/marathon-extras/StoreApp.qml
+new file mode 100644
+index 0000000..5b7f1b0
+--- /dev/null
++++ b/marathon-extras/StoreApp.qml
+@@ -0,0 +1,1757 @@
++import MarathonOS.Shell
++import MarathonUI.Containers
++import MarathonUI.Controls
++import MarathonUI.Core
++import MarathonUI.Effects
++import MarathonUI.Feedback
++import MarathonUI.Navigation
++import MarathonUI.Theme
++import QtQuick
++import QtQuick.Controls
++import QtQuick.Layouts
++
++MApp {
++    id: root
++
++    appId: "store"
++    appName: "App Store"
++    appIcon: "assets/icon.svg"
++
++    readonly property string flathubApi: "https://flathub.org/api/v2"
++    readonly property string stateDir: "/run/user/" + (typeof userUid !== "undefined" ? userUid : "1000") + "/marathon-store-state"
++
++    // Density factor for sizing literals. Marathon's shell chrome uses
++    // Constants.scaleFactor everywhere (≈ 2.0 on a phone-class DPI), so
++    // raw pixel dimensions on cards/heroes would visually mismatch the
++    // top/bottom bars. Every fixed dimension below multiplies by `sf`.
++    readonly property real sf: Constants.scaleFactor || 1.0
++
++    property var collections: ({})
++    property var appOfTheDay: null
++    property var appstreamCache: ({})
++    property var installedApps: []
++    property var pendingUpdates: []
++    property var installState: ({})
++    property bool catalogLoading: false
++    property string lastError: ""
++    property int activeTab: 0
++
++    // Rail ordering matters: railApps() walks this list and removes apps
++    // already shown in an earlier rail, so popular apps don't appear three
++    // times across the page.
++    readonly property var railOrder: ["mobile", "trending", "popular", "recently-added", "verified"]
++
++    signal openDetailRequested(string appId, var summary)
++
++    function todayUtc() {
++        const d = new Date();
++        const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
++        const day = d.getUTCDate().toString().padStart(2, "0");
++        return d.getUTCFullYear() + "-" + m + "-" + day;
++    }
++
++    function pickAarch64(hits) {
++        const out = [];
++        for (let i = 0; i < hits.length; i++) {
++            const a = hits[i];
++            if (a.arches && a.arches.indexOf("aarch64") >= 0)
++                out.push(a);
++        }
++        return out;
++    }
++
++    // SSRF defence: pin every outbound HTTP to flathub.org. A poisoned remote
++    // response that redirected us at a LAN host, or a crafted collection name
++    // with a different scheme, gets refused.
++    function isFlathubUrl(u) {
++        return typeof u === "string" && u.indexOf("https://flathub.org/") === 0;
++    }
++
++    function fetchJson(url, body, cb) {
++        if (!root.isFlathubUrl(url)) {
++            cb(null, "refusing non-flathub url");
++            return;
++        }
++        const xhr = new XMLHttpRequest();
++        xhr.open(body ? "POST" : "GET", url);
++        xhr.setRequestHeader("Accept", "application/json");
++        if (body)
++            xhr.setRequestHeader("Content-Type", "application/json");
++        const timer = Qt.createQmlObject('import QtQuick; Timer { interval: 15000; repeat: false }', root);
++        timer.triggered.connect(function () { xhr.abort(); cb(null, "timeout"); });
++        timer.start();
++        xhr.onreadystatechange = function () {
++            if (xhr.readyState !== XMLHttpRequest.DONE)
++                return;
++            timer.stop();
++            if (xhr.status !== 200) {
++                cb(null, "HTTP " + xhr.status);
++                return;
++            }
++            if (xhr.responseText.length > 1024 * 1024) {
++                cb(null, "response too large");
++                return;
++            }
++            try {
++                cb(JSON.parse(xhr.responseText), null);
++            } catch (e) {
++                cb(null, "parse: " + e);
++            }
++        };
++        if (body)
++            xhr.send(JSON.stringify(body));
++        else
++            xhr.send();
++    }
++
++    // Icon / screenshot URLs are bound to Image.source. Clamp to the Flathub
++    // CDN so a poisoned response can't make us load file:// or intranet HTTP.
++    function safeImageUrl(u) {
++        if (typeof u !== "string") return "";
++        if (u.indexOf("https://dl.flathub.org/") === 0) return u;
++        if (u.indexOf("https://flathub.org/") === 0) return u;
++        return "";
++    }
++
++    function readLocalJson(path, cb) {
++        const xhr = new XMLHttpRequest();
++        xhr.open("GET", "file://" + path);
++        xhr.onreadystatechange = function () {
++            if (xhr.readyState !== XMLHttpRequest.DONE) return;
++            if (xhr.responseText.length === 0) { cb(null); return; }
++            try { cb(JSON.parse(xhr.responseText)); } catch (e) { cb(null); }
++        };
++        xhr.send(null);
++    }
++
++    function loadCollection(name) {
++        catalogLoading = true;
++        fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=24&locale=en", null, function (data, err) {
++            catalogLoading = false;
++            if (err) { lastError = name + ": " + err; return; }
++            const next = Object.assign({}, root.collections);
++            next[name] = pickAarch64(data.hits || []);
++            root.collections = next;
++        });
++    }
++
++    function railApps(name) {
++        const all = root.collections[name] || [];
++        if (all.length === 0) return [];
++        const seen = {};
++        if (root.appOfTheDay && root.appOfTheDay.id)
++            seen[root.appOfTheDay.id] = true;
++        for (let i = 0; i < root.railOrder.length; i++) {
++            const r = root.railOrder[i];
++            if (r === name) break;
++            const list = root.collections[r] || [];
++            for (let j = 0; j < list.length; j++) {
++                const id = list[j].app_id || list[j].id;
++                if (id) seen[id] = true;
++            }
++        }
++        const out = [];
++        for (let i = 0; i < all.length; i++) {
++            const id = all[i].app_id || all[i].id;
++            if (!id || !seen[id]) out.push(all[i]);
++        }
++        return out;
++    }
++
++    function loadAppOfTheDay() {
++        fetchJson(flathubApi + "/app-picks/app-of-the-day/" + todayUtc(), null, function (data, err) {
++            if (err || !data || !data.app_id) return;
++            fetchJson(flathubApi + "/appstream/" + data.app_id, null, function (full, ferr) {
++                if (ferr || !full) return;
++                root.appOfTheDay = full;
++            });
++        });
++    }
++
++    function loadAppstream(appId, cb) {
++        if (root.appstreamCache[appId]) { cb(root.appstreamCache[appId]); return; }
++        fetchJson(flathubApi + "/appstream/" + appId, null, function (full, err) {
++            if (err || !full) { cb(null); return; }
++            const next = Object.assign({}, root.appstreamCache);
++            next[appId] = full;
++            root.appstreamCache = next;
++            cb(full);
++        });
++    }
++
++    function loadInstalled() {
++        readLocalJson(stateDir + "/installed.json", function (data) {
++            root.installedApps = data && data.installed ? data.installed : [];
++        });
++    }
++
++    function loadUpdates() {
++        readLocalJson(stateDir + "/updates.json", function (data) {
++            root.pendingUpdates = data && data.updates ? data.updates : [];
++        });
++    }
++
++    function refreshState() {
++        Qt.openUrlExternally("marathon-store://refresh-state/all");
++        stateRefreshTimer.restart();
++    }
++
++    function pollInstallState() {
++        const watched = Object.keys(root.installState);
++        for (let i = 0; i < watched.length; i++) {
++            const appId = watched[i];
++            const path = stateDir + "/install-progress-" + appId + ".json";
++            readLocalJson(path, function (data) {
++                if (!data || !data.appId) return;
++                const next = Object.assign({}, root.installState);
++                next[data.appId] = data;
++                root.installState = next;
++                if (data.state === "done" || data.state === "failed" || data.state === "cancelled") {
++                    root.loadInstalled();
++                    root.loadUpdates();
++                }
++            });
++        }
++    }
++
++    function brandingColor(app) {
++        if (!app || !app.branding) return MColors.surface;
++        const list = app.branding;
++        for (let i = 0; i < list.length; i++) {
++            if (list[i].scheme_preference === "dark" && list[i].type === "primary")
++                return list[i].value;
++        }
++        for (let i = 0; i < list.length; i++) {
++            if (list[i].type === "primary") return list[i].value;
++        }
++        return MColors.surface;
++    }
++
++    function bestScreenshotSrc(sizes) {
++        if (!sizes || sizes.length === 0) return "";
++        let best = sizes[0];
++        for (let i = 0; i < sizes.length; i++) {
++            const w = parseInt(sizes[i].width || "0", 10);
++            if (w > 400 && w <= 1280) best = sizes[i];
++        }
++        return best.src || "";
++    }
++
++    function isInstalled(appId) {
++        for (let i = 0; i < installedApps.length; i++) {
++            if (installedApps[i].app_id === appId) return true;
++        }
++        return false;
++    }
++
++    function hasUpdate(appId) {
++        for (let i = 0; i < pendingUpdates.length; i++) {
++            if (pendingUpdates[i].app_id === appId) return true;
++        }
++        return false;
++    }
++
++    function isValidRef(appId) {
++        if (typeof appId !== "string" || appId.indexOf("..") >= 0) return false;
++        return /^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$/.test(appId);
++    }
++
++    function trackInstall(appId) {
++        const next = Object.assign({}, root.installState);
++        next[appId] = { appId: appId, state: "pending", percent: -1, ts: Date.now() / 1000 };
++        root.installState = next;
++        installPollTimer.running = true;
++    }
++
++    function installApp(appId) {
++        if (!isValidRef(appId)) { root.lastError = "Refusing to install invalid ref: " + appId; return; }
++        root.trackInstall(appId);
++        Qt.openUrlExternally("marathon-store://install/" + appId);
++    }
++
++    function uninstallApp(appId) {
++        if (!isValidRef(appId)) return;
++        root.trackInstall(appId);
++        Qt.openUrlExternally("marathon-store://uninstall/" + appId);
++    }
++
++    function updateAll() {
++        Qt.openUrlExternally("marathon-store://update-all/x");
++        stateRefreshTimer.restart();
++    }
++
++    function openDetail(appOrId) {
++        const id = typeof appOrId === "string" ? appOrId : (appOrId.app_id || appOrId.id);
++        if (!id || !isValidRef(id)) return;
++        root.openDetailRequested(id, typeof appOrId === "object" ? appOrId : null);
++    }
++
++    Timer {
++        id: stateRefreshTimer
++        interval: 1500
++        repeat: false
++        onTriggered: { root.loadInstalled(); root.loadUpdates(); }
++    }
++
++    Timer {
++        id: installPollTimer
++        interval: 700
++        repeat: true
++        triggeredOnStart: true
++        running: false
++        onTriggered: {
++            root.pollInstallState();
++            let anyInFlight = false;
++            const ids = Object.keys(root.installState);
++            for (let i = 0; i < ids.length; i++) {
++                const s = root.installState[ids[i]];
++                if (s && s.state !== "done" && s.state !== "failed" && s.state !== "cancelled") {
++                    anyInFlight = true; break;
++                }
++            }
++            if (!anyInFlight) running = false;
++        }
++    }
++
++    // Stagger startup XHRs so we don't slam Flathub with 6 parallel requests
++    // and trip their rate-limit on first paint.
++    Timer {
++        id: startupTimer
++        interval: 150
++        repeat: true
++        property var queue: []
++        onTriggered: {
++            if (queue.length === 0) { running = false; return; }
++            const next = queue.shift();
++            next();
++        }
++    }
++
++    Component.onCompleted: {
++        startupTimer.queue = [
++            function () { root.loadAppOfTheDay(); },
++            function () { root.loadCollection("mobile"); },
++            function () { root.loadCollection("trending"); },
++            function () { root.loadCollection("popular"); },
++            function () { root.loadCollection("recently-added"); },
++            function () { root.loadCollection("verified"); },
++            function () { root.refreshState(); }
++        ];
++        startupTimer.running = true;
++    }
++
++    // --------------------------------------------------------------------
++    // Presentation: StackView for push/pop nav to detail page; the initial
++    // item hosts a StackLayout that swaps Discover/Installed/Updates pages
++    // driven by an MTabBar (Clock-app pattern). This matches the rest of
++    // Marathon (Clock, Browser drawer) and gives us the system tab styling,
++    // gradient indicator, haptics, and a11y for free.
++    // --------------------------------------------------------------------
++
++    content: Rectangle {
++        id: contentRoot
++        anchors.fill: parent
++        color: MColors.background
++
++        StackView {
++            id: navStack
++            anchors.fill: parent
++            initialItem: homeShell
++
++            pushEnter: Transition {
++                NumberAnimation { property: "x"; from: navStack.width; to: 0; duration: MMotion.moderate; easing.type: MMotion.easingStandard; easing.bezierCurve: MMotion.easingStandardCurve }
++                NumberAnimation { property: "opacity"; from: 0.7; to: 1.0; duration: MMotion.quick }
++            }
++            pushExit: Transition {
++                NumberAnimation { property: "opacity"; from: 1.0; to: 0.6; duration: MMotion.quick }
++            }
++            popEnter: Transition {
++                NumberAnimation { property: "opacity"; from: 0.6; to: 1.0; duration: MMotion.quick }
++            }
++            popExit: Transition {
++                NumberAnimation { property: "x"; from: 0; to: navStack.width; duration: MMotion.moderate; easing.type: MMotion.easingStandard; easing.bezierCurve: MMotion.easingStandardCurve }
++                NumberAnimation { property: "opacity"; from: 1.0; to: 0.7; duration: MMotion.quick }
++            }
++        }
++
++        Connections {
++            target: root
++            function onBackPressed() { if (navStack.depth > 1) navStack.pop(); }
++            function onOpenDetailRequested(appId, summary) {
++                navStack.push(detailPage, { "appId": appId, "summaryApp": summary });
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Home shell: top bar, tabbed body, bottom MTabBar.
++    // --------------------------------------------------------------------
++    Component {
++        id: homeShell
++
++        Item {
++            id: shellRoot
++            anchors.fill: parent
++
++            ColumnLayout {
++                anchors.fill: parent
++                spacing: 0
++
++                MTopBar {
++                    id: titleBar
++                    Layout.fillWidth: true
++                    title: ["Discover", "Installed", "Updates"][root.activeTab]
++                    actions: [
++                        MIconButton {
++                            iconName: "refresh-cw"
++                            iconSize: 18
++                            a11yName: "Refresh catalog"
++                            onClicked: {
++                                MHaptics.lightImpact();
++                                root.refreshState();
++                                if (root.activeTab === 0) {
++                                    root.loadCollection("mobile");
++                                    root.loadCollection("trending");
++                                    root.loadCollection("popular");
++                                    root.loadCollection("recently-added");
++                                    root.loadCollection("verified");
++                                    root.loadAppOfTheDay();
++                                }
++                            }
++                        }
++                    ]
++                }
++
++                StackLayout {
++                    id: tabStack
++                    Layout.fillWidth: true
++                    Layout.fillHeight: true
++                    currentIndex: root.activeTab
++
++                    Loader { sourceComponent: discoverPage; active: true }
++                    Loader { sourceComponent: installedPage; active: root.activeTab === 1 || installedApps.length > 0 }
++                    Loader { sourceComponent: updatesPage; active: root.activeTab === 2 || pendingUpdates.length > 0 }
++                }
++
++                MTabBar {
++                    id: bottomTabs
++                    Layout.fillWidth: true
++                    activeTab: root.activeTab
++                    tabs: [
++                        { "label": "Discover",  "icon": "compass" },
++                        { "label": "Installed", "icon": "package" },
++                        { "label": "Updates",   "icon": "cloud-download" }
++                    ]
++                    // refreshState() triggers the refresh-state script which
++                    // rewrites installed.json + updates.json. The 1.5s
++                    // stateRefreshTimer then reloads from disk. This kills
++                    // the race where the tab loads before flatpak has been
++                    // re-listed.
++                    onTabSelected: index => {
++                        MHaptics.lightImpact();
++                        root.activeTab = index;
++                        if (index === 1 || index === 2) {
++                            root.refreshState();
++                            root.loadInstalled();
++                            root.loadUpdates();
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Discover page: search bar + AOTD hero + 5 rails.
++    // --------------------------------------------------------------------
++    Component {
++        id: discoverPage
++
++        Flickable {
++            id: discoverFlick
++            contentWidth: width
++            contentHeight: discoverColumn.implicitHeight + MSpacing.xl
++            clip: true
++            flickDeceleration: MMotion.touchFlickDeceleration
++            maximumFlickVelocity: MMotion.touchFlickVelocity
++
++            ColumnLayout {
++                id: discoverColumn
++                width: discoverFlick.width
++                spacing: MSpacing.md
++
++                // Search row — same pattern Maps/Messages use: an Icon + the
++                // canonical MTextInput component side-by-side inside a
++                // surface-coloured strip. No bespoke pill rounding; the input
++                // brings its own MRadius.md and focus border.
++                Rectangle {
++                    Layout.fillWidth: true
++                    Layout.topMargin: MSpacing.sm
++                    Layout.preferredHeight: Constants.touchTargetMinimum + MSpacing.sm
++                    color: "transparent"
++
++                    Row {
++                        anchors.fill: parent
++                        anchors.leftMargin: MSpacing.md
++                        anchors.rightMargin: MSpacing.md
++                        anchors.topMargin: MSpacing.xs
++                        anchors.bottomMargin: MSpacing.xs
++                        spacing: MSpacing.sm
++
++                        Icon {
++                            anchors.verticalCenter: parent.verticalCenter
++                            name: "search"
++                            size: Constants.iconSizeSmall
++                            color: MColors.textSecondary
++                        }
++                        MTextInput {
++                            id: discoverSearch
++                            anchors.verticalCenter: parent.verticalCenter
++                            width: parent.width - parent.spacing * 2 - Constants.iconSizeSmall - (clearBtn.visible ? clearBtn.width + parent.spacing : 0)
++                            placeholderText: "Search Flathub"
++                            a11yName: "Search Flathub catalog"
++                            onAccepted: if (text.length > 0) navStack.push(searchPage, { "initialQuery": text })
++                        }
++                        MIconButton {
++                            id: clearBtn
++                            anchors.verticalCenter: parent.verticalCenter
++                            iconName: "x"
++                            iconSize: Constants.iconSizeSmall
++                            variant: "secondary"
++                            a11yName: "Clear search"
++                            visible: discoverSearch.text.length > 0
++                            onClicked: discoverSearch.text = ""
++                        }
++                    }
++                }
++
++                // App of the Day hero card.
++                Loader {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    active: root.appOfTheDay !== null
++                    sourceComponent: appOfTheDayCard
++                }
++
++                // Rails — Repeater so the bindings re-evaluate when new
++                // collections finish loading and the de-dup set changes.
++                Repeater {
++                    model: [
++                        { name: "mobile",         title: "On the Go",            subtitle: "Apps that work great on a phone" },
++                        { name: "trending",       title: "Trending",             subtitle: "Catching on this week" },
++                        { name: "popular",        title: "Popular",              subtitle: "What everyone’s installing" },
++                        { name: "recently-added", title: "New on Flathub",       subtitle: "Fresh arrivals" },
++                        { name: "verified",       title: "Verified Developers", subtitle: "Confirmed by the people who made them" }
++                    ]
++                    delegate: Loader {
++                        property var railApps: root.railApps(modelData.name)
++                        Layout.fillWidth: true
++                        active: railApps.length > 0
++                        sourceComponent: railSection
++                        onLoaded: {
++                            item.title = modelData.title;
++                            item.subtitle = modelData.subtitle;
++                            item.apps = railApps;
++                        }
++                        onRailAppsChanged: if (item) item.apps = railApps
++                    }
++                }
++
++                // Skeleton placeholders while collections are loading.
++                MActivityIndicator {
++                    visible: root.catalogLoading && Object.keys(root.collections).length === 0
++                    Layout.alignment: Qt.AlignHCenter
++                    Layout.topMargin: MSpacing.lg
++                }
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // App of the Day hero card.
++    // --------------------------------------------------------------------
++    Component {
++        id: appOfTheDayCard
++
++        // AOTD wants full-bleed imagery and a gradient — MCard's built-in
++        // inset content padding gets in the way, so we use a plain Rectangle
++        // here and replicate the lift/press behaviour ourselves. Radius is
++        // the system "small" token (4px); the rest of Marathon (Calculator,
++        // Calendar cards, lists) uses Sharp/Small, not iOS-style 16-22px.
++        Rectangle {
++            id: aotd
++            implicitHeight: Math.round(200 * root.sf)
++            radius: Constants.borderRadiusSmall
++            color: root.brandingColor(root.appOfTheDay)
++            clip: true
++            scale: aotdMouse.pressed ? 0.98 : 1.0
++            Behavior on scale { NumberAnimation { duration: MMotion.fast; easing.type: Easing.OutQuad } }
++
++            Image {
++                anchors.fill: parent
++                source: root.appOfTheDay && root.appOfTheDay.screenshots && root.appOfTheDay.screenshots.length > 0
++                    ? root.bestScreenshotSrc(root.appOfTheDay.screenshots[0].sizes) : ""
++                fillMode: Image.PreserveAspectCrop
++                asynchronous: true
++                smooth: true
++                opacity: 0.4
++            }
++            Rectangle {
++                anchors.fill: parent
++                radius: aotd.radius
++                gradient: Gradient {
++                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.10) }
++                    GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.40) }
++                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.70) }
++                }
++            }
++
++            ColumnLayout {
++                anchors.fill: parent
++                anchors.margins: MSpacing.lg
++                spacing: MSpacing.xs
++
++                MLabel {
++                    text: "APP OF THE DAY"
++                    font.pixelSize: MTypography.sizeXSmall
++                    font.weight: MTypography.weightBold
++                    font.letterSpacing: 1.4
++                    color: Qt.rgba(1, 1, 1, 0.85)
++                }
++                Item { Layout.fillHeight: true }
++                RowLayout {
++                    Layout.fillWidth: true
++                    spacing: MSpacing.md
++
++                    Rectangle {
++                        Layout.preferredWidth: Math.round(64 * root.sf)
++                        Layout.preferredHeight: Math.round(64 * root.sf)
++                        radius: Constants.borderRadiusSmall
++                        color: Qt.rgba(1, 1, 1, 0.16)
++                        border.color: Qt.rgba(1, 1, 1, 0.22)
++                        border.width: 1
++                        Image {
++                            anchors.fill: parent
++                            anchors.margins: 8
++                            source: root.appOfTheDay && root.appOfTheDay.icon ? root.appOfTheDay.icon : ""
++                            sourceSize: Qt.size(128, 128)
++                            asynchronous: true
++                            fillMode: Image.PreserveAspectFit
++                            smooth: true
++                        }
++                    }
++                    ColumnLayout {
++                        Layout.fillWidth: true
++                        spacing: 2
++                        MLabel {
++                            text: root.appOfTheDay ? root.appOfTheDay.name : ""
++                            font.pixelSize: MTypography.sizeLarge
++                            font.weight: MTypography.weightBold
++                            color: "white"
++                            Layout.fillWidth: true
++                            elide: Text.ElideRight
++                        }
++                        MLabel {
++                            text: root.appOfTheDay ? (root.appOfTheDay.summary || "") : ""
++                            font.pixelSize: MTypography.sizeXSmall
++                            color: Qt.rgba(1, 1, 1, 0.85)
++                            Layout.fillWidth: true
++                            wrapMode: Text.WordWrap
++                            maximumLineCount: 2
++                            elide: Text.ElideRight
++                        }
++                    }
++                    MButton {
++                        text: root.appOfTheDay && root.isInstalled(root.appOfTheDay.id) ? "Open" : "Install"
++                        variant: "primary"
++                        onClicked: {
++                            if (!root.appOfTheDay) return;
++                            const id = root.appOfTheDay.id || root.appOfTheDay.app_id;
++                            if (root.isInstalled(id)) Qt.openUrlExternally("marathon-store://open/" + id);
++                            else root.installApp(id);
++                        }
++                    }
++                }
++            }
++
++            MouseArea {
++                id: aotdMouse
++                anchors.fill: parent
++                z: -1
++                onClicked: if (root.appOfTheDay) { MHaptics.lightImpact(); root.openDetail(root.appOfTheDay); }
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Rail section: header + horizontal scrolling MCards.
++    // --------------------------------------------------------------------
++    Component {
++        id: railSection
++
++        Item {
++            id: section
++            property string title: ""
++            property string subtitle: ""
++            property var apps: []
++            implicitHeight: header.implicitHeight + MSpacing.sm + railList.height
++
++            ColumnLayout {
++                id: header
++                anchors.left: parent.left
++                anchors.right: parent.right
++                anchors.leftMargin: MSpacing.md
++                anchors.rightMargin: MSpacing.md
++                spacing: 0
++                MLabel {
++                    text: section.title
++                    font.pixelSize: MTypography.sizeLarge
++                    font.weight: MTypography.weightDemiBold
++                    Layout.fillWidth: true
++                }
++                MLabel {
++                    text: section.subtitle
++                    font.pixelSize: MTypography.sizeXSmall
++                    variant: "secondary"
++                    Layout.fillWidth: true
++                }
++            }
++
++            ListView {
++                id: railList
++                anchors.top: header.bottom
++                anchors.topMargin: MSpacing.sm
++                anchors.left: parent.left
++                anchors.right: parent.right
++                height: Math.round(176 * root.sf)
++                orientation: ListView.Horizontal
++                spacing: MSpacing.sm
++                clip: true
++                cacheBuffer: width * 2
++                model: section.apps
++                leftMargin: MSpacing.md
++                rightMargin: MSpacing.md
++                snapMode: ListView.SnapToItem
++                flickDeceleration: MMotion.touchFlickDeceleration
++                maximumFlickVelocity: MMotion.touchFlickVelocity
++                delegate: railCard
++            }
++        }
++    }
++
++    // Rail card delegate. MCard wraps content in a fixed inset, which is
++    // too tight for a compact rail card — we use a styled Rectangle here so
++    // we control the padding precisely. Press scaling matches MCard's feel.
++    Component {
++        id: railCard
++
++        Rectangle {
++            id: card
++            width: Math.round(200 * root.sf)
++            height: Math.round(158 * root.sf)
++            radius: MRadius.md
++            color: MColors.surface
++            border.color: MColors.border
++            border.width: 1
++            scale: cardMouse.pressed ? 0.96 : 1.0
++            Behavior on scale {
++                SpringAnimation {
++                    spring: MMotion.springMedium
++                    damping: MMotion.dampingMedium
++                    epsilon: MMotion.epsilon
++                }
++            }
++
++            ColumnLayout {
++                anchors.fill: parent
++                anchors.margins: MSpacing.sm
++                spacing: MSpacing.sm
++
++                RowLayout {
++                    Layout.fillWidth: true
++                    spacing: MSpacing.sm
++                    Rectangle {
++                        Layout.preferredWidth: Math.round(48 * root.sf)
++                        Layout.preferredHeight: Math.round(48 * root.sf)
++                        radius: Constants.borderRadiusSmall
++                        color: MColors.background
++                        Image {
++                            anchors.fill: parent
++                            anchors.margins: 4
++                            source: modelData.icon || ""
++                            sourceSize: Qt.size(96, 96)
++                            asynchronous: true
++                            fillMode: Image.PreserveAspectFit
++                            smooth: true
++                        }
++                    }
++                    ColumnLayout {
++                        Layout.fillWidth: true
++                        spacing: 0
++                        MLabel {
++                            text: modelData.name || modelData.app_id
++                            font.pixelSize: MTypography.sizeSmall
++                            font.weight: MTypography.weightDemiBold
++                            elide: Text.ElideRight
++                            Layout.fillWidth: true
++                        }
++                        MLabel {
++                            text: modelData.developer_name || ""
++                            variant: "tertiary"
++                            font.pixelSize: MTypography.sizeXSmall
++                            elide: Text.ElideRight
++                            Layout.fillWidth: true
++                        }
++                    }
++                }
++
++                MLabel {
++                    text: modelData.summary || ""
++                    variant: "secondary"
++                    font.pixelSize: MTypography.sizeXSmall
++                    wrapMode: Text.WordWrap
++                    maximumLineCount: 2
++                    elide: Text.ElideRight
++                    Layout.fillWidth: true
++                    Layout.fillHeight: true
++                }
++
++                // Footer row: Verified chip on the left, install count or
++                // state text on the right. The primary install action is on
++                // the detail page — keeping the card itself clean keeps the
++                // rail scannable. (Putting a touch-target-sized MButton in
++                // every card crowds the layout and competes with the AOTD's
++                // own CTA visually.)
++                RowLayout {
++                    Layout.fillWidth: true
++                    spacing: MSpacing.xs
++                    Rectangle {
++                        visible: modelData.verification_verified === true
++                        Layout.preferredHeight: Math.round(20 * root.sf)
++                        Layout.preferredWidth: vChipText.implicitWidth + MSpacing.sm * 2
++                        radius: Constants.borderRadiusSmall
++                        color: MColors.marathonTealBright
++                        MLabel {
++                            id: vChipText
++                            anchors.centerIn: parent
++                            text: "Verified"
++                            color: MColors.bb10Black
++                            font.pixelSize: MTypography.sizeXSmall
++                            font.weight: MTypography.weightBold
++                        }
++                    }
++                    Item { Layout.fillWidth: true }
++                    MLabel {
++                        text: {
++                            if (root.hasUpdate(modelData.app_id)) return "Update available";
++                            if (root.isInstalled(modelData.app_id)) return "Installed";
++                            const installs = typeof modelData.installs_last_month === "number" ? modelData.installs_last_month : 0;
++                            return installs > 0 ? installs.toLocaleString() + "/mo" : "";
++                        }
++                        color: root.hasUpdate(modelData.app_id) ? MColors.marathonTealBright
++                            : (root.isInstalled(modelData.app_id) ? MColors.textSecondary
++                                : MColors.textTertiary)
++                        font.pixelSize: MTypography.sizeXSmall
++                        font.weight: root.hasUpdate(modelData.app_id) ? MTypography.weightDemiBold : MTypography.weightNormal
++                    }
++                }
++            }
++
++            MouseArea {
++                id: cardMouse
++                anchors.fill: parent
++                z: -1
++                onClicked: { MHaptics.lightImpact(); root.openDetail(modelData); }
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Installed page: list of installed apps using MSettingsListItem.
++    // --------------------------------------------------------------------
++    Component {
++        id: installedPage
++
++        Rectangle {
++            color: MColors.background
++            Component.onCompleted: root.loadInstalled()
++
++            ListView {
++                id: installedList
++                anchors.fill: parent
++                anchors.topMargin: MSpacing.sm
++                clip: true
++                visible: root.installedApps.length > 0
++                model: root.installedApps
++                spacing: 0
++                delegate: MSettingsListItem {
++                    title: modelData.name || modelData.app_id
++                    subtitle: modelData.version ? ("v" + modelData.version) : modelData.app_id
++                    iconName: "package"
++                    showChevron: true
++                    // Pass the full row so detail page shows the name
++                    // immediately while the full appstream payload loads.
++                    onSettingClicked: root.openDetail(modelData)
++                }
++            }
++
++            MEmptyState {
++                visible: root.installedApps.length === 0
++                anchors.centerIn: parent
++                width: parent.width - MSpacing.xl * 2
++                iconName: "package"
++                title: "Nothing installed yet"
++                message: "Tap Discover to find your first app."
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Updates page: pending updates + Update All action.
++    // --------------------------------------------------------------------
++    Component {
++        id: updatesPage
++
++        Rectangle {
++            color: MColors.background
++            Component.onCompleted: { root.loadUpdates(); root.loadInstalled(); }
++
++            ColumnLayout {
++                anchors.fill: parent
++                spacing: 0
++                visible: root.pendingUpdates.length > 0
++
++                Rectangle {
++                    Layout.fillWidth: true
++                    Layout.margins: MSpacing.md
++                    Layout.preferredHeight: Math.round(88 * root.sf)
++                    radius: Constants.borderRadiusSmall
++                    color: MColors.bb10Elevated
++                    border.color: MColors.border
++                    border.width: 1
++                    RowLayout {
++                        anchors.fill: parent
++                        anchors.leftMargin: MSpacing.md
++                        anchors.rightMargin: MSpacing.md
++                        spacing: MSpacing.md
++                        Icon { name: "cloud-download"; size: Constants.iconSizeMedium; color: MColors.marathonTealBright }
++                        ColumnLayout {
++                            Layout.fillWidth: true
++                            spacing: 0
++                            MLabel {
++                                text: root.pendingUpdates.length + " update" + (root.pendingUpdates.length === 1 ? "" : "s") + " available"
++                                font.weight: MTypography.weightDemiBold
++                            }
++                            MLabel {
++                                text: "Tap to update everything"
++                                variant: "secondary"
++                                font.pixelSize: MTypography.sizeXSmall
++                            }
++                        }
++                        MButton {
++                            text: "Update all"
++                            variant: "primary"
++                            onClicked: { MHaptics.mediumImpact(); root.updateAll(); }
++                        }
++                    }
++                }
++
++                ListView {
++                    Layout.fillWidth: true
++                    Layout.fillHeight: true
++                    clip: true
++                    model: root.pendingUpdates
++                    delegate: MSettingsListItem {
++                        title: modelData.app_id
++                        subtitle: "Update available"
++                        iconName: "arrow-up"
++                        showChevron: true
++                        onSettingClicked: root.openDetail(modelData.app_id)
++                    }
++                }
++            }
++
++            MEmptyState {
++                visible: root.pendingUpdates.length === 0
++                anchors.centerIn: parent
++                width: parent.width - MSpacing.xl * 2
++                iconName: "circle-check"
++                title: "Everything's up to date"
++                message: "We check again every 12 hours. Tap refresh in the title bar to check now."
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Detail page — MPage with showBackButton, scrollable body, sticky
++    // bottom bar housing the primary action (Install/Open/Update).
++    // --------------------------------------------------------------------
++    Component {
++        id: detailPage
++
++        MPage {
++            id: detailRoot
++            property string appId: ""
++            property var summaryApp: null
++            property var fullApp: null
++            readonly property var displayApp: fullApp || summaryApp
++            readonly property var progress: root.installState[appId] || null
++
++            readonly property var latestRelease: {
++                const r = detailRoot.fullApp && detailRoot.fullApp.releases;
++                return (r && r.length > 0) ? r[0] : null;
++            }
++
++            // Compatibility chips derived from AppStream <supports>/<requires>.
++            // Flathub serialises these as `metadata.supports`, `metadata.requires`,
++            // and `metadata.recommends` arrays of {type, value} pairs. We map
++            // them to a small set of icons users actually understand.
++            readonly property var compatItems: {
++                const a = detailRoot.fullApp;
++                if (!a || !a.metadata) return [];
++                const supports = (a.metadata.supports || []).concat(a.metadata.recommends || []);
++                const items = [];
++                let sawTouch = false;
++                let sawPointing = false;
++                let sawKeyboard = false;
++                for (let i = 0; i < supports.length; i++) {
++                    const s = supports[i];
++                    if (!s || s.type !== "control") continue;
++                    if (s.value === "touch") sawTouch = true;
++                    if (s.value === "pointing") sawPointing = true;
++                    if (s.value === "keyboard") sawKeyboard = true;
++                }
++                if (sawTouch || sawPointing || sawKeyboard) {
++                    items.push({ icon: "smartphone", label: sawTouch ? "Touch" : "No touch", ok: sawTouch });
++                    if (sawKeyboard) items.push({ icon: "keyboard", label: "Keyboard", ok: true });
++                }
++                return items;
++            }
++
++            // Project link rows pulled from AppStream <url type="...">.
++            // We omit any URL the upstream payload didn't provide.
++            readonly property var linkRows: {
++                const u = detailRoot.fullApp && detailRoot.fullApp.urls;
++                if (!u) return [];
++                const out = [];
++                if (u.homepage) out.push({ label: "Website", url: u.homepage, ic: "external-link" });
++                if (u.bugtracker) out.push({ label: "Report a bug", url: u.bugtracker, ic: "circle-alert" });
++                if (u.donation) out.push({ label: "Donate", url: u.donation, ic: "heart" });
++                if (u.help) out.push({ label: "Help", url: u.help, ic: "circle-question-mark" });
++                if (u.translate) out.push({ label: "Translate", url: u.translate, ic: "globe" });
++                return out;
++            }
++
++            // Information rows — Flatpak ref, runtime, license, sizes,
++            // install count. Each entry only present when the upstream
++            // payload provided real data; missing fields don't take a row.
++            readonly property var infoRows: {
++                const app = detailRoot.displayApp;
++                if (!app) return [];
++                const rows = [];
++                if (detailRoot.fullApp && detailRoot.fullApp.bundle && detailRoot.fullApp.bundle.value)
++                    rows.push({ k: "Flatpak ref", v: detailRoot.fullApp.bundle.value, ic: "package" });
++                if (detailRoot.fullApp && detailRoot.fullApp.metadata && detailRoot.fullApp.metadata.runtime)
++                    rows.push({ k: "Runtime", v: detailRoot.fullApp.metadata.runtime, ic: "layers" });
++                if (app.project_license)
++                    rows.push({ k: "License", v: app.project_license, ic: "file-text" });
++                const dl = detailRoot.fmtBytes(app.download_size);
++                if (dl) rows.push({ k: "Download size", v: dl, ic: "download" });
++                const sz = detailRoot.fmtBytes(app.installed_size);
++                if (sz) rows.push({ k: "Installed size", v: sz, ic: "hard-drive" });
++                if (app.installs_last_month && app.installs_last_month > 0)
++                    rows.push({ k: "Monthly installs", v: app.installs_last_month.toLocaleString(), ic: "trending-up" });
++                return rows;
++            }
++
++            // Flatpak app permissions parsed from `metadata.permissions` or
++            // the `[Context]` section serialised by Flathub. We surface the
++            // common ones users actually care about; everything else falls
++            // under "Other system access".
++            readonly property var permissionItems: {
++                const a = detailRoot.fullApp;
++                if (!a || !a.metadata) return [];
++                const ctx = a.metadata.permissions || a.metadata.context || {};
++                const out = [];
++                const shares = (ctx.shared || []);
++                if (shares.indexOf("network") >= 0) out.push({ icon: "wifi", label: "Network access", detail: "Sends and receives data online" });
++                if (shares.indexOf("ipc") >= 0) out.push({ icon: "share-2", label: "Inter-process communication", detail: "Talks to other apps on the device" });
++                const sockets = (ctx.sockets || []);
++                if (sockets.indexOf("pulseaudio") >= 0) out.push({ icon: "volume-2", label: "Audio", detail: "Play sound and record from microphones" });
++                if (sockets.indexOf("wayland") >= 0 || sockets.indexOf("fallback-x11") >= 0) out.push({ icon: "monitor", label: "Display", detail: "Draws windows on screen" });
++                if (sockets.indexOf("system-bus") >= 0) out.push({ icon: "settings", label: "System services", detail: "Interacts with system-wide services" });
++                const filesystems = (ctx.filesystems || []);
++                for (let i = 0; i < filesystems.length; i++) {
++                    const f = filesystems[i];
++                    if (f === "host") out.push({ icon: "folder", label: "All files", detail: "Full read/write access to your home folder" });
++                    else if (f === "home") out.push({ icon: "folder", label: "Home folder", detail: "Read/write files in your home" });
++                    else if (f.indexOf("xdg-") === 0) out.push({ icon: "folder", label: "User folder: " + f.replace("xdg-", ""), detail: "Access to a specific user folder" });
++                }
++                const devices = (ctx.devices || []);
++                if (devices.indexOf("all") >= 0) out.push({ icon: "cpu", label: "All devices", detail: "Hardware access including cameras and sensors" });
++                else if (devices.indexOf("dri") >= 0) out.push({ icon: "cpu", label: "Graphics acceleration", detail: "Uses the GPU for rendering" });
++                return out;
++            }
++
++            function fmtBytes(n) {
++                if (!n || n <= 0) return "";
++                const mb = n / (1024 * 1024);
++                if (mb >= 1024) return (mb / 1024).toFixed(1) + " GB";
++                return Math.max(1, Math.round(mb)) + " MB";
++            }
++
++            title: displayApp ? (displayApp.name || appId) : appId
++            showBackButton: true
++            showBottomBar: true
++            onBackClicked: navStack.pop()
++
++            Component.onCompleted: {
++                if (appId) root.loadAppstream(appId, function (data) { detailRoot.fullApp = data; });
++            }
++
++            content: ColumnLayout {
++                width: parent ? parent.width : 0
++                spacing: MSpacing.lg
++
++                // Hero block: brand colour + screenshot tint + icon + name.
++                Rectangle {
++                    Layout.fillWidth: true
++                    Layout.preferredHeight: Math.round(220 * root.sf)
++                    color: root.brandingColor(detailRoot.displayApp)
++                    clip: true
++
++                    Image {
++                        anchors.fill: parent
++                        source: detailRoot.fullApp && detailRoot.fullApp.screenshots && detailRoot.fullApp.screenshots.length > 0
++                            ? root.bestScreenshotSrc(detailRoot.fullApp.screenshots[0].sizes) : ""
++                        fillMode: Image.PreserveAspectCrop
++                        asynchronous: true
++                        smooth: true
++                        opacity: 0.30
++                    }
++                    Rectangle {
++                        anchors.fill: parent
++                        gradient: Gradient {
++                            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.10) }
++                            GradientStop { position: 1.0; color: MColors.background }
++                        }
++                    }
++
++                    RowLayout {
++                        anchors.left: parent.left
++                        anchors.right: parent.right
++                        anchors.bottom: parent.bottom
++                        anchors.leftMargin: MSpacing.md
++                        anchors.rightMargin: MSpacing.md
++                        anchors.bottomMargin: -Math.round(32 * root.sf)
++                        spacing: MSpacing.md
++
++                        Rectangle {
++                            Layout.preferredWidth: Math.round(96 * root.sf)
++                            Layout.preferredHeight: Math.round(96 * root.sf)
++                            radius: Constants.borderRadiusSmall
++                            color: MColors.surface
++                            border.color: MColors.border
++                            border.width: 1
++                            Image {
++                                anchors.fill: parent
++                                anchors.margins: 10
++                                source: detailRoot.displayApp && detailRoot.displayApp.icon ? detailRoot.displayApp.icon : ""
++                                sourceSize: Qt.size(192, 192)
++                                asynchronous: true
++                                fillMode: Image.PreserveAspectFit
++                                smooth: true
++                            }
++                        }
++                        ColumnLayout {
++                            Layout.fillWidth: true
++                            Layout.bottomMargin: Math.round(44 * root.sf)
++                            spacing: 2
++                            MLabel {
++                                text: detailRoot.displayApp ? (detailRoot.displayApp.name || "") : ""
++                                font.pixelSize: MTypography.sizeXLarge
++                                font.weight: MTypography.weightBold
++                                Layout.fillWidth: true
++                                wrapMode: Text.WordWrap
++                                maximumLineCount: 2
++                                elide: Text.ElideRight
++                            }
++                            RowLayout {
++                                spacing: MSpacing.xs
++                                MLabel {
++                                    text: detailRoot.displayApp ? (detailRoot.displayApp.developer_name || "") : ""
++                                    variant: "secondary"
++                                    font.pixelSize: MTypography.sizeSmall
++                                    elide: Text.ElideRight
++                                }
++                                Rectangle {
++                                    visible: detailRoot.displayApp && detailRoot.displayApp.verification_verified === true
++                                    Layout.preferredHeight: Math.round(22 * root.sf)
++                                    Layout.preferredWidth: vDetailText.implicitWidth + MSpacing.sm * 2
++                                    radius: Constants.borderRadiusSmall
++                                    color: MColors.marathonTealBright
++                                    MLabel {
++                                        id: vDetailText
++                                        anchors.centerIn: parent
++                                        text: {
++                                            const a = detailRoot.displayApp;
++                                            if (!a) return "Verified";
++                                            if (a.verification_login_provider === "github") return "GitHub verified";
++                                            if (a.verification_login_provider === "gitlab") return "GitLab verified";
++                                            if (a.verification_login_provider === "gnome") return "GNOME verified";
++                                            if (a.verification_method === "website") return "Website verified";
++                                            return "Verified";
++                                        }
++                                        color: MColors.bb10Black
++                                        font.pixelSize: MTypography.sizeXSmall
++                                        font.weight: MTypography.weightBold
++                                    }
++                                }
++                            }
++                        }
++                    }
++                }
++
++                Item { Layout.preferredHeight: MSpacing.lg }
++
++                // Summary line.
++                MLabel {
++                    text: detailRoot.displayApp ? (detailRoot.displayApp.summary || "") : ""
++                    font.pixelSize: MTypography.sizeBody
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    wrapMode: Text.WordWrap
++                }
++
++                // Categories — AppStream <categories> rendered as chips. Helps
++                // users orient ("Audio", "Graphics", "Office") at a glance.
++                Flow {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.xs
++                    visible: detailRoot.displayApp && detailRoot.displayApp.categories && detailRoot.displayApp.categories.length > 0
++                    Repeater {
++                        model: detailRoot.displayApp ? (detailRoot.displayApp.categories || []) : []
++                        delegate: Rectangle {
++                            width: catChip.implicitWidth + MSpacing.md * 2
++                            height: Math.round(26 * root.sf)
++                            radius: Constants.borderRadiusSmall
++                            color: MColors.bb10Elevated
++                            border.color: MColors.border
++                            border.width: 1
++                            MLabel {
++                                id: catChip
++                                anchors.centerIn: parent
++                                text: modelData
++                                font.pixelSize: MTypography.sizeXSmall
++                                font.weight: MTypography.weightMedium
++                                variant: "secondary"
++                            }
++                        }
++                    }
++                }
++
++                // Compatibility strip — AppStream <supports><control> and
++                // <requires>/<recommends> tell us what input methods the app
++                // supports. Critical on a mobile shell: an app that only does
++                // pointing+keyboard is going to be awkward on touch.
++                RowLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    visible: detailRoot.compatItems.length > 0
++                    Repeater {
++                        model: detailRoot.compatItems
++                        delegate: Row {
++                            spacing: MSpacing.xs / 2
++                            Icon {
++                                anchors.verticalCenter: parent.verticalCenter
++                                name: modelData.icon
++                                size: Constants.iconSizeSmall - 4
++                                color: modelData.ok ? MColors.marathonTeal : MColors.warning
++                            }
++                            MLabel {
++                                anchors.verticalCenter: parent.verticalCenter
++                                text: modelData.label
++                                font.pixelSize: MTypography.sizeXSmall
++                                color: modelData.ok ? MColors.textPrimary : MColors.warning
++                            }
++                        }
++                    }
++                }
++
++                // Progress bar — only visible during an install.
++                MProgressBar {
++                    visible: detailRoot.progress && (detailRoot.progress.state === "downloading" || detailRoot.progress.state === "deploying" || detailRoot.progress.state === "pending")
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    value: detailRoot.progress && detailRoot.progress.percent >= 0 ? detailRoot.progress.percent / 100 : 0
++                    indeterminate: detailRoot.progress && detailRoot.progress.percent < 0
++                }
++
++                // Stats strip — omits fields that came back null rather than
++                // showing an em-dash placeholder.
++                RowLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: 0
++                    Repeater {
++                        model: {
++                            const app = detailRoot.displayApp;
++                            if (!app) return [];
++                            const items = [];
++                            if (app.developer_name) items.push({ label: "DEVELOPER", value: app.developer_name });
++                            items.push({ label: "LICENSE", value: app.is_free_license ? "Free" : "Proprietary" });
++                            if (app.categories && app.categories.length > 0) items.push({ label: "CATEGORY", value: app.categories[0] });
++                            const sz = detailRoot.fmtBytes(app.installed_size || app.download_size);
++                            if (sz) items.push({ label: "SIZE", value: sz });
++                            return items;
++                        }
++                        delegate: ColumnLayout {
++                            Layout.fillWidth: true
++                            spacing: 2
++                            MLabel {
++                                text: modelData.label
++                                variant: "tertiary"
++                                font.pixelSize: 10
++                                font.letterSpacing: 0.8
++                                Layout.alignment: Qt.AlignHCenter
++                            }
++                            MLabel {
++                                text: modelData.value
++                                font.pixelSize: MTypography.sizeXSmall
++                                font.weight: MTypography.weightMedium
++                                Layout.alignment: Qt.AlignHCenter
++                                elide: Text.ElideRight
++                                Layout.fillWidth: true
++                                horizontalAlignment: Text.AlignHCenter
++                            }
++                        }
++                    }
++                }
++
++                // Screenshots — horizontal scroll, snap to item.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    spacing: MSpacing.sm
++                    visible: detailRoot.fullApp && detailRoot.fullApp.screenshots && detailRoot.fullApp.screenshots.length > 0
++                    MLabel {
++                        text: "Screenshots"
++                        font.pixelSize: MTypography.sizeBody
++                        font.weight: MTypography.weightDemiBold
++                        Layout.leftMargin: MSpacing.md
++                    }
++                    ListView {
++                        Layout.fillWidth: true
++                        Layout.preferredHeight: Math.round(280 * root.sf)
++                        orientation: ListView.Horizontal
++                        spacing: MSpacing.sm
++                        clip: true
++                        leftMargin: MSpacing.md
++                        rightMargin: MSpacing.md
++                        cacheBuffer: width * 2
++                        model: detailRoot.fullApp ? detailRoot.fullApp.screenshots : []
++                        snapMode: ListView.SnapToItem
++                        flickDeceleration: MMotion.touchFlickDeceleration
++                        maximumFlickVelocity: MMotion.touchFlickVelocity
++                        delegate: Rectangle {
++                            width: Math.round(380 * root.sf)
++                            height: Math.round(260 * root.sf)
++                            radius: Constants.borderRadiusSmall
++                            color: MColors.bb10Card
++                            border.color: MColors.border
++                            border.width: 1
++                            clip: true
++                            Image {
++                                anchors.fill: parent
++                                anchors.margins: 1
++                                source: root.bestScreenshotSrc(modelData.sizes)
++                                fillMode: Image.PreserveAspectCrop
++                                asynchronous: true
++                                smooth: true
++                            }
++                            // AppStream screenshots can carry a caption that
++                            // describes what the shot shows — surface it as a
++                            // legible footer so the row isn't just thumbnails.
++                            Rectangle {
++                                visible: modelData.caption && modelData.caption.length > 0
++                                anchors.left: parent.left
++                                anchors.right: parent.right
++                                anchors.bottom: parent.bottom
++                                height: captionLabel.implicitHeight + MSpacing.sm * 2
++                                color: Qt.rgba(0, 0, 0, 0.55)
++                                MLabel {
++                                    id: captionLabel
++                                    anchors.left: parent.left
++                                    anchors.right: parent.right
++                                    anchors.verticalCenter: parent.verticalCenter
++                                    anchors.leftMargin: MSpacing.sm
++                                    anchors.rightMargin: MSpacing.sm
++                                    text: modelData.caption || ""
++                                    color: "white"
++                                    font.pixelSize: MTypography.sizeXSmall
++                                    wrapMode: Text.WordWrap
++                                    maximumLineCount: 2
++                                    elide: Text.ElideRight
++                                }
++                            }
++                        }
++                    }
++                }
++
++                // About — title + wrapped description. MSection bound `height`
++                // (not implicitHeight) doesn't survive ColumnLayout, so we
++                // inline the section structure here. The card surface comes
++                // from a child Rectangle that we size explicitly.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    MLabel {
++                        text: "About"
++                        font.pixelSize: MTypography.sizeLarge
++                        font.weight: MTypography.weightDemiBold
++                    }
++                    MLabel {
++                        text: detailRoot.fullApp && detailRoot.fullApp.description
++                            ? detailRoot.fullApp.description.replace(/<[^>]+>/g, "").trim()
++                            : (detailRoot.displayApp && detailRoot.displayApp.description
++                                ? detailRoot.displayApp.description.replace(/<[^>]+>/g, "").trim() : "")
++                        variant: "secondary"
++                        font.pixelSize: MTypography.sizeSmall
++                        wrapMode: Text.WordWrap
++                        lineHeight: 1.4
++                        Layout.fillWidth: true
++                    }
++                }
++
++                // What's new — release notes from the latest entry.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    visible: detailRoot.latestRelease !== null
++                    RowLayout {
++                        Layout.fillWidth: true
++                        spacing: MSpacing.sm
++                        MLabel {
++                            text: detailRoot.latestRelease && detailRoot.latestRelease.version
++                                ? "What's new — v" + detailRoot.latestRelease.version
++                                : "What's new"
++                            font.pixelSize: MTypography.sizeLarge
++                            font.weight: MTypography.weightDemiBold
++                        }
++                        Item { Layout.fillWidth: true }
++                        MLabel {
++                            visible: detailRoot.latestRelease && detailRoot.latestRelease.date
++                            text: detailRoot.latestRelease ? Qt.formatDate(new Date(detailRoot.latestRelease.date), "MMM d, yyyy") : ""
++                            variant: "tertiary"
++                            font.pixelSize: MTypography.sizeXSmall
++                        }
++                    }
++                    MLabel {
++                        text: detailRoot.latestRelease && detailRoot.latestRelease.description
++                            ? detailRoot.latestRelease.description.replace(/<[^>]+>/g, "").trim()
++                            : ""
++                        visible: text.length > 0
++                        variant: "secondary"
++                        font.pixelSize: MTypography.sizeSmall
++                        wrapMode: Text.WordWrap
++                        lineHeight: 1.4
++                        Layout.fillWidth: true
++                    }
++                }
++
++                // Information — title + a card surface containing each row.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    visible: detailRoot.infoRows.length > 0
++
++                    MLabel {
++                        text: "Information"
++                        font.pixelSize: MTypography.sizeLarge
++                        font.weight: MTypography.weightDemiBold
++                    }
++                    Rectangle {
++                        Layout.fillWidth: true
++                        Layout.preferredHeight: infoCol.implicitHeight
++                        color: MColors.bb10Card
++                        radius: Constants.borderRadiusSmall
++                        border.width: 1
++                        border.color: MColors.border
++                        Column {
++                            id: infoCol
++                            anchors.left: parent.left
++                            anchors.right: parent.right
++                            anchors.top: parent.top
++                            Repeater {
++                                model: detailRoot.infoRows
++                                delegate: MSettingsListItem {
++                                    title: modelData.k
++                                    value: modelData.v
++                                    iconName: modelData.ic
++                                    showChevron: false
++                                    showDivider: index < detailRoot.infoRows.length - 1
++                                }
++                            }
++                        }
++                    }
++                }
++
++                // Permissions — same pattern as Information.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    visible: detailRoot.permissionItems.length > 0
++
++                    ColumnLayout {
++                        Layout.fillWidth: true
++                        spacing: 0
++                        MLabel {
++                            text: "Permissions"
++                            font.pixelSize: MTypography.sizeLarge
++                            font.weight: MTypography.weightDemiBold
++                        }
++                        MLabel {
++                            text: "What this app will be allowed to do"
++                            variant: "secondary"
++                            font.pixelSize: MTypography.sizeXSmall
++                        }
++                    }
++                    Rectangle {
++                        Layout.fillWidth: true
++                        Layout.preferredHeight: permCol.implicitHeight
++                        color: MColors.bb10Card
++                        radius: Constants.borderRadiusSmall
++                        border.width: 1
++                        border.color: MColors.border
++                        Column {
++                            id: permCol
++                            anchors.left: parent.left
++                            anchors.right: parent.right
++                            anchors.top: parent.top
++                            Repeater {
++                                model: detailRoot.permissionItems
++                                delegate: MSettingsListItem {
++                                    title: modelData.label
++                                    subtitle: modelData.detail
++                                    iconName: modelData.icon
++                                    showChevron: false
++                                    showDivider: index < detailRoot.permissionItems.length - 1
++                                }
++                            }
++                        }
++                    }
++                }
++
++                // Links — homepage / bug tracker / donation / etc, rendered
++                // as MSettingsListItem rows (matching the rest of the page).
++                // A Flow of MButtons looked off: too small, text didn't read.
++                ColumnLayout {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    spacing: MSpacing.sm
++                    visible: detailRoot.linkRows.length > 0
++                    MLabel {
++                        text: "Project links"
++                        font.pixelSize: MTypography.sizeLarge
++                        font.weight: MTypography.weightDemiBold
++                    }
++                    Rectangle {
++                        Layout.fillWidth: true
++                        Layout.preferredHeight: linkCol.implicitHeight
++                        color: MColors.bb10Card
++                        radius: Constants.borderRadiusSmall
++                        border.width: 1
++                        border.color: MColors.border
++                        Column {
++                            id: linkCol
++                            anchors.left: parent.left
++                            anchors.right: parent.right
++                            anchors.top: parent.top
++                            Repeater {
++                                model: detailRoot.linkRows
++                                delegate: MSettingsListItem {
++                                    title: modelData.label
++                                    subtitle: modelData.url
++                                    iconName: modelData.ic
++                                    showChevron: true
++                                    showDivider: index < detailRoot.linkRows.length - 1
++                                    onSettingClicked: Qt.openUrlExternally(modelData.url)
++                                }
++                            }
++                        }
++                    }
++                }
++
++                // Uninstall — only shown when already installed; lives at the
++                // bottom of the body, not the bottom bar, so it doesn't fight
++                // the primary CTA for attention.
++                MButton {
++                    visible: root.isInstalled(detailRoot.appId) && !(detailRoot.progress && (detailRoot.progress.state === "downloading" || detailRoot.progress.state === "deploying"))
++                    text: "Uninstall"
++                    variant: "secondary"
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    onClicked: root.uninstallApp(detailRoot.appId)
++                }
++
++                Item { Layout.preferredHeight: MSpacing.lg }
++            }
++
++            // Primary CTA — single big button in the bottom bar. Label and
++            // action switch based on state (install/open/update/installing).
++            bottomBarContent: Rectangle {
++                width: parent.width
++                height: Math.round(72 * root.sf)
++                color: MColors.elevated
++                border.width: 1
++                border.color: Qt.rgba(1, 1, 1, 0.08)
++
++                MButton {
++                    id: ctaButton
++                    anchors.fill: parent
++                    anchors.margins: MSpacing.sm
++                    variant: "primary"
++                    text: {
++                        if (detailRoot.progress && detailRoot.progress.state === "downloading")
++                            return "Installing… " + (detailRoot.progress.percent >= 0 ? (detailRoot.progress.percent + "%") : "");
++                        if (detailRoot.progress && detailRoot.progress.state === "deploying") return "Deploying…";
++                        if (detailRoot.progress && detailRoot.progress.state === "pending") return "Starting…";
++                        if (root.hasUpdate(detailRoot.appId)) return "Update";
++                        if (root.isInstalled(detailRoot.appId)) return "Open";
++                        return "Install";
++                    }
++                    disabled: detailRoot.progress && (detailRoot.progress.state === "downloading" || detailRoot.progress.state === "deploying" || detailRoot.progress.state === "pending")
++                    onClicked: {
++                        MHaptics.mediumImpact();
++                        if (root.hasUpdate(detailRoot.appId)) {
++                            root.trackInstall(detailRoot.appId);
++                            Qt.openUrlExternally("marathon-store://update/" + detailRoot.appId);
++                        } else if (root.isInstalled(detailRoot.appId)) {
++                            Qt.openUrlExternally("marathon-store://open/" + detailRoot.appId);
++                        } else {
++                            root.installApp(detailRoot.appId);
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    // --------------------------------------------------------------------
++    // Search page (pushed onto the stack when the user submits the query).
++    // --------------------------------------------------------------------
++    Component {
++        id: searchPage
++
++        MPage {
++            id: searchRoot
++            property string initialQuery: ""
++            property var results: []
++            property bool searching: false
++            property string searchError: ""
++
++            title: "Search"
++            showBackButton: true
++            onBackClicked: navStack.pop()
++
++            function runSearch(q) {
++                if (!q || q.length === 0) { searchRoot.results = []; return; }
++                searchRoot.searching = true;
++                searchRoot.searchError = "";
++                root.fetchJson(root.flathubApi + "/search", { "query": q, "filters": [] }, function (data, err) {
++                    searchRoot.searching = false;
++                    if (err) { searchRoot.searchError = err; searchRoot.results = []; return; }
++                    searchRoot.results = root.pickAarch64(data.hits || []);
++                });
++            }
++
++            Component.onCompleted: if (initialQuery) { queryField.text = initialQuery; runSearch(initialQuery); }
++
++            content: ColumnLayout {
++                width: parent ? parent.width : 0
++                spacing: MSpacing.sm
++
++                Row {
++                    Layout.fillWidth: true
++                    Layout.leftMargin: MSpacing.md
++                    Layout.rightMargin: MSpacing.md
++                    Layout.topMargin: MSpacing.sm
++                    spacing: MSpacing.sm
++
++                    Icon {
++                        anchors.verticalCenter: parent.verticalCenter
++                        name: "search"
++                        size: Constants.iconSizeSmall
++                        color: MColors.textSecondary
++                    }
++                    MTextInput {
++                        id: queryField
++                        anchors.verticalCenter: parent.verticalCenter
++                        width: parent.width - parent.spacing * 2 - Constants.iconSizeSmall - (sClearBtn.visible ? sClearBtn.width + parent.spacing : 0)
++                        placeholderText: "Search Flathub"
++                        a11yName: "Search Flathub catalog"
++                        onTextChanged: if (text.length >= 2) searchRoot.runSearch(text); else searchRoot.results = []
++                    }
++                    MIconButton {
++                        id: sClearBtn
++                        anchors.verticalCenter: parent.verticalCenter
++                        iconName: "x"
++                        iconSize: Constants.iconSizeSmall
++                        variant: "secondary"
++                        a11yName: "Clear search"
++                        visible: queryField.text.length > 0
++                        onClicked: queryField.text = ""
++                    }
++                }
++
++                MActivityIndicator {
++                    visible: searchRoot.searching
++                    Layout.alignment: Qt.AlignHCenter
++                    Layout.topMargin: MSpacing.lg
++                }
++
++                MEmptyState {
++                    visible: !searchRoot.searching && searchRoot.results.length === 0 && queryField.text.length > 0
++                    Layout.fillWidth: true
++                    Layout.topMargin: MSpacing.xl
++                    iconName: "search"
++                    title: "No results"
++                    message: "Try a different word or spelling."
++                }
++
++                ListView {
++                    Layout.fillWidth: true
++                    Layout.fillHeight: true
++                    Layout.preferredHeight: Math.round(600 * root.sf)
++                    interactive: true
++                    clip: true
++                    model: searchRoot.results
++                    delegate: MSettingsListItem {
++                        title: modelData.name || modelData.app_id
++                        subtitle: modelData.summary || modelData.app_id
++                        iconName: "package"
++                        showChevron: true
++                        onSettingClicked: root.openDetail(modelData)
++                    }
++                }
++            }
++        }
++    }
++}
+diff --git a/marathon-extras/boot-and-verify-mail.sh b/marathon-extras/boot-and-verify-mail.sh
+new file mode 100755
+index 0000000..6e4eaac
+--- /dev/null
++++ b/marathon-extras/boot-and-verify-mail.sh
+@@ -0,0 +1,83 @@
++#!/usr/bin/env bash
++# Boot the latest baked image in QEMU, scp verify-mail.sh into the
++# guest's auto-login user, run it, exit with its rc.
++#
++# Same structure as build-and-boot-phaseB.sh but skips the mkosi build
++# step — assumes the image is already fresh in mkosi.output/.
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++OUT_BASE="$DURANIUM_DIR/mkosi.output/qemu-aarch64_marathon_edge"
++SERIAL=/tmp/duranium-mail-serial.sock
++QMP=/tmp/duranium-mail-qmp.sock
++EFI_CODE=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2
++EFI_VARS=/tmp/duranium-mail-efivars.qcow2
++
++cd "$DURANIUM_DIR"
++
++# Only the master bootable image — `<id>_<date>.raw` with no extra
++# suffix. mkosi also emits .esp.raw / .usr-arm64*.raw / verity
++# partitions; those aren't bootable on their own.
++IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
++         | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)"
++[ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }
++echo "==> image: $IMG"
++
++qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
++
++cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
++rm -f "$SERIAL" "$QMP"
++
++echo "==> launching QEMU (KVM, serial on $SERIAL)"
++qemu-system-aarch64 \
++    -machine type=virt,memory-backend=mem -cpu host -accel kvm \
++    -smp 2 -m 2048M \
++    -object memory-backend-memfd,id=mem,size=2048M,share=on \
++    -object rng-random,filename=/dev/urandom,id=rng0 \
++    -device virtio-rng-pci,rng=rng0 \
++    -device virtio-balloon \
++    -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22 \
++    -drive if=pflash,format=qcow2,readonly=on,file="$EFI_CODE" \
++    -drive if=pflash,format=qcow2,file="$EFI_VARS" \
++    -drive file="$IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
++    -device virtio-blk-pci,drive=hd0,bootindex=1 \
++    -device virtio-gpu-pci,xres=720,yres=1440 \
++    -device virtio-keyboard-pci -device virtio-tablet-pci \
++    -display none \
++    -serial unix:"$SERIAL",server,nowait \
++    -qmp unix:"$QMP",server,nowait \
++    -smbios "type=11,value=io.systemd.stub.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
++    -smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
++    -boot menu=on,splash-time=0 &
++QEMU_PID=$!
++trap 'echo "==> tearing down QEMU pid=$QEMU_PID"; kill -TERM $QEMU_PID 2>/dev/null || true' EXIT
++
++echo "==> waiting for guest SSH on :2223 (up to 5 min)…"
++for _ in $(seq 1 60); do
++    if nc -z 127.0.0.1 2223 2>/dev/null; then break; fi
++    sleep 5
++done
++nc -z 127.0.0.1 2223 || { echo "guest SSH never appeared" >&2; exit 2; }
++
++# SSH in as root with the password from mkosi.postinst (sshd_config.d/
++# 99-marathon-qemu.conf permits root password login for headless validation).
++# Disable pubkey auth so we don't waste cycles trying our host's keys.
++SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
++          -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
++          -o PreferredAuthentications=password -o PubkeyAuthentication=no -p 2223"
++SSHPASS="sshpass -p marathon"
++
++# Wait for sshd to be fully responsive (the listen-port becomes readable
++# before sshd_config and host-keys are settled).
++echo "==> waiting for sshd to accept commands (up to 60 s)"
++for _ in $(seq 1 12); do
++    if $SSHPASS ssh $SSH_OPTS root@127.0.0.1 true 2>/dev/null; then break; fi
++    sleep 5
++done
++
++echo "==> piping verify-mail.sh into bash on the guest"
++$SSHPASS ssh $SSH_OPTS root@127.0.0.1 'bash -s' < "$SCRIPT_DIR/verify-mail.sh"
++RC=$?
++echo "==> verify-mail.sh exit=$RC"
++exit $RC
+diff --git a/marathon-extras/build-and-boot-phaseB.sh b/marathon-extras/build-and-boot-phaseB.sh
+new file mode 100755
+index 0000000..ac913f3
+--- /dev/null
++++ b/marathon-extras/build-and-boot-phaseB.sh
+@@ -0,0 +1,92 @@
++#!/usr/bin/env bash
++# Phase A+B verification harness.
++#
++# Assumes marathon-shell-1.0.0-r<n>.apk and marathon-base-config-1.0.0-r<n>.apk
++# have already landed in mkosi.packages/ (run
++# build-marathon-{shell,base-config}-apk.sh first).
++#
++# Sequence:
++#   1. mkosi build → fresh image
++#   2. boot in QEMU with serial socket exposed
++#   3. wait for user@.service to come up (poll via serial)
++#   4. run verify-lifecycle.sh inside the guest (over SSH on :2222)
++#   5. dump the result
++#   6. teardown
++#
++# Usage: build-and-boot-phaseB.sh
++set -euo pipefail
++
++DURANIUM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++OUT_BASE="$DURANIUM_DIR/mkosi.output/qemu-aarch64_marathon_edge"
++SERIAL=/tmp/duranium-serial.sock
++MONITOR=/tmp/duranium-monitor.sock
++QMP=/tmp/qmp.sock
++EFI_CODE=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2
++EFI_VARS=/tmp/duranium-efivars.qcow2
++
++cd "$DURANIUM_DIR"
++
++echo "==> building image (mkosi)"
++python3 scripts/build-image.py device-qemu-aarch64 ui-marathon
++
++# Newest raw is what mkosi just produced.
++IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
++         | grep -v sysext | grep -v confext | head -1)"
++[ -z "$IMG" ] && { echo "no raw image found" >&2; exit 1; }
++echo "==> image: $IMG"
++
++qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
++
++cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
++rm -f "$SERIAL" "$MONITOR" "$QMP"
++
++echo "==> launching QEMU (KVM accel, serial on $SERIAL)"
++qemu-system-aarch64 \
++    -machine type=virt,memory-backend=mem -cpu host -accel kvm \
++    -smp 2 -m 2048M \
++    -object memory-backend-memfd,id=mem,size=2048M,share=on \
++    -object rng-random,filename=/dev/urandom,id=rng0 \
++    -device virtio-rng-pci,rng=rng0 \
++    -device virtio-balloon \
++    -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2222-:22 \
++    -drive if=pflash,format=qcow2,readonly=on,file="$EFI_CODE" \
++    -drive if=pflash,format=qcow2,file="$EFI_VARS" \
++    -drive file="$IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
++    -device virtio-blk-pci,drive=hd0,bootindex=1 \
++    -device virtio-gpu-pci,xres=720,yres=1440 \
++    -device virtio-keyboard-pci -device virtio-tablet-pci \
++    -display none \
++    -serial unix:"$SERIAL",server,nowait \
++    -qmp unix:"$QMP",server,nowait \
++    -smbios "type=11,value=io.systemd.stub.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
++    -smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=systemd.wants=network.target SYSTEMD_SULOGIN_FORCE=1 rw systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target systemd.mask=systemd-cryptsetup@pmOS_root.service module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,,115200" \
++    -boot menu=on,splash-time=0 &
++QEMU_PID=$!
++
++trap 'echo "==> shutting down QEMU pid=$QEMU_PID"; kill -TERM $QEMU_PID 2>/dev/null || true' EXIT
++
++echo "==> waiting for guest SSH (up to 5 min)…"
++for i in $(seq 1 60); do
++    if nc -z 127.0.0.1 2222 2>/dev/null; then break; fi
++    sleep 5
++done
++nc -z 127.0.0.1 2222 || { echo "guest SSH never appeared"; exit 2; }
++
++# Marathon-Image's default greetd auto-login leaves no SSH user with a known
++# password. ssh in expecting `user` (the auto-login account) with the host
++# key trust-on-first-use. The duranium image typically has openssh-server
++# enabled with a "user / pmos" or empty default; if that's wrong this loop
++# fails clean and we fall back to reading the serial output.
++SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -p 2222"
++echo "==> uploading verify script to guest"
++scp $SSH_OPTS "$DURANIUM_DIR/marathon-extras/verify-lifecycle.sh" user@127.0.0.1:/tmp/ \
++    || { echo "scp failed — guest sshd may not be reachable yet"; sleep 30; \
++         scp $SSH_OPTS "$DURANIUM_DIR/marathon-extras/verify-lifecycle.sh" \
++             user@127.0.0.1:/tmp/; }
++
++echo "==> running verify-lifecycle.sh inside guest"
++ssh $SSH_OPTS user@127.0.0.1 bash /tmp/verify-lifecycle.sh
++RC=$?
++
++echo "==> verify exit=$RC"
++exit $RC
+diff --git a/marathon-extras/build-marathon-base-config-apk.sh b/marathon-extras/build-marathon-base-config-apk.sh
+new file mode 100755
+index 0000000..6e87bfc
+--- /dev/null
++++ b/marathon-extras/build-marathon-base-config-apk.sh
+@@ -0,0 +1,56 @@
++#!/usr/bin/env bash
++# Build marathon-base-config-<pkgver>-r<pkgrel>.apk for Duranium's mkosi.packages/.
++# Static config-only package — abuild runs in seconds. Same pattern as
++# build-marathon-shell-apk.sh.
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-/home/patrickquinn/Developer/Marathon-Image}"
++APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++[ -d "$APORTS_SRC/marathon-base-config" ] || {
++    echo "error: marathon-base-config APKBUILD not found at $APORTS_SRC/marathon-base-config" >&2
++    exit 1
++}
++mkdir -p "$MKOSI_PKG_DIR"
++
++PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/marathon-base-config/APKBUILD" | cut -d= -f2)"
++PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/marathon-base-config/APKBUILD" | cut -d= -f2)"
++TARGET="marathon-base-config-${PKGVER}-r${PKGREL}.apk"
++
++echo "+-- building $TARGET --+"
++
++podman run --rm -i \
++    -e PKGVER="$PKGVER" \
++    -e PKGREL="$PKGREL" \
++    -e TARGET="$TARGET" \
++    -v "$APORTS_SRC:/aports-src:Z,ro" \
++    -v "$MKOSI_PKG_DIR:/out:Z" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++apk add --no-cache --quiet abuild rsync 2>&1 | tail -2
++
++mkdir -p /root/.abuild
++abuild-keygen -a -n -q
++KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
++cp "${KEY_PRIV}.pub" /etc/apk/keys/
++echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
++
++mkdir -p /work/aports
++rsync -a --checksum --no-times /aports-src/ /work/aports/
++cd /work/aports/marathon-base-config
++abuild -F checksum >/dev/null
++abuild -d -F
++
++# pmaports place the resulting apk under aarch64 even when the host is
++# noarch; marathon-base-config builds for "all" so the arch directory is
++# the host's arch.
++ARCH_DIR="$(uname -m)"
++cp "/root/packages/aports/${ARCH_DIR}/${TARGET}" "/out/${TARGET}"
++echo "wrote /out/${TARGET}"
++CSCRIPT
++
++echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"
++ls -l "$MKOSI_PKG_DIR/$TARGET"
+diff --git a/marathon-extras/build-marathon-mail-oauth-apk.sh b/marathon-extras/build-marathon-mail-oauth-apk.sh
+new file mode 100755
+index 0000000..cf46ccb
+--- /dev/null
++++ b/marathon-extras/build-marathon-mail-oauth-apk.sh
+@@ -0,0 +1,103 @@
++#!/usr/bin/env bash
++# Build marathon-mail-oauth-<pkgver>-r<pkgrel>.apk for Duranium's
++# mkosi.packages/. Mirrors build-marathon-shell-apk.sh's shape but
++# packages just the Rust crate at tools/marathon-mail-oauth/ in the
++# Marathon-Shell source tree.
++#
++# The crate is its own .apk because (a) Rust + cargo-auditable carry a
++# very different upgrade cadence to the C++ shell, (b) it loads in a
++# different process (QMF messageserver5 + each Mail app launch), and
++# (c) ~75 MB of cargo dep download time shouldn't gate every
++# marathon-shell apk iteration.
++#
++# Override MARATHON_SHELL_SRC=/path/to/local/checkout to skip the git
++# clone and use a local source tree (matches the upstream sibling).
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-/home/patrickquinn/Developer/Marathon-Image}"
++APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++MARATHON_SHELL_GIT="${MARATHON_SHELL_GIT:-https://github.com/patrickjquinn/Marathon-Shell.git}"
++MARATHON_SHELL_REF="${MARATHON_SHELL_REF:-ux-overhaul}"
++MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-}"
++
++[ -d "$APORTS_SRC/marathon-mail-oauth" ] || {
++    echo "error: marathon-mail-oauth APKBUILD not found at $APORTS_SRC/marathon-mail-oauth" >&2
++    exit 1
++}
++mkdir -p "$MKOSI_PKG_DIR"
++
++PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/marathon-mail-oauth/APKBUILD" | cut -d= -f2)"
++PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/marathon-mail-oauth/APKBUILD" | cut -d= -f2)"
++TARGET="marathon-mail-oauth-${PKGVER}-r${PKGREL}.apk"
++
++echo "+-- building $TARGET --+"
++echo "shell src: ${MARATHON_SHELL_SRC:-$MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF}"
++echo "output:    $MKOSI_PKG_DIR/$TARGET"
++
++SHELL_MOUNT_ARGS=()
++if [ -n "$MARATHON_SHELL_SRC" ]; then
++    SHELL_MOUNT_ARGS=(-v "$MARATHON_SHELL_SRC:/shellsrc:z,ro")
++fi
++
++# --net=host is needed because `options="net"` in the APKBUILD tells
++# abuild to allow network in build() (cargo fetch). Without --net=host
++# abuild still tries to use its own networking but inside the rootless
++# podman default-bridge — DNS works but the per-network firewall can
++# drop packets to crates.io's CDN intermittently.
++podman run --rm -i \
++    --net=host \
++    -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
++    -e MARATHON_SHELL_REF="$MARATHON_SHELL_REF" \
++    -e USE_LOCAL_SHELL_SRC="$([ -n "$MARATHON_SHELL_SRC" ] && echo 1 || echo 0)" \
++    -e PKGVER="$PKGVER" \
++    -e PKGREL="$PKGREL" \
++    -e TARGET="$TARGET" \
++    -v "$APORTS_SRC:/aports-src:z,ro" \
++    -v "$MKOSI_PKG_DIR:/out:z" \
++    "${SHELL_MOUNT_ARGS[@]}" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++
++apk add --no-cache --quiet \
++    abuild rsync curl ca-certificates git \
++    cargo cargo-auditable 2>&1 | tail -3
++
++mkdir -p /root/.abuild
++abuild-keygen -a -n -q
++KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
++cp "${KEY_PRIV}.pub" /etc/apk/keys/
++echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
++
++mkdir -p /work/aports
++rsync -a --checksum --no-times /aports-src/ /work/aports/
++
++mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
++if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
++    rsync -a --checksum --no-times --delete \
++          --exclude='.git' --exclude='build' --exclude='build-apps' \
++          --exclude='build-ui' --exclude='.cache' --exclude='target' \
++          /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
++else
++    echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
++    rm -rf /tmp/shellsrc-stage/Marathon-Shell-main
++    git clone --depth 1 --branch "$MARATHON_SHELL_REF" \
++        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3
++    rm -rf /tmp/shellsrc-stage/Marathon-Shell-main/.git
++fi
++( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \
++    > "/var/cache/distfiles/marathon-mail-oauth-${PKGVER}.tar.gz"
++
++cd /work/aports/marathon-mail-oauth
++abuild -F checksum >/dev/null
++abuild -d -F
++
++cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
++echo "wrote /out/${TARGET}"
++CSCRIPT
++
++echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"
++ls -l "$MKOSI_PKG_DIR/$TARGET"
+diff --git a/marathon-extras/build-marathon-shell-apk.sh b/marathon-extras/build-marathon-shell-apk.sh
+new file mode 100755
+index 0000000..6dd998c
+--- /dev/null
++++ b/marathon-extras/build-marathon-shell-apk.sh
+@@ -0,0 +1,121 @@
++#!/usr/bin/env bash
++# Build marathon-shell-<pkgver>-r<pkgrel>.apk for Duranium's mkosi.packages/.
++#
++# Pulls Marathon-Shell at MARATHON_SHELL_REF (default: ux-overhaul) from
++# MARATHON_SHELL_GIT (default upstream), runs abuild in an alpine:edge
++# podman container, signs with a throwaway key, copies the resulting
++# .apk into duranium-build/duranium/mkosi.packages/.
++#
++# Override MARATHON_SHELL_SRC=/path/to/local/checkout to skip the git
++# clone and use a local source tree (useful when iterating).
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-/home/patrickquinn/Developer/Marathon-Image}"
++APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++MARATHON_SHELL_GIT="${MARATHON_SHELL_GIT:-https://github.com/patrickjquinn/Marathon-Shell.git}"
++MARATHON_SHELL_REF="${MARATHON_SHELL_REF:-ux-overhaul}"
++MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-}"
++
++[ -d "$APORTS_SRC/marathon-shell" ] || {
++    echo "error: marathon-shell APKBUILD not found at $APORTS_SRC/marathon-shell" >&2
++    exit 1
++}
++mkdir -p "$MKOSI_PKG_DIR"
++
++PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/marathon-shell/APKBUILD" | cut -d= -f2)"
++PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/marathon-shell/APKBUILD" | cut -d= -f2)"
++TARGET="marathon-shell-${PKGVER}-r${PKGREL}.apk"
++
++echo "+-- building $TARGET --+"
++echo "shell src: ${MARATHON_SHELL_SRC:-$MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF}"
++echo "output:    $MKOSI_PKG_DIR/$TARGET"
++
++SHELL_MOUNT_ARGS=()
++if [ -n "$MARATHON_SHELL_SRC" ]; then
++    # :z (shared) not :Z (exclusive) — multiple :Z mounts to the same
++    # container can land on conflicting MCS labels under SELinux and
++    # produce "Permission denied" on read. :z relabels once with a
++    # shared label that all bindmounts can see.
++    SHELL_MOUNT_ARGS=(-v "$MARATHON_SHELL_SRC:/shellsrc:z,ro")
++fi
++
++podman run --rm -i \
++    -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
++    -e MARATHON_SHELL_REF="$MARATHON_SHELL_REF" \
++    -e USE_LOCAL_SHELL_SRC="$([ -n "$MARATHON_SHELL_SRC" ] && echo 1 || echo 0)" \
++    -e PKGVER="$PKGVER" \
++    -e PKGREL="$PKGREL" \
++    -e TARGET="$TARGET" \
++    -v "$APORTS_SRC:/aports-src:z,ro" \
++    -v "$MKOSI_PKG_DIR:/out:z" \
++    -v "$MKOSI_PKG_DIR:/local-apks:z,ro" \
++    "${SHELL_MOUNT_ARGS[@]}" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++apk add --no-cache --quiet \
++    abuild rsync curl ca-certificates git \
++    cmake samurai build-base \
++    qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
++    qt6-qtwebengine-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
++    qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
++    hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
++    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3
++
++# qmf-dev is built locally (it isn't in alpine:edge upstream yet) so we
++# install it from /local-apks with --allow-untrusted. find_library() in
++# our CMakeLists.txt needs libQmfClient.so + qmailstore.h to land at the
++# canonical /usr/lib + /usr/include/qt6/QmfClient paths.
++QMF_DEV_APK="$(ls /local-apks/qmf-dev-*.apk 2>/dev/null | head -1)"
++QMF_LIBS_APK="$(ls /local-apks/qmf-libs-*.apk 2>/dev/null | head -1)"
++QMF_MS_APK="$(ls /local-apks/qmf-messageserver-*.apk 2>/dev/null | head -1)"
++if [ -n "$QMF_DEV_APK" ] && [ -n "$QMF_LIBS_APK" ] && [ -n "$QMF_MS_APK" ]; then
++    apk add --no-cache --quiet --allow-untrusted \
++        "$QMF_LIBS_APK" "$QMF_MS_APK" "$QMF_DEV_APK" 2>&1 | tail -3
++    echo "qmf-dev installed from $QMF_DEV_APK"
++else
++    echo "WARNING: qmf-*.apk not found under /local-apks — Mail backend will be skipped"
++fi
++
++mkdir -p /root/.abuild
++abuild-keygen -a -n -q
++KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
++cp "${KEY_PRIV}.pub" /etc/apk/keys/
++echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
++
++mkdir -p /work/aports
++rsync -a --checksum --no-times /aports-src/ /work/aports/
++
++mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
++if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
++    rsync -a --checksum --no-times --delete \
++          --exclude='.git' --exclude='build' --exclude='build-apps' \
++          --exclude='build-ui' --exclude='.cache' \
++          /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
++else
++    echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
++    rm -rf /tmp/shellsrc-stage/Marathon-Shell-main
++    git clone --depth 1 --branch "$MARATHON_SHELL_REF" \
++        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3
++    rm -rf /tmp/shellsrc-stage/Marathon-Shell-main/.git
++fi
++( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \
++    > "/var/cache/distfiles/marathon-shell-${PKGVER}.tar.gz"
++
++[ -f /var/cache/distfiles/asyncfuture.tar.gz ] || \
++    curl -fsL -o /var/cache/distfiles/asyncfuture.tar.gz \
++        https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
++
++cd /work/aports/marathon-shell
++abuild -F checksum >/dev/null
++abuild -d -F
++
++cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
++echo "wrote /out/${TARGET}"
++CSCRIPT
++
++echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"
++ls -l "$MKOSI_PKG_DIR/$TARGET"
+diff --git a/marathon-extras/build-mesa-virgl-apk.sh b/marathon-extras/build-mesa-virgl-apk.sh
+new file mode 100755
+index 0000000..4ff5167
+--- /dev/null
++++ b/marathon-extras/build-mesa-virgl-apk.sh
+@@ -0,0 +1,128 @@
++#!/usr/bin/env bash
++# Build Alpine's mesa package with virgl added to the aarch64
++# _gallium_drivers list, producing mesa-*.apk artifacts for Duranium's
++# mkosi.packages/.
++#
++# Background:
++#   Alpine's main/mesa APKBUILD on aarch64 sets _gallium_drivers to
++#     r600,radeonsi,nouveau,llvmpipe,zink,vc4,v3d,freedreno,lima,
++#     panfrost,etnaviv,tegra,asahi,svga
++#   (no virgl). Marathon's QEMU image therefore has no way for guest
++#   Mesa to talk to the host's virglrenderer; GL falls back to
++#   LLVMpipe. This script adds virgl to the list, rebuilds Mesa, and
++#   drops every produced mesa-*.apk into mkosi.packages/.
++#
++# Cost:
++#   ~45-90 min build on M1 host. Tens of GB of disk under
++#   /var/lib/containers during the build.
++#
++# Usage:
++#   ALPINE_APORTS_REF=master ./build-mesa-virgl-apk.sh
++#
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++ALPINE_APORTS_GIT="${ALPINE_APORTS_GIT:-https://gitlab.alpinelinux.org/alpine/aports.git}"
++ALPINE_APORTS_REF="${ALPINE_APORTS_REF:-master}"
++
++mkdir -p "$MKOSI_PKG_DIR"
++
++echo "+-- building mesa apks with virgl added (aarch64) --+"
++echo "aports: $ALPINE_APORTS_GIT @ $ALPINE_APORTS_REF"
++echo "output: $MKOSI_PKG_DIR/mesa-*.apk"
++echo ""
++
++podman run --rm -i \
++    -e ALPINE_APORTS_GIT="$ALPINE_APORTS_GIT" \
++    -e ALPINE_APORTS_REF="$ALPINE_APORTS_REF" \
++    -v "$MKOSI_PKG_DIR:/out:z" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++
++echo "=== enable community + testing repos (mesa pulls rust/clang/llvm from there) ==="
++# Edge's /etc/apk/repositories ships only "main"; community + testing are
++# where rust, clang22-dev, libclc-dev, spirv-llvm-translator-dev live.
++cat > /etc/apk/repositories <<EOR
++https://dl-cdn.alpinelinux.org/alpine/edge/main
++https://dl-cdn.alpinelinux.org/alpine/edge/community
++https://dl-cdn.alpinelinux.org/alpine/edge/testing
++EOR
++apk update 2>&1 | tail -3
++
++echo ""
++echo "=== installing abuild + alpine-sdk (mesa makedepends resolved by abuild -r) ==="
++apk add --no-cache --quiet alpine-sdk abuild git rsync curl ca-certificates sudo 2>&1 | tail -3
++# alpine-sdk includes abuild, abuild-keygen, abuild-tar, etc.
++adduser -D builder
++addgroup builder abuild 2>/dev/null || true
++echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
++
++echo ""
++echo "=== setting up signing keys (as builder user) ==="
++su builder -c '
++    mkdir -p /home/builder/.abuild
++    abuild-keygen -a -n -q
++    KEY_PRIV=$(ls /home/builder/.abuild/*.rsa | head -1)
++    echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /home/builder/.abuild/abuild.conf
++    echo "JOBS=$(nproc)" >> /home/builder/.abuild/abuild.conf
++    echo "MAKEFLAGS=\"-j$(nproc)\"" >> /home/builder/.abuild/abuild.conf
++'
++# abuild-keygen produces /home/builder/.abuild/<name>-<ts>.rsa.pub. The
++# apk index step later in `abuild rootpkg` reads /etc/apk/keys/<that-same-basename>
++# to verify package signatures — so we must preserve the original filename,
++# not rename it. Earlier bug: copying to /etc/apk/keys/pubkey.rsa.pub made
++# every apk show UNTRUSTED and the index step failed.
++cp /home/builder/.abuild/*.rsa.pub /etc/apk/keys/
++ls -la /etc/apk/keys/ | grep rsa
++echo ""
++
++echo "=== fetching mesa APKBUILD from aports ==="
++mkdir -p /work
++chown builder /work
++su builder -c '
++    git clone --depth=1 --branch "'"$ALPINE_APORTS_REF"'" --filter=blob:none --no-checkout \
++        "'"$ALPINE_APORTS_GIT"'" /work/aports
++    cd /work/aports
++    git sparse-checkout init --cone
++    git sparse-checkout set main/mesa
++    git checkout
++'
++cd /work/aports/main/mesa
++ls -la
++echo ""
++
++echo "=== patching APKBUILD: add virgl to aarch64 _gallium_drivers ==="
++sed -i 's|asahi,svga"|asahi,svga,virgl"|g' APKBUILD
++grep -n 'virgl' APKBUILD || { echo "ERROR: virgl not found in APKBUILD after patch" >&2; exit 1; }
++
++# Bump pkgrel so apk install prefers ours
++CURREL=$(grep -E '^pkgrel=' APKBUILD | cut -d= -f2)
++NEWREL=$((CURREL + 100))
++sed -i "s|^pkgrel=.*|pkgrel=${NEWREL}|" APKBUILD
++echo "pkgrel: $CURREL -> $NEWREL"
++chown -R builder /work
++echo ""
++
++echo "=== abuild checksum + build (this is the long step, ~45-90 min) ==="
++cd /work/aports/main/mesa
++su builder -c "cd /work/aports/main/mesa && abuild -F checksum 2>&1 | tail -5"
++su builder -c "cd /work/aports/main/mesa && abuild -F -r 2>&1" | tail -100
++
++echo ""
++echo "=== collecting apks ==="
++PKGDIR=/home/builder/packages/main/aarch64
++ls -la $PKGDIR 2>/dev/null | head -40
++mkdir -p /out
++cp $PKGDIR/mesa*.apk /out/ 2>/dev/null || true
++cp $PKGDIR/libgallium*.apk /out/ 2>/dev/null || true
++echo ""
++echo "=== copied to /out: ==="
++ls -la /out/ | grep -E 'mesa|libgallium' | head -30
++CSCRIPT
++
++echo ""
++echo "+-- done --+"
++ls -lh "$MKOSI_PKG_DIR"/mesa*.apk "$MKOSI_PKG_DIR"/libgallium*.apk 2>/dev/null
+diff --git a/marathon-extras/build-qmf-apk.sh b/marathon-extras/build-qmf-apk.sh
+new file mode 100755
+index 0000000..ac0ffba
+--- /dev/null
++++ b/marathon-extras/build-qmf-apk.sh
+@@ -0,0 +1,110 @@
++#!/usr/bin/env bash
++# Build qmf-<pkgver>-r<pkgrel>.apk for Duranium's mkosi.packages/.
++#
++# QMF = Qt Messaging Framework (qt-labs/messagingframework on code.qt.io).
++# This is the real mail backend that replaces the webmail-picker — Qt-native
++# IMAP/SMTP/POP3 sync daemon + QML-bindable QMailMessageListModel etc.
++#
++# Same abuild-in-podman pattern as build-marathon-shell-apk.sh: pull the
++# APKBUILD from Marathon-Image/packages/qmf, build in an alpine:edge
++# container with a throwaway signing key, drop the resulting apks
++# (qmf, qmf-libs, qmf-messageserver, qmf-dev) into mkosi.packages/.
++#
++# Override QMF_SRC=/path/to/local/messagingframework to skip the upstream
++# tarball fetch (useful when iterating on patches).
++set -euo pipefail
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-/home/patrickquinn/Developer/Marathon-Image}"
++APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++QMF_SRC="${QMF_SRC:-}"
++QMF_GIT="${QMF_GIT:-https://code.qt.io/qt-labs/messagingframework.git}"
++QMF_REF="${QMF_REF:-master}"
++# code.qt.io disables cgit snapshot URLs; we always fetch via git on the host
++# (network access from the host is reliable) and feed abuild a local tarball
++# via SRCDEST so the container build is offline-after-clone.
++
++[ -d "$APORTS_SRC/qmf" ] || {
++    echo "error: qmf APKBUILD not found at $APORTS_SRC/qmf" >&2
++    echo "Expected at $APORTS_SRC/qmf/APKBUILD" >&2
++    exit 1
++}
++mkdir -p "$MKOSI_PKG_DIR"
++
++PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/qmf/APKBUILD" | cut -d= -f2)"
++PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/qmf/APKBUILD" | cut -d= -f2)"
++TARGET="qmf-${PKGVER}-r${PKGREL}.apk"
++
++echo "+-- building $TARGET (and subpackages) --+"
++echo "qmf src: ${QMF_SRC:-upstream code.qt.io tarball per APKBUILD}"
++echo "output:  $MKOSI_PKG_DIR/qmf*.apk"
++
++# Resolve QMF source — either honour QMF_SRC=/path or git-clone fresh.
++if [ -z "$QMF_SRC" ]; then
++    QMF_SRC="$(mktemp -d /tmp/qmf-src.XXXXXX)"
++    trap 'rm -rf "$QMF_SRC"' EXIT
++    echo "+ cloning $QMF_GIT @ $QMF_REF → $QMF_SRC"
++    git clone --depth 1 --branch "$QMF_REF" "$QMF_GIT" "$QMF_SRC" 2>&1 | tail -3
++fi
++[ -d "$QMF_SRC" ] || {
++    echo "error: QMF_SRC=$QMF_SRC does not exist" >&2
++    exit 1
++}
++# :z (shared) per the convention in sibling builder scripts — multiple :Z
++# mounts to the same container land on conflicting MCS labels under SELinux.
++QMF_MOUNT_ARGS=(-v "$QMF_SRC:/qmf-src:z,ro")
++
++# We don't bake QMF_SRC into the APKBUILD — the apkbuild always pulls
++# from upstream. If QMF_SRC is set, we shim a local-tarball-from-checkout
++# before abuild reaches network.
++podman run --rm -i \
++    -e PKGVER="$PKGVER" \
++    -e PKGREL="$PKGREL" \
++    -e TARGET="$TARGET" \
++    -e QMF_LOCAL="/qmf-src" \
++    -v "$APORTS_SRC:/aports-src:Z,ro" \
++    -v "$MKOSI_PKG_DIR:/out:Z" \
++    "${QMF_MOUNT_ARGS[@]}" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++apk add --no-cache --quiet abuild rsync samurai cmake build-base \
++    qt6-qtbase-dev qt6-qtbase-sqlite qt6-qt5compat-dev \
++    openssl-dev icu-dev tar 2>&1 | tail -2
++
++mkdir -p /root/.abuild
++abuild-keygen -a -n -q
++KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
++cp "${KEY_PRIV}.pub" /etc/apk/keys/
++echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
++
++mkdir -p /work/aports
++rsync -a --checksum --no-times /aports-src/ /work/aports/
++cd /work/aports/qmf
++
++# Shim the QMF git checkout into a tarball at /work/aports/qmf/ so abuild's
++# checksum + fetch both find it (APKBUILD-dir is checked before SRCDEST).
++# The tarball must extract to a directory matching `builddir` from the
++# APKBUILD (messagingframework-master).
++LOCAL_TARBALL="/work/aports/qmf/qmf-${PKGVER}.tar.gz"
++( cd /qmf-src/.. && \
++  tar czf "$LOCAL_TARBALL" --transform "s,^$(basename /qmf-src),messagingframework-master," \
++      "$(basename /qmf-src)" )
++
++abuild -F checksum >/dev/null
++abuild -d -F
++
++ARCH_DIR="$(uname -m)"
++for sub in qmf qmf-libs qmf-messageserver qmf-dev; do
++    src="/root/packages/aports/$ARCH_DIR/${sub}-${PKGVER}-r${PKGREL}.apk"
++    if [ -e "$src" ]; then
++        cp "$src" /out/
++        echo "  → /out/$(basename "$src")"
++    fi
++done
++CSCRIPT
++
++echo "+-- qmf built --+"
++ls -la "$MKOSI_PKG_DIR"/qmf*.apk 2>/dev/null || true
+diff --git a/marathon-extras/flathub.gpg b/marathon-extras/flathub.gpg
+new file mode 100644
+index 0000000000000000000000000000000000000000..79880f65bc2332322f5f7ac67fe57fb888a85b52
+GIT binary patch
+literal 2844
+zcmaLXXEYlM9|rJ<gd|o_F;aVk+M`y{P`k91(%NDMHA=Zw)n2`7)-I)L)r>t#qiVJG
+zh@wVO(TdusRo-*&eeZd{y`TQ)Jpc22d(JNh$N;jqF-M?+1IP)wrYhmsX}ue6ZXmx*
+zA!Csno5M{j-tcM4=Jgb@rV?J59SmD!q!<p>W+NTk`|zVCgI1ZJJMf}fjIirSN^Op|
+z;MvWbd^5!D%af8qw39X1JytS~l0{>5$1bYYB|xQf!aapnTFu1Xb1;eCaR)NbNBven
+zJBiJ(Mj>?Y;QrARC|U_=qiMpmWN~|KfFyL(JA~{y__<YNs`pE8n=Dw(_-!Pj#K~T#
+z8a&b996#=o&5d28qc3fazhBG$IHNZujrk12J}i9400GF}Wqi(~t2<_G)G>tPlQBx<
+zOmnJ&X@#PC)aYl+$f>EQ?8(pc$*9(O7AFLTnkhY&lN*{k>wH;0S8Y#s<&&x9tz`er
+z!N;6FsFw;oJ*g>D79OJxYM6aJkvZlji<3&EX373W*5(XSbHM5+%?EF7&+>VpTgf*V
+z9UDC+p1tVX&yEZ@Z=5$MH@rz_``*A^|Kfo73?Y_Xe-bth)PX7AajTK@G+%dm^dZ^C
+zZnGe|+5Z95g2ujef9qX{ZRpqv>y?nelck6~d~2`;vn0fsBStVX>;;(VTPyzL;}=2J
+zjB=XNO+p^<?zV+;t<DW*v-)BY{w%(gkbMAsQt|Qv5IE+f0N+6ns2fJIuwFhLMnXJI
+zC1!h#*|3eu=M;wHdVK=YNm&|W-p(X@?`}7MnF>JFD5dLR@8|08z=v^u=*@T64d><N
+zh2y*F9K@&Q^3MnT-z(+qi_=H|nu1uVAOH;nKgi1(JR8*SS({FXxT+bwV4M>CxCRXT
+zYh6GjH5ke=L=6DbK_Rq28a4<NMh65TfYek#9x5PvH~<EP|64H;W;)lH3B-F?#)CVj
+zOq{mKBG~Vskh|uy=wT6A(C8B;g^NSoMDM_dTdP4F!VE1cF3BS6Xs_*;mY>J%d#Hvs
+z>7hl|I{dxya=^pa-&e?CxykX&<lO2%!-@s+))$?dYVfYG!k=#?H?xT(N=lMnYg|hV
+zj)cBK>~Q?`EpcvS#9wURZbEh_5Y4Fj`Ai{pguRwSg%b5lMOK#vpnAy;p#^zR!ZYzg
+zuaS+P@g702n;`&t%=@7EbRr?kz&(T$H#Gt<{1}55Q*Dr07)J-LM(<hUp_}DTZ1Zon
+zs`pVOd%$JNr9A$8-ZNX<*ijO_-H=bX`8NR*pLwe9yp`E8X``28YR3&U>e888bk3Ds
+zLe*W#_R}3k4;{`)h(jdW3koHS?_Z=SLaswXM?Iq}L3dO?>ig~%NLqjc<9>Q`S<6no
+z)Ow9_86Sd{PJd$>PoHRV!l}u-I!6uAdOiaCa^q1tHQTr>52h){bcqzbh=?jyEk8!_
+z)8V`hKR~*ed3C!MW7Br8h%Uq>C}owhYVybjLiEdvJdVvwS*JsUbCt$QTN9Uyi6p^4
+zNGAmq0erASL8p3kwYionM-62brqyplV%8iCV;f*3X>JBHZlf>im?_cMYen*Bue87B
+zUoxp<=bYIXSQSL@$&ElY2CRH+HQu%Ki`ReqDtcJm_76*BDmb9=0_IeYdr!<jz@18E
+zR&Bp;<rnpp1>aH=A`B1QFt2QPL-;6aI>mNJHYP<CzOYs=w?b*5{a;Z^@v$4)SuTUp
+zY2-AlwLF`R=JJ6Aeqk4k@(LR8mKOCrd^TNi`^lb8qA+U>mNIMX`;a`|<E9^yAb?)A
+zQpvNiY|_sGvE+a5%@h}CYAZ1h>Cbb!rIPse$U$=}Zpq9hbdj?REMWIoqSfnIN*W0{
+z3B3_b{zC4VUebu;x<wnW2cDFuri^9B=E+{ZulcIFXuDJIF)ho)=ws$PSFqi<u$j`+
+zIFv({{ts9EP)QvvfszdwG?q#7b|7CywF2Xh(PFKKc4xy!l%#dulWW9C95@8|W<HHt
+zs=U84;*XbmQNQ+J2cxT3EQ5IEtGkQl+IJj}vf^zfv96a8Jz-(2a$i$uZ8cheM*b8+
+z-?Kz7s8=V1mk=;J+t(h&&v80`9jlIQ2d>^<YlraoTWT7ISRXY~FAJypn7ohlT#vij
+zVV~8#)^K8e2#>~pyI`K#XSd@iX)G4%`MNAWX453f4y|vC69uiVccu<!eKsWX9%^66
+zOy|y|f6Q-BY1Ajqg+8HdqeGteunBm~29H<Cf2pu8D9PjsU<Wr+#CeqX6F5%Af6q_K
+zU}wr#m+oF*s3dP1C@PCj&g;%R02v?d#++p*sQk@R0>~G{K?MPb{6A*MKqT-VW`OAb
+zankL_2jZlH0JstSAk)&}g#^x1J}toKs(UEl_tmW@8-EK${tKXg6TL#F3$5&2K5%fA
+z|JMSgi%P}Fh3Pm>OhDhdk6B1zs+AnO9w;u8CO@L9mv>T2!Nn%f#Rw?2x8vE6N{5T@
+zI~zO(7jy1^Wprw_(JqZO+qL`y)VWrW{(K>XwBAwSE;<V2VboOOp)rrS=$u%Y0Vm)@
+zAKayfK<J&?S@5mDbEcq2`wIubgLj$iV|`_OA9<Z0zUNHz&7G{j?%J|ce2eWQiuKni
+zcI0Wz2+Zt${7x{My4Vq##3`ilD@`FualDoFn6dXy3qQMiF_^%JPHG8PL^Jt#+0qNo
+z>SEr-Lo!F%tTS95Um4(Ks~fg)#zp(~N3vc!yg8pH2}cRWDA?H7wAL{;%SPwY8U+OL
+zrak4tUVqG@u<P~Zz3T=ho$Yfg1P;p0h-35W_2JAv{=gn+*)OrMa@DNzlO(P9&U1Lq
+zD<^{rMd3wXTWPgOsR0}L2)>3UI>W+`=T8H_=TJqS<HO)}X3kexB*p?r+Kn#rJ7btk
+zdLZV5MS0)C?%>DTuElG$mo{Ui&I$}v6G0!5;-jQI#-p0CEmuE=hpH6hXmw0;@U|ca
+z$_&ZT&i&*Qv5c2_L23I#$22h@YED(O!e5m@v|vm`73qSr^0SWebWYXEURHSs|H=Rr
+z!>wCtdCDf5#O-)5&6S>O3+#(nM6UH{s>loy9(}PZhvD_uUGQ)~TPn{}CBv4wYtKwz
+z@7nSW+@F>N0OK{~ILACZ_PBp{{n1g)|Av2y<80i|ezr}hb#LeS<kE5D3}IRq{}UOk
+z(Y+WGOtoeF({$L>79O{CtC&tV2{)+jt}tq)dKqKZ7bzO{<#^|lbi^Blk^0z*Vub6I
+zs-#{dg$bQ}VfsdKWA{m*Yio8xpTGHx!VkIR6S^}hhpl&osV6qCCCP_a!cSk7j(6oX
+zkY037mP;Rpir^vTXjSPg@`{?$ozl*9HMyC^x=MYHv<d2z4K;?f#XCVNvN_48=xt<p
+z`*o{pO;5%2R`y|5uewD=Qu{MND3%K8M4|9#GPYt-U}4xOSOvbB>u|e%etEm42#yd>
+z#1oe=*Oc%pwDpktzxzgoYdA2aXlX*L>a?D_=nmI2x!ffq%Y)8=iNry5X!OE6@Jy1K
+zdw=>{cI%uA7uEYu&0km-@2-%v*t<#tZ?`Kwcz1iv9M>{BO$}-!8s~(MJZ7xAC!Wl3
+zz;e04%6&z%`1lZy0MvE4JoIe7qr@-LX4vJ>0$-+vLNxNOtnVAEN?Cb%j0JW(KDsRD
+zCpDaaRN#az?IML;FrxVoHgTr>Q;S)YN`&$yjnVP$IeFry=*yv<HW07TRA$mI&m?wt
+k8WOB>apQE%JGB{C;2z^{A5eBgTi6%0q&k$!^_v6pA18WF3IG5A
+
+literal 0
+HcmV?d00001
+
+diff --git a/marathon-extras/marathon-store-handler b/marathon-extras/marathon-store-handler
+new file mode 100755
+index 0000000..72c95d2
+--- /dev/null
++++ b/marathon-extras/marathon-store-handler
+@@ -0,0 +1,115 @@
++#!/bin/bash
++# Marathon App Store URL-scheme handler.
++#
++# Invoked via xdg-open marathon-store://<verb>/<arg>. The verb-arg pairs are
++# strictly enumerated; anything else is rejected before we touch flatpak.
++#
++# Security:
++#   - Refs match a strict RDN regex (Flathub appstream-id shape) and reject any
++#     '..' substring to defeat path-traversal in the state file name.
++#   - The only remote we talk to is 'flathub'.
++#   - flatpak is invoked via exec with a fixed argv — no user input ever reaches
++#     a shell. State files are written atomically (write-then-rename).
++#   - Per-appid state files prevent concurrent installs from racing each other.
++set -euo pipefail
++
++REF_RE='^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$'
++REMOTE=flathub
++RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
++STATE_DIR="$RUNTIME_DIR/marathon-store-state"
++mkdir -p "$STATE_DIR"
++
++url=${1:-}
++verb=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://\([^/]*\)/.*|\1|p')
++arg=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://[^/]*/\(.*\)$|\1|p')
++
++if [ -z "$verb" ]; then
++    printf 'marathon-store-handler: bad url: %s\n' "$url" >&2
++    exit 2
++fi
++
++case "$verb" in
++    install|update|uninstall|open|refresh-state|update-all) ;;
++    *)
++        printf 'marathon-store-handler: unknown verb: %s\n' "$verb" >&2
++        exit 2
++        ;;
++esac
++
++if [ "$verb" != "refresh-state" ] && [ "$verb" != "update-all" ]; then
++    case "$arg" in
++        *..*)
++            printf 'marathon-store-handler: rejecting traversal: %s\n' "$arg" >&2
++            exit 3
++            ;;
++    esac
++    if ! printf '%s' "$arg" | grep -qE "$REF_RE"; then
++        printf 'marathon-store-handler: rejecting ref: %s\n' "$arg" >&2
++        exit 3
++    fi
++fi
++
++write_state() {
++    local appid=$1 state=$2 pct=$3
++    local target="$STATE_DIR/install-progress-${appid}.json"
++    local tmp
++    tmp=$(mktemp "${target}.XXXXXX")
++    printf '{"appId":"%s","state":"%s","percent":%s,"ts":%s}\n' \
++        "$appid" "$state" "$pct" "$(date +%s)" > "$tmp"
++    mv "$tmp" "$target"
++}
++
++run_flatpak_progress() {
++    local op=$1 appid=$2
++    write_state "$appid" pending -1
++    # --ostree-verbose unlocks the 'Receiving N%' progress lines. flatpak emits
++    # carriage-return-overwritten progress, so we tr \r -> \n to make it line-
++    # oriented before grepping percentages. PIPESTATUS[0] is the flatpak rc;
++    # we use bash so this is reliable.
++    flatpak --ostree-verbose --user "$op" -y --noninteractive "$REMOTE" "$appid" 2>&1 \
++        | tr '\r' '\n' \
++        | while IFS= read -r line; do
++            pct=$(printf '%s\n' "$line" | sed -n 's/.* \([0-9]\{1,3\}\)%.*/\1/p' | head -1)
++            case "$line" in
++                *Receiving*)              write_state "$appid" downloading "${pct:--1}" ;;
++                *Installing*|*Updating*)  write_state "$appid" downloading "${pct:--1}" ;;
++                *Deploying*|*Pulling*)    write_state "$appid" deploying "${pct:--1}" ;;
++                *Already*installed*)      write_state "$appid" done 100 ;;
++            esac
++        done
++    rc=${PIPESTATUS[0]}
++    if [ "$rc" = "0" ]; then
++        write_state "$appid" done 100
++    else
++        write_state "$appid" failed -1
++    fi
++    /usr/libexec/marathon-store-refresh-state || true
++}
++
++case "$verb" in
++    install)
++        # Detach so xdg-open returns immediately. No terminal window pops up;
++        # the QML polls per-appid state files for progress. arg has already
++        # been validated against REF_RE so no shell-meaningful characters
++        # can survive into this exec.
++        (run_flatpak_progress install "$arg" </dev/null >/dev/null 2>&1 &)
++        ;;
++    update)
++        (run_flatpak_progress update "$arg" </dev/null >/dev/null 2>&1 &)
++        ;;
++    uninstall)
++        flatpak --user uninstall -y "$arg" >/dev/null 2>&1 || true
++        write_state "$arg" done 0
++        /usr/libexec/marathon-store-refresh-state || true
++        ;;
++    update-all)
++        flatpak --user update -y --noninteractive >/dev/null 2>&1 || true
++        /usr/libexec/marathon-store-refresh-state || true
++        ;;
++    refresh-state)
++        exec /usr/libexec/marathon-store-refresh-state
++        ;;
++    open)
++        exec flatpak --user run "$arg"
++        ;;
++esac
+diff --git a/marathon-extras/marathon-store-refresh-state b/marathon-extras/marathon-store-refresh-state
+new file mode 100755
+index 0000000..bc9f195
+--- /dev/null
++++ b/marathon-extras/marathon-store-refresh-state
+@@ -0,0 +1,54 @@
++#!/bin/bash
++# Marathon App Store state dumper. Emits two JSON files into XDG_RUNTIME_DIR
++# that StoreApp.qml reads. We never expose CLI output to QML directly — the
++# JSON is the contract. Strings are escaped via python3 because flatpak app
++# names can legitimately contain quotes, backslashes, and unicode.
++set -euo pipefail
++RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
++STATE_DIR="$RUNTIME_DIR/marathon-store-state"
++mkdir -p "$STATE_DIR"
++
++json_string() {
++    python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.argv[1]))' "$1"
++}
++
++emit_installed() {
++    printf '{"installed":['
++    local first=1
++    while IFS=$'\t' read -r app_id version name; do
++        [ -z "$app_id" ] && continue
++        local icon="$HOME/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/$app_id.png"
++        [ -f "$icon" ] || icon=""
++        [ "$first" = 1 ] || printf ','
++        first=0
++        printf '{"app_id":%s,"name":%s,"version":%s,"icon":%s}' \
++            "$(json_string "$app_id")" \
++            "$(json_string "$name")" \
++            "$(json_string "$version")" \
++            "$(json_string "${icon:+file://$icon}")"
++    done < <(flatpak --user list --app --columns=application,version,name 2>/dev/null || true)
++    printf '],"ts":%s}\n' "$(date +%s)"
++}
++
++emit_updates() {
++    printf '{"updates":['
++    local first=1
++    # timeout — flatpak remote-ls can hang on flaky networks. 20s is generous
++    # for an updates-only query against flathub.
++    while read -r app_id; do
++        [ -z "$app_id" ] && continue
++        case "$app_id" in *.Locale|*.Sources|*.Debug) continue ;; esac
++        [ "$first" = 1 ] || printf ','
++        first=0
++        printf '{"app_id":%s}' "$(json_string "$app_id")"
++    done < <(timeout 20 flatpak --user remote-ls --updates --columns=application 2>/dev/null || true)
++    printf '],"ts":%s}\n' "$(date +%s)"
++}
++
++tmp_inst=$(mktemp "$STATE_DIR/installed.json.XXXXXX")
++emit_installed > "$tmp_inst"
++mv "$tmp_inst" "$STATE_DIR/installed.json"
++
++tmp_upd=$(mktemp "$STATE_DIR/updates.json.XXXXXX")
++emit_updates > "$tmp_upd"
++mv "$tmp_upd" "$STATE_DIR/updates.json"
+diff --git a/marathon-extras/marathon-store-refresh.service.template b/marathon-extras/marathon-store-refresh.service.template
+new file mode 100644
+index 0000000..22b02f9
+--- /dev/null
++++ b/marathon-extras/marathon-store-refresh.service.template
+@@ -0,0 +1,7 @@
++[Unit]
++Description=Marathon App Store: refresh installed + updates state
++ConditionPathExists=/usr/bin/flatpak
++
++[Service]
++Type=oneshot
++ExecStart=/usr/libexec/marathon-store-refresh-state
+diff --git a/marathon-extras/marathon-store-refresh.timer.template b/marathon-extras/marathon-store-refresh.timer.template
+new file mode 100644
+index 0000000..2680617
+--- /dev/null
++++ b/marathon-extras/marathon-store-refresh.timer.template
+@@ -0,0 +1,13 @@
++[Unit]
++Description=Marathon App Store: refresh state every 12h
++ConditionPathExists=/usr/bin/flatpak
++
++[Timer]
++OnBootSec=2min
++OnUnitActiveSec=12h
++RandomizedDelaySec=6h
++Persistent=true
++Unit=marathon-store-refresh.service
++
++[Install]
++WantedBy=default.target
+diff --git a/marathon-extras/verify-dynamic.sh b/marathon-extras/verify-dynamic.sh
+new file mode 100644
+index 0000000..c6924b3
+--- /dev/null
++++ b/marathon-extras/verify-dynamic.sh
+@@ -0,0 +1,156 @@
++#!/usr/bin/env bash
++# Dynamic lifecycle verification. Runs as root over SSH; drives the
++# shell over DBus to launch apps, then inspects per-app cgroup + oom
++# state for each. Tests the Foreground / BackgroundActive / BackgroundIdle
++# / Frozen transitions wired in Phase A+B.
++set -u
++
++USER_NAME="$(cat /etc/default_user 2>/dev/null || echo user)"
++USER_UID="$(id -u "$USER_NAME")"
++APPS_ROOT="/sys/fs/cgroup/user.slice/user-${USER_UID}.slice/user@${USER_UID}.service/marathon.slice/marathon-apps"
++
++PASS=0; FAIL=0
++ok()   { echo "✓ $*"; PASS=$((PASS+1)); }
++fail() { echo "✗ $*"; FAIL=$((FAIL+1)); }
++
++dbus_launch() {
++    local app="$1"
++    # Need the user's runtime dir + bus. su -s shell doesn't set them.
++    su -s /bin/sh "$USER_NAME" -c "
++        export XDG_RUNTIME_DIR=/run/user/${USER_UID}
++        export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
++        busctl --user call \
++            org.marathonos.Shell /org/marathonos/Shell/Navigation \
++            org.marathonos.Shell.Navigation1 LaunchApp s '$app' 2>&1
++    "
++}
++
++show_app() {
++    local appid="$1"
++    local cg="$APPS_ROOT/marathon-app-$appid"
++    if [ ! -d "$cg" ]; then
++        printf "  %-12s cgroup MISSING\n" "$appid"
++        return 1
++    fi
++    local freeze; freeze="$(cat "$cg/cgroup.freeze" 2>/dev/null || echo '?')"
++    local pids;   pids="$(grep -c . "$cg/cgroup.procs" 2>/dev/null || echo 0)"
++    local pid;    pid="$(head -1 "$cg/cgroup.procs" 2>/dev/null)"
++    local oom='-'
++    [ -n "$pid" ] && oom="$(cat /proc/$pid/oom_score_adj 2>/dev/null || echo '?')"
++    printf "  %-12s pid=%s pids=%s freeze=%s oom_score_adj=%s\n" \
++        "$appid" "${pid:--}" "$pids" "$freeze" "$oom"
++}
++
++echo "== Dynamic lifecycle exercise =="
++echo "apps_root: $APPS_ROOT"
++test -d "$APPS_ROOT" && ok "apps_root exists pre-launch" \
++                     || fail "apps_root missing (CgroupManager init failed?)"
++
++echo
++echo "-- launching calculator --"
++dbus_launch calculator
++sleep 8
++ls "$APPS_ROOT" 2>/dev/null
++show_app calculator
++
++echo
++echo "-- launching music (calculator should demote to BackgroundIdle) --"
++dbus_launch music
++sleep 4
++echo "right after switch (calculator should be BgIdle, music Foreground):"
++show_app calculator; show_app music
++
++echo
++echo "-- waiting 12s for 10s idle-freeze debounce + slack --"
++sleep 12
++echo "after debounce:"
++show_app calculator; show_app music
++
++echo
++echo "-- bringing calculator back (should thaw + Foreground) --"
++dbus_launch calculator
++sleep 4
++echo "after re-foreground:"
++show_app calculator; show_app music
++
++echo
++echo "-- capability-protection test --"
++# Launch music + claim audio-playback via DBus (simulates what the
++# BackgroundTaskObserver would do automatically when MPRIS2 reports
++# isPlaying=true). MARATHON_TEST_TRUSTED admits us so we can poke
++# AppLifecycle directly.
++echo "claiming audio-playback for music…"
++HANDLE_LINE="$(su -s /bin/sh "$USER_NAME" -c "
++    export XDG_RUNTIME_DIR=/run/user/${USER_UID}
++    export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
++    busctl --user call \
++        org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++        org.marathonos.Shell.AppLifecycle1 \
++        BeginBackgroundTask ss audio-playback 'qemu-verify' 2>&1
++")"
++echo "begin reply: $HANDLE_LINE"
++HANDLE=$(echo "$HANDLE_LINE" | awk '/^u / {print $2}')
++echo "handle: ${HANDLE:-<none>}"
++if [ -z "$HANDLE" ]; then
++    fail "BeginBackgroundTask returned no handle"
++else
++    ok "BeginBackgroundTask returned handle=$HANDLE"
++    echo "switching to calculator so music goes background WITH capability…"
++    dbus_launch calculator
++    sleep 12
++    echo "after 12s (music should NOT freeze because audio-playback is held):"
++    show_app music; show_app calculator
++    M_FREEZE=$(cat "$APPS_ROOT/marathon-app-music/cgroup.freeze" 2>/dev/null || echo '?')
++    if [ "$M_FREEZE" = "0" ]; then
++        ok "music NOT frozen with audio-playback held (BackgroundActive protection works)"
++    else
++        fail "music freeze=$M_FREEZE while audio-playback held — protection broken"
++    fi
++    echo "releasing audio-playback…"
++    su -s /bin/sh "$USER_NAME" -c "
++        export XDG_RUNTIME_DIR=/run/user/${USER_UID}
++        export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
++        busctl --user call \
++            org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++            org.marathonos.Shell.AppLifecycle1 \
++            EndBackgroundTask u $HANDLE 2>&1
++    "
++    echo "waiting 12s for music to drop to BgIdle and freeze…"
++    sleep 12
++    show_app music; show_app calculator
++    M2_FREEZE=$(cat "$APPS_ROOT/marathon-app-music/cgroup.freeze" 2>/dev/null || echo '?')
++    if [ "$M2_FREEZE" = "1" ]; then
++        ok "music froze after capability released (state machine routes correctly)"
++    else
++        fail "music freeze=$M2_FREEZE after release — debounce or transition broken"
++    fi
++fi
++
++echo
++echo "-- manifest-gate test (music declaring active-call must be rejected) --"
++DENY=$(su -s /bin/sh "$USER_NAME" -c "
++    export XDG_RUNTIME_DIR=/run/user/${USER_UID}
++    export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
++    busctl --user call \
++        org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++        org.marathonos.Shell.AppLifecycle1 \
++        BeginBackgroundTask ss active-call 'qemu-verify' 2>&1
++")"
++echo "$DENY"
++case "$DENY" in
++    *AccessDenied*|*"not declared in manifest"*)
++        ok "manifest gate rejected unauthorized category" ;;
++    *)
++        fail "manifest gate should have rejected unauthorized category" ;;
++esac
++
++echo
++echo "-- all per-app cgroups --"
++for d in "$APPS_ROOT"/*/; do
++    [ -d "$d" ] || continue
++    show_app "$(basename "$d" | sed 's/^marathon-app-//')"
++done
++
++echo
++echo "== summary: ${PASS} pass / ${FAIL} fail =="
++[ "$FAIL" -eq 0 ]
+diff --git a/marathon-extras/verify-lifecycle.sh b/marathon-extras/verify-lifecycle.sh
+new file mode 100755
+index 0000000..52f0cdd
+--- /dev/null
++++ b/marathon-extras/verify-lifecycle.sh
+@@ -0,0 +1,108 @@
++#!/usr/bin/env bash
++# Verify Phase A+B lifecycle stack on a booted duranium image.
++# Runs as root over SSH; resolves the marathon user via /etc/default_user
++# and reads cgroups via the actual shell PID (TASK_COMM_LEN=16 makes
++# `pgrep -x marathon-shell-bin` miss the truncated comm — use -f).
++set -u
++PASS=0; FAIL=0
++check() {
++    local label="$1"; shift
++    if "$@" >/dev/null 2>&1; then
++        echo "✓ $label"; PASS=$((PASS+1))
++    else
++        echo "✗ $label"; FAIL=$((FAIL+1))
++    fi
++}
++
++# /etc/default_user → marathon user. UID is what user@<uid>.service uses.
++MARATHON_USER="$(cat /etc/default_user 2>/dev/null || echo user)"
++MARATHON_UID="$(id -u "$MARATHON_USER" 2>/dev/null || echo 0)"
++CG_BASE="/sys/fs/cgroup/user.slice/user-${MARATHON_UID}.slice/user@${MARATHON_UID}.service"
++
++echo "== Marathon lifecycle / freezer verification =="
++echo "user:    $MARATHON_USER (uid $MARATHON_UID)"
++echo "cgroup:  $CG_BASE"
++echo
++
++echo "-- slice + shell placement --"
++check "user@${MARATHON_UID}.service cgroup exists"    test -d "$CG_BASE"
++# pgrep -f matches against the full cmdline so we don't get bitten by
++# TASK_COMM_LEN truncation that hides 'marathon-shell-bin' from -x.
++SHELL_PID="$(pgrep -f '^/usr/bin/marathon-shell-bin' | head -1)"
++echo "shell pid: ${SHELL_PID:-<none>}"
++check "marathon-shell-bin process found"             test -n "${SHELL_PID:-}"
++if [ -n "${SHELL_PID:-}" ]; then
++    SHELL_CG="$(awk -F: '/^0::/ {print $3}' /proc/${SHELL_PID}/cgroup)"
++    echo "shell cgroup: ${SHELL_CG}"
++    case "$SHELL_CG" in
++      */marathon.slice/*) echo "✓ shell lives in marathon.slice"; PASS=$((PASS+1)) ;;
++      *) echo "✗ shell NOT in marathon.slice (got: $SHELL_CG)"; FAIL=$((FAIL+1)) ;;
++    esac
++fi
++
++SLICE_CG="$CG_BASE/marathon.slice"
++check "marathon.slice cgroup dir present"             test -d "$SLICE_CG"
++APPS_ROOT=""
++if [ -d "$SLICE_CG" ]; then
++    SHELL_SCOPE="$(ls -d "$SLICE_CG"/marathon-shell-*.scope 2>/dev/null | head -1 || true)"
++    echo "shell scope: ${SHELL_SCOPE:-<none>}"
++    check "shell scope dir present"                   test -n "${SHELL_SCOPE:-}"
++    # CgroupManager creates marathon-apps as a SIBLING of the shell scope
++    # under marathon.slice (cleaner than nesting it under the shell scope,
++    # which hits a permission race and the cgroup v2 no-internal-processes
++    # rule).
++    APPS_ROOT="${SLICE_CG}/marathon-apps"
++    check "marathon-apps sibling root (Delegate=yes worked)" test -d "$APPS_ROOT"
++    echo "apps root:   ${APPS_ROOT}"
++fi
++
++echo
++echo "-- per-app cgroups --"
++if [ -n "${APPS_ROOT:-}" ] && [ -d "$APPS_ROOT" ]; then
++    found=0
++    for d in "$APPS_ROOT"/*/; do
++        [ -d "$d" ] || continue
++        found=1
++        name="$(basename "$d")"
++        freeze="$(cat "$d/cgroup.freeze" 2>/dev/null || echo '?')"
++        procs="$(wc -l < "$d/cgroup.procs" 2>/dev/null || echo 0)"
++        printf "  %-32s freeze=%s pids=%s\n" "$name" "$freeze" "$procs"
++    done
++    [ "$found" = 0 ] && echo "  (no apps launched yet — directory empty)"
++else
++    echo "  (no marathon-apps root visible — Delegate=yes probably not applied)"
++fi
++
++echo
++echo "-- lifecycle log (last 30 marathon.lifecycle events) --"
++journalctl --no-pager -t marathon-shell-bin --since "10 minutes ago" 2>/dev/null \
++  | grep -E 'marathon\.lifecycle' | tail -30 || true
++journalctl --user-machine="${MARATHON_UID}@.host" --no-pager --since "10 minutes ago" 2>/dev/null \
++  | grep -E 'marathon\.lifecycle' | tail -30 || true
++
++echo
++echo "-- oom_score_adj per running app --"
++APP_PIDS="$(pgrep -f '^/usr/bin/marathon-app-runner' || true)"
++if [ -z "$APP_PIDS" ]; then
++    echo "  (no app-runners — nothing has been launched yet)"
++else
++    for pid in $APP_PIDS; do
++        cmdline="$(tr '\0' ' ' </proc/$pid/cmdline 2>/dev/null)"
++        appid="$(echo "$cmdline" | grep -oE -- '--app-id [^ ]+' | awk '{print $2}')"
++        score="$(cat /proc/$pid/oom_score_adj 2>/dev/null || echo '?')"
++        printf "  pid=%-7s appId=%-14s oom_score_adj=%s\n" "$pid" "${appid:-?}" "$score"
++    done
++fi
++
++echo
++echo "-- PSI memory pressure --"
++if [ -r /proc/pressure/memory ]; then
++    grep '^some' /proc/pressure/memory
++    check "PSI memory readable" true
++else
++    echo "✗ /proc/pressure/memory not readable"; FAIL=$((FAIL+1))
++fi
++
++echo
++echo "== summary: ${PASS} pass / ${FAIL} fail =="
++[ "$FAIL" -eq 0 ]
+diff --git a/marathon-extras/verify-mail.sh b/marathon-extras/verify-mail.sh
+new file mode 100755
+index 0000000..fec39b1
+--- /dev/null
++++ b/marathon-extras/verify-mail.sh
+@@ -0,0 +1,109 @@
++#!/usr/bin/env bash
++# Marathon Mail verification harness — runs inside the QEMU guest.
++#
++# Runs as ROOT over the QEMU SSH path (boot-and-verify-mail.sh logs in
++# as root with the documented `marathon` password). To query / drive
++# `user`'s user-systemd we use systemctl's --machine=user@.host --user
++# bus cross-over rather than dropping uid (sshpass-as-user isn't set
++# up on the QEMU image; only root has a password).
++#
++# Exit codes (parsed by callers):
++#   0  all checks pass
++#   1  qmf-libs / messageserver missing
++#   2  marathon-mailserver.service not loaded
++#   3  messageserver fails to start
++#   4  ldd reports missing shared lib (the most likely musl gotcha)
++#   5  user@1000.service is not active (auto-login + linger both failed)
++
++set -u
++RC=0
++say()  { printf '  %s\n' "$1"; }
++fail() { echo "FAIL: $1" >&2; RC=$2; }
++
++# Helper — same string both times.
++USER_BUS='systemctl --machine=user@.host --user'
++
++echo "==> 1. QMF artefacts on disk"
++test -f /usr/lib/libQmfClient.so.4.0.4         && say "libQmfClient.so.4.0.4 ✓"        || fail "libQmfClient missing"          1
++test -f /usr/lib/libQmfMessageServer.so.4.0.4  && say "libQmfMessageServer.so.4.0.4 ✓" || fail "libQmfMessageServer missing"   1
++test -x /usr/bin/messageserver                 && say "/usr/bin/messageserver ✓"      || fail "messageserver binary missing"  1
++
++echo "==> 2. Plugin directories present"
++ls -1d /usr/lib/qt6/plugins/messagingframework/messageservices 2>/dev/null | head -1 \
++    && say "messageservices/ ✓" \
++    || fail "messageservices plugin dir missing" 1
++ls -1d /usr/lib/qt6/plugins/messagingframework/contentmanagers 2>/dev/null | head -1 \
++    && say "contentmanagers/ ✓" \
++    || fail "contentmanagers plugin dir missing" 1
++
++echo "==> 2b. Marathon credential plugins + QML module"
++test -f /usr/lib/qt6/plugins/messagingframework/credentials/libmarathonoauth.so \
++    && say "marathonoauth credential plugin ✓" \
++    || fail "marathonoauth.so missing" 1
++test -f /usr/lib/qt6/plugins/messagingframework/credentials/libmarathonclassic.so \
++    && say "marathonclassic credential plugin ✓" \
++    || fail "marathonclassic.so missing" 1
++test -f /usr/lib/qt6/qml/MarathonOS/Services/qmldir \
++    && say "MarathonOS.Services qmldir ✓" \
++    || fail "MarathonOS.Services qmldir missing" 1
++test -x /usr/bin/marathon-mail-oauth \
++    && say "marathon-mail-oauth helper ✓" \
++    || fail "marathon-mail-oauth helper missing" 1
++
++echo "==> 2c. marathon-mail-oauth helper smoke check"
++# Run with the permission gate explicitly cleared so the helper exits
++# with its structured "permission_denied" envelope rather than touching
++# Secret-Service. Confirms the binary loads cleanly under musl + the
++# clap CLI parser is wired up.
++if HELPER_OUT=$(env -u MARATHON_PERM_SECRET_SERVICE /usr/bin/marathon-mail-oauth token \
++        --account-id smoke-test 2>&1); then
++    say "marathon-mail-oauth unexpectedly succeeded without permission gate"
++elif echo "$HELPER_OUT" | grep -q 'permission_denied'; then
++    say "marathon-mail-oauth refuses without permission gate ✓"
++else
++    fail "marathon-mail-oauth produced unexpected output: $HELPER_OUT" 1
++fi
++
++echo "==> 3. Shared-library resolution under musl"
++LDD_BAD="$(ldd /usr/bin/messageserver 2>&1 | grep -E 'not found|undefined' || true)"
++if [ -z "$LDD_BAD" ]; then
++    say "ldd messageserver clean ✓"
++else
++    fail "ldd reports missing deps:" 4
++    echo "$LDD_BAD" >&2
++fi
++
++echo "==> 4. user@1000.service is active (precondition for --user work)"
++if systemctl is-active --quiet user@1000.service; then
++    say "user@1000.service active ✓"
++else
++    fail "user@1000.service not active — auto-login did not bring up user session" 5
++    systemctl status user@1000.service --no-pager 2>&1 | head -10 >&2
++fi
++
++echo "==> 5. marathon-mailserver.service is registered in user manager"
++if $USER_BUS list-unit-files marathon-mailserver.service 2>/dev/null | grep -q marathon-mailserver.service; then
++    say "marathon-mailserver.service registered ✓"
++else
++    fail "marathon-mailserver.service NOT in user manager" 2
++    $USER_BUS list-unit-files 2>&1 | tail -10 >&2
++fi
++
++echo "==> 6. messageserver dry-launch (5 second window)"
++$USER_BUS start marathon-mailserver.service 2>/dev/null || true
++sleep 5
++if $USER_BUS is-active --quiet marathon-mailserver.service; then
++    say "marathon-mailserver.service active ✓"
++    journalctl --machine=user@.host --user-unit marathon-mailserver.service --no-pager --since "10 seconds ago" 2>/dev/null \
++        | tail -10 | sed 's/^/    /' || true
++else
++    fail "marathon-mailserver.service failed to stay running" 3
++    journalctl --machine=user@.host --user-unit marathon-mailserver.service --no-pager --since "1 minute ago" 2>/dev/null \
++        | tail -15 | sed 's/^/    /' >&2 || true
++fi
++
++echo "==> 7. Tear-down"
++$USER_BUS stop marathon-mailserver.service 2>/dev/null || true
++
++echo "==> done (rc=$RC)"
++exit $RC
+diff --git a/marathon-extras/xdg-terminal-exec b/marathon-extras/xdg-terminal-exec
+new file mode 100644
+index 0000000..1e279d8
+--- /dev/null
++++ b/marathon-extras/xdg-terminal-exec
+@@ -0,0 +1,1484 @@
++#!/bin/sh
++
++# Default Terminal Execution Utility
++# Reference implementation of proposed Default Terminal Execution Specification
++# https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/3
++#
++# by Vladimir Kudrya
++# https://github.com/Vladimir-csp/
++# https://gitlab.freedesktop.org/Vladimir-csp/
++#
++# This script is free software: you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation, either version 3 of the License, or
++# (at your option) any later version. See <http://www.gnu.org/licenses/>.
++#
++# Contributors:
++# Roman Chistokhodov    https://github.com/FreeSlave/
++# fluvf                 https://github.com/fluvf
++
++# Treat non-zero exit status from simple commands as an error
++# Treat unset variables as errors when performing parameter expansion
++# Disable pathname expansion
++set -euf
++
++# Store original IFS value, assumed to contain the default: <space><tab><newline>
++XTE__OIFS=$IFS
++# Newline, utility variable used throughout the script
++XTE__LF='
++'
++
++# name of executable
++XTE__SELF_NAME=${0##*/}
++
++# ASCII Record Separator for cache saving
++# ASCII Unit Separator for Exec parsing
++# Carriage return for string expander
++{
++	read -r XTE__RSEP
++	read -r XTE__USEP
++	read -r XTE__CR
++} <<- EOF
++	$(printf '%b\n' '\036' '\037' '\r')
++EOF
++
++error() {
++	# Print messages to stderr
++	printf '%s\n' "$@" >&2
++}
++
++check_bool() {
++	case "$1" in
++	true | True | TRUE | yes | Yes | YES | 1) return 0 ;;
++	false | False | FALSE | no | No | NO | 0) return 1 ;;
++	*)
++		error "Assuming '$1' means no"
++		return 1
++		;;
++	esac
++}
++
++# Utility function to print debug messages to stderr (or not)
++if check_bool "${XTE_DEBUG-${DEBUG-0}}"; then
++	XTE__DEBUG=true
++	debug() {
++		# print each arg at new line, prefix each printed line with 'D: '
++		while IFS= read -r xte__debug_line; do
++			printf 'D: %s\n' "$xte__debug_line"
++		done <<- EOF >&2
++			$(printf '%s\n' "$@")
++		EOF
++	}
++else
++	XTE__DEBUG=
++	debug() { :; }
++fi
++
++# builtin stdin cat
++shcat() {
++	while IFS= read -r xte__line; do
++		printf '%s\n' "$xte__line"
++	done
++}
++
++usage() {
++	shcat <<- EOF
++		Usage:
++		  $XTE__SELF_NAME [options] [--] [command [arguments ...]]
++	EOF
++}
++
++help() {
++	shcat <<- EOF
++		$XTE__SELF_NAME - Shell-based default terminal launcher.
++
++		Implementation of the proposed Default Terminal Specification.
++
++		$(usage)
++
++		Launches given command in default terminal, or launches default terminal.
++
++		Options for modifying terminal behavior (if supported by terminals's
++		entry):
++
++		  --app-id=app-id    set app-id (Wayland) or window class (X11)
++		  --title=title      set tile of terminal.
++		  --dir=workdir      set workdir of terminal.
++		  --hold             instruct terminal to hold after command ends.
++
++		Options for printing data instead of executing terminal:
++
++		  --print-id
++		      print selected Desktop Entry ID. Action is appended delimited
++		      by ":".
++
++		  --print-path
++		      print path to selected Desktop Entry. Action is appended
++		      delimited by ":".
++
++		  --print-content
++		      print content of selected Desktop Entry. Conflicts with --print-cmd.
++
++		  --print-cmd[=printf_sequence]
++		      print resulting command line, delimited by given printf sequence,
++		      "\\n" by default. If sequence is "\\n", output is also terminated with
++		      a newline.
++
++		  --print-delimiter=printf_sequence
++		      printf sequence to be used as the delimiter between multiple requested
++		      print statements, "\\n" by default. If sequence is "\\n", output is
++		      also terminated with a newline.
++
++		Configuration:
++
++		Preferred terminals are configured by listing their Desktop Entry IDs
++		in config files named "[\${desktop}-]xdg-terminals.list" placed in XDG Config
++		hierarchy. Where "\${desktop}" is a lowercased string that is matched
++		(case-insensitively) against items of "\${XDG_CURRENT_DESKTOP}".
++
++		See "man $XTE__SELF_NAME" for more details.
++	EOF
++}
++
++# Populates global constants and lists for later use and iteration
++make_paths() {
++	IFS=':'
++
++	# Populate list of config files to read, in descending order of preference
++	for xte__dir in ${XDG_CONFIG_HOME:-"${HOME}/.config"}${IFS}${XDG_CONFIG_DIRS:-/etc/xdg}; do
++		# Normalise base path and append the data subdirectory with a trailing '/'
++		for xte__desktop in ${XTE__LOWERCASE_XDG_CURRENT_DESKTOP}; do
++			XTE__CONFIGS=${XTE__CONFIGS:+${XTE__CONFIGS}:}${xte__dir%/}/${xte__desktop}-xdg-terminals.list
++		done
++		XTE__CONFIGS=${XTE__CONFIGS:+${XTE__CONFIGS}:}${xte__dir%/}/xdg-terminals.list
++	done
++
++	# append xdg-terminal-exec dirs in XDG_DATA_DIRS to config hierarchy for distro/upstream level defaults
++	for xte__dir in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
++		# Normalise base path and append the data subdirectory with a trailing '/'
++		for xte__desktop in ${XTE__LOWERCASE_XDG_CURRENT_DESKTOP}; do
++			XTE__CONFIGS=${XTE__CONFIGS:+${XTE__CONFIGS}:}${xte__dir%/}/xdg-terminal-exec/${xte__desktop}-xdg-terminals.list
++		done
++		XTE__CONFIGS=${XTE__CONFIGS:+${XTE__CONFIGS}:}${xte__dir%/}/xdg-terminal-exec/xdg-terminals.list
++	done
++
++	# Populate list of directories to search for entries in, in ascending order of preference
++	for xte__dir in ${XDG_DATA_HOME:-${HOME}/.local/share}${IFS}${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
++		# Normalise base path and append the data subdirectory with a trailing '/'
++		XTE__APPLICATIONS_DIRS=${xte__dir%/}/applications/${XTE__APPLICATIONS_DIRS:+:${XTE__APPLICATIONS_DIRS}}
++	done
++
++	# cache
++	XDG_CACHE_HOME=${XDG_CACHE_HOME:-"${HOME}/.cache"}
++	XTE__CACHE_FILE=${XDG_CACHE_HOME}/xdg-terminal-exec
++
++	IFS=$XTE__OIFS
++	debug "paths:" "  XTE__CONFIGS=${XTE__CONFIGS}" "  XTE__APPLICATIONS_DIRS=${XTE__APPLICATIONS_DIRS}"
++}
++
++gen_hash() {
++	# return md5 of custom string, XDG_CURRENT_DESKTOP and ls -LRl output for config and data paths
++	# md5 is 4x faster than sha*, and there is no need for cryptography here
++	# writes to XTE__NEW_HASH var
++	# shellcheck disable=SC2034
++	read -r xte__hash _drop <<- EOH
++		$(
++			xte__hash_paths=${XTE__CONFIGS}:${XTE__APPLICATIONS_DIRS}
++			{
++				# cache 'version', change to invalidate when format changes
++				echo 4
++				echo "${XDG_CURRENT_DESKTOP-}"
++				IFS=':'
++				# shellcheck disable=SC2086
++				debug ">     hashing '${XDG_CURRENT_DESKTOP-}' and listing of:" $xte__hash_paths "^     end of hash listing"
++				# shellcheck disable=SC2012,SC2086
++				LANG=C ls -LRl ${xte__hash_paths} 2> /dev/null
++			} | md5sum 2> /dev/null
++		)
++	EOH
++	case "$xte__hash" in
++	[0-9a-f]??????????????????????????????[0-9a-f])
++		debug "got fresh hash '$xte__hash'"
++		XTE__NEW_HASH=$xte__hash
++		return 0
++		;;
++	*)
++		debug "failed to get fresh hash, got '$xte__hash'"
++		return 1
++		;;
++	esac
++}
++
++read_cache() {
++	# reads $xte__cached_hash, $xte__cached_cmd, $xte__cached_exec_usep, $xte__cached_execarg, and others from cache file,
++	# checks if cache is actual and applies it, otherwise returns 1
++	# tries to bail out as soon as possible if something does not fit
++	if [ -f "${XTE__CACHE_FILE}" ]; then
++		xte__line_num=0
++		xte__line_limit=50
++		xte__cached_exec_usep=
++		xte__finished=0
++		while IFS= read -r xte__line; do
++			xte__line_num=$((xte__line_num + 1))
++			case "${xte__line_num}" in
++			1) xte__cached_hash=$xte__line ;;
++			2) xte__cached_cmd=$xte__line ;;
++			3) xte__cached_entry_path=$xte__line ;;
++			4) xte__cached_entry_id=$xte__line ;;
++			5) xte__cached_entry_action=$xte__line ;;
++			6) xte__cached_execarg=$xte__line ;;
++			7) xte__cached_appidarg=$xte__line ;;
++			8) xte__cached_titlearg=$xte__line ;;
++			9) xte__cached_dirarg=$xte__line ;;
++			10) xte__cached_holdarg=$xte__line ;;
++			"$xte__line_limit")
++				debug "reached cache line limit ($xte__line_limit)"
++				return 1
++				;;
++			# Line 11 starts command
++			*)
++				# Command is stored as raw expanded and tokenized $XTE__USEP-separated command,
++				# technically it can contain newline characters.
++				# Reconstruct newlines, use ${XTE__RSEP}END_OF_EXEC_USEP string as terminator.
++				xte__cached_exec_usep=${xte__cached_exec_usep}${xte__cached_exec_usep:+$XTE__LF}${xte__line}
++				case "${xte__line}" in
++				*"${XTE__RSEP}END_OF_EXEC_USEP")
++					xte__cached_exec_usep=${xte__cached_exec_usep%"${XTE__RSEP}END_OF_EXEC_USEP"}
++					xte__finished=1
++					break
++					;;
++				esac
++				;;
++			esac
++		done < "${XTE__CACHE_FILE}"
++		if [ "$xte__finished" = "1" ]; then
++			debug "got cache:" \
++				"hash=${xte__cached_hash}" \
++				"cmd=${xte__cached_cmd}" \
++				"entry_path=${xte__cached_entry_path}" \
++				"entry_id=${xte__cached_entry_id}" \
++				"entry_action=${xte__cached_entry_action}" \
++				"execarg=${xte__cached_execarg}" \
++				"appidarg=${xte__cached_appidarg}" \
++				"titlearg=${xte__cached_titlearg}" \
++				"dirarg=${xte__cached_dirarg}" \
++				"holdarg=${xte__cached_holdarg}" \
++				"exec_usep=${xte__cached_exec_usep}"
++			gen_hash || return 1
++			XTE__HASH=$XTE__NEW_HASH
++			if [ "$XTE__HASH" = "$xte__cached_hash" ] && command -v "$xte__cached_cmd" > /dev/null; then
++				debug "cache is actual"
++				XTE__EXEC_USEP=${xte__cached_exec_usep}
++				XTE__ENTRY_PATH=${xte__cached_entry_path}
++				XTE__ENTRY_ID=${xte__cached_entry_id}
++				XTE__ENTRY_ACTION=${xte__cached_entry_action}
++				XTE__EXECARG=${xte__cached_execarg}
++				XTE__APPIDARG=${xte__cached_appidarg}
++				XTE__TITLEARG=${xte__cached_titlearg}
++				XTE__DIRARG=${xte__cached_dirarg}
++				XTE__HOLDARG=${xte__cached_holdarg}
++				return 0
++			else
++				debug "cache is out-of-date"
++				return 1
++			fi
++		else
++			debug "invalid cache data"
++			return 1
++		fi
++	else
++		debug "no cache data"
++		return 1
++	fi
++}
++
++save_cache() {
++	# saves $XTE__HASH, $1 (executable), $XTE__EXEC_USEP, $XTE__EXECARG, other supported args to cache file or removes it if XTE__CACHE_ENABLED is false
++	if check_bool "$XTE__CACHE_ENABLED"; then
++		[ ! -d "${XDG_CACHE_HOME}" ] && mkdir -p "${XDG_CACHE_HOME}"
++		if [ -z "${XTE__HASH-}" ]; then
++			gen_hash || {
++				error "could not hash listing of files, removing '${XTE__CACHE_FILE}'"
++				rm -f "${XTE__CACHE_FILE}"
++				return 0
++			}
++			XTE__HASH=$XTE__NEW_HASH
++		fi
++		case "${XTE__HASH}${1}${XTE__EXECARG}${XTE__APPIDARG}${XTE__TITLEARG}${XTE__DIRARG}${XTE__HOLDARG}" in
++		"$XTE__LF")
++			error "One or more of terminal's arguments contains a newline, removing '${XTE__CACHE_FILE}'"
++			rm -f "${XTE__CACHE_FILE}"
++			return 0
++			;;
++		esac
++		XTE__UM=$(umask)
++		umask 0077
++		printf '%s\n' \
++			"${XTE__HASH}" \
++			"${1}" \
++			"${XTE__ENTRY_PATH}" \
++			"${XTE__ENTRY_ID}" \
++			"${XTE__ENTRY_ACTION}" \
++			"${XTE__EXECARG}" \
++			"${XTE__APPIDARG}" \
++			"${XTE__TITLEARG}" \
++			"${XTE__DIRARG}" \
++			"${XTE__HOLDARG}" \
++			"${XTE__EXEC_USEP}${XTE__RSEP}END_OF_EXEC_USEP" > "${XTE__CACHE_FILE}"
++		umask "$XTE__UM"
++		debug ">     saved cache:" "${XTE__HASH}" "${XTE__EXEC_USEP}" "${XTE__EXECARG}" "${1}" "^     end of saved cache"
++	else
++		debug "cache is disabled, removing '${XTE__CACHE_FILE}'"
++		rm -f "${XTE__CACHE_FILE}"
++		return 0
++	fi
++}
++
++list_contains() {
++	# checks if list $1 contains item $2 delimited by $3 (default $XTE__LF)
++	xte__delimiter=${3:-$XTE__LF}
++	case "${xte__delimiter}${1}${xte__delimiter}" in
++	*"${xte__delimiter}${2}${xte__delimiter}"*) return 0 ;;
++	*) return 1 ;;
++	esac
++}
++
++# Parse all config files and populate $XTE__ENTRY_IDS with read desktop entry IDs
++read_config_paths() {
++	# All config files are read immediatelly, rather than on demand, even if it's more IO intensive
++	# This way all IDs are already known, and in order of preference, before iterating over them
++	IFS=':'
++	for xte__config_path in ${XTE__CONFIGS}; do
++		IFS=$XTE__OIFS
++		debug "reading config '$xte__config_path'"
++		# Nonexistant file is not an error
++		[ -f "$xte__config_path" ] || continue
++		# Let `read` trim leading/trailing whitespace from the line
++		while read -r xte__line; do
++			#debug "read line '$xte__line'"
++			case "$xte__line" in
++
++			# Catch directives first
++
++			# cache control
++			/enable_cache)
++				debug "found '$xte__line' directive${XTE__CACHE_CONFIGURED:+ (ignored)}"
++				[ -z "$XTE__CACHE_CONFIGURED" ] || continue
++				XTE__CACHE_ENABLED=true
++				XTE__CACHE_CONFIGURED=1
++				;;
++			/disable_cache)
++				debug "found '$xte__line' directive${XTE__CACHE_CONFIGURED:+ (ignored)}"
++				[ -z "$XTE__CACHE_CONFIGURED" ] || continue
++				XTE__CACHE_ENABLED=false
++				XTE__CACHE_CONFIGURED=1
++				;;
++
++			# compat mode
++			/execarg_compat)
++				debug "found '$xte__line' directive${XTE__EXECARG_COMPAT_CONFIGURED:+ (ignored)}"
++				[ -z "$XTE__EXECARG_COMPAT_CONFIGURED" ] || continue
++				XTE__EXECARG_COMPAT=true
++				XTE__EXECARG_COMPAT_CONFIGURED=1
++				;;
++			/execarg_strict)
++				debug "found '$xte__line' directive${XTE__EXECARG_COMPAT_CONFIGURED:+ (ignored)}"
++				[ -z "$XTE__EXECARG_COMPAT_CONFIGURED" ] || continue
++				XTE__EXECARG_COMPAT=false
++				XTE__EXECARG_COMPAT_CONFIGURED=1
++				;;
++
++			# default TerminalArgExec overrides
++			/execarg_default:*:*)
++				if ! check_bool "$XTE__EXECARG_COMPAT"; then
++					debug "ignored directive '$xte__line' (strict mode)"
++					continue
++				fi
++				IFS=':' read -r _directive xte__entry_id xte__execarg_default <<- EOF
++					$xte__line
++				EOF
++				if validate_entry_id "${xte__entry_id}"; then
++					debug "added TerminalArgExec default '${xte__execarg_default}' for '${xte__entry_id}'"
++					# do not bother with deduplication, first entry ID will win
++					XTE__EXECARG_DEFAULTS=${XTE__EXECARG_DEFAULTS}${XTE__EXECARG_DEFAULTS:+$XTE__LF}${xte__entry_id}:${xte__execarg_default}
++				fi
++				;;
++
++			# `[The extensionless entry filename] should be a valid D-Bus well-known name.`
++			# `a sequence of non-empty elements separated by dots (U+002E FULL STOP),
++			# none of which starts with a digit, and each of which contains only characters from the set [a-zA-Z0-9-_]`
++			# Stricter parts seem to be related only to reversed DNS notation but not common naming
++			# i.e. there is `2048-qt.desktop`.
++			# I do not know of any terminal that starts with a number, but it's valid.
++
++			# Catch and validate potential entry ID with action ID (be graceful about an empty one)
++			[a-zA-Z0-9_]* | [+-][a-zA-Z0-9_]*)
++				case "$xte__line" in
++				[+-]*)
++					# save and cut exclusion marker
++					_line=${xte__line#[+-]}
++					xte__exclusion=${xte__line%"$_line"}
++					xte__line=$_line
++					;;
++				*) xte__exclusion= ;;
++				esac
++				# consider only the first ':' as a delimiter
++				IFS=':' read -r xte__entry_id xte__action_id <<- EOL
++					$xte__line
++				EOL
++				if validate_entry_id "${xte__entry_id}" && validate_action_id "${xte__action_id}"; then
++					case "$xte__exclusion" in
++					'')
++						XTE__ENTRY_IDS=${XTE__ENTRY_IDS:+${XTE__ENTRY_IDS}${XTE__LF}}$xte__line
++						debug "added entry ID with action ID '$xte__line'"
++						;;
++					'+')
++						if list_contains "${XTE__EXCLUDED_ENTRY_IDS}" "${xte__entry_id}"; then
++							debug "entry '${xte__entry_id}' was already excluded from fallback"
++						elif list_contains "${XTE__INCLUDED_ENTRY_IDS}" "${xte__entry_id}"; then
++							debug "entry '${xte__entry_id}' fallback exclusion was already prevented"
++						else
++							debug "preventing fallback exclusion for entry '${xte__entry_id}'"
++							XTE__INCLUDED_ENTRY_IDS=${XTE__INCLUDED_ENTRY_IDS:+${XTE__INCLUDED_ENTRY_IDS}${XTE__LF}}${xte__entry_id}
++						fi
++						;;
++					'-')
++						if list_contains "${XTE__INCLUDED_ENTRY_IDS}" "${xte__entry_id}"; then
++							debug "entry '${xte__entry_id}' fallback exclusion was already prevented"
++						elif list_contains "${XTE__EXCLUDED_ENTRY_IDS}" "${xte__entry_id}"; then
++							debug "entry '${xte__entry_id}' was already excluded from fallback"
++						else
++							debug "excluding entry '${xte__entry_id}' from fallback"
++							XTE__EXCLUDED_ENTRY_IDS=${XTE__EXCLUDED_ENTRY_IDS:+${XTE__EXCLUDED_ENTRY_IDS}${XTE__LF}}${xte__entry_id}
++						fi
++						;;
++					esac
++				else
++					error "Discarded possibly misspelled entry '$xte__line'"
++				fi
++				;;
++
++			esac
++			# By default empty lines and comments get ignored
++		done < "$xte__config_path"
++	done
++}
++
++replace() {
++	# takes $1, replaces $2 with $3
++	# does it in large chunks
++	# writes result to global XTE__REPLACED_STR to avoid $() newline issues
++
++	# right part of string
++	xte__r_remainder=${1}
++	XTE__REPLACED_STR=
++	while [ -n "$xte__r_remainder" ]; do
++		# left part before first encounter of $2
++		xte__r_left=${xte__r_remainder%%"$2"*}
++		# append
++		XTE__REPLACED_STR=${XTE__REPLACED_STR}$xte__r_left
++		if [ "$xte__r_left" = "$xte__r_remainder" ]; then
++			# nothing left to cut
++			break
++		fi
++		# append replace substring
++		XTE__REPLACED_STR=${XTE__REPLACED_STR}$3
++		# cut remainder
++		xte__r_remainder=${xte__r_remainder#*"$2"}
++	done
++}
++
++de_expand_str() {
++	# expands \s, \n, \t, \r, \\
++	# https://specifications.freedesktop.org/desktop-entry-spec/latest/value-types.html
++	# writes result to global $XTE__EXPANDED_STR in place to avoid $() expansion newline issues
++	debug "expander received: $1"
++	XTE__EXPANDED_STR=
++	xte__exp_remainder=$1
++	while [ -n "$xte__exp_remainder" ]; do
++		# left is substring of remainder before the first encountered backslash
++		xte__exp_left=${xte__exp_remainder%%\\*}
++
++		# append left to XTE__EXPANDED_STR
++		XTE__EXPANDED_STR=${XTE__EXPANDED_STR}${xte__exp_left}
++		debug "expander appended: $xte__exp_left"
++
++		if [ "$xte__exp_left" = "$xte__exp_remainder" ]; then
++			debug "expander ended: $XTE__EXPANDED_STR"
++			# no more backslashes left
++			break
++		fi
++
++		# remove left substring and backslash from remainder
++		xte__exp_remainder=${xte__exp_remainder#"$xte__exp_left"\\}
++
++		case "$xte__exp_remainder" in
++		# expand and append to XTE__EXPANDED_STR
++		s*)
++			XTE__EXPANDED_STR=${XTE__EXPANDED_STR}' '
++			xte__exp_remainder=${xte__exp_remainder#?}
++			debug "expander substituted space"
++			;;
++		n*)
++			XTE__EXPANDED_STR=${XTE__EXPANDED_STR}$XTE__LF
++			xte__exp_remainder=${xte__exp_remainder#?}
++			debug "expander substituted newline"
++			;;
++		t*)
++			XTE__EXPANDED_STR=${XTE__EXPANDED_STR}'	'
++			xte__exp_remainder=${xte__exp_remainder#?}
++			debug "expander substituted tab"
++			;;
++		r*)
++			XTE__EXPANDED_STR=${XTE__EXPANDED_STR}$XTE__CR
++			xte__exp_remainder=${xte__exp_remainder#?}
++			debug "expander substituted caret return"
++			;;
++		\\*)
++			XTE__EXPANDED_STR=${XTE__EXPANDED_STR}\\
++			xte__exp_remainder=${xte__exp_remainder#?}
++			debug "expander substituted backslash"
++			;;
++		# unsupported sequence, reappend backslash
++		#*)
++		#	XTE__EXPANDED_STR=${XTE__EXPANDED_STR}\\
++		#	debug 'expander reappended backslash'
++		#	;;
++		esac
++	done
++}
++
++de_tokenize_exec() {
++	# Shell-based DE Exec string tokenizer.
++	# https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html
++	# How hard can it be?
++	# Fills global XTE__EXEC_USEP var with $XTE__USEP-separated command array in place to avoid $() expansion newline issues
++	debug "tokenizer received: $1"
++	XTE__EXEC_USEP=
++	xte__tok_remainder=$1
++	xte__tok_quoted=0
++	xte__tok_in_space=0
++	while [ -n "$xte__tok_remainder" ]; do
++		# left is substring of remainder before the first encountered special char
++		xte__tok_left=${xte__tok_remainder%%[[:space:]\"\`\$\\\'\>\<\~\|\&\;\*\?\#\(\)]*}
++
++		# left should be safe to append right away
++		XTE__EXEC_USEP=${XTE__EXEC_USEP}${xte__tok_left}
++		debug "tokenizer appended: >$xte__tok_left<"
++
++		# end of the line
++		case "$xte__tok_remainder" in
++		"$xte__tok_left")
++			debug "tokenizer is out of special chars"
++			break
++			;;
++		esac
++
++		# isolate special char
++		xte__tok_remainder=${xte__tok_remainder#"$xte__tok_left"}
++		xte__cut=${xte__tok_remainder#?}
++		xte__tok_char=${xte__tok_remainder%"$xte__cut"}
++		unset cut
++		# cut it from remainder
++		xte__tok_remainder=${xte__tok_remainder#"$xte__tok_char"}
++
++		# check if still in space
++		case "${xte__tok_in_space}${xte__tok_left}${xte__tok_char}" in
++		1[[:space:]])
++			debug "tokenizer still in space :) skipping space character"
++			continue
++			;;
++		1*)
++			debug "tokenizer no longer in space :("
++			xte__tok_in_space=0
++			;;
++		esac
++
++		## decide what to do with the character
++		# doublequote while quoted
++		case "${xte__tok_quoted}${xte__tok_char}" in
++		'1"')
++			xte__tok_quoted=0
++			debug "tokenizer closed double quotes"
++			continue
++			;;
++		# doublequote while unquoted
++		'0"')
++			xte__tok_quoted=1
++			debug "tokenizer opened double quotes"
++			continue
++			;;
++		# error out on unquoted special chars
++		0[\`\$\\\'\>\<\~\|\&\;\*\?\#\(\)])
++			debug "${xte__entry_id}: Encountered unquoted character: '$xte__tok_char'"
++			return 1
++			;;
++		# error out on quoted but unescaped chars
++		1[\`\$])
++			debug "${xte__entry_id}: Encountered unescaped quoted character: '$xte__tok_char'"
++			return 1
++			;;
++		# process quoted escapes
++		1\\)
++			case "$xte__tok_remainder" in
++			# if there is no next char, fail
++			'')
++				debug "${xte__entry_id}: Dangling backslash encountered!"
++				return 1
++				;;
++			# cut and append the next char right away
++			# or a half of multibyte char, the other half should go into the next
++			# 'xte__tok_left' hopefully...
++			*)
++				xte__cut=${xte__tok_remainder#?}
++				xte__tok_char=${xte__tok_remainder%"$xte__cut"}
++				xte__tok_remainder=${xte__cut}
++				unset xte__cut
++				XTE__EXEC_USEP=${XTE__EXEC_USEP}${xte__tok_char}
++				debug "tokenizer appended escaped: >$xte__tok_char<"
++				;;
++			esac
++			;;
++		# Consider Cosmos
++		0[[:space:]])
++			case "${xte__tok_remainder}" in
++			# there is non-space to follow
++			*[![:space:]]*)
++				# append separator
++				XTE__EXEC_USEP=${XTE__EXEC_USEP}${XTE__USEP}
++				xte__tok_in_space=1
++				debug "tokenizer entered spaaaaaace!!!! separator appended"
++				;;
++			# ignore unquoted space at the end of string
++			*)
++				debug "tokenizer entered outer spaaaaaace!!!! separator skipped, this is the end"
++				break
++				;;
++			esac
++			;;
++		# append quoted chars
++		1[[:space:]\'\>\<\~\|\&\;\*\?\#\(\)])
++			XTE__EXEC_USEP=${XTE__EXEC_USEP}${xte__tok_char}
++			debug "tokenizer appended quoted char: >$xte__tok_char<"
++			;;
++		# this should not happen
++		*)
++			debug "${xte__entry_id}: parsing error at char '$xte__tok_char', (quoted: $xte__tok_quoted)"
++			return 1
++			;;
++		esac
++	done
++	case "$xte__tok_quoted" in
++	1)
++		debug "${xte__entry_id}: Double quote was not closed!"
++		return 1
++		;;
++	esac
++	# shellcheck disable=SC2086
++	[ -z "$XTE__DEBUG" ] || debug "tokenizer ended:" "$(
++		IFS=$XTE__USEP
++		printf '  >%s<\n' $XTE__EXEC_USEP
++	)"
++}
++
++de_strip_fields() {
++	# Operates on $XTE__EXEC_USEP
++	# modifies according to args/fields
++	# no arguments, erase fields from $XTE__EXEC_USEP
++	xte__exec_usep=
++	xte__fu_found=false
++	IFS=$XTE__USEP
++	for xte__arg in $XTE__EXEC_USEP; do
++		case "$xte__arg" in
++		# remove deprecated fields
++		*[!%]'%'[dDnNvm]* | '%'[dDnNvm]*) debug "injector removed deprecated '$xte__arg'" ;;
++		# treat file fields
++		*[!%]'%'[fFuU]* | '%'[fFuU]*)
++			if [ "$xte__fu_found" = "true" ]; then
++				debug "${xte__entry_id}: Encountered more than one %[fFuU] field!"
++				return 1
++			fi
++			xte__fu_found=true
++			debug "injector removed '$xte__arg'"
++			continue
++			;;
++		# other fields
++		*[!%]'%i'* | '%i'* | *[!%]'%c'* | '%c'*)
++			debug "injector removed '$xte__arg'"
++			continue
++			;;
++		# literal %
++		*[!%]%%* | %%*)
++			replace "$xte__arg" "%%" "%"
++			xte__rarg=$XTE__REPLACED_STR
++			debug "injector replacing '%%': '$xte__arg' -> '$xte__rarg'"
++			xte__exec_usep=${xte__exec_usep}${xte__exec_usep:+$XTE__USEP}${xte__rarg}
++			;;
++		# invalid field
++		*%?* | *[!%]%)
++			debug "${xte__entry_id}: unknown % field in argument '${xte__arg}'"
++			return 1
++			;;
++		*)
++			debug "injector keeped: '$xte__arg'"
++			xte__exec_usep=${xte__exec_usep}${xte__exec_usep:+$XTE__USEP}${xte__arg}
++			;;
++		esac
++	done
++	XTE__EXEC_USEP=$xte__exec_usep
++	IFS=$XTE__OIFS
++}
++
++reset_keys() {
++	# init vars used in entry checks
++	XTE__IS_TERMINAL=
++	XTE__EXEC_USEP=
++	XTE__EXECARG='-e'
++	XTE__EXECARG_DEFINED=false
++	XTE__APPIDARG=
++	XTE__TITLEARG=
++	XTE__DIRARG=
++	XTE__HOLDARG=
++}
++
++# Find and map all desktop entry files from standardised paths into aliases
++find_entry_paths() {
++	debug "registering entries"
++
++	# Append application directory paths to be searched
++	IFS=':'
++	for xte__directory in $XTE__APPLICATIONS_DIRS; do
++		# Append '.' to delimit start of entry ID
++		set -- "$@" "$xte__directory".
++	done
++
++	# Find all files
++	set -- "$@" -type f
++
++	# Append path conditions per directory
++	xte__or_arg=
++	for xte__directory in $XTE__APPLICATIONS_DIRS; do
++		# Match full path with proper first character of entry ID and .desktop extension
++		# Reject paths with invalid characters in entry ID
++		set -- "$@" ${xte__or_arg} '(' -path "$xte__directory"'./[a-zA-Z0-9_]*.desktop' ! -path "$xte__directory"'./*[^a-zA-Z0-9_./-]*' ')'
++		xte__or_arg='-o'
++	done
++	IFS=$XTE__OIFS
++
++	# Loop through found entry paths and IDs
++	while IFS= read -r xte__entry_path && IFS= read -r xte__entry_id; do
++		# Entries are checked in ascending order of preference, so use last found if duplicate
++		# shellcheck disable=SC2139
++		alias "$xte__entry_id"="xte__entry_path='$xte__entry_path'"
++		debug "registered '$xte__entry_path' as entry '$xte__entry_id'"
++		# exclude entries based on XTE__EXCLUDED_ENTRY_IDS
++		if list_contains "$XTE__EXCLUDED_ENTRY_IDS" "$xte__entry_id"; then
++			debug "entry '${xte__entry_id}' was excluded from fallback"
++			continue
++		fi
++		# Add as a fallback ID regardles if it's a duplicate
++		XTE__FALLBACK_ENTRY_IDS=${xte__entry_id}${XTE__FALLBACK_ENTRY_IDS:+${XTE__LF}${XTE__FALLBACK_ENTRY_IDS}}
++		debug "added fallback ID '$xte__entry_id'"
++	done <<- EOE
++		$(
++			# Don't complain about nonexistent directories
++			find -L "$@" 2> /dev/null |
++				# Print entry path and convert it into an ID and print that too
++				awk '{ print; sub(".*/[.]/", ""); gsub("/", "-"); print }'
++		)
++	EOE
++}
++
++# Check validity of a given entry key - value pair
++# Modifies following global variables:
++# XTE__EXEC_USEP : Program to execute, possibly with arguments, delimited by ASCII Unit Separator.
++# XTE__EXECARG : Execution argument for the terminal emulator.
++# XTE__IS_TERMINAL : Set if application has been categorized as a terminal emulator
++check_entry_key() {
++	xte__key=$1
++	xte__value=$2
++	xte__action=$3
++	xte__read_exec=$4
++	xte__de_checks=$5
++
++	# Order of checks is important
++	case $xte__key in
++	'Categories'*=*)
++		debug "checking for 'TerminalEmulator' in Categories '$xte__value'"
++		IFS=';'
++		for xte__category in $xte__value; do
++			IFS=$XTE__OIFS
++			[ "$xte__category" = "TerminalEmulator" ] && {
++				XTE__IS_TERMINAL=true
++				return 0
++			}
++		done
++		# Default in this case is to fail
++		return 1
++		;;
++	'Actions'*=*)
++		# `It is not valid to have an action group for an action identifier not mentioned in the Actions key.
++		# Such an action group must be ignored by implementors.`
++		# ignore if no action requested
++		[ -z "$xte__action" ] && return 0
++		debug "checking for '$xte__action' in Actions '$xte__value'"
++		IFS=';'
++		for xte__check_action in $xte__value; do
++			IFS=$XTE__OIFS
++			if [ "$xte__check_action" = "$xte__action" ]; then
++				xte__action_listed=true
++				return 0
++			fi
++		done
++		# Default in this case is to fail
++		return 1
++		;;
++	'OnlyShowIn'*=*)
++		case "$xte__de_checks" in
++		true) debug "checking for intersecion between '${XDG_CURRENT_DESKTOP-}' and OnlyShowIn '$xte__value'" ;;
++		false)
++			debug "skipping OnlyShowIn check"
++			return 0
++			;;
++		esac
++		IFS=';'
++		for xte__target in $xte__value; do
++			IFS=':'
++			for xte__desktop in ${XDG_CURRENT_DESKTOP-}; do
++				IFS=$XTE__OIFS
++				[ "$xte__desktop" = "$xte__target" ] && return 0
++			done
++		done
++		# Default in this case is to fail
++		return 1
++		;;
++	'NotShowIn'*=*)
++		case "$xte__de_checks" in
++		true) debug "checking for intersecion between '${XDG_CURRENT_DESKTOP-}' and NotShowIn '$xte__value'" ;;
++		false)
++			debug "skipping NotShowIn check"
++			return 0
++			;;
++		esac
++		IFS=';'
++		for xte__target in $xte__value; do
++			IFS=':'
++			for xte__desktop in ${XDG_CURRENT_DESKTOP-}; do
++				IFS=$XTE__OIFS
++				debug "checking NotShowIn match '$xte__desktop'='$xte__target'"
++				[ "$xte__desktop" = "$xte__target" ] && return 1
++			done
++		done
++		# Default in this case is to succeed
++		return 0
++		;;
++	'X-TerminalArgExec'*=* | 'TerminalArgExec'*=*)
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__EXECARG=$XTE__EXPANDED_STR
++		XTE__EXECARG_DEFINED=true
++		debug "read TerminalArgExec '$XTE__EXECARG'"
++		;;
++	'X-ExecArg'*=* | 'ExecArg'*=*)
++		# ignore old ExecArg in strict mode
++		case "${XTE__EXECARG_COMPAT}" in
++		false) return 0 ;;
++		esac
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__EXECARG=$XTE__EXPANDED_STR
++		XTE__EXECARG_DEFINED=true
++		debug "read TerminalArgExec '$XTE__EXECARG'"
++		;;
++	'X-TerminalArgAppId'*=* | 'TerminalArgAppId'*=*)
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__APPIDARG=$XTE__EXPANDED_STR
++		debug "read TerminalArgAppId '$XTE__APPIDARG'"
++		;;
++	'X-TerminalArgTitle'*=* | 'TerminalArgTitle'*=*)
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__TITLEARG=$XTE__EXPANDED_STR
++		debug "read TerminalArgTitle '$XTE__TITLEARG'"
++		;;
++	'X-TerminalArgDir'*=* | 'TerminalArgDir'*=*)
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__DIRARG=$XTE__EXPANDED_STR
++		debug "read TerminalArgDir '$XTE__DIRARG'"
++		;;
++	'X-TerminalArgHold'*=* | 'TerminalArgHold'*=*)
++		# Set global variable
++		# values of type string should support escape sequences
++		de_expand_str "$xte__value"
++		XTE__HOLDARG=$XTE__EXPANDED_STR
++		debug "read TerminalArgHold '$XTE__HOLDARG'"
++		;;
++	'TryExec'*=*)
++		de_expand_str "$xte__value"
++		debug "checking TryExec executable '$XTE__EXPANDED_STR'"
++		command -v "$XTE__EXPANDED_STR" > /dev/null || return 1
++		;;
++	'Hidden'*=*)
++		debug "checking boolean Hidden '$xte__value'"
++		case "$xte__value" in
++		true)
++			debug "ignored Hidden entry"
++			return 1
++			;;
++		esac
++		;;
++	'Exec'*=*)
++		case "$xte__read_exec" in
++		false)
++			debug "ignored Exec from wrong section"
++			return 0
++			;;
++		esac
++		debug "read Exec '$xte__value'"
++		# Escape sequences of DE string value (sets $XTE__EXPANDED_STR)
++		de_expand_str "$xte__value"
++		# Tokenize resulting string (sets $XTE__EXEC_USEP)
++		de_tokenize_exec "$XTE__EXPANDED_STR"
++		# Expand % fields
++		de_strip_fields
++		# Get first word from read Exec value
++		XTE__EXEC0=${XTE__EXEC_USEP%%"$XTE__USEP"*}
++		debug "checking Exec[0] executable '$XTE__EXEC0'"
++		command -v "$XTE__EXEC0" > /dev/null || return 1
++		;;
++	esac
++	# By default unrecognised keys, empty lines and comments get ignored
++}
++
++# Read entry from given path
++read_entry_path() {
++	xte__entry_path=$1
++	xte__entry_action=$2
++	xte__de_checks=$3
++	xte__read_exec=false
++	xte__action_listed=false
++	# shellcheck disable=SC2016
++	debug "reading desktop entry '$xte__entry_path'${xte__entry_action:+ action '}$xte__entry_action${xte__entry_action:+'}"
++	# Let `read` trim leading/trailing whitespace from the line
++	while IFS=$XTE__OIFS read -r xte__line; do
++		case $xte__line in
++		# `There should be nothing preceding [the Desktop Entry group] in the desktop entry file but [comments]`
++		# if xte__entry_action is not requested, allow reading Exec right away from the main group
++		'[Desktop Entry]'*) [ -z "$xte__entry_action" ] && xte__read_exec=true ;;
++		# A `Key=Value` pair
++		[a-zA-Z0-9-]*)
++			# Split value from pair
++			xte__value=${xte__line#*=}
++			# Remove all but leading spaces, and trim that from the value
++			xte__value=${xte__value#"${xte__value%%[! ]*}"}
++			# Check the key, continue to next line on success
++			check_entry_key "$xte__line" "$xte__value" "$xte__entry_action" "$xte__read_exec" "$xte__de_checks" && continue
++			# Reset values that might have been set
++			reset_keys
++			# shellcheck disable=SC2016
++			debug "entry discarded"
++			return 1
++			;;
++		# found requested action, allow reading Exec
++		"[Desktop Action ${xte__entry_action}]"*)
++			if [ "$xte__action_listed" = "true" ]; then
++				xte__read_exec=true
++			else
++				debug "action '$xte__entry_action' was not listed in Actions"
++				return 1
++			fi
++			;;
++		# Start of the next group header, stop if already read exec
++		'['*) [ "$xte__read_exec" = "true" ] && break ;;
++		esac
++		# By default empty lines and comments get ignored
++	done < "$xte__entry_path"
++}
++
++validate_entry_id() {
++	# validates entry ID ($1)
++
++	case "$1" in
++	# invalid characters or degrees of emptiness
++	*[!a-zA-Z0-9_.-]* | *[!a-zA-Z0-9_.-] | [!a-zA-Z0-9_.-]* | [!a-zA-Z0-9_.-] | '' | .desktop)
++		debug "string not valid as Entry ID: '$1'"
++		return 1
++		;;
++	# all that left with .desktop
++	*.desktop) return 0 ;;
++	# and without
++	*)
++		debug "string not valid as Entry ID '$1'"
++		return 1
++		;;
++	esac
++}
++
++validate_action_id() {
++	# validates action ID ($1)
++
++	case "$1" in
++	# empty is ok
++	'') return 0 ;;
++	# invalid characters
++	*[!a-zA-Z0-9-]* | *[!a-zA-Z0-9-] | [!a-zA-Z0-9-]* | [!a-zA-Z0-9-])
++		debug "string not valid as Action ID: '$1'"
++		return 1
++		;;
++	# all that left
++	*) return 0 ;;
++	esac
++}
++
++# Loop through IDs and try to find a valid entry
++find_entry() {
++	# for explicitly listed entries do not apply DE *ShowIn limits
++	xte__de_checks=false
++	IFS=$XTE__LF
++	for xte__entry_id in ${XTE__ENTRY_IDS}${XTE__LF}//fallback_start//${XTE__LF}$XTE__FALLBACK_ENTRY_IDS; do
++		IFS=$XTE__OIFS
++		case "$xte__entry_id" in
++		# entry has an action appended
++		*:*)
++			xte__entry_action=${xte__entry_id#*:}
++			xte__entry_id=${xte__entry_id%:*}
++			;;
++		# skip empty line
++		'') continue ;;
++		# fallback entries ahead, enable *ShowIn checks
++		'//fallback_start//')
++			xte__de_checks=true
++			continue
++			;;
++		# nullify action
++		*) xte__entry_action= ;;
++		esac
++
++		debug "matching path for entry ID '$xte__entry_id'"
++		# Check if a matching path was found for ID
++		alias "$xte__entry_id" > /dev/null 2>&1 || continue
++		# Evaluates the alias, it sets $xte__entry_path
++		eval "$xte__entry_id"
++		# Unset the alias, so duplicate entries are skipped
++		unalias "$xte__entry_id"
++		read_entry_path "$xte__entry_path" "$xte__entry_action" "$xte__de_checks" || continue
++		# Check that the entry is actually executable
++		[ -z "${XTE__EXEC_USEP}" ] && continue
++		# ensure entry is a Terminal Emulator
++		[ -z "${XTE__IS_TERMINAL}" ] && continue
++		# if entry lacks TerminalArgExec
++		if [ "$XTE__EXECARG_DEFINED" != "true" ]; then
++			# get (custom) default in compat mode
++			if check_bool "$XTE__EXECARG_COMPAT"; then
++				get_default_execarg "$xte__entry_id"
++				XTE__EXECARG=$XTE__DEFAULT_EXECARG
++			# discard entry in strict mode
++			else
++				continue
++			fi
++		fi
++		# Entry is valid, set XTE__ENTRY_PATH, XTE__ENTRY_ID, XTE__ENTRY_ACTION and stop
++		XTE__ENTRY_PATH=$xte__entry_path
++		XTE__ENTRY_ID=$xte__entry_id
++		XTE__ENTRY_ACTION=$xte__entry_action
++		return 0
++	done
++	# shellcheck disable=SC2086
++	IFS=':' error "No valid terminal entry was found in:" ${XTE__APPLICATIONS_DIRS}
++	return 1
++}
++
++get_default_execarg() {
++	# based on xte__entry_id ($1) get TerminalArgExec from XTE__EXECARG_DEFAULTS
++	# write to XTE__DEFAULT_EXECARG var
++	xte__gde_check_entry=$1
++	while IFS=':' read -r xte__gde_entry_id xte__execarg_default; do
++		case "$xte__gde_entry_id" in
++		"$xte__gde_check_entry")
++			XTE__DEFAULT_EXECARG=$xte__execarg_default
++			debug "custom default TerminalArgExec '$xte__execarg_default' for '$xte__gde_check_entry'"
++			return 0
++			;;
++		esac
++	done <<- EOF
++		$XTE__EXECARG_DEFAULTS
++	EOF
++	XTE__DEFAULT_EXECARG='-e'
++	debug "using default TerminalArgExec '-e' for '$xte__gde_check_entry'"
++}
++
++# print help and exit if there's -h|--help before --
++for xte__arg in "$@"; do
++	case "$xte__arg" in
++	--) break ;;
++	-h | --help)
++		help
++		exit 0
++		;;
++	esac
++done
++
++## globals
++XTE__LOWERCASE_XDG_CURRENT_DESKTOP=$(printf '%s' "${XDG_CURRENT_DESKTOP-}" | tr '[:upper:]' '[:lower:]')
++
++# compat mode
++XTE__EXECARG_COMPAT=${XTE_EXECARG_COMPAT-true}
++# flag reused in directive encounter
++XTE__EXECARG_COMPAT_CONFIGURED=${XTE_EXECARG_COMPAT-}
++
++XTE__EXEC_USEP=
++XTE__EXPANDED_STR=
++XTE__ENTRY_PATH=
++XTE__ENTRY_ID=
++XTE__ENTRY_ACTION=
++
++# this will receive proper value later
++XTE__APPLICATIONS_DIRS=
++
++# this will be filled with values from /execarg_default:*:* directives
++XTE__EXECARG_DEFAULTS=
++
++# this (re)sets vars to be filled from desktop entry
++reset_keys
++
++# path iterators
++make_paths
++
++# At this point we have no way of telling if cache is enabled or not, unless
++# XTE_CACHE_ENABLED is set, so just try reading it by default, otherwise do the
++# usual thing. Editing config to disable cache should invalidate the cache.
++XTE__CACHE_ENABLED=${XTE_CACHE_ENABLED-true}
++# flag reused for directive encounter
++XTE__CACHE_CONFIGURED=${XTE_CACHE_ENABLED-}
++
++# HASH can be reused
++XTE__HASH=
++
++if check_bool "${XTE__CACHE_ENABLED}" && read_cache; then
++	XTE__CACHE_USED=true
++else
++	# continue with globals
++	XTE__CACHE_USED=false
++
++	# All desktop entry ids in descending order of preference from *xdg-terminals.list configs,
++	# with duplicates removed
++	XTE__ENTRY_IDS=
++	# All desktop entry ids found in data dirs in descending order of preference,
++	# with duplicates (including those in $XTE__ENTRY_IDS) removed
++	XTE__FALLBACK_ENTRY_IDS=
++
++	# Entry IDs excluded from fallback by '-entry.desktop' directives
++	XTE__EXCLUDED_ENTRY_IDS=
++	# Entry IDS included (exclusion prevented) by '+entry.desktop' directives
++	XTE__INCLUDED_ENTRY_IDS=
++
++	# Modifies $XTE__ENTRY_IDS
++	read_config_paths
++	# Modifies $XTE__ENTRY_IDS and sets global aliases
++	find_entry_paths
++
++	# shellcheck disable=SC2086
++	[ -z "$XTE__DEBUG" ] || IFS=$XTE__LF debug ">     final entry ID list:" ${XTE__ENTRY_IDS} "^     end of final entry ID list"
++	# shellcheck disable=SC2086
++	[ -z "$XTE__DEBUG" ] || IFS=$XTE__LF debug ">     final fallback entry ID list:" ${XTE__FALLBACK_ENTRY_IDS} "^     end of final fallback entry ID list"
++
++	# walk ID lists and find first applicable
++	find_entry || exit 1
++fi
++
++# Store original argument list, before it's modified
++debug ">     original args:" "$@" "^     end of original args" "XTE__EXEC_USEP=$XTE__EXEC_USEP" "XTE__EXECARG=$XTE__EXECARG"
++
++# process/discard options
++debug "option processing"
++XTE__APPIDVAL=
++XTE__TITLEVAL=
++XTE__DIRVAL=
++XTE__HOLD=false
++XTE__TEST_MODE=false
++XTE__PRINT_DATA=
++XTE__PRINT_DELIMITER='\n'
++XTE__PRINT_CMD_DELIMITER='\n'
++while [ "$#" -gt "0" ]; do
++	case "$1" in
++	--)
++		debug "found explicit end of options $1"
++		shift
++		break
++		;;
++	-e | "$XTE__EXECARG")
++		debug "found exec arg $1"
++		shift
++		break
++		;;
++	--app-id=*)
++		debug "found option $1"
++		IFS='=' read -r _opt XTE__APPIDVAL <<- EOF
++			$1
++		EOF
++		debug "set app-id option to $XTE__APPIDVAL"
++		shift
++		;;
++	--title=*)
++		debug "found option $1"
++		IFS='=' read -r _opt XTE__TITLEVAL <<- EOF
++			$1
++		EOF
++		debug "set title option to $XTE__TITLEVAL"
++		shift
++		;;
++	--dir=*)
++		debug "found option $1"
++		IFS='=' read -r _opt XTE__DIRVAL <<- EOF
++			$1
++		EOF
++		debug "set dir option to $XTE__DIRVAL"
++		shift
++		;;
++	--hold)
++		debug "found option $1"
++		XTE__HOLD=true
++		debug "set XTE__HOLD=true"
++		shift
++		;;
++	--test)
++		debug "found option $1"
++		XTE__TEST_MODE=true
++		debug "set XTE__TEST_MODE=true"
++		shift
++		;;
++	--print-path)
++		debug "found option $1"
++		XTE__PRINT_DATA="$XTE__PRINT_DATA path"
++		debug "set XTE__PRINT_DATA='$XTE__PRINT_DATA'"
++		shift
++		;;
++	--print-id)
++		debug "found option $1"
++		XTE__PRINT_DATA="$XTE__PRINT_DATA id"
++		debug "set XTE__PRINT_DATA=$XTE__PRINT_DATA"
++		shift
++		;;
++	--print-content)
++		debug "found option $1"
++		XTE__PRINT_DATA="$XTE__PRINT_DATA content"
++		debug "set XTE__PRINT_DATA=$XTE__PRINT_DATA"
++		shift
++		;;
++	--print-cmd)
++		debug "found option $1"
++		XTE__PRINT_DATA="$XTE__PRINT_DATA cmd"
++		debug "set XTE__PRINT_DATA=$XTE__PRINT_DATA"
++		shift
++		;;
++	--print-cmd=*)
++		debug "found option $1"
++		XTE__PRINT_DATA="$XTE__PRINT_DATA cmd"
++		IFS='=' read -r _arg XTE__PRINT_CMD_DELIMITER <<- EOF
++			$1
++		EOF
++		debug "set XTE__PRINT_DATA=$XTE__PRINT_DATA" "set XTE__PRINT_CMD_DELIMITER=$XTE__PRINT_CMD_DELIMITER"
++		shift
++		;;
++	--print-delimiter=*)
++		debug "found option $1"
++		IFS='=' read -r _arg XTE__PRINT_DELIMITER <<- EOF
++			$1
++		EOF
++		debug "set XTE__PRINT_DELIMITER=$XTE__PRINT_DELIMITER"
++		shift
++		;;
++	[!-]*)
++		debug "found non-option $1"
++		break
++		;;
++	-*)
++		debug "discarding unknown option $1"
++		shift
++		;;
++	esac
++done
++debug "end of option processing, prependig options"
++
++# print some data
++XTE__PRINT_FIRST=true
++case " $XTE__PRINT_DATA " in
++*' id '*)
++	debug "acting on --print-id"
++
++	printf '%s' "${XTE__ENTRY_ID}${XTE__ENTRY_ACTION:+:}${XTE__ENTRY_ACTION}"
++
++	XTE__PRINT_FIRST=false
++	;;
++esac
++case " $XTE__PRINT_DATA " in
++*' path '*)
++	debug "acting on --print-path"
++
++	# remove /./ delimiter
++	case "${XTE__ENTRY_PATH}" in
++	*'/./'*) XTE__ENTRY_PATH=${XTE__ENTRY_PATH%%/./*}/${XTE__ENTRY_PATH##*/./} ;;
++	esac
++
++	case "$XTE__PRINT_FIRST" in
++	false) printf '%b' "$XTE__PRINT_DELIMITER" ;;
++	esac
++
++	printf '%s' "${XTE__ENTRY_PATH}${XTE__ENTRY_ACTION:+:}${XTE__ENTRY_ACTION}"
++
++	XTE__PRINT_FIRST=false
++	;;
++esac
++case " $XTE__PRINT_DATA " in
++*' content '*)
++	debug "acting on --print-content"
++
++	case "$XTE__PRINT_FIRST" in
++	false) printf '%b' "$XTE__PRINT_DELIMITER" ;;
++	esac
++
++	shcat < "${XTE__ENTRY_PATH}"
++
++	XTE__PRINT_FIRST=false
++	;;
++esac
++
++# early bail out in some print modes
++case " $XTE__PRINT_DATA " in
++'  ' | *' cmd '*)
++	# more stuff to do, continue
++	true
++	;;
++*' content '*)
++	# content already has newline at the end, just exit
++	exit 0
++	;;
++*)
++	# terminate with newline if delimiter is newline
++	case "$XTE__PRINT_DELIMITER" in
++	'\n') printf '%b' '\n' ;;
++	esac
++	exit 0
++	;;
++esac
++
++# option prepend
++if [ "$#" -gt 0 ] && [ -n "$XTE__EXECARG" ]; then
++	set -- "$XTE__EXECARG" "$@"
++	debug "prepended $1"
++fi
++
++if [ -n "$XTE__HOLDARG" ] && check_bool "$XTE__HOLD"; then
++	set -- "${XTE__HOLDARG}" "$@"
++	debug "prepended $1"
++elif [ -z "$XTE__HOLDARG" ] && check_bool "$XTE__HOLD"; then
++	debug "terminal entry has no TerminalArgHold="
++fi
++
++if [ -n "$XTE__DIRARG" ] && [ -n "$XTE__DIRVAL" ]; then
++	case "$XTE__DIRARG" in
++	*=)
++		set -- "${XTE__DIRARG}${XTE__DIRVAL}" "$@"
++		debug "prepended $1"
++		;;
++	*)
++		set -- "${XTE__DIRARG}" "${XTE__DIRVAL}" "$@"
++		debug "prepended $1 $2"
++		;;
++	esac
++elif [ -z "$XTE__DIRARG" ] && [ -n "$XTE__DIRVAL" ]; then
++	debug "terminal entry has no TerminalArgDir="
++fi
++
++if [ -n "$XTE__TITLEARG" ] && [ -n "$XTE__TITLEVAL" ]; then
++	case "$XTE__TITLEARG" in
++	*=)
++		set -- "${XTE__TITLEARG}${XTE__TITLEVAL}" "$@"
++		debug "prepended $1"
++		;;
++	*)
++		set -- "${XTE__TITLEARG}" "${XTE__TITLEVAL}" "$@"
++		debug "prepended $1 $2"
++		;;
++	esac
++elif [ -z "$XTE__TITLEARG" ] && [ -n "$XTE__TITLEVAL" ]; then
++	debug "terminal entry has no TerminalArgTitle="
++fi
++
++if [ -n "$XTE__APPIDARG" ] && [ -n "$XTE__APPIDVAL" ]; then
++	case "$XTE__APPIDARG" in
++	*=)
++		set -- "${XTE__APPIDARG}${XTE__APPIDVAL}" "$@"
++		debug "prepended $1"
++		;;
++	*)
++		set -- "${XTE__APPIDARG}" "${XTE__APPIDVAL}" "$@"
++		debug "prepended $1 $2"
++		;;
++	esac
++elif [ -z "$XTE__APPIDARG" ] && [ -n "$XTE__APPIDVAL" ]; then
++	debug "terminal entry has no TerminalArgAppId="
++fi
++
++debug "end of option prepending"
++
++# prepend Exec
++IFS=$XTE__USEP
++# shellcheck disable=SC2086
++set -- $XTE__EXEC_USEP "$@"
++IFS=$XTE__OIFS
++
++debug ">     final args:" "$@" "^     end of final args"
++
++if [ "$XTE__CACHE_USED" = "false" ]; then
++	# saves or removes cache, forked out of the way
++	save_cache "$1" &
++fi
++
++case "$XTE__TEST_MODE" in
++true)
++	printf '%s\n' 'Command and arguments:'
++	printf '  >%s<\n' "$@"
++	exit 0
++	;;
++esac
++
++case " $XTE__PRINT_DATA " in
++*' cmd '*)
++	debug "acting on --print-cmd"
++
++	case "$XTE__PRINT_FIRST" in
++	false) printf '%b' "$XTE__PRINT_DELIMITER" ;;
++	esac
++
++	xte__first=true
++	for xte__arg in "$@"; do
++		case "$xte__first" in
++		true) xte__first=false ;;
++		false) printf '%b' "${XTE__PRINT_CMD_DELIMITER:-\n}" ;;
++		esac
++		printf '%s' "$xte__arg"
++	done
++
++	# if either delimiter is a newline, terminate with another one
++	if [ "${XTE__PRINT_CMD_DELIMITER}" = '\n' ] || { [ "$XTE__PRINT_FIRST" = "false" ] && [ "$XTE__PRINT_DELIMITER" = '\n' ]; }; then
++		printf '%b' '\n'
++	fi
++
++	exit 0
++	;;
++esac
++
++if [ -z "$XTE__DIRARG" ] && [ -n "$XTE__DIRVAL" ]; then
++	debug "no X-TerminalArgDir in entry, changing dir to '$XTE__DIRVAL'"
++	cd "$XTE__DIRVAL"
++fi
++
++exec "$@"
+diff --git a/mkosi.conf b/mkosi.conf
+index b233ff8..a623a8c 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -47,7 +47,7 @@ UnifiedKernelImageFormat=%i_%v
+ Hostname=duranium
+ Locale=en_US.UTF-8
+ Timezone=UTC
+-RootPassword=hashed:!
++RootPassword=hashed:$6$mkosivalidate$q72PIOpcmrsVuuHj/g0XP82YOGuo2L061LAj8aCTPc2fiabIiHlZLcIxqkmnVhCBSQwrNoyU9Pu73/6aPpXV21
+ KernelModulesInitrd=yes
+ KernelCommandLine=
+ 	rw
+@@ -65,4 +65,4 @@ RuntimeTrees=./mkosi.output:/mkosi.output
+ RuntimeSize=20G
+ Firmware=uefi
+ Console=native
+-QemuArgs=-display gtk,gl=on,show-cursor=on -device virtio-keyboard-pci -device virtio-tablet-pci -device virtio-gpu-gl -boot menu=on,splash-time=0
++QemuArgs=-boot menu=on,splash-time=0
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index dcbcacd..055dc2a 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -5,6 +5,19 @@ Format=directory
+ CleanPackageMetadata=no
+ Packages=
+ 	postmarketos-duranium
++	foot
++	alacritty
++	xterm
++	# QMF mail backend (built via marathon-extras/build-qmf-apk.sh).
++	# Provides libQmfClient.so.4 + libQmfMessageServer.so.4 + the
++	# messageserver daemon that marathon-mailserver.service launches.
++	qmf-libs
++	qmf-messageserver
++	# OAuth2 + Secret-Service credential helper for QMF
++	# (built via marathon-extras/build-marathon-mail-oauth-apk.sh).
++	# Installs /usr/bin/marathon-mail-oauth, invoked by the
++	# marathonoauth + marathonclassic QMF credential plugins.
++	marathon-mail-oauth
+ RemovePackages=
+ 	# Ideally this could be excluded in packaging, but it's difficult
+ 	# to do this without causing regressions in mutable pmOS. See:
+-- 
+2.53.0
+

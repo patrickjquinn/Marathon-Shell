@@ -97,9 +97,11 @@ MApp {
     Connections {
         function onScanComplete(trackCount) {
             Logger.info("Music", "Library scan complete: " + trackCount + " tracks");
-            playlist = MusicLibraryManager.getAllTracks();
-            if (playlist.length > 0 && !currentTrack)
-                currentTrack = playlist[0];
+            if (typeof MusicLibraryManager !== 'undefined') {
+                musicApp.playlist = MusicLibraryManager.getAllTracks();
+                if (musicApp.playlist.length > 0 && !musicApp.currentTrack)
+                    musicApp.currentTrack = musicApp.playlist[0];
+            }
         }
 
         target: typeof MusicLibraryManager !== 'undefined' ? MusicLibraryManager : null
@@ -109,21 +111,21 @@ MApp {
         id: audioPlayer
 
         onPositionChanged: {
-            if (currentTrack && currentTrack.duration) {
+            if (musicApp.currentTrack && musicApp.currentTrack.duration) {
                 var newPos = position / 1000;
                 if (!isNaN(newPos) && isFinite(newPos))
-                    currentTrack.position = newPos;
+                    musicApp.currentTrack.position = newPos;
             }
         }
         onDurationChanged: {
-            if (currentTrack && duration > 0) {
+            if (musicApp.currentTrack && duration > 0) {
                 var newDur = duration / 1000;
                 if (!isNaN(newDur) && isFinite(newDur))
-                    currentTrack.duration = newDur;
+                    musicApp.currentTrack.duration = newDur;
             }
         }
         onPlaybackStateChanged: {
-            if (playbackState === MediaPlayer.StoppedState && currentTrack)
+            if (playbackState === MediaPlayer.StoppedState && musicApp.currentTrack)
                 playNext();
         }
         onErrorOccurred: function (error, errorString) {
@@ -136,6 +138,7 @@ MApp {
     }
 
     content: Rectangle {
+        id: musicRoot
         anchors.fill: parent
         color: MColors.background
 
@@ -146,93 +149,178 @@ MApp {
             spacing: 0
 
             StackLayout {
-                width: parent.width
-                height: parent.height - tabBar.height
+                // Size from the content root, NOT parent.width: the parent is
+                // a Column positioner and `width: parent.width` there forms a
+                // circular dependency that resolves to 0, collapsing the whole
+                // Now Playing view (album bay especially).
+                width: musicRoot.width
+                height: musicRoot.height - tabBar.height
                 currentIndex: parent.currentView
 
+                // Marathon DS · Music Now Playing (screens-shell.jsx:MusicNowPlaying).
+                //
+                // Top eyebrow row · square album bay with stripe-pattern
+                // placeholder · 32/Bold title + artist·album subtitle ·
+                // halo'd teal scrubber + tnum times · 5-button transport
+                // (shuffle · prev · big play circle · next · heart).
                 Rectangle {
+                    id: nowPlayingFrame
+                    // StackLayout children default to implicit size (0 for a
+                    // Rectangle) unless they opt into filling — without this
+                    // the whole Now Playing view laid out against width 0,
+                    // collapsing the album bay.
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     color: MColors.background
 
+                    // Top column: eyebrow, album bay, track info, scrubber.
+                    // Packs from the top. Transport row is anchored to the
+                    // bottom separately so the empty vertical space sits in
+                    // the middle as breathing room, NOT as dead space under
+                    // the controls (iOS / BB10 Music both anchor playback
+                    // controls to the bottom for this reason).
                     Column {
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.xl
-                        anchors.bottomMargin: Constants.navBarHeight + MSpacing.xl
-                        spacing: MSpacing.lg
+                        id: nowPlayingTopColumn
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        // 8 px clears the app's top edge but the app fills the
+                        // full screen including the area under the shell's
+                        // 56-px status bar — "PLAYING FROM" was rendering
+                        // half-under the clock. Push the column below the
+                        // status-bar safe-area inset.
+                        anchors.topMargin: Constants.safeAreaTop + 8
+                        spacing: 14
 
+                        // ── Eyebrow row — PLAYING FROM ──
                         Item {
-                            height: MSpacing.lg
-                        }
+                            width: parent.width
+                            height: 40
 
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.min(parent.width, parent.height * 0.5)
-                            height: width
-                            radius: Constants.borderRadiusSharp
-                            color: MColors.surface
-                            border.width: Constants.borderWidthThick
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
-
-                            Icon {
+                            Column {
                                 anchors.centerIn: parent
-                                name: "music-2"
-                                size: Constants.iconSizeXLarge * 2
-                                color: MColors.marathonTeal
-                            }
-
-                            RotationAnimation on rotation {
-                                from: 0
-                                to: 360
-                                duration: 10000
-                                loops: Animation.Infinite
-                                running: isPlaying
+                                spacing: 1
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "PLAYING FROM"
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: MTypography.trackingEyebrow
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: currentTrack && currentTrack.album ? currentTrack.album : "Library"
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeSubhead
+                                    font.weight: Font.Medium
+                                }
                             }
                         }
 
-                        Item {
-                            height: MSpacing.md
+                        // ── Album bay — square, gradient + stripe pattern ──
+                        // Cap-was-320 left the lower half of the Now Playing
+                        // surface as dead space below the transport row on
+                        // tall canvases (720×1440 reserved ~500 px for
+                        // nothing). Iterate to the full surface width so
+                        // the album-art square fills the upper viewport
+                        // the same way iOS Music does, and the transport
+                        // row sits at a natural distance below the scrubber.
+                        Rectangle {
+                            // NO anchors.horizontalCenter here: combined with
+                            // width: parent.width inside a Column it conflicts
+                            // and collapses the bay to implicit (glyph) size.
+                            // width: parent.width alone fills the column.
+                            width: parent.width
+                            height: width
+                            radius: MRadius.md
+                            border.width: 1
+                            border.color: MColors.tealBorder
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: Qt.rgba(0, 140 / 255, 122 / 255, 1.0)
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: Qt.rgba(6 / 255, 30 / 255, 27 / 255, 1.0)
+                                }
+                            }
+                            clip: true
+
+                            // Vertical-stripe texture per JSX: ~16 thin teal
+                            // strokes spaced across the bay, low-alpha.
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
+                                spacing: (width - 28 - 16) / 15
+                                Repeater {
+                                    model: 16
+                                    Rectangle {
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 1
+                                        color: MColors.marathonTealBright
+                                        opacity: 0.18 + (index % 3) * 0.06
+                                    }
+                                }
+                            }
+
+                            // Centred wave glyph — replaces the rotating
+                            // music note. Per the JSX album-bay glyph (an
+                            // 80 px teal-bright tilde wave).
+                            Text {
+                                anchors.centerIn: parent
+                                text: "∿"
+                                color: MColors.marathonTealBright
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: 96
+                                font.weight: Font.Light
+                            }
                         }
 
+                        // ── Title + artist · album ────────────────────
                         Column {
                             width: parent.width
-                            spacing: MSpacing.sm
+                            spacing: 2
 
-                            MLabel {
+                            Text {
                                 width: parent.width
                                 text: currentTrack ? currentTrack.title : "No Track"
-                                variant: "primary"
-                                font.pixelSize: MTypography.sizeXLarge
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: 28
                                 font.weight: Font.Bold
-                                horizontalAlignment: Text.AlignHCenter
+                                font.letterSpacing: -0.4
                                 elide: Text.ElideRight
                             }
 
-                            MLabel {
+                            Text {
                                 width: parent.width
-                                text: currentTrack ? currentTrack.artist : "Select a track"
-                                variant: "secondary"
-                                font.pixelSize: MTypography.sizeLarge
-                                horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                            }
-
-                            MLabel {
-                                width: parent.width
-                                text: currentTrack ? currentTrack.album : ""
-                                variant: "tertiary"
-                                font.pixelSize: MTypography.sizeBody
-                                horizontalAlignment: Text.AlignHCenter
+                                text: {
+                                    if (!currentTrack)
+                                        return "Select a track";
+                                    const a = currentTrack.artist || "";
+                                    const b = currentTrack.album || "";
+                                    return (a && b) ? a + " · " + b : (a || b);
+                                }
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeSubhead
+                                font.weight: Font.Normal
                                 elide: Text.ElideRight
                             }
                         }
 
-                        Item {
-                            height: MSpacing.md
-                        }
-
+                        // ── Scrubber + tnum timestamps ─────────────────
                         Column {
                             width: parent.width
-                            spacing: MSpacing.sm
+                            spacing: 6
 
                             MSlider {
                                 width: parent.width
@@ -245,64 +333,176 @@ MApp {
                                 }
                             }
 
-                            Row {
+                            Item {
                                 width: parent.width
+                                height: 16
 
-                                MLabel {
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: formatTime(currentTrack ? currentTrack.position : 0)
-                                    variant: "secondary"
-                                    font.pixelSize: MTypography.sizeSmall
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
                                 }
-
-                                Item {
-                                    width: parent.width - parent.children[0].width - parent.children[2].width
-                                    height: 1
-                                }
-
-                                MLabel {
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: formatTime(currentTrack ? currentTrack.duration : 0)
-                                    variant: "secondary"
-                                    font.pixelSize: MTypography.sizeSmall
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
                                 }
                             }
                         }
+                    }
 
+                    // ── Transport row — shuffle · prev · play · next ──
+                    // Anchored to bottom of the parent Rectangle so the
+                    // controls hug the nav bar instead of stacking under
+                    // the scrubber (used to leave ~500 px of dead space
+                    // between the transport row and the bottom tab bar).
+                    Row {
+                        id: nowPlayingTransport
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: Constants.navBarHeight + 36
+                        spacing: 18
+
+                        // Shuffle — accent icon, no bay.
                         Item {
-                            height: MSpacing.md
-                        }
-
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: MSpacing.lg
-
-                            MIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: "shuffle"
-                                iconSize: Constants.iconSizeMedium
-                                variant: shuffle ? "primary" : "secondary"
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 32
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "shuffle"
+                                size: 20
+                                color: shuffle ? MColors.marathonTealBright : MColors.textTertiary
+                            }
+                            MouseArea {
+                                anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
                                     shuffle = !shuffle;
                                 }
                             }
+                        }
 
-                            MIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: "skip-back"
-                                iconSize: Constants.iconSizeMedium
-                                variant: "secondary"
+                        // Previous — 42 dark circle.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 42
+                            height: 42
+                            radius: width / 2
+                            color: prevArea.pressed ? MColors.bb10Card : MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip-back"
+                                size: 18
+                                color: MColors.textPrimary
+                            }
+                            MouseArea {
+                                id: prevArea
+                                anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
                                     playPrevious();
                                 }
                             }
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: MMotion.micro
+                                }
+                            }
+                        }
 
-                            MCircularIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: isPlaying ? "pause" : "play"
-                                iconSize: Constants.iconSizeLarge
-                                buttonSize: Constants.touchTargetLarge
-                                variant: "primary"
+                        // Play / pause — 64 teal-gradient with halo.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 64
+                            height: 64
+                            radius: width / 2
+                            border.width: 1
+                            border.color: MColors.tealBorder
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: MColors.marathonTealBright
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: MColors.marathonTealDark
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                radius: width / 2
+                                color: "transparent"
+                                border.width: 1
+                                border.color: Qt.rgba(1, 1, 1, 0.3)
+                            }
+
+                            // Play/pause icon morph — was a hard
+                            // name swap which flickered through the
+                            // glyph atlas reload. Crossfade between
+                            // two stacked Icons via state-driven
+                            // opacity keeps the visual continuous.
+                            Item {
+                                anchors.centerIn: parent
+                                width: 26
+                                height: 26
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "pause"
+                                    size: 26
+                                    color: "#000000"
+                                    opacity: isPlaying ? 1 : 0
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: MMotion.durationFor("tap")
+                                        }
+                                    }
+                                }
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "play"
+                                    size: 26
+                                    color: "#000000"
+                                    opacity: isPlaying ? 0 : 1
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: MMotion.durationFor("tap")
+                                        }
+                                    }
+                                }
+                            }
+
+                            scale: playArea.pressed ? 0.94 : 1.0
+                            // Spring-driven press feedback per the M3 Expressive
+                            // motion ladder — replaces OutBack overshoot with
+                            // tunable physics on the "tap" role.
+                            Behavior on scale {
+                                SpringAnimation {
+                                    spring: MMotion.stiffnessSpatialFor("tap")
+                                    damping: MMotion.dampingSpatialFor("tap")
+                                    epsilon: MMotion.epsilon
+                                }
+                            }
+
+                            MouseArea {
+                                id: playArea
+                                anchors.fill: parent
                                 onClicked: {
                                     HapticService.medium();
                                     if (isPlaying) {
@@ -310,36 +510,38 @@ MApp {
                                     } else {
                                         if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
                                             audioPlayer.source = currentTrack.path;
-
                                         audioPlayer.play();
                                     }
                                 }
                             }
+                        }
 
-                            MIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: "skip-forward"
-                                iconSize: Constants.iconSizeMedium
-                                variant: "secondary"
+                        // Next — 42 dark circle.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 42
+                            height: 42
+                            radius: width / 2
+                            color: nextArea.pressed ? MColors.bb10Card : MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip-forward"
+                                size: 18
+                                color: MColors.textPrimary
+                            }
+                            MouseArea {
+                                id: nextArea
+                                anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
                                     playNext();
                                 }
                             }
-
-                            MIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: repeatMode === "one" ? "repeat-1" : "repeat"
-                                iconSize: Constants.iconSizeMedium
-                                variant: repeatMode !== "off" ? "primary" : "secondary"
-                                onClicked: {
-                                    HapticService.light();
-                                    if (repeatMode === "off")
-                                        repeatMode = "all";
-                                    else if (repeatMode === "all")
-                                        repeatMode = "one";
-                                    else
-                                        repeatMode = "off";
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: MMotion.micro
                                 }
                             }
                         }
@@ -358,8 +560,8 @@ MApp {
                         visible: playlist.length === 0
                         iconName: "music-2"
                         iconSize: 96
-                        title: "No Music Yet"
-                        message: "Your music library is empty. Add some music files to get started!"
+                        title: "No music yet"
+                        message: "Your music library is empty. Add some music files to get started."
                     }
 
                     delegate: Item {
@@ -460,7 +662,7 @@ MApp {
                     },
                     {
                         "label": "Library",
-                        "icon": "library"
+                        "icon": "music-notes"
                     }
                 ]
                 onTabSelected: index => {

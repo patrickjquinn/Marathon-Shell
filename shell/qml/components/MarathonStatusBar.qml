@@ -1,106 +1,137 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
+// Marathon DS · status bar (28 px glass).
+//
+// Layout:
+//   • Left  — battery icon + percentage (tabular nums)
+//   • Centre — time (most screens) OR lock icon (when on lock screen)
+//   • Right — DnD · Bluetooth · cellular · ethernet · wifi
+//
+// Background: glassTitlebar (rgba 13,13,14, 0.72). Border-bottom is the
+// hairline borderGlass rgba(1,1,1,0.06). Real backdrop blur arrives
+// when GlassBg lands; for now the translucent fill gives the right
+// composition over the wallpaper.
+//
+// Tabular numerics on the battery % and time so the digits don't dance
+// during minute ticks.
 Item {
     id: statusBar
 
     height: Constants.statusBarHeight
 
+    // ── Ongoing-activity chip slot (Dynamic-Island equivalent) ──
+    // Set to a Component that produces a small horizontal pill
+    // ({iconName, label, accent, onClicked}) when an app wants to
+    // surface state above its own chrome — active call, recording,
+    // timer, navigation. When non-null the chip takes the centre
+    // slot and the clock fades out. iOS Live Activity / M3
+    // Expressive Live Updates analogue. Wired today as a presentation
+    // slot; the cross-app contract for publishing chips is Phase 4
+    // (Live Activity system).
+    property Component activityChip: null
+
     Rectangle {
         anchors.fill: parent
+        color: MColors.glassTitlebar
         z: Constants.zIndexBackground
+    }
 
-        gradient: Gradient {
-            GradientStop {
-                position: 0
-                color: WallpaperStore.isDark ? "#80000000" : "#80FFFFFF"
-            }
-
-            GradientStop {
-                position: 1
-                color: "transparent"
-            }
-        }
+    // Hairline bottom border per DS spec.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: MColors.borderGlass
+        z: Constants.zIndexBackground + 1
     }
 
     Row {
         id: leftIconGroup
 
         anchors.left: parent.left
-        anchors.leftMargin: Constants.spacingMedium
+        anchors.leftMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Constants.spacingSmall
+        spacing: 8
         z: 1
 
         Icon {
             name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
-            size: Constants.iconSizeSmall
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
         }
 
         Text {
             text: SystemStatusStore.batteryLevel + "%"
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
-            font.pixelSize: Constants.fontSizeSmall
-            font.family: MTypography.fontFamily
+            font.family: MTypography.fontFamilyMedium
+            font.pixelSize: MTypography.sizeCaption
+            font.weight: MTypography.weightMedium
+            font.letterSpacing: trackingForCaption
+            font.features: ({
+                    "tnum": 1
+                })
+            // QtRendering uses the FontLoader-registered Sora directly.
+            // NativeRendering went through fontconfig and silently fell
+            // back to Noto Sans on devices without a system-wide Sora
+            // in the fontconfig cache.
+            renderType: Text.QtRendering
             anchors.verticalCenter: parent.verticalCenter
+
+            readonly property real trackingForCaption: MTypography.trackingCaption
+        }
+    }
+
+    // Activity chip slot. When statusBar.activityChip is non-null,
+    // the chip loads in the centre and the clock fades out. The chip
+    // is centered + scaled in via SpringAnimation per M3E motion.
+    Loader {
+        id: activityChipLoader
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        active: statusBar.activityChip !== null
+        sourceComponent: statusBar.activityChip
+        z: 2
+
+        opacity: active ? 1 : 0
+        scale: active ? 1 : 0.8
+        Behavior on opacity {
+            SpringAnimation {
+                spring: MMotion.stiffnessEffectsFor("tap")
+                damping: MMotion.dampingEffectsFor("tap")
+                epsilon: MMotion.epsilon
+            }
+        }
+        Behavior on scale {
+            SpringAnimation {
+                spring: MMotion.stiffnessSpatialFor("tap")
+                damping: MMotion.dampingSpatialFor("tap")
+                epsilon: MMotion.epsilon
+            }
         }
     }
 
     Item {
         id: centerContent
 
-        property string position: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.statusBarClockPosition) ? SettingsManagerCpp.statusBarClockPosition : "center"
-
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(clockText.implicitWidth, lockIcon.width)
         height: Math.max(clockText.implicitHeight, lockIcon.height)
-        states: [
-            State {
-                name: "left"
-                when: centerContent.position === "left"
-
-                AnchorChanges {
-                    target: centerContent
-                    anchors.horizontalCenter: undefined
-                    anchors.left: parent.left
-                    anchors.right: undefined
-                }
-
-                PropertyChanges {
-                    centerContent.anchors.leftMargin: leftIconGroup.x + leftIconGroup.width + Constants.spacingLarge
-                }
-            },
-            State {
-                name: "center"
-                when: centerContent.position === "center" || !centerContent.position
-
-                AnchorChanges {
-                    target: centerContent
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.left: undefined
-                    anchors.right: undefined
-                }
-            },
-            State {
-                name: "right"
-                when: centerContent.position === "right"
-
-                AnchorChanges {
-                    target: centerContent
-                    anchors.horizontalCenter: undefined
-                    anchors.left: undefined
-                    anchors.right: parent.right
-                }
-
-                PropertyChanges {
-                    centerContent.anchors.rightMargin: rightIconGroup.width + rightIconGroup.anchors.rightMargin + Constants.spacingLarge
-                }
+        // Yield the centre to the chip when present.
+        opacity: statusBar.activityChip !== null ? 0 : 1
+        visible: opacity > 0.01
+        Behavior on opacity {
+            SpringAnimation {
+                spring: MMotion.stiffnessEffectsFor("tap")
+                damping: MMotion.dampingEffectsFor("tap")
+                epsilon: MMotion.epsilon
             }
-        ]
+        }
 
         Text {
             id: clockText
@@ -109,13 +140,22 @@ Item {
             visible: opacity > 0.01
             opacity: SessionStore.isOnLockScreen ? 0 : 1
             text: SystemStatusStore.timeString
-            color: MColors.text
-            font.pixelSize: Constants.fontSizeMedium
-            font.weight: Font.Medium
+            color: MColors.textPrimary
+            font.family: MTypography.fontFamilyRegular
+            font.pixelSize: MTypography.sizeCaption
+            font.weight: MTypography.weightRegular
+            font.features: ({
+                    "tnum": 1
+                })
+            // Text.QtRendering uses the FontLoader-registered Sora.
+            // NativeRendering bypassed the loader and went through
+            // fontconfig, which silently fell back to Noto Sans when
+            // the system-wide Sora.ttf wasn't in the fontconfig cache.
+            renderType: Text.QtRendering
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 200
+                    duration: MMotion.quick
                     easing.type: Easing.OutCubic
                 }
             }
@@ -124,192 +164,50 @@ Item {
         Icon {
             id: lockIcon
 
-            property bool enableNameBehavior: true
-
             anchors.centerIn: parent
-            visible: opacity > 0.01
+            // Hard gate on isOnLockScreen rather than opacity > 0.01 so
+            // the Icon node leaves the scene graph entirely off the lock
+            // screen. With the opacity-only gate, the lock glyph stayed
+            // resident as a faint dark silhouette behind the clock
+            // during pixel-precise font hinting on the L5 panel —
+            // visible as a "mask behind the colon" when an app was
+            // foregrounded. The clock's fade-in still animates via the
+            // clockText opacity Behavior, so the transition reads the
+            // same; the icon just isn't there to draw against.
+            visible: SessionStore.isOnLockScreen
             opacity: SessionStore.isOnLockScreen ? 1 : 0
-            name: SessionStore.isLocked ? "lock" : "lock-keyhole-open"
-            size: Constants.iconSizeSmall
-            color: MColors.text
-            Component.onCompleted: {
-                console.log("[StatusBar] Lock icon initialized - isLocked:", SessionStore.isLocked, "name:", name);
-            }
-            onNameChanged: {
-                console.log("[StatusBar] Lock icon name changed to:", name, "(isLocked:", SessionStore.isLocked, ")");
-            }
+            name: SessionStore.isLocked ? "lock" : "lock-open"
+            // Bumped from 14 → 18 design-px so the lock glyph reads as
+            // a clear padlock rather than a generic notification dot on
+            // a busy notch panel. The status-bar height (28 design-px)
+            // still fits the larger icon with margin to spare.
+            size: Math.round(18 * Constants.scaleFactor)
+            color: MColors.textPrimary
             scale: SessionStore.isAnimatingLock ? 0.8 : 1
             rotation: {
                 if (SessionStore.lockTransition === "locking")
                     return 15;
-
                 if (SessionStore.lockTransition === "unlocking")
                     return -15;
-
                 return 0;
-            }
-            layer.enabled: true
-            layer.smooth: true
-
-            SequentialAnimation {
-                id: shakeAnimation
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: 6
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: -6
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: 4
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: -4
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: 2
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: -2
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "x"
-                    to: 0
-                    duration: 40
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            SequentialAnimation {
-                id: unlockAnimation
-
-                PropertyAction {
-                    target: lockIcon
-                    property: "enableNameBehavior"
-                    value: false
-                }
-
-                ScriptAction {
-                    script: console.log("[StatusBar] Unlock animation started!")
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "scale"
-                    to: 1.3
-                    duration: 200
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: lockIcon
-                    property: "scale"
-                    to: 1
-                    duration: 150
-                    easing.type: Easing.OutBack
-                }
-
-                PropertyAction {
-                    target: lockIcon
-                    property: "enableNameBehavior"
-                    value: true
-                }
-
-                ScriptAction {
-                    script: console.log("[StatusBar] Unlock animation complete!")
-                }
-            }
-
-            Connections {
-                function onTriggerShakeAnimation() {
-                    console.log("[StatusBar] Received triggerShakeAnimation signal");
-                    shakeAnimation.start();
-                }
-
-                function onTriggerUnlockAnimation() {
-                    console.log("[StatusBar] Received triggerUnlockAnimation signal");
-                    unlockAnimation.start();
-                }
-
-                target: SessionStore
             }
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 200
+                    duration: MMotion.quick
                     easing.type: Easing.OutCubic
                 }
             }
-
             Behavior on scale {
                 NumberAnimation {
-                    duration: 300
+                    duration: MMotion.moderate
                     easing.type: Easing.OutCubic
                 }
             }
-
             Behavior on rotation {
                 NumberAnimation {
-                    duration: 300
+                    duration: MMotion.moderate
                     easing.type: Easing.OutBack
-                }
-            }
-
-            Behavior on name {
-                enabled: lockIcon.enableNameBehavior
-
-                SequentialAnimation {
-                    NumberAnimation {
-                        target: lockIcon
-                        property: "scale"
-                        to: 0.8
-                        duration: 150
-                        easing.type: Easing.InCubic
-                    }
-
-                    PropertyAction {
-                        target: lockIcon
-                        property: "name"
-                    }
-
-                    NumberAnimation {
-                        target: lockIcon
-                        property: "scale"
-                        to: 1
-                        duration: 150
-                        easing.type: Easing.OutBack
-                    }
                 }
             }
         }
@@ -319,60 +217,89 @@ Item {
         id: rightIconGroup
 
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingMedium
+        anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Constants.spacingMedium
+        spacing: 8
         z: 1
 
         Icon {
             name: "plane"
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
         }
 
         Icon {
             name: "bell"
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowDnd(SystemStatusStore.isDndMode)
             opacity: 0.9
         }
 
         Icon {
+            // Always show — every Marathon target ships with Bluetooth and
+            // Wi-Fi radios, and gating visibility on the C++ manager's
+            // `available` flag means the icon disappears entirely on images
+            // where bluez/NetworkManager fail to spin up at boot (a system
+            // config problem the user can't tell apart from "Marathon is
+            // broken"). Opacity already conveys on/off/connected state.
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            visible: (typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.available : false) && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
+            visible: true
         }
 
+        // Hide the radio icons when their radio is absent (iOS/Android
+        // convention). A no-modem "smartphone" silhouette next to the
+        // bluetooth glyph reads as visual noise — and at 14 px it's
+        // easily mis-parsed as another battery indicator.
         Icon {
-            name: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength) : "smartphone"
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
-            opacity: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength) : 0.3
+            visible: ModemManagerCpp.modemAvailable
+            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
+        }
+
+        // Network-tech label (5G/LTE/4G/3G/E/G). iOS- and Android-style, sits
+        // immediately right of the signal bars. Hidden when the modem isn't
+        // available or hasn't reported a tech yet ("Unknown").
+        Text {
+            text: SystemStatusStore.dataType
+            color: MColors.textPrimary
+            font.family: MTypography.fontFamily
+            font.pixelSize: Math.round(10 * Constants.scaleFactor)
+            font.weight: Font.DemiBold
+            anchors.verticalCenter: parent.verticalCenter
+            visible: ModemManagerCpp.modemAvailable && SystemStatusStore.dataType !== "" && SystemStatusStore.dataType !== "Unknown"
+            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
         Icon {
             name: "cable"
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.ethernetConnected
             opacity: 1
         }
 
         Icon {
-            name: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false) ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false) : "wifi-off"
-            color: MColors.text
-            size: Constants.iconSizeSmall
+            // Same rationale as the Bluetooth glyph above — always visible,
+            // opacity reflects on/off/strength. NetworkManager not being
+            // running shouldn't make the Wi-Fi indicator disappear.
+            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
+            color: MColors.textPrimary
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
-            opacity: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false) ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false) : 0.3
+            visible: true
+            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
         }
     }
 }

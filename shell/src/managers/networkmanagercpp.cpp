@@ -1,4 +1,6 @@
 #include "networkmanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QDebug>
 #include <QDBusMessage>
 #include <QDBusError>
@@ -9,7 +11,63 @@
 #include <QDBusArgument>
 #include <QRandomGenerator>
 #include <QUuid>
+#include <QDir>
+#include <QFile>
 #include <algorithm>
+#include <utility>   // std::as_const
+
+namespace {
+// Soft-block (block=true) or unblock every kernel rfkill switch whose `type`
+// is in `types`. Direct /sys/class/rfkill writes — Alpine's util-linux
+// `rfkill` CLI SIGABRTs on some rows, and the sysfs API is stable and
+// write-permitted. Returns the number of switches touched.
+int setRfkillSoftByTypes(const QStringList &types, bool block) {
+    QDir dir(QStringLiteral("/sys/class/rfkill"));
+    if (!dir.exists())
+        return 0;
+    int              touched = 0;
+    const QByteArray val     = block ? QByteArrayLiteral("1\n") : QByteArrayLiteral("0\n");
+    const QStringList entries =
+        dir.entryList(QStringList{QStringLiteral("rfkill*")}, QDir::Dirs);
+    for (const QString &entry : entries) {
+        const QString base = dir.absoluteFilePath(entry);
+        QFile         typeFile(base + QStringLiteral("/type"));
+        if (!typeFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QString readType = QString::fromUtf8(typeFile.readAll()).trimmed();
+        typeFile.close();
+        if (!types.contains(readType))
+            continue;
+        QFile softFile(base + QStringLiteral("/soft"));
+        if (!softFile.open(QIODevice::WriteOnly | QIODevice::Text))
+            continue;
+        if (softFile.write(val) > 0)
+            ++touched;
+        softFile.close();
+    }
+    return touched;
+}
+} // namespace
+
+NetworkManagerCpp *NetworkManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new NetworkManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
+// NetworkManager's connection settings dict is sig `a{sa{sv}}` — a map
+// from settings-group name to a sub-dict of property values. QtDBus does
+// NOT produce this signature for a bare `QMap<QString, QVariantMap>`
+// passed through a generic QVariant; the default serialiser wraps each
+// inner map in an outer VARIANT, yielding `a{sv}` where each v contains
+// `a{sv}`. NetworkManager rejects that as "Invalid arguments" because
+// the static signature is wrong.
+//
+// The canonical fix is a typedef + qDBusRegisterMetaType — QtDBus's
+// generated marshaller for that typedef emits the inner map directly
+// (no outer VARIANT), producing the `a{sa{sv}}` NM expects. Phosh,
+// Plasma-NM, GNOME Mobile all do the same thing.
+typedef QMap<QString, QVariantMap> NMConnectionSettings;
+Q_DECLARE_METATYPE(NMConnectionSettings)
 
 static QByteArray dbusByteArrayFromVariant(const QVariant &v) {
 
@@ -70,13 +128,18 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     , m_hotspotActive(false) {
     qDebug() << "[NetworkManagerCpp] Initializing";
 
+    // Register NMConnectionSettings so QtDBus emits `a{sa{sv}}` instead
+    // of `a{sv}` for the AddAndActivateConnection settings parameter.
+    // qDBusRegisterMetaType is idempotent — safe to call once per ctor.
+    qDBusRegisterMetaType<NMConnectionSettings>();
+
     m_nmInterface =
         new QDBusInterface("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
                            "org.freedesktop.NetworkManager", QDBusConnection::systemBus(), this);
 
     if (m_nmInterface->isValid()) {
         m_hasNetworkManager = true;
-        qInfo() << "[NetworkManagerCpp] ✓ Connected to NetworkManager D-Bus";
+        qInfo() << "[NetworkManagerCpp] Connected to NetworkManager D-Bus";
 
         detectHardwareAvailability();
 
@@ -124,11 +187,7 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     }
 }
 
-NetworkManagerCpp::~NetworkManagerCpp() {
-    if (m_nmInterface) {
-        delete m_nmInterface;
-    }
-}
+NetworkManagerCpp::~NetworkManagerCpp() = default;
 
 void NetworkManagerCpp::detectHardwareAvailability() {
     if (!m_hasNetworkManager) {
@@ -147,7 +206,7 @@ void NetworkManagerCpp::detectHardwareAvailability() {
 
     QList<QDBusObjectPath> devices = devicesReply.value();
 
-    for (const QDBusObjectPath &devicePath : devices) {
+    for (const QDBusObjectPath &devicePath : std::as_const(devices)) {
         QDBusInterface device("org.freedesktop.NetworkManager", devicePath.path(),
                               "org.freedesktop.NetworkManager.Device",
                               QDBusConnection::systemBus());
@@ -203,9 +262,13 @@ void NetworkManagerCpp::queryWifiState() {
     if (!m_hasNetworkManager)
         return;
 
-    QDBusReply<uint> wifiState = m_nmInterface->call("GetWifiEnabled");
-    if (wifiState.isValid()) {
-        bool enabled = wifiState.value() != 0;
+    // Wi-Fi enablement is a read/write PROPERTY (WirelessEnabled) on
+    // org.freedesktop.NetworkManager — there is NO "GetWifiEnabled" method,
+    // so the old call() always returned invalid and the tile state never
+    // synced with the real radio. property() reads it via Properties.Get.
+    const QVariant v = m_nmInterface->property("WirelessEnabled");
+    if (v.isValid()) {
+        const bool enabled = v.toBool();
         if (m_wifiEnabled != enabled) {
             m_wifiEnabled = enabled;
             emit wifiEnabledChanged();
@@ -239,7 +302,7 @@ void NetworkManagerCpp::queryConnectionState() {
     QString                wifiDevicePath;
     QString                ethernetName;
 
-    for (const QDBusObjectPath &connPath : activeConns) {
+    for (const QDBusObjectPath &connPath : std::as_const(activeConns)) {
         QDBusInterface conn("org.freedesktop.NetworkManager", connPath.path(),
                             "org.freedesktop.NetworkManager.Connection.Active",
                             QDBusConnection::systemBus());
@@ -280,6 +343,20 @@ void NetworkManagerCpp::queryConnectionState() {
         m_wifiConnected = hasWifi;
         emit wifiConnectedChanged();
         qInfo() << "[NetworkManagerCpp] WiFi connected:" << hasWifi;
+    }
+
+    // Fire connectionSuccess when our pending-connect SSID is now the
+    // ACTIVATED one. The previous gate keyed on the m_wifiConnected
+    // false→true transition, which silently dropped the success signal
+    // whenever the user was already on a different network (NM auto-
+    // joined, m_wifiConnected was already true). In that case switching
+    // networks via AddAndActivateConnection succeeds — the SSID changes —
+    // but m_wifiConnected stays true throughout and the password dialog
+    // spins forever waiting for a transition that never comes.
+    if (hasWifi && !m_pendingConnectSsid.isEmpty() && wifiSsid == m_pendingConnectSsid) {
+        qInfo() << "[NetworkManagerCpp] Pending connect activated:" << m_pendingConnectSsid;
+        m_pendingConnectSsid.clear();
+        emit connectionSuccess();
     }
 
     if (hasWifi && !wifiSsid.isEmpty() && m_wifiSsid != wifiSsid) {
@@ -360,9 +437,12 @@ void NetworkManagerCpp::enableWifi() {
     qDebug() << "[NetworkManagerCpp] Enabling WiFi";
 
     if (m_hasNetworkManager) {
-        QDBusReply<void> reply = m_nmInterface->call("Enable", true);
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to enable WiFi:" << reply.error().message();
+        // Write the WirelessEnabled PROPERTY (wlan-only soft switch that maps
+        // to the wlan rfkill), NOT the global Enable() method — Enable(false)
+        // sleeps ALL of NetworkManager (cellular data + ethernet included),
+        // so the old code made the Wi-Fi tile tear down the whole stack.
+        if (!m_nmInterface->setProperty("WirelessEnabled", true)) {
+            qDebug() << "[NetworkManagerCpp] Failed to enable WiFi (WirelessEnabled set failed)";
             emit networkError("Failed to enable WiFi");
             return;
         }
@@ -376,9 +456,8 @@ void NetworkManagerCpp::disableWifi() {
     qDebug() << "[NetworkManagerCpp] Disabling WiFi";
 
     if (m_hasNetworkManager) {
-        QDBusReply<void> reply = m_nmInterface->call("Enable", false);
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to disable WiFi:" << reply.error().message();
+        if (!m_nmInterface->setProperty("WirelessEnabled", false)) {
+            qDebug() << "[NetworkManagerCpp] Failed to disable WiFi (WirelessEnabled set failed)";
             emit networkError("Failed to disable WiFi");
             return;
         }
@@ -453,7 +532,7 @@ void NetworkManagerCpp::scanAccessPoints() {
 
     m_availableNetworks.clear();
 
-    for (const QDBusObjectPath &apPath : accessPoints) {
+    for (const QDBusObjectPath &apPath : std::as_const(accessPoints)) {
         processAccessPoint(apPath.path());
     }
 
@@ -533,7 +612,9 @@ void NetworkManagerCpp::processAccessPoint(const QString &apPath) {
 }
 
 void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &password) {
-    qDebug() << "[NetworkManagerCpp] Attempting to connect to:" << ssid;
+    qInfo() << "[NetworkManagerCpp] connectToNetwork() called for SSID=" << ssid
+            << "passwordLen=" << password.length() << "wifiDevicePath=" << m_wifiDevicePath
+            << "hasNM=" << m_hasNetworkManager;
 
     if (!m_hasNetworkManager || m_wifiDevicePath.isEmpty()) {
         qWarning()
@@ -545,7 +626,7 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
     QString apPath;
     bool    isSecured = false;
 
-    for (const QVariant &netVar : m_availableNetworks) {
+    for (const QVariant &netVar : std::as_const(m_availableNetworks)) {
         QVariantMap net = netVar.toMap();
         if (net["ssid"].toString() == ssid) {
             apPath    = net["path"].toString();
@@ -555,55 +636,57 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
     }
 
     if (apPath.isEmpty()) {
-        qWarning() << "[NetworkManagerCpp] Access point not found for SSID:" << ssid;
+        qWarning() << "[NetworkManagerCpp] Access point not found for SSID:" << ssid << "(have"
+                   << m_availableNetworks.size() << "networks cached)";
         emit connectionFailed("Network not found");
         return;
     }
 
-    qDebug() << "[NetworkManagerCpp] Found AP at:" << apPath << "Secured:" << isSecured;
+    qInfo() << "[NetworkManagerCpp] Found AP at:" << apPath << "Secured:" << isSecured;
 
-    QMap<QString, QMap<QString, QVariant>> connectionSettings;
+    // Build the NMConnectionSettings dict. The registered typedef makes
+    // QtDBus emit the correct `a{sa{sv}}` signature on the wire.
+    NMConnectionSettings connectionSettings;
 
-    QMap<QString, QVariant>                connection;
-    connection["type"]               = "802-11-wireless";
+    QVariantMap          connection;
+    connection["type"]               = QStringLiteral("802-11-wireless");
     connection["uuid"]               = QUuid::createUuid().toString().remove('{').remove('}');
     connection["id"]                 = ssid;
     connection["autoconnect"]        = true;
     connectionSettings["connection"] = connection;
 
-    QMap<QString, QVariant> wireless;
+    QVariantMap wireless;
     wireless["ssid"]                      = ssid.toUtf8();
-    wireless["mode"]                      = "infrastructure";
+    wireless["mode"]                      = QStringLiteral("infrastructure");
     connectionSettings["802-11-wireless"] = wireless;
 
     if (isSecured && !password.isEmpty()) {
-        QMap<QString, QVariant> wirelessSecurity;
-        wirelessSecurity["key-mgmt"]                   = "wpa-psk";
-        wirelessSecurity["auth-alg"]                   = "open";
-        wirelessSecurity["psk"]                        = password;
+        QVariantMap wirelessSecurity;
+        wirelessSecurity["key-mgmt"] = QStringLiteral("wpa-psk");
+        wirelessSecurity["psk"]      = password;
+        // Note: dropped explicit auth-alg=open. NM picks the right
+        // alg from the AP's RSN/WPA IE. Setting it explicitly was
+        // copy-pasted from very old NM 0.9 examples and is wrong for
+        // modern WPA2/WPA3 networks.
         connectionSettings["802-11-wireless-security"] = wirelessSecurity;
     }
 
-    QMap<QString, QVariant> ipv4;
-    ipv4["method"]             = "auto";
+    QVariantMap ipv4;
+    ipv4["method"]             = QStringLiteral("auto");
     connectionSettings["ipv4"] = ipv4;
 
-    QMap<QString, QVariant> ipv6;
-    ipv6["method"]             = "auto";
+    QVariantMap ipv6;
+    ipv6["method"]             = QStringLiteral("auto");
     connectionSettings["ipv6"] = ipv6;
 
-    qDebug() << "[NetworkManagerCpp] Calling AddAndActivateConnection...";
+    qInfo() << "[NetworkManagerCpp] Calling AddAndActivateConnection with "
+            << connectionSettings.size() << "setting groups: keys=" << connectionSettings.keys();
 
     QDBusMessage msg = QDBusMessage::createMethodCall(
         "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager", "AddAndActivateConnection");
 
-    QVariantMap dbusSettings;
-    for (auto it = connectionSettings.begin(); it != connectionSettings.end(); ++it) {
-        dbusSettings[it.key()] = QVariant::fromValue(it.value());
-    }
-
-    msg << QVariant::fromValue(dbusSettings);
+    msg << QVariant::fromValue(connectionSettings);
     msg << QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
     msg << QVariant::fromValue(QDBusObjectPath(apPath));
 
@@ -615,29 +698,46 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
                 QDBusPendingReply<QDBusObjectPath, QDBusObjectPath> reply = *watcher;
 
                 if (reply.isError()) {
-                    QString error = reply.error().message();
-                    qWarning() << "[NetworkManagerCpp] Connection failed:" << error;
+                    const QString name  = reply.error().name();
+                    const QString error = reply.error().message();
+                    qWarning() << "[NetworkManagerCpp] AddAndActivateConnection FAILED:"
+                               << "name=" << name << "message=" << error;
 
                     QString userError;
-                    if (error.contains("secrets-required") || error.contains("no-secrets")) {
+                    if (name.contains("InvalidArgs") || error.contains("not allowed")) {
+                        userError = "Connection rejected by NetworkManager (bad config)";
+                    } else if (error.contains("secrets-required") || error.contains("no-secrets") ||
+                               error.contains("not authorized")) {
                         userError = "Incorrect password";
                     } else if (error.contains("timeout")) {
                         userError = "Connection timeout";
                     } else if (error.contains("not-found")) {
                         userError = "Network not found";
+                    } else if (!error.isEmpty()) {
+                        userError = QStringLiteral("Failed: %1").arg(error);
                     } else {
-                        userError = "Connection failed";
+                        userError = QStringLiteral("Failed (%1)").arg(name);
                     }
 
                     emit connectionFailed(userError);
                 } else {
-                    qInfo() << "[NetworkManagerCpp] ✓ Successfully connected to:" << ssid;
-                    m_wifiSsid      = ssid;
-                    m_wifiConnected = true;
-                    emit wifiSsidChanged();
-                    emit wifiConnectedChanged();
-                    emit connectionSuccess();
-
+                    // AddAndActivateConnection returning OK only means
+                    // NetworkManager *accepted* the request — auth +
+                    // DHCP haven't run yet. Don't flip m_wifiConnected
+                    // or emit connectionSuccess here; the dialog would
+                    // dismiss before authentication completes.
+                    //
+                    // The real state comes from PropertiesChanged
+                    // observing the active connection's state hitting
+                    // 2 (ACTIVATED). queryConnectionState handles that;
+                    // emit connectionSuccess in lockstep with the
+                    // m_wifiConnected transition.
+                    const QDBusObjectPath connPath   = reply.argumentAt<0>();
+                    const QDBusObjectPath activePath = reply.argumentAt<1>();
+                    qInfo() << "[NetworkManagerCpp] Activation request accepted for:" << ssid
+                            << "connection=" << connPath.path() << "active=" << activePath.path()
+                            << "— waiting for state=ACTIVATED";
+                    m_pendingConnectSsid = ssid;
                     QTimer::singleShot(1000, this, &NetworkManagerCpp::queryConnectionState);
                 }
 
@@ -696,19 +796,26 @@ void NetworkManagerCpp::toggleBluetooth() {
 void NetworkManagerCpp::setAirplaneMode(bool enabled) {
     qDebug() << "[NetworkManagerCpp] Setting Airplane Mode to:" << enabled;
 
+    // Airplane mode must kill ALL radios. Drive the kernel rfkill soft
+    // switches for wlan + wwan (cellular) + bluetooth directly; on exit
+    // unblock them so the radios can come back. The old path only flipped the
+    // Wi-Fi device Autoconnect flag and left the modem and Bluetooth fully
+    // live — which is why it read as fake.
+    static const QStringList kRadioTypes{QStringLiteral("wlan"), QStringLiteral("wwan"),
+                                         QStringLiteral("bluetooth")};
+    const int touched = setRfkillSoftByTypes(kRadioTypes, enabled);
+    if (touched == 0)
+        qWarning() << "[NetworkManagerCpp] Airplane mode toggled but no rfkill "
+                      "switches responded -- radios may still be live";
+
+    // Keep NM's WirelessEnabled in agreement so the Wi-Fi tile reflects it,
+    // and re-enable Wi-Fi when leaving airplane mode.
     if (m_hasNetworkManager) {
-
-        if (!m_wifiDevicePath.isEmpty()) {
-            QDBusInterface wifiDevice("org.freedesktop.NetworkManager", m_wifiDevicePath,
-                                      "org.freedesktop.DBus.Properties",
-                                      QDBusConnection::systemBus());
-            wifiDevice.call("Set", "org.freedesktop.NetworkManager.Device", "Autoconnect",
-                            QVariant::fromValue(QDBusVariant(!enabled)));
-        }
-
-        if (enabled) {
-            disableWifi();
-        }
+        m_nmInterface->setProperty("WirelessEnabled", !enabled);
+    }
+    if (m_wifiEnabled == enabled) {
+        m_wifiEnabled = !enabled;
+        emit wifiEnabledChanged();
     }
 
     m_airplaneModeEnabled = enabled;
@@ -726,9 +833,13 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
         return;
     }
 
-    QMap<QString, QMap<QString, QVariant>> connectionSettings;
+    // Use the registered NMConnectionSettings typedef so QtDBus marshals this
+    // as a{sa{sv}} (what AddAndActivateConnection requires). The old code
+    // rebuilt it into a QVariantMap of QVariants → a{sv}, which NM rejected
+    // with InvalidArgs, so the hotspot was never actually created.
+    NMConnectionSettings    connectionSettings;
 
-    QMap<QString, QVariant>                connection;
+    QMap<QString, QVariant> connection;
     connection["type"]               = "802-11-wireless";
     connection["uuid"]               = QUuid::createUuid().toString().remove('{').remove('}');
     connection["id"]                 = ssid + " Hotspot";
@@ -762,12 +873,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
         "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager", "AddAndActivateConnection");
 
-    QVariantMap dbusSettings;
-    for (auto it = connectionSettings.begin(); it != connectionSettings.end(); ++it) {
-        dbusSettings[it.key()] = QVariant::fromValue(it.value());
-    }
-
-    msg << QVariant::fromValue(dbusSettings);
+    msg << QVariant::fromValue(connectionSettings);
     msg << QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
     msg << QVariant::fromValue(QDBusObjectPath("/"));
 
@@ -785,7 +891,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
                 } else {
                     m_hotspotConnectionPath = reply.value().path();
                     m_hotspotActive         = true;
-                    qInfo() << "[NetworkManagerCpp] ✓ Hotspot active:" << ssid;
+                    qInfo() << "[NetworkManagerCpp] Hotspot active:" << ssid;
                     emit connectionSuccess();
                 }
 
@@ -808,7 +914,7 @@ void NetworkManagerCpp::stopHotspot() {
         QDBusReply<void> reply = m_nmInterface->call(
             "DeactivateConnection", QVariant::fromValue(QDBusObjectPath(m_hotspotConnectionPath)));
         if (reply.isValid()) {
-            qInfo() << "[NetworkManagerCpp] ✓ Hotspot stopped";
+            qInfo() << "[NetworkManagerCpp] Hotspot stopped";
         }
     }
 
@@ -820,7 +926,7 @@ bool NetworkManagerCpp::isHotspotActive() const {
     return m_hotspotActive;
 }
 
-QVariantList NetworkManagerCpp::getVpnConnections() {
+QVariantList NetworkManagerCpp::getVpnConnections() const {
     QVariantList vpnList;
 
     if (!m_hasNetworkManager) {
@@ -840,7 +946,8 @@ QVariantList NetworkManagerCpp::getVpnConnections() {
         return vpnList;
     }
 
-    for (const QDBusObjectPath &path : connectionsReply.value()) {
+    const auto connectionPaths = connectionsReply.value();
+    for (const QDBusObjectPath &path : connectionPaths) {
         QDBusInterface          connectionInterface("org.freedesktop.NetworkManager", path.path(),
                                                     "org.freedesktop.NetworkManager.Settings.Connection",
                                                     QDBusConnection::systemBus());
@@ -865,7 +972,7 @@ QVariantList NetworkManagerCpp::getVpnConnections() {
     return vpnList;
 }
 
-void NetworkManagerCpp::connectVpn(const QString &connectionId) {
+void NetworkManagerCpp::connectVpn(const QString &connectionId) const {
     qInfo() << "[NetworkManagerCpp] Connecting VPN:" << connectionId;
 
     if (!m_hasNetworkManager) {
@@ -880,13 +987,13 @@ void NetworkManagerCpp::connectVpn(const QString &connectionId) {
         QVariant::fromValue(QDBusObjectPath("/")), QVariant::fromValue(QDBusObjectPath("/")));
 
     if (reply.isValid()) {
-        qInfo() << "[NetworkManagerCpp] ✓ VPN activated";
+        qInfo() << "[NetworkManagerCpp]VPN activated";
     } else {
         qWarning() << "[NetworkManagerCpp] Failed to activate VPN:" << reply.error().message();
     }
 }
 
-void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
+void NetworkManagerCpp::disconnectVpn(const QString &connectionId) const {
     qInfo() << "[NetworkManagerCpp] Disconnecting VPN:" << connectionId;
 
     if (!m_hasNetworkManager) {
@@ -903,7 +1010,8 @@ void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
         return;
     }
 
-    for (const QDBusObjectPath &path : activeConnsReply.value()) {
+    const auto activeConnPaths = activeConnsReply.value();
+    for (const QDBusObjectPath &path : activeConnPaths) {
         QDBusInterface activeConn("org.freedesktop.NetworkManager", path.path(),
                                   "org.freedesktop.NetworkManager.Connection.Active",
                                   QDBusConnection::systemBus());
@@ -913,14 +1021,14 @@ void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
             QDBusReply<void> reply =
                 nmInterface.call("DeactivateConnection", QVariant::fromValue(path));
             if (reply.isValid()) {
-                qInfo() << "[NetworkManagerCpp] ✓ VPN disconnected";
+                qInfo() << "[NetworkManagerCpp]VPN disconnected";
             }
             return;
         }
     }
 }
 
-bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) {
+bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) const {
     if (!m_hasNetworkManager) {
         return false;
     }
@@ -935,7 +1043,8 @@ bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) {
         return false;
     }
 
-    for (const QDBusObjectPath &path : activeConnsReply.value()) {
+    const auto activeConnPaths = activeConnsReply.value();
+    for (const QDBusObjectPath &path : activeConnPaths) {
         QDBusInterface activeConn("org.freedesktop.NetworkManager", path.path(),
                                   "org.freedesktop.NetworkManager.Connection.Active",
                                   QDBusConnection::systemBus());

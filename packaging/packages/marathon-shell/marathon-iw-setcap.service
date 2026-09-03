@@ -1,0 +1,21 @@
+[Unit]
+Description=Marathon — give iw cap_net_admin so the shell can toggle wifi PSM
+# Marathon-Doze enters wifi power-save mode via `iw dev wlan0 set power_save on`
+# from the shell process (uid 1000). Without cap_net_admin on /usr/sbin/iw the
+# call silently fails (Operation not permitted) and the radio stays at full
+# power during Doze — defeating the standby-battery savings.
+#
+# The cap is set on every boot (not just once) because `apk upgrade iw`
+# replaces the binary and strips caps; this service guarantees the cap is
+# back before greetd starts marathon-shell.
+DefaultDependencies=no
+After=local-fs.target
+Before=greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/setcap cap_net_admin+ep /usr/sbin/iw
+
+[Install]
+WantedBy=multi-user.target

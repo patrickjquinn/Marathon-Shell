@@ -5,25 +5,28 @@ RotationManager::RotationManager(QObject *parent)
     : QObject(parent)
     , m_available(false)
     , m_autoRotateEnabled(true)
-    , m_currentOrientation("normal")
+    , m_currentOrientation("portrait")
     , m_currentRotation(0) {
     m_sensor = new QOrientationSensor(this);
 
     if (m_sensor->connectToBackend()) {
         m_available = true;
-        emit availableChanged();
 
         connect(m_sensor, &QOrientationSensor::readingChanged, this,
                 &RotationManager::onOrientationReadingChanged);
 
-        m_sensor->start();
-        qInfo() << "[RotationManager] Using QtSensors orientation backend";
+        // Don't unconditionally start the sensor here. main.cpp wires
+        // displayManager->screenStateChanged to setScreenOn(); the
+        // sensor only runs while (autoRotate && screenOn). Until then
+        // the lsm6dsx (or whatever backend) stays unclaimed.
+        qInfo() << "[RotationManager] Using QtSensors orientation backend (idle)";
+        _evaluateSensorState();
     } else {
         qWarning() << "[RotationManager] No orientation sensor backend available";
     }
 }
 
-RotationManager::~RotationManager() {}
+RotationManager::~RotationManager() = default;
 
 void RotationManager::setAutoRotateEnabled(bool enabled) {
     if (m_autoRotateEnabled == enabled)
@@ -32,12 +35,36 @@ void RotationManager::setAutoRotateEnabled(bool enabled) {
     m_autoRotateEnabled = enabled;
     emit autoRotateEnabledChanged();
 
-    if (enabled)
-        m_sensor->start();
-    else
-        m_sensor->stop();
+    _evaluateSensorState();
 
     qInfo() << "[RotationManager] Auto-rotate" << (enabled ? "enabled" : "disabled");
+}
+
+void RotationManager::setScreenOn(bool on) {
+    if (m_screenOn == on)
+        return;
+    m_screenOn = on;
+    _evaluateSensorState();
+}
+
+void RotationManager::_evaluateSensorState() {
+    if (!m_available)
+        return;
+
+    const bool shouldRun = m_autoRotateEnabled && m_screenOn;
+    if (shouldRun == m_sensorRunning)
+        return;
+
+    if (shouldRun) {
+        m_sensor->start();
+        m_sensorRunning = true;
+        qInfo() << "[RotationManager] sensor started (autoRotate + screenOn)";
+    } else {
+        m_sensor->stop();
+        m_sensorRunning = false;
+        qInfo() << "[RotationManager] sensor stopped (autoRotate=" << m_autoRotateEnabled
+                << " screenOn=" << m_screenOn << ")";
+    }
 }
 
 QString RotationManager::orientationToString(QOrientationReading::Orientation o) {
@@ -80,8 +107,8 @@ void RotationManager::onOrientationReadingChanged() {
 }
 
 void RotationManager::lockOrientation(const QString &orientation) {
-    m_sensor->stop();
     m_autoRotateEnabled = false;
+    _evaluateSensorState();
 
     m_currentOrientation = orientation;
 
@@ -99,6 +126,6 @@ void RotationManager::lockOrientation(const QString &orientation) {
 
 void RotationManager::unlockOrientation() {
     m_autoRotateEnabled = true;
-    m_sensor->start();
     emit autoRotateEnabledChanged();
+    _evaluateSensorState();
 }

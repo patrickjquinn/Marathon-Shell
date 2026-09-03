@@ -2,15 +2,19 @@
 
 #include "powermanagercpp.h"
 #include "displaymanagercpp.h"
+#include "../services/applifecyclemanager.h"
 
 #include <QDateTime>
+#include <QProcess>
 #include <QUuid>
 
-PowerPolicyController::PowerPolicyController(PowerManagerCpp   *powerManager,
-                                             DisplayManagerCpp *displayManager, QObject *parent)
+PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
+                                             DisplayManagerCpp   *displayManager,
+                                             AppLifecycleManager *lifecycle, QObject *parent)
     : QObject(parent)
     , m_powerManager(powerManager)
-    , m_displayManager(displayManager) {
+    , m_displayManager(displayManager)
+    , m_lifecycle(lifecycle) {
 
     if (m_powerManager) {
         connect(m_powerManager, &PowerManagerCpp::activeWakelocksChanged, this, [this]() {
@@ -166,13 +170,10 @@ void PowerPolicyController::performCriticalPowerAction() {
         m_powerManager->hybridSleep();
     } else if (action.compare("Hibernate", Qt::CaseInsensitive) == 0) {
         m_powerManager->hibernate();
-    } else if (action.compare("PowerOff", Qt::CaseInsensitive) == 0 ||
-               action.compare("Shutdown", Qt::CaseInsensitive) == 0) {
-        m_powerManager->shutdown();
     } else if (action.compare("Suspend", Qt::CaseInsensitive) == 0) {
         m_powerManager->suspend();
     } else {
-
+        // Default: PowerOff / Shutdown / anything unrecognized → safe shutdown.
         m_powerManager->shutdown();
     }
 }
@@ -193,10 +194,105 @@ QString PowerPolicyController::wake(const QString &reason) {
 }
 
 bool PowerPolicyController::sleep() {
+    // Backwards-compatible alias for enterDoze(). The historic semantics
+    // of sleep() (call logind.Suspend → full S3) are preserved as
+    // deepSleep() below for the explicit "max battery" path. Routing
+    // sleep() to Doze matches the iOS / Android user model: the
+    // visible "sleep" state keeps push live; deep suspend is a power
+    // user choice.
+    return enterDoze();
+}
+
+bool PowerPolicyController::enterDoze() {
+    if (m_dozing) {
+        return true;
+    }
+
+    qInfo() << "[PowerPolicyController] Entering Doze";
+    emit systemSleeping();
+
+    // 1. Display + backlight off. Goes through DisplayManagerCpp's
+    //    bl_power=4 path (re-writes brightness on the eventual unblank
+    //    via the r293 fix). Does NOT trigger DPMS / KMS suspend — the
+    //    Qt eglfs_kms backend's setPowerState path is known broken on
+    //    i.MX 8M Quad + mxsfb-dsi. Backlight-off + compositor frame
+    //    pause is enough to drop visible draw to ~0.
+    if (m_displayManager)
+        m_displayManager->setScreenState(false);
+
+    // 2. Freeze background apps immediately (skip the per-app debounce).
+    //    AppLifecycleManager.setIdleFreezeDebounceMs(0) makes every
+    //    background app eligible for cgroup.freeze on next tick.
+    //    Foreground app stays thawed — pressing power again must wake
+    //    it instantly without re-launch.
+    if (m_lifecycle) {
+        m_savedFreezeDebounceMs = m_lifecycle->idleFreezeDebounceMs();
+        m_lifecycle->setIdleFreezeDebounceMs(0);
+    }
+
+    // 3. Wifi PSM on. Chip-level low-power-idle (~0.82 mA on most
+    //    cards) while the association stays alive, so push sockets
+    //    don't get torn down. Shell out to `iw` — the QtBluetooth /
+    //    NetworkManager APIs don't expose it. Best-effort: failures
+    //    are logged and ignored (we'd rather have Doze without PSM
+    //    than no Doze at all).
+    // Absolute path because the shell's user-scope PATH may not include
+    // /usr/sbin. The marathon-iw-setcap.service oneshot grants
+    // cap_net_admin on /usr/sbin/iw at boot so this call works as
+    // uid 1000 (the alternative — pkexec / nmcli reapply — needs
+    // auth_admin which doesn't pass for the active session).
+    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
+                            {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
+                             QStringLiteral("power_save"), QStringLiteral("on")});
+
+    m_dozing = true;
+    emit dozingChanged();
+    emit dozeEntered();
+    return true;
+}
+
+bool PowerPolicyController::exitDoze() {
+    if (!m_dozing) {
+        return true;
+    }
+
+    qInfo() << "[PowerPolicyController] Exiting Doze";
+
+    // 1. Restore freeze debounce + thaw foreground (background apps
+    //    stay frozen until the user actually brings them up — saves
+    //    power vs an unconditional thaw). The lifecycle manager's
+    //    bringToForeground() path handles thaw transparently.
+    if (m_lifecycle && m_savedFreezeDebounceMs >= 0) {
+        m_lifecycle->setIdleFreezeDebounceMs(m_savedFreezeDebounceMs);
+        m_savedFreezeDebounceMs = -1;
+    }
+
+    // 2. Wifi PSM off — slight latency win for foreground interaction.
+    //    Optional; could leave on for ~ 5% additional standby but
+    //    snappier first packets matter more on resume.
+    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
+                            {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
+                             QStringLiteral("power_save"), QStringLiteral("off")});
+
+    // 3. Backlight + brightness restore. setScreenState(true) re-writes
+    //    bl_power=0 AND brightness (r293) so the i.MX 8M PWM glitch
+    //    doesn't leave us at 0% duty.
+    if (m_displayManager)
+        m_displayManager->setScreenState(true);
+
+    m_dozing = false;
+    emit dozingChanged();
+    emit dozeExited();
+    emit systemWaking(QStringLiteral("doze-exit"));
+    return true;
+}
+
+bool PowerPolicyController::deepSleep() {
     if (!canSleep()) {
         return false;
     }
 
+    qInfo() << "[PowerPolicyController] Entering DEEP SLEEP (S3) — tearing down wifi+modem";
     emit systemSleeping();
 
     if (m_displayManager)
@@ -210,6 +306,23 @@ bool PowerPolicyController::sleep() {
 }
 
 QString PowerPolicyController::scheduleWakeEpoch(qint64 epochSeconds, const QString &reason) {
+    // Coalesce wake alarms to 60-second windows. Android's AlarmManager
+    // has done this via setInexactRepeating since API 19; iOS BGTaskScheduler
+    // uses opportunistic scheduling with earliestBeginDate as a lower
+    // bound. Marathon rounds each requested wake UP to the next
+    // multiple of kAlarmSnapSeconds so that 5 apps requesting "wake
+    // me at 09:00, 09:00:12, 09:00:37, 09:00:58" all land at the same
+    // RTC alarm slot — one wake instead of four. Compatible with the
+    // existing scheduledWakes surface; QML sees the snapped time in
+    // epochSeconds. Callers needing exact wake latency can opt out by
+    // passing an already-snapped value.
+    constexpr qint64 kAlarmSnapSeconds = 60;
+    if (kAlarmSnapSeconds > 1) {
+        const qint64 remainder = epochSeconds % kAlarmSnapSeconds;
+        if (remainder != 0)
+            epochSeconds += (kAlarmSnapSeconds - remainder);
+    }
+
     const QString wakeId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
     QVariantMap   wake;
@@ -232,6 +345,10 @@ bool PowerPolicyController::cancelScheduledWake(const QString &wakeId) {
         if (wake.value("id").toString() == wakeId) {
             m_scheduledWakes.removeAt(i);
             emit scheduledWakesChanged();
+
+            if (m_scheduledWakes.isEmpty() && m_powerManager)
+                m_powerManager->clearRtcAlarm();
+
             return true;
         }
     }

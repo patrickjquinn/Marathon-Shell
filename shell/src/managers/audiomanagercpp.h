@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include <pulse/pulseaudio.h>
+#include <qqml.h>
 
 struct AudioStream {
     int     id;
@@ -20,7 +21,7 @@ class AudioStreamModel : public QAbstractListModel {
     Q_OBJECT
 
   public:
-    enum StreamRoles {
+    enum StreamRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         AppNameRole,
@@ -44,6 +45,15 @@ class AudioStreamModel : public QAbstractListModel {
 
 class AudioManagerCpp : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static AudioManagerCpp *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY mutedChanged)
@@ -53,7 +63,7 @@ class AudioManagerCpp : public QObject {
 
   public:
     explicit AudioManagerCpp(QObject *parent = nullptr);
-    ~AudioManagerCpp();
+    ~AudioManagerCpp() override;
 
     bool available() const {
         return m_available;

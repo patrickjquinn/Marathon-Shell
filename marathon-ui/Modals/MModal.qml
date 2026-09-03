@@ -26,8 +26,10 @@ Rectangle {
     z: 10000
 
     Behavior on opacity {
-        NumberAnimation {
-            duration: MMotion.quick
+        SpringAnimation {
+            spring: MMotion.stiffnessEffectsFor("modal")
+            damping: MMotion.dampingEffectsFor("modal")
+            epsilon: MMotion.epsilon
         }
     }
 
@@ -42,28 +44,39 @@ Rectangle {
         width: Math.min(parent.width * 0.9, 600)
         height: Math.min(parent.height * 0.8, 700)
 
-        color: MColors.bb10Elevated
+        color: "transparent"
         radius: MRadius.lg
+
+        MGlass {
+            id: modalGlass
+            anchors.fill: parent
+            sourceItem: root.parent
+            blurMaxRadius: MBlur.blurFor("sheet")
+            tint: Qt.rgba(MColors.bb10Elevated.r, MColors.bb10Elevated.g, MColors.bb10Elevated.b, 0.82)
+            borderColor: MColors.borderGlass
+            topHairline: false
+            z: -1
+        }
 
         scale: root.showing ? 1.0 : 0.9
 
         Behavior on scale {
             SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
+                spring: MMotion.stiffnessSpatialFor("modal")
+                damping: MMotion.dampingSpatialFor("modal")
                 epsilon: MMotion.epsilon
             }
         }
 
-        border.width: borderWidth
+        border.width: root.borderWidth
         border.color: MColors.borderGlass
 
         Rectangle {
             anchors.fill: parent
-            anchors.topMargin: shadowTopMargin
-            anchors.leftMargin: -shadowLRMargin
-            anchors.rightMargin: -shadowLRMargin
-            anchors.bottomMargin: -shadowBottomMargin
+            anchors.topMargin: root.shadowTopMargin
+            anchors.leftMargin: -root.shadowLRMargin
+            anchors.rightMargin: -root.shadowLRMargin
+            anchors.bottomMargin: -root.shadowBottomMargin
             z: -1
             radius: parent.radius
             opacity: 0.5
@@ -87,10 +100,10 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: innerMargin
-            radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
+            anchors.margins: root.innerMargin
+            radius: parent.radius > root.innerMargin ? parent.radius - root.innerMargin : 0
             color: "transparent"
-            border.width: borderWidth
+            border.width: root.borderWidth
             border.color: MColors.highlightSubtle
         }
 

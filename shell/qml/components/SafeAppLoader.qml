@@ -1,7 +1,7 @@
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 Item {
     id: root
@@ -100,23 +100,17 @@ Item {
             }
         }
         onLoaded: {
-            if (item) {
+            let app = item as MApp;
+            if (app) {
                 console.log("SafeAppLoader: Successfully loaded app", root.appId);
-                if (item.requestRegister)
-                    item.requestRegister.connect(function (appId, appInstance) {
-                        console.log("SafeAppLoader: App requested registration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.registerApp(appId, appInstance);
-                        else
-                            console.error("SafeAppLoader: AppLifecycleManager not available!");
-                    });
-
-                if (item.requestUnregister)
-                    item.requestUnregister.connect(function (appId) {
-                        console.log("SafeAppLoader: App requested unregistration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.unregisterApp(appId);
-                    });
+                app.requestRegister.connect(function (appId, appInstance) {
+                    console.log("SafeAppLoader: App requested registration:", appId);
+                    AppLifecycleManager.registerApp(appId, appInstance);
+                });
+                app.requestUnregister.connect(function (appId) {
+                    console.log("SafeAppLoader: App requested unregistration:", appId);
+                    AppLifecycleManager.unregisterApp(appId);
+                });
             }
         }
     }

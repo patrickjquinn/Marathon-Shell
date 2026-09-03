@@ -26,7 +26,7 @@ class CallHistoryManager : public QObject {
 
   public:
     explicit CallHistoryManager(QObject *parent = nullptr);
-    ~CallHistoryManager();
+    ~CallHistoryManager() override;
 
     void                     setContactsManager(ContactsManager *contactsManager);
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=Greeter Daemon
+After=systemd-user-sessions.service plymouth-quit-wait.service user@1000.service
+Wants=user@1000.service
+Conflicts=getty@tty1.service
+# The session script exits within ~1s when the user manager's bus is not
+# up yet; the default 5-starts-in-10s limit then kills the display
+# manager permanently on any slow boot ("black screen, power key dead").
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/sbin/greetd
+Restart=always
+RestartSec=3
+
+[Install]
+Alias=display-manager.service
+WantedBy=graphical.target

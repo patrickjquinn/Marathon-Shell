@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>Marathon OS · BlackBerry 10's interaction model, on Linux</title>
+<meta name="description" content="Marathon OS is a gesture-first mobile OS for Linux. Picks up where BlackBerry 10 left off. The Hub, Active Frames, edge-swipe navigation, rebuilt on PostmarketOS and Qt6. 60 FPS on a OnePlus 6, open source, no telemetry."/>
+<link rel="stylesheet" href="../marathon-tokens.css"/>
+<link rel="stylesheet" href="site-styles.css"/>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>
+(function () {
+  var v = '@phos' + 'phor-icons/web' + '@' + '2.1.1';
+  ['light','bold','duotone','fill'].forEach(function (w) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://unpkg.com/' + v + '/src/' + w + '/style.css';
+    document.head.appendChild(l);
+  });
+})();
+</script>
+
+<!-- Marathon system libraries · the same code that powers the OS canvas -->
+<script type="text/babel" src="../shell.jsx"></script>
+<script type="text/babel" src="../app-icons.jsx"></script>
+<script type="text/babel" src="../wallpapers.jsx"></script>
+<script type="text/babel" src="../screens-shell.jsx"></script>
+<script type="text/babel" src="../screens-apps-1.jsx"></script>
+<script type="text/babel" src="../screens-apps-2.jsx"></script>
+<script type="text/babel" src="../screens-modern.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+// Mini MarathonMark, matches BootSplash geometry (disc + black M path).
+function BrandMark({ size = 36, label = false }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+      <span style={{
+        width: size, height: size, borderRadius: '50%',
+        background: 'linear-gradient(180deg, #1de9b6 0%, #00bfa5 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '1px solid rgba(255,255,255,0.15)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',
+        flexShrink: 0,
+      }}>
+        <svg width={size * 0.58} height={size * 0.58} viewBox="0 0 56 56" fill="none">
+          <path d="M10 44V14h6l12 18 12-18h6v30h-6V24L28 40 16 24v20z" fill="#000"/>
+        </svg>
+      </span>
+      {label && <span style={{
+        fontSize: 14, fontWeight: 600, letterSpacing: -0.1,
+      }}>Marathon OS</span>}
+    </span>
+  );
+}
+
+function Nav() {
+  return (
+    <nav className="site-nav">
+      <div className="mw site-nav-inner">
+        <a href="#top" className="site-nav-brand">
+          <BrandMark size={32} label/>
+        </a>
+        <div className="site-nav-links">
+          <a href="#showcase">Showcase</a>
+          <a href="#features">Features</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#community">Community</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a href="https://github.com" className="site-nav-cta">
+          <Icon name="github" size={14}/>
+          <span className="site-nav-cta-label">View on GitHub</span>
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <header className="hero" id="top">
+      <div className="hero-bg"/>
+      <div className="mw hero-grid">
+        <div>
+          <div className="hero-eyebrow">
+            <span className="pulse"/>
+            <span>Active development · v0.9 alpha</span>
+          </div>
+          <h1 className="hero-title">
+            Some ideas were
+            <br/>
+            <em>too good to die.</em>
+          </h1>
+          <p className="hero-lede">
+            Marathon picks up where BlackBerry 10 left off. Gesture navigation,
+            the unified Hub, live Active Frames, rebuilt on Linux.
+            Open source, no telemetry, 60 FPS on a six-year-old OnePlus 6.
+          </p>
+          <div className="hero-ctas">
+            <a href="https://github.com" className="btn btn-primary">
+              <Icon name="github" size={16}/>
+              View on GitHub
+              <Icon name="chevron_right" size={14}/>
+            </a>
+            <a href="#community" className="btn btn-secondary">
+              <Icon name="message" size={16}/>
+              Join Discord
+            </a>
+            <a href="#support" className="btn btn-ghost">
+              <Icon name="heart" size={16}/>
+              Support us
+            </a>
+          </div>
+          <div className="hero-meta">
+            <span>Validated · <b>OnePlus 6</b></span>
+            <span>Frame rate · <b>60 FPS</b></span>
+            <span>Touch latency · <b>10–15 ms</b></span>
+            <span>License · <b>Open source</b></span>
+          </div>
+        </div>
+        <div>
+          {/* Hero image: LockNowBar. The lock screen is the first surface
+              every phone shows — leading with it sets up Marathon's
+              glanceable, live-activity-first thesis (clock, Now Bar with
+              a live call, Health rings) before any other claim. The OS
+              canvas already uses this artboard, so the hero is the real
+              component, not a rendered screenshot. */}
+          <div className="hero-device">
+            <div className="hero-device-scaled">
+              <LockNowBar/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Showcase() {
+  // Marquee features: one phone screen each, alternating left/right.
+  const spotlights = [
+    {
+      eyebrow: 'Active Frames',
+      title: 'Your apps, peeking through.',
+      body: "See what's playing, who's calling, what's coming up, without opening a single app. Frames update in real time and accept touch right where they sit.",
+      bullets: [
+        '2 × 2 grid in portrait · 4 × 2 in landscape',
+        'GPU-accelerated compositing at 60 FPS',
+        'Tap to resume · press-and-hold to close',
+      ],
+      Screen: ActiveFramesHome,
+      flip: false,
+    },
+    {
+      eyebrow: 'The Hub',
+      title: 'Every conversation, in one stream.',
+      body: 'Messages, email, calls, Slack, GitHub. Every account in one chronological inbox. Filter by source, search across everything, reply without leaving.',
+      bullets: [
+        'D-Bus integration for system-wide access',
+        'Full-text search across all communications',
+        'Inline reply, archive, snooze. No context switch',
+      ],
+      Screen: HubScreen,
+      flip: true,
+    },
+    {
+      eyebrow: 'Marathon Intelligence',
+      title: 'Answers that stay on the device.',
+      body: 'Spotlight returns a synthesized response for natural-language queries, with inline citations to the exact calendar event, message, or file it pulled from. The model runs locally; nothing leaves the phone.',
+      bullets: [
+        'Runs locally on Snapdragon 845 and newer',
+        'Every claim links back to a tappable source',
+        '"Searches stay on this device", always',
+      ],
+      Screen: Spotlight,
+      flip: false,
+    },
+    {
+      eyebrow: 'Quick Settings',
+      title: 'Reachable with one thumb.',
+      body: 'Brightness and volume up top where your thumb already lives. Toggles below, paginated so the most-used four fit on the first screen. Now Playing inline, never buried.',
+      bullets: [
+        'Per-tile teal indicator on active state',
+        'Inline media controls. Skip without leaving',
+        'Two pages of toggles, dot indicator below',
+      ],
+      Screen: QuickSettings,
+      flip: true,
+    },
+  ];
+
+  // Quick-glance strip: four marquee surfaces.
+  const strip = [
+    { Screen: LockNowBar,      title: 'Lock screen',      sub: 'Glanceable. Time, health, the call that matters.' },
+    { Screen: MessagesThread,  title: 'Messages',         sub: 'Threaded chat with the Marathon glass treatment.' },
+    { Screen: MusicNowPlaying, title: 'Music',            sub: 'Album-art-driven, with a teal pulse on the scrubber.' },
+    { Screen: SettingsApp,     title: 'Settings',         sub: 'Familiar list rows · refreshed with the Marathon scale.' },
+  ];
+
+  return (
+    <section className="section showcase" id="showcase">
+      <div className="mw">
+        <div className="section-eyebrow">See it in action</div>
+        <h2 className="section-title">Every screen built from the same parts.</h2>
+        <p className="section-lede">
+          Every Marathon surface inherits the same color, type, motion,
+          and component tokens. What you see in the lock screen is what you
+          see in the third-party app you'll install tomorrow.
+        </p>
+
+        {spotlights.map((s, i) => (
+          <div className={'showcase-spotlight' + (s.flip ? ' flip' : '')} key={i}>
+            <div className="showcase-copy">
+              <div className="showcase-eyebrow">
+                <span className="dot"/>
+                <span>{s.eyebrow}</span>
+              </div>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+              <ul className="showcase-bullets">
+                {s.bullets.map((b, j) => <li key={j}>{b}</li>)}
+              </ul>
+            </div>
+            <div className="showcase-phone-wrap">
+              <div className="showcase-phone">
+                <div className="showcase-phone-scaled"><s.Screen/></div>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div className="showcase-strip">
+          {strip.map((s, i) => (
+            <div className="showcase-strip-item" key={i}>
+              <div className="showcase-strip-phone">
+                <div className="showcase-strip-phone-scaled"><s.Screen/></div>
+              </div>
+              <h4>{s.title}</h4>
+              <p>{s.sub}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Principles() {
+  const ps = [
+    {
+      n: '01',
+      t: 'Pick up where BB10 left off.',
+      d: 'Gesture navigation. The Hub. Active Frames. The interaction model that worked, rebuilt on a platform that can outlive any single vendor.',
+    },
+    {
+      n: '02',
+      t: 'Linux underneath, end to end.',
+      d: 'PostmarketOS base. Mainline kernel. Wayland compositor in Qt6. No proprietary blobs, no vendor binaries you can\'t inspect.',
+    },
+    {
+      n: '03',
+      t: 'Old hardware stays current.',
+      d: 'Validated on a OnePlus 6 from 2018, 60 FPS sustained. Community ports underway for the 6T, POCO F1, and the Zinwa BlackBerry Classic restomod.',
+    },
+  ];
+  return (
+    <section className="heritage">
+      <div className="mw">
+        <div className="section-eyebrow" style={{ marginBottom: 20 }}>Three principles</div>
+        <div className="principles-grid">
+          {ps.map((p, i) => (
+            <div className="principle" key={i}>
+              <div className="principle-n">{p.n}</div>
+              <div className="principle-t">{p.t}</div>
+              <div className="principle-d">{p.d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Features() {
+  const features = [
+    {
+      icon: 'hotspot',
+      title: 'Gesture navigation',
+      body: 'Edge swipes, peek actions, fluid transitions. No navigation bars stealing screen space.',
+      bullets: [
+        'Swipe up from bottom · App grid',
+        'Swipe down from top · Quick Settings',
+        'Swipe right from edge · Open the Hub',
+        '~10–15 ms validated touch latency',
+      ],
+    },
+    {
+      icon: 'inbox',
+      title: 'The Hub',
+      body: 'A unified notification stream. Filter, search, act without leaving. Access from anywhere with a swipe.',
+      bullets: [
+        'Time-sorted chronological stream',
+        'Quick actions stay inside the Hub',
+        'Full-text search across communications',
+        'D-Bus integration for system-wide access',
+      ],
+    },
+    {
+      icon: 'layers',
+      title: 'Active Frames',
+      body: 'Live app previews, not screenshots. See what\'s happening across every running app at a glance.',
+      bullets: [
+        '2×2 grid in portrait, 4×2 in landscape',
+        'Live updates: music, timers, progress',
+        'Touch interactions inside the frame',
+        'GPU-accelerated compositing',
+      ],
+    },
+    {
+      icon: 'store',
+      title: 'App ecosystem',
+      body: 'First-party Marathon apps. Native Linux apps via Wayland. Android apps via a custom Waydroid fork, soon.',
+      bullets: [
+        'Marathon apps · Qt/QML, .marathon packages',
+        'Linux apps · Flatpak, Snap, native Wayland',
+        'Android · lightweight Waydroid fork, in dev',
+        'marathon-dev CLI for app development',
+      ],
+    },
+  ];
+  return (
+    <section className="section" id="features">
+      <div className="mw">
+        <div className="section-eyebrow">Core features</div>
+        <h2 className="section-title">A mobile OS that doesn't waste your screen.</h2>
+        <p className="section-lede">
+          Gestures replace navigation bars. The Hub replaces five notification
+          centers. Active Frames replace static icons. Everything is one swipe away.
+        </p>
+        <div className="feature-grid">
+          {features.map((f, i) => (
+            <div className="feature" key={i}>
+              <div className="feature-icon"><Icon name={f.icon} size={18}/></div>
+              <h3>{f.title}</h3>
+              <p>{f.body}</p>
+              <ul>{f.bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Performance() {
+  const stats = [
+    { label: 'Boot time',     value: '20-25', unit: 's',   target: 'Target < 30s' },
+    { label: 'Touch latency', value: '10-15', unit: 'ms',  target: 'Target < 16ms' },
+    { label: 'App launch',    value: '200-250', unit: 'ms', target: 'Target < 300ms' },
+    { label: 'Frame rate',    value: '60',    unit: 'fps', target: 'Sustained' },
+  ];
+  return (
+    <section className="section" style={{ paddingTop: 0 }}>
+      <div className="mw">
+        <div className="section-eyebrow">Performance · OnePlus 6, validated</div>
+        <h2 className="section-title">Built for older hardware. Exceptional on newer.</h2>
+        <p className="section-lede">
+          PREEMPT_RT kernel, immutable root, full disk encryption.
+          Performance targets met on a six-year-old Snapdragon 845.
+        </p>
+        <div className="stat-grid">
+          {stats.map((s, i) => (
+            <div className="stat" key={i}>
+              <div className="stat-label">{s.label}</div>
+              <div className="stat-value">{s.value}<small>{s.unit}</small></div>
+              <div className="stat-target">
+                <Icon name="check" size={12}/>
+                <span>{s.target}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Architecture() {
+  return (
+    <section className="section" id="architecture">
+      <div className="mw">
+        <div className="section-eyebrow">Technical foundation</div>
+        <h2 className="section-title">Open source, top to bottom.</h2>
+        <p className="section-lede">
+          PostmarketOS base. Qt6/QML Wayland compositor. Mainline kernel.
+          No vendor blobs. No telemetry.
+        </p>
+        <div className="arch-grid">
+          <div className="arch-col">
+            <h4>marathon-image</h4>
+            <div className="arch-title">System & runtime</div>
+            <dl>
+              <div>
+                <dt>PostmarketOS base</dt>
+                <dd>Alpine Linux · 10+ year device lifecycle</dd>
+              </div>
+              <div>
+                <dt>Immutable root + atomic updates</dt>
+                <dd>System integrity by default; user data on a separate, encrypted partition</dd>
+              </div>
+              <div>
+                <dt>PREEMPT_RT kernel</dt>
+                <dd>Deterministic frame scheduling for sustained 60 FPS</dd>
+              </div>
+              <div>
+                <dt>Landlock sandboxing</dt>
+                <dd>App containment enforced at the kernel level</dd>
+              </div>
+              <div>
+                <dt>Mainline kernel · no vendor blobs</dt>
+                <dd>Libhybris bridge for Android-HAL devices</dd>
+              </div>
+            </dl>
+          </div>
+          <div className="arch-col">
+            <h4>marathon-shell</h4>
+            <div className="arch-title">Compositor & UI</div>
+            <dl>
+              <div>
+                <dt>Qt6/QML on Wayland</dt>
+                <dd>Native Linux app embedding inside Marathon surfaces</dd>
+              </div>
+              <div>
+                <dt>MarathonUI design system</dt>
+                <dd>Shared QML components, tokens, motion. Every app inherits</dd>
+              </div>
+              <div>
+                <dt>D-Bus integration</dt>
+                <dd>NetworkManager, ModemManager, UPower, BlueZ</dd>
+              </div>
+              <div>
+                <dt>Permission portal</dt>
+                <dd>Per-app, per-resource consent. No global permission grants</dd>
+              </div>
+              <div>
+                <dt>PAM authentication</dt>
+                <dd>System password + PIN + fingerprint, all bound to the secure enclave when present</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Developer() {
+  return (
+    <section className="section">
+      <div className="mw">
+        <div className="dev-strip">
+          <div>
+            <div className="section-eyebrow">For developers</div>
+            <h2>Ship a Marathon app in an afternoon.</h2>
+            <p>
+              <code>marathon-dev</code> is a single CLI for scaffolding,
+              packaging, signing, and installing apps. Marathon apps are
+              Qt/QML, ship as <code>.marathon</code> bundles
+              (ZIP + manifest + GPG signature), and inherit MarathonUI by
+              importing one module.
+            </p>
+            <div className="hero-ctas">
+              <a href="#" className="btn btn-primary">
+                <Icon name="fileText" size={16}/>
+                App developer guide
+              </a>
+              <a href="#" className="btn btn-secondary">
+                <Icon name="command" size={16}/>
+                CLI reference
+              </a>
+            </div>
+          </div>
+          <div className="terminal">
+            <div className="terminal-bar">
+              <span className="dots"><span/><span/><span/></span>
+              <span>~/projects · marathon-dev</span>
+            </div>
+            <div className="terminal-body">
+              <div><span className="prompt">$</span>marathon-dev init slate-editor</div>
+              <div className="out">→ Scaffolded slate-editor in 1.2s</div>
+              <div className="out">→ qml/ · main.qml · manifest.json · marathon-dev.yaml</div>
+              <div style={{ height: 8 }}/>
+              <div><span className="prompt">$</span>marathon-dev package</div>
+              <div className="out">→ Built slate-editor_1.0.0.marathon (340 KB)</div>
+              <div className="out">→ Signed with key <b style={{color:'#fff'}}>0x7C…D2A1</b></div>
+              <div style={{ height: 8 }}/>
+              <div><span className="prompt">$</span>marathon-dev install --device oneplus-6</div>
+              <div className="ok">✓ Installed in 240 ms · launched on device</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Audience() {
+  const ideal = [
+    'BlackBerry 10 veterans who never found a replacement',
+    'Mobile Linux enthusiasts and the PostmarketOS community',
+    'Privacy advocates who want full device control',
+    'Qt/QML developers interested in mobile',
+    'Device porters with mainline kernel experience',
+    'Anyone tired of the iOS/Android duopoly',
+  ];
+  const reality = [
+    'Active development. Expect bugs and rough edges',
+    'Requires technical knowledge for setup and troubleshooting',
+    'Limited device support today, growing with community ports',
+    'Camera and multimedia still maturing',
+    'Android compatibility in progress (Waydroid fork)',
+    'Not yet polished enough for non-technical daily driver',
+  ];
+  return (
+    <section className="section">
+      <div className="mw">
+        <div className="section-eyebrow">Who it's for</div>
+        <h2 className="section-title">An honest pitch.</h2>
+        <p className="section-lede">
+          Marathon is alpha software, community-driven, and proud of it.
+          If you're a developer or enthusiast who values gesture-first UX
+          and open source, dive in. If you need polish, bookmark and check back.
+        </p>
+        <div className="audience-grid">
+          <div className="audience-card">
+            <h3>
+              <Icon name="check" size={18} color="var(--teal-bright)"/>
+              Ideal for
+            </h3>
+            <ul>
+              {ideal.map((t, i) => (
+                <li key={i}>
+                  <span className="audience-bullet-icon" aria-label="included">
+                    {/* Inline check: unambiguous, no font fallback, no clipping */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12.5l4.5 4.5L20 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="audience-card warn">
+            <h3>
+              <Icon name="info" size={18} color="var(--sec-amber)"/>
+              Reality check
+            </h3>
+            <ul>
+              {reality.map((t, i) => (
+                <li key={i}>
+                  <span className="audience-bullet-icon" aria-label="caution">
+                    {/* Inline caution triangle */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 4l9 16H3z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="rgba(200,149,69,0.18)"/>
+                      <line x1="12" y1="11" x2="12" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <circle cx="12" cy="17.5" r="1" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Community() {
+  const cards = [
+    { icon: 'message',  title: 'Discord',     body: 'Real-time chat with the community. Get help, share builds, demo your port.', cta: 'Join the server' },
+    { icon: 'github',   title: 'GitHub',      body: 'Source, issues, RFCs. Every commit is public. Read the code before you contribute.', cta: 'Browse the org' },
+    { icon: 'fileText', title: 'Docs',        body: 'Build guides, device porting, app dev, UI design system, architecture deep-dives.', cta: 'Read the docs' },
+    { icon: 'heart',    title: 'Support',     body: 'Marathon is community-funded. Sponsor on Ko-fi or GitHub Sponsors to keep us going.', cta: 'Support on Ko-fi' },
+  ];
+  return (
+    <section className="section" id="community">
+      <div className="mw">
+        <div className="section-eyebrow">Community</div>
+        <h2 className="section-title">Built by the people who'll use it.</h2>
+        <p className="section-lede">
+          Open source, community-driven, actively seeking contributors.
+          Help shape the future of mobile Linux.
+        </p>
+        <div className="community-grid">
+          {cards.map((c, i) => (
+            <a className="community-card" key={i} href="#">
+              <div className="ic"><Icon name={c.icon} size={18}/></div>
+              <h4>{c.title}</h4>
+              <p>{c.body}</p>
+              <span className="arrow">{c.cta} <Icon name="chevron_right" size={12}/></span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  const items = [
+    {
+      q: 'What devices are supported?',
+      a: 'Any device with a mainline Linux kernel, plus Android-HAL devices via Libhybris. The OnePlus 6 is the validated reference device today (Snapdragon 845, 60 FPS sustained). The OnePlus 6T, Pocophone F1, and several community ports are in active development.',
+    },
+    {
+      q: 'Can I run Android apps?',
+      a: 'A lightweight Waydroid fork integrated with Marathon navigation and theming is in development. Today, Marathon runs first-party Marathon apps and Linux apps via Flatpak/Snap on a full Wayland compositor.',
+    },
+    {
+      q: 'Is it ready for daily use?',
+      a: 'For developers and enthusiasts comfortable with troubleshooting, yes. Core features work, performance targets are met, and we use it daily on the dev team. For non-technical users: not yet. Camera and multimedia features are still maturing.',
+    },
+    {
+      q: 'How do I contribute?',
+      a: 'Port Marathon Shell to your PostmarketOS device. Build Marathon apps with Qt/QML. Improve gesture recognition and UI polish. Contribute to the Hub, Active Frames, or App Store. Write documentation. Test on different hardware. Every contribution helps.',
+    },
+    {
+      q: 'Is this just a BlackBerry 10 clone?',
+      a: 'No. The interaction model is from BB10 (gesture navigation, the Hub, Active Frames) because that workflow was right and we want it back. Everything underneath is new: a Qt6/QML compositor on Wayland, PostmarketOS base, mainline kernel, custom keyboard with Hunspell, Landlock sandboxing. Built from scratch on Linux, where the platform can outlive any single vendor. Not affiliated with BlackBerry Limited.',
+    },
+    {
+      q: 'Why OnePlus 6?',
+      a: 'Mainline kernel support is excellent, Snapdragon 845 is still capable enough to validate performance targets, and the developer community around it is large and skilled. Great hardware lifespan over Marathon\'s 10+ year target.',
+    },
+    {
+      q: 'Long-term vision?',
+      a: 'Custom Marathon hardware in partnership with an OEM. Marathon EV 1 and a Passport-style form factor are on the roadmap. Software-first today; hardware when the software earns it.',
+    },
+  ];
+  return (
+    <section className="section" id="faq">
+      <div className="mw">
+        <div className="section-eyebrow">FAQ</div>
+        <h2 className="section-title">Common questions.</h2>
+        <div className="faq-list">
+          {items.map((f, i) => (
+            <details className="faq-item" key={i}>
+              <summary>{f.q}</summary>
+              <div className="a">{f.a}</div>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="site-footer">
+      <div className="mw">
+        <div className="footer-grid">
+          <div>
+            <BrandMark size={36} label/>
+            <p className="footer-brand" style={{ marginTop: 16 }}>
+              Gesture-first mobile OS, inspired by the best.<br/>
+              Built with PostmarketOS, Qt6, and a vision for better UX.
+            </p>
+          </div>
+          <div className="footer-col">
+            <h5>Resources</h5>
+            <ul>
+              <li><a href="#">Marathon Shell</a></li>
+              <li><a href="#">Marathon Image</a></li>
+              <li><a href="#">Documentation</a></li>
+              <li><a href="#">Issue tracker</a></li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h5>Community</h5>
+            <ul>
+              <li><a href="#">Discord server</a></li>
+              <li><a href="#">Discussions</a></li>
+              <li><a href="#">Contributing</a></li>
+              <li><a href="#">Support on Ko-fi</a></li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h5>Legal</h5>
+            <ul>
+              <li><a href="#">License</a></li>
+              <li><a href="../design-system/Marathon Design System.html">Design system</a></li>
+              <li><a href="../Marathon OS.html">OS preview</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="footer-bar">
+          <div>© 2026 Marathon OS · Open source and community-driven</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Not affiliated with BlackBerry Limited.</div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function App() {
+  return (
+    <>
+      <Nav/>
+      <Hero/>
+      <Principles/>
+      <Showcase/>
+      <Features/>
+      <Performance/>
+      <Architecture/>
+      <Developer/>
+      <Audience/>
+      <Community/>
+      <FAQ/>
+      <Footer/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

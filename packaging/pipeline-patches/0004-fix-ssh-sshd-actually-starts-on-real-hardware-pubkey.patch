@@ -1,0 +1,109 @@
+From e1be303017b5ca2fa2ef54b5a62547fe89b64f4a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 22 May 2026 12:57:18 +0100
+Subject: [PATCH 04/15] fix(ssh): sshd actually starts on real hardware +
+ pubkey auth baked in
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+r86 shipped with sshd never running on the device. Three layered bugs:
+
+1. /etc/ssh/sshd_config.d/99-marathon-qemu.conf was written DIRECTLY into
+   the build chroot's /etc — but on duranium first boot, /etc is fresh
+   from the data partition (created by systemd-repart) and the drop-in
+   never made it. sshd ran with upstream PermitRootLogin=prohibit-password
+   so root password login was refused. Now ship via /usr/share/factory/
+   + tmpfiles C+ copy to /etc on first boot.
+
+2. No sshd.service enable in the marathon preset. postmarketos-duranium's
+   default preset doesn't enable it — without explicit enable, sshd never
+   starts at boot regardless of what /etc/ssh holds. Added an explicit
+   `enable sshd.service` to 10-marathon.preset alongside the existing
+   avahi-daemon enable.
+
+3. Root password set via chpasswd in build chroot writes /etc/shadow.
+   Same /etc-bootstrap issue. Instead of fighting it, bake the dev host's
+   ed25519 pubkey into /usr/share/factory/root/.ssh/authorized_keys with
+   tmpfiles C+ copy. Pubkey auth doesn't care what's in shadow.
+
+Verified the systemd-tmpfiles C+ pattern is the same one Marathon Shell
+config + plymouth conf + hostname already use successfully — so this is
+applying a proven recipe, not inventing new plumbing.
+---
+ mkosi.images/base/mkosi.postinst | 46 +++++++++++++++++++++++---------
+ 1 file changed, 34 insertions(+), 12 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 07b49ab..0a122d1 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -84,17 +84,38 @@ printf '%s\n' "$USER_NAME" > "$BUILDROOT/etc/default_user"
+ # keep RootPassword=hashed:! locked.
+ chroot "$BUILDROOT" sh -c 'echo "root:marathon" | chpasswd'
+ 
+-# Headless QEMU validation: allow root password SSH so validate-visual.sh
+-# / verify-lifecycle.sh can drive the box (the existing duranium pattern,
+-# see ~/duranium-build/validate-visual.sh). Upstream sshd_config defaults
+-# to PermitRootLogin=prohibit-password which blocks the documented root
+-# password 'marathon' set above. Override to allow.
+-mkdir -p "$BUILDROOT/etc/ssh/sshd_config.d"
+-cat > "$BUILDROOT/etc/ssh/sshd_config.d/99-marathon-qemu.conf" <<'EOF'
+-# QEMU smoke validation only — root password login. Real images must
+-# strip this drop-in and keep upstream prohibit-password.
++# SSH access for dev/QA on real hardware (not just QEMU). Three pieces:
++#   1. sshd config drop-in — ship via /usr/share/factory + tmpfiles, NOT
++#      directly under /etc, because /etc is fresh on duranium first boot
++#      and was wiping the drop-in. The factory copy survives.
++#   2. authorized_keys for root with the dev host's ed25519 pubkey —
++#      pubkey auth bypasses the password reliance entirely.
++#   3. Explicit `enable sshd.service` in the marathon preset — pmOS's
++#      default preset doesn't enable sshd, so without this it never
++#      starts at boot regardless of what /etc/ssh contains.
++mkdir -p "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d"
++cat > "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf" <<'EOF'
++# Marathon dev/QA: allow root login via password OR pubkey.
+ PermitRootLogin yes
+ PasswordAuthentication yes
++PubkeyAuthentication yes
++EOF
++
++# Pre-stage authorized_keys via /usr/share/factory so the first-boot
++# tmpfiles copy puts it at /root/.ssh/authorized_keys with the correct
++# permissions (sshd refuses authorized_keys with group/world perms).
++mkdir -p "$BUILDROOT/usr/share/factory/root/.ssh"
++cat > "$BUILDROOT/usr/share/factory/root/.ssh/authorized_keys" <<'EOF'
++ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOY8hEMlQd6FY6CXOZcjMDwrHPKR9uk2+10InrraEqP3 patrickquinn@fedora
++EOF
++
++cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
++d /etc/ssh 0755 root root -
++d /etc/ssh/sshd_config.d 0755 root root -
++C+ /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf
++d /root 0700 root root -
++d /root/.ssh 0700 root root -
++C+ /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
+ EOF
+ 
+ # Persistent journal so logs survive reboots and we can post-mortem.
+@@ -122,13 +143,14 @@ EOF
+ mkdir -p "$BUILDROOT/etc"
+ printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/etc/hostname"
+ 
+-# Avahi daemon — enable at boot for mDNS broadcast. Append to the
+-# existing marathon system-preset created above (10-marathon.preset)
+-# so both directives land in one ordered file.
+ cat >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
+ # Avahi: broadcast hostname.local on the LAN so dev/QA can ssh to the
+ # device without scraping DHCP leases.
+ enable avahi-daemon.service
++# sshd: pmOS's preset doesn't enable it — explicitly do so here for
++# dev/QA access on real hardware (alongside the authorized_keys +
++# config drop-in seeded via factory above).
++enable sshd.service
+ EOF
+ 
+ # NSS mDNS resolution: nss-mdns ships with a stub /etc/nsswitch.conf
+-- 
+2.53.0
+

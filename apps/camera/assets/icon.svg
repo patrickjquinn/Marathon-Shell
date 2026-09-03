@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" fill="none"><rect width="152" height="152" x="174" y="174" fill="#b1b5bd" rx="10" transform="rotate(180 174 174)"/><mask id="a" width="152" height="152" x="22" y="22" maskUnits="userSpaceOnUse" style="mask-type:alpha"><rect width="152" height="152" x="174" y="174" fill="#fff" rx="10" transform="rotate(180 174 174)"/></mask><g fill="#56595b" mask="url(#a)"><path d="M177 49H18V16h159z"/></g><path fill="#56595b" stroke="#fff" stroke-width="6" d="M139 98.5c0 22.368-18.132 40.5-40.5 40.5S58 120.868 58 98.5 76.132 58 98.5 58 139 76.132 139 98.5z"/><path fill="#54688c" stroke="#728dbe" stroke-width="9.694" d="M131.31 98.571c0 18.081-14.657 32.737-32.737 32.737-18.08 0-32.737-14.657-32.737-32.737 0-18.08 14.657-32.737 32.737-32.737 18.081 0 32.737 14.657 32.737 32.737z"/><path fill="#fff" fill-rule="evenodd" d="M160 42a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" clip-rule="evenodd"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#353536"/><stop offset="1" stop-color="#1c1c1d"/></linearGradient>
+        <radialGradient id="lens" cx="0.4" cy="0.4"><stop offset="0" stop-color="#1de9b6" stop-opacity="0.6"/><stop offset="0.5" stop-color="#0a0a0b"/><stop offset="1" stop-color="#000"/></radialGradient>
+    </defs>
+    <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+    <rect width="64" height="64" rx="14" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
+    <g transform="translate(11.2 11.2) scale(1.73)">
+        <rect x="2" y="6" width="20" height="14" rx="2" fill="#0a0a0b" stroke="#5b5b5e" stroke-width="0.6"/>
+        <circle cx="12" cy="13" r="5" fill="#040404" stroke="#5b5b5e" stroke-width="0.5"/>
+        <circle cx="12" cy="13" r="3.5" fill="url(#lens)"/>
+        <circle cx="10.5" cy="11.5" r="1" fill="rgba(255,255,255,0.4)"/>
+        <rect x="15" y="3" width="3.5" height="3" rx="0.5" fill="#0a0a0b"/>
+        <circle cx="18" cy="9" r="0.6" fill="#1de9b6"/>
+    </g>
+</svg>

@@ -1,4 +1,6 @@
 #include "powermanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QDebug>
 #include <QDBusReply>
 #include <QDBusConnection>
@@ -8,6 +10,11 @@
 #include <QFile>
 #include <QProcess>
 
+PowerManagerCpp *PowerManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new PowerManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 QStringList PowerManagerCpp::activeWakelocks() const {
     QStringList result;
     for (auto it = m_activeWakelocks.constBegin(); it != m_activeWakelocks.constEnd(); ++it) {
@@ -42,7 +49,7 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_fallbackMode("none")
     , m_rtcAlarmSupported(false)
     , m_criticalAction(QStringLiteral("PowerOff")) {
-    qCritical() << "[PowerManagerCpp] Initializing PowerManagerCpp Service";
+    qInfo() << "[PowerManagerCpp] Initializing";
 
     m_upowerInterface =
         new QDBusInterface("org.freedesktop.UPower", "/org/freedesktop/UPower",
@@ -55,7 +62,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
         QDBusReply<QString> criticalReply = m_upowerInterface->call("GetCriticalAction");
         if (criticalReply.isValid() && !criticalReply.value().isEmpty()) {
             m_criticalAction = criticalReply.value();
-            emit criticalActionChanged();
         }
         qInfo() << "[PowerManagerCpp] UPower critical action:" << m_criticalAction;
         setupDBusConnections();
@@ -73,6 +79,11 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     if (m_logindInterface->isValid()) {
         m_hasLogind = true;
         qDebug() << "[PowerManagerCpp] Connected to systemd-logind D-Bus";
+        // Take the lifelong sleep/delay inhibit at boot. setupDBusConnections
+        // runs from the UPower branch above (so PrepareForSleep is wired even
+        // when UPower is missing), but we have to defer the actual inhibit
+        // call until after m_logindInterface is alive.
+        inhibitSuspend("marathon-shell", "Handle wake events");
     } else {
         qDebug() << "[PowerManagerCpp] systemd-logind D-Bus not available:"
                  << m_logindInterface->lastError().message();
@@ -101,21 +112,19 @@ PowerManagerCpp::~PowerManagerCpp() {
     cleanupWakelocks();
     releaseInhibitor();
 
-    if (m_upowerInterface)
-        delete m_upowerInterface;
-    if (m_displayDeviceInterface)
-        delete m_displayDeviceInterface;
-    if (m_logindInterface)
-        delete m_logindInterface;
+    // m_upowerInterface, m_displayDeviceInterface, and m_logindInterface
+    // are parented to this; Qt will delete them
 }
 
 void PowerManagerCpp::setupDBusConnections() {
-
-    if (m_hasLogind) {
-        QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
-                                             "org.freedesktop.login1.Manager", "PrepareForSleep",
-                                             this, SLOT(onPrepareForSleep(bool)));
-    }
+    // Subscribe to PrepareForSleep regardless of m_hasLogind -- the system
+    // bus is global, signals route by name, and we want this in place even
+    // before m_logindInterface initialises later in the constructor.
+    QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
+                                         "org.freedesktop.login1.Manager", "PrepareForSleep", this,
+                                         SLOT(onPrepareForSleep(bool)));
+    // The lifelong sleep/delay inhibit is taken in PowerManagerCpp() right
+    // after logind init -- see PowerManagerCpp::PowerManagerCpp.
 }
 
 void PowerManagerCpp::setupDisplayDevice() {
@@ -237,6 +246,11 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
                 writeToFile("/sys/power/wake_lock", it.key());
             }
         }
+
+        // Reacquire the lifelong delay-inhibit so the next suspend cycle
+        // gives us another window to handle radio events.
+        if (m_hasLogind && !m_inhibitorFd.isValid())
+            inhibitSuspend("marathon-shell", "Handle wake events");
     }
 }
 
@@ -335,8 +349,33 @@ void PowerManagerCpp::restart() {
 }
 
 void PowerManagerCpp::setPowerSaveMode(bool enabled) {
-    qDebug() << "[PowerManagerCpp] Power save mode:" << enabled;
+    if (m_isPowerSaveMode == enabled)
+        return;
+    qInfo() << "[PowerManagerCpp] Power save mode:" << enabled;
     m_isPowerSaveMode = enabled;
+
+    // Saver used to be a cosmetic bool. Give it real, SAFE effects:
+    //  1) drop the CPU to the powersave governor (via the existing profile
+    //     path — reverts cleanly to the boot governor on exit / reboot), and
+    //  2) shorten the idle timeout so the display Dozes sooner.
+    // Deliberately does NOT enable auto-suspend (S3): on this hardware S3 has
+    // an unresolved unwakeable-screen bug, so Saver must never push the device
+    // into it. Doze (display-off, ~0.1 W, power-key-wakeable) is the low-power
+    // path we lean on instead.
+    static const int kSaverIdleTimeoutSeconds = 30;
+    if (enabled) {
+        m_preSaverIdleTimeout = m_idleTimeout;
+        m_preSaverProfile     = m_powerProfileString;
+        setPowerProfile(QStringLiteral("power-saver"));
+        if (m_idleTimeout <= 0 || m_idleTimeout > kSaverIdleTimeoutSeconds)
+            setIdleTimeout(kSaverIdleTimeoutSeconds);
+    } else {
+        setPowerProfile(m_preSaverProfile.isEmpty() ? QStringLiteral("balanced")
+                                                    : m_preSaverProfile);
+        if (m_preSaverIdleTimeout > 0)
+            setIdleTimeout(m_preSaverIdleTimeout);
+    }
+
     emit isPowerSaveModeChanged();
 }
 
@@ -387,6 +426,14 @@ void PowerManagerCpp::setAutoSuspendEnabled(bool enabled) {
     }
 }
 
+void PowerManagerCpp::updateActivity() {
+    m_lastActivityTime = QDateTime::currentMSecsSinceEpoch();
+    if (m_isIdle) {
+        m_isIdle = false;
+        emit idleStateChanged(false);
+    }
+}
+
 void PowerManagerCpp::checkIdleState() {
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
     qint64 idleTime    = currentTime - m_lastActivityTime;
@@ -404,7 +451,7 @@ void PowerManagerCpp::checkIdleState() {
     }
 }
 
-void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) {
+void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) const {
     if (!m_powerProfilesSupported) {
         qDebug() << "[PowerManagerCpp] CPU governor control not supported";
         return;
@@ -415,7 +462,15 @@ void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) {
         case Performance: governor = "performance"; break;
         case PowerSaver: governor = "powersave"; break;
         case Balanced:
-        default: governor = "schedutil"; break;
+        // ondemand, not schedutil: on the imx8mq's coupled A53 cluster,
+        // schedutil's RT-boost pins the whole cluster to 1.5 GHz whenever any
+        // SCHED_FIFO task wakes, and the L5 fires ~1000 threaded-IRQ wakeups/s
+        // (PMIC, RTC, fuel gauge, touch, SDIO, GPU). Measured residency at
+        // 1.5 GHz was 58.8% under schedutil vs 11.7% under ondemand at the same
+        // load -- ~500-800 mW wasted continuously. This mirrors the image's
+        // marathon-cpu-governor.service / 60-marathon-cpufreq.rules decision so
+        // the Balanced profile stops clobbering the boot-time governor.
+        default: governor = "ondemand"; break;
     }
 
     QProcess process;

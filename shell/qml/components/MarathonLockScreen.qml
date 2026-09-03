@@ -1,17 +1,34 @@
-import "./ui"
 import MarathonOS.Shell 1.0
-import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Effects
 
 Item {
     id: lockScreen
 
+    // The running app surface to blur behind the lock chrome, if any.
+    // Set by MarathonShell.qml to appWindowContainer when an app is
+    // open; null otherwise (the wallpaper renders through normally).
+    property Item appBackdrop: null
+
     property real swipeProgress: 0
-    property string expandedCategory: ""
-    property int idleTimeoutMs: 30000
+    // Honour Settings → Display & Brightness → Screen Timeout for the
+    // lock screen too. SettingsManager.screenTimeout==0 means "Never"
+    // (handled below in idleTimer.running). Falls back to the previous
+    // hard-coded 30 s when the singleton hasn't published yet.
+    property int idleTimeoutMs: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.screenTimeout > 0) ? SettingsManagerCpp.screenTimeout : 30000
+    readonly property int roleIsRead: roleId("isRead")
+    readonly property int roleAppId: roleId("appId")
+    readonly property int roleIcon: roleId("icon")
+    readonly property int roleIdValue: roleId("id")
+    readonly property int roleTitle: roleId("title")
+    readonly property int roleBody: roleId("body")
+    readonly property int roleTimestamp: roleId("timestamp")
+    // Max notification cards shown directly; remainder collapse
+    // into the 'N more notifications · earlier today' card per
+    // the JSX LockScreen design.
+    readonly property int maxNotificationsShown: 2
 
     signal unlockRequested
     signal cameraLaunched
@@ -21,54 +38,72 @@ Item {
     function roleId(name) {
         if (!NotificationModel || !name)
             return -1;
+
         return NotificationModel.roleId(name);
     }
 
-    readonly property int roleIsRead: roleId("isRead")
-    readonly property int roleAppId: roleId("appId")
-    readonly property int roleIcon: roleId("icon")
-    readonly property int roleIdValue: roleId("id")
-    readonly property int roleTitle: roleId("title")
-    readonly property int roleBody: roleId("body")
-    readonly property int roleTimestamp: roleId("timestamp")
-
     function resetIdleTimer() {
-        if (lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true))
+        if (lockScreen.visible && DisplayPolicyControllerCpp.screenOn)
             idleTimer.restart();
     }
 
-    function updateCategories() {
-        var cats = {};
-        for (var i = 0; i < NotificationModel.rowCount(); i++) {
-            var idx = NotificationModel.index(i, 0);
-            var isRead = NotificationModel.data(idx, roleIsRead) || false;
-            if (isRead)
-                continue;
-
-            var appId = NotificationModel.data(idx, roleAppId) || "other";
-            var icon = NotificationModel.data(idx, roleIcon) || "bell";
-            if (!cats[appId])
-                cats[appId] = {
-                    "appId": appId,
-                    "icon": icon,
-                    "count": 0
-                };
-
-            cats[appId].count++;
-        }
-        categoriesModel.clear();
-        for (var cat in cats) {
-            categoriesModel.append(cats[cat]);
-        }
-        Logger.info("LockScreen", "Updated categories. Count: " + categoriesModel.count);
+    // Relative-time formatter for notification cards.
+    // Returns 'now' / 'Nm' / 'Nh' / clock-time for older today.
+    function relativeTime(ts) {
+        if (!ts)
+            return "";
+        const now = Date.now();
+        const diff = now - ts;
+        if (diff < 60 * 1000)
+            return "now";
+        if (diff < 60 * 60 * 1000)
+            return Math.floor(diff / 60000) + "m";
+        if (diff < 24 * 60 * 60 * 1000)
+            return Math.floor(diff / 3600000) + "h";
+        return Qt.formatTime(new Date(ts), "h:mm AP");
     }
+
+    // Rebuilds the visible-notifications model from the global
+    // NotificationModel — keeps only the first `maxNotificationsShown`
+    // unread items so the lock surface stays calm. The remainder are
+    // surfaced via the 'N more · earlier today' card.
+    function refreshNotifications() {
+        unreadModel.clear();
+        // Honour the "Show on Lock Screen" privacy setting. Previously this
+        // toggle wrote SettingsManagerCpp.showNotificationsOnLockScreen but
+        // nothing read it, so turning it off still leaked every notification
+        // onto the lock surface. Gate the whole list here.
+        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen) {
+            moreCount = 0;
+            return;
+        }
+        let unread = 0;
+        for (let i = 0; i < NotificationModel.rowCount(); i++) {
+            const idx = NotificationModel.index(i, 0);
+            if (NotificationModel.data(idx, roleIsRead))
+                continue;
+            if (unread < maxNotificationsShown) {
+                unreadModel.append({
+                    "notifId": NotificationModel.data(idx, roleIdValue) || 0,
+                    "appId": NotificationModel.data(idx, roleAppId) || "other",
+                    "icon": NotificationModel.data(idx, roleIcon) || "bell",
+                    "title": NotificationModel.data(idx, roleTitle) || "",
+                    "body": NotificationModel.data(idx, roleBody) || "",
+                    "timestamp": NotificationModel.data(idx, roleTimestamp) || 0
+                });
+            }
+            unread++;
+        }
+        moreCount = Math.max(0, unread - maxNotificationsShown);
+    }
+
+    property int moreCount: 0
 
     anchors.fill: parent
     visible: opacity > 0.01
     onVisibleChanged: {
         if (visible) {
-            Logger.info("LockScreen", "Lock screen visible - refreshing categories");
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
             SessionStore.isOnLockScreen = true;
         } else {
             SessionStore.isOnLockScreen = false;
@@ -76,20 +111,30 @@ Item {
     }
     Component.onCompleted: {
         if (visible) {
-            Logger.info("LockScreen", "Lock screen created visible - setting initial state");
             console.log("[LockScreen] SessionStore.isLocked =", SessionStore.isLocked);
             SessionStore.isOnLockScreen = true;
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
         }
     }
-    layer.enabled: true
-    layer.smooth: true
+    // layer.enabled was true with layer.smooth — that turned the whole
+    // lock screen into an offscreen FBO. Combined with the "Swipe up
+    // to unlock" bobbing animation (loops: Infinite) any frame the
+    // animation produced re-rasterized the FULL lock-screen texture
+    // every refresh, pinning QSGRenderThread at ~37% CPU at idle (5m
+    // CPU per 15m wall-clock, measured 2026-06-25). The original
+    // motivation for layer.enabled was lost in the comment history;
+    // disabling it drops to dirty-region rendering and the lock
+    // screen sits at near-zero idle CPU.
+    layer.enabled: false
 
     Timer {
         id: idleTimer
 
-        interval: idleTimeoutMs
-        running: lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true)
+        interval: lockScreen.idleTimeoutMs
+        // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
+        // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
+        // interval fires every tick and blanks the lock screen immediately.
+        running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
         repeat: false
         onTriggered: {
             if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
@@ -98,28 +143,24 @@ Item {
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
-            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
-                DisplayPolicyControllerCpp.turnScreenOff();
-            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                DisplayManagerCpp.setScreenState(false);
+            DisplayPolicyControllerCpp.turnScreenOff();
         }
     }
 
     Connections {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
-                Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
-                var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : true;
-                if (!screenOn) {
-                    if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                Logger.info("LockScreen", "New notification: " + notification.title);
+                // Under Do Not Disturb, never light the screen for a
+                // notification — waking the display is the single most
+                // disruptive thing DND is supposed to prevent. Still refresh
+                // the list quietly so it's there when the user wakes it.
+                if (!NotificationService.isDndEnabled) {
+                    if (!DisplayPolicyControllerCpp.screenOn)
                         DisplayPolicyControllerCpp.turnScreenOn();
-                    else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                        DisplayManagerCpp.setScreenState(true);
+                    resetIdleTimer();
                 }
-                var appId = notification.appId || "other";
-                expandedCategory = appId;
-                resetIdleTimer();
-                Logger.info("LockScreen", "Auto-expanded category: " + appId);
+                lockScreen.refreshNotifications();
             }
         }
 
@@ -137,16 +178,23 @@ Item {
             }
         }
 
-        target: typeof DisplayManagerCpp !== "undefined" ? DisplayManagerCpp : null
+        target: DisplayManagerCpp
     }
 
+    // Visible-cards model — populated by refreshNotifications().
     ListModel {
-        id: categoriesModel
+        id: unreadModel
     }
 
     Connections {
         function onCountChanged() {
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
+        }
+        function onModelReset() {
+            lockScreen.refreshNotifications();
+        }
+        function onDataChanged() {
+            lockScreen.refreshNotifications();
         }
 
         target: NotificationModel
@@ -157,28 +205,29 @@ Item {
 
         anchors.fill: parent
         z: 1
-        opacity: 1 - Math.pow(swipeProgress, 0.7)
+        opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
 
-        Image {
+        WallpaperSlateAurora {
             anchors.fill: parent
-            source: WallpaperStore.path
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: true
-            smooth: true
-            layer.enabled: true
-            layer.smooth: true
+            visible: lockScreen.appBackdrop === null
         }
 
-        MouseArea {
+        AppBackdropBlur {
             anchors.fill: parent
-            z: 1
-            enabled: expandedCategory !== ""
-            onClicked: {
-                expandedCategory = "";
-                resetIdleTimer();
-                Logger.info("LockScreen", "Notifications dismissed");
-            }
+            source: lockScreen.appBackdrop
+            blurAmount: 1.0
+            // 24 instead of 64 — see AppBackdropBlur.qml. A wider kernel
+            // is invisible past ~24 on a 540×1140 screen but quadruples
+            // fillrate on etnaviv.
+            blurMax: MBlur.lg
+            blurMultiplier: 1.4
+            saturation: 0.4
+            brightness: -0.15
+            tint: Qt.rgba(0, 0, 0, 0.25)
+            // The lock screen sits over an app that has been frozen by
+            // AppLifecycleManager — its surface texture does not change.
+            // Sample once, then stop.
+            live: false
         }
 
         MarathonStatusBar {
@@ -188,476 +237,556 @@ Item {
             z: 5
         }
 
-        Column {
-            id: clockColumn
+        // ── Call NowBar (screens-modern.jsx:LockNowBar) ─────
+        // Live activity strip pinned 70 px from the top whenever
+        // TelephonyService has an active or ringing call. The card
+        // shows a teal-bright phone avatar, an eyebrow with caller
+        // name + call duration, and a red end-call button.
+        //
+        // Caller name resolves through ContactsService when granted,
+        // falling back to the raw activeNumber otherwise.
+        Item {
+            id: lockNowBar
 
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingSmall
-            width: parent.width * 0.9
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
-            onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
-            layer.enabled: true
-            layer.smooth: true
+            readonly property bool callActive: TelephonyService.callState === "active" || TelephonyService.callState === "ringing"
+            // Wall-clock timestamp of the most recent "active" transition.
+            // Reset to 0 whenever the call leaves the active state so the
+            // duration eyebrow flips back to "00:00".
+            property double callStartedAt: 0
+            property int callElapsed: 0
 
-            Text {
-                text: SystemStatusStore.timeString
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeGigantic
-                font.weight: Font.Thin
-                anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.NativeRendering
-                layer.enabled: true
+            function fmtElapsed() {
+                const total = Math.max(0, callElapsed);
+                const m = Math.floor(total / 60);
+                const s = total % 60;
+                return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+            }
 
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
+            function callerLabel() {
+                const num = TelephonyService.activeNumber || "";
+                if (!num)
+                    return "Unknown";
+                // Shell-process callers use ContactsManager directly;
+                // app-runner clients see the same data via ContactsService
+                // (the IPC wrapper). Try both — whichever is defined wins.
+                const svc = (typeof ContactsService !== "undefined" && ContactsService) ? ContactsService : (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
+                if (svc && svc.getContactByNumber) {
+                    const c = svc.getContactByNumber(num);
+                    if (c && c.name)
+                        return c.name;
                 }
+                return num;
             }
 
-            Text {
-                text: SystemStatusStore.dateString
-                color: MColors.text
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Normal
-                anchors.horizontalCenter: parent.horizontalCenter
-                opacity: 0.9
-                renderType: Text.NativeRendering
-                layer.enabled: true
+            visible: callActive
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: statusBar.bottom
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.topMargin: 42
+            height: 72
+            z: 6
 
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
-                }
-            }
-
-            Item {
-                width: parent.width
-                height: Constants.spacingMedium
-                visible: lockScreenMediaPlayer.visible
-            }
-
-            MediaPlaybackManager {
-                id: lockScreenMediaPlayer
-
-                width: Math.min(parent.width, 400 * Constants.scaleFactor)
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: hasMedia
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3)
-
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: Qt.rgba(0, 191 / 255, 165 / 255, 0.15)
-                    }
-
-                    GradientStop {
-                        position: 1
-                        color: Qt.rgba(0, 0, 0, 0.2)
+            Connections {
+                target: TelephonyService
+                function onCallStateChanged() {
+                    if (TelephonyService.callState === "active") {
+                        lockNowBar.callStartedAt = Date.now();
+                        lockNowBar.callElapsed = 0;
+                    } else {
+                        lockNowBar.callStartedAt = 0;
+                        lockNowBar.callElapsed = 0;
                     }
                 }
             }
 
-            states: State {
-                name: "hasNotifications"
-                when: categoriesModel.count > 0
-
-                AnchorChanges {
-                    target: clockColumn
-                    anchors.verticalCenter: undefined
-                    anchors.top: parent.top
-                }
-
-                PropertyChanges {
-                    clockColumn.anchors.topMargin: Math.round(80 * Constants.scaleFactor)
-                    clockColumn.anchors.verticalCenterOffset: 0
+            Timer {
+                interval: 1000
+                running: lockNowBar.visible && lockNowBar.callStartedAt > 0
+                repeat: true
+                onTriggered: {
+                    lockNowBar.callElapsed = Math.floor((Date.now() - lockNowBar.callStartedAt) / 1000);
                 }
             }
 
-            transitions: Transition {
-                AnchorAnimation {
-                    duration: 300
-                    easing.type: Easing.OutCubic
+            Rectangle {
+                anchors.fill: parent
+                radius: MRadius.md
+                color: MColors.glassTitlebar
+                border.width: 1
+                border.color: MColors.borderGlassStrong
+
+                MTopHairline {
+                    radius: parent.radius
+                    color: MColors.whiteOverlay06
+                    lineWidth: 1
                 }
 
-                NumberAnimation {
-                    properties: "anchors.topMargin,anchors.verticalCenterOffset"
-                    duration: 300
-                    easing.type: Easing.OutCubic
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    anchors.topMargin: 14
+                    anchors.bottomMargin: 14
+                    spacing: 14
+
+                    // 44 × 44 teal-outlined phone avatar.
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 44
+                        height: 44
+                        radius: width / 2
+                        border.width: 1
+                        border.color: MColors.marathonTealBright
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0
+                                color: "#1a4a3e"
+                            }
+                            GradientStop {
+                                position: 1
+                                color: "#0d2620"
+                            }
+                        }
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "phone"
+                            size: 20
+                            color: MColors.marathonTealBright
+                        }
+                        // Outer teal halo ring at low alpha.
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            radius: width / 2
+                            color: "transparent"
+                            border.width: 1
+                            border.color: MColors.marathonTealBright
+                            opacity: 0.4
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 44 - 36 - parent.spacing * 2
+                        spacing: 2
+
+                        Text {
+                            text: "CALL · " + lockNowBar.fmtElapsed()
+                            color: MColors.marathonTealBright
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeEyebrow
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: 0.8
+                            font.features: ({
+                                    "tnum": 1
+                                })
+                        }
+                        Text {
+                            width: parent.width
+                            text: lockNowBar.callerLabel()
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    // 36 × 36 red end-call button.
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 36
+                        height: 36
+                        radius: width / 2
+                        color: MColors.error
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "phone"
+                            size: 14
+                            color: "#FFFFFF"
+                            rotation: 135
+                        }
+                        scale: endCallArea.pressed ? 0.94 : 1.0
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 100
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                        MouseArea {
+                            id: endCallArea
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            onClicked: {
+                                HapticManager.medium();
+                                TelephonyService.hangup();
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Item {
-            id: notificationContainer
+        // ── Clock cluster ───────────────────────────────────
+        // Two layouts per the JSX: LockScreen() puts the clock at
+        // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
+        // to top:170 / 76 px / -1.5 tracking so the media card at
+        // top:360 has breathing room. Switches automatically when
+        // MPRIS2Controller.hasActivePlayer flips.
+        Column {
+            id: clockColumn
 
-            anchors.top: clockColumn.bottom
-            anchors.topMargin: Constants.spacingMedium
-            anchors.bottom: parent.bottom
+            readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Constants.spacingSmall
+            width: parent.width * 0.9
+            anchors.top: parent.top
+            anchors.topMargin: Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
+            // layer.enabled was: true (with layer.smooth) to keep the
+            // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
+            // QtRendering the extra FBO + bilinear pass renders the
+            // glyphs with a ghosted secondary stroke ~3 px inside each
+            // digit. Static composition is sharp; the size animation
+            // doesn't need an extra texture pass at this scale.
+
+            Behavior on anchors.topMargin {
+                NumberAnimation {
+                    duration: MMotion.moderate
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            MHaloedDisplay {
+                text: SystemStatusStore.timeString
+                // Design size is (76|84) × scaleFactor, but HorizontalFit
+                // inside MHaloedDisplay has been unreliable on Qt 6.10
+                // QtRendering — at scaleFactor 2 the clock clipped past
+                // both edges instead of shrinking. Clamp pixelSize so
+                // the natural width never exceeds the canvas:
+                //   "HH:MM AM/PM" → 8 chars · ~0.55 advance width ratio
+                //   → max pixelSize ≈ (parent.width - 32) / (8 · 0.55)
+                // which gives the design value at scaleFactor 1 and
+                // a sub-canvas value when DPI scaling would blow it up.
+                pixelSize: Math.min(Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor), Math.floor((parent.width - 32) / 4.4))
+                weight: MTypography.weightThin
+                letterSpacing: clockColumn.mediaActive ? -1.5 : -2
+                color: MColors.textPrimary
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width
+                maxWidth: parent.width - 32
+
+                // Behavior on pixelSize removed: NativeRendering caches
+                // each rasterised pixelSize separately, so animating the
+                // size produces a ghosted overlay of the old size while
+                // the new one fades in. pixelSize only changes when
+                // mediaActive flips (rare) — a hard jump there is
+                // acceptable and keeps the static state crisp.
+            }
+
+            Text {
+                text: SystemStatusStore.dateString
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamilyMedium
+                font.pixelSize: clockColumn.mediaActive ? Math.round(14 * Constants.scaleFactor) : MTypography.sizeSubhead
+                font.weight: MTypography.weightMedium
+                font.letterSpacing: 0.3
+                anchors.horizontalCenter: parent.horizontalCenter
+                renderType: Text.QtRendering
+            }
+        }
+
+        // ── Activity NowBar ─────────────────────────────────
+        // Per screens-modern.jsx:LockNowBar — a second activity strip
+        // beneath the time, showing Move / Stand ring progress. Bound
+        // to ActivityService (MotionDaemon → Oxford C-Step-Counter).
+        // Hidden when no media card is up and no rings are closed yet,
+        // so a brand-new device doesn't crowd the lock with zero-state
+        // chrome.
+        Item {
+            id: activityBar
+
+            readonly property bool serviceUp: typeof ActivityService !== "undefined" && ActivityService !== null && ActivityService.available
+            readonly property int moveP: serviceUp ? Math.round(ActivityService.movePercent * 100) : 0
+            readonly property int exerciseP: serviceUp ? Math.round(ActivityService.exercisePercent * 100) : 0
+            readonly property int standP: serviceUp ? Math.round(ActivityService.standPercent * 100) : 0
+            readonly property int ringsLeft: {
+                let n = 0;
+                if (moveP < 100)
+                    n++;
+                if (exerciseP < 100)
+                    n++;
+                if (standP < 100)
+                    n++;
+                return n;
+            }
+            readonly property int rawSteps: serviceUp ? ActivityService.stepsToday : 0
+            readonly property bool anyProgress: rawSteps > 0 || moveP > 0 || exerciseP > 0 || standP > 0
+
+            visible: serviceUp && anyProgress && !lockScreenMediaPlayer.hasMedia
             anchors.left: parent.left
             anchors.right: parent.right
-            visible: categoriesModel.count > 0
-            z: 10
-            onYChanged: Logger.info("LockScreen", "NotificationContainer Y changed to: " + y)
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.top: clockColumn.bottom
+            anchors.topMargin: Math.round(28 * Constants.scaleFactor)
+            height: 68
 
-            Column {
-                id: categoryIcons
-
+            Rectangle {
+                anchors.fill: parent
+                radius: MRadius.md
+                color: MColors.elev2
+                border.width: 1
+                border.color: MColors.whiteOverlay04
+            }
+            // Top inset highlight per DS "lit from above".
+            Rectangle {
                 anchors.left: parent.left
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
-                anchors.topMargin: categoriesModel.count <= 3 ? Math.round(20 * Constants.scaleFactor) : 0
-                anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
-                spacing: Constants.spacingLarge
-                z: 100
-
-                Repeater {
-                    model: categoriesModel
-
-                    delegate: Item {
-                        property string category: model.appId
-                        property bool isActive: expandedCategory === category
-
-                        width: Math.round(56 * Constants.scaleFactor)
-                        height: Math.round(56 * Constants.scaleFactor)
-
-                        Rectangle {
-                            id: categoryIconBg
-
-                            width: Math.round(48 * Constants.scaleFactor)
-                            height: Math.round(48 * Constants.scaleFactor)
-                            radius: Math.round(24 * Constants.scaleFactor)
-                            color: isActive ? MColors.elevated : MColors.surface
-                            border.width: 1
-                            border.color: isActive ? MColors.accent : "#3A3A3A"
-                            anchors.centerIn: parent
-                            antialiasing: true
-                            layer.enabled: true
-
-                            Icon {
-                                name: model.icon
-                                size: 24
-                                color: MColors.textPrimary
-                                anchors.centerIn: parent
-                            }
-
-                            Rectangle {
-                                visible: model.count > 0
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.rightMargin: Math.round(-4 * Constants.scaleFactor)
-                                anchors.topMargin: Math.round(-4 * Constants.scaleFactor)
-                                width: Math.round(20 * Constants.scaleFactor)
-                                height: Math.round(20 * Constants.scaleFactor)
-                                radius: Math.round(10 * Constants.scaleFactor)
-                                color: MColors.accent
-                                border.width: 2
-                                border.color: MColors.background
-                                antialiasing: true
-
-                                Text {
-                                    text: model.count
-                                    color: "white"
-                                    font.pixelSize: MTypography.sizeXSmall
-                                    font.weight: Font.Bold
-                                    anchors.centerIn: parent
-                                    renderType: Text.NativeRendering
-                                }
-                            }
-
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#000000"
-                                shadowOpacity: 0.5
-                                shadowBlur: 0.5
-                                shadowVerticalOffset: 2
-                                shadowHorizontalOffset: 1
-                            }
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
-
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                HapticManager.light();
-                                resetIdleTimer();
-                                if (expandedCategory === category) {
-                                    expandedCategory = "";
-                                    Logger.info("LockScreen", "Collapsed category: " + category);
-                                } else {
-                                    expandedCategory = category;
-                                    Logger.info("LockScreen", "Expanded category: " + category);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Item {
-                id: lineAndChevron
-
-                function calculateChevronY() {
-                    var activeIndex = -1;
-                    for (var i = 0; i < categoriesModel.count; i++) {
-                        if (categoriesModel.get(i).appId === expandedCategory) {
-                            activeIndex = i;
-                            break;
-                        }
-                    }
-                    if (activeIndex === -1)
-                        activeIndex = 0;
-
-                    var itemHeight = Math.round(56 * Constants.scaleFactor);
-                    var itemSpacing = Math.round(20 * Constants.scaleFactor);
-                    var yPos = activeIndex * (itemHeight + itemSpacing) + Math.round(20 * Constants.scaleFactor);
-                    Logger.info("LockScreen", "Chevron Y calculated: " + yPos + " for category: " + expandedCategory + " at index: " + activeIndex);
-                    return yPos;
-                }
-
-                visible: expandedCategory !== ""
-                anchors.left: categoryIcons.right
-                anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                anchors.top: categoryIcons.top
-                anchors.bottom: categoryIcons.bottom
-                width: Math.round(24 * Constants.scaleFactor)
-                z: 50
-
-                Connections {
-                    function onExpandedCategoryChanged() {
-                        chevronCanvas.y = lineAndChevron.calculateChevronY();
-                        topLineSegment.height = chevronCanvas.y;
-                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor);
-                    }
-
-                    target: lockScreen
-                }
-
-                Rectangle {
-                    id: topLineSegment
-
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    width: Math.round(2 * Constants.scaleFactor)
-                    height: Math.round(20 * Constants.scaleFactor)
-                    color: "white"
-                    opacity: 0.6
-                    layer.enabled: true
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-
-                Canvas {
-                    id: chevronCanvas
-
-                    anchors.right: topLineSegment.horizontalCenter
-                    y: Math.round(20 * Constants.scaleFactor)
-                    width: Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(16 * Constants.scaleFactor)
-                    layer.enabled: true
-                    onYChanged: {
-                        Logger.info("LockScreen", "Chevron Y changed to: " + y);
-                        requestPaint();
-                    }
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-                        ctx.strokeStyle = "white";
-                        ctx.lineWidth = 2;
-                        ctx.globalAlpha = 0.6;
-                        ctx.beginPath();
-                        ctx.moveTo(width, 0);
-                        ctx.lineTo(0, height / 2);
-                        ctx.lineTo(width, height);
-                        ctx.stroke();
-                    }
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-
-                Rectangle {
-                    id: bottomLineSegment
-
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.topMargin: Math.round(36 * Constants.scaleFactor)
-                    anchors.bottom: parent.bottom
-                    width: Math.round(2 * Constants.scaleFactor)
-                    color: "white"
-                    opacity: 0.6
-                    layer.enabled: true
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-            }
-
-            ListView {
-                id: notificationList
-
-                function updateFilteredNotifications() {
-                    filteredNotificationsModel.clear();
-                    if (expandedCategory === "")
-                        return;
-
-                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                        var idx = NotificationModel.index(i, 0);
-                        var isRead = NotificationModel.data(idx, roleIsRead) || false;
-                        if (isRead)
-                            continue;
-
-                        var appId = NotificationModel.data(idx, roleAppId) || "other";
-                        if (appId === expandedCategory)
-                            filteredNotificationsModel.append({
-                                "notifId": NotificationModel.data(idx, roleIdValue),
-                                "title": NotificationModel.data(idx, roleTitle),
-                                "body": NotificationModel.data(idx, roleBody),
-                                "timestamp": NotificationModel.data(idx, roleTimestamp)
-                            });
-                    }
-                }
-
-                visible: expandedCategory !== ""
-                anchors.left: lineAndChevron.right
-                anchors.leftMargin: Math.round(4 * Constants.scaleFactor)
                 anchors.right: parent.right
-                anchors.rightMargin: Math.round(16 * Constants.scaleFactor)
-                anchors.top: categoryIcons.top
-                anchors.topMargin: Math.round(-8 * Constants.scaleFactor)
-                height: Math.min(count * Math.round(80 * Constants.scaleFactor), parent.height * 0.5)
-                spacing: Constants.spacingSmall
-                clip: true
-                z: 40
-                onVisibleChanged: {
-                    if (visible)
-                        updateFilteredNotifications();
-                }
+                anchors.top: parent.top
+                anchors.leftMargin: 1
+                anchors.rightMargin: 1
+                anchors.topMargin: 1
+                height: 1
+                color: Qt.rgba(1, 1, 1, 0.06)
+            }
 
-                Connections {
-                    function onExpandedCategoryChanged() {
-                        notificationList.updateFilteredNotifications();
+            Row {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                spacing: 12
+
+                // 44 × 44 squircle with three concentric activity rings.
+                // The arc widths are constants; ring fill is communicated
+                // by the percentages above instead of redrawing arcs each
+                // frame.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 44
+                    height: 44
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: 3
+                    border.color: Qt.rgba(255 / 255, 59 / 255, 71 / 255, activityBar.moveP > 0 ? 0.9 : 0.25)
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width - 9
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 3
+                        border.color: Qt.rgba(165 / 255, 255 / 255, 132 / 255, activityBar.exerciseP > 0 ? 0.9 : 0.25)
                     }
-
-                    target: lockScreen
-                }
-
-                Connections {
-                    function onCountChanged() {
-                        if (notificationList.visible)
-                            notificationList.updateFilteredNotifications();
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width - 18
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 3
+                        border.color: Qt.rgba(0 / 255, 191 / 255, 255 / 255, activityBar.standP > 0 ? 0.9 : 0.25)
                     }
-
-                    target: NotificationModel
                 }
 
-                model: ListModel {
-                    id: filteredNotificationsModel
-                }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 44 - parent.spacing
+                    spacing: 2
 
-                delegate: Item {
-                    width: notificationList.width
-                    height: Math.round(70 * Constants.scaleFactor)
+                    Text {
+                        text: "ACTIVITY"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Bold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                    }
+                    Text {
+                        width: parent.width
+                        text: "Move " + activityBar.moveP + "% · Stand " + activityBar.standP + "%"
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        width: parent.width
+                        text: activityBar.ringsLeft === 0 ? "All rings closed today" : activityBar.ringsLeft + " ring" + (activityBar.ringsLeft === 1 ? "" : "s") + " left to close before bed"
+                        color: MColors.textTertiary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+        }
+
+        // ── Media card (LockMedia variant) ──────────────────
+        // Per screens-shell.jsx:188-240 LockMedia(): absolute
+        // positioned at top:360, left/right:18. Visible only when
+        // MPRIS reports an active player — no card when nothing is
+        // playing (the LockScreen variant takes over).
+        MediaPlaybackManager {
+            id: lockScreenMediaPlayer
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: Math.round(360 * Constants.scaleFactor)
+            visible: hasMedia
+            z: 8
+        }
+
+        // ── Notification stack ──────────────────────────────
+        // Per screens-shell.jsx:84-147 LockScreen() — at top:420 in the
+        // 844-tall canvas, anchored 18 left/right. 2-3 most-recent
+        // unread cards stacked at 8 px gap. If unread > maxShown, an
+        // 'N more · earlier today' collapse card sits at the bottom.
+        Column {
+            id: notificationStack
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: Math.round(420 * Constants.scaleFactor)
+            spacing: 8
+            visible: unreadModel.count > 0 || lockScreen.moreCount > 0
+            z: 10
+
+            Repeater {
+                model: unreadModel
+
+                delegate: Rectangle {
+                    required property int index
+                    required property int notifId
+                    required property string appId
+                    required property string icon
+                    required property string title
+                    required property string body
+                    required property var timestamp
+
+                    width: notificationStack.width
+                    // Natural content height — no 60 px floor. DS lock-screen
+                    // cards are tight glanceable snippets, not list rows; the
+                    // floor was making them feel like full Settings rows.
+                    height: cardContent.implicitHeight + 24
+                    radius: MRadius.md   // 4 — DS default
+                    color: MColors.bb10Elevated   // elev-2 = #161718
+                    // .m-card outer ring is `0 0 0 1px var(--border-dark)`
+                    // (rgba(0,0,0,0.7)) — a DARK border that makes the card
+                    // recede into the wallpaper. Was whiteOverlay08, which
+                    // made the cards pop forward and read as opaque chrome.
+                    border.width: 1
+                    border.color: MColors.borderDark
+
+                    // .m-card inset top hairline `inset 0 1px 0 var(--w-06)`.
+                    // Lit edge sits inside the dark outer ring — the
+                    // signature double-edge of every Marathon card.
+                    MTopHairline {
+                        radius: MRadius.md
+                        color: MColors.whiteOverlay06
+                    }
 
                     Row {
+                        id: cardContent
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingMedium
-                        spacing: 0
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
+                        anchors.topMargin: 12
+                        anchors.bottomMargin: 12
+                        spacing: 12
 
-                        Column {
-                            width: parent.width - timestampText.width - Constants.spacingMedium
+                        // Icon container — 32 × 32, radius 4. Calendar uses
+                        // a tealBorder variant per the JSX; default is a
+                        // quiet two-stop neutral gradient.
+                        Rectangle {
+                            id: iconBay
+                            width: 32
+                            height: 32
+                            radius: MRadius.md
+                            border.width: 1
+                            border.color: appId === "calendar" ? MColors.tealBorder : MColors.whiteOverlay08
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Math.round(4 * Constants.scaleFactor)
 
-                            Text {
-                                text: model.title || ""
-                                color: "white"
-                                font.pixelSize: MTypography.sizeBody
-                                font.weight: Font.Bold
-                                font.family: MTypography.fontFamily
-                                elide: Text.ElideRight
-                                width: parent.width
-                                renderType: Text.NativeRendering
-                                layer.enabled: true
-
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.4
-                                    shadowVerticalOffset: 2
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: appId === "calendar" ? MColors.bb10Surface : MColors.bb10Elevated
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: MColors.bb10Card
                                 }
                             }
 
-                            Text {
-                                text: model.body || ""
-                                color: "#E0FFFFFF"
-                                font.pixelSize: MTypography.sizeSmall
-                                font.family: MTypography.fontFamily
-                                elide: Text.ElideRight
-                                width: parent.width
-                                renderType: Text.NativeRendering
-                                layer.enabled: true
-
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.3
-                                    shadowVerticalOffset: 1
-                                }
+                            Icon {
+                                anchors.centerIn: parent
+                                name: icon
+                                size: 16
+                                color: appId === "calendar" ? MColors.marathonTealBright : MColors.textPrimary
                             }
                         }
 
-                        Text {
-                            id: timestampText
-
-                            text: Qt.formatTime(new Date(model.timestamp), "h:mm AP")
-                            color: "#B0FFFFFF"
-                            font.pixelSize: MTypography.sizeSmall
-                            font.family: MTypography.fontFamily
+                        // Content column — title row + body text. Layout
+                        // mirrors the JSX exactly (name 13/600 + time 11
+                        // /secondary on the same row, body 13/primary
+                        // below).
+                        Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            renderType: Text.NativeRendering
-                            layer.enabled: true
+                            width: parent.width - iconBay.width - parent.spacing
+                            spacing: 2
 
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#80000000"
-                                shadowBlur: 0.3
-                                shadowVerticalOffset: 1
+                            Item {
+                                width: parent.width
+                                height: nameText.implicitHeight
+
+                                Text {
+                                    id: nameText
+                                    anchors.left: parent.left
+                                    anchors.right: timeText.left
+                                    anchors.rightMargin: 8
+                                    text: title
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.weight: MTypography.weightDemiBold
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    id: timeText
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: nameText.verticalCenter
+                                    text: lockScreen.relativeTime(timestamp)
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: MTypography.weightMedium
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
+                                }
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: body
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                font.weight: MTypography.weightRegular
+                                elide: Text.ElideRight
+                                maximumLineCount: 2
+                                wrapMode: Text.WordWrap
+                                visible: text.length > 0
                             }
                         }
                     }
@@ -666,49 +795,111 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             HapticManager.light();
-                            resetIdleTimer();
-                            Logger.info("LockScreen", "Notification tapped: " + model.title);
-                            var notifId = model.notifId || 0;
-                            var appId = "";
-                            for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                                var idx = NotificationModel.index(i, 0);
-                                var id = NotificationModel.data(idx, roleIdValue);
-                                if (id === notifId) {
-                                    appId = NotificationModel.data(idx, roleAppId) || "";
-                                    break;
-                                }
-                            }
-                            notificationTapped(notifId, appId, model.title);
+                            lockScreen.notificationTapped(notifId, appId, title);
                         }
+                    }
+                }
+            }
+
+            // 'N more notifications · earlier today' collapse card —
+            // shown when more unread exist than the stack displays.
+            Rectangle {
+                width: notificationStack.width
+                // DS .m-card padding "10px 14px" + 28 px icon row =
+                // 48 px tall. Was 44 px (too cramped) and bordered in
+                // white-08 instead of the DS dark outer ring.
+                height: 48
+                radius: MRadius.md
+                color: MColors.bb10Elevated
+                border.width: 1
+                border.color: MColors.borderDark
+                visible: lockScreen.moreCount > 0
+
+                MTopHairline {
+                    radius: MRadius.md
+                    color: MColors.whiteOverlay06
+                }
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    spacing: 12
+
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: MRadius.md
+                        color: MColors.bb10Card
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "bell"
+                            size: 14
+                            color: MColors.textPrimary
+                        }
+                    }
+
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 28 - parent.spacing - 18
+                        height: collapseLabel.implicitHeight
+
+                        Text {
+                            id: collapseLabel
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeCaption
+                            textFormat: Text.RichText
+                            text: '<span style="color: ' + MColors.textPrimary + '">' + lockScreen.moreCount + ' more notification' + (lockScreen.moreCount === 1 ? '' : 's') + '</span>' + ' · earlier today'
+                        }
+                    }
+
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "chevron-down"
+                        size: 14
+                        color: MColors.textTertiary
                     }
                 }
             }
         }
 
-        MarathonBottomBar {
+        // Lock-screen bottom row — phone (teal) + camera (dim) +
+        // center unlock affordance. Matches the JSX LockScreen
+        // chevron + 'Swipe up to unlock' pattern, but keeps the
+        // legacy phone/camera shortcuts (per usability — phone
+        // access from lock is a near-universal pattern). The
+        // shortcuts live in MarathonLockShortcuts (squircle bay
+        // + teal accent on Phone, dim on Camera) instead of the
+        // full MarathonBottomBar chrome (no page-indicator on
+        // lock per the design).
+        MarathonLockShortcuts {
             id: lockScreenBottomBar
 
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            showPageIndicators: false
+            anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
             z: 10
-            onAppLaunched: app => {
-                if (app.id === "phone") {
-                    HapticManager.medium();
-                    Logger.info("LockScreen", "Phone quick action tapped");
-                    phoneLaunched();
-                } else if (app.id === "camera") {
-                    HapticManager.medium();
-                    Logger.info("LockScreen", "Camera quick action tapped");
-                    cameraLaunched();
-                }
+            onPhoneActivated: {
+                HapticManager.medium();
+                Logger.info("LockScreen", "Phone quick action tapped");
+                phoneLaunched();
+            }
+            onCameraActivated: {
+                HapticManager.medium();
+                Logger.info("LockScreen", "Camera quick action tapped");
+                cameraLaunched();
             }
         }
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: lockScreenBottomBar.verticalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.round(24 * Constants.scaleFactor)
             spacing: Math.round(4 * Constants.scaleFactor)
             opacity: 0.7
             z: 11
@@ -720,7 +911,12 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
-                    running: true
+                    // Only animate while the lock screen is actually visible.
+                    // Leaving this unconditionally running re-renders the scene
+                    // graph at the animation rate even when the lock screen is
+                    // hidden, which under software rasterization keeps all four
+                    // LLVMpipe threads + QSGRenderThread busy at idle.
+                    running: MMotion.gate(lockScreen.visible)
                     loops: Animation.Infinite
 
                     NumberAnimation {
@@ -742,12 +938,12 @@ Item {
                 color: "white"
                 font.pixelSize: MTypography.sizeSmall
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
             }
         }
 
         Behavior on opacity {
-            enabled: swipeProgress > 0.5
+            enabled: lockScreen.swipeProgress > 0.5
 
             NumberAnimation {
                 duration: 200
@@ -790,20 +986,19 @@ Item {
             }
             if (isDragging) {
                 const threshold = height * 0.15;
-                swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
-                if (swipeProgress > 0.5 && swipeProgress < 0.55)
+                lockScreen.swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
+                if (lockScreen.swipeProgress > 0.5 && lockScreen.swipeProgress < 0.55)
                     HapticManager.light();
             }
         }
         onReleased: mouse => {
             if (isDragging) {
-                if (swipeProgress > 0.2 || velocity > 0.5) {
-                    swipeProgress = 1;
+                if (lockScreen.swipeProgress > 0.2 || velocity > 0.5) {
+                    lockScreen.swipeProgress = 1;
                     HapticManager.medium();
                     unlockTimer.start();
                 } else {
-                    swipeProgress = 0;
-                    expandedCategory = "";
+                    lockScreen.swipeProgress = 0;
                 }
             } else {
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
@@ -824,7 +1019,7 @@ Item {
     }
 
     Behavior on swipeProgress {
-        enabled: swipeProgress < 1
+        enabled: lockScreen.swipeProgress < 1
 
         SmoothedAnimation {
             velocity: 8

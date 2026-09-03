@@ -1,5 +1,6 @@
 #include "smsservice.h"
 #include "contactsmanager.h"
+#include "mmsmanager.h"
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusReply>
@@ -7,6 +8,7 @@
 #include <QDBusMetaType>
 #include <QDebug>
 #include <QSqlQuery>
+#include <QTimer>
 #include <QSqlError>
 #include <QStandardPaths>
 #include <QDir>
@@ -36,13 +38,38 @@ SMSService::~SMSService() {
     if (m_database.isOpen()) {
         m_database.close();
     }
-    if (m_modemManager) {
-        delete m_modemManager;
-    }
+    // m_modemManager is parented to this; Qt will delete it
 }
 
 void SMSService::setContactsManager(ContactsManager *contactsManager) {
     m_contactsManager = contactsManager;
+}
+
+void SMSService::setMmsManager(MmsManager *mmsManager) {
+    if (m_mmsManager == mmsManager)
+        return;
+    m_mmsManager = mmsManager;
+    if (!m_mmsManager)
+        return;
+    // Surface incoming MMS through the same `messageReceived` signal apps
+    // already listen to; the conversation thread merges SMS + MMS.
+    connect(
+        m_mmsManager, &MmsManager::messageReceived, this,
+        [this](const QString &sender, const QString &text, qint64 timestamp, const QVariantList &) {
+            Message msg;
+            msg.conversationId = generateConversationId(sender);
+            msg.sender         = sender;
+            msg.recipient      = QStringLiteral("me");
+            msg.text           = text;
+            msg.timestamp      = timestamp;
+            msg.isRead         = false;
+            msg.isOutgoing     = false;
+            storeMessage(msg);
+            loadConversations();
+            emit messageReceived(sender, text, timestamp);
+        });
+    connect(m_mmsManager, &MmsManager::sendFailed, this,
+            [this](const QString &reason) { emit sendFailed(QString(), reason); });
 }
 
 QVariantList SMSService::conversations() const {
@@ -58,6 +85,40 @@ QVariantList SMSService::conversations() const {
         result.append(map);
     }
     return result;
+}
+
+void SMSService::sendMultiRecipient(const QStringList &recipients, const QString &text,
+                                    const QVariantList &attachments) {
+    // Routing: single recipient + no attachments + plain text fitting SMS budget
+    // -> normal SMS via ModemManager.Messaging. Otherwise -> MMS via mmsd-tng.
+    // (Mirrors Chatty's routing in chatty-mm-chat.c.)
+    const bool needsMms = recipients.size() > 1 || !attachments.isEmpty() || text.size() > 1530;
+    if (!needsMms && !recipients.isEmpty()) {
+        sendMessage(recipients.first(), text);
+        return;
+    }
+    if (!m_mmsManager || !m_mmsManager->available()) {
+        qWarning() << "[SMSService] MMS required but mmsd-tng unavailable; "
+                      "falling back to per-recipient SMS";
+        for (const QString &r : recipients)
+            sendMessage(r, text);
+        return;
+    }
+    if (!m_mmsManager->sendMms(recipients, text, attachments)) {
+        // sendMms emits sendFailed itself; nothing else to do.
+        return;
+    }
+    Message msg;
+    msg.conversationId = generateConversationId(recipients.join(","));
+    msg.sender         = QStringLiteral("me");
+    msg.recipient      = recipients.join(",");
+    msg.text           = text;
+    msg.timestamp      = QDateTime::currentMSecsSinceEpoch();
+    msg.isRead         = true;
+    msg.isOutgoing     = true;
+    storeMessage(msg);
+    loadConversations();
+    emit messageSent(recipients.join(","), msg.timestamp);
 }
 
 void SMSService::sendMessage(const QString &recipient, const QString &text) {
@@ -99,8 +160,8 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
     QString     modemPath;
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString     path       = it.key();
-        QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
+        const QString &path       = it.key();
+        QVariantMap    interfaces = qdbus_cast<QVariantMap>(it.value());
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Messaging")) {
             modemPath = path;
@@ -170,7 +231,7 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
 
     emit messageSent(recipient, msg.timestamp);
 
-    qInfo() << "[SMSService] ✓ SMS sent to:" << recipient;
+    qInfo() << "[SMSService]SMS sent to:" << recipient;
 }
 
 QVariantList SMSService::getMessages(const QString &conversationId) {
@@ -256,7 +317,7 @@ void SMSService::simulateIncomingSMS(const QString &sender, const QString &text)
 
     emit messageReceived(sender, text, timestamp);
 
-    qInfo() << "[SMSService] [SIMULATION] ✓ Incoming SMS simulated and stored";
+    qInfo() << "[SMSService] [SIMULATION]Incoming SMS simulated and stored";
 }
 
 void SMSService::initDatabase() {
@@ -370,11 +431,19 @@ void SMSService::connectToModemManager() {
         return;
     }
 
-    qInfo() << "[SMSService] ✓ Connected to ModemManager";
+    qWarning() << "[SMSService] Connected to ModemManager";
 
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", "",
                                          "org.freedesktop.ModemManager1.Modem.Messaging", "Added",
                                          this, SLOT(checkForNewMessages()));
+
+    // Pick up any SMS that landed in modem storage BEFORE we subscribed
+    // (incoming-while-shell-was-down OR shell-started-after-MM). The
+    // Messaging.Added signal only fires for fresh arrivals, so without
+    // this initial scan a text received before the shell finishes
+    // booting sits in /org/freedesktop/ModemManager1/SMS/N forever and
+    // the Messages app stays empty.
+    QTimer::singleShot(0, this, &SMSService::checkForNewMessages);
 }
 
 void SMSService::checkForNewMessages() {
@@ -382,16 +451,30 @@ void SMSService::checkForNewMessages() {
         return;
     }
 
-    QDBusReply<QVariantMap> reply = m_modemManager->call("GetManagedObjects");
-    if (!reply.isValid()) {
+    // GetManagedObjects returns a{oa{sa{sv}}} — a map of object paths
+    // to interface-keyed property maps. QDBusReply<QVariantMap> can't
+    // deserialize that; use the raw QDBusMessage path and unpack the
+    // QDBusArgument by hand. The old QVariantMap reply silently
+    // returned !isValid() and we never noticed because every log line
+    // below qWarning was filtered out.
+    QDBusMessage call = QDBusMessage::createMethodCall(
+        "org.freedesktop.ModemManager1", "/org/freedesktop/ModemManager1",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+    QDBusMessage reply = QDBusConnection::systemBus().call(call);
+    if (reply.type() == QDBusMessage::ErrorMessage || reply.arguments().isEmpty()) {
+        qWarning() << "[SMSService] GetManagedObjects failed:" << reply.errorMessage();
         return;
     }
 
-    QVariantMap objects = reply.value();
+    typedef QMap<QString, QVariantMap>           InterfaceList;
+    typedef QMap<QDBusObjectPath, InterfaceList> ManagedObjectList;
+    const QDBusArgument arg = reply.arguments().at(0).value<QDBusArgument>();
+    ManagedObjectList   objects;
+    arg >> objects;
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString     path       = it.key();
-        QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
+        const QString        path       = it.key().path();
+        const InterfaceList &interfaces = it.value();
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Messaging")) {
             QDBusInterface messagingInterface("org.freedesktop.ModemManager1", path,
@@ -408,15 +491,22 @@ void SMSService::checkForNewMessages() {
             }
 
             QList<QDBusObjectPath> smsList = listReply.value();
+            // Only log when there ARE messages to process. The poll runs
+            // every ~5 s; emitting a WARNING per poll when no SMS is
+            // present floods the journal with ~12 lines/min and buried
+            // real shell warnings during triage.
+            if (!smsList.isEmpty())
+                qInfo() << "[SMSService] checkForNewMessages found" << smsList.size()
+                        << "messages on" << path;
 
             for (const QDBusObjectPath &smsPath : smsList) {
-                processIncomingSMS(smsPath.path());
+                processIncomingSMS(path, smsPath.path());
             }
         }
     }
 }
 
-void SMSService::processIncomingSMS(const QString &smsPath) {
+void SMSService::processIncomingSMS(const QString &modemPath, const QString &smsPath) {
     QDBusInterface smsInterface("org.freedesktop.ModemManager1", smsPath,
                                 "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
 
@@ -454,35 +544,48 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
     checkQuery.addBindValue(timestamp);
     checkQuery.addBindValue(text);
 
-    if (checkQuery.exec() && checkQuery.next()) {
-        if (checkQuery.value(0).toInt() > 0) {
+    bool isDuplicate = false;
+    if (checkQuery.exec() && checkQuery.next())
+        isDuplicate = checkQuery.value(0).toInt() > 0;
 
-            return;
-        }
+    if (!isDuplicate) {
+        Message msg;
+        msg.conversationId = generateConversationId(sender);
+        msg.sender         = sender;
+        msg.recipient      = "me";
+        msg.text           = text;
+        msg.timestamp      = timestamp;
+        msg.isRead         = false;
+        msg.isOutgoing     = false;
+
+        storeMessage(msg);
+        loadConversations();
+        emit messageReceived(sender, text, timestamp);
+        qInfo() << "[SMSService] New SMS received from:" << sender;
     }
 
-    Message msg;
-    msg.conversationId = generateConversationId(sender);
-    msg.sender         = sender;
-    msg.recipient      = "me";
-    msg.text           = text;
-    msg.timestamp      = timestamp;
-    msg.isRead         = false;
-    msg.isOutgoing     = false;
-
-    storeMessage(msg);
-    loadConversations();
-
-    emit messageReceived(sender, text, timestamp);
-
-    qInfo() << "[SMSService] ✓ New SMS received from:" << sender;
-
-    QDBusInterface smsDeleteInterface("org.freedesktop.ModemManager1", smsPath,
-                                      "org.freedesktop.ModemManager1.Sms",
-                                      QDBusConnection::systemBus());
-
-    if (smsDeleteInterface.isValid()) {
-        smsDeleteInterface.call("Delete");
+    // Always drain the SMS from modem storage, even on dedup. The earlier code
+    // returned early on duplicate detection, so re-discovered messages sat in
+    // modem RAM forever -- checkForNewMessages re-read + de-duped + skipped the
+    // same SMS on every 5 s poll, burning CPU and keeping the modem queue full
+    // so no fresh SMS could land.
+    //
+    // ModemManager's system D-Bus policy does not expose Sms.Delete on the SMS
+    // object path -- only Modem.Messaging.Delete(sms_path) on the modem is
+    // accepted. Calling Sms.Delete here returned
+    //   "security policy denied :1.N to send method call ... Sms.Delete"
+    // which was silently swallowed before this fix.
+    QDBusInterface messagingDelete("org.freedesktop.ModemManager1", modemPath,
+                                   "org.freedesktop.ModemManager1.Modem.Messaging",
+                                   QDBusConnection::systemBus());
+    if (messagingDelete.isValid()) {
+        QDBusReply<void> r =
+            messagingDelete.call("Delete", QVariant::fromValue(QDBusObjectPath(smsPath)));
+        if (!r.isValid())
+            qWarning() << "[SMSService] Messaging.Delete(" << smsPath
+                       << ") failed:" << r.error().message();
+        else
+            qWarning() << "[SMSService] drained" << smsPath << "(dup=" << isDuplicate << ")";
     }
 }
 

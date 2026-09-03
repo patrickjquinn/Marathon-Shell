@@ -1,6 +1,6 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -17,30 +17,38 @@ Item {
     height: Constants.bottomBarHeight
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
 
+    // ── Glass tabbar background ───────────────────────────────
+    // DS spec (ds-components.jsx Bars · 70 px tab bar): a glass
+    // tint with a hairline top divider. Until backdrop-blur is
+    // wired through MultiEffect, the rgba glassTabbar alone gives
+    // the right composition over the wallpaper aurora.
     Rectangle {
         id: background
 
         anchors.fill: parent
+        color: MColors.glassTabbar
         z: Constants.zIndexBackground
+    }
 
-        gradient: Gradient {
-            GradientStop {
-                position: 0
-                color: "transparent"
-            }
-
-            GradientStop {
-                position: 1
-                color: WallpaperStore.isDark ? "#80000000" : "#80FFFFFF"
-            }
-        }
+    // Hairline divider above the tab bar.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: MColors.borderGlass
+        z: Constants.zIndexBackground + 1
     }
 
     Item {
         id: phoneShortcut
 
         anchors.left: parent.left
-        anchors.leftMargin: Constants.spacingLarge
+        // Edge-hugging shortcut. Earlier tightening (spacingLarge → spacingMedium)
+        // still left the glyph ~26 px inset from the panel edge at scale 1.
+        // spacingXSmall puts the visible icon ~15 px from the screen edge,
+        // matching the iOS Lock-Screen quick-action position.
+        anchors.leftMargin: Constants.spacingXSmall
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
@@ -50,6 +58,8 @@ Item {
             source: "qrc:/images/phone.svg"
             width: Constants.iconSizeMedium
             height: Constants.iconSizeMedium
+            sourceSize.width: Constants.iconSizeMedium
+            sourceSize.height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
             asynchronous: true
@@ -102,17 +112,19 @@ Item {
         Rectangle {
             id: hubIndicator
 
-            width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            readonly property bool isActive: bottomBar.currentPage === -2
+
+            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999
-            color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
+            color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
             Icon {
                 name: "inbox"
-                size: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                size: hubIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                color: bottomBar.currentPage === -2 ? "black" : "white"
+                color: hubIndicator.isActive ? MColors.elev0 : MColors.textPrimary
                 visible: true
             }
 
@@ -140,20 +152,24 @@ Item {
             }
         }
 
+        // Frames (Active Frames task switcher) page indicator. Lights up
+        // when on the task-switcher page; tap navigates there.
         Rectangle {
             id: framesIndicator
 
-            width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            readonly property bool isActive: bottomBar.currentPage === -1
+
+            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999
-            color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
+            color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
             Icon {
                 name: "layers"
-                size: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                size: framesIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                color: bottomBar.currentPage === -1 ? "black" : "white"
+                color: framesIndicator.isActive ? MColors.elev0 : MColors.textPrimary
             }
 
             MouseArea {
@@ -188,19 +204,24 @@ Item {
             Rectangle {
                 id: pageIndicator
 
+                required property int index
                 property int pageIndex: index
 
                 width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 radius: 999
-                color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
+                color: index === bottomBar.currentPage ? MColors.textPrimary : MColors.textTertiary
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     text: (pageIndicator.pageIndex + 1).toString()
-                    color: "#000000"
-                    font.pixelSize: Constants.fontSizeSmall
-                    font.weight: Font.Medium
+                    color: MColors.elev0
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeFootnote
+                    font.weight: MTypography.weightDemiBold
+                    font.features: ({
+                            "tnum": 1
+                        })
                     anchors.centerIn: parent
                     visible: pageIndicator.pageIndex === bottomBar.currentPage
                     opacity: visible ? 1 : 0
@@ -304,7 +325,8 @@ Item {
         id: cameraShortcut
 
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingLarge
+        // Symmetric with phoneShortcut.leftMargin — edge-hugging.
+        anchors.rightMargin: Constants.spacingXSmall
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
@@ -314,6 +336,8 @@ Item {
             source: "qrc:/images/camera.svg"
             width: Constants.iconSizeMedium
             height: Constants.iconSizeMedium
+            sourceSize.width: Constants.iconSizeMedium
+            sourceSize.height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true

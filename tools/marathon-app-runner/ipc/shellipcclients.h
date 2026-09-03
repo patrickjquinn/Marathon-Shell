@@ -126,6 +126,11 @@ class TelephonyClient : public QObject {
     Q_INVOKABLE void simulateIncomingCall(const QString &number);
     Q_INVOKABLE void simulateCallStateChange(const QString &state);
 
+    Q_INVOKABLE void setSpeakerphone(bool on);
+    Q_INVOKABLE void setCallMuted(bool muted);
+    Q_INVOKABLE bool isSpeakerphoneOn();
+    Q_INVOKABLE bool isCallMuted();
+
   signals:
     void callStateChanged(const QString &state);
     void incomingCall(const QString &number);
@@ -685,7 +690,7 @@ class RemoteAudioStreamModel : public QAbstractListModel {
     Q_OBJECT
 
   public:
-    enum StreamRoles {
+    enum StreamRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         AppNameRole,
@@ -1237,4 +1242,210 @@ class AlarmClient : public QObject {
     QDBusInterface m_iface;
     QVariantList   m_alarms;
     QVariantList   m_activeAlarms;
+};
+
+class UpdateClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QString currentVersion READ currentVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY stateChanged)
+    Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
+    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool checking READ checking NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
+
+  public:
+    explicit UpdateClient(QObject *parent = nullptr);
+
+    QString currentVersion() const {
+        return m_state.value("currentVersion").toString();
+    }
+    QString latestVersion() const {
+        return m_state.value("latestVersion").toString();
+    }
+    QString releaseUrl() const {
+        return m_state.value("releaseUrl").toString();
+    }
+    QString releaseNotes() const {
+        return m_state.value("releaseNotes").toString();
+    }
+    bool updateAvailable() const {
+        return m_state.value("updateAvailable").toBool();
+    }
+    bool checking() const {
+        return m_state.value("checking").toBool();
+    }
+    QString lastError() const {
+        return m_state.value("lastError").toString();
+    }
+    QString channel() const {
+        return m_state.value("channel").toString();
+    }
+
+    Q_INVOKABLE void checkNow();
+    Q_INVOKABLE void openInBrowser();
+    Q_INVOKABLE void setChannel(const QString &channel);
+    Q_INVOKABLE void refresh();
+
+  signals:
+    void stateChanged();
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    QDBusInterface m_iface;
+    QVariantMap    m_state;
+};
+
+class DavClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList accounts READ accounts NOTIFY accountsChanged)
+    Q_PROPERTY(int accountCount READ accountCount NOTIFY accountsChanged)
+    Q_PROPERTY(bool syncing READ syncing NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(qlonglong lastSyncMs READ lastSyncMs NOTIFY stateChanged)
+
+  public:
+    explicit DavClient(QObject *parent = nullptr);
+
+    QVariantList accounts() const {
+        return m_accounts;
+    }
+    int accountCount() const {
+        return static_cast<int>(m_accounts.size());
+    }
+    bool syncing() const {
+        return m_state.value("syncing").toBool();
+    }
+    QString lastError() const {
+        return m_state.value("lastError").toString();
+    }
+    qlonglong lastSyncMs() const {
+        return m_state.value("lastSyncMs").toLongLong();
+    }
+
+    Q_INVOKABLE QString addAccount(const QString &displayName, const QString &baseUrl,
+                                   const QString &username, const QString &secret,
+                                   const QString &authKind);
+    Q_INVOKABLE bool    removeAccount(const QString &id);
+    Q_INVOKABLE void    enableAccount(const QString &id, bool enabled);
+    Q_INVOKABLE void    syncNow();
+    Q_INVOKABLE void    refresh();
+
+  signals:
+    void accountsChanged();
+    void stateChanged();
+    void syncFinished(const QString &accountId);
+
+  private slots:
+    void onAccountsChanged();
+    void onStateChanged(const QVariantMap &state);
+    void onSyncFinished(const QString &accountId);
+
+  private:
+    void           refreshAccounts();
+    void           refreshState();
+
+    QDBusInterface m_iface;
+    QVariantList   m_accounts;
+    QVariantMap    m_state;
+};
+
+// AppStoreClient — wraps org.marathonos.Shell.AppStore1 so the Store app
+// can browse the catalog and request downloads. Read methods are
+// synchronous DBus calls; download methods are fire-and-forget with
+// progress / completion signals routed back via DBus signals so the UI
+// can wire a Connections {} block to update progress bars and update
+// rows live.
+class AppStoreClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool catalogLoaded READ catalogLoaded NOTIFY stateChanged)
+    Q_PROPERTY(bool loading READ loading NOTIFY stateChanged)
+    Q_PROPERTY(QString repositoryUrl READ repositoryUrl NOTIFY stateChanged)
+
+  public:
+    explicit AppStoreClient(QObject *parent = nullptr);
+
+    bool catalogLoaded() const {
+        return m_state.value("catalogLoaded").toBool();
+    }
+    bool loading() const {
+        return m_state.value("loading").toBool();
+    }
+    QString repositoryUrl() const {
+        return m_state.value("repositoryUrl").toString();
+    }
+
+    Q_INVOKABLE void         refreshCatalog();
+    Q_INVOKABLE QVariantList searchApps(const QString &query = QString());
+    Q_INVOKABLE QVariantMap  getApp(const QString &appId);
+    Q_INVOKABLE QVariantList getFeaturedApps();
+    Q_INVOKABLE QVariantList getAppsByCategory(const QString &category);
+    Q_INVOKABLE QVariantList getAvailableUpdates();
+    Q_INVOKABLE void         checkForUpdates();
+    Q_INVOKABLE void         downloadApp(const QString &appId);
+    Q_INVOKABLE void         cancelDownload(const QString &appId);
+    Q_INVOKABLE void         refresh();
+
+  signals:
+    void stateChanged();
+    void catalogRefreshed();
+    void downloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
+    void downloadComplete(const QString &appId, const QString &packagePath);
+    void downloadFailed(const QString &appId, const QString &error);
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    QDBusInterface m_iface;
+    QVariantMap    m_state;
+};
+
+// Client for org.marathonos.Shell.AppLifecycle1 — lets the app declare
+// active background work (turn-by-turn navigation, recording, downloads)
+// so the shell's lifecycle layer keeps the runner warm. The category must
+// be listed in the app's manifest backgroundCapabilities or the shell
+// rejects the claim.
+//
+// Usage from QML:
+//   property int navHandle: 0
+//   onActiveNavigationChanged: {
+//     if (activeNavigation && navHandle === 0)
+//       navHandle = AppLifecycle.beginBackgroundTask("active-navigation", "route XYZ")
+//     else if (!activeNavigation && navHandle !== 0) {
+//       AppLifecycle.endBackgroundTask(navHandle); navHandle = 0
+//     }
+//   }
+class AppLifecycleClient : public QObject {
+    Q_OBJECT
+
+  public:
+    explicit AppLifecycleClient(QObject *parent = nullptr);
+
+    // Returns a handle (>0) on accept, 0 on rejection (category not in
+    // manifest, shell unreachable). The handle must be passed back to
+    // endBackgroundTask when the work finishes — otherwise the capability
+    // stays held until the runner exits, and the shell will refuse to
+    // freeze even when the app is genuinely idle.
+    Q_INVOKABLE quint32     beginBackgroundTask(const QString &category, const QString &reason);
+    Q_INVOKABLE bool        endBackgroundTask(quint32 handle);
+    Q_INVOKABLE QStringList currentCapabilities();
+
+    // Shell-side AppLifecycleManager exposes registerApp(appId, root) /
+    // unregisterApp(appId). MApp.qml's Component.onCompleted calls
+    // AppLifecycleManager.registerApp() before knowing whether it's
+    // running shell-side or runner-side, so the runner-side client has
+    // to accept the call to keep the splash → revealReady chain alive.
+    // No-op stubs: the runner sends a register signal over D-Bus via
+    // requestRegister already (see MApp.qml), so duplicating that here
+    // would be redundant. These exist purely so the QML call resolves
+    // without "is not a function" and MApp.onCompleted runs to its end.
+    Q_INVOKABLE void registerApp(const QString &appId, QObject *root = nullptr);
+    Q_INVOKABLE void unregisterApp(const QString &appId);
+
+  private:
+    QDBusInterface m_iface;
 };

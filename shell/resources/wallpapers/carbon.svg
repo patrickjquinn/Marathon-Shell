@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="streak" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#00897b" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#streak)"/>
+  <line x1="0" y1="700" x2="390" y2="200" stroke="rgba(29,233,182,0.08)" stroke-width="0.8"/>
+</svg>

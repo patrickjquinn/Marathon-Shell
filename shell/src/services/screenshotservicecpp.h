@@ -30,6 +30,11 @@ class ScreenshotServiceCpp : public QObject {
     Q_INVOKABLE void takeScreenshot(QObject *windowItem = nullptr);
     Q_INVOKABLE void captureScreen(QObject *windowItem = nullptr);
 
+    // Headless capture: grab the shell window and write straight to a
+    // caller-supplied PNG path, bypassing the gallery folder + audio
+    // shutter notifications. Used by the visual-validate harness.
+    Q_INVOKABLE bool saveScreenshotTo(const QString &absolutePath);
+
   signals:
     void screenshotsPathChanged();
     void shellWindowChanged();

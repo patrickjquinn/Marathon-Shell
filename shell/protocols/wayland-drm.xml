@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="drm">
+
+  <copyright>
+    Copyright © 2008-2011 Kristian Høgsberg
+    Copyright © 2010-2011 Intel Corporation
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+  </copyright>
+
+  <!-- drm support. This protocol is only used by Mesa's EGL Wayland
+       platform to discover which DRM device a client should render on
+       (the `device` event) and whether PRIME/dmabuf is available (the
+       `capabilities` event). Marathon vendors it so Mesa clients pick
+       the etnaviv render node instead of falling back to llvmpipe;
+       actual buffer allocation still goes through zwp_linux_dmabuf_v1. -->
+  <interface name="wl_drm" version="2">
+    <enum name="error">
+      <entry name="authenticate_fail" value="0"/>
+      <entry name="invalid_format" value="1"/>
+      <entry name="invalid_name" value="2"/>
+    </enum>
+
+    <enum name="format">
+      <entry name="xrgb8888" value="0x34325258"/>
+      <entry name="argb8888" value="0x34325241"/>
+      <entry name="xbgr8888" value="0x34324258"/>
+      <entry name="abgr8888" value="0x34324241"/>
+      <entry name="rgb565"   value="0x36314752"/>
+    </enum>
+
+    <!-- Call this request with the magic received from drmGetMagic().
+         It will be passed on to the drmAuthMagic() or
+         DRIAuthConnection() call.  This authenticates the client for
+         DRI/DRI2 access.  Render nodes require no authentication and
+         the compositor answers immediately with `authenticated`. -->
+    <request name="authenticate">
+      <arg name="id" type="uint"/>
+    </request>
+
+    <request name="create_buffer">
+      <arg name="id" type="new_id" interface="wl_buffer"/>
+      <arg name="name" type="uint"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="stride" type="uint"/>
+      <arg name="format" type="uint"/>
+    </request>
+
+    <request name="create_planar_buffer">
+      <arg name="id" type="new_id" interface="wl_buffer"/>
+      <arg name="name" type="uint"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="format" type="uint"/>
+      <arg name="offset0" type="int"/>
+      <arg name="stride0" type="int"/>
+      <arg name="offset1" type="int"/>
+      <arg name="stride1" type="int"/>
+      <arg name="offset2" type="int"/>
+      <arg name="stride2" type="int"/>
+    </request>
+
+    <!-- Notification of the path of the drm device which is used by
+         the server.  The client should use this device for creating
+         local buffers.  Only buffers created from this device should
+         be be passed to the server using this drm object's
+         create_buffer request. -->
+    <event name="device">
+      <arg name="name" type="string"/>
+    </event>
+
+    <event name="format">
+      <arg name="format" type="uint"/>
+    </event>
+
+    <!-- Raised if the authenticate request succeeded. -->
+    <event name="authenticated"/>
+
+    <event name="capabilities">
+      <arg name="value" type="uint"/>
+    </event>
+
+    <!-- Version 2 additions -->
+
+    <request name="create_prime_buffer" since="2">
+      <arg name="id" type="new_id" interface="wl_buffer"/>
+      <arg name="name" type="fd"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="format" type="uint"/>
+      <arg name="offset0" type="int"/>
+      <arg name="stride0" type="int"/>
+      <arg name="offset1" type="int"/>
+      <arg name="stride1" type="int"/>
+      <arg name="offset2" type="int"/>
+      <arg name="stride2" type="int"/>
+    </request>
+
+    <enum name="capability" since="2">
+      <description summary="wl_drm capability bitmask">
+        Bitmask of capabilities.
+      </description>
+      <entry name="prime" value="1" summary="wl_drm prime available"/>
+    </enum>
+  </interface>
+</protocol>

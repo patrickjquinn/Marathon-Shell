@@ -1,0 +1,13 @@
+# Re-attempt the RS9116 SDIO bind cycle whenever the wlan kill switch
+# transitions from blocked→unblocked. The kernel does not automatically
+# re-probe the SDIO bus when a rfkill event fires, so toggling the L5's
+# physical wifi kill switch off+on by itself is insufficient to recover
+# from the boot-time -110 timeout the chip occasionally hits. Pairing
+# the toggle with this rule means the user-visible "flip the switch off
+# and back on" recovery actually works.
+#
+# Trigger only on transitions to RFKILL_STATE_UNBLOCKED (RFKILL_STATE=0).
+# RFKILL_NAME identifies the radio; on the Librem 5 it is wlan-hks.
+ACTION=="change", SUBSYSTEM=="rfkill", ENV{RFKILL_TYPE}=="wlan", \
+    ENV{RFKILL_STATE}=="0", \
+    RUN+="/usr/bin/systemctl start --no-block marathon-wifi-recovery.service"

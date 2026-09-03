@@ -1,6 +1,7 @@
-import QtQuick
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: root
@@ -21,8 +22,10 @@ Rectangle {
     z: 10000
 
     Behavior on opacity {
-        NumberAnimation {
-            duration: MMotion.quick
+        SpringAnimation {
+            spring: MMotion.stiffnessEffectsFor("modal")
+            damping: MMotion.dampingEffectsFor("modal")
+            epsilon: MMotion.epsilon
         }
     }
 
@@ -37,15 +40,26 @@ Rectangle {
         width: Math.min(parent.width * 0.9, 400)
         height: contentColumn.height + MSpacing.xl * 2
 
-        color: MColors.bb10Elevated
+        color: "transparent"
         radius: MRadius.lg
+
+        MGlass {
+            id: dialogGlass
+            anchors.fill: parent
+            sourceItem: root.parent
+            blurMaxRadius: MBlur.blurFor("sheet")
+            tint: Qt.rgba(MColors.bb10Elevated.r, MColors.bb10Elevated.g, MColors.bb10Elevated.b, 0.84)
+            borderColor: MColors.borderGlass
+            topHairline: false
+            z: -1
+        }
 
         scale: root.showing ? 1.0 : 0.9
 
         Behavior on scale {
             SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
+                spring: MMotion.stiffnessSpatialFor("modal")
+                damping: MMotion.dampingSpatialFor("modal")
                 epsilon: MMotion.epsilon
             }
         }
@@ -80,13 +94,10 @@ Rectangle {
 
         layer.enabled: false
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: MColors.highlightSubtle
+        MTopHairline {
+            radius: parent.radius
+            color: MColors.highlightSubtle
+            lineWidth: 1
         }
 
         MouseArea {

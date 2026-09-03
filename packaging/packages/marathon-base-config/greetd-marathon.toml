@@ -1,0 +1,14 @@
+# Marathon Shell greetd configuration
+# Single-seat phone: auto-login the 'user' account on tty1, launch
+# marathon-shell-session which sets up env + execs marathon-shell-bin.
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/bin/marathon-shell-session"
+user = "user"
+
+[initial_session]
+command = "/usr/bin/marathon-shell-session"
+user = "user"

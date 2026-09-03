@@ -1,4 +1,3 @@
-import MarathonUI.Theme
 import QtQuick
 
 Item {
@@ -23,58 +22,58 @@ Item {
         preventStealing: false
         propagateComposedEvents: true
         onPressed: mouse => {
-            startX = mouse.x;
-            startY = mouse.y;
+            gestureHandler.startX = mouse.x;
+            gestureHandler.startY = mouse.y;
             if (mouse.y > height - Constants.peekThreshold) {
-                activeGesture = "bottom";
+                gestureHandler.activeGesture = "bottom";
                 bottomSwipeStarted();
                 mouse.accepted = true;
             } else if (mouse.x < Constants.gestureEdgeWidth) {
-                activeGesture = "left";
+                gestureHandler.activeGesture = "left";
                 leftSwipeStarted();
                 mouse.accepted = true;
             } else if (mouse.x > width - Constants.gestureEdgeWidth) {
-                activeGesture = "right";
+                gestureHandler.activeGesture = "right";
                 rightSwipeStarted();
                 mouse.accepted = true;
             } else {
-                activeGesture = "";
+                gestureHandler.activeGesture = "";
                 mouse.accepted = false;
             }
         }
         onPositionChanged: mouse => {
-            if (activeGesture === "bottom") {
-                var dragY = startY - mouse.y;
+            if (gestureHandler.activeGesture === "bottom") {
+                var dragY = gestureHandler.startY - mouse.y;
                 var progress = Math.max(0, Math.min(1, dragY / Constants.commitThreshold));
                 bottomSwipeProgress(progress);
                 mouse.accepted = true;
-            } else if (activeGesture === "left") {
-                var dragX = mouse.x - startX;
+            } else if (gestureHandler.activeGesture === "left") {
+                var dragX = mouse.x - gestureHandler.startX;
                 var progress = Math.max(0, Math.min(1, dragX / 300));
                 leftSwipeProgress(progress);
                 mouse.accepted = true;
-            } else if (activeGesture === "right") {
-                var dragX = startX - mouse.x;
+            } else if (gestureHandler.activeGesture === "right") {
+                var dragX = gestureHandler.startX - mouse.x;
                 var progress = Math.max(0, Math.min(1, dragX / 200));
                 rightSwipeProgress(progress);
                 mouse.accepted = true;
             }
         }
         onReleased: mouse => {
-            if (activeGesture === "bottom") {
-                var dragY = startY - mouse.y;
+            if (gestureHandler.activeGesture === "bottom") {
+                var dragY = gestureHandler.startY - mouse.y;
                 var committed = dragY > Constants.commitThreshold;
                 bottomSwipeReleased(committed);
-            } else if (activeGesture === "left") {
-                var dragX = mouse.x - startX;
+            } else if (gestureHandler.activeGesture === "left") {
+                var dragX = mouse.x - gestureHandler.startX;
                 var committed = dragX > 150;
                 leftSwipeReleased(committed);
-            } else if (activeGesture === "right") {
-                var dragX = startX - mouse.x;
+            } else if (gestureHandler.activeGesture === "right") {
+                var dragX = gestureHandler.startX - mouse.x;
                 var committed = dragX > 100;
                 rightSwipeReleased(committed);
             }
-            activeGesture = "";
+            gestureHandler.activeGesture = "";
             mouse.accepted = true;
         }
     }

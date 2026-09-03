@@ -176,18 +176,18 @@ Item {
             startLocationTracking()
         }
     }
-    
+  
     // Listen for permission result
     Connections {
         target: PermissionManager
-        
+      
         function onPermissionGranted(appId, permission) {
             if (appId === "myapp" && permission === "location") {
                 console.log("Location permission granted")
                 startLocationTracking()
             }
         }
-        
+      
         function onPermissionDenied(appId, permission) {
             if (appId === "myapp" && permission === "location") {
                 console.log("Location permission denied")
@@ -211,15 +211,15 @@ function showPermissionExplanation() {
 MModal {
     id: permissionDialog
     title: "Location Permission Required"
-    
+  
     MColumn {
         spacing: 15
-        
+      
         MText {
             text: "This app needs location access to show nearby places."
             wrapMode: Text.WordWrap
         }
-        
+      
         MButton {
             text: "Grant Permission"
             onClicked: {
@@ -227,7 +227,7 @@ MModal {
                 permissionDialog.close()
             }
         }
-        
+      
         MButton {
             text: "Continue Without Location"
             type: MButton.Text
@@ -250,7 +250,7 @@ function takePicture() {
         PermissionManager.requestPermission("myapp", "camera")
         return
     }
-    
+  
     // Permission granted, proceed
     camera.imageCapture.capture()
 }
@@ -290,7 +290,7 @@ Always explain why you need a permission:
 ```qml
 MModal {
     title: "Camera Access"
-    
+  
     MText {
         text: "We need camera access to let you scan QR codes and take profile pictures."
         wrapMode: Text.WordWrap
@@ -361,7 +361,7 @@ Timer {
     interval: 5000  // Check every 5 seconds
     running: true
     repeat: true
-    
+  
     onTriggered: {
         if (isTrackingLocation && 
             !PermissionManager.hasPermission("myapp", "location")) {

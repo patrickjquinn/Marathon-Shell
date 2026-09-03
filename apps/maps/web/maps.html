@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Marathon Maps</title>
+<link rel="stylesheet" href="maplibre-gl.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0a1814; overflow: hidden; font-family: Sora, sans-serif; }
+  #map { position: absolute; inset: 0; }
+  /* Hide default MapLibre attribution + ctrl chrome — Marathon overlays its own */
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { display: none !important; }
+  /* Style the "you are here" dot to match JSX: 16 px teal w/ 3 px white border + radial halo */
+  .marathon-user-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #00bfa5;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 30px rgba(0,191,165,0.65);
+    cursor: default;
+    position: relative;
+  }
+  .marathon-user-dot::after {
+    content: ""; position: absolute; inset: -22px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,191,165,0.25), transparent 65%);
+    pointer-events: none;
+  }
+  /* Destination pin (teal SVG, dark center hole) */
+  .marathon-pin { width: 34px; height: 44px; display: block; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="maplibre-gl.js"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+  "use strict";
+
+  // ──────────────────────────────────────────────────────────────────
+  // MapLibre map setup using the Marathon Dark style we author beside.
+  // ──────────────────────────────────────────────────────────────────
+  // MapLibre throws "Failed to initialize WebGL" on any host without a
+  // usable WebGL1 context (dev run.sh, a driver regression). That throw is
+  // top-level, so window.MarathonMaps would never be defined and every
+  // later mapCall would no-op behind its own guard — a blank map with
+  // nothing reported. Catch it and tell QML. Leaflet's Canvas2D path could
+  // not fail this way, so this is new exposure with the GL basemap.
+  let map;
+  try {
+    map = new maplibregl.Map({
+      container: "map",
+      style: "marathon-dark.json",
+      center: [-6.1778, 53.3015],   // Dublin until QML sets a real fix
+      zoom: 13,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: false,
+      cooperativeGestures: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      fadeDuration: 200
+    });
+  } catch (err) {
+    // Everything below needs `map`, so this script cannot continue. Bring
+    // the channel up on its own purely to report the failure — rethrowing
+    // first would skip the QWebChannel block at the bottom of the file and
+    // QML would never hear about it.
+    const msg = String((err && err.message) || err);
+    try {
+      new QWebChannel(qt.webChannelTransport, function(channel) {
+        const bridge = channel.objects.marathonBridge;
+        if (bridge && bridge.onMapError) bridge.onMapError(msg);
+      });
+    } catch (channelErr) {
+      // Nothing left to report through; the console message is all QML gets.
+    }
+    throw err;
+  }
+
+  // Guard helper — QML calls these before a GPS fix is in hand, passing
+  // NaN. mapCall serialises args with JSON.stringify, so NaN arrives as
+  // literal null, and MapLibre's LngLat check is isNaN(lng)||isNaN(lat) —
+  // isNaN(null) is false, so [null,null] silently resolves to 0,0 and the
+  // camera flies to Null Island. Reject before it reaches MapLibre.
+  function isValidLatLng(lat, lon) {
+    return typeof lat === "number" && typeof lon === "number"
+      && !Number.isNaN(lat) && !Number.isNaN(lon)
+      && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  }
+
+  // Route layer + pin marker bookkeeping. Created lazily once style is
+  // loaded so we never race the layer-add against the GL context.
+  let routeAdded = false;
+  const pins = new Map();      // id → maplibregl.Marker
+  let userMarker = null;
+
+  function ensureRouteLayer() {
+    if (routeAdded) return;
+    map.addSource("marathon-route", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] }
+    });
+    map.addLayer({
+      id: "marathon-route-casing",
+      type: "line",
+      source: "marathon-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#0d2620",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 12]
+      }
+    });
+    map.addLayer({
+      id: "marathon-route-line",
+      type: "line",
+      source: "marathon-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#00bfa5",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 16, 6]
+      }
+    });
+    routeAdded = true;
+  }
+
+  // Ready handshake. Two independent things must complete: the style must
+  // load, and QWebChannel must hand us the bridge. Either can win.
+  //
+  // This previously notified from style.load only if the bridge already
+  // existed, and from the channel callback only if map.isStyleLoaded() was
+  // already true. isStyleLoaded() stays false until every tile source AND
+  // the sprite have downloaded — so on a slow link the channel could land
+  // in between, both checks fail, notifyReady() never fires, mapsReady
+  // stays false and every mapCall queues forever behind _flushPending().
+  // The spinner hides it because mapLoaded comes off a 100 ms timer.
+  let styleReady = false;
+  let readySent = false;
+  function notifyReadyOnce() {
+    if (readySent || !styleReady) return;
+    if (!(window.MarathonBridge && window.MarathonBridge.notifyReady)) return;
+    readySent = true;
+    window.MarathonBridge.notifyReady();
+  }
+
+  map.on("style.load", () => {
+    ensureRouteLayer();
+    styleReady = true;
+    notifyReadyOnce();
+  });
+
+  map.on("click", (e) => {
+    if (window.MarathonBridge && window.MarathonBridge.onMapClicked)
+      window.MarathonBridge.onMapClicked(e.lngLat.lat, e.lngLat.lng);
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Bridge surface exposed BACK to QML. We attach it as window methods
+  // so QML can call them via runJavaScript directly. The
+  // QWebChannel-published `marathonBridge` object is the inbound
+  // (QML→JS) signal path; this side is the outbound (JS→QML) path.
+  // ──────────────────────────────────────────────────────────────────
+  window.MarathonMaps = {
+    setCenter(lat, lon, zoom) {
+      if (!isValidLatLng(lat, lon)) return;
+      const opts = { center: [lon, lat] };
+      if (typeof zoom === "number" && !Number.isNaN(zoom)) opts.zoom = zoom;
+      map.flyTo({ ...opts, speed: 1.2, curve: 1.4 });
+    },
+
+    setUserLocation(lat, lon) {
+      if (!isValidLatLng(lat, lon)) return;
+      if (!userMarker) {
+        const el = document.createElement("div");
+        el.className = "marathon-user-dot";
+        userMarker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([lon, lat])
+          .addTo(map);
+      } else {
+        userMarker.setLngLat([lon, lat]);
+      }
+    },
+
+    addPin(id, lat, lon, kind /* "destination" | "result" */) {
+      if (!isValidLatLng(lat, lon)) return;
+      this.removePin(id);
+      const el = document.createElement("div");
+      el.innerHTML = `
+        <svg class="marathon-pin" viewBox="0 0 34 44">
+          <path d="M17 0a14 14 0 0 1 14 14c0 11-14 28-14 28S3 25 3 14A14 14 0 0 1 17 0z"
+                fill="#1de9b6" stroke="#040404" stroke-width="1.5"/>
+          <circle cx="17" cy="14" r="5" fill="#040404"/>
+        </svg>`;
+      el.style.cursor = "pointer";
+      el.addEventListener("click", (ev) => {
+        // MapLibre v2 markers live inside the canvas container and do not
+        // stop propagation, so without this a pin tap also fires
+        // map.on("click") → onMapClicked. Leaflet swallowed it for us.
+        ev.stopPropagation();
+        if (window.MarathonBridge && window.MarathonBridge.onPinTapped)
+          window.MarathonBridge.onPinTapped(id);
+      });
+      const m = new maplibregl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([lon, lat])
+        .addTo(map);
+      pins.set(id, m);
+    },
+
+    removePin(id) {
+      const m = pins.get(id);
+      if (m) { m.remove(); pins.delete(id); }
+    },
+
+    clearPins() {
+      for (const m of pins.values()) m.remove();
+      pins.clear();
+    },
+
+    setRouteGeoJSON(json) {
+      ensureRouteLayer();
+      const src = map.getSource("marathon-route");
+      if (src) src.setData(typeof json === "string" ? JSON.parse(json) : json);
+    },
+
+    fitBounds(west, south, east, north, padding) {
+      map.fitBounds([[west, south], [east, north]], { padding: padding || 60, duration: 600 });
+    },
+
+    setBearing(deg) { map.setBearing(deg || 0); },
+    setPitch(deg)   { map.setPitch(deg || 0); }
+  };
+
+  // ──────────────────────────────────────────────────────────────────
+  // Wire QWebChannel. The QML side registers an object named
+  // "marathonBridge" — we get a JS proxy with the same signal/method
+  // surface. Outbound (JS→QML) calls go through the proxy's signals;
+  // inbound (QML→JS) calls hit window.MarathonMaps.* via runJavaScript.
+  // ──────────────────────────────────────────────────────────────────
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    window.MarathonBridge = channel.objects.marathonBridge;
+    notifyReadyOnce();
+  });
+</script>
+</body>
+</html>

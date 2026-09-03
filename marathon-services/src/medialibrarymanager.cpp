@@ -274,8 +274,21 @@ void MediaLibraryManager::scanLibraryAsync() {
     });
 
     connect(m_scanWorker, &MediaScanWorker::scanFinished, m_scanThread, &QThread::quit);
-    connect(m_scanThread, &QThread::finished, m_scanWorker, &QObject::deleteLater);
-    connect(m_scanThread, &QThread::finished, m_scanThread, &QObject::deleteLater);
+    // The auto-deleteLater pair frees worker + thread when the thread loop
+    // exits. Without nulling our own members in the same step, the next
+    // scanLibraryAsync() sees a non-null m_scanThread, calls quit() on
+    // freed memory, and segfaults. Capture worker/thread by value so the
+    // lambda doesn't depend on `this` outliving the queued event.
+    QThread         *thread = m_scanThread;
+    MediaScanWorker *worker = m_scanWorker;
+    connect(thread, &QThread::finished, this, [this, thread, worker]() {
+        if (m_scanThread == thread)
+            m_scanThread = nullptr;
+        if (m_scanWorker == worker)
+            m_scanWorker = nullptr;
+        worker->deleteLater();
+        thread->deleteLater();
+    });
 
     m_scanThread->start();
 }
@@ -287,7 +300,7 @@ void MediaLibraryManager::onScanProgress(int current, int total) {
     }
 }
 
-void MediaLibraryManager::onScanFinished(QList<MediaItem> items) {
+void MediaLibraryManager::onScanFinished(const QList<MediaItem> &items) {
     qDebug() << "[MediaLibraryManager] Async scan finished. Processing" << items.size() << "items";
 
     addMediaItemBatch(items);
@@ -595,7 +608,7 @@ QString MediaLibraryManager::createThumbnail(const QString &sourcePath) {
     const QString ext = (isPngSource || looksLikeScreenshot) ? "png" : "jpg";
     const QString thumbFileName =
         QString::fromLatin1(hash.left(16)) + QString("_thumb_v2_%1.%2").arg(targetSize).arg(ext);
-    const QString thumbPath = thumbnailsDir + "/" + thumbFileName;
+    QString thumbPath = thumbnailsDir + "/" + thumbFileName;
 
     if (QFile::exists(thumbPath)) {
         return thumbPath;

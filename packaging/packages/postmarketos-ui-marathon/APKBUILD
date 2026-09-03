@@ -1,0 +1,74 @@
+# Reference: https://postmarketos.org/uipkg
+# Marathon Shell UI meta-package for postmarketOS.
+#
+# Modeled on postmarketos-ui-plasma-mobile (pmaports/main/). Marathon ships
+# as a UI variant alongside phosh / plasma-mobile / sxmo. Builds clean as
+# either a mutable pmOS image OR a Duranium (immutable) image -- /etc files
+# already migrated to /usr/share/factory/ tmpfiles symlinks in marathon-
+# shell pkgrel 23.
+
+maintainer="Patrick Quinn <patrick@jquinn.com>"
+pkgname=postmarketos-ui-marathon
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+
+# Everything the shell needs to function as the system UI. Compositor +
+# session manager + low-level services that the shell consumes via D-Bus.
+depends="
+	marathon-shell
+	marathon-base-config
+	greetd
+	networkmanager
+	modemmanager
+	mmsd-tng
+	mobile-broadband-provider-info
+	pipewire
+	pipewire-pulse
+	wireplumber
+	pulseaudio-utils
+	bluez
+	upower
+	iio-sensor-proxy
+	geoclue
+	udisks2
+	at-spi2-core
+	polkit
+	dbus
+	xdg-desktop-portal
+	xdg-desktop-portal-gtk
+	xdg-desktop-portal-wlr
+	"
+
+_pmb_recommends="
+	flatpak
+	"
+
+source="
+	flathub.flatpakrepo
+	marathon-flathub.conf
+	"
+options="!check pmb:drm pmb:systemd"
+install="$pkgname.post-install"
+
+package() {
+	# Flathub remote — installed under /etc/flatpak/remotes.d/ so flatpak
+	# picks it up automatically on first run. On Duranium this gets
+	# tmpfiles-symlinked back to /usr/share/factory/etc/... but for now
+	# the standard mutable layout is fine; flatpak's own state lives in
+	# /var anyway.
+	install -Dm644 "$srcdir/flathub.flatpakrepo" \
+		"$pkgdir/etc/flatpak/remotes.d/flathub.flatpakrepo"
+
+	# tmpfiles snippet adds the Flathub remote at first boot via
+	# flatpak remote-add. Idempotent.
+	install -Dm644 "$srcdir/marathon-flathub.conf" \
+		"$pkgdir/usr/lib/tmpfiles.d/marathon-flathub.conf"
+}
+sha512sums="
+SKIP  flathub.flatpakrepo
+SKIP  marathon-flathub.conf
+"

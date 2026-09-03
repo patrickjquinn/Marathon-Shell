@@ -45,7 +45,7 @@ import MarathonUI.Core
         # Replace MarathonToggle with MToggle
         sed -i '' 's/MarathonToggle/MToggle/g' "$file"
         
-        echo "  ✓ Fixed $file"
+        echo " Fixed $file"
     fi
 done
 

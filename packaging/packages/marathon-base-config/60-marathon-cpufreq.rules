@@ -1,0 +1,7 @@
+# Marathon OS CPU Frequency Governor
+# Set ondemand governor (schedutil RT-boost pins freq at max on this SoC)
+
+ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
+  RUN+="/bin/sh -c 'echo ondemand > /sys/devices/system/cpu/%k/cpufreq/scaling_governor'"
+
+

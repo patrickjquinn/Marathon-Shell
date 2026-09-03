@@ -30,6 +30,8 @@ Item {
                 model: ["1", "2", "3", "+", "-", "(", ")"]
 
                 Key {
+                    required property string modelData
+
                     width: row1.keyWidth
                     text: modelData
                     displayText: modelData
@@ -54,6 +56,8 @@ Item {
                 model: ["4", "5", "6", "#", "*"]
 
                 Key {
+                    required property string modelData
+
                     width: Math.round(65 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData
@@ -87,6 +91,8 @@ Item {
                 model: ["7", "8", "9", ",", "."]
 
                 Key {
+                    required property string modelData
+
                     width: Math.round(65 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData
@@ -130,6 +136,8 @@ Item {
                 model: ["*", "0", "#"]
 
                 Key {
+                    required property string modelData
+
                     width: Math.round(80 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData

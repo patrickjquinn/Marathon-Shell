@@ -1,9 +1,11 @@
 #include "telephonyservice.h"
+#include <QDBusArgument>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
-#include <QDBusArgument>
-#include <QDBusReply>
 #include <QDBusMetaType>
+#include <QDBusPendingCall>
+#include <QDBusPendingCallWatcher>
+#include <QDBusReply>
 #include <QDebug>
 
 TelephonyService::TelephonyService(QObject *parent)
@@ -28,12 +30,10 @@ TelephonyService::TelephonyService(QObject *parent)
 }
 
 TelephonyService::~TelephonyService() {
-    if (m_voiceCall) {
-        delete m_voiceCall;
-    }
-    if (m_modemManager) {
-        delete m_modemManager;
-    }
+
+    delete m_voiceCall;
+
+    // m_modemManager is parented to this; Qt will delete it
 }
 
 QString TelephonyService::callState() const {
@@ -62,59 +62,104 @@ void TelephonyService::dial(const QString &number) {
         return;
     }
 
-    QDBusInterface voiceInterface("org.freedesktop.ModemManager1", m_modemPath,
-                                  "org.freedesktop.ModemManager1.Modem.Voice",
-                                  QDBusConnection::systemBus());
+    auto *voiceInterface = new QDBusInterface("org.freedesktop.ModemManager1", m_modemPath,
+                                              "org.freedesktop.ModemManager1.Modem.Voice",
+                                              QDBusConnection::systemBus(), this);
 
-    if (!voiceInterface.isValid()) {
+    if (!voiceInterface->isValid()) {
         qWarning() << "[TelephonyService] Voice interface not available:"
-                   << voiceInterface.lastError().message();
+                   << voiceInterface->lastError().message();
         emit callFailed("Voice interface not available");
+        voiceInterface->deleteLater();
         return;
     }
 
     QVariantMap properties;
     properties["number"] = number;
 
-    QDBusReply<QDBusObjectPath> reply =
-        voiceInterface.call("CreateCall", QVariant::fromValue(properties));
-
-    if (!reply.isValid()) {
-        qWarning() << "[TelephonyService] Failed to create call:" << reply.error().message();
-        emit callFailed("Failed to create call: " + reply.error().message());
-        return;
-    }
-
-    QString callPath = reply.value().path();
-    qDebug() << "[TelephonyService] Call created:" << callPath;
-
-    QDBusInterface callInterface("org.freedesktop.ModemManager1", callPath,
-                                 "org.freedesktop.ModemManager1.Call",
-                                 QDBusConnection::systemBus());
-
-    if (!callInterface.isValid()) {
-        qWarning() << "[TelephonyService] Call interface not available";
-        emit callFailed("Call interface not available");
-        return;
-    }
-
-    QDBusReply<void> startReply = callInterface.call("Start");
-    if (!startReply.isValid()) {
-        qWarning() << "[TelephonyService] Failed to start call:" << startReply.error().message();
-        emit callFailed("Failed to start call: " + startReply.error().message());
-        return;
-    }
-
-    m_activeCallPath = callPath;
-    m_activeNumber   = number;
-    m_callState      = "dialing";
-
-    setupCallMonitoring(callPath);
-
+    // Async CreateCall + Start. The synchronous version blocked the GUI thread
+    // for up to 25 s while ModemManager negotiated the call setup, leaving the
+    // dialer frozen on the dial pad with no in-call UI -- and on timeout it
+    // emitted a spurious "Failed to start call" even when the modem had placed
+    // the call successfully (the other phone rang fine, this end never got the
+    // reply in time).
+    //
+    // Move to optimistic state: emit "dialing" immediately so the QML
+    // ActiveCallPage transitions on the next frame, then drive real state from
+    // ModemManager's CallAdded + Call.PropertiesChanged signals (handled in
+    // monitorIncomingCalls / setupCallMonitoring).
+    m_activeNumber = number;
+    m_callState    = "dialing";
     emit callStateChanged("dialing");
     emit activeNumberChanged(number);
+    qInfo() << "[TelephonyService] Call dialing (async):" << number;
 
-    qInfo() << "[TelephonyService] ✓ Call started to:" << number;
+    QDBusPendingCall pending =
+        voiceInterface->asyncCall("CreateCall", QVariant::fromValue(properties));
+    auto *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, voiceInterface, number](QDBusPendingCallWatcher *w) {
+                QDBusPendingReply<QDBusObjectPath> r = *w;
+                w->deleteLater();
+                voiceInterface->deleteLater();
+                if (r.isError()) {
+                    qWarning() << "[TelephonyService] CreateCall failed:" << r.error().message();
+                    // Don't roll back state -- the call may still go through via
+                    // CallAdded. Only bail the UI back to idle if we get no
+                    // CallAdded within the watchdog window (handled elsewhere).
+                    emit callFailed("CreateCall: " + r.error().message());
+                    return;
+                }
+                const QString callPath = r.value().path();
+                qDebug() << "[TelephonyService] CreateCall returned:" << callPath;
+
+                if (m_activeCallPath.isEmpty()) {
+                    m_activeCallPath = callPath;
+                    setupCallMonitoring(callPath);
+                    acquireCallInhibit();
+                }
+
+                auto *callIface = new QDBusInterface("org.freedesktop.ModemManager1", callPath,
+                                                     "org.freedesktop.ModemManager1.Call",
+                                                     QDBusConnection::systemBus(), this);
+                if (!callIface->isValid()) {
+                    qWarning() << "[TelephonyService] Call iface invalid for" << callPath;
+                    emit callFailed("Call interface not available");
+                    callIface->deleteLater();
+                    return;
+                }
+                QDBusPendingCall startPending = callIface->asyncCall("Start");
+                auto            *startWatcher = new QDBusPendingCallWatcher(startPending, this);
+                connect(startWatcher, &QDBusPendingCallWatcher::finished, this,
+                        [callIface](QDBusPendingCallWatcher *sw) {
+                            QDBusPendingReply<> sr = *sw;
+                            sw->deleteLater();
+                            callIface->deleteLater();
+                            if (sr.isError())
+                                qWarning() << "[TelephonyService] Call.Start failed:"
+                                           << sr.error().message();
+                            else
+                                qInfo() << "[TelephonyService] Call.Start returned ok";
+                        });
+                Q_UNUSED(number);
+            });
+}
+
+void TelephonyService::dialEmergency(const QString &number) {
+    // Audit the attempt regardless of outcome -- emergency dials must always
+    // appear in the journal even when the modem rejects them. This is logged
+    // BEFORE the dial path so the line lands even if the dial blocks/crashes.
+    QString op;
+    if (m_modemManager && !m_modemPath.isEmpty()) {
+        QDBusInterface modem3gpp("org.freedesktop.ModemManager1", m_modemPath,
+                                 "org.freedesktop.ModemManager1.Modem.Modem3gpp",
+                                 QDBusConnection::systemBus());
+        if (modem3gpp.isValid())
+            op = modem3gpp.property("OperatorName").toString();
+    }
+    qWarning().noquote() << QString("[SECURITY] Emergency dial: number=%1 modem=%2 operator=%3")
+                                .arg(number, m_modemPath, op.isEmpty() ? QStringLiteral("?") : op);
+    dial(number);
 }
 
 void TelephonyService::answer() {
@@ -128,7 +173,7 @@ void TelephonyService::answer() {
     if (m_activeCallPath.contains("simulate")) {
         m_callState = "active";
         emit callStateChanged("active");
-        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call answered";
+        qInfo() << "[TelephonyService] [SIMULATION]Call answered";
         return;
     }
 
@@ -152,7 +197,7 @@ void TelephonyService::answer() {
     m_callState = "active";
     emit callStateChanged("active");
 
-    qInfo() << "[TelephonyService] ✓ Call answered";
+    qInfo() << "[TelephonyService] Call answered";
 }
 
 void TelephonyService::hangup() {
@@ -171,7 +216,7 @@ void TelephonyService::hangup() {
         emit callStateChanged("idle");
         emit activeNumberChanged("");
 
-        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call hung up";
+        qInfo() << "[TelephonyService] [SIMULATION]Call hung up";
         return;
     }
 
@@ -197,7 +242,7 @@ void TelephonyService::hangup() {
     emit callStateChanged("idle");
     emit activeNumberChanged("");
 
-    qInfo() << "[TelephonyService] ✓ Call hung up";
+    qInfo() << "[TelephonyService] Call hung up";
 }
 
 void TelephonyService::sendDTMF(const QString &digit) {
@@ -228,7 +273,7 @@ void TelephonyService::sendDTMF(const QString &digit) {
         return;
     }
 
-    qDebug() << "[TelephonyService] ✓ DTMF sent:" << digit;
+    qDebug() << "[TelephonyService]DTMF sent:" << digit;
 }
 
 void TelephonyService::simulateIncomingCall(const QString &number) {
@@ -271,7 +316,7 @@ void TelephonyService::connectToModemManager() {
         return;
     }
 
-    qInfo() << "[TelephonyService] ✓ Connected to ModemManager";
+    qInfo() << "[TelephonyService] Connected to ModemManager";
 
     setupDBusConnections();
     checkModemStatus();
@@ -315,8 +360,8 @@ void TelephonyService::checkModemStatus() {
     arg >> objects;
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString       path       = it.key().path();
-        InterfaceList interfaces = it.value();
+        QString              path       = it.key().path();
+        const InterfaceList &interfaces = it.value();
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Voice")) {
             if (m_modemPath != path) {
@@ -357,6 +402,28 @@ void TelephonyService::monitorIncomingCalls() {
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", m_modemPath,
                                          "org.freedesktop.ModemManager1.Modem.Voice", "CallAdded",
                                          this, SLOT(onCallAdded(QDBusObjectPath)));
+    // CallDeleted fires when the modem retires a Call object -- happens when
+    // the remote party hangs up, the call drops, or the local side ends it
+    // and the modem garbage-collects the path. Without this subscription, a
+    // remote hangup left the ActiveCallPage on-screen with the duration
+    // ticker still running (PropertiesChanged on a deleted object never
+    // arrives because the object is gone).
+    QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", m_modemPath,
+                                         "org.freedesktop.ModemManager1.Modem.Voice", "CallDeleted",
+                                         this, SLOT(onCallDeleted(QDBusObjectPath)));
+}
+
+void TelephonyService::onCallDeleted(const QDBusObjectPath &callPath) {
+    const QString path = callPath.path();
+    qInfo() << "[TelephonyService] CallDeleted:" << path << "(active=" << m_activeCallPath << ")";
+    if (path != m_activeCallPath)
+        return;
+    releaseCallInhibit();
+    m_activeCallPath.clear();
+    m_activeNumber.clear();
+    m_callState = "idle";
+    emit callStateChanged("idle");
+    emit activeNumberChanged(QString());
 }
 
 void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
@@ -373,32 +440,48 @@ void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
 
     QDBusReply<QVariant> directionReply =
         callInterface.call("Get", "org.freedesktop.ModemManager1.Call", "Direction");
+    if (!directionReply.isValid())
+        return;
 
-    if (directionReply.isValid()) {
-        uint direction = directionReply.value().toUInt();
+    const uint           direction = directionReply.value().toUInt();
+    QDBusReply<QVariant> numberReply =
+        callInterface.call("Get", "org.freedesktop.ModemManager1.Call", "Number");
+    QString number =
+        numberReply.isValid() ? numberReply.value().toString() : QStringLiteral("Unknown");
 
-        if (direction == 1) {
+    if (direction == 1) {
+        // MM_CALL_DIRECTION_INCOMING
+        m_activeCallPath = path;
+        m_activeNumber   = number;
+        m_callState      = "incoming";
 
-            QDBusReply<QVariant> numberReply =
-                callInterface.call("Get", "org.freedesktop.ModemManager1.Call", "Number");
+        setupCallMonitoring(path);
+        acquireCallInhibit();
 
-            QString number = "Unknown";
-            if (numberReply.isValid()) {
-                number = numberReply.value().toString();
-            }
+        emit incomingCall(number);
+        emit callStateChanged("incoming");
+        emit activeNumberChanged(number);
 
-            m_activeCallPath = path;
-            m_activeNumber   = number;
-            m_callState      = "incoming";
+        qInfo() << "[TelephonyService] Incoming call from:" << number;
+        return;
+    }
 
-            setupCallMonitoring(path);
-
-            emit incomingCall(number);
-            emit callStateChanged("incoming");
+    // direction == 2 (MM_CALL_DIRECTION_OUTGOING). Without this branch, the
+    // outgoing dial path used to depend on the synchronous CreateCall reply to
+    // know the call path -- if the reply was delayed (very common: MM serialises
+    // call setup over modem AT/QMI and easily exceeds Qt's 25 s DBus timeout)
+    // we never set m_activeCallPath, never subscribed to PropertiesChanged, and
+    // the UI stayed frozen on "dialing" forever. Now we adopt the call here
+    // whenever CallAdded fires for an outgoing call we don't already track.
+    if (m_activeCallPath.isEmpty() || m_activeCallPath == path) {
+        m_activeCallPath = path;
+        if (m_activeNumber.isEmpty()) {
+            m_activeNumber = number;
             emit activeNumberChanged(number);
-
-            qInfo() << "[TelephonyService] ✓ Incoming call from:" << number;
         }
+        setupCallMonitoring(path);
+        acquireCallInhibit();
+        qInfo() << "[TelephonyService] Outgoing call adopted:" << path << "to" << m_activeNumber;
     }
 }
 
@@ -417,6 +500,13 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
                 emit callStateChanged(newState);
                 qDebug() << "[TelephonyService] Call state changed to:" << newState;
 
+                // Acquire/release the suspend block inhibit on call edges.
+                // Pattern lifted from Plasma-Dialer's call-manager.cpp.
+                if (newState == "active" || newState == "dialing" || newState == "incoming")
+                    acquireCallInhibit();
+                else if (newState == "idle" || newState == "terminated")
+                    releaseCallInhibit();
+
                 if (newState == "idle" || newState == "terminated") {
                     m_activeCallPath.clear();
                     m_activeNumber.clear();
@@ -424,6 +514,33 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
                 }
             }
         }
+    }
+}
+
+void TelephonyService::acquireCallInhibit() {
+    if (m_callInhibitFd.isValid())
+        return; // Already held -- nothing to do.
+    QDBusInterface logind("org.freedesktop.login1", "/org/freedesktop/login1",
+                          "org.freedesktop.login1.Manager", QDBusConnection::systemBus());
+    if (!logind.isValid()) {
+        qDebug() << "[TelephonyService] logind unavailable, skipping call inhibit";
+        return;
+    }
+    QDBusReply<QDBusUnixFileDescriptor> reply = logind.call(
+        "Inhibit", "sleep", "marathon-shell", "Active call inhibits system suspend", "block");
+    if (reply.isValid()) {
+        m_callInhibitFd = reply.value();
+        qInfo() << "[TelephonyService] Acquired call sleep-block inhibit";
+    } else {
+        qWarning() << "[TelephonyService] Failed to acquire call inhibit:"
+                   << reply.error().message();
+    }
+}
+
+void TelephonyService::releaseCallInhibit() {
+    if (m_callInhibitFd.isValid()) {
+        m_callInhibitFd = QDBusUnixFileDescriptor();
+        qInfo() << "[TelephonyService] Released call sleep-block inhibit";
     }
 }
 

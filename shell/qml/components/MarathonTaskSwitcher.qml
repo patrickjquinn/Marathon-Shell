@@ -6,7 +6,7 @@ import QtQuick
 Item {
     id: taskSwitcher
 
-    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
+    readonly property bool haveWayland: HAVE_WAYLAND
     property real searchPullProgress: 0
     property bool searchGestureActive: false
     property var compositor: null
@@ -85,27 +85,27 @@ Item {
     Column {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: -80 - Constants.navBarHeight
+        // Match the lock screen clockColumn width — without an explicit
+        // width the Column collapses around its widest child, and the
+        // MHaloedDisplay's `parent.width` evaluates as zero, capping
+        // pixelSize via the (parent.width - 32) / 4.4 clamp.
+        width: parent.width * 0.9
         spacing: Constants.spacingSmall
         visible: TaskModel.taskCount === 0
         z: 1
 
-        Text {
+        // Identical to the MarathonLockScreen clock — same MHaloedDisplay
+        // wrapper, same MTypography.weightThin + letterSpacing, same
+        // pixelSize formula. Don't change one without changing the other.
+        MHaloedDisplay {
             text: SystemStatusStore.timeString
-            color: MColors.text
-            font.pixelSize: Constants.fontSizeGigantic
-            font.weight: Font.Thin
+            pixelSize: Math.min(Math.round(84 * Constants.scaleFactor), Math.floor((parent.width - 32) / 4.4))
+            weight: MTypography.weightThin
+            letterSpacing: -2
+            color: MColors.textPrimary
             anchors.horizontalCenter: parent.horizontalCenter
-
-            Text {
-                text: parent.text
-                color: "#80000000"
-                font.pixelSize: parent.font.pixelSize
-                font.weight: parent.font.weight
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: 2
-                z: -1
-            }
+            width: parent.width
+            maxWidth: parent.width - 32
         }
 
         Text {

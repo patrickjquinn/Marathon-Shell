@@ -1,0 +1,54 @@
+#!/bin/bash
+# Marathon App Store state dumper. Emits two JSON files into XDG_RUNTIME_DIR
+# that StoreApp.qml reads. We never expose CLI output to QML directly — the
+# JSON is the contract. Strings are escaped via python3 because flatpak app
+# names can legitimately contain quotes, backslashes, and unicode.
+set -euo pipefail
+RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+STATE_DIR="$RUNTIME_DIR/marathon-store-state"
+mkdir -p "$STATE_DIR"
+
+json_string() {
+    python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.argv[1]))' "$1"
+}
+
+emit_installed() {
+    printf '{"installed":['
+    local first=1
+    while IFS=$'\t' read -r app_id version name; do
+        [ -z "$app_id" ] && continue
+        local icon="$HOME/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/$app_id.png"
+        [ -f "$icon" ] || icon=""
+        [ "$first" = 1 ] || printf ','
+        first=0
+        printf '{"app_id":%s,"name":%s,"version":%s,"icon":%s}' \
+            "$(json_string "$app_id")" \
+            "$(json_string "$name")" \
+            "$(json_string "$version")" \
+            "$(json_string "${icon:+file://$icon}")"
+    done < <(flatpak --user list --app --columns=application,version,name 2>/dev/null || true)
+    printf '],"ts":%s}\n' "$(date +%s)"
+}
+
+emit_updates() {
+    printf '{"updates":['
+    local first=1
+    # timeout — flatpak remote-ls can hang on flaky networks. 20s is generous
+    # for an updates-only query against flathub.
+    while read -r app_id; do
+        [ -z "$app_id" ] && continue
+        case "$app_id" in *.Locale|*.Sources|*.Debug) continue ;; esac
+        [ "$first" = 1 ] || printf ','
+        first=0
+        printf '{"app_id":%s}' "$(json_string "$app_id")"
+    done < <(timeout 20 flatpak --user remote-ls --updates --columns=application 2>/dev/null || true)
+    printf '],"ts":%s}\n' "$(date +%s)"
+}
+
+tmp_inst=$(mktemp "$STATE_DIR/installed.json.XXXXXX")
+emit_installed > "$tmp_inst"
+mv "$tmp_inst" "$STATE_DIR/installed.json"
+
+tmp_upd=$(mktemp "$STATE_DIR/updates.json.XXXXXX")
+emit_updates > "$tmp_upd"
+mv "$tmp_upd" "$STATE_DIR/updates.json"

@@ -56,9 +56,7 @@ class SystemControlStore : public QObject {
     bool isWifiOn() const {
         return m_isWifiOn;
     }
-    bool isBluetoothOn() const {
-        return m_isBluetoothOn;
-    }
+    bool isBluetoothOn() const;
     bool isAirplaneModeOn() const {
         return m_isAirplaneModeOn;
     }
@@ -95,9 +93,7 @@ class SystemControlStore : public QObject {
     bool isNightLightOn() const {
         return m_isNightLightOn;
     }
-    int brightness() const {
-        return m_brightness;
-    }
+    int brightness() const;
     int volume() const {
         return m_volume;
     }
@@ -113,7 +109,6 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleCellular();
     Q_INVOKABLE void toggleCellularData();
     Q_INVOKABLE void toggleDndMode();
-    Q_INVOKABLE void toggleAlarm();
     Q_INVOKABLE void toggleLowPowerMode();
     Q_INVOKABLE void toggleAutoBrightness();
     Q_INVOKABLE void toggleLocation();
@@ -122,6 +117,9 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleNightLight();
     Q_INVOKABLE void captureScreenshot();
     Q_INVOKABLE void setBrightness(int value);
+    // Same as setBrightness but flags the change as user-initiated so the HUD
+    // shows; auto-brightness and idle-dim use the plain setter and stay silent.
+    Q_INVOKABLE void setBrightnessFromUser(int value);
     Q_INVOKABLE void setVolume(int value);
     Q_INVOKABLE void sleep();
     Q_INVOKABLE void powerOff();
@@ -143,12 +141,12 @@ class SystemControlStore : public QObject {
     void isVibrationOnChanged();
     void isNightLightOnChanged();
     void brightnessChanged();
+    void userBrightnessChanged(int value);
     void volumeChanged();
     void isLowPowerModeChanged();
 
   private:
     void                   setIsWifiOn(bool enabled);
-    void                   setIsBluetoothOn(bool enabled);
     void                   setIsAirplaneModeOn(bool enabled);
     void                   setIsRotationLocked(bool enabled);
     void                   setIsFlashlightOn(bool enabled);
@@ -181,7 +179,6 @@ class SystemControlStore : public QObject {
     ScreenshotServiceCpp  *m_screenshotService;
 
     bool                   m_isWifiOn           = true;
-    bool                   m_isBluetoothOn      = false;
     bool                   m_isAirplaneModeOn   = false;
     bool                   m_isRotationLocked   = false;
     bool                   m_isFlashlightOn     = false;

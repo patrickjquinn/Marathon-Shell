@@ -1,9 +1,11 @@
 import QtQuick
 import MarathonUI.Theme
-import MarathonUI.Core
+import MarathonOS.Shell
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property int selectedIndex: 0
     property var items: []
@@ -11,7 +13,7 @@ Rectangle {
 
     signal itemSelected(int index, var item)
 
-    width: 300
+    width: Math.round(300 * scaleFactor)
     height: parent ? parent.height : 600
     color: MColors.bb10Surface
 
@@ -72,8 +74,8 @@ Rectangle {
         anchors.left: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 1000
-        visible: expanded
+        width: Math.round(1000 * root.scaleFactor)
+        visible: root.expanded
         onClicked: root.expanded = false
     }
 }

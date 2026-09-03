@@ -1,0 +1,74 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=qmf
+pkgver=4.0.4_git20260417
+_commit=master
+pkgrel=0
+pkgdesc="Qt Messaging Framework — IMAP/SMTP/POP3 + per-surface QML models"
+url="https://code.qt.io/cgit/qt-labs/messagingframework.git/"
+arch="aarch64 x86_64"
+license="LGPL-2.1-only WITH Qt-LGPL-exception-1.1"
+depends="
+	qt6-qtbase
+	qt6-qtbase-sqlite
+"
+makedepends="
+	cmake
+	samurai
+	qt6-qtbase-dev
+	qt6-qtbase-sqlite
+	qt6-qt5compat-dev
+	openssl-dev
+	icu-dev
+"
+subpackages="
+	$pkgname-dev
+	$pkgname-libs
+	$pkgname-messageserver:_messageserver
+"
+# Upstream lives at code.qt.io as of 2026-04-17 (last commit Pekka Vuorela,
+# Damien Caliste — Jolla mail maintainers). github.com/sailfishos/qmf is
+# archived (2021) but only as packaging — the active codebase has moved.
+#
+# code.qt.io disables cgit snapshot URLs, so the tarball is produced by the
+# duranium build-qmf-apk.sh wrapper (git-clone on the host → tar → SRCDEST)
+# rather than fetched directly. From abuild's point of view the source is
+# just a local filename.
+source="qmf-$pkgver.tar.gz"
+builddir="$srcdir/messagingframework-${_commit}"
+
+build() {
+	# BUILD_QT6=ON forces the Qt6 CMake/CMake-presets path. The Qt5
+	# qmake fallback path is older and not what we want.
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DBUILD_QT6=ON \
+		-DBUILD_TESTING=OFF
+	cmake --build build
+}
+
+check() {
+	# Upstream tests need a running messageserver5 + accounts DB; skip
+	# in package build, run manually on duranium.
+	:
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+
+libs() {
+	pkgdesc="QMF shared libraries (libQmfClient, libQmfMessageServer)"
+	# Upstream uses CamelCase target names (QmfClient → libQmfClient.so.4.0.4).
+	amove usr/lib/libQmf*.so.*
+}
+
+_messageserver() {
+	pkgdesc="QMF message server daemon — IMAP/SMTP/POP3 sync engine"
+	depends="$pkgname-libs=$pkgver-r$pkgrel"
+	amove usr/bin/messageserver
+}
+
+sha512sums="SKIP  qmf-$pkgver.tar.gz"

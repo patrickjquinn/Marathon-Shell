@@ -80,6 +80,18 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
                      });
 }
 
+bool ScreenshotServiceCpp::saveScreenshotTo(const QString &absolutePath) {
+    if (absolutePath.isEmpty() || !m_shellWindow)
+        return false;
+    auto *window = qobject_cast<QQuickWindow *>(m_shellWindow);
+    if (!window)
+        return false;
+    const QImage image = window->grabWindow();
+    if (image.isNull())
+        return false;
+    return image.save(absolutePath);
+}
+
 QString ScreenshotServiceCpp::resolveScreenshotsPath() const {
     const QString homePath     = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
     const QString picturesPath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);

@@ -1,4 +1,3 @@
-import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Modals
@@ -60,9 +59,9 @@ Page {
                     id: deleteBtn
 
                     anchors.verticalCenter: parent.verticalCenter
-                    text: !isNewNote ? "Delete" : ""
+                    text: !editorPage.isNewNote ? "Delete" : ""
                     variant: "danger"
-                    visible: !isNewNote
+                    visible: !editorPage.isNewNote
                     width: Constants.touchTargetLarge + MSpacing.lg
                     onClicked: {
                         HapticService.medium();
@@ -142,7 +141,7 @@ Page {
                     width: parent.width - parent.padding * 2
                     height: Math.max(Constants.screenHeight * 0.4, 300)
                     placeholderText: "Start typing..."
-                    text: initialContent
+                    text: editorPage.initialContent
                 }
             }
         }
@@ -164,7 +163,7 @@ Page {
         confirmText: "Delete"
         cancelText: "Cancel"
         onConfirmed: {
-            editorPage.deleteNote(noteId);
+            editorPage.deleteNote(editorPage.noteId);
         }
     }
 

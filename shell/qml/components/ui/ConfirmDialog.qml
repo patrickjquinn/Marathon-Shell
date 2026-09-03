@@ -1,4 +1,5 @@
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -42,8 +43,8 @@ Item {
             anchors.fill: parent
             onClicked: {
                 cancelled();
-                if (onCancel)
-                    onCancel();
+                if (confirmDialog.onCancel)
+                    confirmDialog.onCancel();
 
                 hide();
             }
@@ -64,13 +65,10 @@ Item {
         opacity: 0
         scale: 0.9
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.05)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.05)
+            lineWidth: 1
         }
 
         Column {
@@ -85,7 +83,7 @@ Item {
                 spacing: MSpacing.md
 
                 Text {
-                    text: title
+                    text: confirmDialog.title
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
@@ -95,7 +93,7 @@ Item {
                 }
 
                 Text {
-                    text: message
+                    text: confirmDialog.message
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
@@ -109,26 +107,26 @@ Item {
                 spacing: MSpacing.md
 
                 MButton {
-                    text: cancelText
+                    text: confirmDialog.cancelText
                     variant: "secondary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         cancelled();
-                        if (onCancel)
-                            onCancel();
+                        if (confirmDialog.onCancel)
+                            confirmDialog.onCancel();
 
                         hide();
                     }
                 }
 
                 MButton {
-                    text: confirmText
+                    text: confirmDialog.confirmText
                     variant: "primary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         confirmed();
-                        if (onConfirm)
-                            onConfirm();
+                        if (confirmDialog.onConfirm)
+                            confirmDialog.onConfirm();
 
                         hide();
                     }

@@ -9,6 +9,7 @@
 #include <QSoundEffect>
 #include <QUrl>
 #include <QDebug>
+#include <utility>   // std::as_const
 
 Alarm Alarm::fromJson(const QJsonObject &json) {
     Alarm a;
@@ -22,7 +23,7 @@ Alarm Alarm::fromJson(const QJsonObject &json) {
     a.snoozeDuration = json["snoozeDuration"].toInt(10);
 
     QJsonArray repeatArr = json["repeat"].toArray();
-    for (const auto &v : repeatArr) {
+    for (const auto &v : std::as_const(repeatArr)) {
         a.repeat.append(v.toInt());
     }
     return a;
@@ -140,7 +141,7 @@ bool AlarmManagerCpp::updateAlarm(const QString &id, const QVariantMap &updates)
             if (updates.contains("repeat")) {
                 a.repeat.clear();
                 QVariantList r = updates["repeat"].toList();
-                for (const auto &v : r)
+                for (const auto &v : std::as_const(r))
                     a.repeat.append(v.toInt());
             }
 
@@ -243,7 +244,7 @@ void AlarmManagerCpp::loadAlarms() {
     QJsonArray    arr     = doc.array();
 
     m_alarms.clear();
-    for (const auto &v : arr) {
+    for (const auto &v : std::as_const(arr)) {
         m_alarms.append(Alarm::fromJson(v.toObject()));
     }
     emit alarmsChanged();
@@ -252,7 +253,7 @@ void AlarmManagerCpp::loadAlarms() {
 
 void AlarmManagerCpp::saveAlarms() {
     QJsonArray arr;
-    for (const auto &a : m_alarms)
+    for (const auto &a : std::as_const(m_alarms))
         arr.append(a.toJson());
 
     QJsonDocument doc(arr);
@@ -264,7 +265,7 @@ void AlarmManagerCpp::scheduleNextAlarm() {
     QDateTime nextTime;
     bool      found = false;
 
-    for (const auto &a : m_alarms) {
+    for (const auto &a : std::as_const(m_alarms)) {
         if (!a.enabled)
             continue;
         QDateTime t = calculateNextOccurrence(a, now);
@@ -321,7 +322,7 @@ void AlarmManagerCpp::checkAlarms() {
     QString   timeStr = now.time().toString("HH:mm");
     int       day     = now.date().dayOfWeek() % 7;
 
-    for (const auto &a : m_alarms) {
+    for (const auto &a : std::as_const(m_alarms)) {
         if (!a.enabled)
             continue;
         if (a.time != timeStr)

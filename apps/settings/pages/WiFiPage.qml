@@ -16,7 +16,7 @@ SettingsPageTemplate {
     pageTitle: "WiFi"
     Component.onCompleted: {
         Logger.info("WiFiPage", "Initialized");
-        if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled)
+        if (NetworkManagerCpp.wifiEnabled)
             NetworkManagerCpp.scanWifi();
     }
 
@@ -32,7 +32,7 @@ SettingsPageTemplate {
             spacing: MSpacing.xl
 
             Text {
-                text: "Are you sure you want to disconnect from " + (((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSsid : "") || "this network") + "?"
+                text: "Are you sure you want to disconnect from " + (NetworkManagerCpp.wifiSsid || "this network") + "?"
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 color: MColors.textSecondary
@@ -59,9 +59,7 @@ SettingsPageTemplate {
                     variant: "primary"
                     width: 140
                     onClicked: {
-                        if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                            NetworkManagerCpp.disconnectWifi();
-
+                        NetworkManagerCpp.disconnectWifi();
                         disconnectSheet.hide();
                     }
                 }
@@ -91,18 +89,16 @@ SettingsPageTemplate {
             MSettingsListItem {
                 width: parent.width - 48
                 title: "WiFi"
-                subtitle: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled) ? "Enabled" : "Disabled"
+                subtitle: NetworkManagerCpp.wifiEnabled ? "Enabled" : "Disabled"
                 iconName: "wifi"
                 showToggle: true
-                toggleValue: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiEnabled : false
+                toggleValue: NetworkManagerCpp.wifiEnabled
                 onToggleChanged: {
-                    if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                        NetworkManagerCpp.toggleWifi();
+                    NetworkManagerCpp.toggleWifi();
 
-                    if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled)
+                    if (NetworkManagerCpp.wifiEnabled)
                         Qt.callLater(() => {
-                            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                                NetworkManagerCpp.scanWifi();
+                            NetworkManagerCpp.scanWifi();
                         });
                 }
             }
@@ -110,15 +106,15 @@ SettingsPageTemplate {
             MSection {
                 title: "Current Network"
                 width: parent.width - 48
-                visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.wifiConnected && NetworkManagerCpp.wifiEnabled) : false
+                visible: NetworkManagerCpp.wifiConnected && NetworkManagerCpp.wifiEnabled
 
                 Rectangle {
                     width: parent.width
                     height: Constants.hubHeaderHeight
                     radius: 4
-                    color: Qt.rgba(20, 184, 166, 0.08)
+                    color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08)
                     border.width: 1
-                    border.color: Qt.rgba(20, 184, 166, 0.3)
+                    border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
 
                     Row {
                         anchors.fill: parent
@@ -126,9 +122,9 @@ SettingsPageTemplate {
                         spacing: MSpacing.md
 
                         Icon {
-                            name: SettingsController.wifiSignalIcon((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0)
+                            name: SettingsController.wifiSignalIcon(NetworkManagerCpp.wifiSignalStrength)
                             size: 28
-                            color: Qt.rgba(20, 184, 166, 1)
+                            color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 1)
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
@@ -138,7 +134,7 @@ SettingsPageTemplate {
                             width: parent.width - 100
 
                             Text {
-                                text: ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSsid : "") || "Connected"
+                                text: NetworkManagerCpp.wifiSsid || "Connected"
                                 color: MColors.textPrimary
                                 font.pixelSize: MTypography.sizeBody
                                 font.weight: Font.DemiBold
@@ -148,7 +144,7 @@ SettingsPageTemplate {
                             }
 
                             Text {
-                                text: SettingsController.wifiConnectionStatusText((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0)
+                                text: SettingsController.wifiConnectionStatusText(NetworkManagerCpp.wifiSignalStrength)
                                 color: MColors.textSecondary
                                 font.pixelSize: MTypography.sizeSmall
                                 font.family: MTypography.fontFamily
@@ -180,9 +176,9 @@ SettingsPageTemplate {
             }
 
             MSection {
-                title: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled) ? "Available Networks" : "Turn on WiFi to see networks"
+                title: NetworkManagerCpp.wifiEnabled ? "Available Networks" : "Turn on WiFi to see networks"
                 width: parent.width - 48
-                visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiEnabled : false
+                visible: NetworkManagerCpp.wifiEnabled
 
                 Row {
                     width: parent.width
@@ -209,10 +205,10 @@ SettingsPageTemplate {
                 Column {
                     width: parent.width
                     spacing: MSpacing.sm
-                    visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.availableNetworks.length > 0) : false
+                    visible: NetworkManagerCpp.availableNetworks.length > 0
 
                     Repeater {
-                        model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
+                        model: NetworkManagerCpp.availableNetworks
 
                         MSettingsListItem {
                             required property var modelData
@@ -223,7 +219,7 @@ SettingsPageTemplate {
                             showChevron: true
                             onSettingClicked: {
                                 HapticService.light();
-                                if ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) && NetworkManagerCpp.wifiConnected && modelData.ssid === NetworkManagerCpp.wifiSsid) {
+                                if (NetworkManagerCpp.wifiConnected && modelData.ssid === NetworkManagerCpp.wifiSsid) {
                                     Logger.info("WiFiPage", "Show disconnect dialog for: " + modelData.ssid);
                                     disconnectSheet.show();
                                 } else {
@@ -244,7 +240,7 @@ SettingsPageTemplate {
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 24
                     bottomPadding: 24
-                    visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.availableNetworks.length === 0) : true
+                    visible: NetworkManagerCpp.availableNetworks.length === 0
                 }
 
                 MButton {
@@ -255,8 +251,7 @@ SettingsPageTemplate {
                     visible: true
                     onClicked: {
                         HapticService.medium();
-                        if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                            NetworkManagerCpp.scanWifi();
+                        NetworkManagerCpp.scanWifi();
                     }
                 }
             }

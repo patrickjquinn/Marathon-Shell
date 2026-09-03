@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -86,33 +87,38 @@ Item {
         Logger.debug("Peek", "Visibility changed: " + visible);
     }
 
+    // Scrim — darkens the surface behind the sliding hub panel so
+    // the panel reads as elevated. elev0 (deeper than the wallpaper
+    // black) gives a quiet dim without competing with the panel.
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
-        opacity: peekProgress * 0.6
-        visible: peekProgress > 0
+        color: MColors.elev0
+        opacity: peekComponent.peekProgress * 0.6
+        visible: peekComponent.peekProgress > 0
 
         MouseArea {
             anchors.fill: parent
-            enabled: peekProgress > 0
-            onClicked: {
-                closePeek();
-            }
+            enabled: peekComponent.peekProgress > 0
+            onClicked: closePeek()
         }
     }
 
     Item {
         id: hubPanelContainer
 
-        width: parent.width * 0.85
+        // 0.85 parent.width during partial peek (so the surface beneath
+        // remains visible on the right). Ramp to parent.width over the
+        // last 15 % of progress so a fully-opened Hub covers the
+        // screen edge-to-edge.
+        width: parent.width * (0.85 + 0.15 * Math.max(0, Math.min(1, (peekComponent.peekProgress - 0.85) / 0.15)))
         height: parent.height
         x: {
-            if (peekProgress === 0)
+            if (peekComponent.peekProgress === 0)
                 return -width;
             else
-                return -width + (width * peekProgress);
+                return -width + (width * peekComponent.peekProgress);
         }
-        visible: peekProgress > 0 || isPeeking
+        visible: peekComponent.peekProgress > 0 || peekComponent.isPeeking
         clip: true
         Component.onCompleted: {
             Logger.info("Peek", "hubPanelContainer initialized, width: " + width);
@@ -122,8 +128,8 @@ Item {
             id: notificationPreview
 
             anchors.fill: parent
-            visible: peekProgress < 0.35
-            opacity: peekProgress < 0.3 ? 1 : Math.max(0, (0.35 - peekProgress) / 0.05)
+            visible: peekComponent.peekProgress < 0.35
+            opacity: peekComponent.peekProgress < 0.3 ? 1 : Math.max(0, (0.35 - peekComponent.peekProgress) / 0.05)
             z: 10
             Component.onCompleted: {
                 Logger.info("Peek", "NotificationPreview initialized, count: " + NotificationModel.count);
@@ -173,16 +179,29 @@ Item {
                                     anchors.centerIn: parent
                                 }
 
+                                // DS unread indicator (ds-components.jsx
+                                // Badges · 'unread indicator'): teal-bright
+                                // dot with a teal-glow halo, no number.
                                 Rectangle {
                                     visible: !model.isRead
                                     anchors.right: parent.right
                                     anchors.top: parent.top
                                     anchors.rightMargin: -2
                                     anchors.topMargin: -2
-                                    width: 10
-                                    height: 10
-                                    radius: 5
-                                    color: MColors.marathonTeal
+                                    width: 8
+                                    height: 8
+                                    radius: 4
+                                    color: MColors.marathonTealBright
+
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 16
+                                        height: 16
+                                        radius: 8
+                                        color: MColors.marathonTealGlow
+                                        opacity: 0.18
+                                        z: -1
+                                    }
                                 }
 
                                 Behavior on scale {
@@ -234,8 +253,8 @@ Item {
 
             anchors.fill: parent
             isInPeekMode: true
-            visible: peekProgress >= 0.3
-            opacity: peekProgress < 0.3 ? 0 : Math.min(1, (peekProgress - 0.3) / 0.05)
+            visible: peekComponent.peekProgress >= 0.3
+            opacity: peekComponent.peekProgress < 0.3 ? 0 : Math.min(1, (peekComponent.peekProgress - 0.3) / 0.05)
             onClosed: {
                 closePeek();
             }
@@ -263,7 +282,7 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: parent.width * 0.3
-            enabled: isFullyOpen
+            enabled: peekComponent.isFullyOpen
             z: 100
             onPressed: mouse => {
                 startX = mouse.x;
@@ -277,7 +296,7 @@ Item {
                     var deltaX = mouse.x - startX;
                     if (deltaX < -15) {
                         isDragging = true;
-                        isPeeking = true;
+                        peekComponent.isPeeking = true;
                         startX = mouse.x;
                         lastX = mouse.x;
                         lastTime = Date.now();
@@ -293,33 +312,33 @@ Item {
                     lastTime = now;
                     var deltaX = mouse.x - startX;
                     var maxDrag = hubPanelContainer.width;
-                    peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)));
+                    peekComponent.peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)));
                 }
             }
             onReleased: mouse => {
                 if (isDragging) {
                     isDragging = false;
-                    isPeeking = false;
-                    if (peekProgress < 0.65 || velocity < -500) {
-                        Logger.info("Peek", "Closing from drag (progress: " + peekProgress + ", velocity: " + velocity + ")");
+                    peekComponent.isPeeking = false;
+                    if (peekComponent.peekProgress < 0.65 || velocity < -500) {
+                        Logger.info("Peek", "Closing from drag (progress: " + peekComponent.peekProgress + ", velocity: " + velocity + ")");
                         closePeek();
                     } else {
                         Logger.info("Peek", "Snapping back open");
-                        peekProgress = 1;
+                        peekComponent.peekProgress = 1;
                     }
                 }
             }
             onCanceled: {
                 if (isDragging) {
                     isDragging = false;
-                    isPeeking = false;
-                    peekProgress = 1;
+                    peekComponent.isPeeking = false;
+                    peekComponent.peekProgress = 1;
                 }
             }
         }
 
         Behavior on x {
-            enabled: !isPeeking
+            enabled: !peekComponent.isPeeking
 
             NumberAnimation {
                 duration: 350
@@ -340,16 +359,16 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: Constants.spacingSmall
-        enabled: !isFullyOpen
+        enabled: !peekComponent.isFullyOpen
         onPressed: mouse => {
             startX = mouse.x;
             lastX = mouse.x;
             lastTime = Date.now();
-            isPeeking = true;
-            console.log("👈 Peek gesture started from left edge");
+            peekComponent.isPeeking = true;
+            console.log("Peek gesture started from left edge");
         }
         onPositionChanged: mouse => {
-            if (!isPeeking)
+            if (!peekComponent.isPeeking)
                 return;
 
             var absoluteX = gestureArea.x + mouse.x;
@@ -361,23 +380,23 @@ Item {
 
             lastX = absoluteX;
             lastTime = now;
-            peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
+            peekComponent.peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
         }
         onReleased: {
-            if (!isPeeking)
+            if (!peekComponent.isPeeking)
                 return;
 
-            isPeeking = false;
-            if (peekProgress > peekThreshold || velocity > 500) {
-                peekProgress = 1;
-                isFullyOpen = true;
+            peekComponent.isPeeking = false;
+            if (peekComponent.peekProgress > peekComponent.peekThreshold || velocity > 500) {
+                peekComponent.peekProgress = 1;
+                peekComponent.isFullyOpen = true;
                 fullyOpened();
             } else {
                 closePeek();
             }
         }
         onCanceled: {
-            isPeeking = false;
+            peekComponent.isPeeking = false;
             closePeek();
         }
     }

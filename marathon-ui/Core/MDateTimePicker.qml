@@ -1,11 +1,15 @@
+import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Modals
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import MarathonUI.Theme
-import MarathonUI.Core
-import MarathonUI.Modals
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property date selectedDate: new Date()
     property string mode: "date"
@@ -13,21 +17,23 @@ Rectangle {
 
     signal dateSelected(date date)
 
-    implicitWidth: 200
+    implicitWidth: Math.round(200 * scaleFactor)
     implicitHeight: MSpacing.touchTargetMin
+
+    Accessible.role: Accessible.Button
+    Accessible.name: label !== "" ? label : (mode === "time" ? qsTr("Select time") : qsTr("Select date"))
+    Accessible.description: Qt.formatDateTime(selectedDate, mode === "time" ? "hh:mm" : "yyyy-MM-dd")
+    Accessible.onPressAction: pickerSheet.visible = true
 
     color: MColors.bb10Surface
     radius: MRadius.md
     border.width: 1
     border.color: Qt.rgba(1, 1, 1, 0.08)
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
-        color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.04)
+    MTopHairline {
+        radius: parent.radius
+        color: Qt.rgba(1, 1, 1, 0.04)
+        lineWidth: 1
     }
 
     MouseArea {
@@ -43,7 +49,7 @@ Rectangle {
 
         Icon {
             name: root.mode === "date" ? "calendar" : "clock"
-            size: 24
+            size: Math.round(24 * root.scaleFactor)
             color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }

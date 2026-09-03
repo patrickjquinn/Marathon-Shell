@@ -1,7 +1,6 @@
-import MarathonUI.Core
-import MarathonUI.Modals
-import MarathonUI.Theme
 import MarathonOS.Shell 1.0
+import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 
 Rectangle {
@@ -42,7 +41,6 @@ Rectangle {
                 appWindow.pendingAppInstance = nativeInstance;
                 appContentLoader.sourceComponent = undefined;
                 appContentLoader.sourceComponent = appInstanceContainer;
-                appWindow.isLoadingComponent = false;
                 if (nativeInstance.requestClose) {
                     var capturedId = id;
                     nativeInstance.requestClose.connect(function (skipNative) {
@@ -50,10 +48,18 @@ Rectangle {
                         appWindow.closeApp(skipNative === true, capturedId);
                     });
                 }
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
-                    AppLifecycleManager.registerApp(id, nativeInstance);
-                    AppLifecycleManager.bringToForeground(id);
+                Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
+                AppLifecycleManager.registerApp(id, nativeInstance);
+                AppLifecycleManager.bringToForeground(id);
+                // Direct connect — a Connections target through the container
+                // breaks when the instance is reparented into the switcher.
+                if (nativeInstance.revealReadyChanged !== undefined) {
+                    var syncReveal = function () {
+                        if (nativeInstance.revealReady === true)
+                            appWindow.isLoadingComponent = false;
+                    };
+                    nativeInstance.revealReadyChanged.connect(syncReveal);
+                    syncReveal();
                 }
                 Logger.info("AppWindow", "Native app instance created successfully: " + id);
                 appWindow.hasError = false;
@@ -72,8 +78,9 @@ Rectangle {
     }
 
     function show(id, name, icon, type, surface, sid) {
-        if (appWindow.appId === id && type === "native" && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
-            if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface && surface !== null) {
+        var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
+        if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
+            if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface) {
                 Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
                     "dialogSurface": surface,
@@ -97,6 +104,23 @@ Rectangle {
 
             return;
         }
+        if (appWindow.appId === id && hasSurface && appWindow.isLoadingComponent) {
+            Logger.info("AppWindow", "Surface arrived for " + id + " (surfaceId: " + sid + ") - creating native window");
+            appWindow.waylandSurface = surface;
+            appWindow.surfaceId = sid;
+            // isLoadingComponent stays true until revealReady — the surface
+            // object existing is not the app having rendered.
+            var surfComponent = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
+            if (surfComponent.status === Component.Ready) {
+                _finishNativeCreation(surfComponent, id, name, icon, surface, sid);
+            } else {
+                var cc = surfComponent, ci = id, cn = name, cic = icon, cs = surface, csid = sid;
+                surfComponent.statusChanged.connect(function () {
+                    _finishNativeCreation(cc, ci, cn, cic, cs, csid);
+                });
+            }
+            return;
+        }
         var launchStartTime = Date.now();
         appId = id;
         appName = name;
@@ -106,7 +130,7 @@ Rectangle {
         surfaceId = sid || -1;
         hasError = false;
         loadError = "";
-        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
+        Logger.warn("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
         if (appWindow.appContainer) {
             if (appWindow.appContainer["children"].length > 0) {
                 var currentChild = appWindow.appContainer["children"][0];
@@ -117,13 +141,10 @@ Rectangle {
                 }
             }
         }
-        if (appType === "native") {
-            var existingNativeInstance = null;
-            if (typeof AppLifecycleManager !== 'undefined')
-                existingNativeInstance = AppLifecycleManager.getAppInstance(id);
-
+        if (hasSurface) {
+            var existingNativeInstance = AppLifecycleManager.getAppInstance(id);
             if (existingNativeInstance) {
-                Logger.info("AppWindow", "Reusing existing native app instance: " + id);
+                Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
                 if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
@@ -134,9 +155,8 @@ Rectangle {
                     appContentLoader.sourceComponent = appInstanceContainer;
                 }
             } else {
-                Logger.info("AppWindow", "Creating new native app instance: " + id);
+                Logger.info("AppWindow", "Creating app window with surface for: " + id + " (surfaceId: " + sid + ")");
                 appWindow.isLoadingComponent = true;
-                Logger.info("AppWindow", "Showing loading splash...");
                 var component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
                 if (component.status === Component.Ready) {
                     _finishNativeCreation(component, id, name, icon, surface, sid);
@@ -153,7 +173,7 @@ Rectangle {
                 }
             }
         } else {
-            Logger.warn("AppWindow", "Non-native show() requested for appId=" + id + " - waiting for Wayland surface");
+            Logger.warn("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
             appWindow.isLoadingComponent = true;
         }
         visible = true;
@@ -164,7 +184,7 @@ Rectangle {
     }
 
     function detachCurrentApp() {
-        Logger.info("AppWindow", "Detaching current app instance");
+        Logger.warn("AppWindow", "Detaching current app instance");
         if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
             var app = appWindow.appContainer["children"][0];
             if (app) {
@@ -187,9 +207,7 @@ Rectangle {
         if (targetAppId === "")
             return;
 
-        if (typeof AppLifecycleManager !== 'undefined')
-            AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
-
+        AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
         if (targetAppId !== appId)
             return;
 
@@ -208,7 +226,7 @@ Rectangle {
     }
 
     function reattachInstance(instance, id, name, icon, type) {
-        Logger.info("AppWindow", "Re-attaching detached instance: " + id);
+        Logger.warn("AppWindow", "Re-attaching detached instance: " + id);
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
 
@@ -216,8 +234,8 @@ Rectangle {
         appWindow.appName = name;
         appWindow.appIcon = icon;
         appWindow.appType = type;
-        if (typeof UIStore !== 'undefined')
-            UIStore.restoreApp(id, name, icon);
+        UIStore.restoreApp(id, name, icon);
+
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
             appContentLoader.source = "appInstanceContainer";
@@ -245,6 +263,24 @@ Rectangle {
         }
     }
 
+    // Watchdog: if the splash sits for 20 s without a surface arriving
+    // (X11-only app on a Wayland-only stack, runner crash before
+    // attaching, missing flatpak runtime, etc.), surface the error
+    // state so the user isn't trapped on a forever-loading screen.
+    Timer {
+        id: launchTimeout
+
+        interval: 20000
+        repeat: false
+        running: appWindow.isLoadingComponent && !appWindow.hasError
+        onTriggered: {
+            Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
+            appWindow.isLoadingComponent = false;
+            appWindow.hasError = true;
+            appWindow.loadError = "The app didn't open in time. It may require X11 (which Marathon doesn't ship), or its runtime failed to start.";
+        }
+    }
+
     Rectangle {
         id: loadingSplash
 
@@ -257,21 +293,13 @@ Rectangle {
             anchors.centerIn: parent
             spacing: 24
 
-            Image {
+            MAppIcon {
                 id: splashIconImage
 
-                width: Math.round(128 * Constants.scaleFactor)
-                height: width
-                source: appWindow.appIcon && appWindow.appIcon.startsWith("file://") ? appWindow.appIcon : ""
+                size: Math.round(128 * Constants.scaleFactor)
+                source: appWindow.appIcon || ""
                 anchors.horizontalCenter: parent.horizontalCenter
-                smooth: true
-                mipmap: true
-                sourceSize.width: 256
-                sourceSize.height: 256
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-                visible: source !== "" && status === Image.Ready
+                visible: source !== "" && (status === Image.Ready || !isImage)
                 onStatusChanged: {
                     if (status === Image.Ready)
                         Logger.debug("AppWindow", "Splash icon loaded: " + source + " intrinsic: " + implicitWidth + "x" + implicitHeight);
@@ -348,28 +376,56 @@ Rectangle {
         }
     }
 
-    NumberAnimation {
+    // Open + close: opacity AND scale, not opacity alone. A pure fade
+    // reads as "a panel appeared"; pairing it with a 0.92→1.0 scale
+    // reads as "the app emerged" — iOS Spotlight-style. The scale axis
+    // is compositor-only (no relayout), and the curve is the canonical
+    // "modal" role from MMotion so the open feels coherent with the
+    // rest of the system's modals.
+    ParallelAnimation {
         id: slideIn
 
-        target: appWindow
-        property: "opacity"
-        from: 0
-        to: 1
-        duration: 300
-        easing.type: Easing.OutCubic
+        NumberAnimation {
+            target: appWindow
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: MMotion.durationFor("modal")
+            easing.type: Easing.OutQuad
+        }
+        NumberAnimation {
+            target: appWindow
+            property: "scale"
+            from: 0.92
+            to: 1.0
+            duration: MMotion.durationFor("modal")
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingCurveFor("modal")
+        }
     }
 
-    NumberAnimation {
+    ParallelAnimation {
         id: slideOut
 
-        target: appWindow
-        property: "opacity"
-        from: 1
-        to: 0
-        duration: 300
-        easing.type: Easing.InCubic
+        NumberAnimation {
+            target: appWindow
+            property: "opacity"
+            from: 1
+            to: 0
+            duration: MMotion.durationFor("nav")
+            easing.type: Easing.InQuad
+        }
+        NumberAnimation {
+            target: appWindow
+            property: "scale"
+            from: 1.0
+            to: 0.96
+            duration: MMotion.durationFor("nav")
+            easing.type: Easing.InCubic
+        }
         onFinished: {
             appWindow.visible = false;
+            appWindow.scale = 1.0;
             if (appWindow.isClosing) {
                 appWindow.isClosing = false;
                 closed();
@@ -399,17 +455,13 @@ Rectangle {
                     if (appInstance.requestRegister)
                         appInstance.requestRegister.connect(containerRoot, function (appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId);
-                            if (typeof AppLifecycleManager !== 'undefined')
-                                AppLifecycleManager.registerApp(appId, appInst);
-                            else
-                                console.error("AppWindow: AppLifecycleManager not available!");
+                            AppLifecycleManager.registerApp(appId, appInst);
                         });
 
                     if (appInstance.requestUnregister)
                         appInstance.requestUnregister.connect(containerRoot, function (appId) {
                             console.log("AppWindow: App requested unregistration:", appId);
-                            if (typeof AppLifecycleManager !== 'undefined')
-                                AppLifecycleManager.unregisterApp(appId);
+                            AppLifecycleManager.unregisterApp(appId);
                         });
 
                     if (appInstance.minimizeRequested)
@@ -456,19 +508,19 @@ Rectangle {
         onItemChanged: appWindow.appContainer = item
         onStatusChanged: {
             if (status === Loader.Error) {
-                Logger.error("AppWindow", "Failed to load app content for: " + appId);
+                Logger.error("AppWindow", "Failed to load app content for: " + appWindow.appId);
                 appWindow.hasError = true;
                 appWindow.loadError = "Failed to load app content";
                 appWindow.isLoadingComponent = false;
             } else if (status === Loader.Ready) {
-                Logger.info("AppWindow", "App content loaded successfully for: " + appId);
+                Logger.info("AppWindow", "App content loaded successfully for: " + appWindow.appId);
                 splashHideTimer.start();
                 appWindow.suppressSplash = false;
             } else if (status === Loader.Loading) {
                 if (!appWindow.suppressSplash)
                     appWindow.isLoadingComponent = true;
                 else
-                    Logger.info("AppWindow", "Splash suppressed for reload of: " + appId);
+                    Logger.info("AppWindow", "Splash suppressed for reload of: " + appWindow.appId);
             }
         }
 
@@ -506,12 +558,12 @@ Rectangle {
             }
 
             Connections {
+                target: dialogItem.dialogSurface
+                ignoreUnknownSignals: true
                 function onDestroyed() {
-                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogItem.dialogSurfaceId);
                     dialogItem.destroy();
                 }
-
-                target: dialogSurface
             }
         }
     }

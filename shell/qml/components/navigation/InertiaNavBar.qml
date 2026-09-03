@@ -34,27 +34,27 @@ Rectangle {
         radius: Constants.borderRadiusSmall
         color: "#FFFFFF"
         opacity: 0.8
-        x: parent.width / 2 - width / 2 + (isDragging ? Math.max(-maxDragDistance, Math.min(maxDragDistance, dragCurrentX)) : 0)
-        y: (isDragging && dragCurrentY < 0) ? Math.max(-60, dragCurrentY) : 0
-        scale: isDragging ? 1.2 : 1
+        x: parent.width / 2 - width / 2 + (navBar.isDragging ? Math.max(-navBar.maxDragDistance, Math.min(navBar.maxDragDistance, navBar.dragCurrentX)) : 0)
+        y: (navBar.isDragging && navBar.dragCurrentY < 0) ? Math.max(-60, navBar.dragCurrentY) : 0
+        scale: navBar.isDragging ? 1.2 : 1
 
         Behavior on x {
-            enabled: !isDragging
+            enabled: !navBar.isDragging
 
             SpringAnimation {
                 spring: 3
                 damping: 0.3
-                duration: snapDuration
+                duration: navBar.snapDuration
             }
         }
 
         Behavior on y {
-            enabled: !isDragging
+            enabled: !navBar.isDragging
 
             SpringAnimation {
                 spring: 3
                 damping: 0.3
-                duration: snapDuration
+                duration: navBar.snapDuration
             }
         }
 
@@ -80,7 +80,7 @@ Rectangle {
         height: indicator.height + 20
         radius: height / 2
         color: "#006666"
-        opacity: isDragging ? 0.2 : 0
+        opacity: navBar.isDragging ? 0.2 : 0
 
         Behavior on opacity {
             NumberAnimation {
@@ -95,76 +95,76 @@ Rectangle {
         anchors.fill: parent
         anchors.topMargin: -60
         onPressed: mouse => {
-            dragStartX = mouse.x;
-            dragStartY = mouse.y;
-            lastDragX = mouse.x;
-            lastDragY = mouse.y;
-            dragCurrentX = 0;
-            dragCurrentY = 0;
-            dragVelocityX = 0;
-            dragVelocityY = 0;
-            lastDragTime = Date.now();
-            isDragging = true;
+            navBar.dragStartX = mouse.x;
+            navBar.dragStartY = mouse.y;
+            navBar.lastDragX = mouse.x;
+            navBar.lastDragY = mouse.y;
+            navBar.dragCurrentX = 0;
+            navBar.dragCurrentY = 0;
+            navBar.dragVelocityX = 0;
+            navBar.dragVelocityY = 0;
+            navBar.lastDragTime = Date.now();
+            navBar.isDragging = true;
             console.log(" Nav drag started at:", mouse.x, mouse.y);
         }
         onPositionChanged: mouse => {
-            if (!isDragging)
+            if (!navBar.isDragging)
                 return;
 
             var now = Date.now();
-            var deltaTime = now - lastDragTime;
+            var deltaTime = now - navBar.lastDragTime;
             if (deltaTime > 0) {
-                dragVelocityX = ((mouse.x - lastDragX) / deltaTime) * 1000;
-                dragVelocityY = ((mouse.y - lastDragY) / deltaTime) * 1000;
+                navBar.dragVelocityX = ((mouse.x - navBar.lastDragX) / deltaTime) * 1000;
+                navBar.dragVelocityY = ((mouse.y - navBar.lastDragY) / deltaTime) * 1000;
             }
-            dragCurrentX = mouse.x - dragStartX;
-            dragCurrentY = mouse.y - dragStartY;
-            lastDragX = mouse.x;
-            lastDragY = mouse.y;
-            lastDragTime = now;
-            console.log(" Dragging:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0));
+            navBar.dragCurrentX = mouse.x - navBar.dragStartX;
+            navBar.dragCurrentY = mouse.y - navBar.dragStartY;
+            navBar.lastDragX = mouse.x;
+            navBar.lastDragY = mouse.y;
+            navBar.lastDragTime = now;
+            console.log(" Dragging:", navBar.dragCurrentX.toFixed(0), navBar.dragCurrentY.toFixed(0), "velocity:", navBar.dragVelocityX.toFixed(0), navBar.dragVelocityY.toFixed(0));
         }
         onReleased: mouse => {
-            if (!isDragging)
+            if (!navBar.isDragging)
                 return;
 
-            console.log(" Released. Distance:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "Velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0));
-            var absX = Math.abs(dragCurrentX);
-            var absY = Math.abs(dragCurrentY);
-            var absVelX = Math.abs(dragVelocityX);
-            var absVelY = Math.abs(dragVelocityY);
+            console.log(" Released. Distance:", navBar.dragCurrentX.toFixed(0), navBar.dragCurrentY.toFixed(0), "Velocity:", navBar.dragVelocityX.toFixed(0), navBar.dragVelocityY.toFixed(0));
+            var absX = Math.abs(navBar.dragCurrentX);
+            var absY = Math.abs(navBar.dragCurrentY);
+            var absVelX = Math.abs(navBar.dragVelocityX);
+            var absVelY = Math.abs(navBar.dragVelocityY);
             if (absY > absX) {
-                if (dragCurrentY < -swipeThreshold || dragVelocityY < -500) {
+                if (navBar.dragCurrentY < -navBar.swipeThreshold || navBar.dragVelocityY < -500) {
                     console.log("⬆ SWIPE UP detected!");
                     swipeUp();
-                    swipeUpRelease(Math.abs(dragVelocityY));
+                    swipeUpRelease(Math.abs(navBar.dragVelocityY));
                 }
             } else {
-                if (dragCurrentX > swipeThreshold || dragVelocityX > 500) {
-                    console.log("➡ SWIPE RIGHT detected!");
+                if (navBar.dragCurrentX > navBar.swipeThreshold || navBar.dragVelocityX > 500) {
+                    console.log("SWIPE RIGHT detected!");
                     swipeRight();
-                } else if (dragCurrentX < -swipeThreshold || dragVelocityX < -500) {
+                } else if (navBar.dragCurrentX < -navBar.swipeThreshold || navBar.dragVelocityX < -500) {
                     console.log("⬅ SWIPE LEFT detected!");
                     swipeLeft();
                 }
             }
-            dragCurrentX = 0;
-            dragCurrentY = 0;
-            dragVelocityX = 0;
-            dragVelocityY = 0;
-            isDragging = false;
+            navBar.dragCurrentX = 0;
+            navBar.dragCurrentY = 0;
+            navBar.dragVelocityX = 0;
+            navBar.dragVelocityY = 0;
+            navBar.isDragging = false;
         }
         onCanceled: {
-            dragCurrentX = 0;
-            dragCurrentY = 0;
-            dragVelocityX = 0;
-            dragVelocityY = 0;
-            isDragging = false;
+            navBar.dragCurrentX = 0;
+            navBar.dragCurrentY = 0;
+            navBar.dragVelocityX = 0;
+            navBar.dragVelocityY = 0;
+            navBar.isDragging = false;
         }
     }
 
     Text {
-        visible: isDragging && dragCurrentX > swipeThreshold
+        visible: navBar.isDragging && navBar.dragCurrentX > navBar.swipeThreshold
         text: "◀ Previous"
         color: "#00CCCC"
         font.pixelSize: Constants.fontSizeSmall
@@ -172,11 +172,11 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
-        opacity: Math.min(1, dragCurrentX / 100)
+        opacity: Math.min(1, navBar.dragCurrentX / 100)
     }
 
     Text {
-        visible: isDragging && dragCurrentX < -swipeThreshold
+        visible: navBar.isDragging && navBar.dragCurrentX < -navBar.swipeThreshold
         text: "Next ▶"
         color: "#00CCCC"
         font.pixelSize: Constants.fontSizeSmall
@@ -184,18 +184,18 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
-        opacity: Math.min(1, -dragCurrentX / 100)
+        opacity: Math.min(1, -navBar.dragCurrentX / 100)
     }
 
     Text {
-        visible: isDragging && dragCurrentY < -swipeThreshold
+        visible: navBar.isDragging && navBar.dragCurrentY < -navBar.swipeThreshold
         text: "▲ Apps"
         color: "#00CCCC"
         font.pixelSize: Constants.fontSizeSmall
         font.weight: Font.Bold
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top
-        anchors.bottomMargin: Math.min(40, -dragCurrentY)
-        opacity: Math.min(1, -dragCurrentY / 80)
+        anchors.bottomMargin: Math.min(40, -navBar.dragCurrentY)
+        opacity: Math.min(1, -navBar.dragCurrentY / 80)
     }
 }

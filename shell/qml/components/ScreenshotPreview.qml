@@ -1,3 +1,4 @@
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -37,16 +38,13 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
         layer.enabled: true
-        visible: showing
+        visible: screenshotPreview.showing
         opacity: 0
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.05)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.05)
+            lineWidth: 1
         }
 
         Column {
@@ -63,7 +61,8 @@ Item {
 
                 Image {
                     anchors.fill: parent
-                    source: thumbnailPath || ""
+                    source: screenshotPreview.thumbnailPath || ""
+                    sourceSize: Qt.size(width, height)
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                     asynchronous: true
@@ -85,10 +84,10 @@ Item {
 
             anchors.fill: parent
             onClicked: {
-                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
+                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + screenshotPreview.filePath);
                 hide();
                 NavigationRouter.navigateToDeepLink("gallery", "/image", {
-                    "path": filePath
+                    "path": screenshotPreview.filePath
                 });
             }
             onPressed: mouse => {
@@ -121,7 +120,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false;
+            screenshotPreview.showing = false;
         }
     }
 
@@ -164,7 +163,8 @@ Item {
     Connections {
         function onScreenshotCaptured(path, image) {
             flashAnimation.start();
-            screenshotPreview.show(path, image);
+            var thumbUri = image.startsWith("file://") ? image : ("file://" + image);
+            screenshotPreview.show(path, thumbUri);
         }
 
         target: ScreenshotService

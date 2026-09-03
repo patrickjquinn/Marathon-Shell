@@ -12,4 +12,7 @@ QtObject {
     readonly property int pill: 999
     readonly property int circle: 999
     readonly property int full: pill
+
+    // Squircle — app icons ONLY. Scaled with the rest.
+    readonly property int squircle: Math.round(14 * (Constants.scaleFactor || 1.0))
 }

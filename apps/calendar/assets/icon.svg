@@ -1,1 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" fill="none"><rect width="152" height="152" x="20" y="20" fill="#9ABEFF" rx="10"/><mask id="a" width="152" height="152" x="20" y="20" maskUnits="userSpaceOnUse" style="mask-type:luminance"><rect width="152" height="152" x="20" y="20" fill="#fff" rx="10"/></mask><g mask="url(#a)"><path fill="#fff" d="M98.842 88.96 116.122 67h-34.38v8.01h18.9l-16.11 20.97h14.58c4.95 0 8.82 3.33 8.82 8.37 0 5.13-3.78 9.09-8.91 9.09-4.59 0-8.55-3.24-8.55-7.47l-8.73.09c0 8.73 7.74 15.66 17.19 15.66 9.99 0 17.55-7.65 17.55-17.01 0-9.9-7.83-16.11-17.64-15.75Z"/><path fill="#000" fill-opacity=".25" d="M-2-2h196v98H-2z"/></g></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Calendar icon: dark slate squircle with a teal "FRI" eyebrow band and a
+     big light "5" date — the design's daily-date tile. Drawn as path geometry
+     so it renders in every SVG engine; the previous <text> version came up
+     blank under lunasvg because the font-weight 200 face couldn't be matched.
+     The eyebrow is now teal letterforms drawn as paths, and the "5" is a
+     hand-built path glyph (ExtraLight 36 px). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1b1c"/>
+      <stop offset="1" stop-color="#0a0a0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
+
+  <!-- "FRI" eyebrow: three teal letters at the top, ~8 px cap height.
+       Built from rectangles since these are sans glyphs at a small size. -->
+  <g fill="#1de9b6">
+    <!-- F: vertical bar + 2 crossbars -->
+    <rect x="19" y="16" width="1.6" height="8"/>
+    <rect x="19" y="16" width="5"   height="1.4"/>
+    <rect x="19" y="19" width="3.6" height="1.2"/>
+    <!-- R: vertical bar + top arch + diagonal leg -->
+    <rect x="27" y="16" width="1.6" height="8"/>
+    <rect x="27" y="16" width="4.2" height="1.4"/>
+    <rect x="27" y="19" width="4.2" height="1.2"/>
+    <rect x="30" y="17" width="1.4" height="3"/>
+    <rect x="30.5" y="20" width="1.4" height="4" transform="rotate(-12 30.5 20)"/>
+    <!-- I: vertical bar with serifs -->
+    <rect x="36"   y="16" width="4"   height="1.4"/>
+    <rect x="37.2" y="16" width="1.6" height="8"/>
+    <rect x="36"   y="22.6" width="4" height="1.4"/>
+  </g>
+
+  <!-- "5" numeral: ExtraLight (thin strokes), ~32 px cap height, centred. -->
+  <g fill="none" stroke="#f5f5f5" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Top horizontal bar of the 5 -->
+    <path d="M 41 31 L 26 31"/>
+    <!-- Left vertical down to the curve start -->
+    <path d="M 26 31 L 26 42"/>
+    <!-- The curve: bowl from upper-left into a lower-right loop -->
+    <path d="M 26 42 C 30 39, 38 39, 41 44 C 44 49, 41 55, 35 55 C 30 55, 26 53, 24 50"/>
+  </g>
+</svg>

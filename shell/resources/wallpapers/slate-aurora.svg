@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Marathon OS · Slate Aurora wallpaper · DS 2026.
+
+  Diagonal teal sweep + faint topographic curves on near-black. Mirrors
+  the BB10 ribbon vibe. All wallpapers anchor on a horizon at y=540 —
+  this one doesn't render that horizon line itself; the chrome on top
+  composes over it. Verbatim port of wallpapers.jsx:10–76.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 390 844"
+     preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="aurora" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0"   stop-color="#1de9b6" stop-opacity="0.85"/>
+      <stop offset="0.4" stop-color="#00897b" stop-opacity="0.55"/>
+      <stop offset="1"   stop-color="#040404" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="hbottom" cx="0" cy="1" r="0.7">
+      <stop offset="0" stop-color="#00897b" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="htop" cx="1" cy="0" r="0.5">
+      <stop offset="0" stop-color="#1de9b6" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Solid black base. -->
+  <rect width="390" height="844" fill="#040404"/>
+
+  <!-- Subtle topographic curves. -->
+  <g stroke="rgba(255,255,255,0.025)" stroke-width="0.6" fill="none">
+    <path d="M -50 200 Q 100 180 200 220 T 440 240"/>
+    <path d="M -50 320 Q 110 290 230 340 T 440 360"/>
+    <path d="M -50 460 Q 110 440 220 480 T 440 500"/>
+    <path d="M -50 580 Q 130 560 240 600 T 440 620"/>
+    <path d="M -50 700 Q 140 680 260 720 T 440 740"/>
+  </g>
+
+  <!-- Aurora ribbon — sweeps from bottom-left up. -->
+  <g opacity="0.85">
+    <path d="M -80 900 L 250 50 L 470 -50 L 470 200 L 100 940 Z"
+          fill="url(#aurora)"/>
+    <path d="M -80 940 L 280 200 L 470 100 L 470 350 L 70 990 Z"
+          fill="url(#aurora)" opacity="0.5"/>
+  </g>
+
+  <!-- Bottom-left teal halo + top-right faint glow. -->
+  <rect width="390" height="844" fill="url(#hbottom)"/>
+  <rect width="390" height="844" fill="url(#htop)"/>
+
+  <!-- Crisp diagonal accent lines. -->
+  <line x1="-30" y1="640" x2="430" y2="220"
+        stroke="rgba(29,233,182,0.18)" stroke-width="0.8"/>
+  <line x1="-30" y1="780" x2="430" y2="360"
+        stroke="rgba(29,233,182,0.10)" stroke-width="0.8"/>
+
+  <!-- Light particle dots. -->
+  <g fill="#1de9b6">
+    <circle cx="60"  cy="720" r="1.4" opacity="0.7"/>
+    <circle cx="120" cy="660" r="0.8" opacity="0.4"/>
+    <circle cx="320" cy="80"  r="0.6" opacity="0.5"/>
+    <circle cx="240" cy="540" r="1.2" opacity="0.6"/>
+    <circle cx="80"  cy="410" r="0.7" opacity="0.3"/>
+    <circle cx="340" cy="590" r="1.0" opacity="0.5"/>
+    <circle cx="180" cy="130" r="0.5" opacity="0.3"/>
+    <circle cx="300" cy="350" r="0.6" opacity="0.35"/>
+    <circle cx="200" cy="760" r="0.9" opacity="0.4"/>
+  </g>
+</svg>

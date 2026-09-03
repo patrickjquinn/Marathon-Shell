@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonApp.Settings
-import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
@@ -35,7 +34,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Alphabetical"
                     subtitle: "Sort by name A-Z"
-                    value: (SettingsManagerCpp.appSortOrder === "alphabetical") ? "✓" : ""
+                    value: (SettingsManagerCpp.appSortOrder === "alphabetical") ? "selected" : ""
                     iconName: "arrow-down-up"
                     onSettingClicked: {
                         SettingsManagerCpp.appSortOrder = "alphabetical";
@@ -46,7 +45,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Most Used"
                     subtitle: "Frequently opened apps first"
-                    value: (SettingsManagerCpp.appSortOrder === "frequent") ? "✓" : ""
+                    value: (SettingsManagerCpp.appSortOrder === "frequent") ? "selected" : ""
                     iconName: "star"
                     onSettingClicked: {
                         SettingsManagerCpp.appSortOrder = "frequent";
@@ -57,7 +56,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Recently Added"
                     subtitle: "Newest apps first"
-                    value: (SettingsManagerCpp.appSortOrder === "recent") ? "✓" : ""
+                    value: (SettingsManagerCpp.appSortOrder === "recent") ? "selected" : ""
                     iconName: "clock"
                     onSettingClicked: {
                         SettingsManagerCpp.appSortOrder = "recent";
@@ -68,7 +67,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Custom"
                     subtitle: "Manual arrangement"
-                    value: (SettingsManagerCpp.appSortOrder === "custom") ? "✓" : ""
+                    value: (SettingsManagerCpp.appSortOrder === "custom") ? "selected" : ""
                     iconName: "move"
                     onSettingClicked: {
                         SettingsManagerCpp.appSortOrder = "custom";
@@ -85,7 +84,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Auto"
                     subtitle: "Responsive based on screen size"
-                    value: (SettingsManagerCpp.appGridColumns === 0) ? "✓" : ""
+                    value: (SettingsManagerCpp.appGridColumns === 0) ? "selected" : ""
                     iconName: "layout-grid"
                     onSettingClicked: {
                         SettingsManagerCpp.appGridColumns = 0;
@@ -96,7 +95,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "3 Columns"
                     subtitle: "Larger icons"
-                    value: (SettingsManagerCpp.appGridColumns === 3) ? "✓" : ""
+                    value: (SettingsManagerCpp.appGridColumns === 3) ? "selected" : ""
                     iconName: "layout-grid"
                     onSettingClicked: {
                         SettingsManagerCpp.appGridColumns = 3;
@@ -107,7 +106,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "4 Columns"
                     subtitle: "Balanced layout"
-                    value: (SettingsManagerCpp.appGridColumns === 4) ? "✓" : ""
+                    value: (SettingsManagerCpp.appGridColumns === 4) ? "selected" : ""
                     iconName: "layout-grid"
                     onSettingClicked: {
                         SettingsManagerCpp.appGridColumns = 4;
@@ -118,7 +117,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "5 Columns"
                     subtitle: "Compact view"
-                    value: (SettingsManagerCpp.appGridColumns === 5) ? "✓" : ""
+                    value: (SettingsManagerCpp.appGridColumns === 5) ? "selected" : ""
                     iconName: "layout-grid"
                     onSettingClicked: {
                         SettingsManagerCpp.appGridColumns = 5;

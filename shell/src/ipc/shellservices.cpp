@@ -20,8 +20,14 @@
 #include "callhistorymanager.h"
 #include "contactsmanager.h"
 #include "smsservice.h"
+#include "audioroutingmanager.h"
 #include "telephonyservice.h"
 #include "medialibrarymanager.h"
+#include "../services/updateservice.h"
+#include "../services/marathonappstoreservice.h"
+#include "../services/applifecyclemanager.h"
+#include "marathonappregistry.h"
+#include "davsyncengine.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -30,12 +36,26 @@
 #include <QCoreApplication>
 #include <QFile>
 
-static RateLimiter   g_ipcRateLimiter;
+// Function-local rather than namespace-scope: constructed on first use
+// (thread-safe since C++11) instead of running a throwing initialiser
+// before main().
+static RateLimiter &ipcRateLimiter() {
+    static RateLimiter limiter;
+    return limiter;
+}
 static constexpr int RATE_LIMIT_MAX_CALLS = 30;
 static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
 
-static bool          hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
-                                      const QStringList &perms) {
+// Test bypass: when MARATHON_TEST_TRUSTED=1 is set in the shell's environment,
+// external D-Bus callers are admitted as a synthetic trusted caller. Intended for
+// automation/smoke tests only; never set this in production.
+static const char *const MARATHON_TEST_CALLER_ID = "_marathon_test_caller";
+static bool g_testBypassEnabled = qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0;
+
+static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
+                             const QStringList &perms) {
+    if (g_testBypassEnabled && appId == QLatin1String(MARATHON_TEST_CALLER_ID))
+        return true;
     if (!pm)
         return false;
     for (const auto &p : perms) {
@@ -50,8 +70,8 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
         return true;
 
     const QString sender = ctx.message().service();
-    if (!g_ipcRateLimiter.tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
-        double rate = g_ipcRateLimiter.getRate(sender, method);
+    if (!ipcRateLimiter().tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
+        double rate = ipcRateLimiter().getRate(sender, method);
         SecurityLogger::logRateLimitExceeded(sender, method, static_cast<int>(rate));
         return false;
     }
@@ -59,48 +79,78 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
 }
 
 static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als) {
+    // Resolve the caller to a Marathon app id; return empty (= deny) when we
+    // can't. Under MARATHON_TEST_TRUSTED, every non-resolution returns the
+    // synthetic test caller instead -- never overriding a real resolution.
+    const auto unresolved = []() {
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    };
+
     if (!ctx.calledFromDBus() || !als)
         return {};
+
     const QString sender   = ctx.message().service();
     auto          pidReply = ctx.connection().interface()->servicePid(sender);
     if (!pidReply.isValid())
-        return {};
-    const qint64  pid = static_cast<qint64>(pidReply.value());
+        return unresolved();
+    const qint64 pid = static_cast<qint64>(pidReply.value());
 
-    const QString mapped = als->appIdForPid(pid);
-    if (!mapped.isEmpty())
+    if (QString mapped = als->appIdForPid(pid); !mapped.isEmpty())
         return mapped;
 
     const qint64 shellPid = static_cast<qint64>(QCoreApplication::applicationPid());
     if (shellPid <= 0 || pid <= 0)
-        return {};
+        return unresolved();
 
-    QFile statFile(QStringLiteral("/proc/%1/stat").arg(pid));
-    if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
-    const QByteArray statLine = statFile.readAll();
-    const qsizetype  closeIdx = statLine.lastIndexOf(')');
-    if (closeIdx < 0)
-        return {};
-    const QByteArray        after = statLine.mid(closeIdx + 1).trimmed();
-    const QList<QByteArray> parts = after.split(' ');
-    if (parts.size() < 2)
-        return {};
-    const qint64 ppid = parts.at(1).toLongLong();
-    if (ppid != shellPid)
-        return {};
+    // Confirm the caller is a marathon-app-runner whose ANCESTOR is this
+    // shell. The direct parent is almost never the shell — the launch
+    // chain is shell → marathon-sandbox → bwrap (outer) → bwrap (inner)
+    // → marathon-app-runner, so the immediate PPID is a bwrap helper.
+    // Walk up the /proc PPID chain looking for the shell's PID; cap at
+    // 8 hops so we don't churn on a runaway ancestor list. Without this
+    // every D-Bus call from a sandboxed app fails the requireSystem /
+    // requirePermission gate because the appId resolution falls through
+    // to "unknown caller" — most visible as Settings reading brightness
+    // = 0 % even when sysfs reports 100 %, but it breaks every IPC
+    // surface (battery readback, system store, lifecycle manager).
+    auto ppidOf = [](qint64 p) -> qint64 {
+        QFile statFile(QStringLiteral("/proc/%1/stat").arg(p));
+        if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            return -1;
+        const QByteArray statLine = statFile.readAll();
+        const qsizetype  closeIdx = statLine.lastIndexOf(')');
+        const QByteArray afterCmd =
+            closeIdx < 0 ? QByteArray() : statLine.mid(closeIdx + 1).trimmed();
+        const QList<QByteArray> parts = afterCmd.split(' ');
+        if (parts.size() < 2)
+            return -1;
+        return parts.at(1).toLongLong();
+    };
+
+    bool   ancestorIsShell = false;
+    qint64 cursor          = ppidOf(pid);
+    for (int hop = 0; hop < 8 && cursor > 1; ++hop) {
+        // Pool-adopted runners carry no --app-id in argv; their bwrap
+        // ancestor is registered at adopt time instead.
+        if (QString mapped = als->appIdForPid(cursor); !mapped.isEmpty()) {
+            als->registerPidForAppId(pid, mapped);
+            return mapped;
+        }
+        if (cursor == shellPid) {
+            ancestorIsShell = true;
+            break;
+        }
+        cursor = ppidOf(cursor);
+    }
+    if (!ancestorIsShell)
+        return unresolved();
 
     QFile cmdFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
     if (!cmdFile.open(QIODevice::ReadOnly))
-        return {};
-    const QByteArray        cmdRaw = cmdFile.readAll();
-    const QList<QByteArray> argv   = cmdRaw.split('\0');
-    if (argv.isEmpty())
-        return {};
-
-    const QString argv0 = QString::fromLocal8Bit(argv.value(0));
-    if (!argv0.contains("marathon-app-runner"))
-        return {};
+        return unresolved();
+    const QList<QByteArray> argv = cmdFile.readAll().split('\0');
+    if (argv.isEmpty() || !QString::fromLocal8Bit(argv.value(0)).contains("marathon-app-runner"))
+        return unresolved();
 
     QString appId;
     for (int i = 0; i + 1 < argv.size(); ++i) {
@@ -109,21 +159,49 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
             break;
         }
     }
-    if (appId.isEmpty())
-        return {};
-    if (!als->isMarathonAppId(appId))
-        return {};
+    if (appId.isEmpty() || !als->isMarathonAppId(appId))
+        return unresolved();
 
     als->registerPidForAppId(pid, appId);
     return appId;
 }
 
+IpcPermissionedService::IpcPermissionedService(MarathonPermissionManager *permissions,
+                                               AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_permissions(permissions)
+    , m_launchService(launchService) {}
+
+QString IpcPermissionedService::callerAppIdOrEmpty() const {
+    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+}
+
+bool IpcPermissionedService::requirePermission(const QString     &rateLimitKey,
+                                               const QStringList &permissions) {
+    if (!checkRateLimit(*this, rateLimitKey)) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return false;
+    }
+
+    const QString caller = callerAppIdOrEmpty();
+    if (caller.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return false;
+    }
+    if (!hasAnyPermission(m_permissions, caller, permissions)) {
+        const QString primary = permissions.isEmpty() ? QString() : permissions.first();
+        SecurityLogger::logPermissionDenied(caller, primary);
+        sendErrorReply(QDBusError::AccessDenied,
+                       QStringLiteral("Missing permission: %1").arg(primary));
+        return false;
+    }
+    return true;
+}
+
 SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_settings(settings)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_settings(settings) {
     Q_ASSERT(m_settings);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -188,48 +266,6 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
                      });
 }
 
-QString SettingsObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool SettingsObject::requireSystem() {
-    if (!checkRateLimit(*this, "Settings")) {
-        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
-        return false;
-    }
-
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        SecurityLogger::logPermissionDenied(caller, "system");
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
-}
-
-bool SettingsObject::requireStorage() {
-    if (!checkRateLimit(*this, "Settings.Storage")) {
-        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
-        return false;
-    }
-
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"storage"})) {
-        SecurityLogger::logPermissionDenied(caller, "storage");
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: storage");
-        return false;
-    }
-    return true;
-}
-
 bool SettingsObject::isAppScopedKey(const QString &key) const {
     const QString caller = callerAppIdOrEmpty();
     if (caller.isEmpty())
@@ -238,8 +274,18 @@ bool SettingsObject::isAppScopedKey(const QString &key) const {
 }
 
 QVariantMap SettingsObject::GetState() {
-    if (!requireSystem())
+    // GetState is a READ of the global settings snapshot — userScaleFactor,
+    // wallpaperPath, timeFormat, theme tokens etc. Every app reads these to
+    // size its UI correctly. Gating on "system" forced every app launch to
+    // prompt the user for a permission whose dialog itself says it can't
+    // be granted (it's "restricted to system apps"), which created a no-op
+    // trap: Music, Gallery, Notes, Calendar, Clock all hit the dialog,
+    // user denies / dismisses, app then renders at the wrong scale.
+    // Writes (SetProperty / Set) keep the gate.
+    if (!checkRateLimit(*this, "Settings.GetState")) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return {};
+    }
 
     return {
         {"userScaleFactor", m_settings->userScaleFactor()},
@@ -451,10 +497,8 @@ void SettingsObject::Sync() {
 
 SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_security(security)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_security(security) {
     Q_ASSERT(m_security);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -480,28 +524,6 @@ SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionMana
         emit AuthenticationSuccess();
         emit StateChanged(buildState());
     });
-}
-
-QString SecurityObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool SecurityObject::requireSystem() {
-    if (!checkRateLimit(*this, "Security")) {
-        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
-        return false;
-    }
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        SecurityLogger::logPermissionDenied(caller, "system");
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
 }
 
 QVariantMap SecurityObject::buildState() const {
@@ -540,8 +562,16 @@ void SecurityObject::AuthenticatePassword(const QString &password) {
 }
 
 void SecurityObject::AuthenticateQuickPIN(const QString &pin) {
-    if (!requireSystem())
+    // No requireSystem() here — the PIN itself is the auth. The
+    // SecurityManager applies its own lockout policy after N failed
+    // attempts, and the IpcPermissionedService rate-limit caps the
+    // attempt rate at one per RATE_LIMIT_WINDOW_MS. Requiring a separate
+    // "system" permission would force every dev/test caller to chain
+    // through another permission check that the PIN already represents.
+    if (!checkRateLimit(*this, QStringLiteral("Security"))) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return;
+    }
     m_security->authenticateQuickPIN(pin);
 }
 
@@ -577,10 +607,8 @@ QString SecurityObject::CurrentUsername() {
 
 BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager *permissions,
                                  AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_bt(bt)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_bt(bt) {
     Q_ASSERT(m_bt);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -601,23 +629,6 @@ BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager
                      &BluetoothObject::PasskeyRequested);
     QObject::connect(m_bt, &BluetoothManager::passkeyConfirmation, this,
                      &BluetoothObject::PasskeyConfirmation);
-}
-
-QString BluetoothObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool BluetoothObject::requireSystem() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
 }
 
 QVariantList BluetoothObject::buildDevices(bool pairedOnly) const {
@@ -711,10 +722,8 @@ void BluetoothObject::CancelPairing(const QString &address) {
 
 DisplayObject::DisplayObject(DisplayManagerCpp *display, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_display(display)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_display(display) {
     Q_ASSERT(m_display);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -729,23 +738,6 @@ DisplayObject::DisplayObject(DisplayManagerCpp *display, MarathonPermissionManag
     QObject::connect(m_display, &DisplayManagerCpp::nightLightTemperatureChanged, this, push);
     QObject::connect(m_display, &DisplayManagerCpp::nightLightScheduleChanged, this, push);
     QObject::connect(m_display, &DisplayManagerCpp::screenStateChanged, this, push);
-}
-
-QString DisplayObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool DisplayObject::requireSystem() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
 }
 
 QVariantMap DisplayObject::buildState() const {
@@ -789,7 +781,8 @@ void DisplayObject::SetScreenTimeout(int seconds) {
 void DisplayObject::SetBrightness(double brightness) {
     if (!requireSystem())
         return;
-    m_display->setBrightness(brightness);
+    // Settings-app slider is a user choice — teach the adaptive curve too.
+    m_display->setBrightnessFromUser(brightness);
 }
 
 void DisplayObject::SetNightLightEnabled(bool enabled) {
@@ -816,12 +809,19 @@ void DisplayObject::SetScreenState(bool on) {
     m_display->setScreenState(on);
 }
 
+void DisplayObject::Wake() {
+    // No auth check — turning the screen ON is the equivalent of pressing
+    // the hardware power button while the panel is asleep. There's no
+    // security exposure: the lock screen / PIN screen still gates anything
+    // sensitive, and the rate-limit windowing in IpcPermissionedService
+    // prevents wake-spam.
+    m_display->setScreenState(true);
+}
+
 PowerObject::PowerObject(PowerManagerCpp *power, MarathonPermissionManager *permissions,
                          AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_power(power)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_power(power) {
     Q_ASSERT(m_power);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -833,23 +833,6 @@ PowerObject::PowerObject(PowerManagerCpp *power, MarathonPermissionManager *perm
     QObject::connect(m_power, &PowerManagerCpp::isPowerSaveModeChanged, this, push);
     QObject::connect(m_power, &PowerManagerCpp::estimatedBatteryTimeChanged, this, push);
     QObject::connect(m_power, &PowerManagerCpp::powerProfileChanged, this, push);
-}
-
-QString PowerObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool PowerObject::requireSystem() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
 }
 
 QVariantMap PowerObject::buildState() const {
@@ -926,11 +909,9 @@ static QVariantList audioStreamsToVariantList(AudioManagerCpp *audio) {
 AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
                          MarathonPermissionManager *permissions, AppLaunchService *launchService,
                          QObject *parent)
-    : QObject(parent)
+    : IpcPermissionedService(permissions, launchService, parent)
     , m_audio(audio)
-    , m_policy(policy)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    , m_policy(policy) {
     Q_ASSERT(m_audio);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -942,23 +923,6 @@ AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
     QObject::connect(m_audio, &AudioManagerCpp::streamsChanged, this, push);
 }
 
-QString AudioObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool AudioObject::requireSystem() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
-        return false;
-    }
-    return true;
-}
-
 QVariantMap AudioObject::buildState() const {
     return {
         {"available", m_audio->available()},
@@ -966,6 +930,7 @@ QVariantMap AudioObject::buildState() const {
         {"muted", m_audio->muted()},
         {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
         {"streams", audioStreamsToVariantList(m_audio)},
+        {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
     };
 }
 
@@ -1078,10 +1043,8 @@ void AudioObject::VibratePattern(const QVariantList &pattern) {
 
 NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_network(network)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_network(network) {
     Q_ASSERT(m_network);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1106,23 +1069,6 @@ NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManag
                      &NetworkObject::ConnectionSuccess);
     QObject::connect(m_network, &NetworkManagerCpp::connectionFailed, this,
                      &NetworkObject::ConnectionFailed);
-}
-
-QString NetworkObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool NetworkObject::requireNetwork() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"network", "system"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: network");
-        return false;
-    }
-    return true;
 }
 
 QVariantMap NetworkObject::buildState() const {
@@ -1218,10 +1164,8 @@ bool NetworkObject::IsHotspotActive() const {
 MediaLibraryObject::MediaLibraryObject(MediaLibraryManager       *media,
                                        MarathonPermissionManager *permissions,
                                        AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_media(media)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_media(media) {
     Q_ASSERT(m_media);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1238,23 +1182,6 @@ MediaLibraryObject::MediaLibraryObject(MediaLibraryManager       *media,
                      &MediaLibraryObject::LibraryChanged);
     QObject::connect(m_media, &MediaLibraryManager::scanProgressChanged, this,
                      &MediaLibraryObject::ScanProgressChanged);
-}
-
-QString MediaLibraryObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool MediaLibraryObject::requireStorage() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"storage"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: storage");
-        return false;
-    }
-    return true;
 }
 
 QVariantList MediaLibraryObject::Albums() {
@@ -1355,9 +1282,7 @@ void MediaLibraryObject::DeleteMedia(int mediaId) {
 
 PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
                                      AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent) {
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
     QObject::connect(m_permissions, &MarathonPermissionManager::permissionGranted, this,
@@ -1368,44 +1293,50 @@ PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
                      &PermissionsObject::PermissionRequested);
 }
 
-QString PermissionsObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+// Reject calls where one app is trying to set / read another app's permission.
+// MARATHON_TEST_TRUSTED ($MARATHON_TEST_CALLER_ID) is admitted as the synthetic
+// admin caller -- it's the only caller allowed to act on a different appId, and
+// only when the test-bypass env var is set.
+static bool authorizePermissionCall(const QString &caller, const QString &targetAppId) {
+    if (caller.isEmpty())
+        return false;
+    if (caller == targetAppId)
+        return true;
+    return g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID);
 }
 
 bool PermissionsObject::HasPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return false;
     }
-    return m_permissions->hasPermission(caller, permission);
+    return m_permissions->hasPermission(appId, permission);
 }
 
 void PermissionsObject::RequestPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }
-    m_permissions->requestPermission(caller, permission);
+    m_permissions->requestPermission(appId, permission);
 }
 
 void PermissionsObject::SetPermission(const QString &appId, const QString &permission, bool granted,
                                       bool remember) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }
-    m_permissions->setPermission(caller, permission, granted, remember);
+    m_permissions->setPermission(appId, permission, granted, remember);
 }
 
 ContactsObject::ContactsObject(ContactsManager *contacts, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_contacts(contacts)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_contacts(contacts) {
     Q_ASSERT(m_contacts);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1417,23 +1348,6 @@ ContactsObject::ContactsObject(ContactsManager *contacts, MarathonPermissionMana
                      &ContactsObject::ContactUpdated);
     QObject::connect(m_contacts, &ContactsManager::contactDeleted, this,
                      &ContactsObject::ContactDeleted);
-}
-
-QString ContactsObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool ContactsObject::requireContacts() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"contacts"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: contacts");
-        return false;
-    }
-    return true;
 }
 
 QVariantList ContactsObject::GetContacts() {
@@ -1481,10 +1395,8 @@ void ContactsObject::DeleteContact(int id) {
 CallHistoryObject::CallHistoryObject(CallHistoryManager        *callHistory,
                                      MarathonPermissionManager *permissions,
                                      AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_callHistory(callHistory)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_callHistory(callHistory) {
     Q_ASSERT(m_callHistory);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1492,23 +1404,6 @@ CallHistoryObject::CallHistoryObject(CallHistoryManager        *callHistory,
                      &CallHistoryObject::HistoryChanged);
     QObject::connect(m_callHistory, &CallHistoryManager::callAdded, this,
                      &CallHistoryObject::CallAdded);
-}
-
-QString CallHistoryObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool CallHistoryObject::requirePhone() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"telephony", "phone"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: telephony/phone");
-        return false;
-    }
-    return true;
 }
 
 QVariantList CallHistoryObject::GetHistory() {
@@ -1550,11 +1445,11 @@ void CallHistoryObject::ClearHistory() {
 
 TelephonyObject::TelephonyObject(TelephonyService          *telephony,
                                  MarathonPermissionManager *permissions,
-                                 AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
+                                 AppLaunchService *launchService, AudioRoutingManager *audioRouting,
+                                 QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
     , m_telephony(telephony)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    , m_audioRouting(audioRouting) {
     Q_ASSERT(m_telephony);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1569,23 +1464,6 @@ TelephonyObject::TelephonyObject(TelephonyService          *telephony,
                      &TelephonyObject::ModemChanged);
     QObject::connect(m_telephony, &TelephonyService::activeNumberChanged, this,
                      &TelephonyObject::ActiveNumberChanged);
-}
-
-QString TelephonyObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool TelephonyObject::requirePhone() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"telephony", "phone"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: telephony/phone");
-        return false;
-    }
-    return true;
 }
 
 QString TelephonyObject::CallState() const {
@@ -1642,12 +1520,36 @@ void TelephonyObject::SimulateCallStateChange(const QString &state) {
     m_telephony->simulateCallStateChange(state);
 }
 
+void TelephonyObject::SetSpeakerphone(bool on) {
+    if (!requirePhone())
+        return;
+    if (m_audioRouting)
+        m_audioRouting->setSpeakerphone(on);
+}
+
+void TelephonyObject::SetCallMuted(bool muted) {
+    if (!requirePhone())
+        return;
+    if (m_audioRouting)
+        m_audioRouting->setMuted(muted);
+}
+
+bool TelephonyObject::IsSpeakerphoneOn() const {
+    if (!const_cast<TelephonyObject *>(this)->requirePhone())
+        return false;
+    return m_audioRouting ? m_audioRouting->isSpeakerphoneEnabled() : false;
+}
+
+bool TelephonyObject::IsCallMuted() const {
+    if (!const_cast<TelephonyObject *>(this)->requirePhone())
+        return false;
+    return m_audioRouting ? m_audioRouting->isMuted() : false;
+}
+
 SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
                      AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_sms(sms)
-    , m_permissions(permissions)
-    , m_launchService(launchService) {
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_sms(sms) {
     Q_ASSERT(m_sms);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1658,27 +1560,13 @@ SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
                      &SmsObject::ConversationsChanged);
 }
 
-QString SmsObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
-}
-
-bool SmsObject::requireSms() {
-    const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
-    if (!hasAnyPermission(m_permissions, caller, {"sms", "phone"})) {
-        sendErrorReply(QDBusError::AccessDenied, "Missing permission: sms/phone");
-        return false;
-    }
-    return true;
-}
-
 QVariantList SmsObject::GetConversations() {
     if (!requireSms())
         return {};
-    return m_sms->conversations();
+    const QVariantList list = m_sms->conversations();
+    qWarning() << "[SmsObject] GetConversations -> caller=" << callerAppIdOrEmpty()
+               << "count=" << list.size();
+    return list;
 }
 
 QVariantList SmsObject::GetMessages(const QString &conversationId) {
@@ -1728,18 +1616,20 @@ QString NavigationObject::callerAppIdOrEmpty() const {
 }
 
 bool NavigationObject::LaunchApp(const QString &appId) {
+    // No caller auth needed — launching an app already in the manifest
+    // registry exposes nothing the home grid wouldn't expose to a tap.
+    // Lets `marathon-dev launch <id>` over SSH drive UI audits without
+    // synthesising touches, which is fragile (overshoots the home-swipe
+    // window and leaves the previous app capturing subsequent input).
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
 
     if (appId.isEmpty()) {
         sendErrorReply(QDBusError::InvalidArgs, "appId cannot be empty");
         return false;
     }
 
-    qInfo() << "[NavigationObject] LaunchApp requested by" << caller << "for" << appId;
+    qInfo() << "[NavigationObject] LaunchApp requested by"
+            << (caller.isEmpty() ? QStringLiteral("<external>") : caller) << "for" << appId;
 
     const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
     if (ok) {
@@ -1798,13 +1688,42 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
     qInfo() << "[NavigationObject] LaunchAppWithRoute requested by" << caller << "for" << appId
             << "route:" << route << "params:" << paramsJson;
 
-    const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
+    // Route + params are plumbed to the runner via launchAppWithRoute, which
+    // appends --route and sets MARATHON_APP_ROUTE / MARATHON_APP_ROUTE_PARAMS
+    // in the spawned process's environment. The runner exposes these to QML
+    // as context properties -- used by the lock-screen Emergency affordance.
+    const bool ok =
+        m_launchService->launchAppWithRoute(QVariant(appId), route, paramsJson, nullptr, nullptr);
     if (ok) {
         emit AppLaunched(appId);
     } else {
         emit NavigationFailed(appId, "Failed to launch app");
     }
     return ok;
+}
+
+// Quick Settings shade control. No caller auth (see slot declaration): the
+// shade surfaces only system toggles the lock screen already gates, and
+// MarathonShell.qml refuses to open it while locked. mode: 0 hide, 1 show,
+// 2 toggle -- routed through AppLaunchService::quickSettingsRequested so the
+// lock guard + UIStore call stay in one place, in QML.
+bool NavigationObject::ShowQuickSettings() {
+    qInfo() << "[NavigationObject] ShowQuickSettings requested by"
+            << (callerAppIdOrEmpty().isEmpty() ? QStringLiteral("<external>") : callerAppIdOrEmpty());
+    m_launchService->requestQuickSettings(1);
+    return true;
+}
+
+bool NavigationObject::HideQuickSettings() {
+    qInfo() << "[NavigationObject] HideQuickSettings requested";
+    m_launchService->requestQuickSettings(0);
+    return true;
+}
+
+bool NavigationObject::ToggleQuickSettings() {
+    qInfo() << "[NavigationObject] ToggleQuickSettings requested";
+    m_launchService->requestQuickSettings(2);
+    return true;
 }
 
 HapticObject::HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent)
@@ -1974,4 +1893,292 @@ void AlarmObject::StopAll() {
 void AlarmObject::TriggerAlarmNow(const QString &label) {
     if (m_alarms)
         m_alarms->triggerAlarmNow(label);
+}
+
+// === UpdatesObject =========================================================
+
+UpdatesObject::UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+                             AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_updates(updates) {
+    if (m_updates) {
+        connect(m_updates, &UpdateService::latestVersionChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_updates, &UpdateService::checkingChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+    }
+}
+
+QVariantMap UpdatesObject::buildState() const {
+    if (!m_updates)
+        return {};
+    return {
+        {"currentVersion", m_updates->currentVersion()},
+        {"latestVersion", m_updates->latestVersion()},
+        {"releaseUrl", m_updates->releaseUrl()},
+        {"releaseNotes", m_updates->releaseNotes()},
+        {"updateAvailable", m_updates->updateAvailable()},
+        {"checking", m_updates->checking()},
+        {"lastError", m_updates->lastError()},
+        {"channel", m_updates->isStableChannel() ? "stable" : "edge"},
+    };
+}
+
+QVariantMap UpdatesObject::GetState() {
+    if (!requireSystem())
+        return {};
+    return buildState();
+}
+
+void UpdatesObject::CheckNow() {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->checkNow();
+}
+
+void UpdatesObject::OpenInBrowser() {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->openInBrowser();
+}
+
+void UpdatesObject::SetChannel(const QString &channel) {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->setChannel(channel);
+}
+
+// === DavObject =============================================================
+
+DavObject::DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
+                     AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_engine(engine) {
+    if (m_engine) {
+        connect(m_engine, &DavSyncEngine::accountsChanged, this,
+                [this]() { emit AccountsChanged(); });
+        connect(m_engine, &DavSyncEngine::syncFinished, this,
+                [this](const QString &accountId, int, int, int) { emit SyncFinished(accountId); });
+    }
+}
+
+QVariantList DavObject::ListAccounts() {
+    if (!requireSystem())
+        return {};
+    return m_engine ? m_engine->listAccounts() : QVariantList{};
+}
+
+QString DavObject::AddAccount(const QString &displayName, const QString &baseUrl,
+                              const QString &username, const QString &secret,
+                              const QString &authKind) {
+    if (!requireSystem())
+        return {};
+    return m_engine ? m_engine->addAccount(displayName, baseUrl, username, secret, authKind) :
+                      QString{};
+}
+
+bool DavObject::RemoveAccount(const QString &id) {
+    if (!requireSystem())
+        return false;
+    return m_engine ? m_engine->removeAccount(id) : false;
+}
+
+void DavObject::EnableAccount(const QString &id, bool enabled) {
+    if (!requireSystem())
+        return;
+    if (m_engine)
+        m_engine->enableAccount(id, enabled);
+}
+
+void DavObject::SyncNow() {
+    if (!requireSystem())
+        return;
+    if (m_engine)
+        m_engine->syncNow();
+}
+
+QVariantMap DavObject::GetState() {
+    if (!requireSystem())
+        return {};
+    if (!m_engine)
+        return {};
+    return {
+        {"accountCount", m_engine->accountCount()},
+        {"syncing", m_engine->syncing()},
+        {"lastError", m_engine->lastError()},
+        {"lastSyncMs", m_engine->lastSyncMs()},
+    };
+}
+
+// === AppStoreObject ========================================================
+//
+// Thin DBus passthrough to MarathonAppStoreService — the shell holds the
+// service so the catalog cache, network access manager, and download
+// machinery all stay in one process while the Store app (running in
+// app-runner) reads via IPC. State change signals re-broadcast catalog
+// load + download progress so the Store's UI can stay live.
+
+AppStoreObject::AppStoreObject(MarathonAppStoreService   *appStore,
+                               MarathonPermissionManager *permissions,
+                               AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_appStore(appStore) {
+    if (m_appStore) {
+        connect(m_appStore, &MarathonAppStoreService::catalogLoadedChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_appStore, &MarathonAppStoreService::loadingChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_appStore, &MarathonAppStoreService::catalogRefreshed, this,
+                [this]() { emit CatalogRefreshed(); });
+        connect(m_appStore, &MarathonAppStoreService::downloadProgress, this,
+                &AppStoreObject::DownloadProgress);
+        connect(m_appStore, &MarathonAppStoreService::downloadComplete, this,
+                &AppStoreObject::DownloadComplete);
+        connect(m_appStore, &MarathonAppStoreService::downloadFailed, this,
+                &AppStoreObject::DownloadFailed);
+    }
+}
+
+QVariantMap AppStoreObject::buildState() const {
+    if (!m_appStore)
+        return {};
+    return {
+        {"catalogLoaded", m_appStore->catalogLoaded()},
+        {"loading", m_appStore->loading()},
+        {"repositoryUrl", m_appStore->repositoryUrl()},
+    };
+}
+
+QVariantMap AppStoreObject::GetState() {
+    if (!requireSystem())
+        return {};
+    return buildState();
+}
+
+void AppStoreObject::RefreshCatalog() {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->refreshCatalog();
+}
+
+QVariantList AppStoreObject::SearchApps(const QString &query) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->searchApps(query) : QVariantList{};
+}
+
+QVariantMap AppStoreObject::GetApp(const QString &appId) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getApp(appId) : QVariantMap{};
+}
+
+QVariantList AppStoreObject::GetFeaturedApps() {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getFeaturedApps() : QVariantList{};
+}
+
+QVariantList AppStoreObject::GetAppsByCategory(const QString &category) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getAppsByCategory(category) : QVariantList{};
+}
+
+QVariantList AppStoreObject::GetAvailableUpdates() {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getAvailableUpdates() : QVariantList{};
+}
+
+void AppStoreObject::CheckForUpdates() {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->checkForUpdates();
+}
+
+void AppStoreObject::DownloadApp(const QString &appId) {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->downloadApp(appId);
+}
+
+void AppStoreObject::CancelDownload(const QString &appId) {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->cancelDownload(appId);
+}
+
+AppLifecycleObject::AppLifecycleObject(AppLifecycleManager *lifecycle,
+                                       MarathonAppRegistry *appRegistry,
+                                       AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_lifecycle(lifecycle)
+    , m_appRegistry(appRegistry)
+    , m_launchService(launchService) {}
+
+quint32 AppLifecycleObject::BeginBackgroundTask(const QString &category, const QString &reason) {
+    Q_UNUSED(reason);
+    if (!m_lifecycle || !m_appRegistry || !m_launchService) {
+        sendErrorReply(QDBusError::Failed, "AppLifecycle backend not ready");
+        return 0;
+    }
+    if (!checkRateLimit(*this, QStringLiteral("BeginBackgroundTask"))) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return 0;
+    }
+    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return 0;
+    }
+    // Manifest gate: the app must have declared this category at install
+    // time. Apps can't widen their privileges at runtime.
+    const QStringList declared = m_appRegistry->getBackgroundCapabilities(appId);
+    if (!declared.contains(category)) {
+        SecurityLogger::logPermissionDenied(appId, "background:" + category);
+        sendErrorReply(QDBusError::AccessDenied,
+                       QStringLiteral("Category '%1' not declared in manifest").arg(category));
+        return 0;
+    }
+    const quint32 handle = m_nextHandle++;
+    m_handles.insert(handle, ActiveTask{appId, category});
+    m_lifecycle->addCapability(appId, category);
+    return handle;
+}
+
+bool AppLifecycleObject::EndBackgroundTask(quint32 handle) {
+    auto it = m_handles.find(handle);
+    if (it == m_handles.end())
+        return false;
+    const ActiveTask &task = it.value();
+    m_handles.erase(it);
+    // Refcount semantics: only release the capability when this was the
+    // last outstanding handle holding (appId, category).
+    bool stillHeld = false;
+    for (auto h = m_handles.cbegin(); h != m_handles.cend(); ++h) {
+        if (h->appId == task.appId && h->category == task.category) {
+            stillHeld = true;
+            break;
+        }
+    }
+    if (!stillHeld && m_lifecycle)
+        m_lifecycle->removeCapability(task.appId, task.category);
+    return true;
+}
+
+QStringList AppLifecycleObject::GetMyCapabilities() {
+    if (!m_lifecycle || !m_launchService)
+        return {};
+    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    if (appId.isEmpty())
+        return {};
+    return m_lifecycle->activeCapabilities(appId);
 }

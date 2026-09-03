@@ -1,3 +1,4 @@
+import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -10,15 +11,20 @@ MApp {
     id: phoneApp
 
     property bool hasContactsPermission: false
-    property var contacts: hasContactsPermission && typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
-    property var callHistory: typeof CallHistoryManager !== 'undefined' ? CallHistoryManager.history : []
+    property var contacts: hasContactsPermission ? ContactsManager.contacts : []
+    property var callHistory: CallHistoryManager.history
     property string dialedNumber: ""
-    property bool inCall: typeof TelephonyService !== 'undefined' && TelephonyService.callState !== "idle"
+    property bool inCall: TelephonyService.callState !== "idle"
     property int editingContactId: -1
     property string editingContactName: ""
     property string editingContactPhone: ""
     property string editingContactEmail: ""
     property var activeCallPageRef: null
+    property var incomingCallScreenRef: null
+    // True when launched from the lock screen via the "Emergency" affordance
+    // (route="/emergency"). The UI hides contacts/history and only exposes a
+    // dialer; the actual emergency-number gate is enforced by the modem.
+    readonly property bool emergencyOnly: (typeof MARATHON_APP_ROUTE !== "undefined") && (MARATHON_APP_ROUTE === "/emergency")
 
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
@@ -91,12 +97,17 @@ MApp {
     function makeCall() {
         if (dialedNumber.length > 0) {
             Logger.info("Phone", "Calling: " + dialedNumber);
-            if (typeof TelephonyService !== 'undefined') {
+            // Emergency mode routes through dialEmergency() so the audit
+            // trail captures the attempt with metadata (operator, modem
+            // path) regardless of whether the modem accepts the number.
+            if (emergencyOnly)
+                TelephonyService.dialEmergency(dialedNumber);
+            else
                 TelephonyService.dial(dialedNumber);
-                var contactName = resolveContactName(dialedNumber);
-                if (activeCallPageRef)
-                    activeCallPageRef.show(dialedNumber, contactName);
-            }
+            var contactName = emergencyOnly ? "Emergency" : resolveContactName(dialedNumber);
+            if (activeCallPageRef)
+                activeCallPageRef.show(dialedNumber, contactName);
+
             HapticService.medium();
         }
     }
@@ -104,80 +115,93 @@ MApp {
     appId: "phone"
     appName: "Phone"
     appIcon: "assets/icon.svg"
+
+    // First-use gate: prompt the moment the user opens a contacts-backed
+    // tab (Contacts / Favorites) or the contacts shortcut, not on app
+    // launch. The Dialer + Recents tabs render fine without contacts.
+    function ensureContactsPermission() {
+        if (emergencyOnly)
+            return;
+        if (hasContactsPermission)
+            return;
+        if (typeof PermissionManager === "undefined")
+            return;
+        if (PermissionManager.hasPermission(appId, "contacts")) {
+            hasContactsPermission = true;
+            return;
+        }
+        PermissionManager.requestPermission(appId, "contacts");
+    }
+
     Component.onCompleted: {
-        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
+        if (emergencyOnly)
+            Logger.warn("Phone", "Launched in EMERGENCY ONLY mode -- contacts/history disabled");
+
+        if (TelephonyService.callState === "active") {
             var number = TelephonyService.activeNumber;
             var contactName = resolveContactName(number);
             if (activeCallPageRef)
                 activeCallPageRef.show(number, contactName);
+
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
-        if (typeof PermissionManager !== 'undefined') {
-            if (PermissionManager.hasPermission(appId, "contacts")) {
-                Logger.info("Phone", "Contacts permission already granted");
-                hasContactsPermission = true;
-            } else {
-                Logger.info("Phone", "Requesting contacts permission");
-                PermissionManager.requestPermission(appId, "contacts");
-            }
-        } else {
-            Logger.warn("Phone", "PermissionManager not available, auto-granting");
+        if (emergencyOnly)
+            return;
+
+        if (PermissionManager.hasPermission(appId, "contacts"))
             hasContactsPermission = true;
-        }
     }
 
     Connections {
         function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === appId && permission === "contacts") {
+            if (grantedAppId === phoneApp.appId && permission === "contacts") {
                 Logger.info("Phone", "Contacts permission granted");
-                hasContactsPermission = true;
+                phoneApp.hasContactsPermission = true;
             }
         }
 
         function onPermissionDenied(deniedAppId, permission) {
-            if (deniedAppId === appId && permission === "contacts") {
+            if (deniedAppId === phoneApp.appId && permission === "contacts") {
                 Logger.warn("Phone", "Contacts permission denied");
-                hasContactsPermission = false;
+                phoneApp.hasContactsPermission = false;
             }
         }
 
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        target: PermissionManager
     }
 
     Connections {
         function onIncomingCall(number) {
             Logger.info("Phone", "Incoming call from: " + number);
             var contactName = resolveContactName(number);
-            incomingCallScreen.show(number, contactName);
+            if (phoneApp.incomingCallScreenRef)
+                phoneApp.incomingCallScreenRef.show(number, contactName);
         }
 
         function onCallStateChanged(state) {
             Logger.info("Phone", "Call state changed: " + state);
             if (state === "idle") {
-                if (dialedNumber.length > 0)
-                    dialedNumber = "";
+                if (phoneApp.dialedNumber.length > 0)
+                    phoneApp.dialedNumber = "";
 
-                if (activeCallPage.visible)
-                    if (activeCallPageRef)
-                        activeCallPageRef.hide();
+                if (phoneApp.activeCallPageRef && phoneApp.activeCallPageRef.visible)
+                    phoneApp.activeCallPageRef.hide();
 
-                if (incomingCallScreen.visible)
-                    incomingCallScreen.hide();
+                if (phoneApp.incomingCallScreenRef && phoneApp.incomingCallScreenRef.visible)
+                    phoneApp.incomingCallScreenRef.hide();
             } else if (state === "active") {
-                if (incomingCallScreen.visible)
-                    incomingCallScreen.hide();
+                if (phoneApp.incomingCallScreenRef && phoneApp.incomingCallScreenRef.visible)
+                    phoneApp.incomingCallScreenRef.hide();
 
-                if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
+                if (phoneApp.activeCallPageRef && !phoneApp.activeCallPageRef.visible) {
                     var number = TelephonyService.activeNumber;
                     var contactName = resolveContactName(number);
-                    if (activeCallPageRef)
-                        activeCallPageRef.show(number, contactName);
+                    phoneApp.activeCallPageRef.show(number, contactName);
                 }
             }
         }
 
-        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
-        enabled: target !== null
+        target: TelephonyService
     }
 
     content: Rectangle {
@@ -186,49 +210,146 @@ MApp {
 
         Column {
             property int currentIndex: 0
+            onCurrentIndexChanged: {
+                // Contacts (2) + Favorites (3) read ContactsManager; this is
+                // where the first-use prompt belongs, not on app launch.
+                if (currentIndex === 2 || currentIndex === 3)
+                    phoneApp.ensureContactsPermission();
+            }
 
             anchors.fill: parent
             spacing: 0
 
+            // App header — "Phone" title per JSX
+            // screens-apps-1.jsx:PhoneDialer (TopBar).
+            MTopBar {
+                id: topBar
+                width: parent.width
+                title: "Phone"
+            }
+
             StackLayout {
                 width: parent.width
-                height: parent.height - tabBar.height
+                // Was `parent.height - tabBar.height - 88`. The magic 88
+                // (action-row 76 + 12 margin) was already accounted for
+                // INSIDE dialerPane via the spacer at the bottom of the
+                // dial-pad Column — subtracting it here too pushed the
+                // bottom tab bar (Dial / Recents / Contacts / Favorites)
+                // off the canvas by ~22 px and only the top of each
+                // tab icon remained visible as a ghost fragment.
+                height: parent.height - topBar.height - tabBar.height
                 currentIndex: parent.currentIndex
 
+                // DS Phone · Dialer (screens-apps-1.jsx:171).
+                // 36/Light dialed number + teal contact-match subtitle.
+                // 3×4 grid of 68 px elev-2 circles. Bottom action row:
+                // user-icon · 64 px teal-gradient call circle · backspace x.
                 Rectangle {
+                    id: dialerPane
                     color: MColors.background
 
-                    Column {
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.lg
-                        spacing: MSpacing.lg
+                    // Resolve a contact from the dialed number via the
+                    // ContactsManager IPC client. Falls back to empty when
+                    // no contact matches or the client isn't available.
+                    function lookupContact(num) {
+                        if (!num || num.length < 3)
+                            return "";
+                        if (typeof ContactsManager === "undefined")
+                            return "";
+                        const c = ContactsManager.getContactByNumber(num);
+                        if (!c || !c.name)
+                            return "";
+                        // Default label is "Mobile" — when the contact model
+                        // grows to support multiple labelled numbers per
+                        // entry, this should use the matched number's label.
+                        return c.name + " · Mobile";
+                    }
+                    readonly property string contactMatch: lookupContact(dialedNumber)
 
-                        Rectangle {
-                            width: parent.width
-                            height: Constants.touchTargetLarge
-                            color: MColors.surface
-                            radius: Constants.borderRadiusSharp
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
+                    // Action row is anchored as a sibling of this ColumnLayout
+                    // (below) — anchored directly to dialerPane.bottom with
+                    // an explicit 56 px margin so the call FAB sits clearly
+                    // above the tab bar. Nesting it INSIDE the ColumnLayout
+                    // made Layout.bottomMargin / anchors.bottomMargin both no-op
+                    // on this surface (Qt 6.10 ColumnLayout vs. fillHeight
+                    // sibling interaction).
+                    ColumnLayout {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: actionRow.top
+                        anchors.leftMargin: 24
+                        anchors.rightMargin: 24
+                        anchors.topMargin: 20
+                        anchors.bottomMargin: 16
+                        spacing: 0
 
-                            Text {
+                        // Display: dialed number + contact match.
+                        // 70 px is enough for a 36 px digit row with
+                        // the 14 px contact-match subtitle below;
+                        // anything taller showed as dead air above
+                        // the first dial-pad row when no number was
+                        // entered yet (the JSX canvas has a similarly
+                        // tight display block).
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 70
+
+                            Column {
                                 anchors.centerIn: parent
-                                text: dialedNumber || "Enter number"
-                                font.pixelSize: MTypography.sizeLarge
-                                font.weight: Font.DemiBold
-                                color: dialedNumber ? MColors.text : MColors.textSecondary
-                                horizontalAlignment: Text.AlignHCenter
+                                spacing: 6
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    // Empty-state placeholder: the JSX canvas
+                                    // hides this region when no number is
+                                    // entered, but on a 720×1480 device that
+                                    // leaves ~70 px of dead air above the dial
+                                    // pad and the user has no anchor for where
+                                    // their digits will land. A dimmed
+                                    // placeholder keeps the visual rhythm and
+                                    // hints at the input affordance.
+                                    text: dialedNumber.length > 0 ? dialedNumber : qsTr("Enter number")
+                                    color: dialedNumber.length > 0 ? MColors.textPrimary : MColors.textTertiary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: dialedNumber.length > 0 ? 36 : 24
+                                    font.weight: MTypography.weightExtraLight   // 200 per JSX
+                                    font.letterSpacing: 1
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: dialerPane.contactMatch
+                                    color: MColors.marathonTealBright
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 14
+                                    font.weight: Font.Medium
+                                    visible: text.length > 0
+                                }
                             }
                         }
 
                         Grid {
                             id: dialPadGrid
-                            width: parent.width
-                            height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - MSpacing.lg * 3
+
+                            Layout.alignment: Qt.AlignHCenter
+
+                            // Key diameter scales with the available width
+                            // (parent column width minus 2 × 18 px gaps).
+                            // Was hard-clamped at 124, which on a 720 px
+                            // device (≈672 px content width after the 24 px
+                            // side padding) shrank the keys to ~140 px when
+                            // there was room for ~212 px each. Now caps at
+                            // 180 so they're chunky on phone-class screens
+                            // but still leave headroom for the 4×3 grid +
+                            // dial-number display + action row on the 1140
+                            // logical-px canvas (~960 px tall content area).
+                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), 180)
+
                             columns: 3
-                            rows: 4
-                            spacing: MSpacing.sm
+                            rowSpacing: 14
+                            columnSpacing: 18
+                            topPadding: 8
+                            bottomPadding: 8
 
                             Repeater {
                                 model: [
@@ -283,47 +404,66 @@ MApp {
                                 ]
 
                                 Rectangle {
-                                    width: (dialPadGrid.width - dialPadGrid.spacing * 2) / 3
-                                    height: (dialPadGrid.height - dialPadGrid.spacing * 3) / 4
-                                    color: "transparent"
-                                    border.width: Constants.borderWidthThin
-                                    border.color: MColors.border
-                                    radius: Constants.borderRadiusSharp
-                                    antialiasing: Constants.enableAntialiasing
+                                    required property var modelData
+
+                                    width: dialPadGrid.cellSize
+                                    height: dialPadGrid.cellSize
+                                    radius: width / 2
+                                    // elev-1 over bb10Black was visually
+                                    // invisible — 6 brightness units of
+                                    // separation. Bumped to elev-2 with a
+                                    // brighter border so the chip silhouette
+                                    // is actually legible at a glance.
+                                    color: keyArea.pressed ? MColors.bb10Card : MColors.elev2
+                                    border.width: 1
+                                    border.color: MColors.whiteOverlay08
+
+                                    // The original "lit from above" highlight
+                                    // was a 1 px straight horizontal Rectangle
+                                    // sitting 2 px from the top of the circle.
+                                    // On a round button the straight line
+                                    // reads as a horizontal SLICE through the
+                                    // top of the circle, not a curved
+                                    // highlight — the chord doesn't follow
+                                    // the silhouette. Removed; the elev-2
+                                    // fill + whiteOverlay08 border already
+                                    // gives enough visual separation.
 
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: MSpacing.xs
+                                        spacing: 2
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.digit
-                                            font.pixelSize: MTypography.sizeXLarge
-                                            font.weight: Font.Bold
-                                            color: MColors.text
+                                            color: MColors.textPrimary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.32)
+                                            font.weight: MTypography.weightLight    // 300
                                         }
-
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.letters
-                                            font.pixelSize: MTypography.sizeSmall
                                             color: MColors.textSecondary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.11)
+                                            font.weight: Font.Medium
+                                            font.letterSpacing: 1.5
+                                            visible: text.length > 0
+                                        }
+                                    }
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 80
                                         }
                                     }
 
                                     MouseArea {
+                                        id: keyArea
                                         anchors.fill: parent
-                                        onPressed: {
-                                            parent.color = MColors.surface;
-                                            HapticService.light();
-                                        }
-                                        onReleased: {
-                                            parent.color = "transparent";
-                                        }
-                                        onCanceled: {
-                                            parent.color = "transparent";
-                                        }
                                         onClicked: {
+                                            HapticService.light();
                                             addDigit(modelData.digit);
                                         }
                                     }
@@ -331,173 +471,161 @@ MApp {
                             }
                         }
 
-                        Row {
-                            width: parent.width
-                            spacing: MSpacing.lg
-
-                            Rectangle {
-                                width: (parent.width - parent.spacing) / 2
-                                height: Constants.touchTargetLarge
-                                color: "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                radius: Constants.borderRadiusSharp
-                                antialiasing: Constants.enableAntialiasing
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "delete"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.text
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface;
-                                        HapticService.light();
-                                    }
-                                    onReleased: {
-                                        parent.color = "transparent";
-                                    }
-                                    onCanceled: {
-                                        parent.color = "transparent";
-                                    }
-                                    onClicked: {
-                                        deleteDigit();
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: (parent.width - parent.spacing) / 2
-                                height: Constants.touchTargetLarge
-                                color: MColors.accent
-                                border.width: Constants.borderWidthMedium
-                                border.color: MColors.accentDark
-                                radius: Constants.borderRadiusSharp
-                                antialiasing: Constants.enableAntialiasing
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "phone"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.text
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.scale = 0.9;
-                                        HapticService.medium();
-                                    }
-                                    onReleased: {
-                                        parent.scale = 1;
-                                    }
-                                    onCanceled: {
-                                        parent.scale = 1;
-                                    }
-                                    onClicked: {
-                                        makeCall();
-                                    }
-                                }
-
-                                Behavior on scale {
-                                    NumberAnimation {
-                                        duration: 100
-                                    }
-                                }
-                            }
+                        // Spacer pushes the action row to the bottom.
+                        // Layout.fillHeight on this empty Item makes
+                        // ColumnLayout grant it every leftover pixel.
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
                         }
                     }
-                }
 
-                ListView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    topMargin: MSpacing.md
-                    model: callHistory
+                    // Action row — contacts shortcut · call · backspace.
+                    // Anchored directly to dialerPane.bottom with a hard 56 px
+                    // margin so the call FAB clears the bottom MTabBar; making
+                    // it a sibling of the ColumnLayout means its position is
+                    // not subject to ColumnLayout's fillHeight redistribution.
+                    Item {
+                        id: actionRow
 
-                    delegate: Item {
-                        width: ListView.view.width
-                        height: card.height + MSpacing.md
+                        // Match the keypad's grid exactly rather than insetting
+                        // by a separate margin. This anchored left/right with a
+                        // 24 px inset and split into thirds, while dialPadGrid
+                        // uses an 18 px gutter and caps cellSize at 180 and is
+                        // centre-aligned — two different column geometries. The
+                        // contacts and backspace buttons landed 27 px left and
+                        // 25 px right of the keys directly above them.
+                        width: dialPadGrid.width
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 56
+                        height: 96
 
-                        MCard {
-                            id: card
+                        Row {
+                            anchors.fill: parent
+                            // Mirror the Grid's cell + columnSpacing model.
+                            // Splitting into thirds gives each slot
+                            // cellSize + 12 instead of cellSize + 18, which
+                            // left the outer two icons ~6 px inside the keys
+                            // above them even after the width was matched.
+                            spacing: dialPadGrid.columnSpacing
 
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: MSpacing.md
-                            anchors.rightMargin: MSpacing.md
-                            elevation: 1
-                            interactive: true
-                            onClicked: {
-                                dialedNumber = historyField(modelData, "number", "");
-                                parent.parent.parent.parent.currentIndex = 0;
+                            Item {
+                                width: dialPadGrid.cellSize
+                                height: parent.height
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 56
+                                    height: 56
+                                    radius: width / 2
+                                    color: contactsArea.pressed ? MColors.surface : "transparent"
+                                    border.width: 1
+                                    border.color: MColors.borderGlass
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "user"
+                                        size: 28
+                                        color: MColors.textSecondary
+                                    }
+                                }
+                                MouseArea {
+                                    id: contactsArea
+                                    anchors.fill: parent
+                                    onClicked: dialerPane.parent.parent.currentIndex = 2
+                                }
                             }
 
-                            Row {
-                                width: parent.parent.width - MSpacing.md * 2
-                                height: MSpacing.touchTargetLarge
-                                spacing: MSpacing.md
-
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
-                                    size: 20
-                                    color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
-                                }
-
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - parent.spacing * 2 - 20 * 2
-                                    spacing: MSpacing.xs
-
-                                    Text {
-                                        width: parent.width
-                                        text: historyField(modelData, "contactName", "Unknown")
-                                        font.pixelSize: MTypography.sizeBody
-                                        font.weight: MTypography.weightDemiBold
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.text
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Row {
-                                        spacing: MSpacing.sm
-
-                                        Text {
-                                            text: historyField(modelData, "number", "")
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
+                            Item {
+                                width: dialPadGrid.cellSize
+                                height: parent.height
+                                Rectangle {
+                                    id: callButton
+                                    anchors.centerIn: parent
+                                    width: 84
+                                    height: 84
+                                    radius: width / 2
+                                    border.width: 1
+                                    border.color: MColors.tealBorder
+                                    gradient: Gradient {
+                                        GradientStop {
+                                            position: 0
+                                            color: MColors.marathonTealBright
                                         }
-
-                                        Text {
-                                            text: "•"
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                            visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
-                                        }
-
-                                        Text {
-                                            text: formatDuration(historyField(modelData, "duration", 0))
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                            visible: text !== ""
+                                        GradientStop {
+                                            position: 1
+                                            color: MColors.marathonTealDark
                                         }
                                     }
-                                }
 
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: formatTimestamp(historyField(modelData, "timestamp", 0))
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textTertiary
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        anchors.margins: 1
+                                        radius: width / 2
+                                        color: "transparent"
+                                        border.width: 1
+                                        border.color: Qt.rgba(1, 1, 1, 0.3)
+                                    }
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "phone"
+                                        size: 36
+                                        color: "#000000"
+                                    }
+
+                                    scale: callArea.pressed ? 0.94 : 1.0
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 120
+                                            easing.type: Easing.OutBack
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: callArea
+                                        anchors.fill: parent
+                                        enabled: dialedNumber.length > 0
+                                        onClicked: {
+                                            HapticService.medium();
+                                            makeCall();
+                                        }
+                                    }
+                                }
+                            }
+
+                            Item {
+                                width: dialPadGrid.cellSize
+                                height: parent.height
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 56
+                                    height: 56
+                                    radius: width / 2
+                                    color: backspaceArea.pressed ? MColors.surface : "transparent"
+                                    border.width: 1
+                                    border.color: dialedNumber.length > 0 ? MColors.borderGlass : "transparent"
+                                    opacity: dialedNumber.length > 0 ? 1 : 0.35
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "delete"
+                                        size: 28
+                                        color: MColors.textSecondary
+                                    }
+                                }
+                                MouseArea {
+                                    id: backspaceArea
+                                    anchors.fill: parent
+                                    enabled: dialedNumber.length > 0
+                                    onClicked: {
+                                        HapticService.light();
+                                        deleteDigit();
+                                    }
+                                    onPressAndHold: {
+                                        HapticService.medium();
+                                        dialedNumber = "";
+                                    }
                                 }
                             }
                         }
@@ -507,12 +635,134 @@ MApp {
                 Rectangle {
                     color: MColors.background
 
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: !callHistory || callHistory.length === 0
+                        iconName: "clock"
+                        title: "No recent calls"
+                        message: "Calls you make or receive will appear here."
+                    }
+
+                    ListView {
+                        anchors.fill: parent
+                        clip: true
+                        topMargin: MSpacing.md
+                        visible: callHistory && callHistory.length > 0
+                        model: callHistory
+
+                        delegate: Item {
+                            width: ListView.view.width
+                            height: card.height + MSpacing.md
+
+                            MCard {
+                                id: card
+
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                elevation: 1
+                                interactive: true
+                                onClicked: {
+                                    dialedNumber = historyField(modelData, "number", "");
+                                    parent.parent.parent.parent.currentIndex = 0;
+                                }
+
+                                Row {
+                                    // MSpacing.touchTargetLarge does not exist --
+                                    // MSpacing only carries spacing tokens (xs, sm,
+                                    // md, lg, xl). The undefined value collapsed
+                                    // the row to height 0, which is why the recents
+                                    // card rendered as a bare "Unknown" label with
+                                    // no icon, number, duration, or timestamp.
+                                    width: parent.parent.width - MSpacing.md * 2
+                                    height: Constants.touchTargetLarge
+                                    spacing: MSpacing.md
+
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
+                                        size: 20
+                                        color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - parent.spacing * 2 - 20 * 2
+                                        spacing: MSpacing.xs
+
+                                        Text {
+                                            width: parent.width
+                                            text: historyField(modelData, "contactName", "Unknown")
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.weight: MTypography.weightDemiBold
+                                            font.family: MTypography.fontFamily
+                                            color: MColors.text
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Row {
+                                            spacing: MSpacing.sm
+
+                                            Text {
+                                                text: historyField(modelData, "number", "")
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                            }
+
+                                            Text {
+                                                text: "•"
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                                visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
+                                            }
+
+                                            Text {
+                                                text: formatDuration(historyField(modelData, "duration", 0))
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                                visible: text !== ""
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: formatTimestamp(historyField(modelData, "timestamp", 0))
+                                        font.pixelSize: MTypography.sizeSmall
+                                        font.family: MTypography.fontFamily
+                                        color: MColors.textTertiary
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: contactsPane
+                    color: MColors.background
+
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: !contacts || contacts.length === 0
+                        iconName: "user"
+                        title: "No contacts yet"
+                        message: "Tap the + button below to add your first contact. You can also import from a SIM or vCard."
+                    }
+
                     ListView {
                         id: contactsList
 
                         anchors.fill: parent
                         clip: true
                         topMargin: MSpacing.md
+                        visible: contacts && contacts.length > 0
                         model: contacts
 
                         delegate: Item {
@@ -537,8 +787,13 @@ MApp {
                                 }
 
                                 Row {
+                                    // Same bug as the Recents card row -- the
+                                    // undefined MSpacing.touchTargetLarge
+                                    // collapsed each contact tile to height 0,
+                                    // so contacts rendered as ghosts even when
+                                    // the model had entries.
                                     width: parent.parent.width - MSpacing.md * 2
-                                    height: MSpacing.touchTargetLarge
+                                    height: Constants.touchTargetLarge
                                     spacing: MSpacing.md
 
                                     Icon {
@@ -555,7 +810,7 @@ MApp {
 
                                         Text {
                                             width: parent.width
-                                            text: modelData.name
+                                            text: modelData ? modelData.name || "" : ""
                                             font.pixelSize: MTypography.sizeBody
                                             font.weight: MTypography.weightDemiBold
                                             font.family: MTypography.fontFamily
@@ -564,18 +819,40 @@ MApp {
                                         }
 
                                         Text {
-                                            text: modelData.phone
+                                            text: modelData ? modelData.phone || "" : ""
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
                                         }
                                     }
 
-                                    Icon {
+                                    Item {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        name: modelData.favorite ? "star" : "star-off"
-                                        size: 20
-                                        color: modelData.favorite ? MColors.accent : MColors.textTertiary
+                                        width: 36
+                                        height: 36
+
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: "star"
+                                            size: 20
+                                            color: modelData.favorite ? MColors.marathonTealBright : MColors.textTertiary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: {
+                                                // Tap doesn't bubble to the card's onClicked (we'd
+                                                // open the editor instead of toggling). Persist via
+                                                // ContactsManager so the favorite carries across
+                                                // sessions; ContactsManager emits contactsChanged
+                                                // and the `contacts` alias refreshes the GridView.
+                                                HapticService.light();
+                                                if (modelData && typeof ContactsManager !== "undefined")
+                                                    ContactsManager.updateContact(modelData.id, {
+                                                        "favorite": !modelData.favorite
+                                                    });
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -602,27 +879,154 @@ MApp {
                 }
             }
 
+            // Favorites — 3-col grid of starred contacts. Tap-to-call.
+            // The empty state holds the line until at least one contact
+            // is starred via the Contacts list star toggle.
+            Rectangle {
+                id: favoritesPane
+                color: MColors.background
+
+                readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
+
+                MEmptyState {
+                    anchors.centerIn: parent
+                    width: parent.width - MSpacing.xl * 2
+                    visible: favoritesPane.favoriteContacts.length === 0
+                    iconName: "star"
+                    title: "No favorites yet"
+                    message: "Star a contact in Contacts to pin it here. Favorites give you one-tap calling."
+                }
+
+                GridView {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 16
+                    visible: favoritesPane.favoriteContacts.length > 0
+                    clip: true
+                    cellWidth: width / 3
+                    cellHeight: cellWidth + 18
+                    model: favoritesPane.favoriteContacts
+
+                    delegate: Item {
+                        width: GridView.view.cellWidth
+                        height: GridView.view.cellHeight
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.parent.width * 0.78
+                                height: width
+                                radius: width / 2
+                                color: MColors.elev3
+                                border.width: 1
+                                border.color: MColors.tealBorder
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: {
+                                        const n = modelData.name || "?";
+                                        const parts = n.split(/\s+/).filter(p => p.length > 0);
+                                        if (parts.length === 0)
+                                            return "·";
+                                        if (parts.length === 1)
+                                            return parts[0].substring(0, 2).toUpperCase();
+                                        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                                    }
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 20
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Rectangle {
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.topMargin: 2
+                                    anchors.rightMargin: 2
+                                    width: 18
+                                    height: 18
+                                    radius: width / 2
+                                    color: MColors.marathonTealBright
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "star"
+                                        size: 10
+                                        color: "#000000"
+                                    }
+                                }
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: modelData.name || ""
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                                width: parent.parent.width - 8
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                HapticService.medium();
+                                if (modelData.phone) {
+                                    dialedNumber = modelData.phone;
+                                    TelephonyService.dial(modelData.phone);
+                                    if (activeCallPageRef)
+                                        activeCallPageRef.show(modelData.phone, modelData.name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             MTabBar {
                 id: tabBar
 
                 width: parent.width
                 activeTab: parent.currentIndex
-                tabs: [
+                // Emergency mode hides History/Contacts tabs entirely -- only the
+                // dialer is reachable. The bar remains so the layout dimension
+                // is consistent with non-emergency launch.
+                visible: !phoneApp.emergencyOnly
+                tabs: phoneApp.emergencyOnly ? [
+                    {
+                        "label": "Emergency",
+                        "icon": "phone"
+                    }
+                ] : [
                     {
                         "label": "Dial",
                         "icon": "phone"
                     },
                     {
-                        "label": "History",
+                        "label": "Recents",
                         "icon": "clock"
                     },
                     {
                         "label": "Contacts",
-                        "icon": "users"
+                        "icon": "user"
+                    },
+                    {
+                        "label": "Favorites",
+                        "icon": "star"
                     }
                 ]
                 onTabSelected: index => {
                     HapticService.light();
+                    if (phoneApp.emergencyOnly) {
+                        tabBar.parent.currentIndex = 0;
+                        return;
+                    }
                     tabBar.parent.currentIndex = index;
                 }
             }
@@ -655,6 +1059,11 @@ MApp {
             id: incomingCallScreen
 
             anchors.fill: parent
+            Component.onCompleted: phoneApp.incomingCallScreenRef = incomingCallScreen
+            Component.onDestruction: {
+                if (phoneApp.incomingCallScreenRef === incomingCallScreen)
+                    phoneApp.incomingCallScreenRef = null;
+            }
         }
 
         ActiveCallPage {

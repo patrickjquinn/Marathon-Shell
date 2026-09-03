@@ -1,5 +1,7 @@
 set(SOURCES
     main.cpp
+    src/diag/fpsmonitor.h
+    src/diag/fpsmonitor.cpp
     src/components/desktopfileparser.h
     src/components/desktopfileparser.cpp
     src/components/lunasvgimageprovider.h
@@ -10,6 +12,12 @@ set(SOURCES
     src/services/applaunchservice.cpp
     src/services/applifecyclemanager.h
     src/services/applifecyclemanager.cpp
+    src/services/backgroundtaskobserver.h
+    src/services/backgroundtaskobserver.cpp
+    src/services/cgroupmanager.h
+    src/services/cgroupmanager.cpp
+    src/services/memorypressuremonitor.h
+    src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
     src/ipc/shellservices.h
@@ -28,6 +36,14 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
+    src/services/unifiedpushdistributor.h
+    src/services/unifiedpushdistributor.cpp
+    src/services/marathonntfyclient.h
+    src/services/marathonntfyclient.cpp
+    src/services/carrierprovisioning.h
+    src/services/carrierprovisioning.cpp
+    src/services/flatpakmanager.h
+    src/services/flatpakmanager.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
@@ -46,12 +62,18 @@ set(SOURCES
     src/controllers/displaypolicycontroller.cpp
     src/managers/displaymanagercpp.h
     src/managers/displaymanagercpp.cpp
+    src/managers/deviceprofile.h
+    src/managers/deviceprofile.cpp
+    src/managers/powerkeylistener.h
+    src/managers/powerkeylistener.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/audiomanagercpp.h
     src/managers/audiomanagercpp.cpp
     src/managers/modemmanagercpp.h
     src/managers/modemmanagercpp.cpp
+    src/managers/cellbroadcastmanager.h
+    src/managers/cellbroadcastmanager.cpp
     src/managers/sensormanagercpp.h
     src/managers/sensormanagercpp.cpp
     src/managers/settingsmanager.h
@@ -77,6 +99,10 @@ set(SOURCES
     src/components/portalmanager.cpp
     src/services/marathonappstoreservice.h
     src/services/marathonappstoreservice.cpp
+    src/services/updateservice.h
+    src/services/updateservice.cpp
+    src/services/motiondaemon.h
+    src/services/motiondaemon.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h
@@ -146,27 +172,49 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/waylandcompositor.cpp
         src/wayland/textinputv3.h
         src/wayland/textinputv3.cpp
+        src/wayland/securitycontextv1.h
+        src/wayland/securitycontextv1.cpp
+        src/wayland/fifov1.h
+        src/wayland/fifov1.cpp
+        src/wayland/committimingv1.h
+        src/wayland/committimingv1.cpp
+        src/wayland/linuxdmabufv1.h
+        src/wayland/linuxdmabufv1.cpp
+        src/wayland/wldrm.h
+        src/wayland/wldrm.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
     if(WAYLAND_SCANNER)
-        set(TEXT_INPUT_V3_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/text-input-unstable-v3.xml)
-        set(TEXT_INPUT_V3_SERVER_H ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-server.h)
-        set(TEXT_INPUT_V3_CODE ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3.c)
+        # Each custom protocol: <xml-stem> in the protocols dir.
+        # wayland-scanner generates a server header + private-code .c
+        # in the build dir, which we then add to SOURCES.
+        #
+        # text-input-unstable-v3 is named the way it is for protocol-
+        # version compatibility (it follows the pre-staging naming).
+        # Everything else follows the staging naming (foo-vN.xml →
+        # foo-vN-server.h, foo-vN.c) which matches the upstream
+        # wayland-protocols layout.
+        function(marathon_scan_protocol XML_STEM HEADER_STEM)
+            set(_xml    ${CMAKE_CURRENT_SOURCE_DIR}/protocols/${XML_STEM}.xml)
+            set(_hdr    ${CMAKE_CURRENT_BINARY_DIR}/${HEADER_STEM}-server.h)
+            set(_code   ${CMAKE_CURRENT_BINARY_DIR}/${HEADER_STEM}.c)
+            add_custom_command(OUTPUT ${_hdr}
+                COMMAND ${WAYLAND_SCANNER} server-header  ${_xml} ${_hdr}
+                DEPENDS ${_xml})
+            add_custom_command(OUTPUT ${_code}
+                COMMAND ${WAYLAND_SCANNER} private-code   ${_xml} ${_code}
+                DEPENDS ${_xml})
+            set(SOURCES ${SOURCES} ${_code} ${_hdr} PARENT_SCOPE)
+        endfunction()
 
-        add_custom_command(
-            OUTPUT ${TEXT_INPUT_V3_SERVER_H}
-            COMMAND ${WAYLAND_SCANNER} server-header ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_SERVER_H}
-            DEPENDS ${TEXT_INPUT_V3_XML}
-        )
-        add_custom_command(
-            OUTPUT ${TEXT_INPUT_V3_CODE}
-            COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_CODE}
-            DEPENDS ${TEXT_INPUT_V3_XML}
-        )
-
-        list(APPEND SOURCES ${TEXT_INPUT_V3_CODE} ${TEXT_INPUT_V3_SERVER_H})
-        message(STATUS "Wayland scanner found - enabling text-input-v3 protocol")
+        marathon_scan_protocol(text-input-unstable-v3 text-input-unstable-v3)
+        marathon_scan_protocol(security-context-v1    security-context-v1)
+        marathon_scan_protocol(fifo-v1                fifo-v1)
+        marathon_scan_protocol(commit-timing-v1       commit-timing-v1)
+        marathon_scan_protocol(linux-dmabuf-v1        linux-dmabuf-v1)
+        marathon_scan_protocol(wayland-drm            wayland-drm)
+        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1, linux-dmabuf-v1, wl_drm")
     else()
         message(WARNING "wayland-scanner not found - custom protocols disabled")
     endif()
@@ -175,14 +223,16 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
+    qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
+    qml/components/MarathonLockShortcuts.qml
     qml/components/MarathonAppGrid.qml
+    qml/components/MarathonTaskSwitcher.qml
     qml/components/MarathonNavBar.qml
     qml/components/MarathonStatusBar.qml
     qml/components/MarathonBottomBar.qml
     qml/components/MarathonMessagingHub.qml
     qml/components/MarathonQuickSettings.qml
-    qml/components/MarathonTaskSwitcher.qml
     qml/components/TaskCard.qml
     qml/components/TaskPageIndicator.qml
     qml/components/MarathonPeek.qml
@@ -211,6 +261,8 @@ set(QML_FILES
     qml/components/ConnectionToast.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
+    qml/components/MarathonCellBroadcastOverlay.qml
+    qml/components/MarathonLockScreenNetworkAgent.qml
     qml/components/MarathonOOBE.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/BluetoothPairDialog.qml
@@ -287,18 +339,98 @@ include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
 # QTP0001: Use ':/qt/qml/' as the default resource prefix (required for proper QML module loading)
 # QTP0004: for each directory that contains .qml files, qmldir file is generated
 if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
+    # Guard for Droidian (Qt 6.4.2) - these policies are Qt 6.5+ only
+    if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+        qt_policy(SET QTP0001 NEW)
+        qt_policy(SET QTP0004 NEW)
+    endif()
 endif()
 
-# FIX: Use Big Resources for large assets to prevent OOM
-# This compiles resources.qrc into a separate object file that handles large data better
-qt6_add_big_resources(BIG_RESOURCES resources.qrc)
+# Embed UI resources (icons, wallpapers, fonts) via explicit FILES list.
+#
+# This used to go through `qt6_add_big_resources(... resources.qrc)` which
+# silently dropped every .svg/.png path on the Alpine-edge container build
+# (verified by `strings marathon-shell-bin | grep ^qrc:` — only .jpg/.wav
+# files made it through). The variable-form qt_add_resources had the same
+# symptom: the qrc paths get compiled, but only the .jpg and .wav data
+# arrays survive linking. Hypothesis: the autorcc machinery from
+# qt_add_qml_module collides with the qrc-form qt_add_resources on the
+# same target. The TARGET form below (explicit FILES, no .qrc) sidesteps
+# the conflict entirely and is the documented modern API.
+qt_add_resources(marathon-shell "shell_images"
+    PREFIX "/images"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/images"
+    FILES
+        resources/images/marathon.png
+        resources/images/phone.svg
+        resources/images/messages.svg
+        resources/images/mail.svg
+        resources/images/browser.svg
+        resources/images/camera.svg
+        resources/images/settings.svg
+        resources/images/calendar.svg
+        resources/images/clock.svg
+        resources/images/music.svg
+        resources/images/gallery.svg
+        resources/images/maps.svg
+        resources/images/calculator.svg
+        resources/images/notes.svg
+        resources/images/store.svg
+        resources/images/marathon.svg
+        resources/images/wallet.svg
+        resources/images/health.svg
+        resources/images/weather.svg
+        resources/images/voice.svg
+        resources/images/contacts.svg
+        resources/images/files.svg
+        resources/images/disconnect.svg
+)
+qt_add_resources(marathon-shell "shell_wallpapers"
+    PREFIX "/wallpapers"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
+    FILES
+        resources/wallpapers/slate-aurora.svg
+        resources/wallpapers/carbon.svg
+        resources/wallpapers/contour.svg
+        resources/wallpapers/dawn.svg
+        resources/wallpapers/halftone.svg
+        resources/wallpapers/indigo-dusk.svg
+        resources/wallpapers/long-run.svg
+        resources/wallpapers/mesh.svg
+        resources/wallpapers/pulse.svg
+        resources/wallpapers/striae.svg
+        resources/wallpapers/stride.svg
+        resources/wallpapers/track.svg
+        resources/wallpapers/tundra.svg
+        resources/wallpapers/dither-noise.png
+)
+# Fonts go via a dedicated qrc to preserve `alias=` mappings — the FILES
+# form of qt_add_resources can't rename embedded paths, and the brackets
+# in `Sora[wght].ttf` further confuse the prefix-mapped lookup. Using a
+# qrc with `<file alias="Sora.ttf">…</file>` keeps the FontLoader paths
+# stable across builds.
+qt_add_resources(SHELL_FONTS resources-fonts.qrc)
+target_sources(marathon-shell PRIVATE ${SHELL_FONTS})
+# Sounds stay in resources.qrc with the variable-output form because the
+# .wav blobs (69 MB) DO actually land in the binary today. Keep them out
+# of the qml-module target to avoid recompiling the giant initializer
+# every time a QML file changes.
+qt_add_resources(SHELL_SOUNDS resources.qrc)
 
 # Qt6 QML module configuration
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
+    IMPORTS
+        MarathonUI.Theme
+        MarathonUI.Core
+        MarathonUI.Controls
+        MarathonUI.Lists
+        MarathonUI.Navigation
+        MarathonUI.Feedback
+        MarathonUI.Modals
+        MarathonUI.Effects
+        MarathonUI.Containers
     QML_FILES ${QML_FILES}
     SOURCES
         src/services/sessionstore.cpp
@@ -331,6 +463,40 @@ qt6_add_qml_module(marathon-shell
         src/services/autocorrect.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
+        src/managers/hapticmanager.cpp
+        src/managers/hapticmanager.h
+        src/managers/settingsmanager.cpp
+        src/managers/settingsmanager.h
+        src/managers/mpris2controller.cpp
+        src/managers/mpris2controller.h
+        src/marathonpermissionmanager.cpp
+        src/marathonpermissionmanager.h
+        src/models/notificationmodel.cpp
+        src/models/notificationmodel.h
+        src/models/taskmodel.cpp
+        src/models/taskmodel.h
+        src/managers/networkmanagercpp.cpp
+        src/managers/networkmanagercpp.h
+        src/managers/powermanagercpp.cpp
+        src/managers/powermanagercpp.h
+        src/managers/displaymanagercpp.cpp
+        src/managers/displaymanagercpp.h
+        src/managers/audiomanagercpp.cpp
+        src/managers/audiomanagercpp.h
+        src/managers/securitymanager.cpp
+        src/managers/securitymanager.h
+        src/services/applaunchservice.cpp
+        src/services/applaunchservice.h
+        src/services/applifecyclemanager.cpp
+        src/services/applifecyclemanager.h
+        src/services/notificationservicecpp.cpp
+        src/services/notificationservicecpp.h
+        src/controllers/powerpolicycontroller.cpp
+        src/controllers/powerpolicycontroller.h
+        src/controllers/displaypolicycontroller.cpp
+        src/controllers/displaypolicycontroller.h
+        src/controllers/audiopolicycontroller.cpp
+        src/controllers/audiopolicycontroller.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
@@ -343,8 +509,8 @@ set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH
     "${CMAKE_BINARY_DIR}/shell/qml"
 )
 
-# Link the big resources to the target
-target_sources(marathon-shell PRIVATE ${BIG_RESOURCES})
+# Link the big resources (sounds-only qrc) to the target
+target_sources(marathon-shell PRIVATE ${SHELL_SOUNDS})
 
 # Add qmllint validation target - runs BEFORE building
 if(QMLLINT_AVAILABLE)
@@ -353,8 +519,15 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
+pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
+# libdrm: direct atomic CRTC ACTIVE toggle for the Doze display-off path
+# (WaylandCompositor::setDisplayPowerState). Present via mesa-dev on the
+# Alpine build root; the shell already holds the DRM master fd from eglfs.
+pkg_check_modules(LIBDRM REQUIRED libdrm)
 target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
+    ${PIPEWIRE_INCLUDE_DIRS}
+    ${LIBDRM_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components
@@ -377,7 +550,6 @@ endif()
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
@@ -386,6 +558,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Multimedia
     Qt6::Network
     Qt6::Sensors
+    Qt6::WebSockets
     MarathonCore
     MarathonServices
     marathon-ui-theme
@@ -398,9 +571,16 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-modals
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
+    ${PIPEWIRE_LIBRARIES}
+    ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}
     lunasvg
 )
+
+# MotionDaemon needs the vendored Oxford step-counting algorithm.
+if(TARGET oxford-step-counter)
+    target_link_libraries(marathon-shell PRIVATE oxford-step-counter)
+endif()
 
 # Link additional conditional dependencies
 
@@ -418,10 +598,11 @@ endif()
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 
-if(HAVE_WEBENGINE)
-    target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
-    target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
-endif()
+# NOTE: Qt WebEngine intentionally NOT linked into the shell.
+# Maps / Browser / Email each import QtWebEngine in their own QML; they
+# run out-of-process under marathon-app-runner, which is the binary that
+# owns the Chromium runtime cost (gated on manifest requiresQtModules).
+# See tools/marathon-app-runner/CMakeLists.txt + main.cpp.
 
 # Link Hunspell for spell-checking
 pkg_check_modules(HUNSPELL hunspell)
@@ -436,8 +617,15 @@ if(HAVE_HUNSPELL)
     message(STATUS "Linking Hunspell to marathon-shell")
 endif()
 
-# Enable QML Debugging/Profiling
-target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
+# Enable QML Debugging/Profiling — Debug builds only. QT_QML_DEBUG opens a
+# TCP debug port (off by default but the macro pulls in the QML profiler
+# runtime + emits "QML debugging is enabled. Only use this in a safe
+# environment." on every shell start) which is inappropriate for the
+# Marathon shell shipping in a production image.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
+    message(STATUS "QML debugging enabled (Debug build)")
+endif()
 
 set_target_properties(marathon-shell PROPERTIES
     MACOSX_BUNDLE TRUE
@@ -457,7 +645,7 @@ install(TARGETS marathon-shell
 # Install MarathonOS.Shell module for marathon-app-runner to find it
 if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
     set(SHELL_QML_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/qt6/qml")
-    
+
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/MarathonOS/
         DESTINATION ${SHELL_QML_INSTALL_DIR}/MarathonOS
         FILES_MATCHING
@@ -467,4 +655,22 @@ if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/l
         PATTERN "*.js"
         PATTERN "*.so"
     )
+
 endif()
+
+# qt6_add_qml_module bakes `prefer :/qt/qml/MarathonOS/Shell/` into the
+# generated qmldir at ${CMAKE_CURRENT_BINARY_DIR}/qml/MarathonOS/Shell/qmldir.
+# That's correct for marathon-shell-bin (uses its embedded qrc copies of
+# the .qml files at runtime). But it breaks marathon-app-runner: when an
+# app pulls in a shared shell component (e.g. WiFiPasswordDialog →
+# Constants), Qt follows the prefer line into the app-runner's qrc where
+# those files don't exist. Strip the prefer line from the BUILD output so
+# the install copies a clean qmldir; the shell binary doesn't consult
+# this file at runtime so the strip is safe for it.
+# NOTE: the installed MarathonOS.Shell/qmldir carries a
+# `prefer :/qt/qml/MarathonOS/Shell/` directive that tells Qt to use the
+# shell binary's qrc copies of the .qml files. That's right for the
+# shell binary itself but breaks marathon-app-runner (the qrc only
+# exists in marathon-shell-bin's address space). The APKBUILD's
+# package() step strips this directive post-install, alongside the
+# equivalent strip it already does for MarathonUI sub-modules.

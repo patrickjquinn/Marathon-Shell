@@ -1,12 +1,9 @@
 import MarathonApp.Messages
-import MarathonApp.Messages
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 Rectangle {
     id: chatPage
@@ -21,10 +18,7 @@ Rectangle {
         if (!conversation)
             return;
 
-        if (typeof SMSService !== 'undefined')
-            messages = SMSService.getMessages(conversation.id);
-        else
-            messages = [];
+        messages = SMSService.getMessages(conversation.id);
         groupMessages();
     }
 
@@ -81,80 +75,125 @@ Rectangle {
     color: MColors.background
     Component.onCompleted: {
         loadMessages();
-        if (typeof SMSService !== 'undefined' && conversation)
+        if (conversation)
             SMSService.markAsRead(conversation.id);
     }
 
     Connections {
         function onMessageSent(recipient, timestamp) {
-            if (conversation)
+            if (chatPage.conversation)
                 loadMessages();
         }
 
         function onMessageReceived(sender, text, timestamp) {
-            if (conversation && sender === conversation.contactNumber) {
+            if (chatPage.conversation && sender === chatPage.conversation.contactNumber) {
                 loadMessages();
                 scrollToBottom();
             }
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
+    }
+
+    function contactMonogram() {
+        const n = (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || "?";
+        const parts = n.split(/\s+/).filter(p => p.length > 0);
+        if (parts.length === 0)
+            return "·";
+        if (parts.length === 1)
+            return parts[0].substring(0, 2).toUpperCase();
+        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
     Column {
         anchors.fill: parent
         spacing: 0
 
-        MActionBar {
+        // Header migrated to MTopBar (P3B · ad-hoc-chrome-bypasses-mtopbar).
+        // The old hand-rolled 88 px Rectangle didn't inherit MTopBar's
+        // shrink-on-scroll or future Live-Activity chip slot. Now uses
+        // MTopBar with leadingContent (avatar + name + typing stack)
+        // and actions (phone + more).
+        MTopBar {
             id: header
-
             width: parent.width
+            title: ""                     // name lives in leadingContent
             showBack: true
             onBackClicked: {
                 HapticService.light();
                 chatPage.navigateBack();
             }
 
-            Row {
-                anchors.left: parent.left
-                anchors.leftMargin: header.showBack ? 92 : MSpacing.md
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: MSpacing.md
-
+            leadingContent: [
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 40
-                    height: 40
-                    radius: 20
-                    color: MColors.marathonTeal
+                    width: 36
+                    height: 36
+                    radius: width / 2
+                    color: "#3a6b9c"     // tint per contact (stub)
+                    border.width: 1
+                    border.color: MColors.whiteOverlay08
 
-                    MLabel {
+                    Text {
                         anchors.centerIn: parent
-                        text: (conversation && conversation.contactName) ? conversation.contactName.charAt(0).toUpperCase() : "?"
-                        color: MColors.textInverse
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightBold
+                        text: chatPage.contactMonogram()
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
                     }
-                }
-
+                },
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: 0
 
-                    MLabel {
-                        text: (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || ""
-                        variant: "primary"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightBold
+                    Text {
+                        text: (chatPage.conversation && chatPage.conversation.contactName) || (chatPage.conversation && chatPage.conversation.contactNumber) || ""
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 17
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
                     }
-
-                    MLabel {
-                        text: (conversation && conversation.contactNumber) || ""
-                        variant: "tertiary"
-                        font.pixelSize: MTypography.sizeXSmall
+                    // Presence subtitle — "typing…" teal-bright when the
+                    // contact is composing.
+                    Text {
+                        text: (chatPage.conversation && chatPage.conversation.isTyping) ? "typing…" : ""
+                        color: MColors.marathonTealBright
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Medium
+                        visible: text.length > 0
                     }
                 }
-            }
+            ]
+
+            actions: [
+                Icon {
+                    name: "phone"
+                    size: 20
+                    color: MColors.textPrimary
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        onClicked: {
+                            HapticService.light();
+                            // Hand off to Phone app once TelephonyService
+                            // supports cross-app launch.
+                        }
+                    }
+                },
+                Icon {
+                    name: "ellipsis-vertical"
+                    size: 22
+                    color: MColors.textSecondary
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        onClicked: HapticService.light()
+                    }
+                }
+            ]
         }
 
         ListView {
@@ -171,7 +210,7 @@ Rectangle {
             spacing: 0
             topMargin: MSpacing.md
             bottomMargin: MSpacing.md
-            model: groupedMessages
+            model: chatPage.groupedMessages
 
             MEmptyState {
                 visible: messagesList.count === 0
@@ -179,7 +218,7 @@ Rectangle {
                 width: parent.width - MSpacing.xl * 2
                 iconName: "message-circle"
                 title: "No messages yet"
-                message: "Send a message to start the conversation"
+                message: "Send a message to start the conversation."
             }
 
             delegate: Column {
@@ -211,11 +250,10 @@ Rectangle {
 
             width: parent.width
             onSendMessage: text => {
-                if (text.trim().length > 0 && conversation) {
-                    Logger.info("Messages", "Sending message to: " + conversation.contactName);
-                    var recipientNumber = conversation.contactNumber || conversation.id.replace("conv_", "");
-                    if (typeof SMSService !== 'undefined')
-                        SMSService.sendMessage(recipientNumber, text.trim());
+                if (text.trim().length > 0 && chatPage.conversation) {
+                    Logger.info("Messages", "Sending message to: " + chatPage.conversation.contactName);
+                    var recipientNumber = chatPage.conversation.contactNumber || chatPage.conversation.id.replace("conv_", "");
+                    SMSService.sendMessage(recipientNumber, text.trim());
                 }
             }
             onAttachPressed: {

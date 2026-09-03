@@ -11,6 +11,7 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <utility>   // std::as_const
 
 static bool isAccessDenied(const QDBusError &e) {
     return e.type() == QDBusError::AccessDenied;
@@ -418,6 +419,36 @@ void TelephonyClient::simulateCallStateChange(const QString &state) {
         qWarning() << "[TelephonyClient] SimulateCallStateChange failed:" << r.errorMessage();
 }
 
+void TelephonyClient::setSpeakerphone(bool on) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SetSpeakerphone", on);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SetSpeakerphone failed:" << r.errorMessage();
+}
+
+void TelephonyClient::setCallMuted(bool muted) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SetCallMuted", muted);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SetCallMuted failed:" << r.errorMessage();
+}
+
+bool TelephonyClient::isSpeakerphoneOn() {
+    if (!ensurePermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("IsSpeakerphoneOn");
+    return r.isValid() ? r.value() : false;
+}
+
+bool TelephonyClient::isCallMuted() {
+    if (!ensurePermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("IsCallMuted");
+    return r.isValid() ? r.value() : false;
+}
+
 SmsClient::SmsClient(const QString &appId, QObject *parent)
     : QObject(parent)
     , m_appId(appId)
@@ -732,10 +763,10 @@ void SettingsClient::refresh() {
         return;
     m_refreshInFlight = true;
 
-    if (!ensureSystemPermission()) {
-        m_refreshInFlight = false;
-        return;
-    }
+    // GetState is a read — it returns userScaleFactor, wallpaperPath,
+    // timeFormat, theme tokens etc. that every app needs to size its UI.
+    // It does NOT require a permission, so don't pre-prompt the user.
+    // Writes (setProp) still gate on ensureSystemPermission below.
 
     m_iface.setTimeout(2000);
 
@@ -818,90 +849,53 @@ void SettingsClient::setProp(const QString &name, const QVariant &value) {
 }
 
 void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &value) {
-    const QVariant v = value.variant();
-    m_state.insert(name, v);
+    m_state.insert(name, value.variant());
 
-    if (name == "userScaleFactor")
-        emit userScaleFactorChanged();
-    else if (name == "wallpaperPath")
-        emit wallpaperPathChanged();
-    else if (name == "deviceName")
-        emit deviceNameChanged();
-    else if (name == "autoLock")
-        emit autoLockChanged();
-    else if (name == "autoLockTimeout")
-        emit autoLockTimeoutChanged();
-    else if (name == "showNotificationPreviews")
-        emit showNotificationPreviewsChanged();
-    else if (name == "timeFormat")
-        emit timeFormatChanged();
-    else if (name == "dateFormat")
-        emit dateFormatChanged();
-    else if (name == "ringtone")
-        emit ringtoneChanged();
-    else if (name == "notificationSound")
-        emit notificationSoundChanged();
-    else if (name == "alarmSound")
-        emit alarmSoundChanged();
-    else if (name == "mediaVolume")
-        emit mediaVolumeChanged();
-    else if (name == "ringtoneVolume")
-        emit ringtoneVolumeChanged();
-    else if (name == "alarmVolume")
-        emit alarmVolumeChanged();
-    else if (name == "notificationVolume")
-        emit notificationVolumeChanged();
-    else if (name == "systemVolume")
-        emit systemVolumeChanged();
-    else if (name == "dndEnabled")
-        emit dndEnabledChanged();
-    else if (name == "vibrationEnabled")
-        emit vibrationEnabledChanged();
-    else if (name == "audioProfile")
-        emit audioProfileChanged();
-    else if (name == "screenTimeout")
-        emit screenTimeoutChanged();
-    else if (name == "autoBrightness")
-        emit autoBrightnessChanged();
-    else if (name == "statusBarClockPosition")
-        emit statusBarClockPositionChanged();
-    else if (name == "showNotificationsOnLockScreen")
-        emit showNotificationsOnLockScreenChanged();
-    else if (name == "filterMobileFriendlyApps")
-        emit filterMobileFriendlyAppsChanged();
-    else if (name == "hiddenApps")
-        emit hiddenAppsChanged();
-    else if (name == "appSortOrder")
-        emit appSortOrderChanged();
-    else if (name == "appGridColumns")
-        emit appGridColumnsChanged();
-    else if (name == "searchNativeApps")
-        emit searchNativeAppsChanged();
-    else if (name == "showNotificationBadges")
-        emit showNotificationBadgesChanged();
-    else if (name == "appNotificationSettings")
-        emit appNotificationSettingsChanged();
-    else if (name == "showFrequentApps")
-        emit showFrequentAppsChanged();
-    else if (name == "defaultApps")
-        emit defaultAppsChanged();
-    else if (name == "firstRunComplete")
-        emit firstRunCompleteChanged();
-    else if (name == "enabledQuickSettingsTiles")
-        emit enabledQuickSettingsTilesChanged();
-    else if (name == "quickSettingsTileOrder")
-        emit quickSettingsTileOrderChanged();
-    else if (name == "keyboardAutoCorrection")
-        emit keyboardAutoCorrectionChanged();
-    else if (name == "keyboardPredictiveText")
-        emit keyboardPredictiveTextChanged();
-    else if (name == "keyboardWordFling")
-        emit keyboardWordFlingChanged();
-    else if (name == "keyboardPredictiveSpacing")
-        emit keyboardPredictiveSpacingChanged();
-    else if (name == "keyboardHapticStrength")
-        emit keyboardHapticStrengthChanged();
-    Q_UNUSED(v);
+    using Notify                                           = void (SettingsClient::*)();
+    static const QHash<QString, Notify> kSignalForProperty = {
+        {"userScaleFactor", &SettingsClient::userScaleFactorChanged},
+        {"wallpaperPath", &SettingsClient::wallpaperPathChanged},
+        {"deviceName", &SettingsClient::deviceNameChanged},
+        {"autoLock", &SettingsClient::autoLockChanged},
+        {"autoLockTimeout", &SettingsClient::autoLockTimeoutChanged},
+        {"showNotificationPreviews", &SettingsClient::showNotificationPreviewsChanged},
+        {"timeFormat", &SettingsClient::timeFormatChanged},
+        {"dateFormat", &SettingsClient::dateFormatChanged},
+        {"ringtone", &SettingsClient::ringtoneChanged},
+        {"notificationSound", &SettingsClient::notificationSoundChanged},
+        {"alarmSound", &SettingsClient::alarmSoundChanged},
+        {"mediaVolume", &SettingsClient::mediaVolumeChanged},
+        {"ringtoneVolume", &SettingsClient::ringtoneVolumeChanged},
+        {"alarmVolume", &SettingsClient::alarmVolumeChanged},
+        {"notificationVolume", &SettingsClient::notificationVolumeChanged},
+        {"systemVolume", &SettingsClient::systemVolumeChanged},
+        {"dndEnabled", &SettingsClient::dndEnabledChanged},
+        {"vibrationEnabled", &SettingsClient::vibrationEnabledChanged},
+        {"audioProfile", &SettingsClient::audioProfileChanged},
+        {"screenTimeout", &SettingsClient::screenTimeoutChanged},
+        {"autoBrightness", &SettingsClient::autoBrightnessChanged},
+        {"statusBarClockPosition", &SettingsClient::statusBarClockPositionChanged},
+        {"showNotificationsOnLockScreen", &SettingsClient::showNotificationsOnLockScreenChanged},
+        {"filterMobileFriendlyApps", &SettingsClient::filterMobileFriendlyAppsChanged},
+        {"hiddenApps", &SettingsClient::hiddenAppsChanged},
+        {"appSortOrder", &SettingsClient::appSortOrderChanged},
+        {"appGridColumns", &SettingsClient::appGridColumnsChanged},
+        {"searchNativeApps", &SettingsClient::searchNativeAppsChanged},
+        {"showNotificationBadges", &SettingsClient::showNotificationBadgesChanged},
+        {"appNotificationSettings", &SettingsClient::appNotificationSettingsChanged},
+        {"showFrequentApps", &SettingsClient::showFrequentAppsChanged},
+        {"defaultApps", &SettingsClient::defaultAppsChanged},
+        {"firstRunComplete", &SettingsClient::firstRunCompleteChanged},
+        {"enabledQuickSettingsTiles", &SettingsClient::enabledQuickSettingsTilesChanged},
+        {"quickSettingsTileOrder", &SettingsClient::quickSettingsTileOrderChanged},
+        {"keyboardAutoCorrection", &SettingsClient::keyboardAutoCorrectionChanged},
+        {"keyboardPredictiveText", &SettingsClient::keyboardPredictiveTextChanged},
+        {"keyboardWordFling", &SettingsClient::keyboardWordFlingChanged},
+        {"keyboardPredictiveSpacing", &SettingsClient::keyboardPredictiveSpacingChanged},
+        {"keyboardHapticStrength", &SettingsClient::keyboardHapticStrengthChanged},
+    };
+    if (auto it = kSignalForProperty.constFind(name); it != kSignalForProperty.constEnd())
+        (this->**it)();
 }
 
 qreal SettingsClient::userScaleFactor() const {
@@ -2338,14 +2332,17 @@ void SmsClient::setConversations(const QVariantList &v) {
 }
 
 void SmsClient::refresh() {
-    if (!ensurePermission())
-        return;
-    QDBusReply<QVariantList> r = m_iface.call("GetConversations");
-    if (!r.isValid()) {
-        if (r.error().type() != QDBusError::AccessDenied)
-            qWarning() << "[SmsClient] GetConversations failed:" << r.error().message();
+    if (!ensurePermission()) {
+        qWarning() << "[SmsClient] refresh: permission gate failed for" << m_appId;
         return;
     }
+    QDBusReply<QVariantList> r = m_iface.call("GetConversations");
+    if (!r.isValid()) {
+        qWarning() << "[SmsClient] GetConversations failed:" << r.error().type()
+                   << r.error().message();
+        return;
+    }
+    qWarning() << "[SmsClient] refresh -> conversations:" << r.value().size();
     setConversations(r.value());
 }
 
@@ -2798,7 +2795,7 @@ int NotificationClient::sendNotification(const QString &appId, const QString &ti
     QStringList actions;
     if (options.contains("actions")) {
         QVariantList actionList = options.value("actions").toList();
-        for (const QVariant &a : actionList) {
+        for (const QVariant &a : std::as_const(actionList)) {
             actions << a.toString() << a.toString();
         }
     }
@@ -2888,19 +2885,33 @@ LocationClient::LocationClient(QObject *parent)
 }
 
 void LocationClient::refresh() {
-    if (m_iface.isValid()) {
-        bool avail  = m_iface.property("available").toBool();
-        bool active = m_iface.property("active").toBool();
+    if (!m_iface.isValid())
+        return;
 
-        if (avail != m_available) {
-            m_available = avail;
-            emit availableChanged();
-        }
-        if (active != m_active) {
-            m_active = active;
-            emit activeChanged();
-        }
-        updateLocation(m_iface.call("GetLocation").arguments().at(0).value<QVariantMap>());
+    // The shell-side service exposes availability/active state as
+    // methods (IsAvailable/IsActive), not DBus properties, so a
+    // m_iface.property("available") read silently returns an invalid
+    // QVariant and we'd never know the fix landed.
+    const auto availArgs  = m_iface.call("IsAvailable").arguments();
+    const auto activeArgs = m_iface.call("IsActive").arguments();
+    const bool avail      = !availArgs.isEmpty() ? availArgs.at(0).toBool() : false;
+    const bool active     = !activeArgs.isEmpty() ? activeArgs.at(0).toBool() : false;
+
+    if (avail != m_available) {
+        m_available = avail;
+        emit availableChanged();
+    }
+    if (active != m_active) {
+        m_active = active;
+        emit activeChanged();
+    }
+    const auto locArgs = m_iface.call("GetLocation").arguments();
+    if (!locArgs.isEmpty()) {
+        // a{sv} arrives as a QDBusArgument blob inside the QVariant;
+        // normalize through the same demarshal helpers other Marathon
+        // IPC clients use so we get a real QVariantMap.
+        const QVariantMap loc = normalizeDbusVariantDeep(locArgs.at(0)).toMap();
+        updateLocation(loc);
     }
 }
 
@@ -2920,6 +2931,10 @@ void LocationClient::updateLocation(const QVariantMap &loc) {
 
 void LocationClient::start() {
     m_iface.call("Start");
+    // Re-pull state after Start so a freshly-active fix shows up
+    // immediately instead of waiting for the next LocationChanged
+    // signal (which can be a 25 s Geoclue heartbeat).
+    refresh();
 }
 
 void LocationClient::stop() {
@@ -3018,4 +3033,256 @@ void AlarmClient::stopAll() {
 
 void AlarmClient::triggerAlarmNow(const QString &label) {
     m_iface.call("TriggerAlarmNow", label);
+}
+
+// === UpdateClient ===========================================================
+
+UpdateClient::UpdateClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Updates",
+              "org.marathonos.Shell.Updates1", QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Updates",
+                                          "org.marathonos.Shell.Updates1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    refresh();
+}
+
+void UpdateClient::refresh() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void UpdateClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void UpdateClient::checkNow() {
+    m_iface.call("CheckNow");
+}
+
+void UpdateClient::openInBrowser() {
+    m_iface.call("OpenInBrowser");
+}
+
+void UpdateClient::setChannel(const QString &channel) {
+    m_iface.call("SetChannel", channel);
+}
+
+// === DavClient ==============================================================
+
+DavClient::DavClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Dav", "org.marathonos.Shell.Dav1",
+              QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "AccountsChanged", this,
+                                          SLOT(onAccountsChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "SyncFinished", this,
+                                          SLOT(onSyncFinished(QString)));
+    refresh();
+}
+
+void DavClient::refresh() {
+    refreshAccounts();
+    refreshState();
+}
+
+void DavClient::refreshAccounts() {
+    QDBusReply<QVariantList> r = m_iface.call("ListAccounts");
+    if (r.isValid()) {
+        m_accounts = r.value();
+        emit accountsChanged();
+    }
+}
+
+void DavClient::refreshState() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void DavClient::onAccountsChanged() {
+    refreshAccounts();
+}
+
+void DavClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void DavClient::onSyncFinished(const QString &accountId) {
+    emit syncFinished(accountId);
+    refreshState();
+}
+
+QString DavClient::addAccount(const QString &displayName, const QString &baseUrl,
+                              const QString &username, const QString &secret,
+                              const QString &authKind) {
+    QDBusReply<QString> r =
+        m_iface.call("AddAccount", displayName, baseUrl, username, secret, authKind);
+    return r.isValid() ? r.value() : QString();
+}
+
+bool DavClient::removeAccount(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("RemoveAccount", id);
+    return r.isValid() && r.value();
+}
+
+void DavClient::enableAccount(const QString &id, bool enabled) {
+    m_iface.call("EnableAccount", id, enabled);
+}
+
+void DavClient::syncNow() {
+    m_iface.call("SyncNow");
+}
+
+// === AppStoreClient =========================================================
+
+AppStoreClient::AppStoreClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+              "org.marathonos.Shell.AppStore1", QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "CatalogRefreshed",
+                                          this, SIGNAL(catalogRefreshed()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadProgress",
+                                          this, SIGNAL(downloadProgress(QString, qint64, qint64)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadComplete",
+                                          this, SIGNAL(downloadComplete(QString, QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadFailed", this,
+                                          SIGNAL(downloadFailed(QString, QString)));
+    refresh();
+}
+
+void AppStoreClient::refresh() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void AppStoreClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void AppStoreClient::refreshCatalog() {
+    m_iface.call("RefreshCatalog");
+}
+
+// Each catalog entry arrives as a QVariantList<QDBusArgument>; QML's
+// JS engine can't see the inner QVariantMap keys until we qdbus_cast
+// them back. We pull the raw reply via QDBusReply<QVariantList> (so
+// QDBus does the type coercion) and then run the result through
+// normalizeListDeep — same path ContactsClient.setContacts uses for
+// the same problem. Without this, every modelData.name read in QML
+// came back undefined even though the row count was correct.
+QVariantList AppStoreClient::searchApps(const QString &query) {
+    QDBusReply<QVariantList> r = m_iface.call("SearchApps", query);
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantMap AppStoreClient::getApp(const QString &appId) {
+    QDBusReply<QVariantMap> r = m_iface.call("GetApp", appId);
+    if (!r.isValid())
+        return {};
+    return normalizeMapDeep(r.value());
+}
+
+QVariantList AppStoreClient::getFeaturedApps() {
+    QDBusReply<QVariantList> r = m_iface.call("GetFeaturedApps");
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantList AppStoreClient::getAppsByCategory(const QString &category) {
+    QDBusReply<QVariantList> r = m_iface.call("GetAppsByCategory", category);
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantList AppStoreClient::getAvailableUpdates() {
+    QDBusReply<QVariantList> r = m_iface.call("GetAvailableUpdates");
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+void AppStoreClient::checkForUpdates() {
+    m_iface.call("CheckForUpdates");
+}
+
+void AppStoreClient::downloadApp(const QString &appId) {
+    m_iface.call("DownloadApp", appId);
+}
+
+void AppStoreClient::cancelDownload(const QString &appId) {
+    m_iface.call("CancelDownload", appId);
+}
+
+AppLifecycleClient::AppLifecycleClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/AppLifecycle",
+              "org.marathonos.Shell.AppLifecycle1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[AppLifecycleClient] DBus interface invalid:"
+                   << m_iface.lastError().message();
+}
+
+quint32 AppLifecycleClient::beginBackgroundTask(const QString &category, const QString &reason) {
+    QDBusReply<quint32> r = m_iface.call("BeginBackgroundTask", category, reason);
+    if (!r.isValid()) {
+        qWarning() << "[AppLifecycleClient] BeginBackgroundTask(" << category
+                   << ") failed:" << r.error().message();
+        return 0;
+    }
+    return r.value();
+}
+
+bool AppLifecycleClient::endBackgroundTask(quint32 handle) {
+    QDBusReply<bool> r = m_iface.call("EndBackgroundTask", handle);
+    if (!r.isValid()) {
+        qWarning() << "[AppLifecycleClient] EndBackgroundTask(" << handle
+                   << ") failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}
+
+QStringList AppLifecycleClient::currentCapabilities() {
+    QDBusReply<QStringList> r = m_iface.call("GetMyCapabilities");
+    if (!r.isValid())
+        return {};
+    return r.value();
+}
+
+void AppLifecycleClient::registerApp(const QString &appId, QObject *root) {
+    Q_UNUSED(appId);
+    Q_UNUSED(root);
+    // No-op stub. See the declaration comment in shellipcclients.h.
+}
+
+void AppLifecycleClient::unregisterApp(const QString &appId) {
+    Q_UNUSED(appId);
 }

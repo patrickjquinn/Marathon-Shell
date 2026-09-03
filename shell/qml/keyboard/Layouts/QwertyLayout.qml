@@ -6,6 +6,11 @@ Item {
 
     property bool shifted: false
     property bool capsLock: false
+    // The top number row mirrors iOS's "Show number row" option and
+    // Android's GBoard default. Tapping a digit emits keyClicked(digit)
+    // without flipping the layout to symbols — saves a round trip for
+    // PINs / dates / addresses typed inline with letters.
+    readonly property var numberRowKeys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
     readonly property var row1Keys: [
         {
             "char": "q",
@@ -135,6 +140,35 @@ Item {
         spacing: 0
 
         Row {
+            id: numberRow
+            readonly property real keyWidth: (width - spacing * 9) / 10
+
+            width: parent.width
+            spacing: Math.round(1 * Constants.scaleFactor)
+
+            Repeater {
+                model: layout.numberRowKeys
+
+                Key {
+                    required property var modelData
+
+                    width: numberRow.keyWidth
+                    text: modelData
+                    displayText: modelData
+                    onClicked: {
+                        layout.keyClicked(modelData);
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: parent.width
+            height: Math.round(2 * Constants.scaleFactor)
+            color: "#666666"
+        }
+
+        Row {
             id: row1
             readonly property real keyWidth: (width - spacing * 9) / 10
 
@@ -142,7 +176,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row1Keys
+                model: layout.row1Keys
 
                 Key {
                     width: row1.keyWidth
@@ -173,7 +207,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row2Keys
+                model: layout.row2Keys
 
                 Key {
                     width: row2.keyWidth
@@ -216,7 +250,7 @@ Item {
             }
 
             Repeater {
-                model: row3Keys
+                model: layout.row3Keys
 
                 Key {
                     width: row3.availableWidth * 0.1
@@ -278,8 +312,8 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.12
-                text: "123"
-                displayText: "123"
+                text: "?123"
+                displayText: "?123"
                 isSpecial: true
                 onClicked: {
                     layout.layoutSwitchClicked("symbols");
@@ -289,7 +323,7 @@ Item {
             Key {
                 width: row4.availableWidth * 0.08
                 text: "emoji"
-                displayText: "😀"
+                displayText: ""
                 isSpecial: true
                 fontFamily: "Noto Color Emoji"
                 onClicked: {

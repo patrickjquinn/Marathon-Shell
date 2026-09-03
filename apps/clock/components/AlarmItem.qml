@@ -1,4 +1,3 @@
-import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
@@ -56,15 +55,15 @@ Item {
                 spacing: MSpacing.xs
 
                 Text {
-                    text: formatTime(alarmHour, alarmMinute)
-                    color: alarmEnabled ? MColors.text : MColors.textSecondary
+                    text: formatTime(alarmItem.alarmHour, alarmItem.alarmMinute)
+                    color: alarmItem.alarmEnabled ? MColors.text : MColors.textSecondary
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: MTypography.weightBold
                     font.family: MTypography.fontFamily
                 }
 
                 Text {
-                    text: alarmLabel
+                    text: alarmItem.alarmLabel
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
@@ -75,7 +74,7 @@ Item {
                 id: toggleSwitch
 
                 anchors.verticalCenter: parent.verticalCenter
-                checked: alarmEnabled
+                checked: alarmItem.alarmEnabled
                 onToggled: {
                     alarmItem.toggled();
                 }

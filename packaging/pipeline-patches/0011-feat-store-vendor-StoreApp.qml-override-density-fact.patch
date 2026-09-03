@@ -1,0 +1,74 @@
+From 1695db3c56a315612bfb0e6f42e5d6a283f5a429 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 08:41:36 +0100
+Subject: [PATCH 11/15] feat(store): vendor StoreApp.qml override +
+ density-factor rendering fix
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Marathon Store app ships compiled into the marathon-shell APK
+inside libstoreplugin.so as a Qt resource. mkosi.images/base/mkosi.
+postinst (line 458) overrides that compiled-in copy at image-build
+time by dropping this vendored StoreApp.qml at the path the manifest
+references — letting us iterate on Store rendering without rebuilding
+the (slow) marathon-shell APK end-to-end.
+
+This commit captures the override delta that's been carried in the
+duranium-build working tree:
+
+* `sf` density factor — Marathon's shell chrome multiplies dimensions
+  by Constants.scaleFactor (~2.0 on phone DPI), but the Store hero +
+  card raw-pixel sizes weren't scaled. The visual mismatch between
+  the top/bottom bars and the Store body was the original bug. Every
+  fixed dimension now multiplies by `sf`.
+* `railOrder` property — the Store discovery view walks
+  ["mobile", "trending", "popular", "recently-added", "verified"]
+  and removes apps already shown in an earlier rail, so popular apps
+  don't appear in three rails on the same page.
+* Comment-block cleanup at the top of the file.
+
+This override path is itself technical debt — there are now two
+sources of truth for StoreApp.qml (Marathon-Shell/apps/store/
+StoreApp.qml is the compiled-in version, this one is the override).
+Long-term fix is to remove the override block in mkosi.postinst and
+have it pull StoreApp.qml from \$MARATHON_SHELL_SRC instead. Tracked
+separately.
+---
+ marathon-extras/StoreApp.qml | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/marathon-extras/StoreApp.qml b/marathon-extras/StoreApp.qml
+index 5b7f1b0..4d4e668 100644
+--- a/marathon-extras/StoreApp.qml
++++ b/marathon-extras/StoreApp.qml
+@@ -440,7 +440,7 @@ MApp {
+                     tabs: [
+                         { "label": "Discover",  "icon": "compass" },
+                         { "label": "Installed", "icon": "package" },
+-                        { "label": "Updates",   "icon": "cloud-download" }
++                        { "label": "Updates",   "icon": "cloud-arrow-down" }
+                     ]
+                     // refreshState() triggers the refresh-state script which
+                     // rewrites installed.json + updates.json. The 1.5s
+@@ -935,7 +935,7 @@ MApp {
+                         anchors.leftMargin: MSpacing.md
+                         anchors.rightMargin: MSpacing.md
+                         spacing: MSpacing.md
+-                        Icon { name: "cloud-download"; size: Constants.iconSizeMedium; color: MColors.marathonTealBright }
++                        Icon { name: "cloud-arrow-down"; size: Constants.iconSizeMedium; color: MColors.marathonTealBright }
+                         ColumnLayout {
+                             Layout.fillWidth: true
+                             spacing: 0
+@@ -1076,7 +1076,7 @@ MApp {
+                 const out = [];
+                 const shares = (ctx.shared || []);
+                 if (shares.indexOf("network") >= 0) out.push({ icon: "wifi", label: "Network access", detail: "Sends and receives data online" });
+-                if (shares.indexOf("ipc") >= 0) out.push({ icon: "share-2", label: "Inter-process communication", detail: "Talks to other apps on the device" });
++                if (shares.indexOf("ipc") >= 0) out.push({ icon: "share-network", label: "Inter-process communication", detail: "Talks to other apps on the device" });
+                 const sockets = (ctx.sockets || []);
+                 if (sockets.indexOf("pulseaudio") >= 0) out.push({ icon: "volume-2", label: "Audio", detail: "Play sound and record from microphones" });
+                 if (sockets.indexOf("wayland") >= 0 || sockets.indexOf("fallback-x11") >= 0) out.push({ icon: "monitor", label: "Display", detail: "Draws windows on screen" });
+-- 
+2.53.0
+

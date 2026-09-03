@@ -1,7 +1,7 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Feedback
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Effects
 
@@ -15,6 +15,19 @@ Item {
     property bool passwordMode: false
     property bool biometricInProgress: false
     property bool authenticating: false
+
+    // Compact layout for short/square screens (e.g. HyperPixel 4.0 Square
+    // 720×720 on the Hackberry CM5). The DS-canvas (390×844) keypad with
+    // 70 px buttons overflows the vertical axis when scaleFactor is driven
+    // by physical DPI (≈1.6×) on a screen that's only 720 px tall. Detect
+    // via Constants.isSquareScreen + a height-based fallback and shrink
+    // the keypad to fit.
+    readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
+    readonly property real keyButtonSize: compactLayout ? 44 : 56
+    readonly property real keyCellPadding: compactLayout ? 8 : 12
+    readonly property real keypadRowSpacing: compactLayout ? 8 : 12
+    readonly property real keypadColumnSpacing: compactLayout ? 14 : 16
+    readonly property real columnSpacing: compactLayout ? 14 : 24
 
     signal pinCorrect
     signal cancelled
@@ -35,7 +48,7 @@ Item {
             HapticManager.heavy();
             return;
         }
-        Logger.info("PinScreen", "🔄 Starting authentication, showing spinner");
+        Logger.info("PinScreen", "Starting authentication, showing spinner");
         authenticating = true;
         if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
             SecurityManagerCpp.authenticateQuickPIN(pin);
@@ -57,7 +70,7 @@ Item {
             HapticManager.light();
             return;
         }
-        Logger.info("PinScreen", "🔄 Starting password authentication, showing spinner");
+        Logger.info("PinScreen", "Starting password authentication, showing spinner");
         authenticating = true;
         SecurityManagerCpp.authenticatePassword(password);
     }
@@ -116,12 +129,17 @@ Item {
         entryProgress = 1;
         passwordMode = false;
         forceActiveFocus();
-        Logger.info("PinScreen", "📱 PIN screen shown");
+        Logger.info("PinScreen", "PIN screen shown");
     }
 
     anchors.fill: parent
-    layer.enabled: true
-    layer.smooth: true
+    // layer.enabled was true (+ smooth) — same as MarathonLockScreen this
+    // turned the whole PIN screen into one FBO, and every tap on a digit
+    // triggered three Behaviors (dot color, dot scale, button spring)
+    // which forced a full re-rasterization every frame. User-perceived
+    // delay between tapping a digit and the circle filling. Drop the
+    // layer; dirty-region rendering is sufficient.
+    layer.enabled: false
     onVisibleChanged: {
         if (visible) {
             SessionStore.isOnLockScreen = true;
@@ -147,10 +165,10 @@ Item {
     Connections {
         function onAuthenticationSuccess() {
             Logger.info("PinScreen", " Authentication successful, hiding spinner");
-            authenticating = false;
+            pinScreen.authenticating = false;
             HapticManager.medium();
-            pin = "";
-            password = "";
+            pinScreen.pin = "";
+            pinScreen.password = "";
             passwordTextInput.text = "";
             SessionStore.triggerUnlockAnimation();
             unlockDelayTimer.start();
@@ -158,24 +176,24 @@ Item {
 
         function onAuthenticationFailed(reason) {
             Logger.warn("PinScreen", " Authentication failed, hiding spinner:", reason);
-            authenticating = false;
+            pinScreen.authenticating = false;
             HapticManager.heavy();
-            error = reason;
+            pinScreen.error = reason;
             errorTimer.start();
-            biometricInProgress = false;
+            pinScreen.biometricInProgress = false;
             SessionStore.triggerShakeAnimation();
         }
 
         function onBiometricPrompt(message) {
-            Logger.info("PinScreen", "👆 Biometric prompt:", message);
-            error = message;
+            Logger.info("PinScreen", "Biometric prompt:", message);
+            pinScreen.error = message;
         }
 
         function onLockoutStateChanged() {
             if (SecurityManagerCpp.isLockedOut) {
                 var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-                error = "Locked for " + secs + "s";
-                Logger.warn("PinScreen", "🔒 Account locked for", secs, "seconds");
+                pinScreen.error = "Locked for " + secs + "s";
+                Logger.warn("PinScreen", "Account locked for", secs, "seconds");
             }
         }
 
@@ -187,6 +205,7 @@ Item {
 
         anchors.fill: parent
         source: WallpaperStore.path
+        sourceSize: Qt.size(width, height)
         fillMode: Image.PreserveAspectCrop
         cache: true
         smooth: true
@@ -208,6 +227,10 @@ Item {
             sourceItem: wallpaperSource
             sourceRect: Qt.rect(0, 0, width, height)
             visible: false
+            // Wallpaper is a static image — sample once. Skipping per-vsync
+            // sampling cuts render-thread cost on the PIN screen by half on
+            // etnaviv GPUs.
+            live: false
         }
 
         MultiEffect {
@@ -215,8 +238,10 @@ Item {
             source: wallpaperCapture
             blurEnabled: true
             blur: 1
-            blurMax: 64
-            blurMultiplier: 1
+            // 24 instead of 64 — the kernel growing beyond ~24 produces no
+            // perceived blur difference on a 540×1140 panel, just fillrate.
+            blurMax: MBlur.lg
+            blurMultiplier: 1.4
             saturation: 0.3
             brightness: -0.2
         }
@@ -230,11 +255,11 @@ Item {
 
     Column {
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: Math.round(-20 * Constants.scaleFactor)
-        spacing: Math.round(24 * Constants.scaleFactor)
+        anchors.verticalCenterOffset: pinScreen.compactLayout ? 0 : Math.round(-20 * Constants.scaleFactor)
+        spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100
-        layer.enabled: true
-        layer.smooth: true
+        // layer.enabled removed — see note at the root pinScreen Item.
+        layer.enabled: false
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -242,28 +267,28 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: passwordMode ? "Enter Password" : "Enter PIN"
+                text: pinScreen.passwordMode ? "Enter Password" : "Enter PIN"
                 color: MColors.text
                 font.pixelSize: Math.round(24 * Constants.scaleFactor)
                 font.weight: Font.Medium
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
 
                 Behavior on text {
                     SequentialAnimation {
                         NumberAnimation {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "opacity"
                             to: 0
                             duration: 100
                         }
 
                         PropertyAction {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "text"
                         }
 
                         NumberAnimation {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "opacity"
                             to: 1
                             duration: 100
@@ -286,6 +311,8 @@ Item {
                     model: 6
 
                     Rectangle {
+                        required property int index
+
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
                         radius: Math.round(7 * Constants.scaleFactor)
@@ -321,8 +348,8 @@ Item {
                 anchors.verticalCenter: pinCircles.verticalCenter
                 size: Math.round(32 * Constants.scaleFactor)
                 color: MColors.accentBright
-                running: authenticating && !passwordMode
-                visible: authenticating && !passwordMode
+                running: pinScreen.authenticating && !pinScreen.passwordMode
+                visible: pinScreen.authenticating && !pinScreen.passwordMode
                 opacity: visible ? 1 : 0
 
                 Behavior on opacity {
@@ -339,16 +366,16 @@ Item {
             height: Math.round(40 * Constants.scaleFactor)
             radius: Math.round(8 * Constants.scaleFactor)
             color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
-            visible: error !== ""
-            opacity: error !== "" ? 1 : 0
+            visible: pinScreen.error !== ""
+            opacity: pinScreen.error !== "" ? 1 : 0
 
             Text {
                 anchors.centerIn: parent
-                text: error
+                text: pinScreen.error
                 color: MColors.error
                 font.pixelSize: Math.round(14 * Constants.scaleFactor)
                 font.weight: Font.Medium
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
             }
 
             Behavior on opacity {
@@ -358,7 +385,7 @@ Item {
             }
 
             SequentialAnimation on x {
-                running: error !== ""
+                running: pinScreen.error !== ""
 
                 NumberAnimation {
                     to: 8
@@ -390,30 +417,38 @@ Item {
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(12 * Constants.scaleFactor)
-            visible: !passwordMode
+            visible: !pinScreen.passwordMode
 
+            // MCircularIconButton scales `buttonSize` / `iconSize` by
+            // Constants.scaleFactor internally. Pass DESIGN px here —
+            // pre-scaling caused the button + halo to render at
+            // sf × sf (≈ 2.5×) and overflow the cells, producing the
+            // overlapping-circles pin-pad bug.
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
-                columnSpacing: Math.round(16 * Constants.scaleFactor)
-                rowSpacing: Math.round(12 * Constants.scaleFactor)
-                layer.enabled: true
-                layer.smooth: true
+                columnSpacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
+                rowSpacing: Math.round(pinScreen.keypadRowSpacing * Constants.scaleFactor)
+                // layer.enabled was true (with layer.smooth) — the FBO
+                // pass on top of the over-sized halo turned the overlap
+                // into a stack of semi-transparent overlapping rings.
+                // Removing the layer keeps the button chrome single-pass.
 
                 Repeater {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
                     delegate: Item {
+                        required property string modelData
                         property string digit: modelData
 
-                        width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                        height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                        width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                        height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                         MCircularIconButton {
                             anchors.centerIn: parent
                             text: digit
-                            iconSize: Math.round(28 * Constants.scaleFactor)
-                            buttonSize: Math.round(70 * Constants.scaleFactor)
+                            iconSize: pinScreen.compactLayout ? 22 : 28
+                            buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
@@ -427,19 +462,19 @@ Item {
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Math.round(16 * Constants.scaleFactor)
+                spacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "keyboard"
-                        iconSize: Math.round(24 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
-                        visible: !passwordMode
+                        visible: !pinScreen.passwordMode
                         onClicked: {
                             HapticManager.light();
                             switchToPasswordMode();
@@ -448,14 +483,14 @@ Item {
                 }
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         text: "0"
-                        iconSize: Math.round(28 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 22 : 28
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: {
@@ -466,20 +501,20 @@ Item {
                 }
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "delete"
-                        iconSize: Math.round(24 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         onClicked: {
                             HapticManager.light();
-                            pin = "";
-                            error = "";
+                            pinScreen.pin = "";
+                            pinScreen.error = "";
                         }
                     }
                 }
@@ -489,7 +524,7 @@ Item {
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(24 * Constants.scaleFactor)
-            visible: passwordMode
+            visible: pinScreen.passwordMode
             width: Math.round(320 * Constants.scaleFactor)
 
             Item {
@@ -506,7 +541,7 @@ Item {
                     border.width: 2
                     border.color: passwordTextInput.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
                     Component.onCompleted: {
-                        if (passwordMode)
+                        if (pinScreen.passwordMode)
                             Qt.callLater(function () {
                                 passwordTextInput.forceActiveFocus();
                             });
@@ -539,8 +574,8 @@ Item {
                         echoMode: TextInput.Password
                         onAccepted: verifyPasswordInput()
                         onTextChanged: {
-                            password = text;
-                            error = "";
+                            pinScreen.password = text;
+                            pinScreen.error = "";
                         }
                     }
 
@@ -557,8 +592,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     size: Math.round(28 * Constants.scaleFactor)
                     color: MColors.accentBright
-                    running: authenticating && passwordMode
-                    visible: authenticating && passwordMode
+                    running: pinScreen.authenticating && pinScreen.passwordMode
+                    visible: pinScreen.authenticating && pinScreen.passwordMode
                     opacity: visible ? 1 : 0
 
                     Behavior on opacity {
@@ -585,7 +620,7 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
                     variant: "primary"
-                    enabled: !authenticating
+                    enabled: !pinScreen.authenticating
                     onClicked: verifyPasswordInput()
                 }
             }
@@ -594,10 +629,10 @@ Item {
         MCircularIconButton {
             anchors.horizontalCenter: parent.horizontalCenter
             iconName: "fingerprint"
-            iconSize: Math.round(28 * Constants.scaleFactor)
-            buttonSize: Math.round(64 * Constants.scaleFactor)
+            iconSize: 28
+            buttonSize: 64
             variant: "secondary"
-            visible: SecurityManagerCpp.fingerprintAvailable && !biometricInProgress && !passwordMode
+            visible: SecurityManagerCpp.fingerprintAvailable && !pinScreen.biometricInProgress && !pinScreen.passwordMode
             enabled: !SecurityManagerCpp.isLockedOut
             onClicked: {
                 HapticManager.light();
@@ -605,30 +640,30 @@ Item {
             }
         }
 
-        Text {
+        MButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
-            color: MColors.textSecondary
-            font.pixelSize: Math.round(16 * Constants.scaleFactor)
-            font.weight: Font.Medium
-            opacity: cancelMouseArea.pressed ? 0.5 : 0.8
-            renderType: Text.NativeRendering
-
-            MouseArea {
-                id: cancelMouseArea
-
-                anchors.fill: parent
-                anchors.margins: Math.round(-16 * Constants.scaleFactor)
-                onClicked: {
-                    HapticManager.light();
-                    cancelled();
-                }
+            variant: "ghost"
+            textColor: MColors.textSecondary
+            onClicked: {
+                HapticManager.light();
+                cancelled();
             }
+        }
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 80
-                }
+        // Emergency dial — required to be reachable from the lock screen
+        // without authentication (FCC E911 / EU Article 109). Launches the
+        // phone app in --emergency-only mode; the modem itself enforces
+        // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
+        MButton {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Emergency"
+            variant: "ghost"
+            textColor: MColors.error
+            onClicked: {
+                HapticManager.medium();
+                Logger.info("PinScreen", "Emergency dial requested from lock screen");
+                AppLifecycleManager.launchAppWithRoute("phone", "/emergency", "{}");
             }
         }
     }
@@ -645,8 +680,8 @@ Item {
 
         interval: 1200
         onTriggered: {
-            pin = "";
-            error = "";
+            pinScreen.pin = "";
+            pinScreen.error = "";
         }
     }
 

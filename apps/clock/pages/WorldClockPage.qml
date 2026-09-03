@@ -1,6 +1,5 @@
 import MarathonApp.Clock
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQml.Models
@@ -313,7 +312,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "🌍"
+                text: ""
                 font.pixelSize: Constants.iconSizeXLarge * 2
                 opacity: 0.5
             }

@@ -3,9 +3,110 @@
 #include <QFile>
 #include <QDebug>
 #include <QByteArray>
+#include <QStandardPaths>
+#include <utility>   // std::as_const
+
+namespace {
+
+    // App-icon SVGs use `<text font-family="Sora">` to render display marks
+    // (e.g. the App Store "M" wordmark and the Calendar "FRI"/"5" tiles).
+    // lunasvg 3.x supports `<text>` but only renders glyphs for fonts it
+    // has been told about explicitly — its font cache starts empty. Without
+    // these registrations the offending icons render as their background
+    // rectangle only, which is exactly what shipped: blank squircles.
+    //
+    // We register Sora once at provider construction. Bold/italic variants
+    // of Sora are not in the vendored tree (the variable font ships the
+    // wght axis only, no italic), so we point all four face slots at the
+    // same TTF and let lunasvg do faux-bold/italic synthesis. For the
+    // "M" wordmark this looks correct (italic skew on an Extra-Black weight
+    // in lunasvg ≈ the design intent); for the Calendar "FRI"/"5" only the
+    // upright Regular slot ever gets matched, so it's a clean hit.
+    void registerAppIconFonts() {
+        static bool registered = false;
+        if (registered) {
+            return;
+        }
+        registered = true;
+
+        QStringList candidates;
+        candidates
+            // Shell's own qrc — guaranteed available since it's compiled
+            // into marathon-shell-bin itself. Try this FIRST so we never
+            // depend on the MarathonUI.Theme QML module having been
+            // imported yet (it loads later; LunaSvgImageProvider gets
+            // wired up at app-icon resolve time, which can race the
+            // module import).
+            << QStringLiteral(":/fonts/Sora.ttf")
+            // MarathonUI.Theme module qrc — available once the module's
+            // qmldir is loaded by any QML import of MarathonUI.Theme.
+            << QStringLiteral(":/qt/qml/MarathonUI/Theme/fonts/Sora.ttf")
+            // System fontconfig path — what marathon-ui-theme's CMake
+            // install drops on disk (matches /usr/share/fonts/marathon/
+            // not /usr/share/marathon/fonts/; previous string was wrong).
+            << QStringLiteral("/usr/share/fonts/marathon/Sora.ttf")
+            // Last-resort XDG_DATA_DIRS lookup.
+            << QStandardPaths::locate(QStandardPaths::AppDataLocation,
+                                      QStringLiteral("fonts/Sora.ttf"));
+
+        QString resolved;
+        for (const auto &c : std::as_const(candidates)) {
+            if (!c.isEmpty() && QFile::exists(c)) {
+                resolved = c;
+                break;
+            }
+        }
+        if (resolved.isEmpty()) {
+            qWarning() << "[LunaSvgImageProvider] Sora.ttf not found; app-icon"
+                          " text marks will not render. Looked in:"
+                       << candidates;
+            return;
+        }
+
+        // qrc paths need to be loaded via QFile + addFontFaceFromData since
+        // lunasvg's file-path overload only takes a real filesystem path.
+        if (resolved.startsWith(QLatin1Char(':'))) {
+            QFile f(resolved);
+            if (!f.open(QIODevice::ReadOnly)) {
+                qWarning() << "[LunaSvgImageProvider] Failed to open qrc font:" << resolved;
+                return;
+            }
+            const QByteArray data = f.readAll();
+            // The buffer must outlive lunasvg's font cache (lifetime of process).
+            // Allocate on the heap; the destroy callback is null because we never
+            // need to free this — fonts are needed until exit.
+            char *buf = new char[data.size()];
+            memcpy(buf, data.constData(), data.size());
+            for (auto bold : {false, true}) {
+                for (auto italic : {false, true}) {
+                    lunasvg_add_font_face_from_data("Sora", bold, italic, buf,
+                                                    static_cast<size_t>(data.size()), nullptr,
+                                                    nullptr);
+                }
+            }
+            // Empty family registers Sora as the fallback font so even SVGs
+            // missing a font-family attribute pick it up.
+            lunasvg_add_font_face_from_data("", false, false, buf, static_cast<size_t>(data.size()),
+                                            nullptr, nullptr);
+        } else {
+            for (auto bold : {false, true}) {
+                for (auto italic : {false, true}) {
+                    lunasvg_add_font_face_from_file("Sora", bold, italic,
+                                                    resolved.toUtf8().constData());
+                }
+            }
+            lunasvg_add_font_face_from_file("", false, false, resolved.toUtf8().constData());
+        }
+
+        qInfo() << "[LunaSvgImageProvider] Registered Sora from" << resolved;
+    }
+
+} // namespace
 
 LunaSvgImageProvider::LunaSvgImageProvider()
-    : QQuickImageProvider(QQuickImageProvider::Image) {}
+    : QQuickImageProvider(QQuickImageProvider::Image) {
+    registerAppIconFonts();
+}
 
 QImage LunaSvgImageProvider::requestImage(const QString &id, QSize *size,
                                           const QSize &requestedSize) {

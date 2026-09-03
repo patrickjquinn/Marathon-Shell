@@ -1,8 +1,5 @@
-import MarathonApp.Messages
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Feedback
 import MarathonUI.Theme
 import QtQuick
 
@@ -44,9 +41,9 @@ Item {
     Rectangle {
         anchors.fill: parent
         anchors.margins: MSpacing.xs
-        color: isUnread ? Qt.rgba(0.24, 0.82, 0.73, 0.1) : MColors.surface
+        color: root.isUnread ? Qt.rgba(0.24, 0.82, 0.73, 0.1) : MColors.surface
         radius: MRadius.lg
-        border.width: isUnread ? 1 : 0
+        border.width: root.isUnread ? 1 : 0
         border.color: Qt.rgba(0.24, 0.82, 0.73, 0.3)
 
         Row {
@@ -65,13 +62,13 @@ Item {
 
                 MLabel {
                     anchors.centerIn: parent
-                    text: (conversation && conversation.contactName) ? conversation.contactName.charAt(0).toUpperCase() : "?"
+                    text: (root.conversation && root.conversation.contactName) ? root.conversation.contactName.charAt(0).toUpperCase() : "?"
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
                 }
 
                 Rectangle {
-                    visible: isUnread && (conversation && conversation.unreadCount > 0)
+                    visible: root.isUnread && (root.conversation && root.conversation.unreadCount > 0)
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.rightMargin: -4
@@ -83,7 +80,7 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: (conversation && conversation.unreadCount > 9) ? "9+" : (conversation && conversation.unreadCount !== undefined ? String(conversation.unreadCount) : "")
+                        text: (root.conversation && root.conversation.unreadCount > 9) ? "9+" : (root.conversation && root.conversation.unreadCount !== undefined ? String(root.conversation.unreadCount) : "")
                         font.pixelSize: MTypography.sizeXSmall
                         font.weight: MTypography.weightBold
                         font.family: MTypography.fontFamily
@@ -97,18 +94,18 @@ Item {
                 spacing: MSpacing.xs
 
                 MLabel {
-                    text: (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || "Unknown"
+                    text: (root.conversation && root.conversation.contactName) || (root.conversation && root.conversation.contactNumber) || "Unknown"
                     font.pixelSize: MTypography.sizeBody
-                    font.weight: isUnread ? MTypography.weightBold : MTypography.weightMedium
+                    font.weight: root.isUnread ? MTypography.weightBold : MTypography.weightMedium
                     elide: Text.ElideRight
                     width: parent.width
                 }
 
                 MLabel {
-                    text: (conversation && conversation.lastMessage) || "No messages yet"
-                    variant: isUnread ? "secondary" : "tertiary"
+                    text: (root.conversation && root.conversation.lastMessage) || "No messages yet"
+                    variant: root.isUnread ? "secondary" : "tertiary"
                     font.pixelSize: MTypography.sizeSmall
-                    font.weight: isUnread ? MTypography.weightMedium : MTypography.weightRegular
+                    font.weight: root.isUnread ? MTypography.weightMedium : MTypography.weightRegular
                     elide: Text.ElideRight
                     width: parent.width
                     maximumLineCount: 1
@@ -119,10 +116,10 @@ Item {
                 id: timestampLabel
 
                 anchors.verticalCenter: parent.verticalCenter
-                text: formatTimestamp((conversation && conversation.lastTimestamp) || Date.now())
-                variant: isUnread ? "secondary" : "tertiary"
+                text: formatTimestamp((root.conversation && root.conversation.lastTimestamp) || Date.now())
+                variant: root.isUnread ? "secondary" : "tertiary"
                 font.pixelSize: MTypography.sizeXSmall
-                font.weight: isUnread ? MTypography.weightDemiBold : MTypography.weightRegular
+                font.weight: root.isUnread ? MTypography.weightDemiBold : MTypography.weightRegular
             }
         }
 

@@ -1,0 +1,42 @@
+[package]
+name        = "marathon-mail-oauth"
+version     = "0.1.0"
+edition     = "2021"
+description = "OAuth2 + Secret-Service helper for Marathon's QMF mail backend"
+authors     = ["Patrick Quinn <patrick@jquinn.com>"]
+license     = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "marathon-mail-oauth"
+path = "src/main.rs"
+
+[profile.release]
+strip       = true
+lto         = "fat"
+codegen-units = 1
+opt-level   = "s"
+panic       = "abort"
+
+[dependencies]
+# OAuth2 PKCE flow.
+oauth2       = { version = "4.4", default-features = false, features = ["reqwest", "rustls-tls"] }
+# HTTP client used by oauth2's token endpoint exchange.
+reqwest      = { version = "0.11", default-features = false, features = ["rustls-tls", "blocking", "json"] }
+url          = "2.5"
+# libsecret bridge (D-Bus). Hits gnome-keyring / kwallet / whatever the
+# user's session bus advertises as org.freedesktop.secrets.
+secret-service = { version = "4.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
+# Tokio is pulled in transitively by secret-service; we run a single-
+# threaded current-thread runtime to keep RSS small.
+tokio        = { version = "1.42", features = ["rt", "macros"] }
+# CLI parsing.
+clap         = { version = "4.5", features = ["derive"] }
+# Local loopback redirect listener for the OAuth code callback.
+tiny_http    = "0.12"
+# Robust JSON output for the QMF SASL plugin to parse.
+serde        = { version = "1.0", features = ["derive"] }
+serde_json   = "1.0"
+# Standard error chain so the user sees actual failure causes,
+# not just "an error occurred."
+anyhow       = "1.0"
+thiserror    = "2.0"

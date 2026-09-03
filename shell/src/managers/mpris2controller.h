@@ -9,9 +9,12 @@
 #include <QTimer>
 #include <QMap>
 #include <QVariantMap>
+#include <qqml.h>
 
 class MPRIS2Controller : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
 
     Q_PROPERTY(bool hasActivePlayer READ hasActivePlayer NOTIFY activePlayerChanged)
     Q_PROPERTY(QString playerName READ playerName NOTIFY activePlayerChanged)
@@ -35,13 +38,16 @@ class MPRIS2Controller : public QObject {
 
   public:
     explicit MPRIS2Controller(QObject *parent = nullptr);
-    ~MPRIS2Controller();
+    ~MPRIS2Controller() override;
 
     bool hasActivePlayer() const {
         return m_hasActivePlayer;
     }
     QString playerName() const {
         return m_playerName;
+    }
+    QString currentBusName() const {
+        return m_currentBusName;
     }
     QString playbackStatus() const {
         return m_playbackStatus;
@@ -120,7 +126,7 @@ class MPRIS2Controller : public QObject {
     void updateCapabilities();
     void onPropertiesChanged(const QString &interfaceName, const QVariantMap &changedProperties,
                              const QStringList &invalidatedProperties);
-    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
+    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner) const;
     void onDBusServiceRegistered(const QString &serviceName);
     void onDBusServiceUnregistered(const QString &serviceName);
 
@@ -134,7 +140,6 @@ class MPRIS2Controller : public QObject {
 
     QDBusInterface *m_playerInterface;
     QTimer         *m_positionTimer;
-    QTimer         *m_scanTimer;
 
     QString         m_currentBusName;
     bool            m_hasActivePlayer;

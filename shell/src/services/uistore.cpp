@@ -1,6 +1,13 @@
 #include "uistore.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QtGlobal>
 
+UIStore *UIStore::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new UIStore(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 UIStore::UIStore(QObject *parent)
     : QObject(parent) {}
 

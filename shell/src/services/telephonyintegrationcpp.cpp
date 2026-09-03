@@ -10,6 +10,7 @@
 #include "telephonyservice.h"
 #include "smsservice.h"
 #include "contactsmanager.h"
+#include "sensormanagercpp.h"
 
 #include <QMetaObject>
 
@@ -18,7 +19,7 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     PowerPolicyController *powerPolicy, PowerManagerCpp *powerManager,
     DisplayPolicyController *displayPolicy, DisplayManagerCpp *displayManager,
     AudioPolicyController *audioPolicy, HapticManager *haptics, TelephonyService *telephonyService,
-    SMSService *smsService, QObject *parent)
+    SMSService *smsService, SensorManagerCpp *sensorManager, QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
@@ -29,7 +30,8 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)
     , m_telephonyService(telephonyService)
-    , m_smsService(smsService) {
+    , m_smsService(smsService)
+    , m_sensorManager(sensorManager) {
     if (m_telephonyService) {
         connect(m_telephonyService, &TelephonyService::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
@@ -40,6 +42,11 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     if (m_smsService) {
         connect(m_smsService, &SMSService::messageReceived, this,
                 &TelephonyIntegrationCpp::handleMessageReceived);
+    }
+
+    if (m_sensorManager) {
+        connect(m_sensorManager, &SensorManagerCpp::proximityNearChanged, this,
+                &TelephonyIntegrationCpp::handleProximityChanged);
     }
 }
 
@@ -116,6 +123,17 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
         emit unlockRequested();
     }
 
+    // Force-wake on call-end: proximity may have blanked the screen while we
+    // were on the call; once the call is over the proximity gate stops
+    // firing (handleProximityChanged checks m_hasActiveCall) and a stale
+    // "near" reading would otherwise leave the device unwakable.
+    if (state == "idle" || state == "terminated") {
+        if (m_displayPolicy)
+            m_displayPolicy->turnScreenOn();
+        else if (m_displayManager)
+            m_displayManager->setScreenState(true);
+    }
+
     setLastCallState(state);
 }
 
@@ -132,10 +150,11 @@ void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const
         actions.append(QVariantMap{{"id", "reply"}, {"label", "Reply"}});
         actions.append(QVariantMap{{"id", "mark_read"}, {"label", "Mark Read"}});
         QVariantMap options;
-        options["icon"]     = "message-circle";
-        options["category"] = "message";
-        options["priority"] = "high";
-        options["actions"]  = actions;
+        options["icon"]        = "message-circle";
+        options["category"]    = "message";
+        options["priority"]    = "high";
+        options["actions"]     = actions;
+        options["replyTarget"] = sender;
         m_notificationService->sendNotification("messages", contactName, text, options);
     }
 
@@ -200,4 +219,48 @@ void TelephonyIntegrationCpp::updateHasActiveCall(const QString &state) {
         return;
     m_hasActiveCall = active;
     emit hasActiveCallChanged();
+
+    // Drive the shared call-state flag so the proximity sensor gets
+    // powered on/off for the duration of the call (main.cpp wires
+    // PowerPolicyController::hasActiveCalls -> SensorManager::
+    // setProximityActive). Without this the sensor never starts and the
+    // proximity blank below never fires. Also gates canSleep().
+    if (m_powerPolicy)
+        m_powerPolicy->setHasActiveCalls(active);
+
+    // Call ended with the screen still proximity-blanked (phone was at
+    // the ear when the other side hung up): un-blank immediately.
+    if (!active && m_displayManager)
+        m_displayManager->setCallProximityBlank(false);
+}
+
+void TelephonyIntegrationCpp::handleProximityChanged() {
+    if (!m_hasActiveCall || !m_sensorManager || !m_displayManager)
+        return;
+
+    // CRITICAL: only act on proximity if the sensor is actually present and
+    // running. On hardware without a proximity sensor (e.g. QEMU, mid-range
+    // devices), QtSensors may still synthesise readings from a default
+    // backend, and a stray "near" report will leave the user stuck with a
+    // dark screen during a call -- there's no way to re-wake without the
+    // sensor reporting "far". SensorManagerCpp clears proximityAvailable
+    // unless connectToBackend() AND start() both succeeded.
+    if (!m_sensorManager->proximityAvailable()) {
+        qDebug()
+            << "[TelephonyIntegration] Ignoring proximity event - no proximity sensor available";
+        return;
+    }
+
+    // Use the lightweight backlight-only blank, NOT setScreenState —
+    // the latter now triggers the full deep-idle Doze (CRTC ACTIVE=0 +
+    // DDR downshift + lock), which is far too heavy to toggle every
+    // time the phone moves to/from the ear and would lock the session
+    // mid-call. setCallProximityBlank just powers the LED down/up.
+    if (m_sensorManager->proximityNear()) {
+        qInfo() << "[TelephonyIntegration] Proximity near during call - backlight off";
+        m_displayManager->setCallProximityBlank(true);
+    } else {
+        qInfo() << "[TelephonyIntegration] Proximity far during call - backlight on";
+        m_displayManager->setCallProximityBlank(false);
+    }
 }

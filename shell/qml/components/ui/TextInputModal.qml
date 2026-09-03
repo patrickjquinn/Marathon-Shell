@@ -1,6 +1,3 @@
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
@@ -37,7 +34,7 @@ Modal {
 
                 Text {
                     visible: !textInput.text && !textInput.activeFocus
-                    text: placeholderText
+                    text: textInputModal.placeholderText
                     color: MColors.textTertiary
                     font: textInput.font
                     anchors.fill: parent
@@ -101,14 +98,14 @@ Modal {
                 height: Constants.statusBarHeight
                 radius: Constants.borderRadiusSmall
                 border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(20, 184, 166, 0.4)
+                border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.4)
 
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
                     color: "transparent"
                     border.width: saveMouseArea.pressed ? 1 : 0
-                    border.color: Qt.rgba(20, 184, 166, 0.3)
+                    border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
                     opacity: saveMouseArea.pressed ? 1 : 0
 
                     Behavior on opacity {
@@ -142,12 +139,12 @@ Modal {
                 gradient: Gradient {
                     GradientStop {
                         position: 0
-                        color: Qt.rgba(20, 184, 166, 0.78)
+                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.78)
                     }
 
                     GradientStop {
                         position: 1
-                        color: Qt.rgba(20, 184, 166, 0.35)
+                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.35)
                     }
                 }
 

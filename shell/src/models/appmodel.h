@@ -13,16 +13,21 @@ class App : public QObject {
     Q_PROPERTY(QString icon READ icon CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
     Q_PROPERTY(QString exec READ exec CONSTANT)
+    Q_PROPERTY(QStringList permissions READ permissions CONSTANT)
+    Q_PROPERTY(QString flatpakRef READ flatpakRef CONSTANT)
 
   public:
     explicit App(const QString &id, const QString &name, const QString &icon, const QString &type,
-                 const QString &exec = QString(), QObject *parent = nullptr)
+                 const QString &exec = QString(), const QStringList &permissions = QStringList(),
+                 const QString &flatpakRef = QString(), QObject *parent = nullptr)
         : QObject(parent)
         , m_id(id)
         , m_name(name)
         , m_icon(icon)
         , m_type(type)
-        , m_exec(exec) {}
+        , m_exec(exec)
+        , m_permissions(permissions)
+        , m_flatpakRef(flatpakRef) {}
 
     QString id() const {
         return m_id;
@@ -39,13 +44,21 @@ class App : public QObject {
     QString exec() const {
         return m_exec;
     }
+    QStringList permissions() const {
+        return m_permissions;
+    }
+    QString flatpakRef() const {
+        return m_flatpakRef;
+    }
 
   private:
-    QString m_id;
-    QString m_name;
-    QString m_icon;
-    QString m_type;
-    QString m_exec;
+    QString     m_id;
+    QString     m_name;
+    QString     m_icon;
+    QString     m_type;
+    QString     m_exec;
+    QStringList m_permissions;
+    QString     m_flatpakRef;
 };
 
 class AppModel : public QAbstractListModel {
@@ -53,16 +66,17 @@ class AppModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum AppRoles {
+    enum AppRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         IconRole,
         TypeRole,
-        ExecRole
+        ExecRole,
+        FlatpakRefRole
     };
 
     explicit AppModel(QObject *parent = nullptr);
-    ~AppModel();
+    ~AppModel() override;
 
     int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -72,19 +86,22 @@ class AppModel : public QAbstractListModel {
         return m_apps.count();
     }
 
-    Q_INVOKABLE App    *getApp(const QString &appId);
-    Q_INVOKABLE App    *getAppAtIndex(int index);
-    Q_INVOKABLE void    addApp(const QString &id, const QString &name, const QString &icon,
-                               const QString &type, const QString &exec = QString());
-    Q_INVOKABLE void    addApps(const QVariantList &apps);
-    Q_INVOKABLE void    removeApp(const QString &appId);
-    Q_INVOKABLE void    clear();
-    Q_INVOKABLE QString getAppName(const QString &appId);
-    Q_INVOKABLE QString getAppIcon(const QString &appId);
-    Q_INVOKABLE bool    isNativeApp(const QString &appId);
-    Q_INVOKABLE void    sortAppsByName();
+    Q_INVOKABLE App        *getApp(const QString &appId);
+    Q_INVOKABLE App        *getAppAtIndex(int index);
+    Q_INVOKABLE void        addApp(const QString &id, const QString &name, const QString &icon,
+                                   const QString &type, const QString &exec = QString(),
+                                   const QStringList &permissions = QStringList(),
+                                   const QString     &flatpakRef  = QString());
+    Q_INVOKABLE void        addApps(const QVariantList &apps);
+    Q_INVOKABLE void        removeApp(const QString &appId);
+    Q_INVOKABLE void        clear();
+    Q_INVOKABLE QString     getAppName(const QString &appId);
+    Q_INVOKABLE QString     getAppIcon(const QString &appId);
+    Q_INVOKABLE bool        isNativeApp(const QString &appId);
+    Q_INVOKABLE void        sortAppsByName();
+    Q_INVOKABLE QStringList appIdsByType(const QString &type) const;
 
-    Q_INVOKABLE void    loadFromRegistry(QObject *registryObj);
+    Q_INVOKABLE void        loadFromRegistry(QObject *registryObj);
 
   signals:
     void countChanged();

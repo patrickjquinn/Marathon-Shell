@@ -7,7 +7,7 @@
 #include <sched.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <errno.h>
+#include <cerrno>
 #include <cstring>
 #endif
 
@@ -20,70 +20,62 @@ RTScheduler::RTScheduler(QObject *parent)
 
 void RTScheduler::detectKernelCapabilities() {
 #ifdef Q_OS_LINUX
+    // Two independent capabilities matter here:
+    //
+    //   (1) SCHED_FIFO permission -- the shell needs CAP_SYS_NICE (or rtprio in
+    //       /etc/security/limits.conf) to elevate its compositor/input threads
+    //       to SCHED_FIFO. Without this we run on SCHED_OTHER and may drop
+    //       frames under heavy CPU load. THIS is what we actually need.
+    //
+    //   (2) PREEMPT_RT kernel -- bounds worst-case latency for SCHED_FIFO
+    //       threads (~280 µs vs ~700 µs under load). For a 60–120 Hz touch UI
+    //       with a 8–16 ms frame budget this is well below the noise floor.
+    //       postmarketOS, Plasma Mobile, Phosh and Android all ship with
+    //       CONFIG_PREEMPT (low-latency, not PREEMPT_RT). It's a nice-to-have
+    //       primarily for hard-real-time audio paths.
 
+    // Detect the kernel preemption model -- informational only.
     QFile realtimeFile("/sys/kernel/realtime");
     if (realtimeFile.exists() && realtimeFile.open(QIODevice::ReadOnly)) {
         QTextStream stream(&realtimeFile);
-        QString     value  = stream.readLine().trimmed();
-        m_isRealtimeKernel = (value == "1");
-        realtimeFile.close();
-
-        if (m_isRealtimeKernel) {
-            qInfo() << "[RTScheduler] ✓ PREEMPT_RT kernel detected";
-        } else {
-            qCritical() << "[RTScheduler] ✗ NOT running on PREEMPT_RT kernel!";
-            qCritical() << "[RTScheduler]   This WILL cause performance issues on mobile devices.";
-            qCritical() << "[RTScheduler]   Rebuild kernel with CONFIG_PREEMPT_RT=y";
-        }
+        m_isRealtimeKernel = (stream.readLine().trimmed() == "1");
     } else {
-
         QFile versionFile("/proc/version");
         if (versionFile.open(QIODevice::ReadOnly)) {
             QTextStream stream(&versionFile);
-            QString     version = stream.readAll();
-            m_isRealtimeKernel  = version.contains("PREEMPT_RT");
-            versionFile.close();
+            m_isRealtimeKernel = stream.readAll().contains("PREEMPT_RT");
         }
     }
 
+    if (m_isRealtimeKernel) {
+        qInfo() << "[RTScheduler] PREEMPT_RT kernel detected (bonus: bounded worst-case latency)";
+    } else {
+        qInfo() << "[RTScheduler] Standard preemptible kernel (CONFIG_PREEMPT). "
+                   "PREEMPT_RT is not required for typical phone workloads.";
+    }
+
+    // Probe RT-class permission -- the actual requirement.
+    // Use SCHED_RR (the policy the compositor will adopt) so the probe
+    // matches reality. CAP_SYS_NICE / rtprio in limits.conf governs both
+    // SCHED_FIFO and SCHED_RR identically.
     struct sched_param param;
     param.sched_priority = 1;
-
-    if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
-        m_hasRTPermissions = true;
-
+    if (sched_setscheduler(0, SCHED_RR, &param) == 0) {
+        m_hasRTPermissions   = true;
         param.sched_priority = 0;
         sched_setscheduler(0, SCHED_OTHER, &param);
-        qInfo() << "[RTScheduler] ✓ RT scheduling permissions available";
+        qInfo() << "[RTScheduler] Real-time scheduling available";
     } else {
         m_hasRTPermissions = false;
-        qCritical() << "╔════════════════════════════════════════════════════════════╗";
-        qCritical() << "║ [RTScheduler]  RT SCHEDULING NOT AVAILABLE               ║";
-        qCritical() << "╠════════════════════════════════════════════════════════════╣";
-        qCritical() << "║ IMPACT: Shell will run with DEGRADED performance          ║";
-        qCritical() << "║         - Touch latency may be higher                     ║";
-        qCritical() << "║         - Compositor may drop frames                      ║";
-        qCritical() << "║         - Audio/video may stutter                         ║";
-        qCritical() << "╠════════════════════════════════════════════════════════════╣";
-        qCritical() << "║ REQUIRED FOR: postmarketOS / Mobile device deployment     ║";
-        qCritical() << "║ OPTIONAL FOR: Desktop testing only                        ║";
-        qCritical() << "╠════════════════════════════════════════════════════════════╣";
-        qCritical() << "║ FIX (Option 1): Grant CAP_SYS_NICE capability             ║";
-        qCritical() << "║   sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell     ║";
-        qCritical() << "║                                                            ║";
-        qCritical() << "║ FIX (Option 2): Configure /etc/security/limits.conf       ║";
-        qCritical() << "║   username  -  rtprio  99                                 ║";
-        qCritical() << "║   username  -  nice    -20                                ║";
-        qCritical() << "╠════════════════════════════════════════════════════════════╣";
-        qCritical() << "║ KERNEL REQUIREMENT: CONFIG_PREEMPT_RT=y                   ║";
-        qCritical() << "║ Check: cat /sys/kernel/realtime                           ║";
-        qCritical() << "║ Expected: 1 (PREEMPT_RT enabled)                          ║";
-        qCritical() << "║ Current kernel: "
-                    << (m_isRealtimeKernel ? "PREEMPT_RT ✓" : "STANDARD (missing RT!) ✗");
-        qCritical() << "╚════════════════════════════════════════════════════════════╝";
-
-        if (errno != EPERM && errno != ENOSYS) {
-            qCritical() << "[RTScheduler] System error:" << strerror(errno);
+        const int err      = errno;
+        qWarning() << "[RTScheduler] Real-time scheduling not permitted -- compositor and "
+                      "input threads will run on SCHED_OTHER. Frame pacing may suffer "
+                      "under heavy CPU load (background browsers, app launches, etc.).";
+        qWarning() << "[RTScheduler] Fix: sudo setcap cap_sys_nice+ep "
+                      "/usr/bin/marathon-shell-bin   (or grant rtprio via "
+                      "/etc/security/limits.conf, then re-login).";
+        if (err != EPERM && err != ENOSYS) {
+            qWarning() << "[RTScheduler] System error:" << strerror(err);
         }
     }
 #else
@@ -91,7 +83,7 @@ void RTScheduler::detectKernelCapabilities() {
 #endif
 }
 
-bool RTScheduler::setRealtimePriority(int priority) {
+bool RTScheduler::setRealtimePriority(int priority) const {
 #ifdef Q_OS_LINUX
     if (!m_hasRTPermissions) {
         qWarning() << "[RTScheduler] Cannot set RT priority - permissions not available (shell "
@@ -112,7 +104,7 @@ bool RTScheduler::setRealtimePriority(int priority) {
         return false;
     }
 
-    qInfo() << "[RTScheduler] ✓ Set thread RT priority:" << priority;
+    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
     return true;
 #else
     Q_UNUSED(priority);
@@ -120,7 +112,7 @@ bool RTScheduler::setRealtimePriority(int priority) {
 #endif
 }
 
-bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
+bool RTScheduler::setThreadPriority(QThread *thread, int priority) const {
 #ifdef Q_OS_LINUX
     if (!thread) {
         qWarning() << "[RTScheduler] Null thread pointer";
@@ -137,7 +129,7 @@ bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
         return false;
     }
 
-    pthread_t          threadHandle = reinterpret_cast<pthread_t>(thread->currentThreadId());
+    pthread_t          threadHandle = reinterpret_cast<pthread_t>(QThread::currentThreadId());
 
     struct sched_param param;
     param.sched_priority = priority;
@@ -147,7 +139,7 @@ bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
         return false;
     }
 
-    qInfo() << "[RTScheduler] ✓ Set thread RT priority:" << priority;
+    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
     return true;
 #else
     Q_UNUSED(thread);

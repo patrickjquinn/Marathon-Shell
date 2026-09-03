@@ -1,0 +1,485 @@
+#!/bin/sh
+# Marathon Shell session entry point (postmarketOS).
+#
+# Run as the auto-login user via greetd. Sets up the Wayland compositor
+# environment, picks the right QPA backend for the target hardware, and
+# execs the shell binary.
+
+# ---- Session identity --------------------------------------------------------
+
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=marathon
+export XDG_CURRENT_DESKTOP=marathon
+
+# ---- Marathon paths ----------------------------------------------------------
+
+export MARATHON_PREFIX="${MARATHON_PREFIX:-/usr}"
+export MARATHON_APPS_DIR="${MARATHON_APPS_DIR:-/usr/share/marathon-apps}"
+export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-/usr/share/marathon-shell}"
+
+# QML modules ship under /usr/lib/qt6/qml on Alpine.
+export QML_IMPORT_PATH="/usr/lib/qt6/qml:${QML_IMPORT_PATH:-}"
+export QML2_IMPORT_PATH="/usr/lib/qt6/qml:${QML2_IMPORT_PATH:-}"
+
+# ---- QPA platform selection --------------------------------------------------
+#
+# OVERRIDE order:
+#   1. $QT_QPA_PLATFORM already exported by the caller — respected.
+#   2. /sys/class/drm/card*/device/uevent contains "DRIVER=virtio_gpu"
+#      → QEMU VM, prefer "kms" (DRM-KMS direct rendering).
+#   3. Otherwise → "eglfs" (real phone hardware).
+#
+# Marathon Shell IS the compositor; we never want a Wayland-CLIENT plugin here.
+
+IS_VIRTIO_GPU=0
+# Detect QEMU virtio-gpu by PCI vendor:device, which is populated by the
+# kernel as soon as the bus enumerates — well before greetd spawns us, and
+# regardless of whether the virtio_gpu *driver* has bound yet (the driver
+# can autoload lazily when /dev/dri/card0 is first opened). Checking via
+# /sys/class/drm/.../uevent has a race we don't want to hit.
+if grep -qsE '^PCI_ID=1AF4:1050' /sys/bus/pci/devices/*/uevent 2>/dev/null; then
+    IS_VIRTIO_GPU=1
+fi
+
+if [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    # eglfs+eglfs_kms_atomic is the right combo on both real phone hardware
+    # and on QEMU virtio-gpu — Qt has no standalone "kms" platform plugin.
+    # Atomic modeset (vs legacy eglfs_kms) gives us: atomic property
+    # setting (no mid-frame flicker), hardware plane composition (L5's
+    # DSI controller has overlay planes for status bar / keyboard / lock),
+    # smoother page-flip timing required by commit-timing-v1, and is a
+    # prerequisite for drm-syncobj explicit-sync.
+    export QT_QPA_PLATFORM=eglfs
+    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms_atomic
+    export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+    # Marathon is touch-first — no system cursor needed. Without
+    # HIDECURSOR, eglfs polls a (non-existent on phone hardware) DRM
+    # cursor plane every input event and spams the runtime log:
+    #   "Could not set cursor on screen UNKNOWN1: -6"
+    # On the CM5 + HyperPixel panel this generates ~100 warnings/sec
+    # during any touch interaction. Documented by the Qt eglfs backend.
+    export QT_QPA_EGLFS_HIDECURSOR=1
+fi
+
+# QEMU virtio-gpu reports a fake desktop-monitor physical size in EDID, so Qt
+# derives ~108 DPI for a phone-shaped 720x1440 canvas and the shell renders at
+# desktop scale. Inject the DPI override here (read by ScreenMetrics::computeDpi)
+# so QEMU validation matches the locked design canvas. Unset on real devices.
+#
+# The DS canvas is 390x844 design-px (marathon-tokens.css .phone — the
+# iPhone-14-Pro-scaled artboard every JSX screen reference draws against).
+# QEMU's canvas is 720x1440 hardware-px. To render the 390-wide design at
+# full canvas width:
+#     scaleFactor = 720 / 390 = 1.846
+#     DPI         = scaleFactor * baseDPI(160) = 295.4 ≈ 296
+# Every design-px token then scales by 1.85x to fill the canvas without
+# overshooting it. An earlier 160 setting rendered the 390-design at only
+# 54% of canvas width — what the user described as "the UI looks stupid
+# and small at whatever scale you have it on."
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
+    export MARATHON_FORCE_DPI=296
+fi
+
+# Skip the lock screen on startup under QEMU. We have no good way to drive
+# the swipe-to-unlock gesture from a virtio-tablet test harness, and the
+# point of the QEMU image is to validate the shell + apps -- not the
+# unlock pipeline that real phone hardware exercises every day. The env
+# is honored by SessionStore::reset(); on real phones it stays unset and
+# the shell boots locked as usual.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_NO_INITIAL_LOCK:-}" ]; then
+    export MARATHON_NO_INITIAL_LOCK=1
+fi
+
+# Headless QEMU validation needs to drive Navigation.LaunchApp etc. via
+# busctl without coming from a registered Marathon app PID. The shell's
+# DBus services normally reject those calls with AccessDenied; the test
+# bypass admits a synthetic trusted caller. Strictly QEMU-only —
+# IS_VIRTIO_GPU is the same gate used for MARATHON_FORCE_DPI/NO_INITIAL_LOCK.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_TEST_TRUSTED:-}" ]; then
+    export MARATHON_TEST_TRUSTED=1
+fi
+
+# Under virtio-gpu, Mesa's loader auto-picks the virgl Gallium driver via
+# usr/lib/dri/virtio_gpu_dri.so → libgallium-26.1.0.so. virgl speaks the
+# virgl3d wire protocol to the host's virglrenderer, which translates to
+# native host GL — on M1 Asahi that's libGL → Apple GPU.
+#
+# Requires our locally-built mesa-26.1.0-r100 (or later) apks in
+# mkosi.packages/, since upstream Alpine's mesa for aarch64 is compiled
+# without virgl in _gallium_drivers. If we're running on an image WITHOUT
+# the virgl-enabled Mesa, the loader falls back to llvmpipe (software)
+# and Marathon's GL shaders still render, just slowly. We log a hint
+# either way so the failure mode is debuggable.
+#
+# No MESA_LOADER_DRIVER_OVERRIDE here — let Mesa choose. The previous
+# Zink-over-Venus path needed mesa-vulkan-virtio (Venus protocol) but
+# Venus on M1 wedges boot without unmerged 16KiB blob-alignment patches,
+# so virgl is the path forward for QEMU acceleration on Apple Silicon
+# until Venus catches up.
+#
+# CAVEAT — the "falls back to llvmpipe, just slowly" claim above is wrong
+# on aarch64 Alpine: LLVMpipe's MCJIT crashes during
+# llvm::AsmPrinter::doFinalization (libLLVM.so.22 + 0x1820e48), so eglfs
+# can never create a GL context and the shell SIGSEGVs on every greetd
+# launch. Detect this configuration and switch Qt Quick to its software
+# 2D renderer (QT_QUICK_BACKEND=software) — bypasses the GL path entirely,
+# screenshots still work, ShaderEffect QML items degrade to flat fills.
+# Triggered when:
+#   1. MARATHON_FORCE_SOFTWARE_RENDER=1 in env (harness override), OR
+#   2. We're on virtio-gpu AND the virgl-enabled libgallium isn't on disk
+#      (=> no hardware GL possible).
+NEED_SOFTWARE_BACKEND=0
+if [ "${MARATHON_FORCE_SOFTWARE_RENDER:-0}" = "1" ]; then
+    NEED_SOFTWARE_BACKEND=1
+elif [ "$IS_VIRTIO_GPU" = 1 ]; then
+    # Mesa's virgl Gallium driver lives in libgallium-*.so. If the only
+    # gallium on disk lacks virgl we know LLVMpipe is the only option —
+    # guarantee a SEGV.
+    #
+    # This probed with `nm -D`, which is NOT in the image (binutils is a
+    # build dependency, not a runtime one). The command therefore always
+    # failed, `!` always inverted to true, and NEED_SOFTWARE_BACKEND was
+    # set on EVERY boot regardless of hardware — so the QEMU dev-sim ran
+    # QT_QUICK_BACKEND=software + linuxfb even with working virgl, which
+    # is why WebEngine apps could not launch there and the shell hit
+    # SIGSEGVs inside libqlinuxfb.
+    #
+    # `grep -a` reads the .so directly and ships in busybox, so the probe
+    # now uses only what the image actually has. The virtio_gpu_dri.so
+    # check is the more direct signal — that file existing IS the virgl
+    # Gallium driver being installed — with the libgallium scan kept as a
+    # fallback for layouts that name it differently.
+    GALLIUM_SO="$(ls /usr/lib/libgallium*.so* 2>/dev/null | head -1)"
+    if [ -e /usr/lib/dri/virtio_gpu_dri.so ]; then
+        : # virgl Gallium driver present — hardware GL is possible
+    elif [ -z "$GALLIUM_SO" ] || ! grep -qa virgl "$GALLIUM_SO" 2>/dev/null; then
+        NEED_SOFTWARE_BACKEND=1
+    fi
+fi
+if [ "$NEED_SOFTWARE_BACKEND" = 1 ]; then
+    export QT_QUICK_BACKEND=software
+    # eglfs is GL-only — QBackingStore::resize aborts inside the software
+    # backend because eglfs has no software paint device. linuxfb writes
+    # the scene-graph straight into /dev/fb0 (the virtio-gpu DRM-fb the
+    # kernel sets up at boot). Override the eglfs decision below.
+    export QT_QPA_PLATFORM=linuxfb
+    unset QT_QPA_EGLFS_INTEGRATION
+    unset QT_QPA_EGLFS_ALWAYS_SET_MODE
+    echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software + QT_QPA_PLATFORM=linuxfb" >&2
+fi
+
+# ---- Vivante blob GPU stack (opt-in, DEFENSIVE) ------------------------------
+#
+# The Librem 5 can render on the proprietary NXP Vivante userspace (galcore +
+# /usr/lib/vivante, from librem5-vivante-blobs) for GLES3.1 + WebGL instead of
+# the open etnaviv/Mesa stack. Opt-in via GPU_STACK=vivante-blob in
+# /etc/marathon/device-profile.conf. It is DELIBERATELY hard to get stuck on:
+# we switch only if the whole chain checks out AND the previous vivante boot
+# didn't just crash — otherwise we fall straight back to etnaviv so a bad blob
+# can never leave the phone on a black, unwakeable screen. Vivante's libEGL
+# advertises EGL_KHR_platform_gbm, so the existing eglfs_kms_atomic integration
+# drives it; we only redirect the loader (LD_LIBRARY_PATH) and drop the
+# Mesa-only driver override.
+_gpu_stack="mesa-etnaviv"
+if [ -r /etc/marathon/device-profile.conf ]; then
+    _v=$(sed -n 's/^[[:space:]]*GPU_STACK[[:space:]]*=[[:space:]]*//p' \
+            /etc/marathon/device-profile.conf | tr -d '"' | head -1)
+    [ -n "$_v" ] && _gpu_stack="$_v"
+fi
+[ -n "${MARATHON_GPU_STACK:-}" ] && _gpu_stack="$MARATHON_GPU_STACK"
+export MARATHON_ACTIVE_GPU_STACK="mesa-etnaviv"
+
+if [ "$_gpu_stack" = "vivante-blob" ] && [ "$IS_VIRTIO_GPU" != 1 ] \
+   && [ "$NEED_SOFTWARE_BACKEND" != 1 ]; then
+    _viv_lib=/usr/lib/vivante
+    _viv_ok=1
+    _viv_why=""
+    # Crash-loop guard: a marker in XDG_RUNTIME_DIR (tmpfs → cleared every
+    # power-on) records the last vivante attempt. If it's fresh (< 45 s) we
+    # are in a greetd restart loop from a vivante boot that just died — fall
+    # back to etnaviv THIS boot so the device comes up wakeable. A clean
+    # power-on always retries vivante (marker gone).
+    _viv_marker="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.marathon-vivante-boot"
+    if [ -f /etc/marathon/force-etnaviv ]; then
+        _viv_ok=0; _viv_why="force-etnaviv marker present"
+    elif [ -e "$_viv_marker" ] \
+         && [ "$(( $(date +%s) - $(stat -c %Y "$_viv_marker" 2>/dev/null || echo 0) ))" -lt 45 ]; then
+        _viv_ok=0; _viv_why="previous vivante boot crashed < 45s ago — recovering on etnaviv"
+    elif [ ! -e "$_viv_lib/libEGL.so.1" ]; then
+        _viv_ok=0; _viv_why="vivante userspace missing at $_viv_lib"
+    else
+        # galcore must be up and its char node present, else the GPU isn't
+        # actually available on the blob path.
+        [ -e /dev/galcore ] || modprobe galcore >/dev/null 2>&1 || true
+        _i=0
+        while [ ! -e /dev/galcore ] && [ "$_i" -lt 10 ]; do sleep 0.2; _i=$((_i + 1)); done
+        [ -e /dev/galcore ] || { _viv_ok=0; _viv_why="galcore not loaded / /dev/galcore absent"; }
+    fi
+
+    if [ "$_viv_ok" = 1 ]; then
+        # Stamp the attempt BEFORE launching, so a crash within 45 s trips the
+        # guard on the next greetd restart.
+        : > "$_viv_marker" 2>/dev/null || true
+        export LD_LIBRARY_PATH="$_viv_lib:${LD_LIBRARY_PATH:-}"
+        unset MESA_LOADER_DRIVER_OVERRIDE
+        export MARATHON_ACTIVE_GPU_STACK="vivante-blob"
+        echo "[marathon-shell-session] GPU stack: vivante-blob (LD_LIBRARY_PATH=$_viv_lib)" >&2
+    else
+        echo "[marathon-shell-session] GPU stack: etnaviv fallback — $_viv_why" >&2
+    fi
+fi
+
+# ---- Qt-wide env -------------------------------------------------------------
+
+export QT_MEDIA_BACKEND=gstreamer
+export QT_WEBENGINE_DISABLE_SANDBOX=1
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_QUICK_CONTROLS_STYLE=Basic
+
+# Disable Qt's HiDPI auto-scaling — Marathon does its own scale factor work
+# via Constants.scaleFactor and DEVICE_DPI.
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_ENABLE_HIGHDPI_SCALING=0
+
+# Threaded scenegraph (uses additional cores for paint/upload).
+export QSG_RENDER_LOOP=threaded
+
+# QML disk cache for fast cold-start.
+# Cache is keyed by qmlcache's internal hashes — but they do NOT include
+# the SHELL BINARY mtime, so a marathon-shell-bin rebuild that ships
+# updated QML (without renaming files) reuses stale .qmlc and renders
+# the OLD layout. We saw this break the URL-keyboard rows 3+4 across
+# r129→r132. Stamp the cache with the binary's mtime and nuke it on
+# mismatch — costs one cold-start frame, fixes silent visual regressions.
+export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QT_QML_DISK_CACHE_PATH"
+SHELL_BIN_MTIME=$(stat -c %Y /usr/bin/marathon-shell-bin 2>/dev/null || echo 0)
+STAMP_FILE="$QT_QML_DISK_CACHE_PATH/.shell-bin-mtime"
+PREV_STAMP=$(cat "$STAMP_FILE" 2>/dev/null || echo 0)
+if [ "$SHELL_BIN_MTIME" != "$PREV_STAMP" ]; then
+    find "$QT_QML_DISK_CACHE_PATH" -mindepth 1 -delete 2>/dev/null || true
+    echo "$SHELL_BIN_MTIME" > "$STAMP_FILE"
+fi
+
+# ---- Wayland runtime ---------------------------------------------------------
+
+# The COMPOSITOR (server) loads ONLY Marathon's linux-dmabuf-v1 v4 plugin.
+# This is a standalone Qt client-buffer-integration (ships in the
+# marathon-shell apk from shell/wayland-plugins/dmabuf-v1) that both
+# advertises the render device through zwp_linux_dmabuf_v1 v4 main_device
+# feedback AND imports the app's dmabuf buffers to EGLImages. Mesa >= 26.1
+# on etnaviv needs that v4 feedback to discover renderD128; without it every
+# app degrades to llvmpipe (software). Stock Qt only ships a v3 dmabuf plugin
+# (no feedback), so it can't be used.
+#
+# Do NOT add "wayland-egl" to this SERVER list: Qt's wayland-egl server
+# integration segfaults in createBufferFor() on etnaviv because Mesa's EGL
+# has no eglQueryWaylandBufferWL, and it crash-loops the compositor the
+# instant an app commits its first buffer. (Validated live on L5 2026-07-06.)
+export QT_WAYLAND_HARDWARE_INTEGRATION="linux-dmabuf-v1"
+
+# The APP CLIENTS (which inherit this env) use the stock wayland-egl CLIENT
+# integration — Mesa allocates via EGL and shares through zwp_linux_dmabuf_v1
+# underneath, which our v4 server plugin imports. Pinning this is REQUIRED:
+# without it the client tries to load "linux-dmabuf-v1" (a server-only plugin
+# name it inherits from HARDWARE_INTEGRATION) as its client integration, fails,
+# and its QRhi/scenegraph dies. Server role != client role — they must differ.
+# wl_drm stays OFF by default (see shell/src/wayland/wldrm.cpp): with it
+# advertised, Mesa allocates surface buffers via wl_drm's inert stub instead
+# of dmabuf and the app surface never maps.
+export QT_WAYLAND_CLIENT_BUFFER_INTEGRATION="wayland-egl"
+
+export WAYLAND_DISPLAY=wayland-0
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+
+# Sweep stale Wayland socket + lockfile from a previous shell instance that
+# died via SIGKILL/SIGABRT before Qt could release them. Systemd Restart=
+# would otherwise crash-loop forever as the new instance fails to open the
+# server socket. Safe to run unconditionally because we're about to bind
+# the socket ourselves.
+rm -f "$XDG_RUNTIME_DIR/marathon-wayland-0" \
+      "$XDG_RUNTIME_DIR/marathon-wayland-0.lock" 2>/dev/null || true
+
+# ---- Logging -----------------------------------------------------------------
+# MARATHON_DEBUG=1 turns on full Qt logging. Without it, only warnings + the
+# marathon.* info channel reach the journal.
+
+if [ "${MARATHON_DEBUG:-0}" = "1" ]; then
+    export QT_LOGGING_RULES="*.debug=true;*.info=true;qt.qpa.input=true;marathon.*.info=true"
+else
+    export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
+fi
+
+# ---- Accessibility -----------------------------------------------------------
+# AT-SPI bridge enabled by default so Orca / accerciser see the shell. Set
+# MARATHON_NO_A11Y=1 in the user's environment to opt out (e.g. tiny systems
+# where at-spi2-core isn't installed).
+
+if [ "${MARATHON_NO_A11Y:-0}" = "1" ]; then
+    export NO_AT_BRIDGE=1
+    export GTK_A11Y=none
+    export QT_ACCESSIBILITY=0
+else
+    export QT_ACCESSIBILITY=1
+fi
+
+# ---- GIO / dconf fallback ---------------------------------------------------
+
+export GIO_USE_VFS=local
+export GSETTINGS_BACKEND=memory
+
+# ---- D-Bus session bus -------------------------------------------------------
+#
+# pam_systemd in greetd's PAM stack starts a per-user dbus-broker on
+# $XDG_RUNTIME_DIR/bus, but greetd's session command runs OUTSIDE the user's
+# systemd manager so it doesn't inherit DBUS_SESSION_BUS_ADDRESS. Without it,
+# marathon-shell-bin and marathon-app-runner can't register the
+# org.marathonos.Shell IPC and apps wedge on their first D-Bus call.
+#
+# Prefer the systemd-managed bus when its socket exists; fall back to
+# dbus-run-session only if nothing else is around (e.g. systemd-less
+# distros).
+
+# If the caller already supplied a working DBUS_SESSION_BUS_ADDRESS
+# (e.g. greetd wraps the command with `dbus-run-session --`, or the
+# user's PAM stack pulls XDG_RUNTIME_DIR/bus into the env directly),
+# trust it. Without this guard the script clobbers a perfectly good
+# externally-set bus address with /run/user/$UID/bus — and on systems
+# where the user manager's bus broker is up but isn't actually
+# reachable from the spawned process (a real race we hit on Librem 5
+# with greetd's PAM session opener), every D-Bus call from
+# marathon-shell-bin then times out, blocking the main thread and
+# tanking shell responsiveness even though the GPU is fine.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    # pam_systemd creates $XDG_RUNTIME_DIR/bus asynchronously after pam_open_session
+    # returns, so greetd's session command can race ahead of the socket existing.
+    # Poll up to ~6 s for the SOCKET to appear AND for it to be REACHABLE
+    # (a dbus-send GetId probe round-trips). Just checking -S is not
+    # enough on Librem 5: the socket can land before systemd-user-instance
+    # is actually serving requests on it, and the shell then connects to
+    # a dead listener — every D-Bus call from marathon-shell-bin times
+    # out at 25 s (LocationManager init, ShellIpcServer register, etc.),
+    # the main thread wedges in D-state per sync call, frame rate
+    # collapses to ~2 fps.
+    BUS_OK=0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        if [ -S "$XDG_RUNTIME_DIR/bus" ] && \
+           timeout 1 dbus-send --bus="unix:path=$XDG_RUNTIME_DIR/bus" --print-reply \
+               --dest=org.freedesktop.DBus /org/freedesktop/DBus \
+               org.freedesktop.DBus.GetId >/dev/null 2>&1; then
+            BUS_OK=1
+            break
+        fi
+        sleep 0.3
+    done
+
+    if [ "$BUS_OK" = 1 ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    fi
+fi
+
+# Fallback when the systemd-user-instance bus is NOT reachable (e.g. PAM
+# race on Librem 5, or systemd-less distros): spawn dbus-run-session as
+# the IMMEDIATE parent of marathon-shell-bin so the bus stays alive for
+# the lifetime of the shell. systemd-run --user --scope below would
+# orphan the shell from dbus-run-session — bus dies on bash exit — so
+# we explicitly skip the scope branch here. Lifecycle freezer becomes
+# a no-op on this path; functional shell trumps cgroup features.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+fi
+
+# Diagnostic: leave a breadcrumb of the env we're about to exec marathon-shell-bin
+# with. Useful for debugging the QEMU validation flow; cheap on real phones.
+mkdir -p /home/user/.marathon 2>/dev/null
+{
+    echo "=== marathon-shell-session exec @ $(date -u) ==="
+    echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+    echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+    echo "QT_QPA_PLATFORM=$QT_QPA_PLATFORM"
+    echo "QT_QPA_EGLFS_INTEGRATION=$QT_QPA_EGLFS_INTEGRATION"
+    echo "QT_QPA_EGLFS_KMS_CONFIG=$QT_QPA_EGLFS_KMS_CONFIG"
+    echo "MESA_LOADER_DRIVER_OVERRIDE=$MESA_LOADER_DRIVER_OVERRIDE"
+    echo "MARATHON_SAMPLES=$MARATHON_SAMPLES"
+    echo "QSG_SAMPLES=$QSG_SAMPLES"
+    echo "QSG_RENDER_LOOP=$QSG_RENDER_LOOP"
+    echo "QT_WAYLAND_HARDWARE_INTEGRATION=$QT_WAYLAND_HARDWARE_INTEGRATION"
+    ls -la "$XDG_RUNTIME_DIR/bus" 2>&1
+    # Probe the actual D-Bus broker the address points to. Times out fast
+    # if the broker isn't responding; tells us instantly whether the env
+    # we're about to exec marathon-shell-bin with is actually usable.
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        echo "--- dbus-send GetId test (3s timeout) ---"
+        timeout 3 dbus-send --session --print-reply --dest=org.freedesktop.DBus \
+            /org/freedesktop/DBus org.freedesktop.DBus.GetId 2>&1 \
+            | head -5
+    fi
+} > /home/user/.marathon/session-env.log 2>&1
+
+# ---- Launch ------------------------------------------------------------------
+#
+# The shell is launched inside a Delegate=yes user slice so it can carve
+# per-app cgroups for cgroup.freeze (see CgroupManager). We probe for
+# systemd-run + the marathon.slice unit first; if either is missing
+# (older images, debug runs) we fall through to a plain exec and the
+# lifecycle freezer becomes a no-op cleanly.
+
+if command -v systemd-run >/dev/null 2>&1 && \
+   systemctl --user cat marathon.slice >/dev/null 2>&1; then
+    # NOTE: pinning OOMScoreAdjust=-800 via systemd-run --user --property=
+    # fails on this systemd build (user-bus rejects negative values that
+    # require CAP_SYS_RESOURCE — "Unknown assignment" error, shell never
+    # launches). Tracked separately; shell logs a warning at boot if the
+    # score is not at PERSISTENT_PROC bias. A future fix lands a
+    # system-level marathon-shell.service that systemd itself privileges.
+    #
+    # --setenv=VAR (without =VALUE) inherits from the calling env. Without
+    # explicit forwarding, the new scope inherits the systemd-user-
+    # instance's view of DBUS_SESSION_BUS_ADDRESS ($XDG_RUNTIME_DIR/bus),
+    # which OVERRIDES the /tmp/dbus-XXX address dbus-run-session set up
+    # for greetd's session. On Librem 5 this is fatal: the user-instance
+    # bus has a PAM-vs-spawn race that leaves it unreachable from the
+    # spawned scope, so every D-Bus call from marathon-shell-bin times
+    # out after 25 s — LocationManager hangs init, ShellIpcServer can't
+    # register, the shell wedges D-state on each sync call, framerate
+    # collapses to ~2 fps. Confirmed via ~/.marathon/crash.log on r14:
+    # "Failed to connect to D-Bus session bus" + "Did not receive a
+    # reply" cluster on every boot. The full env list below forwards
+    # every variable our session script established BEFORE handing off
+    # to the cgroup-scoped marathon-shell-bin.
+    exec systemd-run --user --quiet --collect --scope \
+        --slice=marathon.slice \
+        --unit="marathon-shell-$$" \
+        --setenv=DBUS_SESSION_BUS_ADDRESS \
+        --setenv=XDG_RUNTIME_DIR \
+        --setenv=WAYLAND_DISPLAY \
+        --setenv=QT_QPA_PLATFORM \
+        --setenv=QT_QPA_EGLFS_INTEGRATION \
+        --setenv=QT_QPA_EGLFS_KMS_CONFIG \
+        --setenv=QT_QPA_EGLFS_ALWAYS_SET_MODE \
+        --setenv=QT_QPA_EGLFS_HIDECURSOR \
+        --setenv=QSG_RENDER_LOOP \
+        --setenv=QT_WAYLAND_HARDWARE_INTEGRATION \
+        --setenv=QT_WAYLAND_CLIENT_BUFFER_INTEGRATION \
+        --setenv=QT_AUTO_SCREEN_SCALE_FACTOR \
+        --setenv=QT_ENABLE_HIGHDPI_SCALING \
+        --setenv=QT_LOGGING_RULES \
+        --setenv=QT_MEDIA_BACKEND \
+        --setenv=QT_QML_DISK_CACHE_PATH \
+        --setenv=QML_IMPORT_PATH \
+        --setenv=QML2_IMPORT_PATH \
+        --setenv=MESA_LOADER_DRIVER_OVERRIDE \
+        --setenv=LD_LIBRARY_PATH \
+        --setenv=MARATHON_ACTIVE_GPU_STACK \
+        --setenv=MARATHON_FORCE_DPI \
+        --setenv=MARATHON_LAYER_SAMPLES \
+        --setenv=MARATHON_APPS_DIR \
+        --setenv=MARATHON_DATA_DIR \
+        --setenv=MARATHON_PREFIX \
+        -- /usr/bin/marathon-shell-bin "$@"
+fi
+
+exec /usr/bin/marathon-shell-bin "$@"

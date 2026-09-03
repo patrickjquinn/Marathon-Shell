@@ -1,5 +1,13 @@
 #include "sessionstore.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+SessionStore *SessionStore::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SessionStore(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
+#include <QByteArray>
 #include <QDateTime>
 
 SessionStore::SessionStore(QObject *parent)
@@ -60,6 +68,22 @@ void SessionStore::lock() {
 }
 
 void SessionStore::unlock() {
+    // Cancel any in-flight LOCK before doing anything else. A lock scheduled
+    // moments ago (auto-lock, power-key) sits in m_lockTimer with
+    // m_targetLocked == true and fires ~300 ms later. If unlock() short-
+    // circuits below (already unlocking, or isLocked not yet asserted) without
+    // stopping it, that stale timer flips isLocked back to true *after* we've
+    // hidden the lock screen — leaving the home screen visible but the session
+    // logically locked. That state silently gates off the Quick Settings shade
+    // and system gestures (`visible: !SessionStore.isLocked && …`), and is the
+    // root cause of the intermittent "home shows but QS won't open" bug: it
+    // only triggers when unlock lands inside the lock-settling window.
+    if (m_lockTimer.isActive() && m_targetLocked) {
+        m_lockTimer.stop();
+        setIsAnimatingLock(false);
+        setLockTransition(QString());
+    }
+
     if (m_isAnimatingLock && m_lockTransition == "unlocking") {
         setShowLockScreen(false);
         setIsOnLockScreen(false);
@@ -76,7 +100,7 @@ void SessionStore::unlock() {
     setLockTransition("unlocking");
     setIsAnimatingLock(true);
     emit lockStateChanging(false);
-    m_sessionValidUntil = QDateTime::currentMSecsSinceEpoch() + 5 * 60 * 1000;
+    m_sessionValidUntil = QDateTime::currentMSecsSinceEpoch() + qint64{5} * 60 * 1000;
     startLockTimer(false);
 }
 
@@ -94,8 +118,16 @@ void SessionStore::reset() {
     m_sessionValidUntil = 0;
     setIsAnimatingLock(false);
     setLockTransition(QString());
-    setShowLockScreen(true);
-    setIsLocked(true);
+
+    // MARATHON_NO_INITIAL_LOCK skips the lock-screen-on-startup state. Useful
+    // for headless / VM validation flows where there's no convenient way to
+    // drive a swipe-to-unlock gesture, and harmless on real phones where the
+    // env stays unset. Does not disable the lock screen at runtime -- it only
+    // affects the initial state after construction / explicit reset.
+    const bool skipInitialLock = !qEnvironmentVariableIsEmpty("MARATHON_NO_INITIAL_LOCK");
+
+    setShowLockScreen(!skipInitialLock);
+    setIsLocked(!skipInitialLock);
     setIsOnLockScreen(false);
 }
 

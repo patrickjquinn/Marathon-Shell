@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QDBusInterface>
 #include <QTimer>
 
@@ -14,11 +15,23 @@ class ModemManagerCpp : public QObject {
     Q_PROPERTY(int signalStrength READ signalStrength NOTIFY signalStrengthChanged)
     Q_PROPERTY(bool registered READ registered NOTIFY registeredChanged)
     Q_PROPERTY(QString operatorName READ operatorName NOTIFY operatorNameChanged)
+    // 3GPP operator code (MCC + MNC concatenated, e.g. "23410" = O2 UK).
+    // Empty until the modem registers. Surfaced for MBPI-based APN
+    // auto-provisioning (see CarrierProvisioning).
+    Q_PROPERTY(QString operatorCode READ operatorCode NOTIFY operatorCodeChanged)
     Q_PROPERTY(QString networkType READ networkType NOTIFY networkTypeChanged)
     Q_PROPERTY(bool roaming READ roaming NOTIFY roamingChanged)
     Q_PROPERTY(bool simPresent READ simPresent NOTIFY simPresentChanged)
     Q_PROPERTY(bool dataEnabled READ dataEnabled NOTIFY dataEnabledChanged)
     Q_PROPERTY(bool dataConnected READ dataConnected NOTIFY dataConnectedChanged)
+    // Emergency-call surface: emergencyOnly is true when the modem will only
+    // accept emergency dials (no SIM, PIN-locked, limited service).
+    // simEmergencyNumbers comes from EF_ECC and is readable while PIN-locked.
+    // The lock-screen "Emergency" affordance reads both -- we never hard-code
+    // the number list (3GPP TS 22.101 + the SIM provide it).
+    Q_PROPERTY(bool emergencyOnly READ emergencyOnly NOTIFY emergencyOnlyChanged)
+    Q_PROPERTY(
+        QStringList simEmergencyNumbers READ simEmergencyNumbers NOTIFY simEmergencyNumbersChanged)
 
   public:
     explicit ModemManagerCpp(QObject *parent = nullptr);
@@ -41,6 +54,9 @@ class ModemManagerCpp : public QObject {
     QString operatorName() const {
         return m_operatorName;
     }
+    QString operatorCode() const {
+        return m_operatorCode;
+    }
     QString networkType() const {
         return m_networkType;
     }
@@ -55,6 +71,12 @@ class ModemManagerCpp : public QObject {
     }
     bool dataConnected() const {
         return m_dataConnected;
+    }
+    bool emergencyOnly() const {
+        return m_emergencyOnly;
+    }
+    QStringList simEmergencyNumbers() const {
+        return m_simEmergencyNumbers;
     }
 
     Q_INVOKABLE void        enable();
@@ -74,19 +96,28 @@ class ModemManagerCpp : public QObject {
     void signalStrengthChanged();
     void registeredChanged();
     void operatorNameChanged();
+    void operatorCodeChanged();
     void networkTypeChanged();
     void roamingChanged();
     void simPresentChanged();
     void dataEnabledChanged();
     void dataConnectedChanged();
+    void emergencyOnlyChanged();
+    void simEmergencyNumbersChanged();
 
   private slots:
     void discoverModem();
     void queryModemState();
     void retryDBusConnection();
+    // PropertiesChanged on any of the three modem D-Bus interfaces
+    // (Modem, Modem.Signal, Modem.Modem3gpp) refreshes our cached
+    // state immediately — without this we'd wait up to 60s for the
+    // safety-net poll to notice e.g. a signal-bar change.
+    void onModemPropertiesChanged();
 
   private:
     void            setupDBusConnections();
+    void            attachModemPropertySubscriptions();
     void            initializeDBusConnection();
     QString         networkTypeFromAccessTech(uint accessTech);
 
@@ -101,6 +132,7 @@ class ModemManagerCpp : public QObject {
     int             m_signalStrength;
     bool            m_registered;
     QString         m_operatorName;
+    QString         m_operatorCode;
     QString         m_networkType;
     bool            m_roaming;
     bool            m_simPresent;
@@ -111,6 +143,9 @@ class ModemManagerCpp : public QObject {
     QString         m_apn;
     QString         m_apnUsername;
     QString         m_apnPassword;
+
+    bool            m_emergencyOnly = false;
+    QStringList     m_simEmergencyNumbers;
 };
 
 #endif

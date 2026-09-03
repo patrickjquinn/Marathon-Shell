@@ -1,3 +1,4 @@
+import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
@@ -7,7 +8,7 @@ import QtQuick.Controls
 MApp {
     id: messagesApp
 
-    property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
+    property var conversations: SMSService.conversations
     property string selectedConversationId: ""
 
     function getConversation(id) {
@@ -24,8 +25,7 @@ MApp {
     }
 
     function refreshConversations() {
-        if (typeof SMSService !== 'undefined')
-            conversations = SMSService.conversations;
+        conversations = SMSService.conversations;
     }
 
     function formatTimestamp(timestamp) {
@@ -48,7 +48,7 @@ MApp {
             Logger.info("Messages", "New message from: " + sender);
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
     }
 
     Connections {
@@ -57,7 +57,7 @@ MApp {
             refreshConversations();
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
     }
 
     content: Rectangle {
@@ -84,60 +84,6 @@ MApp {
             Component.onDestruction: {
                 if (backConnection)
                     messagesApp.backPressed.disconnect(backConnection);
-            }
-
-            pushEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: navigationStack.width
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            pushExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: -navigationStack.width * 0.3
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: -navigationStack.width * 0.3
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0
-                    to: 1
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: navigationStack.width
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
             }
         }
 
@@ -177,7 +123,7 @@ MApp {
             NewConversationPage {
                 onConversationStarted: function (recipient, recipientName) {
                     Logger.info("Messages", "Starting conversation with: " + recipient);
-                    var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient;
+                    var conversationId = SMSService.generateConversationId(recipient);
                     var conversation = {
                         "id": conversationId,
                         "contactName": recipientName,

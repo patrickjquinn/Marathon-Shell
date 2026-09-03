@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonOS.Shell
 
@@ -42,7 +41,8 @@ Item {
         if (!disabled && !checked) {
             checked = true;
             toggled(true);
-            MHaptics.lightImpact();
+            // Haptic moved to the inner-circle scale spring onStopped —
+            // fires when the dot lands, not at touch.
 
             if (groupName !== "" && parent) {
                 for (var i = 0; i < parent.children.length; i++) {
@@ -62,9 +62,9 @@ Item {
 
         Rectangle {
             id: radioRect
-            width: radioSize
-            height: radioSize
-            radius: radioRadius
+            width: root.radioSize
+            height: root.radioSize
+            radius: root.radioRadius
             anchors.verticalCenter: parent.verticalCenter
 
             color: {
@@ -75,7 +75,7 @@ Item {
                 return "transparent";
             }
 
-            border.width: borderWidth
+            border.width: root.borderWidth
             border.color: {
                 if (root.disabled)
                     return MColors.textHint;
@@ -109,18 +109,20 @@ Item {
             Rectangle {
                 id: innerCircle
                 anchors.centerIn: parent
-                width: innerSize
-                height: innerSize
-                radius: innerRadius
+                width: root.innerSize
+                height: root.innerSize
+                radius: root.innerRadius
                 color: MColors.marathonTeal
                 visible: root.checked && !root.disabled
                 scale: root.checked ? 1 : 0
 
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springLight
-                        damping: MMotion.dampingLight
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
+                        onStopped: if (root.checked)
+                            MHaptics.light()
                     }
                 }
 
@@ -131,7 +133,7 @@ Item {
                     shadowVerticalOffset: 0
                     shadowHorizontalOffset: 0
                     shadowBlur: 0.4
-                    blurMax: 8
+                    blurMax: MBlur.sm
                     paddingRect: Qt.rect(0, 0, 0, 0)
                 }
             }

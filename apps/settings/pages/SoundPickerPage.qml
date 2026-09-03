@@ -61,7 +61,7 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: soundMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : (soundPickerPage.currentSound === modelData ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
+                                color: soundMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : (soundPickerPage.currentSound === modelData ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent")
                                 border.width: soundPickerPage.currentSound === modelData ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 
@@ -141,7 +141,12 @@ SettingsPageTemplate {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData);
                                     soundPickerPage.currentSound = modelData;
                                     soundPickerPage.soundSelected(modelData);
-                                    AudioManagerCpp.previewSound(modelData);
+                                    // AudioManagerCpp is an AudioClient inside the
+                                    // marathon-app-runner host process (see
+                                    // tools/marathon-app-runner/main.cpp), which exposes
+                                    // previewSound; the shell-side singleton with the
+                                    // same name does not.
+                                    AudioManagerCpp.previewSound(modelData);  // qmllint disable missing-property
                                 }
                             }
                         }

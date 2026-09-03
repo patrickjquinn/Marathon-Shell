@@ -1,4 +1,3 @@
-import MarathonApp.Test
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -6,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var testApp
+
     Flickable {
         anchors.fill: parent
         contentHeight: systemColumn.height
@@ -240,6 +241,80 @@ Item {
                                     DisplayPolicyControllerCpp.autoBrightnessEnabled = !DisplayPolicyControllerCpp.autoBrightnessEnabled;
 
                                 Logger.info("TestApp", "Toggled auto-brightness");
+                                if (testApp) {
+                                    testApp.passedTests++;
+                                    testApp.totalTests++;
+                                }
+                            }
+                        }
+                    }
+
+                    // Power-key wake regression is the live P0; this card
+                    // exercises the same DisplayManagerCpp.setScreenState path
+                    // the PowerKeyListener lambda hits, so we can verify the
+                    // wake side without a hardware press.
+                    MLabel {
+                        text: "Display Power (P0)"
+                        variant: "title"
+                    }
+
+                    Flow {
+                        width: parent.width
+                        spacing: MSpacing.sm
+
+                        MButton {
+                            text: "Blank"
+                            variant: "danger"
+                            onClicked: {
+                                HapticService.light();
+                                Logger.info("TestApp", "Display Power: BLANK");
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.setScreenState(false);
+                                if (testApp) {
+                                    testApp.passedTests++;
+                                    testApp.totalTests++;
+                                }
+                            }
+                        }
+
+                        MButton {
+                            text: "Wake"
+                            variant: "primary"
+                            onClicked: {
+                                HapticService.light();
+                                Logger.info("TestApp", "Display Power: WAKE");
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.setScreenState(true);
+                                if (testApp) {
+                                    testApp.passedTests++;
+                                    testApp.totalTests++;
+                                }
+                            }
+                        }
+
+                        MButton {
+                            text: "Brightness 50%"
+                            variant: "secondary"
+                            onClicked: {
+                                HapticService.light();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = 0.5;
+                                Logger.info("TestApp", "Brightness set to 50%");
+                                if (testApp) {
+                                    testApp.passedTests++;
+                                    testApp.totalTests++;
+                                }
+                            }
+                        }
+
+                        MButton {
+                            text: "Brightness 100%"
+                            variant: "secondary"
+                            onClicked: {
+                                HapticService.light();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = 1.0;
+                                Logger.info("TestApp", "Brightness set to 100%");
                                 if (testApp) {
                                     testApp.passedTests++;
                                     testApp.totalTests++;

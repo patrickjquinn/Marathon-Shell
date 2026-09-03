@@ -4,7 +4,6 @@ import MarathonUI.Containers
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 MApp {
     id: settingsApp
@@ -17,7 +16,7 @@ MApp {
         anchors.fill: parent
         color: MColors.background
 
-        StackView {
+        MStackView {
             id: navigationStack
 
             anchors.fill: parent
@@ -26,86 +25,6 @@ MApp {
                 var newDepth = navigationStack.depth - 1;
                 Logger.info("SettingsApp", "StackView depth changed: " + navigationStack.depth + " → navigationDepth: " + newDepth);
                 appRouter.updateNavigationDepth();
-            }
-
-            pushEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: navigationStack.width
-                    to: 0
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.9
-                    to: 1
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-            }
-
-            pushExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: -navigationStack.width * MMotion.pageParallaxOffset
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0.9
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-            }
-
-            popEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: -navigationStack.width * MMotion.pageParallaxOffset
-                    to: 0
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.9
-                    to: 1
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-            }
-
-            popExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: navigationStack.width
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
-
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1
-                    to: 0.9
-                    duration: MMotion.quick
-                    easing.type: MMotion.easingStandard
-                    easing.bezierCurve: MMotion.easingStandardCurve
-                }
             }
         }
 
@@ -123,6 +42,9 @@ MApp {
                     bluetooth: bluetoothPageComponent,
                     cellular: cellularPageComponent,
                     display: displayPageComponent,
+                    scale: scalePageComponent,
+                    wallpaper: wallpaperPageComponent,
+                    screentimeout: screenTimeoutPageComponent,
                     sound: soundPageComponent,
                     notifications: notificationsPageComponent,
                     storage: storagePageComponent,
@@ -137,7 +59,9 @@ MApp {
                     appsort: appSortPageComponent,
                     quicksettings: quickSettingsPageComponent,
                     security: securityPageComponent,
-                    keyboard: keyboardPageComponent
+                    keyboard: keyboardPageComponent,
+                    updates: updatesPageComponent,
+                    accounts: accountsPageComponent
                 })
         }
 
@@ -182,6 +106,30 @@ MApp {
             id: displayPageComponent
 
             DisplayPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: scalePageComponent
+
+            ScalePage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: wallpaperPageComponent
+
+            WallpaperPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: screenTimeoutPageComponent
+
+            ScreenTimeoutPage {
                 onNavigateBack: appRouter.popRoute()
             }
         }
@@ -305,6 +253,22 @@ MApp {
             id: keyboardPageComponent
 
             KeyboardPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: updatesPageComponent
+
+            UpdatesPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: accountsPageComponent
+
+            AccountsPage {
                 onNavigateBack: appRouter.popRoute()
             }
         }

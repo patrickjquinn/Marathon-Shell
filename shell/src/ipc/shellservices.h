@@ -1,5 +1,14 @@
 #pragma once
 
+// clazy:excludeall=const-signal-or-slot
+//
+// Every object in this file is a D-Bus adaptor. Their property getters are
+// deliberately public slots because that is what exports them as D-Bus
+// methods -- a plain const member function is not callable over the bus.
+// clazy sees "const getter marked as a slot" and reports 38 findings here,
+// all of which are the intended design rather than a mistake.
+
+#include <QHash>
 #include <QObject>
 #include <QDBusContext>
 #include <QDBusVariant>
@@ -8,6 +17,8 @@
 
 class MarathonPermissionManager;
 class AppLaunchService;
+class AppLifecycleManager;
+class MarathonAppRegistry;
 
 class ContactsManager;
 class CallHistoryManager;
@@ -27,7 +38,22 @@ class SensorManagerCpp;
 class LocationManager;
 class AlarmManagerCpp;
 
-class PermissionsObject : public QObject, protected QDBusContext {
+class IpcPermissionedService : public QObject, protected QDBusContext {
+    Q_OBJECT
+
+  public:
+    IpcPermissionedService(MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                           QObject *parent = nullptr);
+
+  protected:
+    QString callerAppIdOrEmpty() const;
+    bool    requirePermission(const QString &rateLimitKey, const QStringList &permissions);
+
+    MarathonPermissionManager *m_permissions   = nullptr;
+    AppLaunchService          *m_launchService = nullptr;
+};
+
+class PermissionsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Permissions1")
 
@@ -45,14 +71,9 @@ class PermissionsObject : public QObject, protected QDBusContext {
     void PermissionGranted(const QString &appId, const QString &permission);
     void PermissionDenied(const QString &appId, const QString &permission);
     void PermissionRequested(const QString &appId, const QString &permission);
-
-  private:
-    QString                    callerAppIdOrEmpty() const;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
 };
 
-class ContactsObject : public QObject, protected QDBusContext {
+class ContactsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Contacts1")
 
@@ -76,15 +97,14 @@ class ContactsObject : public QObject, protected QDBusContext {
     void ContactDeleted(int id);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireContacts();
+    bool requireContacts() {
+        return requirePermission("Contacts", {"contacts"});
+    }
 
-    ContactsManager           *m_contacts      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    ContactsManager *m_contacts = nullptr;
 };
 
-class CallHistoryObject : public QObject, protected QDBusContext {
+class CallHistoryObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.CallHistory1")
 
@@ -105,21 +125,23 @@ class CallHistoryObject : public QObject, protected QDBusContext {
     void CallAdded(int id);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requirePhone();
+    bool requirePhone() {
+        return requirePermission("CallHistory", {"telephony", "phone"});
+    }
 
-    CallHistoryManager        *m_callHistory   = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    CallHistoryManager *m_callHistory = nullptr;
 };
 
-class TelephonyObject : public QObject, protected QDBusContext {
+class AudioRoutingManager;
+
+class TelephonyObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
   public:
     TelephonyObject(TelephonyService *telephony, MarathonPermissionManager *permissions,
-                    AppLaunchService *launchService, QObject *parent = nullptr);
+                    AppLaunchService *launchService, AudioRoutingManager *audioRouting,
+                    QObject *parent = nullptr);
 
   public slots:
     QString CallState() const;
@@ -129,6 +151,11 @@ class TelephonyObject : public QObject, protected QDBusContext {
     void    Answer();
     void    Hangup();
     void    SendDTMF(const QString &digit);
+
+    void    SetSpeakerphone(bool on);
+    void    SetCallMuted(bool muted);
+    bool    IsSpeakerphoneOn() const;
+    bool    IsCallMuted() const;
 
     void    SimulateIncomingCall(const QString &number);
     void    SimulateCallStateChange(const QString &state);
@@ -141,15 +168,15 @@ class TelephonyObject : public QObject, protected QDBusContext {
     void ActiveNumberChanged(const QString &number);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requirePhone();
+    bool requirePhone() {
+        return requirePermission("Telephony", {"telephony", "phone"});
+    }
 
-    TelephonyService          *m_telephony     = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    TelephonyService    *m_telephony    = nullptr;
+    AudioRoutingManager *m_audioRouting = nullptr;
 };
 
-class SmsObject : public QObject, protected QDBusContext {
+class SmsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sms1")
 
@@ -174,15 +201,14 @@ class SmsObject : public QObject, protected QDBusContext {
     void ConversationsChanged();
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSms();
+    bool requireSms() {
+        return requirePermission("Sms", {"sms", "phone"});
+    }
 
-    SMSService                *m_sms           = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SMSService *m_sms = nullptr;
 };
 
-class MediaLibraryObject : public QObject, protected QDBusContext {
+class MediaLibraryObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.MediaLibrary1")
 
@@ -214,15 +240,14 @@ class MediaLibraryObject : public QObject, protected QDBusContext {
     void ScanProgressChanged(int progress);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireStorage();
+    bool requireStorage() {
+        return requirePermission("MediaLibrary", {"storage"});
+    }
 
-    MediaLibraryManager       *m_media         = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    MediaLibraryManager *m_media = nullptr;
 };
 
-class SettingsObject : public QObject, protected QDBusContext {
+class SettingsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Settings1")
 
@@ -250,17 +275,18 @@ class SettingsObject : public QObject, protected QDBusContext {
     void PropertyChanged(const QString &name, const QDBusVariant &value);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    bool                       requireStorage();
-    bool                       isAppScopedKey(const QString &key) const;
+    bool requireSystem() {
+        return requirePermission("Settings", {"system"});
+    }
+    bool requireStorage() {
+        return requirePermission("Settings.Storage", {"storage"});
+    }
+    bool             isAppScopedKey(const QString &key) const;
 
-    SettingsManager           *m_settings      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SettingsManager *m_settings = nullptr;
 };
 
-class SecurityObject : public QObject, protected QDBusContext {
+class SecurityObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
 
@@ -287,16 +313,15 @@ class SecurityObject : public QObject, protected QDBusContext {
     void QuickPINChanged();
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Security", {"system"});
+    }
+    QVariantMap      buildState() const;
 
-    SecurityManager           *m_security      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SecurityManager *m_security = nullptr;
 };
 
-class BluetoothObject : public QObject, protected QDBusContext {
+class BluetoothObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Bluetooth1")
 
@@ -325,18 +350,17 @@ class BluetoothObject : public QObject, protected QDBusContext {
     void PasskeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
+    bool requireSystem() {
+        return requirePermission("Bluetooth", {"system"});
+    }
 
-    QVariantMap                buildState() const;
-    QVariantList               buildDevices(bool pairedOnly) const;
+    QVariantMap       buildState() const;
+    QVariantList      buildDevices(bool pairedOnly) const;
 
-    BluetoothManager          *m_bt            = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    BluetoothManager *m_bt = nullptr;
 };
 
-class DisplayObject : public QObject, protected QDBusContext {
+class DisplayObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
 
@@ -354,21 +378,24 @@ class DisplayObject : public QObject, protected QDBusContext {
     void        SetNightLightTemperature(int temperature);
     void        SetNightLightSchedule(const QString &schedule);
     void        SetScreenState(bool on);
+    // Wake() — no auth, just turns the panel on. Equivalent to a power
+    // button tap. Useful for remote testing over SSH when there is no
+    // physical button. Calls into DisplayManager::setScreenState(true).
+    void Wake();
 
   signals:
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Display", {"system"});
+    }
+    QVariantMap        buildState() const;
 
-    DisplayManagerCpp         *m_display       = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    DisplayManagerCpp *m_display = nullptr;
 };
 
-class PowerObject : public QObject, protected QDBusContext {
+class PowerObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
 
@@ -388,16 +415,15 @@ class PowerObject : public QObject, protected QDBusContext {
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Power", {"system"});
+    }
+    QVariantMap      buildState() const;
 
-    PowerManagerCpp           *m_power         = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    PowerManagerCpp *m_power = nullptr;
 };
 
-class AudioObject : public QObject, protected QDBusContext {
+class AudioObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Audio1")
 
@@ -429,17 +455,16 @@ class AudioObject : public QObject, protected QDBusContext {
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Audio", {"system"});
+    }
+    QVariantMap            buildState() const;
 
-    AudioManagerCpp           *m_audio         = nullptr;
-    AudioPolicyController     *m_policy        = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    AudioManagerCpp       *m_audio  = nullptr;
+    AudioPolicyController *m_policy = nullptr;
 };
 
-class NetworkObject : public QObject, protected QDBusContext {
+class NetworkObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Network1")
 
@@ -470,13 +495,12 @@ class NetworkObject : public QObject, protected QDBusContext {
     void ConnectionFailed(const QString &message);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireNetwork();
-    QVariantMap                buildState() const;
+    bool requireNetwork() {
+        return requirePermission("Network", {"network", "system"});
+    }
+    QVariantMap        buildState() const;
 
-    NetworkManagerCpp         *m_network       = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    NetworkManagerCpp *m_network = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {
@@ -490,6 +514,14 @@ class NavigationObject : public QObject, protected QDBusContext {
     bool LaunchApp(const QString &appId);
     bool Navigate(const QString &uri);
     bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
+
+    // Quick Settings shade control (marathon CLI `qs` verb). Lets a dev host
+    // pull the shade over D-Bus, since top-edge touch injection never reaches
+    // the shell's statusBarDragArea. No caller auth — the shade exposes only
+    // system toggles the lock screen already gates, same rationale as LaunchApp.
+    bool ShowQuickSettings();
+    bool HideQuickSettings();
+    bool ToggleQuickSettings();
 
   signals:
     void AppLaunched(const QString &appId);
@@ -601,4 +633,151 @@ class AlarmObject : public QObject, protected QDBusContext {
   private:
     AlarmManagerCpp  *m_alarms        = nullptr;
     AppLaunchService *m_launchService = nullptr;
+};
+
+class UpdateService;
+class DavSyncEngine;
+
+// Surfaces UpdateService over D-Bus so the Settings app (running in the
+// app-runner process) can show a "Software updates" tile that reflects the
+// shell's polling state.
+class UpdatesObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
+
+  public:
+    UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+                  AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap GetState();
+    void        CheckNow();
+    void        OpenInBrowser();
+    void        SetChannel(const QString &channel);
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("Updates", {"system"});
+    }
+    QVariantMap    buildState() const;
+
+    UpdateService *m_updates = nullptr;
+};
+
+// Surfaces DavSyncEngine: account add/remove/list + sync trigger. Settings
+// app needs this for the "Accounts → Add CardDAV" flow.
+class DavObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Dav1")
+
+  public:
+    DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
+              AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantList ListAccounts();
+    QString AddAccount(const QString &displayName, const QString &baseUrl, const QString &username,
+                       const QString &secret, const QString &authKind);
+    bool    RemoveAccount(const QString &id);
+    void    EnableAccount(const QString &id, bool enabled);
+    void    SyncNow();
+    QVariantMap GetState();
+
+  signals:
+    void AccountsChanged();
+    void SyncFinished(const QString &accountId);
+    void StateChanged(const QVariantMap &state);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("Dav", {"system"});
+    }
+
+    DavSyncEngine *m_engine = nullptr;
+};
+
+class MarathonAppStoreService;
+
+// Surfaces MarathonAppStoreService over D-Bus so the Store app (running
+// in the app-runner process) can query the catalog and ask the shell
+// to download apps. Catalog reads gate on the lighter "system" perm;
+// downloads gate on "system" too because they trigger MarathonAppInstaller
+// in the shell with elevated rights.
+class AppStoreObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppStore1")
+
+  public:
+    AppStoreObject(MarathonAppStoreService *appStore, MarathonPermissionManager *permissions,
+                   AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap  GetState();
+    void         RefreshCatalog();
+    QVariantList SearchApps(const QString &query);
+    QVariantMap  GetApp(const QString &appId);
+    QVariantList GetFeaturedApps();
+    QVariantList GetAppsByCategory(const QString &category);
+    QVariantList GetAvailableUpdates();
+    void         CheckForUpdates();
+    void         DownloadApp(const QString &appId);
+    void         CancelDownload(const QString &appId);
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+    void CatalogRefreshed();
+    void DownloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
+    void DownloadComplete(const QString &appId, const QString &packagePath);
+    void DownloadFailed(const QString &appId, const QString &error);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("AppStore", {"system"});
+    }
+    QVariantMap              buildState() const;
+
+    MarathonAppStoreService *m_appStore = nullptr;
+};
+
+// Lets apps (via marathon-app-runner) declare active background work like
+// turn-by-turn navigation, recording, large downloads, periodic sync. The
+// MPRIS2 + Telephony observers cover audio playback and active calls
+// automatically; everything else needs the app to claim explicitly so the
+// shell knows not to freeze it.
+//
+// Caller is identified by DBus PID resolution (the same trusted path the
+// rest of shellservices uses); the manifest's `backgroundCapabilities`
+// gates which categories are accepted.
+class AppLifecycleObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppLifecycle1")
+
+  public:
+    AppLifecycleObject(AppLifecycleManager *lifecycle, MarathonAppRegistry *appRegistry,
+                       AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    // Returns a non-zero handle on success, 0 on rejection (unknown
+    // caller, category not declared in manifest, lifecycle unavailable).
+    // Multiple Begin calls for the same category from one app are
+    // refcounted — the capability lifts only after the matching number of
+    // End calls.
+    quint32     BeginBackgroundTask(const QString &category, const QString &reason);
+    bool        EndBackgroundTask(quint32 handle);
+    QStringList GetMyCapabilities();
+
+  private:
+    struct ActiveTask {
+        QString appId;
+        QString category;
+    };
+
+    AppLifecycleManager       *m_lifecycle     = nullptr;
+    MarathonAppRegistry       *m_appRegistry   = nullptr;
+    AppLaunchService          *m_launchService = nullptr;
+    quint32                    m_nextHandle    = 1;
+    QHash<quint32, ActiveTask> m_handles;
 };

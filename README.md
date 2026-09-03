@@ -1,10 +1,10 @@
 <div align="center">
   <img src="github-media/marathon.png" alt="Marathon Shell Logo" width="200"/>
-  
+
   # Marathon Shell
-  
+
   **A Wayland compositor and mobile-oriented application shell for Linux**
-  
+
   [Watch Demo Video](github-media/Screencast%20From%202025-11-09%2004-01-02.mp4)
 </div>
 
@@ -134,12 +134,13 @@ apk add cmake samurai g++ pkgconf git \
 - Wayland display server support
 - D-Bus session bus
 - Linux kernel 5.10 or later
-- **Real-Time Kernel (PREEMPT_RT)**: Recommended for optimal performance and touch response. The shell will warn if running on a standard kernel.
+- **Standard preemptible kernel (`CONFIG_PREEMPT=y`)** -- what postmarketOS, Plasma Mobile, Phosh and Android all ship. The compositor uses `SCHED_FIFO` for its render thread, which only needs `CAP_SYS_NICE` (or `rtprio` in `limits.conf`) -- NOT a `PREEMPT_RT` kernel.
+- **`PREEMPT_RT` kernel (optional)** -- useful primarily if you need bounded worst-case latency for hard-real-time audio paths. For a 60–120 Hz touch UI on a 8–16 ms frame budget the difference is below the noise floor; the shell will not warn if it's missing.
 
 ### Optional Dependencies
 
 - NetworkManager - WiFi and cellular network management
-- UPower - Battery and power profile management  
+- UPower - Battery and power profile management
 - BlueZ - Bluetooth device management
 - ModemManager - Cellular modem and telephony support
 - qt6-qtvirtualkeyboard-devel - On-screen keyboard support
@@ -151,11 +152,73 @@ apk add cmake samurai g++ pkgconf git \
 
 ## Building
 
-> **⚠️ Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
+> **Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
 
-### Initial Setup
+### Build an image (single command, pick your device)
 
-Clone the repository with submodules:
+One wrapper per target. Each calls the shared
+`scripts/build-image.sh` with the right device argument and any
+device-specific overlay aport.
+
+| Device | Entry script | Status |
+|---|---|---|
+| QEMU virt aarch64 | `scripts/build-qemu-image.sh` | **Ready, verified** — `--boot` lights up the shell on your dev box via virgl + VNC. |
+| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Build-ready, flash unverified** — duranium GPT `.raw` + EFI-aware `boot.img` extracted from the ESP, both consumed by `scripts/flash/flash-oneplus6.sh`. |
+| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, flash unverified** — duranium GPT `.raw`; orchestrator also extracts `phone-boot.img` for `flash-librem5.sh emmc`. SD path is a single dd of the `.raw`. |
+| HackberryPi CM5 | `scripts/build-hackberry-cm5-image.sh` | **Build-ready, flash unverified** — parallel raspios-style pipeline (not duranium). Customizes stock RaspiOS Lite arm64 with marathon-shell + ZitaoTech `hackberrypi.dtbo` overlay + LightDM autologin. Verified Marathon QML renders responsively at 720×720 locally. Flash with `scripts/flash/flash-hackberry-cm5.sh /dev/sdX`. |
+
+Two pipelines, three devices:
+
+- **duranium** (mkosi + systemd-boot + erofs+verity): QEMU, OnePlus 6, Librem 5
+- **raspios-style** (RPi firmware + config.txt + LightDM + Wayland session): HackberryPi CM5
+
+See `docs/IMAGE_BUILD_ARCHITECTURE.md` for which boot chain runs where, what the per-device extraction does, and which paths are verified vs. documented-but-untested-on-hardware.
+
+Fastest visible result:
+
+```bash
+git clone https://github.com/patrickjquinn/Marathon-Shell.git
+cd Marathon-Shell
+./scripts/build-qemu-image.sh --verify
+```
+
+What that does, in order:
+
+1. Checks host tools (podman, qemu-system-aarch64, sshpass, EFI firmware) and prints install hints if anything's missing.
+2. Reads the in-tree aports from `packaging/`, and auto-clones `postmarketos-duranium` (mkosi skeleton) plus a pinned `mkosi` release into `~/.cache/marathon-build/`.
+3. Overlays Marathon's `mkosi.conf` + image-extras scripts onto the duranium tree.
+4. Builds the four local apks in dependency order (`qmf`, `marathon-base-config`, `marathon-mail-oauth`, `marathon-shell`). Each one runs in a rootless podman container; subsequent invocations skip apks already in the cache.
+5. Bakes a `qemu-aarch64_marathon_edge` image via mkosi.
+6. Boots it under QEMU and runs `verify-mail.sh` (12 checks across the Mail backend).
+
+Total first-run time on a modern machine: ~15 minutes (mostly QMF +
+marathon-shell C++ compile). Subsequent runs that only change shell
+sources rebuild in ~3 minutes.
+
+Other modes:
+
+- `./scripts/build-qemu-image.sh` — build only, leave the image on
+  disk, exit. Boot later with `--boot-only`.
+- `./scripts/build-qemu-image.sh --boot` — build then launch QEMU
+  interactively. GL-accelerated (`virtio-gpu-gl-pci` + virgl), VNC
+  on `127.0.0.1:5905` by default so it works on any host. Set
+  `MARATHON_QEMU_DISPLAY=gtk` to pop a native window instead.
+- `./scripts/build-qemu-image.sh --boot-only` — skip rebuild and
+  just launch QEMU against the existing baked image. Fast iteration.
+- `./scripts/build-qemu-image.sh --verify` — headless boot + the
+  12-check Mail verification harness, exit with its rc.
+- `./scripts/build-qemu-image.sh --help` — env-var overrides for
+  forks/branches/cache path/OAuth client IDs.
+
+After `--boot` / `--boot-only`, connect with any VNC viewer to
+`127.0.0.1:5905` (Remmina, vinagre, vncviewer, macOS Screen
+Sharing, …). SSH into the guest with
+`sshpass -p marathon ssh -p 2233 root@127.0.0.1`.
+
+### Initial Setup (for developing the shell itself)
+
+For local dev (running the shell directly on your X11/Wayland host
+instead of inside QEMU), clone the repository:
 
 ```bash
 git clone https://github.com/patrickjquinn/Marathon-Shell.git
@@ -180,7 +243,7 @@ This builds:
 - MarathonUI to `~/.local/share/marathon-ui` (required for shell to run)
 - Marathon apps to `~/.local/share/marathon-apps` (required for bundled apps to appear)
 
-> **⚠️ IMPORTANT**: The `install` argument is **required** on first build. Without it, bundled apps (Settings, Browser, Calculator, etc.) won't appear in the shell. After the initial install, you can use `./run.sh` for incremental builds.
+> **IMPORTANT**: The `install` argument is **required** on first build. Without it, bundled apps (Settings, Browser, Calculator, etc.) won't appear in the shell. After the initial install, you can use `./run.sh` for incremental builds.
 
 ### Incremental Builds
 
@@ -228,7 +291,7 @@ cmake -B build-apps -S apps -DMARATHON_APPS_DIR=/usr/share/marathon-apps
 sudo cmake --install build-apps
 ```
 
-> **⚠️ CRITICAL**: Marathon Shell **requires MarathonUI to be installed** before it can run. If you see `module "MarathonUI.Theme" is not installed`, run `cmake --install build`.
+> **CRITICAL**: Marathon Shell **requires MarathonUI to be installed** before it can run. If you see `module "MarathonUI.Theme" is not installed`, run `cmake --install build`.
 
 > **Note**: Apps default to `~/.local/share/marathon-apps` to avoid permission issues during development. This ensures the build works out of the box without sudo, making it IDE-friendly.
 
@@ -243,7 +306,7 @@ sudo cmake --install build-apps
 
 ### First-Time System Setup (Required)
 
-> **⚠️ CRITICAL**: Marathon Shell requires system permissions and services for full mobile functionality. Run the setup script once before first use:
+> **CRITICAL**: Marathon Shell requires system permissions and services for full mobile functionality. Run the setup script once before first use:
 
 ```bash
 # One-time system setup (requires sudo)
@@ -252,7 +315,7 @@ sudo cmake --install build-apps
 
 This configures:
 - **Brightness control** permissions (udev rule for `/sys/class/backlight`)
-- **Bluetooth** service (installs and enables BlueZ)  
+- **Bluetooth** service (installs and enables BlueZ)
 - **PAM authentication** (copies config to `/etc/pam.d/marathon-shell`)
 
 ### Start Marathon Shell
@@ -272,7 +335,7 @@ MARATHON_DEBUG=1 ./run.sh
 
 ### PAM Authentication Setup (Required)
 
-> **⚠️ CRITICAL**: Marathon Shell requires a PAM configuration file to authenticate users. Without this file, password authentication will fail with "Authentication failure" errors.
+> **CRITICAL**: Marathon Shell requires a PAM configuration file to authenticate users. Without this file, password authentication will fail with "Authentication failure" errors.
 
 The shell uses PAM (Pluggable Authentication Modules) for system password authentication. Install the PAM configuration file:
 
@@ -488,7 +551,7 @@ Marathon includes an integrated App Store for browsing, installing, and updating
 
 ### marathon-dev CLI Tool
 
-The `marathon-dev` tool provides comprehensive app development functionality:
+The `marathon-dev` tool covers app development end-to-end:
 
 ```bash
 # Create new app from template
@@ -516,7 +579,7 @@ The `marathon-dev` tool provides comprehensive app development functionality:
 ./build/tools/marathon-dev/marathon-dev validate apps/myapp
 ```
 
-See `docs/DEVELOPER_GUIDE.md` for complete CLI documentation.
+See `docs/DEV_CLI.md` for complete CLI documentation.
 
 ### Creating Marathon Apps
 
@@ -561,10 +624,10 @@ import MarathonUI.Core
 MApp {
     appId: "myapp"
     appName: "My App"
-    
+  
     content: MPage {
         title: "My App"
-        
+      
         MLabel {
             anchors.centerIn: parent
             text: "Hello Marathon!"
@@ -685,12 +748,10 @@ Marathon Shell uses Landlock for application sandboxing on Linux kernel 5.13+. O
 - [UI Design System](docs/UI_DESIGN_SYSTEM.md) - MarathonUI component reference
 
 - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Development process and conventions
-- [Developer CLI Guide](docs/DEVELOPER_GUIDE.md) - marathon-dev tool usage
+- [Developer CLI Guide](docs/DEV_CLI.md) - marathon CLI reference and recipes
 - [Code Signing Guide](docs/CODE_SIGNING_GUIDE.md) - GPG signing for apps
 - [Permission Guide](docs/PERMISSION_GUIDE.md) - Permission system implementation
 - [Publishing Guide](docs/PUBLISHING_GUIDE.md) - App distribution process
-- [Keyboard Specification](docs/KEYBOARD_SPEC.md) - Virtual keyboard implementation
-- [QML Validation](docs/QML_VALIDATION.md) - QML linting and validation
 - [RT Scheduling](docs/RT_SCHEDULING.md) - Real-time scheduling configuration
 
 ## Contributing

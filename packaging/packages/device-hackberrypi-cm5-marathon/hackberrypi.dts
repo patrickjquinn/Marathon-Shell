@@ -1,0 +1,248 @@
+/*
+ * hackberrypi.dts — HackberryPi CM5 overlay for Marathon OS
+ *
+ * Enclosure-specific bits (panel, touch, fuel gauge, backlight) for
+ * the ZitaoTech HackberryPi CM5 carrier. Layers on top of
+ * device-raspberry-pi5-marathon's vanilla Pi 5 config.
+ *
+ * Combines:
+ *   - HyperPixel 4.0 Square (720×720) DPI panel + edt-ft5x06 capacitive
+ *     touch — identical to ZitaoTech's stock hackberrypi.dtbo (matches
+ *     panel-timing values we extracted from the binary).
+ *   - PWM backlight on rp1_pwm0 channel 3 / GPIO19. Pimoroni's
+ *     upstream HyperPixel DT uses gpio-backlight which is binary on/off
+ *     and never registers a /sys/class/backlight/ device. Without a
+ *     proper pwm-backlight node, Marathon has no way to dim or blank
+ *     the panel for sleep — a hard blocker for a phone OS. r180 adds
+ *     fragment@5–7 below to wire the PWM properly.
+ *   - MAX17048 LiPo fuel gauge on the i2c-gpio bus @ 0x36 with
+ *     monitored-battery → simple-battery node. linux-rpi's
+ *     max17040_battery.c does NOT parse charge-full-design-* props
+ *     from its own DT node — it only consumes them via the
+ *     `monitored-battery` reference. Putting the design specs on the
+ *     fuel-gauge node directly (like r6 did) silently discards them,
+ *     which is why `upower -i battery` reported energy-full-design=0.
+ *
+ * Reference: github.com/CNflysky/hackberrypiq20/blob/main/hackberrypicm5.dts
+ *            github.com/ZitaoTech/HackberryPiCM5
+ *            torvalds/linux drivers/power/supply/max17040_battery.c
+ *            kernel.org Documentation/devicetree/bindings/power/supply/battery.yaml
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712", "raspberrypi,5-compute-module";
+
+	/* Fixed always-on regulator node, used as the supply reference for
+	 * the HyperPixel panel and edt-ft5x06 touchscreen. The HackberryPi
+	 * carrier wires VDD/IOVCC for these directly to the 3V3 rail off the
+	 * RP1 — there's no software gate. The kernel just wants a regulator
+	 * node to bind to so the panel/touch drivers don't fall back to a
+	 * dummy regulator (and log "supply ... not found" warnings).
+	 * regulator-always-on + regulator-boot-on capture the hardwired
+	 * nature.
+	 */
+	fragment@4 {
+		target-path = "/";
+		__overlay__ {
+			hackberry_3v3: regulator-hackberry-3v3 {
+				compatible = "regulator-fixed";
+				regulator-name = "hackberry-3v3";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	/* Battery design specification node. linux-rpi 6.12's
+	 * max17040_battery driver reads monitored-battery=<&phandle> and
+	 * pulls charge-full-design-microamp-hours +
+	 * energy-full-design-microwatt-hours + voltage-{min,max}-design
+	 * from the referenced simple-battery. Putting these properties
+	 * directly on the battery@36 fuel-gauge node (as the older overlay
+	 * did) means the core silently discards them — power_supply_get_
+	 * battery_info() is never called from this driver.
+	 *
+	 * Values from CNflysky's hackberrypiq20 reference: 5000 mAh / 18.5 Wh,
+	 * 3.3–4.2 V Li-ion polymer.
+	 */
+	fragment@8 {
+		target-path = "/";
+		__overlay__ {
+			hbp_battery: hbp-battery {
+				compatible = "simple-battery";
+				device-chemistry = "lithium-ion-polymer";
+				charge-full-design-microamp-hours = <5000000>;
+				energy-full-design-microwatt-hours = <18500000>;
+				voltage-min-design-microvolt = <3300000>;
+				voltage-max-design-microvolt = <4200000>;
+			};
+		};
+	};
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			i2c_gpio: i2c-gpio {
+				compatible = "i2c-gpio";
+				gpios = <&rp1_gpio 10 0
+				         &rp1_gpio 11 0>;
+				i2c-gpio,delay-us = <4>;
+				/* GPIO 10/11 are unused by DPI 18-bit (RGB666) mode, freeing them for I2C */
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				touch: touchscreen@48 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "edt,edt-ft5406";
+					reg = <0x48>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&touch_int_pin>;
+					/* &rp1_gpio (not &gpio): same target, unambiguous
+					 * label — base CM5IO DTB exports both phandles but
+					 * &rp1_gpio doesn't depend on a firmware fixup. */
+					interrupt-parent = <&rp1_gpio>;
+					interrupts = <27 0x02>;
+					touchscreen-size-x = <720>;
+					touchscreen-size-y = <720>;
+					/* Bind both rails to the always-on 3V3 fixed-regulator
+					 * declared in fragment@4. Driver previously fell back
+					 * to dummy regulators on every probe and logged
+					 * "supply vcc/iovcc not found". */
+					vcc-supply = <&hackberry_3v3>;
+					iovcc-supply = <&hackberry_3v3>;
+				};
+
+				/* MAX17048 LiPo fuel gauge. The
+				 * `monitored-battery = <&hbp_battery>` reference is what
+				 * lets power_supply_core read design specs (capacity,
+				 * energy, voltage). Driver-specific properties
+				 * (maxim,rcomp, maxim,alert-low-soc-level) stay here.
+				 */
+				fuel_gauge: battery@36 {
+					compatible = "maxim,max17048";
+					reg = <0x36>;
+					monitored-battery = <&hbp_battery>;
+					maxim,rcomp = /bits/ 8 <0x97>;
+					maxim,alert-low-soc-level = <10>;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&dpi>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&dpi_18bit_cpadhi_gpio0>;
+			port {
+				dpi_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			panel: panel {
+				compatible = "panel-dpi";
+				/* 4-inch square (~72×72mm); doubled to 144 so high-DPI
+				 * userspace doesn't treat this as a tiny screen. */
+				width-mm = <144>;
+				height-mm = <144>;
+				bus-format = <0x1024>;	/* MEDIA_BUS_FMT_RGB666_1X18 */
+				/* Always-on 3V3 supply; silences the panel driver's
+				 * "supply power not found" log. See fragment@4. */
+				power-supply = <&hackberry_3v3>;
+				/* Wire the panel to the pwm-backlight in fragment@7
+				 * so DPMS / userspace dim land at the hardware. */
+				backlight = <&panel_bl>;
+
+				timing: panel-timing {
+					clock-frequency = <35000000>;	/* matches ZitaoTech's stock dtbo */
+					hactive = <720>;
+					hfront-porch = <44>;
+					hsync-len = <2>;
+					hback-porch = <46>;
+					hsync-active = <1>;
+					vactive = <720>;
+					vfront-porch = <16>;
+					vsync-len = <2>;
+					vback-porch = <18>;
+					vsync-active = <1>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+
+				port {
+					panel_in: endpoint {
+						remote-endpoint = <&dpi_out>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&rp1_gpio>;
+		__overlay__ {
+			touch_int_pin: gpio27 {
+				function = "gpio";
+				pins = "gpio27";
+				bias-pull-up;
+			};
+		};
+	};
+
+	/* PWM backlight wiring — three fragments.
+	 *
+	 * fragment@5: pinmux GPIO19 → rp1_pwm0 (pinctrl function "pwm0").
+	 * fragment@6: bind pwm0 hardware block + activate.
+	 * fragment@7: pwm-backlight node referenced by panel.backlight.
+	 *
+	 * On Pi 5 RP1, PWM channel-to-GPIO mapping:
+	 *   ch0 → GPIO12, ch1 → GPIO13, ch2 → GPIO18, ch3 → GPIO19
+	 * HyperPixel 4 routes backlight on GPIO19 → channel 3.
+	 * 200 µs period = 5 kHz, above the panel's flicker threshold.
+	 */
+	fragment@5 {
+		target = <&rp1_gpio>;
+		__overlay__ {
+			bl_pwm_pins: bl_pwm_pins {
+				function = "pwm0";
+				pins = "gpio19";
+				bias-disable;
+			};
+		};
+	};
+
+	fragment@6 {
+		target = <&rp1_pwm0>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&bl_pwm_pins>;
+			status = "okay";
+		};
+	};
+
+	fragment@7 {
+		target-path = "/";
+		__overlay__ {
+			panel_bl: backlight {
+				compatible = "pwm-backlight";
+				/* &rp1_pwm0, channel 3, period 200000 ns (5 kHz), flags 0 */
+				pwms = <&rp1_pwm0 3 200000 0>;
+				brightness-levels = <0 8 16 32 64 96 128 160 192 224 255>;
+				default-brightness-level = <8>;
+				power-supply = <&hackberry_3v3>;
+			};
+		};
+	};
+};

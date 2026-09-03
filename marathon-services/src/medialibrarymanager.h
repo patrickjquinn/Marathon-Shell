@@ -63,7 +63,7 @@ class MediaLibraryManager : public QObject {
 
   public:
     explicit MediaLibraryManager(QObject *parent = nullptr);
-    ~MediaLibraryManager();
+    ~MediaLibraryManager() override;
 
     QVariantList             albums() const;
     bool                     isScanning() const;
@@ -90,7 +90,7 @@ class MediaLibraryManager : public QObject {
   private slots:
     void onDirectoryChanged(const QString &path);
     void performScan();
-    void onScanFinished(QList<MediaItem> items);
+    void onScanFinished(const QList<MediaItem> &items);
     void onScanProgress(int current, int total);
 
   private:

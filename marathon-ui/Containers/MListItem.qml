@@ -1,9 +1,13 @@
+import MarathonOS.Shell
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
-import MarathonUI.Theme
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property alias thumb: thumbRect
     required property string title
@@ -15,7 +19,7 @@ Rectangle {
     signal clicked
 
     width: parent.width
-    height: 88
+    height: Math.round(88 * scaleFactor)
     color: pressed ? MColors.highlightSubtle : "transparent"
 
     property bool pressed: false
@@ -23,7 +27,7 @@ Rectangle {
 
     opacity: entranceProgress
     transform: Translate {
-        y: (1 - entranceProgress) * 20
+        y: (1 - root.entranceProgress) * 20
     }
 
     Component.onCompleted: {
@@ -34,7 +38,7 @@ Rectangle {
 
     Timer {
         id: entranceDelay
-        interval: animationIndex * MMotion.staggerShort
+        interval: root.animationIndex * MMotion.staggerShort
         running: false
         onTriggered: {
             root.entranceProgress = 1;
@@ -42,7 +46,7 @@ Rectangle {
     }
 
     Behavior on entranceProgress {
-        enabled: enableEntrance
+        enabled: root.enableEntrance
         NumberAnimation {
             duration: MMotion.moderate
             easing.bezierCurve: MMotion.easingDecelerateCurve
@@ -50,7 +54,7 @@ Rectangle {
     }
 
     Behavior on opacity {
-        enabled: enableEntrance
+        enabled: root.enableEntrance
         NumberAnimation {
             duration: MMotion.quick
             easing.bezierCurve: MMotion.easingDecelerateCurve
@@ -126,8 +130,8 @@ Rectangle {
         Rectangle {
             id: thumbRect
             anchors.verticalCenter: parent.verticalCenter
-            width: 72
-            height: 72
+            width: Math.round(72 * root.scaleFactor)
+            height: Math.round(72 * root.scaleFactor)
             radius: MRadius.lg
             gradient: Gradient {
                 GradientStop {
@@ -143,35 +147,39 @@ Rectangle {
             border.color: MColors.borderSubtle
 
             layer.enabled: true
+            layer.smooth: true
+            layer.samples: Constants.layerSamples
             layer.effect: MultiEffect {
                 shadowEnabled: true
                 shadowColor: Qt.rgba(0, 0, 0, 0.4)
                 shadowVerticalOffset: 1
                 shadowBlur: 0.2
-                blurMax: 2
+                blurMax: MBlur.xxs
             }
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.03)
+            MTopHairline {
+                radius: parent.radius
+                color: Qt.rgba(1, 1, 1, 0.03)
+                lineWidth: 1
             }
         }
 
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - thumbRect.width - MSpacing.lg - timeText.width - MSpacing.lg
-            spacing: 4
+            spacing: Math.round(4 * root.scaleFactor)
 
             Text {
                 id: titleText
+                // DS Headline — 17/600 per MTypography role default.
+                // Was 17/400 (Normal) which read as a generic Body label
+                // and made every list row feel flat. DS calls the title
+                // role "Headline" for a reason: it carries the row.
                 text: root.title
                 color: MColors.textPrimary
-                font.pixelSize: 17
-                font.weight: Font.Normal
+                font.pixelSize: MTypography.sizeHeadline
+                font.weight: MTypography.weightDemiBold
+                font.letterSpacing: MTypography.trackingHeadline
                 font.family: MTypography.fontFamily
                 width: parent.width
                 elide: Text.ElideRight
@@ -181,8 +189,8 @@ Rectangle {
                 id: subtitleText
                 text: root.subtitle
                 color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeSmall
-                font.weight: Font.Light
+                font.pixelSize: MTypography.sizeFootnote
+                font.weight: MTypography.weightRegular
                 font.family: MTypography.fontFamily
                 width: parent.width
                 elide: Text.ElideRight
@@ -214,12 +222,15 @@ Rectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        property real mouseX: 0
-        property real mouseY: 0
+        // Press origin for the ripple. Named pressX/pressY, not mouseX/mouseY:
+        // those are MouseArea's own live cursor position, and shadowing them
+        // made the name ambiguous inside this scope.
+        property real pressX: 0
+        property real pressY: 0
 
         onPressed: function (mouse) {
-            mouseX = mouse.x;
-            mouseY = mouse.y;
+            pressX = mouse.x;
+            pressY = mouse.y;
             root.pressed = true;
         }
 

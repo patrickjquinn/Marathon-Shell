@@ -15,6 +15,7 @@ class AudioPolicyController;
 class HapticManager;
 class TelephonyService;
 class SMSService;
+class SensorManagerCpp;
 
 class TelephonyIntegrationCpp : public QObject {
     Q_OBJECT
@@ -34,7 +35,8 @@ class TelephonyIntegrationCpp : public QObject {
         PowerPolicyController *powerPolicy, PowerManagerCpp *powerManager,
         DisplayPolicyController *displayPolicy, DisplayManagerCpp *displayManager,
         AudioPolicyController *audioPolicy, HapticManager *haptics,
-        TelephonyService *telephonyService, SMSService *smsService, QObject *parent = nullptr);
+        TelephonyService *telephonyService, SMSService *smsService,
+        SensorManagerCpp *sensorManager = nullptr, QObject *parent = nullptr);
 
     QString lastCallState() const {
         return m_lastCallState;
@@ -74,6 +76,7 @@ class TelephonyIntegrationCpp : public QObject {
     void handleIncomingCall(const QString &number);
     void handleCallStateChanged(const QString &state);
     void handleMessageReceived(const QString &sender, const QString &text, qint64 timestamp);
+    void handleProximityChanged();
 
   private:
     QString                  resolveContactName(const QString &number) const;
@@ -92,6 +95,7 @@ class TelephonyIntegrationCpp : public QObject {
     HapticManager           *m_haptics             = nullptr;
     TelephonyService        *m_telephonyService    = nullptr;
     SMSService              *m_smsService          = nullptr;
+    SensorManagerCpp        *m_sensorManager       = nullptr;
 
     QString                  m_lastCallState = "idle";
     QString                  m_lastCallerNumber;

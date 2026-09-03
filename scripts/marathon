@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# marathon — Marathon Shell dev CLI.
+#
+# One command for the daily workflow: build, deploy, snap, unlock, launch,
+# tail logs, run doctor, probe device. Sub-commands are grouped by phase
+# in scripts/marathon.d/phase[1-5].sh; the dispatcher below just parses
+# global flags, loads the modules, and hands off.
+#
+# Usage:
+#   marathon <verb> [args]        # short form
+#   marathon <group> <verb> …     # explicit group
+#   marathon --device cm5 <verb>  # override current device
+#   marathon --help
+#
+# Config: ~/.config/marathon-dev/config       (see docs at bottom of common.sh)
+#         ~/.config/marathon-dev/devices.conf (per-device host, kind, notes)
+
+set -euo pipefail
+
+# Resolve script dir even through symlinks.
+_script_dir() {
+    local src="${BASH_SOURCE[0]}"
+    while [ -h "$src" ]; do
+        local dir
+        dir="$(cd -P "$(dirname "$src")" && pwd)"
+        src="$(readlink "$src")"
+        [[ "$src" != /* ]] && src="$dir/$src"
+    done
+    cd -P "$(dirname "$src")" && pwd
+}
+MARATHON_CLI_DIR="$(_script_dir)"
+export MARATHON_CLI_DIR
+
+# Load common utilities + every phase module. Order matters (later
+# phases can call earlier phases' helpers).
+# shellcheck source=marathon.d/common.sh
+. "$MARATHON_CLI_DIR/marathon.d/common.sh"
+# shellcheck source=marathon.d/phase1.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase1.sh"
+# shellcheck source=marathon.d/phase2.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase2.sh"
+# shellcheck source=marathon.d/phase3.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase3.sh"
+# shellcheck source=marathon.d/phase4.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase4.sh"
+# shellcheck source=marathon.d/phase5.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase5.sh"
+# shellcheck source=marathon.d/phase6.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase6.sh"
+# shellcheck source=marathon.d/phase7.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase7.sh"
+# shellcheck source=marathon.d/phase8.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase8.sh"
+# shellcheck source=marathon.d/phase9.sh
+. "$MARATHON_CLI_DIR/marathon.d/phase9.sh"
+
+# ── Global flag parsing ──────────────────────────────────────────────
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --device|-d)  export MARATHON_DEVICE="$2"; shift 2 ;;
+        --host|-H)    export MARATHON_HOST="$2"; shift 2 ;;
+        --verbose|-v) export MARATHON_VERBOSE=1; shift ;;
+        --quiet|-q)   export MARATHON_QUIET=1; shift ;;
+        --help|-h|help)
+            marathon::usage
+            exit 0
+            ;;
+        --version|version)
+            echo "marathon dev CLI · Marathon Shell"
+            exit 0
+            ;;
+        --) shift; break ;;
+        -*) marathon::error "unknown flag: $1"; exit 2 ;;
+        *)  break ;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    marathon::usage
+    exit 2
+fi
+
+# ── Dispatch ─────────────────────────────────────────────────────────
+# Verb can be a single word ("deploy") or grouped ("app new", "monitor
+# cgroup"). We look for a function cmd_<verb1>_<verb2>_… falling back
+# to cmd_<verb1>.
+verb="$1"; shift
+target="cmd_${verb//-/_}"
+while [ $# -gt 0 ] && declare -F "${target}_${1//-/_}" >/dev/null 2>&1; do
+    target="${target}_${1//-/_}"
+    shift
+done
+
+if ! declare -F "$target" >/dev/null 2>&1; then
+    marathon::error "unknown verb: $verb${1:+ $1}"
+    echo "  Run 'marathon --help' to see all verbs." >&2
+    exit 2
+fi
+
+marathon::config::load
+"$target" "$@"

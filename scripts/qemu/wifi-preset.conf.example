@@ -1,0 +1,25 @@
+# Marathon — optional dev/QA WiFi pre-seed.
+#
+# Copy this file to scripts/qemu/wifi-preset.conf (gitignored), fill in
+# real SSID and PSK, then re-build the image. setup-trees.sh detects
+# the file and generates a NetworkManager keyfile into the duranium
+# tree's mkosi.skeleton, so the device joins WiFi automatically on
+# first boot — no need to walk through OOBE just to ssh in.
+#
+# Production builds should NOT have wifi-preset.conf present.
+# .gitignore prevents accidental commit of secrets, but the responsibility
+# for keeping it off shipping images stays with the operator.
+#
+# Format: plain shell key=value pairs. Quoted values OK; no `export`.
+# SSID and PSK ONLY. WPA2-PSK is assumed (the common case for home
+# networks). For enterprise auth, write the nmconnection by hand into
+# scripts/qemu/duranium-overlay/mkosi.images/base/mkosi.skeleton/etc/
+# NetworkManager/system-connections/marathon-dev.nmconnection at mode
+# 0600 — setup-trees.sh leaves files there alone if no .conf is set.
+
+SSID="YourNetworkName"
+PSK="YourPassphrase"
+
+# Optional. Defaults to "wlan0". Override if the device's interface
+# name differs (some pmaports profiles bind to a specific wlan).
+# INTERFACE_NAME="wlan0"

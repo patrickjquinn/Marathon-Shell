@@ -11,7 +11,7 @@
 
 namespace {
     QUrl toUrl(const QString &pathOrUrl) {
-        const QUrl url(pathOrUrl);
+        QUrl url(pathOrUrl);
         if (url.isValid() && !url.scheme().isEmpty()) {
             return url;
         }
@@ -83,6 +83,10 @@ void AudioPolicyController::setDoNotDisturb(bool enabled) {
     if (!m_settings)
         return;
     m_settings->setDndEnabled(enabled);
+}
+
+bool AudioPolicyController::isDoNotDisturb() const {
+    return m_settings ? m_settings->dndEnabled() : false;
 }
 
 void AudioPolicyController::setVibrationEnabled(bool enabled) {

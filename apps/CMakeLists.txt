@@ -82,8 +82,11 @@ function(add_marathon_app APP_NAME)
   set(APP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   set(INSTALL_DIR "${MARATHON_APPS_DIR}/${APP_NAME}")
 
-  qt_policy(SET QTP0001 NEW)
-  qt_policy(SET QTP0004 NEW)
+  # QTP0001/QTP0004 are Qt 6.5+ only - guard for Droidian (Qt 6.4.2)
+  if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+  endif()
 
   string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
   set(MODULE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/${MODULE_PATH}")
@@ -130,6 +133,22 @@ function(add_marathon_app APP_NAME)
     ${ARG_RESOURCES}
     OUTPUT_DIRECTORY
     "${MODULE_OUTPUT_DIR}"
+    # Without these the QML compiler cannot resolve the design-system
+    # singletons, and every binding that touches one falls back to the
+    # interpreter. It is the single biggest lever on app QML performance
+    # here: MColors, MTypography, MSpacing and Constants alone account for
+    # 1921 un-compiled bindings across the apps -- and zero in the shell,
+    # which links these modules and so resolves them fine.
+    DEPENDENCIES
+    MarathonUI.Theme
+    MarathonUI.Core
+    MarathonUI.Controls
+    MarathonUI.Containers
+    MarathonUI.Navigation
+    MarathonUI.Feedback
+    MarathonUI.Modals
+    MarathonUI.Effects
+    MarathonOS.Shell
     NO_PLUGIN_OPTIONAL)
 
   set_property(TARGET ${APP_NAME} APPEND PROPERTY QT_QML_IMPORT_PATH
@@ -157,6 +176,21 @@ function(add_marathon_app APP_NAME)
     PATTERN "*.so"
     PATTERN "*.dylib")
 
+  # qt6_add_qml_module creates TWO libraries per app:
+  #   • ${APP_NAME}        — the C++ app library holding QML_ELEMENT types
+  #   • ${APP_NAME}plugin  — the QML plugin shim that loads the app library
+  # The install rule above only picks up files inside MODULE_OUTPUT_DIR
+  # (which is the plugin's output dir). The app library is built one level
+  # up at CMAKE_BINARY_DIR/${APP_NAME}/lib${APP_NAME}.so and stays
+  # un-installed by default. RPATH on the plugin is $ORIGIN, so it looks
+  # for the app library in the same directory — install the app library
+  # TARGET directly next to the plugin so the loader resolves it without
+  # touching LD_LIBRARY_PATH. The Marathon-Image APKBUILD used to handle
+  # this with a manual cp loop into /usr/lib; with this install rule the
+  # APKBUILD step becomes redundant but harmless.
+  install(TARGETS ${APP_NAME}
+          LIBRARY DESTINATION "${INSTALL_DIR}/${MODULE_PATH}")
+
   if(QMLLINT_AVAILABLE)
     add_qmllint_target(${APP_NAME} ${ARG_QML_FILES})
   endif()
@@ -167,6 +201,14 @@ function(add_marathon_app APP_NAME)
 
   if(EXISTS "${APP_DIR}/assets")
     install(DIRECTORY "${APP_DIR}/assets" DESTINATION "${INSTALL_DIR}")
+  endif()
+  # Apps with a resources/ directory get it installed alongside assets.
+  # Maps uses this for tile-providers.json — QtLocation's OSM plugin
+  # honours file:// URLs for osm.mapping.providersrepository.address but
+  # qrc:// URLs don't always survive QNAM in the plugin context, so the
+  # JSON has to land on disk.
+  if(EXISTS "${APP_DIR}/resources")
+    install(DIRECTORY "${APP_DIR}/resources" DESTINATION "${INSTALL_DIR}")
   endif()
 endfunction()
 
@@ -186,6 +228,7 @@ add_subdirectory(maps)
 add_subdirectory(terminal)
 add_subdirectory(test)
 add_subdirectory(store)
+add_subdirectory(email)
 
 message(STATUS "==========================================")
 message(STATUS "Marathon Apps Build Configuration")

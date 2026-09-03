@@ -1,0 +1,270 @@
+# Reference: <https://postmarketos.org/devicepkg>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+
+pkgname=device-purism-librem5-marathon
+pkgdesc="Purism Librem 5 device package for Marathon OS"
+pkgver=1.0.0
+pkgrel=31
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="Apache-2.0"
+arch="aarch64"
+options="!check !archcheck"
+# Upstream device-purism-librem5 depends on `pulseaudio<9990` to mark a
+# generic-pulseaudio sound stack. apk picks
+# `postmarketos-base-ui-audio-backend-pulseaudio` to satisfy it — but
+# that package carries `[!pipewire-pulse]` (conflicts-with). Marathon's
+# audio stack wants pipewire-pulse (which itself provides=pulseaudio).
+# Stub-provide the conflicting package at a sky-high version so apk
+# never installs the real one, leaving pipewire-pulse free to satisfy
+# the pulseaudio dep cleanly. Same pattern as our unl0kr-agent stub on
+# device-raspberry-pi5-marathon's marathon-base-config.
+#
+# greetd-agreety-config ships /etc/greetd/config.toml which
+# marathon-base-config already owns (with our greetd-marathon.toml
+# content). Without this stub, apk pulls greetd-agreety-config via the
+# upstream device-purism-librem5 dep chain and errors with
+# "trying to overwrite etc/greetd/config.toml owned by
+# marathon-base-config". Marathon owns the config; greetd-agreety
+# itself isn't pulled (Marathon doesn't use the agreety greeter — the
+# shell IS the greeter via greetd-marathon.toml's autologin command).
+provides="
+	postmarketos-base-ui-audio-backend-pulseaudio=999.0.0-r0
+	greetd-agreety-config=999.0.0-r0
+"
+# Notes on the depends list:
+#   - device-purism-librem5 pulls the upstream pmaports DTBs +
+#     deviceinfo for the i.MX 8M Quad Librem 5. We layer Marathon on
+#     top rather than overriding it. Note: it would normally pull in
+#     the upstream linux-purism-librem5 kernel, but our
+#     linux-purism-librem5-marathon dep below provides+replaces it at
+#     a higher provider_priority so apk picks our patched build.
+#   - linux-purism-librem5-marathon: our fork of pmaports'
+#     linux-purism-librem5 carrying a kCFI fix for the out-of-tree
+#     Silicon Labs RS9116 redpine driver. Without that patch, three
+#     kthreads die at module load (CFI signature mismatch) and wlan0
+#     never registers. See the package's APKBUILD header.
+#   - u-boot-librem5 ships /usr/share/u-boot/librem5/phone-boot.img.
+#     Both the on-device boot flow AND the host-side `flash-librem5.sh
+#     emmc` path need this artifact.
+#   - The Librem 5's BroadMobi BM818 modem is handled by
+#     ModemManager's `broadmobi` plugin (in mainline MM since 1.12)
+#     out of the box — NO eg25-manager. eg25-manager is the Quectel
+#     EG25-G state machine for PinePhone / PinePhone Pro and does not
+#     apply here. Earlier r2 of this aport incorrectly depended on
+#     eg25-manager + enabled it in post-install; removed in r3.
+#   - iwd intentionally absent — NetworkManager uses wpa_supplicant.
+#     iwd auto-enables a colliding nl80211 client. Same boundary as
+#     device-raspberry-pi5-marathon r7.
+#   - The rest of the runtime stack mirrors device-oneplus-enchilada-
+#     marathon line-for-line to keep the device experiences in sync.
+depends="
+	device-purism-librem5
+	device-purism-librem5-nonfree-firmware
+	firmware-siliconlabs-rs9116
+	linux-purism-librem5-marathon
+	u-boot-librem5
+	u-boot-tools
+	librem5-vivante-blobs
+	marathon-shell
+	marathon-base-config
+	marathon-plymouth-theme
+	plymouth
+	greetd
+	greetd-systemd
+	networkmanager
+	networkmanager-wifi
+	networkmanager-cli
+	modemmanager
+	mobile-broadband-provider-info
+	upower
+	wireless-tools
+	wpa_supplicant
+	bluez
+	pipewire
+	pipewire-pulse
+	wireplumber
+	pulseaudio-utils
+	linux-firmware-imx
+"
+makedepends=""
+install="$pkgname.post-install"
+source="
+	greetd-marathon.toml
+	logind.conf
+	greetd-l5-env.conf
+	eglfs-kms.json
+	journald-l5.conf
+	marathon-boot.cmd
+	marathon-wifi-recovery.sh
+	marathon-wifi-recovery.service
+	95-marathon-wifi-rfkill.rules
+	90-marathon-modem-wakeup.rules
+	50-marathon-l5-default-sink.conf
+	marathon-modem-location.service
+	marathon-cellular.nmconnection
+	device-profile.conf
+	marathon-gpu.modprobe.conf
+	marathon-gpu-select.sh
+	marathon-gpu-select.service
+	"
+
+package() {
+	# Install greetd config for Marathon Shell autologin. The actual
+	# greetd.service unit comes from the greetd-systemd subpackage we
+	# depend on — don't ship our own (r4 did and apk errored:
+	# `device-purism-librem5-marathon: trying to overwrite usr/lib/
+	# systemd/system/greetd.service owned by greetd-systemd`).
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/marathon-config.toml"
+
+	# Install logind config to let Marathon Shell handle power button
+	install -Dm644 "$srcdir/logind.conf" \
+		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
+
+	# Qt EGLFS_KMS JSON config — only sanctioned way to pick a DRM
+	# device per Qt6 docs. Read by marathon-shell-bin via the
+	# QT_QPA_EGLFS_KMS_CONFIG env var (set in the greetd drop-in).
+	install -Dm644 "$srcdir/eglfs-kms.json" \
+		"$pkgdir/etc/marathon/eglfs-kms.json"
+
+	# Device profile — the shell (DeviceProfile) and marathon-shell-session
+	# read this to pick GPU stack / GLES level / render node / governor for
+	# the Librem 5. Matches the shell's built-in defaults today; flip
+	# GPU_STACK/GLES_LEVEL when the Vivante blob overlay is installed.
+	install -Dm644 "$srcdir/device-profile.conf" \
+		"$pkgdir/etc/marathon/device-profile.conf"
+
+	# greetd service drop-in: point Qt at the JSON above so EGLFS_KMS
+	# opens /dev/dri/card1 (LCDIF + DSI panel) instead of card0
+	# (etnaviv render-only).
+	install -Dm644 "$srcdir/greetd-l5-env.conf" \
+		"$pkgdir/etc/systemd/system/greetd.service.d/10-marathon-l5.conf"
+
+	# Persistent journald on L5 (overrides marathon-base-config's
+	# volatile journal during early bring-up so post-mortem logs survive
+	# the next reboot).
+	install -Dm644 "$srcdir/journald-l5.conf" \
+		"$pkgdir/etc/systemd/journald.conf.d/90-marathon-l5.conf"
+
+	# CPU governor: marathon-base-config's 60-marathon-cpufreq.rules
+	# sets schedutil. The L5 keeps that default — the previous
+	# 99-marathon-cpufreq-l5.rules pinned `performance` to (allegedly)
+	# fix Marathon's cold-start lag, but left the device welded at
+	# 1.5 GHz on the lockscreen 24/7 (battery 56 °C, ~5× idle drain).
+	# Removed 2026-06-30 — if cold-start lag returns, tune schedutil's
+	# rate_limit_us or fall through to ondemand, do NOT re-pin perf.
+
+	# Mask iio-sensor-proxy.service: the lsm9ds1 accel driver hangs in
+	# st_lsm6dsx_read_raw on this hardware. iio-sensor-proxy independently
+	# wedges in kernel D-state polling that driver, accumulates context
+	# switches forever, and pegs load avg ~1.0. We blacklist the driver
+	# at kernel cmdline (see marathon-boot.cmd) AND mask the service so
+	# nothing tries to re-instantiate orientation work. The mask is a
+	# symlink to /dev/null per systemd convention.
+	install -d "$pkgdir/etc/systemd/system"
+	ln -sf /dev/null "$pkgdir/etc/systemd/system/iio-sensor-proxy.service"
+
+	# Marathon-customized U-Boot boot script source. Compiled to
+	# /boot/boot.scr by mkosi.finalize (which has u-boot-tools
+	# available via the u-boot-librem5 dep chain). Upstream
+	# u-boot-librem5 ships a minimal boot.cmd that omits `splash`,
+	# `quiet`, and `console=tty1` — Plymouth never engages and kernel
+	# msgs flood tty. Marathon replaces it at finalize time.
+	install -Dm644 "$srcdir/marathon-boot.cmd" \
+		"$pkgdir/usr/share/marathon/marathon-boot.cmd"
+
+	# RS9116 wifi recovery — the in-kernel SDIO probe on mmc1
+	# occasionally times out at boot (-110 ETIMEDOUT) and the kernel
+	# does not retry, so wlan never enumerates. The script tries to
+	# unbind+rebind the sdhci-esdhc-imx driver to re-run the pwrseq
+	# and re-probe the chip. The service runs once at boot; the udev
+	# rule re-runs it when the user toggles the wifi kill switch
+	# off→on, so the documented physical recovery actually works.
+	install -Dm755 "$srcdir/marathon-wifi-recovery.sh" \
+		"$pkgdir/usr/lib/marathon/marathon-wifi-recovery.sh"
+	install -Dm644 "$srcdir/marathon-wifi-recovery.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-wifi-recovery.service"
+	install -Dm644 "$srcdir/95-marathon-wifi-rfkill.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/95-marathon-wifi-rfkill.rules"
+
+	# Modem USB autosuspend/wakeup enable (PWR-6). Without `wakeup=enabled`
+	# the kernel refuses to runtime-suspend the modem (suspended device
+	# can't wake host without a wake source). Result is the modem stays
+	# `runtime_status: active` 99% of uptime with ~36 xhci interrupts/sec
+	# and ~0.1-0.2 W continuous draw. Rule lets the modem suspend between
+	# tower polls while still being able to wake on incoming traffic.
+	install -Dm644 "$srcdir/90-marathon-modem-wakeup.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/90-marathon-modem-wakeup.rules"
+
+	# Auto-enable the service at first boot. The systemd preset gets
+	# applied by marathon-base-config's preset file or directly via
+	# this symlink.
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-wifi-recovery.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-wifi-recovery.service"
+
+	# Enable ModemManager GPS location sources at boot so geoclue + the
+	# shell LocationManager have a position source (Maps, weather, etc).
+	# The modem ships with location gathering disabled by default.
+	# Enabled via `systemctl enable` in .post-install (same as the other
+	# services) so `is-enabled` reports correctly.
+	install -Dm644 "$srcdir/marathon-modem-location.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-modem-location.service"
+
+	# Autoconnect cellular data profile. gsm.auto-config=true resolves the
+	# APN from mobile-broadband-provider-info by the SIM operator, so LTE
+	# data works out of the box with no manual APN entry — and stays a
+	# fallback below Wi-Fi (route-metric 700 vs Wi-Fi's 600). NM ignores
+	# system-connection keyfiles that aren't 0600 root-owned.
+	install -Dm600 "$srcdir/marathon-cellular.nmconnection" \
+		"$pkgdir/etc/NetworkManager/system-connections/marathon-cellular.nmconnection"
+
+	# Wireplumber rule: prefer built-in speaker over HDMI for the
+	# default sink. Without it the L5 boots routing every system
+	# sound to the (usually unconnected) HDMI port and the user
+	# hears silence. /etc/wireplumber/wireplumber.conf.d/ is the
+	# canonical drop-in path read by wireplumber 0.5+.
+	install -Dm644 "$srcdir/50-marathon-l5-default-sink.conf" \
+		"$pkgdir/etc/wireplumber/wireplumber.conf.d/50-marathon-l5-default-sink.conf"
+
+	# GPU driver arbitration (etnaviv vs Vivante galcore). The GC7000Lite
+	# can only be bound by one at a time; udev must not autoload either
+	# (the modprobe blacklist) — marathon-gpu-select.service picks the one
+	# named by GPU_STACK in device-profile.conf at boot, before greetd, with
+	# a hard fallback to etnaviv so a bad Vivante state can never wedge the
+	# device. See docs/DEVICE_OVERLAYS.md.
+	install -Dm644 "$srcdir/marathon-gpu.modprobe.conf" \
+		"$pkgdir/etc/modprobe.d/marathon-gpu.conf"
+	install -Dm755 "$srcdir/marathon-gpu-select.sh" \
+		"$pkgdir/usr/lib/marathon/marathon-gpu-select.sh"
+	install -Dm644 "$srcdir/marathon-gpu-select.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-gpu-select.service"
+	# Enable it via a shipped wants-symlink, NOT a post-install
+	# `systemctl enable` — the latter is a no-op in the mkosi buildroot
+	# (no running systemd), same as marathon-wifi-recovery above. Without
+	# this, etnaviv (blacklisted in marathon-gpu.conf) never loads and the
+	# shell falls back to software render.
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-gpu-select.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-gpu-select.service"
+}
+
+sha512sums="
+c0d599806eae553b7af7e6b29b19b0e63808f599200a766805685a2d2a60e9e4fc8100cdcb8b352973e5a6b25058e7a14645661bc8667e11d0b42593bdccac18  greetd-marathon.toml
+334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
+bc68ea093103d2f4645065ce34d8517508bf2db64c1641da1220e71698d1ce91ff5a94e4b27812c95d9758ccea46890c96fa120872d9dabbf0ec8dcff64eaa88  greetd-l5-env.conf
+3a0096896c38674560e1c1ad248df461675a30708de1f889cf101f721b4cc3c12a6c685ccb6c86a0ad1c59056098a3c9b770ebdf44adb48b918f29ad40717767  eglfs-kms.json
+190174d593dca515a65373ca9b3f091c6bcf6e27dc5fae2a8ee64b8198532b8e81b15b6fae427751482a2055d1f26fca62c387347dc270c5caa3c3278f388aac  device-profile.conf
+6dd436a5f82a2a3e31c609bd1429978c43838f884a0e779582662c524a73cd7766b4f0bd36faf9cf79584541d85d15b70bcdb03bba288f292d36c62b5f19947b  journald-l5.conf
+fda83861fc6365b253b2737976b7d93fa03b4e9ac42e20c4ac1791e891e7876637e1c286561bfb1d77bdab1e0291e1f7c6e88a5429555b13a4a804bef75474e4  marathon-boot.cmd
+62ac6ff2493097507b6549cb3b0cbc4aff25ad8f7ca4fa20415a5b68eb326a3c39de737b7b72e401ae2b52182bcba95895aca7f6b4a885d18d3e04ce96d4b9fe  marathon-wifi-recovery.sh
+1d2335381b0fac234ac98980b70effef6e05ebbaa108642f43b868957b59f8d7d8fbf8213300debf3f99aef652393c2b0bc12429a1171b3c365d49f57a84b7f7  marathon-wifi-recovery.service
+b59a4434b47ea4967030810952a1816a576ce1e95bb2c1d37afc53ced362a1405eaf9da8676b12552597e08276d97a01ef76f09c7fa3b5dbb54d4343e95d6aff  95-marathon-wifi-rfkill.rules
+c8f91554fc7cc1e456d68d68b0b7ab73a2531b4361b02e5e51fc8d7ede7048f602012a9bc9efb7e982bcb5f53f1050854738240f79b3e54449badedad1f88d1b  90-marathon-modem-wakeup.rules
+279c57171c6080313729fc71eda757c0e4e566a70a0980ad833f649149444f8f52378344b7cd057e25ecd82071842d2b9f2196230239afdafb5a46b4a1847928  50-marathon-l5-default-sink.conf
+3c9e558ec3eaae346ae31afac6fcf997bf498039ef4e0a59f0b922ba9e27bcae80004e7c2b19400a55bc504bf839f0af3e3a64b60e8f8e5266ab19e9b6bc9a36  marathon-modem-location.service
+4bf52b20db09f47f775d294df9f48d945a697a130b6ddaaf144e291b74d13d5f9b065f8212e8b5452fe857f45423a7daf3e22bd5c2d08f8ed0704251a19760cf  marathon-cellular.nmconnection
+73428eec391985813dfe3bd3ec6f318aa8c6820189a4aa543c072397f857ebe1c665de596709788d8853d5093d310381fadba9151870cb17212cd27577f9c963  marathon-gpu.modprobe.conf
+7e696f5da8b2c60dbfee8f81a8bd848f6fd8620bc33c607a37edf09318b6a6756e80ce376aa7d8a533267f42446293bf03e77a126a7a84a5edd25733e526d5c9  marathon-gpu-select.sh
+6b70eb0ade799e1c9b33af1d20bf9182a85bd15dafc0442b04f6717291903b55ac7a7be72a5dcb5c25bbc518c991bd3881b90868d0b537b38a46a506ba1d0ffb  marathon-gpu-select.service
+"

@@ -1,8 +1,7 @@
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonOS.Shell 1.0
+import MarathonUI.Core
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 
 Item {
@@ -48,13 +47,10 @@ Item {
         layer.enabled: true
         y: shareSheet.visible ? 0 : parent.height
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.05)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.05)
+            lineWidth: 1
         }
 
         Column {
@@ -144,7 +140,7 @@ Item {
                             radius: Constants.borderRadiusSmall
                             color: Qt.rgba(255, 255, 255, 0.05)
                             border.width: 1
-                            border.color: targetMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
+                            border.color: targetMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
 
                             Icon {
                                 name: modelData.icon

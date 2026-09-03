@@ -2,51 +2,39 @@
 #include "src/managers/settingsmanager.h"
 #include <QVariant>
 #include <QVariantMap>
+#include <utility>   // std::as_const
 
 WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent)
     : QObject(parent)
     , m_settingsManager(settingsManager) {
+    // All 13 DS 2026 wallpapers from docs/redesign/marathonos/project/wallpapers.jsx,
+    // rendered to static SVG via scripts/build-wallpapers.py. Slate Aurora is the
+    // boot default. Order matches the design canvas (signature mark first, then
+    // structural pieces, then the gradient / atmospheric set, then dawn).
+    auto wp = [this](const char *name, const char *file, bool dark) -> QVariantMap {
+        const QString rel = QStringLiteral("wallpapers/") + QLatin1String(file);
+        const QString qrc = QStringLiteral("qrc:/wallpapers/") + QLatin1String(file);
+        return QVariantMap{
+            {"name", QLatin1String(name)},
+            {"path", resolveAssetPath(rel, qrc)},
+            {"isDark", dark},
+        };
+    };
     m_wallpapers = {
-        QVariantMap{
-            {"name", "Gradient 1"},
-            {"path", resolveAssetPath("wallpapers/wallpaper.jpg", "qrc:/wallpapers/wallpaper.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 2"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper2.jpg", "qrc:/wallpapers/wallpaper2.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 3"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper3.jpg", "qrc:/wallpapers/wallpaper3.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 4"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper4.jpg", "qrc:/wallpapers/wallpaper4.jpg")},
-            {"isDark", false}},
-        QVariantMap{
-            {"name", "Gradient 5"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper5.jpg", "qrc:/wallpapers/wallpaper5.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 6"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper6.jpg", "qrc:/wallpapers/wallpaper6.jpg")},
-            {"isDark", false}},
-        QVariantMap{
-            {"name", "Gradient 7"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper7.jpg", "qrc:/wallpapers/wallpaper7.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 8"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper8.jpg", "qrc:/wallpapers/wallpaper8.jpg")},
-            {"isDark", true}}};
-    emit wallpapersChanged();
+        wp("Slate Aurora", "slate-aurora.svg", true),
+        wp("Long Run", "long-run.svg", true),
+        wp("Carbon", "carbon.svg", true),
+        wp("Indigo Dusk", "indigo-dusk.svg", true),
+        wp("Track", "track.svg", true),
+        wp("Mesh", "mesh.svg", true),
+        wp("Contour", "contour.svg", true),
+        wp("Stride", "stride.svg", true),
+        wp("Tundra", "tundra.svg", true),
+        wp("Striae", "striae.svg", true),
+        wp("Halftone", "halftone.svg", true),
+        wp("Pulse", "pulse.svg", true),
+        wp("Dawn", "dawn.svg", true),
+    };
 
     if (m_settingsManager && !m_settingsManager->wallpaperPath().isEmpty()) {
         setCurrentWallpaper(m_settingsManager->wallpaperPath());
@@ -119,7 +107,7 @@ void WallpaperStore::setIsDark(bool isDark) {
 }
 
 void WallpaperStore::refreshIsDark() {
-    for (const QVariant &entry : m_wallpapers) {
+    for (const QVariant &entry : std::as_const(m_wallpapers)) {
         const QVariantMap map = entry.toMap();
         if (map.value("path").toString() == m_currentWallpaper) {
             setIsDark(map.value("isDark").toBool());

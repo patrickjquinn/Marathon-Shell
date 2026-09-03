@@ -1,27 +1,37 @@
 import QtQuick
 
+// Responsive breakpoint helper. Mirrors MBreakpoints constants inline
+// because qmllint can't resolve composite-singleton properties when
+// linting source files outside the staged module dir — see the qmllint
+// sweep notes in commit history.
 QtObject {
+    readonly property int _sm: 576
+    readonly property int _md: 768
+    readonly property int _lg: 1024
+    readonly property int _xl: 1280
+    readonly property int _xxl: 1536
+
     property int screenWidth: 800
     property int screenHeight: 600
 
-    readonly property string currentBreakpoint: MBreakpoints.getBreakpoint(screenWidth)
+    readonly property bool isXS: screenWidth < _sm
+    readonly property bool isSM: screenWidth >= _sm && screenWidth < _md
+    readonly property bool isMD: screenWidth >= _md && screenWidth < _lg
+    readonly property bool isLG: screenWidth >= _lg && screenWidth < _xl
+    readonly property bool isXL: screenWidth >= _xl && screenWidth < _xxl
+    readonly property bool isXXL: screenWidth >= _xxl
 
-    readonly property bool isXS: MBreakpoints.isXS(screenWidth)
-    readonly property bool isSM: MBreakpoints.isSM(screenWidth)
-    readonly property bool isMD: MBreakpoints.isMD(screenWidth)
-    readonly property bool isLG: MBreakpoints.isLG(screenWidth)
-    readonly property bool isXL: MBreakpoints.isXL(screenWidth)
-    readonly property bool isXXL: MBreakpoints.isXXL(screenWidth)
+    readonly property string currentBreakpoint: isXXL ? "xxl" : isXL ? "xl" : isLG ? "lg" : isMD ? "md" : isSM ? "sm" : "xs"
 
     readonly property bool isMobile: isXS || isSM
     readonly property bool isTablet: isMD
     readonly property bool isDesktop: isLG || isXL || isXXL
 
-    readonly property bool atLeastSM: MBreakpoints.atLeastSM(screenWidth)
-    readonly property bool atLeastMD: MBreakpoints.atLeastMD(screenWidth)
-    readonly property bool atLeastLG: MBreakpoints.atLeastLG(screenWidth)
-    readonly property bool atLeastXL: MBreakpoints.atLeastXL(screenWidth)
-    readonly property bool atLeastXXL: MBreakpoints.atLeastXXL(screenWidth)
+    readonly property bool atLeastSM: screenWidth >= _sm
+    readonly property bool atLeastMD: screenWidth >= _md
+    readonly property bool atLeastLG: screenWidth >= _lg
+    readonly property bool atLeastXL: screenWidth >= _xl
+    readonly property bool atLeastXXL: screenWidth >= _xxl
 
     function value(xsValue, smValue, mdValue, lgValue, xlValue, xxlValue) {
         if (isXXL && xxlValue !== undefined)

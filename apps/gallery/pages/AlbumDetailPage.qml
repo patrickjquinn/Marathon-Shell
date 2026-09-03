@@ -1,12 +1,11 @@
-import MarathonApp.Gallery
-import MarathonApp.Gallery
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls // qmllint disable unused-imports
+// ^ required at runtime for the StackView attached property (root.StackView.view);
+//   qmllint does not count attached-property use, so it reports it unused.
 import QtQuick.Layouts
 
 Rectangle {
@@ -29,7 +28,7 @@ Rectangle {
 
     color: MColors.background
     Component.onCompleted: {
-        if (typeof MediaLibraryManager !== 'undefined' && albumId)
+        if (albumId)
             Qt.callLater(function () {
                 photos = MediaLibraryManager.getPhotos(albumId);
             });
@@ -85,7 +84,7 @@ Rectangle {
             cellWidth: width / 3
             cellHeight: cellWidth
             clip: true
-            model: photos
+            model: root.photos
             cacheBuffer: cellHeight * 2
 
             delegate: MCard {

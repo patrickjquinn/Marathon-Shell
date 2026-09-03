@@ -4,9 +4,24 @@
 #include <QSettings>
 #include <QVariant>
 #include <QStringList>
+#include <qqml.h>
+
+class QQmlEngine;
+class QJSEngine;
+class QFileSystemWatcher;
 
 class SettingsManager : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(SettingsManagerCpp)
+    QML_SINGLETON
+
+  public:
+    // QML_SINGLETON factory: lets marathon-app-runner instantiate its own
+    // SettingsManager when it imports MarathonOS.Shell, without a manual
+    // qmlRegisterSingletonInstance call. Shell process still calls
+    // qmlRegisterSingletonInstance explicitly in main.cpp — that override
+    // wins so shell-side C++ consumers share the same QObject pointer.
+    static SettingsManager *create(QQmlEngine *, QJSEngine *);
 
     Q_PROPERTY(qreal userScaleFactor READ userScaleFactor WRITE setUserScaleFactor NOTIFY
                    userScaleFactorChanged)
@@ -90,6 +105,9 @@ class SettingsManager : public QObject {
                    setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
     Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
                    keyboardLanguageChanged)
+
+    Q_PROPERTY(bool unifiedPushFallbackEnabled READ unifiedPushFallbackEnabled WRITE
+                   setUnifiedPushFallbackEnabled NOTIFY unifiedPushFallbackEnabledChanged)
 
   public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -230,6 +248,10 @@ class SettingsManager : public QObject {
         return m_keyboardLanguage;
     }
 
+    bool unifiedPushFallbackEnabled() const {
+        return m_unifiedPushFallbackEnabled;
+    }
+
     void                    setUserScaleFactor(qreal factor);
     void                    setWallpaperPath(const QString &path);
 
@@ -265,8 +287,8 @@ class SettingsManager : public QObject {
     void                    setSearchNativeApps(bool enabled);
     void                    setShowNotificationBadges(bool enabled);
     void                    setAppNotificationSettings(const QVariantMap &settings);
-    bool                    isNotificationsEnabledForApp(const QString &appId) const;
-    void                    setNotificationsEnabledForApp(const QString &appId, bool enabled);
+    Q_INVOKABLE bool        isNotificationsEnabledForApp(const QString &appId) const;
+    Q_INVOKABLE void        setNotificationsEnabledForApp(const QString &appId, bool enabled);
     void                    setShowFrequentApps(bool enabled);
     void                    setDefaultApps(const QVariantMap &apps);
 
@@ -282,6 +304,8 @@ class SettingsManager : public QObject {
     void                    setKeyboardPredictiveSpacing(bool enabled);
     void                    setKeyboardHapticStrength(const QString &strength);
     void                    setKeyboardLanguage(const QString &language);
+
+    void                    setUnifiedPushFallbackEnabled(bool enabled);
 
     Q_INVOKABLE QStringList availableRingtones();
     Q_INVOKABLE QStringList availableNotificationSounds();
@@ -349,60 +373,67 @@ class SettingsManager : public QObject {
     void keyboardHapticStrengthChanged();
     void keyboardLanguageChanged();
 
+    void unifiedPushFallbackEnabledChanged();
+
   private:
-    void        load();
-    void        save();
+    void                load();
+    void                save();
+    void                onSettingsFileChanged(const QString &path);
 
-    QSettings   m_settings;
+    QSettings           m_settings;
+    QFileSystemWatcher *m_watcher     = nullptr;
+    bool                m_inSelfWrite = false;
 
-    qreal       m_userScaleFactor;
-    QString     m_wallpaperPath;
+    qreal               m_userScaleFactor;
+    QString             m_wallpaperPath;
 
-    QString     m_deviceName;
-    bool        m_autoLock;
-    int         m_autoLockTimeout;
-    bool        m_showNotificationPreviews;
-    QString     m_timeFormat;
-    QString     m_dateFormat;
+    QString             m_deviceName;
+    bool                m_autoLock;
+    int                 m_autoLockTimeout;
+    bool                m_showNotificationPreviews;
+    QString             m_timeFormat;
+    QString             m_dateFormat;
 
-    QString     m_ringtone;
-    QString     m_notificationSound;
-    QString     m_alarmSound;
-    qreal       m_mediaVolume;
-    qreal       m_ringtoneVolume;
-    qreal       m_alarmVolume;
-    qreal       m_notificationVolume;
-    qreal       m_systemVolume;
-    bool        m_dndEnabled;
-    bool        m_vibrationEnabled;
-    QString     m_audioProfile;
+    QString             m_ringtone;
+    QString             m_notificationSound;
+    QString             m_alarmSound;
+    qreal               m_mediaVolume;
+    qreal               m_ringtoneVolume;
+    qreal               m_alarmVolume;
+    qreal               m_notificationVolume;
+    qreal               m_systemVolume;
+    bool                m_dndEnabled;
+    bool                m_vibrationEnabled;
+    QString             m_audioProfile;
 
-    int         m_screenTimeout;
-    bool        m_autoBrightness;
-    QString     m_statusBarClockPosition;
+    int                 m_screenTimeout;
+    bool                m_autoBrightness;
+    QString             m_statusBarClockPosition;
 
-    bool        m_showNotificationsOnLockScreen;
+    bool                m_showNotificationsOnLockScreen;
 
-    bool        m_filterMobileFriendlyApps;
-    QStringList m_hiddenApps;
-    QString     m_appSortOrder;
-    int         m_appGridColumns;
-    bool        m_searchNativeApps;
-    bool        m_showNotificationBadges;
-    QVariantMap m_appNotificationSettings;
-    bool        m_showFrequentApps;
-    QVariantMap m_defaultApps;
+    bool                m_filterMobileFriendlyApps;
+    QStringList         m_hiddenApps;
+    QString             m_appSortOrder;
+    int                 m_appGridColumns;
+    bool                m_searchNativeApps;
+    bool                m_showNotificationBadges;
+    QVariantMap         m_appNotificationSettings;
+    bool                m_showFrequentApps;
+    QVariantMap         m_defaultApps;
 
-    bool        m_firstRunComplete;
+    bool                m_firstRunComplete;
 
-    QStringList m_enabledQuickSettingsTiles;
-    QStringList m_quickSettingsTileOrder;
+    QStringList         m_enabledQuickSettingsTiles;
+    QStringList         m_quickSettingsTileOrder;
 
-    bool        m_keyboardAutoCorrection;
-    bool        m_keyboardAutoCapitalize;
-    bool        m_keyboardPredictiveText;
-    bool        m_keyboardWordFling;
-    bool        m_keyboardPredictiveSpacing;
-    QString     m_keyboardHapticStrength;
-    QString     m_keyboardLanguage;
+    bool                m_keyboardAutoCorrection;
+    bool                m_keyboardAutoCapitalize;
+    bool                m_keyboardPredictiveText;
+    bool                m_keyboardWordFling;
+    bool                m_keyboardPredictiveSpacing;
+    QString             m_keyboardHapticStrength;
+    QString             m_keyboardLanguage;
+
+    bool                m_unifiedPushFallbackEnabled;
 };

@@ -1,4 +1,3 @@
-import MarathonApp.Test
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -6,6 +5,11 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    // Outer TestApp.qml hands this in so the .qml-file scope here can
+    // touch its passedTests / failedTests / totalTests counters; QML ids
+    // don't bubble across separately-compiled .qml component files.
+    property var testApp
+
     Flickable {
         anchors.fill: parent
         contentHeight: telephonyColumn.height

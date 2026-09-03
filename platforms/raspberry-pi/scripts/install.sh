@@ -12,10 +12,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}"
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║   Marathon Shell on Hackberry Pi - Installation       ║"
-echo "║   BlackBerry BB10 Successor on Raspberry Pi           ║"
-echo "╚════════════════════════════════════════════════════════╝"
+echo "+--------------------------------------------------------+"
+echo "|   Marathon Shell on Hackberry Pi - Installation       |"
+echo "|   BlackBerry BB10 Successor on Raspberry Pi           |"
+echo "+--------------------------------------------------------+"
 echo -e "${NC}"
 
 # Check if running on Raspberry Pi
@@ -57,18 +57,18 @@ echo -e "${GREEN}=== Step 1: Backing up existing configuration ===${NC}"
 # Backup LightDM config
 if [ -f /etc/lightdm/lightdm.conf ]; then
     sudo cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✓ Backed up /etc/lightdm/lightdm.conf"
+    echo "Backed up /etc/lightdm/lightdm.conf"
 fi
 
 # Backup existing marathon session files if they exist
 if [ -f /usr/local/bin/marathon-shell-session ]; then
     sudo cp /usr/local/bin/marathon-shell-session /usr/local/bin/marathon-shell-session.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✓ Backed up /usr/local/bin/marathon-shell-session"
+    echo "Backed up /usr/local/bin/marathon-shell-session"
 fi
 
 if [ -f /usr/share/wayland-sessions/marathon.desktop ]; then
     sudo cp /usr/share/wayland-sessions/marathon.desktop /usr/share/wayland-sessions/marathon.desktop.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✓ Backed up /usr/share/wayland-sessions/marathon.desktop"
+    echo "Backed up /usr/share/wayland-sessions/marathon.desktop"
 fi
 
 if [ "$SKIP_PATCHES" != "1" ]; then
@@ -83,9 +83,9 @@ if [ "$SKIP_PATCHES" != "1" ]; then
     if grep -q "30 second guard" shell/qml/stores/SessionStore.qml; then
         echo "Applying SessionStore patch..."
         patch -p1 < "$REPO_DIR/patches/02-sessionstore-fix.patch"
-        echo "✓ Applied SessionStore patch"
+        echo "Applied SessionStore patch"
     else
-        echo "✓ SessionStore patch already applied or not needed"
+        echo "SessionStore patch already applied or not needed"
     fi
     
     # Rebuild Marathon Shell
@@ -93,7 +93,7 @@ if [ "$SKIP_PATCHES" != "1" ]; then
     if [ -d build ]; then
         cd build
         ninja install
-        echo "✓ Marathon Shell rebuilt and installed"
+        echo "Marathon Shell rebuilt and installed"
     else
         echo -e "${YELLOW}Warning: build directory not found. Please rebuild Marathon Shell manually:${NC}"
         echo "  cd ~/Marathon-Shell/build"
@@ -108,18 +108,18 @@ echo -e "\n${GREEN}=== Step 3: Installing session files ===${NC}"
 # Install session startup script
 sudo cp "$REPO_DIR/config/marathon-shell-session" /usr/local/bin/
 sudo chmod +x /usr/local/bin/marathon-shell-session
-echo "✓ Installed /usr/local/bin/marathon-shell-session"
+echo "Installed /usr/local/bin/marathon-shell-session"
 
 # Install desktop entry
 sudo mkdir -p /usr/share/wayland-sessions
 sudo cp "$REPO_DIR/config/marathon.desktop" /usr/share/wayland-sessions/
-echo "✓ Installed /usr/share/wayland-sessions/marathon.desktop"
+echo "Installed /usr/share/wayland-sessions/marathon.desktop"
 
 echo -e "\n${GREEN}=== Step 4: Configuring LightDM ===${NC}"
 
 # Install LightDM configuration
 sudo cp "$REPO_DIR/config/lightdm.conf" /etc/lightdm/
-echo "✓ Installed LightDM configuration"
+echo "Installed LightDM configuration"
 
 # Ensure lightdm-gtk-greeter is installed
 if ! dpkg -l | grep -q lightdm-gtk-greeter; then
@@ -132,15 +132,15 @@ echo -e "\n${GREEN}=== Step 5: Setting up permissions ===${NC}"
 
 # Add user to video and render groups
 sudo usermod -a -G video,render $USER
-echo "✓ Added $USER to video,render groups"
+echo "Added $USER to video,render groups"
 
 # Grant capabilities to Marathon Shell
 sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell-bin
-echo "✓ Granted Marathon Shell real-time priority capability"
+echo "Granted Marathon Shell real-time priority capability"
 
-echo -e "\n${GREEN}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║            Installation Complete! 🎉                   ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
+echo -e "\n${GREEN}+--------------------------------------------------------+${NC}"
+echo -e "${GREEN}|            Installation Complete!                  |${NC}"
+echo -e "${GREEN}+--------------------------------------------------------+${NC}"
 
 echo -e "\n${BLUE}Marathon Shell is now configured as your default desktop environment.${NC}"
 echo -e "\n${YELLOW}Please reboot to start using Marathon Shell:${NC}"
@@ -160,5 +160,5 @@ echo "  • See docs/TROUBLESHOOTING.md for common issues"
 echo -e "\n${BLUE}To restore the original Raspberry Pi desktop:${NC}"
 echo -e "  ${GREEN}./scripts/uninstall.sh${NC}"
 
-echo -e "\n${GREEN}Enjoy your BlackBerry BB10 successor! 📱✨${NC}"
+echo -e "\n${GREEN}Enjoy your BlackBerry BB10 successor!${NC}"
 

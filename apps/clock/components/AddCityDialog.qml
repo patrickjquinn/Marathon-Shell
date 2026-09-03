@@ -1,6 +1,4 @@
-import MarathonApp.Clock
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -206,7 +204,7 @@ Item {
                 width: parent.width
                 placeholderText: "Search cities..."
                 onTextChanged: {
-                    searchQuery = text;
+                    addCityDialog.searchQuery = text;
                 }
             }
 

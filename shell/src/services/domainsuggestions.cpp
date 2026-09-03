@@ -1,5 +1,12 @@
 #include "domainsuggestions.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+DomainSuggestions *DomainSuggestions::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new DomainSuggestions(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 DomainSuggestions::DomainSuggestions(QObject *parent)
     : QObject(parent)
     , m_commonTlds({"com", "org", "net", "edu", "gov", "co.uk", "co", "io", "app", "dev",
@@ -19,7 +26,7 @@ QStringList DomainSuggestions::getSuggestions(const QString &text, bool isEmail)
         if (lowerText.contains("@")) {
             const QStringList parts = lowerText.split("@");
             if (parts.size() == 2) {
-                const QString domain = parts[1];
+                const QString &domain = parts[1];
                 for (const QString &emailDomain : m_emailDomains) {
                     if (suggestions.size() >= 3) {
                         break;

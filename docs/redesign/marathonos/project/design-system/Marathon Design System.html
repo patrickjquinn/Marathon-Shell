@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1320"/>
+<title>Marathon · Design System</title>
+<link rel="stylesheet" href="../marathon-tokens.css"/>
+<link rel="stylesheet" href="ds-styles.css"/>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>
+(function () {
+  var v = '@phos' + 'phor-icons/web' + '@' + '2.1.1';
+  ['light','bold','duotone','fill'].forEach(function (w) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://unpkg.com/' + v + '/src/' + w + '/style.css';
+    document.head.appendChild(l);
+  });
+})();
+</script>
+
+<!-- Marathon system libraries — same files the OS uses -->
+<script type="text/babel" src="../shell.jsx"></script>
+<script type="text/babel" src="../app-icons.jsx"></script>
+
+<!-- Design system page content -->
+<script type="text/babel" src="ds-foundations.jsx"></script>
+<script type="text/babel" src="ds-components.jsx"></script>
+<script type="text/babel" src="ds-engineering.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const NAV = [
+  { group: 'Foundations', items: [
+    { id: 'overview',   label: 'Overview' },
+    { id: 'brand',      label: 'Brand mark' },
+    { id: 'color',      label: 'Color' },
+    { id: 'type',       label: 'Typography' },
+    { id: 'icons',      label: 'Iconography' },
+    { id: 'app-icons',  label: 'App icon construction' },
+    { id: 'spacing',    label: 'Spacing' },
+    { id: 'layout',     label: 'Layout' },
+    { id: 'shape',      label: 'Shape' },
+    { id: 'elevation',  label: 'Elevation' },
+    { id: 'motion',     label: 'Motion' },
+  ]},
+  { group: 'Components', items: [
+    { id: 'buttons',    label: 'Buttons' },
+    { id: 'inputs',     label: 'Inputs & search' },
+    { id: 'cards-rows', label: 'Cards & rows' },
+    { id: 'badges',     label: 'Badges, chips, avatars' },
+    { id: 'bars',       label: 'System bars' },
+    { id: 'dialogs',    label: 'Dialogs & HUD' },
+  ]},
+  { group: 'Patterns', items: [
+    { id: 'frames',      label: 'Active Frames' },
+    { id: 'ai-surfaces', label: 'AI surfaces' },
+  ]},
+  { group: 'Practice', items: [
+    { id: 'voice',  label: 'Voice & tone' },
+    { id: 'a11y',   label: 'Accessibility' },
+  ]},
+  { group: 'Engineering', items: [
+    { id: 'stack',          label: 'Stack & tooling' },
+    { id: 'theme',          label: 'Theme singleton' },
+    { id: 'components-qml', label: 'Components in QML' },
+    { id: 'motion-qml',     label: 'Motion in Qt6' },
+    { id: 'glass',          label: 'Glass & blur' },
+    { id: 'assets',         label: 'Icons & fonts' },
+    { id: 'perf',           label: 'Performance' },
+  ]},
+];
+
+function Sidebar({ active }) {
+  return (
+    <aside className="ds-sidebar">
+      <div className="ds-brand">
+        <MarathonMark size={56} label={false} glow={false}/>
+        <div className="ds-brand-text">
+          <div className="ds-brand-name">Marathon</div>
+          <div className="ds-brand-version">Design System · v1.0</div>
+        </div>
+      </div>
+      {NAV.map(g => (
+        <div key={g.group}>
+          <div className="ds-nav-group">{g.group}</div>
+          {g.items.map(item => (
+            <a key={item.id} href={'#' + item.id}
+               className={'ds-nav-item' + (active === item.id ? ' active' : '')}>
+              <span>{item.label}</span>
+            </a>
+          ))}
+        </div>
+      ))}
+      <div style={{ padding: '24px 22px', borderTop: '1px solid var(--w-04)', marginTop: 16, fontSize: 11, color: 'var(--text-tertiary)' }}>
+        <div style={{ fontFamily: 'JetBrains Mono', letterSpacing: 0.2, lineHeight: 1.6 }}>
+          marathon-os 4.2.1<br/>
+          codename · Avior<br/>
+          updated · May 2026
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function App() {
+  const [active, setActive] = React.useState('overview');
+  React.useEffect(() => {
+    const ids = NAV.flatMap(g => g.items.map(i => i.id));
+    const obs = new IntersectionObserver(entries => {
+      const v = entries.find(e => e.isIntersecting);
+      if (v) setActive(v.target.id);
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div className="ds-app">
+      <Sidebar active={active}/>
+      <main className="ds-main">
+        <DSOverview/>
+        <DSBrand/>
+        <DSColor/>
+        <DSType/>
+        <DSIcons/>
+        <DSAppIconConstruction/>
+        <DSSpacing/>
+        <DSLayout/>
+        <DSShape/>
+        <DSElevation/>
+        <DSMotion/>
+
+        <DSButtons/>
+        <DSInputs/>
+        <DSCardsRows/>
+        <DSBadges/>
+        <DSBars/>
+        <DSDialogs/>
+
+        <DSActiveFrames/>
+        <DSAISurfaces/>
+
+        <DSVoice/>
+        <DSAccess/>
+
+        <DSStack/>
+        <DSTheme/>
+        <DSComponentsQML/>
+        <DSMotionQML/>
+        <DSGlass/>
+        <DSAssets/>
+        <DSPerf/>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

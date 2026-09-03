@@ -1,9 +1,11 @@
+import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
-import Qt5Compat.GraphicalEffects
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import QtWebEngine
 
@@ -14,11 +16,9 @@ MApp {
     property int currentTabIndex: 0
     property int nextTabId: 1
     readonly property int maxTabs: {
-        if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) {
-            var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
-            if (!isNaN(v) && v > 0)
-                return v;
-        }
+        var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
+        if (!isNaN(v) && v > 0)
+            return v;
         return 12;
     }
     property var bookmarks: []
@@ -28,6 +28,11 @@ MApp {
     property var tabViewsById: ({})
     property real drawerProgress: 0
     property bool isDrawerOpen: false
+    // On screen, as opposed to settled open: true from the first pixel of the
+    // drag-in until the close animation ends. drawerContainer's own visible
+    // binding is this expression; anything gated on drawer visibility should
+    // use this rather than isDrawerOpen, which only flips on release.
+    readonly property bool drawerVisible: drawerProgress > 0 || isDragging
     property bool isDragging: false
     property var drawerRef: null
     property var webView: null
@@ -45,7 +50,6 @@ MApp {
     property bool _pendingAddressBarFocus: false
     property bool _pendingAddressBarSelectAll: false
     property int _pendingAddressBarAttempts: 0
-    property bool addressBarWantsFocus: false
 
     function updateCurrentWebView() {
         var currentTab = getCurrentTab();
@@ -109,24 +113,18 @@ MApp {
     }
 
     function loadBookmarks() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
-            try {
-                bookmarks = JSON.parse(savedBookmarks);
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
-                bookmarks = [];
-            }
-        } else {
+        var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
+        try {
+            bookmarks = JSON.parse(savedBookmarks);
+        } catch (e) {
+            Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
             bookmarks = [];
         }
     }
 
     function saveBookmarks() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(bookmarks);
-            SettingsManagerCpp.set("browser/bookmarks", data);
-        }
+        var data = JSON.stringify(bookmarks);
+        SettingsManagerCpp.set("browser/bookmarks", data);
     }
 
     function addBookmark(url, title) {
@@ -173,24 +171,18 @@ MApp {
     }
 
     function loadHistory() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
-            try {
-                history = JSON.parse(savedHistory);
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load history: " + e);
-                history = [];
-            }
-        } else {
+        var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
+        try {
+            history = JSON.parse(savedHistory);
+        } catch (e) {
+            Logger.error("BrowserApp", "Failed to load history: " + e);
             history = [];
         }
     }
 
     function saveHistory() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(history);
-            SettingsManagerCpp.set("browser/history", data);
-        }
+        var data = JSON.stringify(history);
+        SettingsManagerCpp.set("browser/history", data);
     }
 
     function updateHistoryTitle(url, title) {
@@ -260,53 +252,47 @@ MApp {
     }
 
     function loadSettings() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
-            searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
-            homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
-        }
+        searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
+        searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
+        homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
     }
 
     function saveSettings() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
-            SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
-            SettingsManagerCpp.set("browser/homepage", homepageUrl);
-        }
+        SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
+        SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
+        SettingsManagerCpp.set("browser/homepage", homepageUrl);
     }
 
     function loadTabs() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
-            if (savedTabs) {
-                try {
-                    var parsedTabs = JSON.parse(savedTabs);
-                    tabs.clear();
-                    if (Array.isArray(parsedTabs)) {
-                        var maxId = 0;
-                        for (var i = 0; i < parsedTabs.length; i++) {
-                            var tab = parsedTabs[i];
-                            tabs.append({
-                                "tabId": tab.id,
-                                "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
-                                "title": tab.title || "New Tab",
-                                "isLoading": false,
-                                "canGoBack": false,
-                                "canGoForward": false,
-                                "loadProgress": 0,
-                                "isCrashed": false,
-                                "isNewTab": false,
-                                "crashCount": 0,
-                                "lastCrashAt": 0
-                            });
-                            if (tab.id > maxId)
-                                maxId = tab.id;
-                        }
-                        nextTabId = maxId + 1;
+        var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
+        if (savedTabs) {
+            try {
+                var parsedTabs = JSON.parse(savedTabs);
+                tabs.clear();
+                if (Array.isArray(parsedTabs)) {
+                    var maxId = 0;
+                    for (var i = 0; i < parsedTabs.length; i++) {
+                        var tab = parsedTabs[i];
+                        tabs.append({
+                            "tabId": tab.id,
+                            "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
+                            "title": tab.title || "New Tab",
+                            "isLoading": false,
+                            "canGoBack": false,
+                            "canGoForward": false,
+                            "loadProgress": 0,
+                            "isCrashed": false,
+                            "isNewTab": false,
+                            "crashCount": 0,
+                            "lastCrashAt": 0
+                        });
+                        if (tab.id > maxId)
+                            maxId = tab.id;
                     }
-                } catch (e) {
-                    Logger.error("BrowserApp", "Failed to load tabs: " + e);
+                    nextTabId = maxId + 1;
                 }
+            } catch (e) {
+                Logger.error("BrowserApp", "Failed to load tabs: " + e);
             }
         }
     }
@@ -315,21 +301,19 @@ MApp {
         if (isPrivateMode)
             return;
 
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var tabsArray = [];
-            for (var i = 0; i < tabs.count; i++) {
-                var tab = tabs.get(i);
-                tabsArray.push({
-                    "id": tab.tabId,
-                    "url": tab.url,
-                    "title": tab.title
-                });
-            }
-            SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
+        var tabsArray = [];
+        for (var i = 0; i < tabs.count; i++) {
+            var tab = tabs.get(i);
+            tabsArray.push({
+                "id": tab.tabId,
+                "url": tab.url,
+                "title": tab.title
+            });
         }
+        SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
     }
 
-    function createNewTab(url) {
+    function createNewTab(url, focusAddress) {
         if (tabs.count >= maxTabs) {
             Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached");
             return -1;
@@ -338,10 +322,13 @@ MApp {
             "tabId": nextTabId++,
             "url": url || homepageUrl,
             "title": "New Tab",
-            "isLoading": false,
+            // #412: WebEngineView spawn on L5 takes seconds — flag the tab as
+            // loading from t=0 so the chrome progress bar appears immediately,
+            // not when WebEngine first emits loadingChanged.
+            "isLoading": true,
             "canGoBack": false,
             "canGoForward": false,
-            "loadProgress": 0,
+            "loadProgress": 5,
             "isCrashed": false,
             "isNewTab": true,
             "crashCount": 0,
@@ -353,9 +340,11 @@ MApp {
 
         Logger.info("BrowserApp", "Created new tab: " + newTab.tabId);
         switchToTab(newTab.tabId);
-        Qt.callLater(function () {
-            browserApp.focusAddressBar(true);
-        });
+        if (focusAddress !== false) {
+            Qt.callLater(function () {
+                browserApp.ensureAddressBarFocus(true);
+            });
+        }
         return newTab.tabId;
     }
 
@@ -428,15 +417,13 @@ MApp {
         partialText = partialText.toLowerCase();
         for (var i = 0; i < bookmarks.length; i++) {
             var url = bookmarks[i].url.toLowerCase();
-            var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "");
-            var hostOnly = cleanUrl.split("/")[0];
+            var hostOnly = displayHostFor(url);
             if (hostOnly.startsWith(partialText))
                 return hostOnly;
         }
         for (var j = 0; j < history.length; j++) {
             var hUrl = history[j].url.toLowerCase();
-            var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "");
-            var hHostOnly = hCleanUrl.split("/")[0];
+            var hHostOnly = displayHostFor(hUrl);
             if (hHostOnly.startsWith(partialText))
                 return hHostOnly;
         }
@@ -528,6 +515,40 @@ MApp {
         updatingTabUrl = false;
     }
 
+    // What the address bar shows while you are NOT editing: the host, and
+    // only the host. It used to hold the raw URL, and a TextInput narrower
+    // than its contents shows whichever fragment the cursor last left in
+    // view -- users saw "https", "ckgo.com/", "e_website", never the one
+    // thing an address bar exists to answer. Tapping the bar still swaps in
+    // the full URL, selected, for editing.
+    // http and https render identically once the scheme is hidden, so the bar
+    // has to say which it is. "insecure" only for plaintext http on a real
+    // host -- about:blank and friends get no badge rather than a wrong one.
+    function schemeBadgeFor(url) {
+        var u = (url || "").toString();
+        if (/^https:\/\//i.test(u))
+            return "secure";
+        if (/^http:\/\//i.test(u))
+            return "insecure";
+        return "none";
+    }
+
+    function displayHostFor(url) {
+        var u = (url || "").toString();
+        // The authority ends at the first / ? or #. Matching [^/]+ alone let
+        // a query string into the capture, and the greedy userinfo strip then
+        // turned "https://evil.com?x=@paypal.com" into a bar reading
+        // "paypal.com" -- an address bar naming the attacker's choice of site
+        // is worse than one showing nothing.
+        var m = u.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^\/?#]+)/);
+        if (!m)
+            return u;
+        // The port stays. Autocomplete feeds navigateTo, so dropping it sent
+        // "192.168.1.5:8080" to :443 instead; and in the bar a non-default
+        // port is part of where you actually are.
+        return m[1].replace(/^.*@/, "").replace(/^www\./, "");
+    }
+
     function _syncAddressBarFromCurrentTab() {
         var u = browserApp.urlInputRef;
         if (!u)
@@ -537,11 +558,8 @@ MApp {
             return;
 
         var currentTab = getCurrentTab();
-        u.text = currentTab ? currentTab.url : "";
-    }
-
-    function focusAddressBar(selectAllText) {
-        ensureAddressBarFocus(selectAllText);
+        u.text = currentTab ? displayHostFor(currentTab.url) : "";
+        u.cursorPosition = 0;
     }
 
     function openDrawer() {
@@ -577,8 +595,11 @@ MApp {
             if (browserApp._focusRetrySelectAll)
                 browserApp._focusRetryItem.selectAll();
 
+            // Qt.inputMethod is QInputMethod; .show() is its documented public
+            // API. The lint tool sees Qt.inputMethod as bare QObject and can't
+            // resolve the method.
             if (Qt.inputMethod)
-                Qt.inputMethod.show();
+                Qt.inputMethod.show();  // qmllint disable missing-property
 
             focusRetryTimer.restart();
         });
@@ -601,27 +622,28 @@ MApp {
     }
     onAppLaunched: {
         isAppActive = true;
-        launchFocusTimer.restart();
     }
     onAppResumed: {
         isAppActive = true;
     }
+    // Launch does NOT claim the address bar. It used to -- here, again from
+    // a 900ms post-launch timer, and once more on every resume -- so the app
+    // opened with the keyboard covering a third of the page (and, before the
+    // shell learned to retract it, covering the permission dialog's buttons).
+    // A browser opens showing the page; the keyboard appears when the user
+    // asks for it. Only an explicit new tab still focuses the bar.
     Component.onCompleted: {
         Logger.info("BrowserApp", "Initializing browser...");
-        addressBarWantsFocus = true;
         loadSettings();
         loadBookmarks();
         loadHistory();
         loadTabs();
         if (tabs.count === 0) {
             Logger.info("BrowserApp", "No tabs found, creating default tab");
-            createNewTab();
+            createNewTab(undefined, false);
         }
         Qt.callLater(updateCurrentWebView);
-        Qt.callLater(function () {
-            browserApp._syncAddressBarFromCurrentTab();
-            browserApp.focusAddressBar(true);
-        });
+        Qt.callLater(browserApp._syncAddressBarFromCurrentTab);
     }
     onAppPaused: {
         isAppActive = false;
@@ -718,9 +740,25 @@ MApp {
 
         interval: 16
         repeat: true
+        // 30 retries × 16 ms ≈ 480 ms — enough for the URL input's Loader
+        // to come up and the scene graph to mount it on a cold launch.
+        // Beyond that, focus isn't landing because something else owns
+        // it (modal, focus scope, hidden surface) and burning frames at
+        // 60 fps polling forceActiveFocus() won't unstick that. The
+        // earlier 100-retry budget (1.6 s) just delayed the warning
+        // without ever recovering — same dead end, slower.
+        readonly property int maxAttempts: 30
         onTriggered: {
             var item = browserApp._focusRetryItem;
             if (!item) {
+                stop();
+                return;
+            }
+            // Bail early when the target can't possibly take focus —
+            // forceActiveFocus on an invisible item is a guaranteed no-op
+            // and just keeps the timer spinning until the budget runs out.
+            if (!item.visible) {
+                Logger.debug("BrowserApp", "focus target invisible — abandoning retry");
                 stop();
                 return;
             }
@@ -733,26 +771,16 @@ MApp {
             }
             item.forceActiveFocus();
             browserApp._focusRetryAttempts++;
-            if (browserApp._focusRetryAttempts >= 100) {
+            if (browserApp._focusRetryAttempts >= focusRetryTimer.maxAttempts) {
                 if (browserApp._focusRetrySelectAll)
                     item.selectAll();
 
-                Logger.warn("BrowserApp", "Failed to focus address bar after retries");
+                Logger.info("BrowserApp", "address-bar focus didn't land in " + focusRetryTimer.maxAttempts + " frames — leaving for user tap");
                 stop();
             }
         }
     }
 
-    Timer {
-        id: launchFocusTimer
-
-        interval: 900
-        repeat: false
-        onTriggered: {
-            Logger.info("BrowserApp", "Post-launch focus: claiming address bar");
-            browserApp.focusAddressBar(true);
-        }
-    }
 
     Timer {
         id: addressBarPendingFocusTimer
@@ -851,7 +879,7 @@ MApp {
                                 id: webView
 
                                 anchors.fill: parent
-                                focus: !urlInput.activeFocus && !browserApp.addressBarWantsFocus
+                                focus: !urlInput.activeFocus
                                 url: tabDelegate.url
                                 profile: isPrivateMode ? privateProfile : normalProfile
                                 active: isAppActive && (tabDelegate.index === currentTabIndex)
@@ -990,43 +1018,21 @@ MApp {
                     }
                 }
 
-                MouseArea {
-                    id: rightEdgeGesture
-
-                    property real startX: 0
-                    property real currentX: 0
-
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: Constants.gestureEdgeWidth
-                    z: 1000
-                    onPressed: mouse => {
-                        startX = mouse.x + rightEdgeGesture.x;
-                        currentX = startX;
-                        isDragging = true;
-                    }
-                    onPositionChanged: mouse => {
-                        currentX = mouse.x + rightEdgeGesture.x;
-                        var deltaX = startX - currentX;
-                        drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
-                    }
-                    onReleased: {
-                        isDragging = false;
-                        if (drawerProgress > 0.3)
-                            openDrawer();
-                        else
-                            closeDrawer();
-                    }
-                }
             }
 
+
+            // URL + control combo (Safari-style, anchored to the bottom
+            // edge per product direction — JSX shows top URL bar but we
+            // stay bottom-attached for thumb reach). Re-tokened to the DS
+            // chrome: glass-titlebar fill, w-04 border, top inset highlight.
+            // Loading progress bar still renders as a teal hairline along
+            // the bottom edge.
             Rectangle {
                 id: urlBar
 
                 width: parent.width
-                height: Constants.touchTargetMedium + MSpacing.sm
-                color: isPrivateMode ? Qt.rgba(0.5, 0, 0.5, 0.3) : MColors.surface
+                height: Constants.touchTargetSmall + MSpacing.sm
+                color: isPrivateMode ? Qt.rgba(0.45, 0, 0.45, 0.6) : MColors.glassTitlebar
 
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -1054,16 +1060,28 @@ MApp {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.durationFor("hover")
                         }
                     }
                 }
 
+                // Top divider — w-04 hairline, the DS standard for
+                // glass-bar attachments. Then a 1 px lighter inset
+                // highlight just below it so the bar reads "lit from
+                // above" matching every other bar in the system.
                 Rectangle {
                     anchors.top: parent.top
                     width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
+                    height: 1
+                    color: MColors.borderGlass
+                }
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.topMargin: 1
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 1
+                    color: MColors.whiteOverlay06
                 }
 
                 Rectangle {
@@ -1090,20 +1108,96 @@ MApp {
 
                     Behavior on width {
                         NumberAnimation {
-                            duration: 100
+                            duration: MMotion.micro
+                        }
+                    }
+                }
+
+                // Swipe the bar horizontally to move through history --
+                // right for back, left for forward -- with the row tracking
+                // the finger at reduced ratio and springing home on release.
+                // A DragHandler with target:null takes the grab from the
+                // buttons' MouseAreas only once the drag threshold is
+                // crossed, so taps on back / pill / reload / tabs behave
+                // exactly as before. Disabled while editing: a horizontal
+                // drag in a focused field is text selection.
+                DragHandler {
+                    id: barSwipe
+
+                    // Captured during the drag: activeTranslation resets to
+                    // zero BEFORE onActiveChanged fires on release, so a
+                    // release handler that reads it directly always sees 0
+                    // and the gesture silently never navigates.
+                    property real dragX: 0
+                    // Latched at grab. History cannot change mid-drag, and the
+                    // Translate below runs every frame -- it used to do a
+                    // currentWebView() lookup and two Chromium property reads
+                    // per frame, on the one path that must not stutter.
+                    property bool canBack: false
+                    property bool canFwd: false
+
+                    target: null
+                    xAxis.enabled: true
+                    yAxis.enabled: false
+                    enabled: !urlInput.activeFocus
+                    grabPermissions: PointerHandler.CanTakeOverFromAnything
+                    onActiveTranslationChanged: {
+                        if (active)
+                            dragX = activeTranslation.x;
+                    }
+                    onActiveChanged: {
+                        var view = browserApp.currentWebView();
+                        if (active) {
+                            canBack = !!(view && view.canGoBack);
+                            canFwd = !!(view && view.canGoForward);
+                            return;
+                        }
+                        var dx = dragX;
+                        dragX = 0;
+                        if (!view)
+                            return;
+                        if (dx > 70 && view.canGoBack) {
+                            HapticService.light();
+                            view.goBack();
+                        } else if (dx < -70 && view.canGoForward) {
+                            HapticService.light();
+                            view.goForward();
                         }
                     }
                 }
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: MSpacing.sm
-                    anchors.rightMargin: MSpacing.sm
+                    anchors.leftMargin: MSpacing.xs
+                    anchors.rightMargin: MSpacing.xs
                     spacing: MSpacing.xs
 
+                    transform: Translate {
+                        // A third of the finger's travel, capped, and only in
+                        // directions history can actually go -- the bar
+                        // resists rather than slides when there is nothing
+                        // to pop.
+                        x: {
+                            var t = barSwipe.dragX * 0.35;
+                            if (t > 0 && !barSwipe.canBack)
+                                t = t * 0.25;
+                            if (t < 0 && !barSwipe.canFwd)
+                                t = t * 0.25;
+                            return Math.max(-64, Math.min(64, t));
+                        }
+
+                        Behavior on x {
+                            enabled: !barSwipe.active
+                            NumberAnimation {
+                                duration: MMotion.quick
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                    }
+
                     Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall
-                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
 
@@ -1113,7 +1207,11 @@ MApp {
                             size: Constants.iconSizeSmall
                             color: {
                                 var currentTab = getCurrentTab();
-                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textTertiary;
+                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textSecondary;
+                            }
+                            opacity: {
+                                var currentTab = getCurrentTab();
+                                return (currentTab && currentTab.canGoBack) ? 1.0 : 0.35;
                             }
                         }
 
@@ -1136,53 +1234,91 @@ MApp {
                         }
                     }
 
-                    Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall
-                        Layout.preferredHeight: Constants.touchTargetSmall
-                        Layout.alignment: Qt.AlignVCenter
-                        color: "transparent"
-                        visible: {
-                            var currentTab = getCurrentTab();
-                            return currentTab && currentTab.canGoForward;
-                        }
-
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "arrow-right"
-                            size: Constants.iconSizeSmall
-                            color: MColors.text
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light();
-                                var view = browserApp.currentWebView();
-                                if (view && view.canGoForward)
-                                    view.goForward();
-                            }
-                        }
-                    }
+                    // No forward button. When it popped in the bar held five
+                    // controls and the host collapsed to "en....". Forward is
+                    // the bar's left-swipe (back is the right-swipe); the
+                    // back button stays because it is the discoverable half.
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: parent.height - MSpacing.sm * 2
                         Layout.alignment: Qt.AlignVCenter
-                        radius: Constants.borderRadiusSmall
-                        color: MColors.elevated
-                        border.width: Constants.borderWidthThin
-                        border.color: urlInput.activeFocus ? MColors.accent : MColors.border
+                        radius: MRadius.md
+                        color: MColors.elev2
+                        border.width: 1
+                        border.color: urlInput.activeFocus ? MColors.marathonTealBright : MColors.whiteOverlay08
                         clip: true
 
+                        // Idle tap cover, above the input (z), gone while
+                        // editing. Focusing used to happen ON PRESS -- which
+                        // meant the bar's back/forward swipe could never
+                        // start over the pill: the keyboard was already
+                        // rising before any drag threshold was crossed. A
+                        // drag now cancels the press (the DragHandler takes
+                        // the grab), no click fires, and no keyboard rises;
+                        // a real tap still focuses and selects the URL.
                         MouseArea {
                             anchors.fill: parent
-                            propagateComposedEvents: true
-                            onPressed: mouse => {
-                                if (!urlInput.activeFocus)
-                                    urlInput.forceActiveFocus();
+                            z: 10
+                            visible: !urlInput.activeFocus
+                            onClicked: urlInput.forceActiveFocus()
+                        }
 
-                                mouse.accepted = false;
+                        // Badge and host travel together as one centred
+                        // group. Anchoring the badge to hostLabel.left put it
+                        // outside the pill and the clip ate it -- hostLabel
+                        // spans the full width and merely centres its own
+                        // glyphs, so its left edge is the pill's, not the
+                        // text's.
+                        Row {
+                            id: hostRow
+
+                            readonly property real avail: actionRow.x - MSpacing.xs * 2
+
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: MSpacing.xs
+                            visible: !urlInput.activeFocus
+
+                            Icon {
+                                id: schemeBadge
+
+                                readonly property string badgeState: {
+                                    var t = getCurrentTab();
+                                    return browserApp.schemeBadgeFor(t ? t.url : "");
+                                }
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: badgeState !== "none"
+                                width: visible ? implicitWidth : 0
+                                name: badgeState === "secure" ? "lock-simple" : "warning"
+                                size: Math.round(MTypography.sizeBody * 0.85)
+                                color: badgeState === "secure" ? MColors.textSecondary : MColors.warning
+                            }
+
+                            Text {
+                                id: hostLabel
+
+                                // Only as wide as it needs, so the pair stays
+                                // centred; capped at what the pill has spare
+                                // after the badge, then elides.
+                                anchors.verticalCenter: parent.verticalCenter
+                                // implicitWidth here is a plain metric of the
+                                // text, so capping width by it does not feed
+                                // back. It did under fontSizeMode:
+                                // HorizontalFit, which derives implicitWidth
+                                // from the fitted size -- width and
+                                // implicitWidth then drove each other through
+                                // repeated layout passes on every navigation.
+                                width: Math.min(implicitWidth, hostRow.avail
+                                                - (schemeBadge.visible ? schemeBadge.width + hostRow.spacing : 0))
+                                text: urlInput.text
+                                color: MColors.text
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeBody
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
                         }
 
@@ -1203,7 +1339,17 @@ MApp {
                             anchors.leftMargin: MSpacing.md
                             anchors.rightMargin: MSpacing.xs
                             verticalAlignment: TextInput.AlignVCenter
+                            // While idle the glyphs are drawn by hostLabel
+                            // below -- a Text can elide, a TextInput can only
+                            // clip, which turned the host into "duck<half a
+                            // glyph>". Hidden by opacity, not visible:false:
+                            // forceActiveFocus on an invisible item is a
+                            // no-op, while an opacity-0 item still takes
+                            // focus and IS culled by the scene graph, unlike
+                            // a transparent colour which still lays the text
+                            // out and uploads its glyphs.
                             color: MColors.text
+                            opacity: activeFocus ? 1 : 0
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             selectByMouse: true
@@ -1211,13 +1357,21 @@ MApp {
                             selectionColor: MColors.accent
                             clip: true
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                            // Focus arrives via the idle cover's click, never
+                            // the raw press -- see the MouseArea above.
+                            activeFocusOnPress: false
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     browserApp.isEditingAddress = true;
-                                    browserApp.addressBarWantsFocus = false;
                                     urlInput.userTypedSinceFocus = false;
                                     var currentTab = getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
+                                    // selectAll and STOP. Setting cursorPosition
+                                    // afterwards clears the selection, so the
+                                    // first character typed was prepended into
+                                    // the old URL instead of replacing it --
+                                    // "en.wikipedia.org" typed over the DDG url
+                                    // navigated to "en.wikipedia.orghttps...".
                                     selectAll();
                                     _clearAddressSuggestions();
                                 } else {
@@ -1226,6 +1380,15 @@ MApp {
                                     urlInput.inlineTypedPrefix = "";
                                     urlInput.userTypedSinceFocus = false;
                                     _clearAddressSuggestions();
+                                    urlInput.cursorPosition = 0;
+                                    // Focusing swaps in the full URL for
+                                    // editing; blurring has to put the host
+                                    // back. Without this, tapping the bar then
+                                    // tapping the page away left the raw URL
+                                    // shrunk and elided in the pill until the
+                                    // next navigation -- the exact state the
+                                    // host-only display exists to avoid.
+                                    browserApp._syncAddressBarFromCurrentTab();
                                 }
                             }
                             Component.onCompleted: {
@@ -1326,30 +1489,11 @@ MApp {
                             }
 
                             Connections {
-                                function onAppLaunched() {
-                                    browserApp.ensureAddressBarFocus(true);
-                                }
-
-                                function onAppResumed() {
-                                    browserApp.ensureAddressBarFocus(true);
-                                }
-
-                                function onTabsChanged() {
-                                    if (!urlInput.activeFocus) {
-                                        var currentTab = getCurrentTab();
-                                        if (currentTab && currentTab.url !== urlInput.text)
-                                            urlInput.text = currentTab.url;
-                                    }
-                                }
-
                                 function onCurrentTabIndexChanged() {
-                                    var currentTab = getCurrentTab();
-                                    if (!urlInput.activeFocus)
-                                        urlInput.text = currentTab ? currentTab.url : "";
-
                                     browserApp._syncAddressBarFromCurrentTab();
+                                    var currentTab = getCurrentTab();
                                     if (currentTab && currentTab.isNewTab)
-                                        browserApp.focusAddressBar(true);
+                                        browserApp.ensureAddressBarFocus(true);
                                 }
 
                                 target: browserApp
@@ -1408,108 +1552,88 @@ MApp {
                                 }
                             }
 
-                            Rectangle {
-                                width: Constants.touchTargetSmall * 0.8
-                                height: parent.height
-                                color: "transparent"
-                                visible: !urlInput.activeFocus
-                                opacity: isPrivateMode ? 0.45 : 1
+                            // The bookmark star used to live here, always
+                            // visible. Together with reload the two buttons
+                            // ate half the pill, so the host the bar exists
+                            // to display got ~140px and always elided.
+                            // Bookmarking now lives at the top of the
+                            // drawer's Bookmarks page; reload keeps the
+                            // in-pill slot, as Safari does.
 
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "star"
-                                    size: Constants.iconSizeSmall * 0.8
-                                    color: {
-                                        var currentTab = getCurrentTab();
-                                        return (currentTab && isBookmarked(currentTab.url)) ? MColors.accent : MColors.textSecondary;
-                                    }
-                                }
+                        }
+                    }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        HapticService.light();
-                                        if (isPrivateMode) {
-                                            browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
-                                            return;
-                                        }
-                                        var currentTab = getCurrentTab();
-                                        if (currentTab) {
-                                            if (isBookmarked(currentTab.url))
-                                                removeBookmark(currentTab.url);
-                                            else
-                                                addBookmark(currentTab.url, currentTab.title);
-                                        }
-                                    }
-                                }
+                    // Reload sits in the bar, not the pill. Inside the pill
+                    // it competed with the host for the one stretch of space
+                    // whose whole job is showing what site you are on; out
+                    // here it fills the dead zone beside the field, at full
+                    // control size instead of 0.8x. Hidden while editing so
+                    // the field takes the room instead.
+                    Rectangle {
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
+                        Layout.alignment: Qt.AlignVCenter
+                        color: "transparent"
+                        visible: !urlInput.activeFocus
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: {
+                                var currentTab = getCurrentTab();
+                                return (currentTab && currentTab.isLoading) ? "square" : "refresh-cw";
                             }
+                            size: Constants.iconSizeSmall
+                            color: MColors.text
+                        }
 
-                            Rectangle {
-                                width: Constants.touchTargetSmall * 0.8
-                                height: parent.height
-                                color: "transparent"
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: {
-                                        var currentTab = getCurrentTab();
-                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "x" : "refresh-cw";
-                                    }
-                                    size: Constants.iconSizeSmall * 0.8
-                                    color: MColors.text
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                HapticService.light();
+                                var view = browserApp.currentWebView();
+                                if (!view) {
+                                    Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
+                                    Qt.callLater(updateCurrentWebView);
+                                    return;
                                 }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        HapticService.light();
-                                        var view = browserApp.currentWebView();
-                                        if (!view) {
-                                            Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
-                                            Qt.callLater(updateCurrentWebView);
-                                            return;
-                                        }
-                                        Logger.warn("BrowserApp", "Refresh clicked url=" + view.url + " loading=" + view.loading + " lifecycle=" + view.lifecycleState);
-                                        var currentTab = getCurrentTab();
-                                        if (currentTab && currentTab.isLoading) {
-                                            view.triggerWebAction(WebEngineView.Stop);
-                                        } else {
-                                            view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
-                                            view.reload();
-                                        }
-                                    }
+                                var currentTab = getCurrentTab();
+                                if (currentTab && currentTab.isLoading) {
+                                    view.triggerWebAction(WebEngineView.Stop);
+                                } else {
+                                    view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
+                                    view.reload();
                                 }
                             }
                         }
                     }
 
+                    // Safari's tab affordance: the count inside a rounded
+                    // square. The old icon-plus-"(1)" pairing was the widest
+                    // control in the bar -- 1.6x a touch target for one
+                    // glyph and three characters of tertiary text.
                     Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetSmall * 1.6
-                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetMinimum
+                        Layout.preferredHeight: Constants.touchTargetMinimum
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
 
-                        Row {
+                        Rectangle {
                             anchors.centerIn: parent
-                            anchors.horizontalCenterOffset: -MSpacing.xs
-                            spacing: 3
-
-                            Icon {
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "grid-3x3"
-                                size: Constants.iconSizeSmall
-                                color: MColors.text
-                            }
+                            width: Math.round(parent.width * 0.62)
+                            height: width
+                            radius: Math.round(width * 0.28)
+                            color: "transparent"
+                            border.width: Math.max(2, Math.round(width * 0.07))
+                            border.color: MColors.text
 
                             Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "(" + tabs.count + ")"
-                                font.pixelSize: MTypography.sizeSmall * 0.85
-                                font.weight: Font.Normal
-                                color: MColors.textTertiary
-                                visible: tabs.count > 0
+                                anchors.centerIn: parent
+                                text: tabs.count > 99 ? ":D" : tabs.count
+                                font.pixelSize: Math.round(parent.height * 0.52)
+                                font.weight: Font.DemiBold
+                                font.family: MTypography.fontFamily
+                                color: MColors.text
                             }
                         }
 
@@ -1526,6 +1650,56 @@ MApp {
                         }
                     }
                 }
+            }
+        }
+
+        // Right-edge drawer gesture. Kept as an overlay MouseArea above the
+        // web view ON PURPOSE. Re-expressing it as a DragHandler on
+        // contentArea -- so its bounds came from ordinary stacking instead of
+        // the two explicit exclusions below -- was tried and reverted:
+        // WebEngineView consumes the drag before a QML handler on its parent
+        // sees it, and the swipe stopped opening the drawer at all. An
+        // overlay is what puts the gesture above web content; the exclusions
+        // are that decision's price, not a bandaid.
+        MouseArea {
+            id: rightEdgeGesture
+
+            property real startX: 0
+            property real currentX: 0
+
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            // Stop short of urlBar. Moving this out of the Column gave it the
+            // full screen height at z:1000, and the bar's rightmost control --
+            // the tab button, freshly shrunk to the 44px floor -- was left
+            // with 1px of itself outside the strip. Tapping the tab count did
+            // nothing: this handler took the press and released at progress 0.
+            anchors.bottomMargin: urlBar.height
+            width: Constants.gestureEdgeWidth
+            // ...and it must yield to the drawer it opens. At z:1000 it also
+            // outranked drawerContainer, eating the right edge of everything
+            // inside: half of each TabCard's close button, the bookmark row's
+            // right end. Gated on isDrawerOpen, not drawerProgress, which
+            // this handler drives itself mid-drag.
+            enabled: !browserApp.isDrawerOpen
+            z: 1000
+            onPressed: mouse => {
+                startX = mouse.x + rightEdgeGesture.x;
+                currentX = startX;
+                isDragging = true;
+            }
+            onPositionChanged: mouse => {
+                currentX = mouse.x + rightEdgeGesture.x;
+                var deltaX = startX - currentX;
+                drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
+            }
+            onReleased: {
+                isDragging = false;
+                if (drawerProgress > 0.3)
+                    openDrawer();
+                else
+                    closeDrawer();
             }
         }
 
@@ -1552,13 +1726,10 @@ MApp {
             scale: visible ? 1 : 0.97
             layer.enabled: true
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: MColors.highlightSubtle
+            MTopHairline {
+                radius: parent.radius
+                color: MColors.highlightSubtle
+                lineWidth: 1
             }
 
             ListView {
@@ -1688,12 +1859,17 @@ MApp {
                 }
             }
 
-            layer.effect: DropShadow {
-                horizontalOffset: 0
-                verticalOffset: 4
-                radius: 16
-                samples: 33
-                color: Qt.rgba(0, 0, 0, 0.6)
+            // Swapped from Qt5Compat DropShadow to MultiEffect — same
+            // visual (16 px blur @ 4 px down, 60% black) but uses the
+            // shipped QtQuick.Effects path and stays consistent with
+            // MShadow's own internal MultiEffect calls.
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 4
+                shadowBlur: 16.0 / 32.0
+                shadowColor: Qt.rgba(0, 0, 0, 0.6)
+                shadowOpacity: 1.0
             }
         }
 
@@ -1718,7 +1894,7 @@ MApp {
             width: parent.width * 0.85
             height: parent.height
             x: parent.width - (width * drawerProgress)
-            visible: drawerProgress > 0 || isDragging
+            visible: browserApp.drawerVisible
             clip: true
 
             BrowserDrawer {
@@ -1736,10 +1912,42 @@ MApp {
                             return currentTab ? currentTab.tabId : -1;
                         });
                     }
-                    if (drawer.bookmarksPage)
+                    if (drawer.bookmarksPage) {
                         drawer.bookmarksPage.bookmarks = Qt.binding(function () {
                             return browserApp.bookmarks;
                         });
+                        // Gated on drawerVisible, which is what
+                        // drawerContainer itself uses: the drawer is on screen
+                        // from the first pixel of the drag, while isDrawerOpen
+                        // does not flip until release -- gating on that left
+                        // the bookmark row collapsed for the whole slide, then
+                        // popping in and shoving the list down. Still skips
+                        // the work while the drawer is closed, which is the
+                        // point: ungated these re-ran on every Chromium
+                        // titleChanged and rescanned the bookmarks per
+                        // navigation, for a panel nobody was looking at.
+                        drawer.bookmarksPage.currentPageUrl = Qt.binding(function () {
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
+                            return t ? (t.url || "") : "";
+                        });
+                        drawer.bookmarksPage.currentPageTitle = Qt.binding(function () {
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
+                            return t ? (t.title || "") : "";
+                        });
+                        // Referencing browserApp.bookmarks inside the binding
+                        // is what re-evaluates it when a bookmark is added or
+                        // removed -- isBookmarked() alone notifies nothing.
+                        drawer.bookmarksPage.currentPageBookmarked = Qt.binding(function () {
+                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
+                            return !!t && browserApp.bookmarks.some(function (b) {
+                                return b.url === t.url;
+                            });
+                        });
+                        drawer.bookmarksPage.bookmarksDisabled = Qt.binding(function () {
+                            return browserApp.isPrivateMode;
+                        });
+                        drawer.bookmarksPage.schemeOf = browserApp.schemeBadgeFor;
+                    }
 
                     if (drawer.historyPage)
                         drawer.historyPage.history = Qt.binding(function () {
@@ -1788,6 +1996,19 @@ MApp {
                 onTabSelected: tabId => {
                     switchToTab(tabId);
                     closeDrawer();
+                }
+                onToggleCurrentBookmark: {
+                    if (browserApp.isPrivateMode) {
+                        browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
+                        return;
+                    }
+                    var t = browserApp.getCurrentTab();
+                    if (!t)
+                        return;
+                    if (isBookmarked(t.url))
+                        removeBookmark(t.url);
+                    else
+                        addBookmark(t.url, t.title);
                 }
                 onNewTabRequested: {
                     var tabId = createNewTab();
@@ -1848,12 +2069,16 @@ MApp {
                 }
             }
 
+            // Tab/page x slide — was 350ms OutCubic. Spring-driven on
+            // the panel role so flings feel velocity-aware and short
+            // drags feel decisive.
             Behavior on x {
                 enabled: !isDragging
 
-                NumberAnimation {
-                    duration: 350
-                    easing.type: Easing.OutCubic
+                SpringAnimation {
+                    spring: MMotion.stiffnessSpatialFor("panel")
+                    damping: MMotion.dampingSpatialFor("panel")
+                    epsilon: MMotion.epsilonSpatial
                 }
             }
         }

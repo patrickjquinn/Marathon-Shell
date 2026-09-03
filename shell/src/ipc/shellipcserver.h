@@ -23,6 +23,12 @@ class SecurityManager;
 class SensorManagerCpp;
 class LocationManager;
 class AlarmManagerCpp;
+class AudioRoutingManager;
+class UpdateService;
+class DavSyncEngine;
+class MarathonAppStoreService;
+class AppLifecycleManager;
+class MarathonAppRegistry;
 
 class ShellIpcServer : public QObject {
     Q_OBJECT
@@ -37,28 +43,38 @@ class ShellIpcServer : public QObject {
                             NetworkManagerCpp *networkManager, HapticManager *hapticManager,
                             SecurityManager *securityManager, SensorManagerCpp *sensorManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
-                            AppLaunchService *appLaunchService, QObject *parent = nullptr);
+                            AudioRoutingManager *audioRoutingManager, UpdateService *updateService,
+                            DavSyncEngine *davSyncEngine, MarathonAppStoreService *appStoreService,
+                            AppLaunchService    *appLaunchService,
+                            AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
+                            QObject *parent = nullptr);
 
     bool registerOnSessionBus();
 
   private:
-    MarathonPermissionManager *m_permissions      = nullptr;
-    ContactsManager           *m_contacts         = nullptr;
-    CallHistoryManager        *m_callHistory      = nullptr;
-    TelephonyService          *m_telephony        = nullptr;
-    SMSService                *m_sms              = nullptr;
-    MediaLibraryManager       *m_mediaLibrary     = nullptr;
-    SettingsManager           *m_settingsManager  = nullptr;
-    BluetoothManager          *m_bluetoothManager = nullptr;
-    DisplayManagerCpp         *m_displayManager   = nullptr;
-    PowerManagerCpp           *m_powerManager     = nullptr;
-    AudioManagerCpp           *m_audioManager     = nullptr;
-    AudioPolicyController     *m_audioPolicy      = nullptr;
-    NetworkManagerCpp         *m_networkManager   = nullptr;
-    HapticManager             *m_hapticManager    = nullptr;
-    SecurityManager           *m_securityManager  = nullptr;
-    SensorManagerCpp          *m_sensorManager    = nullptr;
-    LocationManager           *m_locationManager  = nullptr;
-    AlarmManagerCpp           *m_alarmManager     = nullptr;
-    AppLaunchService          *m_appLaunchService = nullptr;
+    MarathonPermissionManager *m_permissions         = nullptr;
+    ContactsManager           *m_contacts            = nullptr;
+    CallHistoryManager        *m_callHistory         = nullptr;
+    TelephonyService          *m_telephony           = nullptr;
+    SMSService                *m_sms                 = nullptr;
+    MediaLibraryManager       *m_mediaLibrary        = nullptr;
+    SettingsManager           *m_settingsManager     = nullptr;
+    BluetoothManager          *m_bluetoothManager    = nullptr;
+    DisplayManagerCpp         *m_displayManager      = nullptr;
+    PowerManagerCpp           *m_powerManager        = nullptr;
+    AudioManagerCpp           *m_audioManager        = nullptr;
+    AudioPolicyController     *m_audioPolicy         = nullptr;
+    NetworkManagerCpp         *m_networkManager      = nullptr;
+    HapticManager             *m_hapticManager       = nullptr;
+    SecurityManager           *m_securityManager     = nullptr;
+    SensorManagerCpp          *m_sensorManager       = nullptr;
+    LocationManager           *m_locationManager     = nullptr;
+    AlarmManagerCpp           *m_alarmManager        = nullptr;
+    AudioRoutingManager       *m_audioRoutingManager = nullptr;
+    UpdateService             *m_updateService       = nullptr;
+    DavSyncEngine             *m_davSyncEngine       = nullptr;
+    MarathonAppStoreService   *m_appStoreService     = nullptr;
+    AppLaunchService          *m_appLaunchService    = nullptr;
+    AppLifecycleManager       *m_lifecycleManager    = nullptr;
+    MarathonAppRegistry       *m_appRegistry         = nullptr;
 };

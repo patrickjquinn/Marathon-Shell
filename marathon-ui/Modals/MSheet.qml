@@ -1,8 +1,12 @@
-import QtQuick
+import MarathonOS.Shell
+import MarathonUI.Effects
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string title: ""
     property alias content: contentItem.data
@@ -17,9 +21,15 @@ Rectangle {
     opacity: showing ? 1.0 : 0.0
     z: 10000
 
+    // Opacity rides the effects family — colour/opacity must not
+    // ring per M3 Expressive. Spring + critical damping gives the
+    // overlay a soft fade-in/out without the abrupt cut of a fixed-
+    // duration NumberAnimation.
     Behavior on opacity {
-        NumberAnimation {
-            duration: MMotion.quick
+        SpringAnimation {
+            spring: MMotion.stiffnessEffectsFor("modal")
+            damping: MMotion.dampingEffectsFor("modal")
+            epsilon: MMotion.epsilon
         }
     }
 
@@ -35,16 +45,31 @@ Rectangle {
         anchors.bottom: parent.bottom
         height: parent.height * root.sheetHeight
 
-        color: MColors.bb10Elevated
+        // Sheet container — was opaque MColors.bb10Elevated; now
+        // glass-blurred via MGlass underneath. Keeps the elevated
+        // chroma but lets the surface read as a panel over content
+        // instead of a hard plate.
+        color: "transparent"
         radius: MRadius.xl
+
+        MGlass {
+            id: sheetGlass
+            anchors.fill: parent
+            sourceItem: root.parent
+            blurMaxRadius: MBlur.blurFor("sheet")
+            tint: Qt.rgba(MColors.bb10Elevated.r, MColors.bb10Elevated.g, MColors.bb10Elevated.b, 0.78)
+            borderColor: MColors.borderGlass
+            topHairline: false
+            z: -1
+        }
 
         y: root.showing ? 0 : height
 
         Behavior on y {
             SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
-                epsilon: MMotion.epsilon
+                spring: MMotion.stiffnessSpatialFor("sheet")
+                damping: MMotion.dampingSpatialFor("sheet")
+                epsilon: MMotion.epsilonSpatial
             }
         }
 
@@ -78,13 +103,10 @@ Rectangle {
 
         layer.enabled: false
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: MColors.highlightSubtle
+        MTopHairline {
+            radius: parent.radius
+            color: MColors.highlightSubtle
+            lineWidth: 1
         }
 
         Rectangle {
@@ -92,8 +114,8 @@ Rectangle {
             anchors.top: parent.top
             anchors.topMargin: MSpacing.md
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 40
-            height: 4
+            width: Math.round(40 * root.scaleFactor)
+            height: Math.round(4 * root.scaleFactor)
             radius: 2
             color: MColors.textTertiary
         }

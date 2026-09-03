@@ -67,6 +67,7 @@ SettingsPageTemplate {
                                 Image {
                                     anchors.fill: parent
                                     source: modelData.path
+                                    sourceSize: Qt.size(width, height)
                                     fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
                                     cache: true

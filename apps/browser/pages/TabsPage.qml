@@ -1,6 +1,5 @@
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -67,7 +66,7 @@ Rectangle {
                 visible: tabsPage.tabs ? tabsPage.tabs.count === 0 : true
                 anchors.centerIn: parent
                 title: "No open tabs"
-                message: "Tap the button below to create a new tab"
+                message: "Tap the button below to create a new tab."
             }
         }
 

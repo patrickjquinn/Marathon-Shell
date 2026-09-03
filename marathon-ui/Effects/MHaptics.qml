@@ -4,6 +4,15 @@ import QtQuick
 QtObject {
     id: root
 
+    // Backend is the C++ HapticManager singleton (from MarathonOS.Shell),
+    // injected by the shell at startup. Typed as `var` rather than
+    // QtObject so qmllint doesn't flag every duck-typed call — this is
+    // deliberate cross-module layering: marathon-ui must not import
+    // MarathonOS.Shell. The contract is documented here.
+    property var backend: null
+
+    readonly property bool enabled: backend ? backend.enabled : false
+
     readonly property real lightIntensity: 0.3
     readonly property real mediumIntensity: 0.6
     readonly property real heavyIntensity: 1
@@ -12,28 +21,18 @@ QtObject {
     readonly property int mediumDuration: 20
     readonly property int longDuration: 40
 
-    property bool enabled: false
-
     function light() {
-        if (!enabled)
-            return;
-
-        console.log("[Haptics] Light tap");
+        if (backend && backend.enabled)
+            backend.light();
     }
 
     function lightImpact() {
         light();
     }
 
-    function selectionChanged() {
-        selection();
-    }
-
     function medium() {
-        if (!enabled)
-            return;
-
-        console.log("[Haptics] Medium tap");
+        if (backend && backend.enabled)
+            backend.medium();
     }
 
     function mediumImpact() {
@@ -41,50 +40,43 @@ QtObject {
     }
 
     function heavy() {
-        if (!enabled)
-            return;
-
-        console.log("[Haptics] Heavy tap");
+        if (backend && backend.enabled)
+            backend.heavy();
+    }
+    function heavyImpact() {
+        heavy();
     }
 
     function selection() {
-        if (!enabled)
-            return;
+        light();
+    }
 
-        console.log("[Haptics] Selection");
+    function selectionChanged() {
+        light();
     }
 
     function impact(intensity, duration) {
-        if (!enabled)
+        if (!backend || !backend.enabled)
             return;
-
-        console.log("[Haptics] Impact - intensity:", intensity, "duration:", duration);
+        if (intensity >= heavyIntensity)
+            backend.heavy();
+        else if (intensity >= mediumIntensity)
+            backend.medium();
+        else
+            backend.light();
     }
 
     function success() {
-        if (!enabled)
-            return;
-
         light();
-        Qt.callLater(function () {
-            Qt.callLater(light);
-        });
+        Qt.callLater(light);
     }
 
     function error() {
-        if (!enabled)
-            return;
-
-        impact(heavyIntensity, longDuration);
+        heavy();
     }
 
     function warning() {
-        if (!enabled)
-            return;
-
         medium();
-        Qt.callLater(function () {
-            Qt.callLater(medium);
-        });
+        Qt.callLater(medium);
     }
 }

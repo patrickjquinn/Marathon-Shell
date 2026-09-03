@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QString>
 #include <QDateTime>
+#include <qqml.h>
 
 class Notification : public QObject {
     Q_OBJECT
@@ -72,11 +73,13 @@ class Notification : public QObject {
 
 class NotificationModel : public QAbstractListModel {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum NotificationRoles {
+    enum NotificationRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         AppIdRole,
         TitleRole,
@@ -88,7 +91,7 @@ class NotificationModel : public QAbstractListModel {
     Q_ENUM(NotificationRoles)
 
     explicit NotificationModel(QObject *parent = nullptr);
-    ~NotificationModel();
+    ~NotificationModel() override;
 
     int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -103,6 +106,13 @@ class NotificationModel : public QAbstractListModel {
 
     Q_INVOKABLE int addNotification(const QString &appId, const QString &title, const QString &body,
                                     const QString &icon);
+
+    // Same, but adopting an id minted elsewhere -- specifically the row id
+    // NotificationDatabase::saveNotification() returns. The two used to be
+    // independent counters, so a caller holding a database id could dismiss
+    // an unrelated model row. Callers that persist should use this.
+    int             addNotificationWithId(int id, const QString &appId, const QString &title,
+                                          const QString &body, const QString &icon);
     Q_INVOKABLE void          dismissNotification(int id);
     Q_INVOKABLE void          markAsRead(int id);
     Q_INVOKABLE void          dismissAllNotifications();
@@ -119,10 +129,18 @@ class NotificationModel : public QAbstractListModel {
 
   private:
     void                       updateUnreadCount();
+    void                       trimToCap();
+
+    // Mirrors NotificationDatabase::kMaxStoredNotifications so the model and
+    // the table hold the same history rather than drifting apart.
+    static constexpr int       kMaxNotifications = 500;
 
     QVector<Notification *>    m_notifications;
     QHash<int, Notification *> m_notificationIndex;
     int                        m_nextId;
+    // Transient (model-only) ids run negative so they cannot collide with
+    // the database row ids that the D-Bus path adopts.
+    int                        m_nextTransientId = -1;
     int                        m_unreadCount;
 };
 

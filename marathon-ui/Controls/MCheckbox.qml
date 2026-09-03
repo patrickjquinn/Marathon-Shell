@@ -10,7 +10,11 @@ Item {
     property bool checked: false
     property string text: ""
     property bool disabled: false
-    property string state: "default"
+    // Named controlState, not state: `state` is QQuickItem's own property, the
+    // one the States/Transitions system selects on. Shadowing it silently
+    // disables that machinery for this component and for anything that
+    // subclasses it.
+    property string controlState: "default"
 
     signal toggled(bool checked)
     signal clicked
@@ -35,10 +39,11 @@ Item {
         toggle()
 
     function toggle() {
-        if (!disabled && state === "default") {
+        if (!disabled && controlState === "default") {
             checked = !checked;
             toggled(checked);
-            MHaptics.lightImpact();
+            // Haptic moved to the check-icon scale spring onStopped —
+            // fires when the check actually lands, not at touch.
         }
     }
 
@@ -49,8 +54,8 @@ Item {
 
         Rectangle {
             id: checkboxRect
-            width: checkboxSize
-            height: checkboxSize
+            width: root.checkboxSize
+            height: root.checkboxSize
             radius: MRadius.sm
             anchors.verticalCenter: parent.verticalCenter
 
@@ -64,7 +69,7 @@ Item {
                 return "transparent";
             }
 
-            border.width: root.checked ? 0 : borderWidth
+            border.width: root.checked ? 0 : root.borderWidth
             border.color: root.disabled ? MColors.textHint : MColors.borderGlass
 
             scale: mouseArea.pressed ? 0.92 : 1.0
@@ -93,16 +98,18 @@ Item {
                 id: checkIcon
                 anchors.centerIn: parent
                 name: "check"
-                size: iconSize
+                size: root.iconSize
                 color: MColors.textOnAccent
                 visible: root.checked
                 scale: root.checked ? 1 : 0
 
                 Behavior on scale {
                     SpringAnimation {
-                        spring: MMotion.springLight
-                        damping: MMotion.dampingLight
+                        spring: MMotion.stiffnessSpatialFor("tap")
+                        damping: MMotion.dampingSpatialFor("tap")
                         epsilon: MMotion.epsilon
+                        onStopped: if (root.checked)
+                            MHaptics.light()
                     }
                 }
             }
@@ -114,7 +121,7 @@ Item {
                 shadowVerticalOffset: 0
                 shadowHorizontalOffset: 0
                 shadowBlur: 0.4
-                blurMax: 8
+                blurMax: MBlur.sm
                 paddingRect: Qt.rect(0, 0, 0, 0)
             }
         }
@@ -139,7 +146,7 @@ Item {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        enabled: !root.disabled && root.state === "default"
+        enabled: !root.disabled && root.controlState === "default"
         cursorShape: Qt.PointingHandCursor
         hoverEnabled: true
 

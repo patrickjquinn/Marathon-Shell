@@ -37,26 +37,28 @@ QVariant MarathonAppRegistry::data(const QModelIndex &index, int role) const {
         case CategoriesRole: return app->categories;
         case HandlesUriSchemesRole: return app->handlesUriSchemes;
         case DefaultForRole: return app->defaultFor;
+        case BackgroundCapabilitiesRole: return app->backgroundCapabilities;
         default: return QVariant();
     }
 }
 
 QHash<int, QByteArray> MarathonAppRegistry::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[IdRole]                = "id";
-    roles[NameRole]              = "name";
-    roles[IconRole]              = "icon";
-    roles[TypeRole]              = "type";
-    roles[PathRole]              = "absolutePath";
-    roles[EntryPointRole]        = "entryPoint";
-    roles[VersionRole]           = "version";
-    roles[IsProtectedRole]       = "isProtected";
-    roles[PermissionsRole]       = "permissions";
-    roles[SearchKeywordsRole]    = "searchKeywords";
-    roles[DeepLinksRole]         = "deepLinks";
-    roles[CategoriesRole]        = "categories";
-    roles[HandlesUriSchemesRole] = "handlesUriSchemes";
-    roles[DefaultForRole]        = "defaultFor";
+    roles[IdRole]                     = "id";
+    roles[NameRole]                   = "name";
+    roles[IconRole]                   = "icon";
+    roles[TypeRole]                   = "type";
+    roles[PathRole]                   = "absolutePath";
+    roles[EntryPointRole]             = "entryPoint";
+    roles[VersionRole]                = "version";
+    roles[IsProtectedRole]            = "isProtected";
+    roles[PermissionsRole]            = "permissions";
+    roles[SearchKeywordsRole]         = "searchKeywords";
+    roles[DeepLinksRole]              = "deepLinks";
+    roles[CategoriesRole]             = "categories";
+    roles[HandlesUriSchemesRole]      = "handlesUriSchemes";
+    roles[DefaultForRole]             = "defaultFor";
+    roles[BackgroundCapabilitiesRole] = "backgroundCapabilities";
     return roles;
 }
 
@@ -64,21 +66,23 @@ QVariantMap MarathonAppRegistry::getApp(const QString &appId) const {
     QVariantMap result;
 
     if (m_appIndex.contains(appId)) {
-        const AppInfo *app          = m_appIndex.value(appId);
-        result["id"]                = app->id;
-        result["name"]              = app->name;
-        result["icon"]              = app->icon;
-        result["type"]              = static_cast<int>(app->type);
-        result["absolutePath"]      = app->absolutePath;
-        result["entryPoint"]        = app->entryPoint;
-        result["version"]           = app->version;
-        result["isProtected"]       = app->isProtected;
-        result["permissions"]       = app->permissions;
-        result["searchKeywords"]    = app->searchKeywords;
-        result["deepLinks"]         = app->deepLinksJson;
-        result["categories"]        = app->categories;
-        result["handlesUriSchemes"] = app->handlesUriSchemes;
-        result["defaultFor"]        = app->defaultFor;
+        const AppInfo *app               = m_appIndex.value(appId);
+        result["id"]                     = app->id;
+        result["name"]                   = app->name;
+        result["icon"]                   = app->icon;
+        result["type"]                   = static_cast<int>(app->type);
+        result["absolutePath"]           = app->absolutePath;
+        result["entryPoint"]             = app->entryPoint;
+        result["version"]                = app->version;
+        result["isProtected"]            = app->isProtected;
+        result["permissions"]            = app->permissions;
+        result["searchKeywords"]         = app->searchKeywords;
+        result["deepLinks"]              = app->deepLinksJson;
+        result["categories"]             = app->categories;
+        result["handlesUriSchemes"]      = app->handlesUriSchemes;
+        result["defaultFor"]             = app->defaultFor;
+        result["backgroundCapabilities"] = app->backgroundCapabilities;
+        result["requiresQtModules"]      = app->requiresQtModules;
     }
 
     return result;
@@ -93,11 +97,11 @@ void MarathonAppRegistry::registerApp(const QString &id, const QString &name, co
         return;
     }
 
-    AppInfo *info = new AppInfo{id,           name,       icon,    static_cast<AppType>(type),
-                                absolutePath, entryPoint, version, isProtected,
-                                permissions};
+    AppInfo info{id,           name,       icon,    static_cast<AppType>(type),
+                 absolutePath, entryPoint, version, isProtected,
+                 permissions};
 
-    registerAppInfo(*info);
+    registerAppInfo(info);
 }
 
 void MarathonAppRegistry::registerAppInfo(const AppInfo &info) {
@@ -133,6 +137,13 @@ bool MarathonAppRegistry::hasApp(const QString &appId) const {
 
 QStringList MarathonAppRegistry::getAllAppIds() const {
     return m_appIndex.keys();
+}
+
+QStringList MarathonAppRegistry::getBackgroundCapabilities(const QString &appId) const {
+    if (auto it = m_appIndex.constFind(appId); it != m_appIndex.constEnd()) {
+        return (*it)->backgroundCapabilities;
+    }
+    return {};
 }
 
 MarathonAppRegistry::AppInfo *MarathonAppRegistry::getAppInfo(const QString &appId) {
