@@ -117,12 +117,20 @@ jobs:
         # firmware and sshpass, which the bake itself does not use but the
         # shared host check still demands. mkosi needs the filesystem
         # tools to lay down the ESP and rootfs.
+        #
+        # The keyrings are for mkosi, not for us: it resolves a Debian repo
+        # while preparing its sandbox and aborts with "Keyring for repo
+        # http://deb.debian.org/debian not found at
+        # /usr/share/keyrings/debian-archive-keyring.gpg" if the package is
+        # missing. A Fedora host has this satisfied differently, which is
+        # why it only shows up on the runner.
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             podman zstd \
             qemu-utils qemu-system-arm qemu-efi-aarch64 \
-            sshpass dosfstools e2fsprogs mtools
+            sshpass dosfstools e2fsprogs mtools \
+            debian-archive-keyring ubuntu-keyring
           command -v qemu-system-aarch64
           ls /usr/share/AAVMF/ 2>/dev/null || ls /usr/share/qemu-efi-aarch64/ 2>/dev/null || true
 
