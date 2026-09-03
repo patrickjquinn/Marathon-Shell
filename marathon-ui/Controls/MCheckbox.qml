@@ -54,8 +54,8 @@ Item {
 
         Rectangle {
             id: checkboxRect
-            width: checkboxSize
-            height: checkboxSize
+            width: root.checkboxSize
+            height: root.checkboxSize
             radius: MRadius.sm
             anchors.verticalCenter: parent.verticalCenter
 
@@ -69,7 +69,7 @@ Item {
                 return "transparent";
             }
 
-            border.width: root.checked ? 0 : borderWidth
+            border.width: root.checked ? 0 : root.borderWidth
             border.color: root.disabled ? MColors.textHint : MColors.borderGlass
 
             scale: mouseArea.pressed ? 0.92 : 1.0
@@ -98,7 +98,7 @@ Item {
                 id: checkIcon
                 anchors.centerIn: parent
                 name: "check"
-                size: iconSize
+                size: root.iconSize
                 color: MColors.textOnAccent
                 visible: root.checked
                 scale: root.checked ? 1 : 0

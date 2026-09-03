@@ -81,7 +81,7 @@ Rectangle {
         Rectangle {
             id: iconBay
 
-            visible: iconName !== ""
+            visible: root.iconName !== ""
             width: Math.round(32 * root.scaleFactor)
             height: Math.round(32 * root.scaleFactor)
             radius: MRadius.md
@@ -97,7 +97,7 @@ Rectangle {
             Icon {
                 id: iconImage
                 anchors.centerIn: parent
-                name: iconName
+                name: root.iconName
                 size: Math.round(18 * root.scaleFactor)
                 color: MColors.textPrimary
             }
@@ -117,7 +117,7 @@ Rectangle {
             Text {
                 id: titleText
 
-                text: title
+                text: root.title
                 color: MColors.textPrimary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeSubhead
@@ -129,8 +129,8 @@ Rectangle {
 
             // Subtitle — Footnote 13 / 400 / secondary per DS.
             Text {
-                visible: subtitle !== ""
-                text: subtitle
+                visible: root.subtitle !== ""
+                text: root.subtitle
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
@@ -155,14 +155,14 @@ Rectangle {
             anchors.right: parent.right
             anchors.verticalCenter: titleColumn.verticalCenter
             anchors.verticalCenterOffset: -Math.round((titleColumn.height - titleText.height) / 2)
-            width: showToggle ? Math.round(76 * root.scaleFactor) : showChevron ? (valueText.visible ? valueText.width + Math.round(36 * root.scaleFactor) : Math.round(20 * root.scaleFactor)) : (valueText.visible ? valueText.width : 0)
+            width: root.showToggle ? Math.round(76 * root.scaleFactor) : root.showChevron ? (valueText.visible ? valueText.width + Math.round(36 * root.scaleFactor) : Math.round(20 * root.scaleFactor)) : (valueText.visible ? valueText.width : 0)
             height: parent.height
 
             MToggle {
                 id: toggle
 
-                visible: showToggle
-                checked: toggleValue
+                visible: root.showToggle
+                checked: root.toggleValue
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 onToggled: {
@@ -174,8 +174,8 @@ Rectangle {
             Text {
                 id: valueText
 
-                visible: value !== "" && !showToggle
-                text: value
+                visible: root.value !== "" && !root.showToggle
+                text: root.value
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
@@ -191,7 +191,7 @@ Rectangle {
             Icon {
                 id: chevronIcon
 
-                visible: showChevron && !showToggle
+                visible: root.showChevron && !root.showToggle
                 name: "chevron-right"
                 size: Math.round(18 * root.scaleFactor)
                 color: MColors.textTertiary
@@ -208,7 +208,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: iconName !== "" ? Math.round((16 + 32 + 14) * root.scaleFactor) : MSpacing.md
+        anchors.leftMargin: root.iconName !== "" ? Math.round((16 + 32 + 14) * root.scaleFactor) : MSpacing.md
         height: 1
         color: MColors.whiteOverlay04
         visible: root.showDivider
@@ -218,14 +218,14 @@ Rectangle {
         id: mouseArea
 
         anchors.fill: parent
-        enabled: !showToggle
+        enabled: !root.showToggle
         onClicked: {
             root.settingClicked();
         }
     }
 
     transform: Translate {
-        y: mouseArea.pressed && !showToggle ? -2 : 0
+        y: mouseArea.pressed && !root.showToggle ? -2 : 0
 
         Behavior on y {
             NumberAnimation {

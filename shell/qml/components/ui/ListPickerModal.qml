@@ -14,7 +14,7 @@ Modal {
         spacing: 0
 
         Repeater {
-            model: options
+            model: listPickerModal.options
 
             Rectangle {
                 required property int index

@@ -44,7 +44,7 @@ Rectangle {
 
                 Text {
                     anchors.centerIn: parent
-                    text: callerName.charAt(0).toUpperCase()
+                    text: incomingCallScreen.callerName.charAt(0).toUpperCase()
                     font.pixelSize: MTypography.sizeXLarge * 3
                     font.weight: Font.Bold
                     color: MColors.accent
@@ -86,7 +86,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerName
+                    text: incomingCallScreen.callerName
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
@@ -96,7 +96,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerNumber
+                    text: incomingCallScreen.callerNumber
                     font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
                     Accessible.role: Accessible.StaticText
@@ -118,7 +118,7 @@ Rectangle {
                 border.color: "#C0392B"
 
                 Accessible.role: Accessible.Button
-                Accessible.name: qsTr("Decline call from %1").arg(callerName)
+                Accessible.name: qsTr("Decline call from %1").arg(incomingCallScreen.callerName)
                 Accessible.onPressAction: {
                     TelephonyService.hangup();
                     hide();
@@ -150,7 +150,7 @@ Rectangle {
                 border.color: "#229954"
 
                 Accessible.role: Accessible.Button
-                Accessible.name: qsTr("Answer call from %1").arg(callerName)
+                Accessible.name: qsTr("Answer call from %1").arg(incomingCallScreen.callerName)
                 Accessible.onPressAction: {
                     TelephonyService.answer();
                     hide();

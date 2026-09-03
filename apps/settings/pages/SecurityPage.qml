@@ -23,10 +23,10 @@ SettingsPageTemplate {
     MModal {
         id: quickPINModal
 
-        showing: showQuickPINDialog
+        showing: securityPage.showQuickPINDialog
         title: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN ? "Change Quick PIN" : "Set Quick PIN"
         onClosed: {
-            showQuickPINDialog = false;
+            securityPage.showQuickPINDialog = false;
         }
 
         content: Column {
@@ -125,7 +125,7 @@ SettingsPageTemplate {
                     text: "Cancel"
                     variant: "text"
                     onClicked: {
-                        showQuickPINDialog = false;
+                        securityPage.showQuickPINDialog = false;
                         newPINField.text = "";
                         systemPasswordField.text = "";
                         pinErrorText.text = "";
@@ -139,7 +139,7 @@ SettingsPageTemplate {
                         if (pinErrorText.text.length > 0)
                             return;
                         SecurityManagerCpp.setQuickPIN(newPINField.text, systemPasswordField.text);
-                        showQuickPINDialog = false;
+                        securityPage.showQuickPINDialog = false;
                         newPINField.text = "";
                         systemPasswordField.text = "";
                         pinErrorText.text = "";
@@ -152,16 +152,16 @@ SettingsPageTemplate {
     MConfirmDialog {
         id: removePINDialog
 
-        showing: showRemovePINDialog
+        showing: securityPage.showRemovePINDialog
         title: "Remove Quick PIN?"
         message: "You will need to enter your system password to unlock. This action requires your system password."
         confirmText: "Remove"
         cancelText: "Cancel"
         onConfirmed: {
-            showRemovePINDialog = false;
+            securityPage.showRemovePINDialog = false;
         }
         onCancelled: {
-            showRemovePINDialog = false;
+            securityPage.showRemovePINDialog = false;
         }
     }
 
@@ -207,7 +207,7 @@ SettingsPageTemplate {
                     title: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN ? "Change Quick PIN" : "Set Quick PIN"
                     subtitle: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN ? "Update your convenience PIN" : "Set a quick 4-6 digit PIN"
                     iconName: "hash"
-                    onSettingClicked: showQuickPINDialog = true
+                    onSettingClicked: securityPage.showQuickPINDialog = true
                 }
 
                 MSettingsListItem {
@@ -215,7 +215,7 @@ SettingsPageTemplate {
                     subtitle: "Use system password only"
                     iconName: "trash-2"
                     visible: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN
-                    onSettingClicked: showRemovePINDialog = true
+                    onSettingClicked: securityPage.showRemovePINDialog = true
                 }
             }
 

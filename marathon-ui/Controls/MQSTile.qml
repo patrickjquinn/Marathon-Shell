@@ -99,7 +99,7 @@ Rectangle {
     MTopHairline {
         radius: parent.radius
         // On → a teal-lit top edge over the dark active key; off → plain white.
-        color: on ? MColors.marathonTealBorderHover : MColors.whiteOverlay08
+        color: tile.on ? MColors.marathonTealBorderHover : MColors.whiteOverlay08
         lineWidth: 1
         z: 1
     }

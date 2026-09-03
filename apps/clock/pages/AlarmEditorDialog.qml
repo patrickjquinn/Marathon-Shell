@@ -64,7 +64,7 @@ Rectangle {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: isEditMode ? "Edit Alarm" : "Set Alarm Time"
+                text: dialog.isEditMode ? "Edit Alarm" : "Set Alarm Time"
                 font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Bold
                 color: MColors.text
@@ -145,8 +145,8 @@ Rectangle {
                     variant: "primary"
                     onClicked: {
                         HapticService.light();
-                        if (isEditMode)
-                            dialog.alarmUpdated(editingAlarmId, hourTumbler.currentIndex, minuteTumbler.currentIndex);
+                        if (dialog.isEditMode)
+                            dialog.alarmUpdated(dialog.editingAlarmId, hourTumbler.currentIndex, minuteTumbler.currentIndex);
                         else
                             dialog.alarmCreated(hourTumbler.currentIndex, minuteTumbler.currentIndex);
                         dialog.close();

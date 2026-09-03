@@ -64,7 +64,7 @@ Item {
     Component.onCompleted: updateNavigationDepth()
 
     Connections {
-        target: stackView
+        target: router.stackView
 
         function onDepthChanged() {
             router.updateNavigationDepth();
@@ -72,7 +72,7 @@ Item {
     }
 
     Connections {
-        target: navigationTarget
+        target: router.navigationTarget
 
         function onBackPressed() {
             router.handleBackPress();
@@ -80,7 +80,7 @@ Item {
     }
 
     Connections {
-        target: pageRequestedTarget
+        target: router.pageRequestedTarget
 
         function onPageRequested(pageName, params) {
             router.pushRoute(pageName, params);
@@ -88,7 +88,7 @@ Item {
     }
 
     Connections {
-        target: backRequestedTarget ? backRequestedTarget : pageRequestedTarget
+        target: router.backRequestedTarget ? router.backRequestedTarget : router.pageRequestedTarget
 
         function onBackRequested() {
             router.popRoute();
@@ -96,7 +96,7 @@ Item {
     }
 
     Connections {
-        target: enableDeepLinks && typeof NavigationRouter !== "undefined" && NavigationRouter ? NavigationRouter : null
+        target: router.enableDeepLinks && typeof NavigationRouter !== "undefined" && NavigationRouter ? NavigationRouter : null
 
         function onDeepLinkRequested(appId, route, params) {
             if (router.appId === "" || appId === router.appId)

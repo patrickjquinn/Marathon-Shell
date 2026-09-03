@@ -30,7 +30,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: childrenRect.width
-        visible: leftActions.length > 0
+        visible: root.leftActions.length > 0
 
         Repeater {
             model: root.leftActions
@@ -67,7 +67,7 @@ Item {
         anchors.bottom: parent.bottom
         width: childrenRect.width
         layoutDirection: Qt.RightToLeft
-        visible: rightActions.length > 0
+        visible: root.rightActions.length > 0
 
         Repeater {
             model: root.rightActions
@@ -119,8 +119,8 @@ Item {
             anchors.fill: parent
             drag.target: contentContainer
             drag.axis: Drag.XAxis
-            drag.minimumX: rightActions.length > 0 ? -rightActionsRow.width : 0
-            drag.maximumX: leftActions.length > 0 ? leftActionsRow.width : 0
+            drag.minimumX: root.rightActions.length > 0 ? -rightActionsRow.width : 0
+            drag.maximumX: root.leftActions.length > 0 ? leftActionsRow.width : 0
 
             property real startX: 0
 
@@ -134,11 +134,11 @@ Item {
                 var absDistance = Math.abs(swipeDistance);
 
                 if (absDistance > root.threshold) {
-                    if (swipeDistance > 0 && leftActions.length > 0) {
+                    if (swipeDistance > 0 && root.leftActions.length > 0) {
                         contentContainer.x = leftActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();
-                    } else if (swipeDistance < 0 && rightActions.length > 0) {
+                    } else if (swipeDistance < 0 && root.rightActions.length > 0) {
                         contentContainer.x = -rightActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();

@@ -42,7 +42,7 @@ Item {
         color: Qt.rgba(0, 0, 0, 0.95)
         border.width: 1
         border.color: MColors.border
-        visible: showing
+        visible: connectionToast.showing
 
         MTopHairline {
             radius: parent.radius
@@ -55,14 +55,14 @@ Item {
             spacing: Constants.spacingMedium
 
             Icon {
-                name: iconName
+                name: connectionToast.iconName
                 size: Constants.iconSizeMedium
                 color: MColors.accent
                 anchors.verticalCenter: parent.verticalCenter
             }
 
             Text {
-                text: message
+                text: connectionToast.message
                 color: MColors.text
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
@@ -90,7 +90,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false;
+            connectionToast.showing = false;
         }
     }
 
@@ -103,17 +103,17 @@ Item {
 
     Connections {
         function onIsWifiOnChanged() {
-            if (initialized && SystemStatusStore.isWifiOn)
+            if (connectionToast.initialized && SystemStatusStore.isWifiOn)
                 show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
         }
 
         function onIsBluetoothOnChanged() {
-            if (initialized && SystemStatusStore.isBluetoothOn)
+            if (connectionToast.initialized && SystemStatusStore.isBluetoothOn)
                 show("Bluetooth enabled", "bluetooth");
         }
 
         function onIsAirplaneModeChanged() {
-            if (!initialized)
+            if (!connectionToast.initialized)
                 return;
 
             if (SystemStatusStore.isAirplaneMode)

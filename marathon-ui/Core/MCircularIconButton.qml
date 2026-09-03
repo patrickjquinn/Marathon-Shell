@@ -45,9 +45,9 @@ Item {
         height: root.renderDiameter
         radius: width / 2
         color: "transparent"
-        border.width: scaledBorderSize
-        border.color: variant === "primary" ? Qt.rgba(0, 191 / 255, 165 / 255, 0.35) : Qt.rgba(1, 1, 1, 0.08)
-        opacity: variant === "primary" ? 1 : 0.6
+        border.width: root.scaledBorderSize
+        border.color: root.variant === "primary" ? Qt.rgba(0, 191 / 255, 165 / 255, 0.35) : Qt.rgba(1, 1, 1, 0.08)
+        opacity: root.variant === "primary" ? 1 : 0.6
     }
 
     Rectangle {
@@ -58,16 +58,16 @@ Item {
         height: root.innerDiameter
         radius: width / 2
         color: {
-            if (disabled)
+            if (root.disabled)
                 return MColors.surface;
 
-            if (variant === "primary")
+            if (root.variant === "primary")
                 return mouseArea.pressed ? MColors.marathonTealDark : "transparent";
 
             return mouseArea.pressed ? MColors.elevated : MColors.surface;
         }
-        gradient: variant === "primary" && !disabled && !mouseArea.pressed ? primaryGradient : null
-        border.width: variant === "secondary" ? Math.max(1, Math.round(1 * scaleFactor)) : 0
+        gradient: root.variant === "primary" && !root.disabled && !mouseArea.pressed ? primaryGradient : null
+        border.width: root.variant === "secondary" ? Math.max(1, Math.round(1 * root.scaleFactor)) : 0
         border.color: MColors.borderGlass
         scale: mouseArea.pressed ? 0.96 : 1
 
@@ -93,20 +93,20 @@ Item {
         }
 
         Rectangle {
-            visible: variant === "primary"
+            visible: root.variant === "primary"
             anchors.fill: parent
-            anchors.margins: Math.max(1, Math.round(1 * scaleFactor))
-            radius: parent.radius - Math.max(1, Math.round(1 * scaleFactor))
+            anchors.margins: Math.max(1, Math.round(1 * root.scaleFactor))
+            radius: parent.radius - Math.max(1, Math.round(1 * root.scaleFactor))
             color: "transparent"
-            border.width: Math.max(1, Math.round(1 * scaleFactor))
+            border.width: Math.max(1, Math.round(1 * root.scaleFactor))
             border.color: Qt.rgba(1, 1, 1, 0.1)
         }
 
         Rectangle {
-            visible: variant === "primary"
+            visible: root.variant === "primary"
             anchors.fill: parent
-            anchors.margins: Math.max(2, Math.round(2 * scaleFactor))
-            radius: parent.radius - Math.max(2, Math.round(2 * scaleFactor))
+            anchors.margins: Math.max(2, Math.round(2 * root.scaleFactor))
+            radius: parent.radius - Math.max(2, Math.round(2 * root.scaleFactor))
             opacity: 0.6
 
             gradient: Gradient {
@@ -123,15 +123,15 @@ Item {
         }
 
         Icon {
-            visible: !hasText
+            visible: !root.hasText
             name: root.iconName
             size: root.effectiveIconSize
             color: {
-                if (disabled)
+                if (root.disabled)
                     return MColors.textHint;
 
-                if (variant === "primary")
-                    return iconColor;
+                if (root.variant === "primary")
+                    return root.iconColor;
 
                 return MColors.textPrimary;
             }
@@ -145,16 +145,16 @@ Item {
         }
 
         Text {
-            visible: hasText
+            visible: root.hasText
             text: root.text
             color: {
-                if (disabled)
+                if (root.disabled)
                     return MColors.textHint;
 
-                if (variant === "primary")
-                    return iconColor;
+                if (root.variant === "primary")
+                    return root.iconColor;
 
-                return textColor;
+                return root.textColor;
             }
             font.pixelSize: root.effectiveIconSize
             font.weight: Font.Light
@@ -189,10 +189,10 @@ Item {
         id: mouseArea
 
         anchors.fill: parent
-        enabled: !disabled
+        enabled: !root.disabled
         onPressed: MHaptics.lightImpact()
         onClicked: {
-            if (!disabled) {
+            if (!root.disabled) {
                 root.clicked();
             }
         }

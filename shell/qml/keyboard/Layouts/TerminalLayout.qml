@@ -142,7 +142,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row1Keys
+                model: layout.row1Keys
 
                 Key {
                     width: row1.keyWidth
@@ -173,7 +173,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row2Keys
+                model: layout.row2Keys
 
                 Key {
                     width: row2.keyWidth
@@ -216,7 +216,7 @@ Item {
             }
 
             Repeater {
-                model: row3Keys
+                model: layout.row3Keys
 
                 Key {
                     width: row3.availableWidth * 0.1

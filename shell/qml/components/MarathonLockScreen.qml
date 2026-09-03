@@ -130,7 +130,7 @@ Item {
     Timer {
         id: idleTimer
 
-        interval: idleTimeoutMs
+        interval: lockScreen.idleTimeoutMs
         // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
@@ -205,7 +205,7 @@ Item {
 
         anchors.fill: parent
         z: 1
-        opacity: 1 - Math.pow(swipeProgress, 0.7)
+        opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
 
         WallpaperSlateAurora {
             anchors.fill: parent
@@ -943,7 +943,7 @@ Item {
         }
 
         Behavior on opacity {
-            enabled: swipeProgress > 0.5
+            enabled: lockScreen.swipeProgress > 0.5
 
             NumberAnimation {
                 duration: 200
@@ -986,19 +986,19 @@ Item {
             }
             if (isDragging) {
                 const threshold = height * 0.15;
-                swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
-                if (swipeProgress > 0.5 && swipeProgress < 0.55)
+                lockScreen.swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
+                if (lockScreen.swipeProgress > 0.5 && lockScreen.swipeProgress < 0.55)
                     HapticManager.light();
             }
         }
         onReleased: mouse => {
             if (isDragging) {
-                if (swipeProgress > 0.2 || velocity > 0.5) {
-                    swipeProgress = 1;
+                if (lockScreen.swipeProgress > 0.2 || velocity > 0.5) {
+                    lockScreen.swipeProgress = 1;
                     HapticManager.medium();
                     unlockTimer.start();
                 } else {
-                    swipeProgress = 0;
+                    lockScreen.swipeProgress = 0;
                 }
             } else {
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
@@ -1019,7 +1019,7 @@ Item {
     }
 
     Behavior on swipeProgress {
-        enabled: swipeProgress < 1
+        enabled: lockScreen.swipeProgress < 1
 
         SmoothedAnimation {
             velocity: 8

@@ -508,19 +508,19 @@ Rectangle {
         onItemChanged: appWindow.appContainer = item
         onStatusChanged: {
             if (status === Loader.Error) {
-                Logger.error("AppWindow", "Failed to load app content for: " + appId);
+                Logger.error("AppWindow", "Failed to load app content for: " + appWindow.appId);
                 appWindow.hasError = true;
                 appWindow.loadError = "Failed to load app content";
                 appWindow.isLoadingComponent = false;
             } else if (status === Loader.Ready) {
-                Logger.info("AppWindow", "App content loaded successfully for: " + appId);
+                Logger.info("AppWindow", "App content loaded successfully for: " + appWindow.appId);
                 splashHideTimer.start();
                 appWindow.suppressSplash = false;
             } else if (status === Loader.Loading) {
                 if (!appWindow.suppressSplash)
                     appWindow.isLoadingComponent = true;
                 else
-                    Logger.info("AppWindow", "Splash suppressed for reload of: " + appId);
+                    Logger.info("AppWindow", "Splash suppressed for reload of: " + appWindow.appId);
             }
         }
 
@@ -558,10 +558,10 @@ Rectangle {
             }
 
             Connections {
-                target: dialogSurface
+                target: dialogItem.dialogSurface
                 ignoreUnknownSignals: true
                 function onDestroyed() {
-                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogItem.dialogSurfaceId);
                     dialogItem.destroy();
                 }
             }

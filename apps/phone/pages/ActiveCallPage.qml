@@ -47,7 +47,7 @@ Rectangle {
         running: activeCallPage.visible
         repeat: true
         onTriggered: {
-            callDuration++;
+            activeCallPage.callDuration++;
         }
     }
 
@@ -79,7 +79,7 @@ Rectangle {
 
             Text {
                 anchors.centerIn: parent
-                text: callName.charAt(0).toUpperCase()
+                text: activeCallPage.callName.charAt(0).toUpperCase()
                 font.pixelSize: MTypography.sizeXLarge * 2
                 font.weight: Font.Bold
                 color: MColors.accent
@@ -88,7 +88,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: callName
+            text: activeCallPage.callName
             font.pixelSize: MTypography.sizeXLarge
             font.weight: Font.Bold
             color: MColors.text
@@ -98,7 +98,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: callNumber
+            text: activeCallPage.callNumber
             font.pixelSize: MTypography.sizeLarge
             color: MColors.textSecondary
             Accessible.role: Accessible.StaticText
@@ -107,7 +107,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: formatDuration(callDuration)
+            text: formatDuration(activeCallPage.callDuration)
             font.pixelSize: MTypography.sizeBody
             color: MColors.accent
             Accessible.role: Accessible.StaticText
@@ -130,7 +130,7 @@ Rectangle {
             Repeater {
                 model: [
                     {
-                        "icon": isMuted ? "volume-x" : "volume-2",
+                        "icon": activeCallPage.isMuted ? "volume-x" : "volume-2",
                         "label": "Mute",
                         "action": "mute"
                     },
@@ -140,7 +140,7 @@ Rectangle {
                         "action": "add"
                     },
                     {
-                        "icon": isSpeakerOn ? "volume-2" : "smartphone",
+                        "icon": activeCallPage.isSpeakerOn ? "volume-2" : "smartphone",
                         "label": "Speaker",
                         "action": "speaker"
                     },

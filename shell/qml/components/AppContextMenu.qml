@@ -95,7 +95,7 @@ Item {
 
                     anchors.fill: parent
                     onClicked: {
-                        Logger.info("AppContextMenu", "App info for: " + appData.name);
+                        Logger.info("AppContextMenu", "App info for: " + contextMenu.appData.name);
                         HapticManager.light();
                         appInfo();
                         hide();
@@ -148,11 +148,11 @@ Item {
 
                     anchors.fill: parent
                     onClicked: {
-                        Logger.info("AppContextMenu", "Uninstall: " + appData.name);
+                        Logger.info("AppContextMenu", "Uninstall: " + contextMenu.appData.name);
                         HapticManager.medium();
                         uninstall();
                         hide();
-                        UIStore.showConfirmDialog("Uninstall " + appData.name + "?", "This app will be removed from your device.", function () {
+                        UIStore.showConfirmDialog("Uninstall " + contextMenu.appData.name + "?", "This app will be removed from your device.", function () {
                             Logger.info("AppContextMenu", "Confirmed uninstall");
                         });
                     }

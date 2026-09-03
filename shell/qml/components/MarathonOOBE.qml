@@ -663,7 +663,7 @@ Item {
 
                                                 Icon {
                                                     name: {
-                                                        const s = modelData.strength;
+                                                        const s = networkRow.modelData.strength;
                                                         if (s >= 75)
                                                             return "wifi-high";
                                                         if (s >= 50)
@@ -673,7 +673,7 @@ Item {
                                                         return "wifi-zero";
                                                     }
                                                     size: Math.round(20 * Constants.scaleFactor)
-                                                    color: modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
+                                                    color: networkRow.modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
                                                 }
 
                                                 ColumnLayout {
@@ -682,16 +682,16 @@ Item {
 
                                                     Text {
                                                         Layout.fillWidth: true
-                                                        text: modelData.ssid
+                                                        text: networkRow.modelData.ssid
                                                         font.pixelSize: MTypography.sizeBody
-                                                        font.weight: modelData.connected ? Font.DemiBold : Font.Medium
+                                                        font.weight: networkRow.modelData.connected ? Font.DemiBold : Font.Medium
                                                         font.family: MTypography.fontFamily
-                                                        color: modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
+                                                        color: networkRow.modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
                                                         elide: Text.ElideRight
                                                     }
 
                                                     Text {
-                                                        visible: modelData.connected || networkRow.isPending
+                                                        visible: networkRow.modelData.connected || networkRow.isPending
                                                         text: networkRow.isPending ? "Connecting…" : "Connected"
                                                         font.pixelSize: MTypography.sizeSmall
                                                         font.family: MTypography.fontFamily
@@ -707,14 +707,14 @@ Item {
                                                 }
 
                                                 Icon {
-                                                    visible: modelData.secured && !networkRow.isPending && !modelData.connected
+                                                    visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.modelData.connected
                                                     name: "lock"
                                                     size: Math.round(14 * Constants.scaleFactor)
                                                     color: MColors.textTertiary
                                                 }
 
                                                 Icon {
-                                                    visible: modelData.connected
+                                                    visible: networkRow.modelData.connected
                                                     name: "check"
                                                     size: Math.round(16 * Constants.scaleFactor)
                                                     color: MColors.marathonTealBright
@@ -740,11 +740,11 @@ Item {
                                                 enabled: networkRow.rowEnabled
                                                 onClicked: {
                                                     HapticManager.light();
-                                                    if (modelData.secured) {
-                                                        wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured);
+                                                    if (networkRow.modelData.secured) {
+                                                        wifiPasswordDialogLoader.show(networkRow.modelData.ssid, networkRow.modelData.strength, networkRow.modelData.security, networkRow.modelData.secured);
                                                     } else {
-                                                        wifiPage.pendingSsid = modelData.ssid;
-                                                        NetworkManagerCpp.connectToNetwork(modelData.ssid, "");
+                                                        wifiPage.pendingSsid = networkRow.modelData.ssid;
+                                                        NetworkManagerCpp.connectToNetwork(networkRow.modelData.ssid, "");
                                                     }
                                                 }
                                             }

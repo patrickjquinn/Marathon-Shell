@@ -696,7 +696,7 @@ Item {
         running: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
         repeat: false
         onTriggered: {
-            if (typeof compositor !== 'undefined' && compositor && compositor.hasIdleInhibitingSurface) {
+            if (typeof compositor !== 'undefined' && shell.compositor && shell.compositor.hasIdleInhibitingSurface) {
                 Logger.info("Shell", "Idle inhibitor active (video/call?) — postponing blank");
                 idleScreenTimer.restart();
                 return;
@@ -778,7 +778,7 @@ Item {
     // restart on activity is the existing behaviour; we add the dim
     // un-dim alongside.
     Connections {
-        target: compositor
+        target: shell.compositor
         ignoreUnknownSignals: true
         function onUserActivity() {
             dimState.restore();
@@ -994,7 +994,7 @@ Item {
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
                     onAppLaunched: app => {
-                        AppLaunchService.launchApp(app, compositor, appWindow);
+                        AppLaunchService.launchApp(app, shell.compositor, appWindow);
                     }
                     onPageNavigationRequested: page => {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
@@ -1235,8 +1235,8 @@ Item {
                 return;
             }
             Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
-            if (task && task.appType === "native" && compositor) {
-                var surface = compositor.getSurfaceById(task.surfaceId);
+            if (task && task.appType === "native" && shell.compositor) {
+                var surface = shell.compositor.getSurfaceById(task.surfaceId);
                 if (surface) {
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
                     return;
@@ -1259,7 +1259,7 @@ Item {
                 Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
                 return;
             }
-            AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
+            AppLaunchService.launchApp(UIStore.currentAppId, shell.compositor, appWindow);
         }
 
         Connections {
@@ -1521,7 +1521,7 @@ Item {
             UIStore.closeQuickSettings();
         }
         onLaunchApp: app => {
-            AppLaunchService.launchApp(app, compositor, appWindow);
+            AppLaunchService.launchApp(app, shell.compositor, appWindow);
         }
         onPowerRequested: shell.showPowerMenu()
 
@@ -1656,14 +1656,14 @@ Item {
             if (SessionStore.checkSession()) {
                 Logger.state("Shell", "locked", "unlocked");
                 SessionStore.unlock();
-                if (pendingLaunch) {
-                    Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
-                    UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "");
-                    pendingLaunch = null;
+                if (shell.pendingLaunch) {
+                    Logger.info("Shell", "Executing pending launch: " + shell.pendingLaunch.appName);
+                    UIStore.openApp(shell.pendingLaunch.appId, shell.pendingLaunch.appName, "");
+                    shell.pendingLaunch = null;
                 }
             } else {
                 Logger.state("Shell", "locked", "pinEntry");
-                showPinScreen = true;
+                shell.showPinScreen = true;
                 pinScreen.show();
             }
         }
@@ -1681,12 +1681,12 @@ Item {
                     });
             } else {
                 Logger.info("Shell", "Session expired, requesting PIN");
-                pendingNotification = {
+                shell.pendingNotification = {
                     "id": notifId,
                     "appId": appId,
                     "title": title
                 };
-                showPinScreen = true;
+                shell.showPinScreen = true;
                 pinScreen.show();
             }
         }
@@ -1697,11 +1697,11 @@ Item {
                 UIStore.openApp("camera", "Camera", "");
             } else {
                 Logger.info("LockScreen", "Session locked - requesting PIN for Camera");
-                pendingLaunch = {
+                shell.pendingLaunch = {
                     "appId": "camera",
                     "appName": "Camera"
                 };
-                showPinScreen = true;
+                shell.showPinScreen = true;
                 pinScreen.show();
             }
             HapticManager.medium();
@@ -1713,11 +1713,11 @@ Item {
                 UIStore.openApp("phone", "Phone", "");
             } else {
                 Logger.info("LockScreen", "Session locked - requesting PIN for Phone");
-                pendingLaunch = {
+                shell.pendingLaunch = {
                     "appId": "phone",
                     "appName": "Phone"
                 };
-                showPinScreen = true;
+                shell.showPinScreen = true;
                 pinScreen.show();
             }
             HapticManager.medium();
@@ -1748,39 +1748,39 @@ Item {
         z: Constants.zIndexPinScreen
         onPinCorrect: {
             Logger.state("Shell", "pinEntry", "unlocked");
-            showPinScreen = false;
+            shell.showPinScreen = false;
             pinScreen.reset();
             SessionStore.unlock();
-            if (pendingLaunch) {
-                Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
-                UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "");
-                pendingLaunch = null;
+            if (shell.pendingLaunch) {
+                Logger.info("Shell", "Executing pending launch: " + shell.pendingLaunch.appName);
+                UIStore.openApp(shell.pendingLaunch.appId, shell.pendingLaunch.appName, "");
+                shell.pendingLaunch = null;
             }
-            if (pendingNotification) {
-                Logger.info("Shell", "Executing pending notification action: " + pendingNotification.title);
-                NotificationService.dismissNotification(pendingNotification.id);
-                if (pendingNotification.appId)
-                    NavigationRouter.navigateToDeepLink(pendingNotification.appId, "", {
-                        "notificationId": pendingNotification.id,
+            if (shell.pendingNotification) {
+                Logger.info("Shell", "Executing pending notification action: " + shell.pendingNotification.title);
+                NotificationService.dismissNotification(shell.pendingNotification.id);
+                if (shell.pendingNotification.appId)
+                    NavigationRouter.navigateToDeepLink(shell.pendingNotification.appId, "", {
+                        "notificationId": shell.pendingNotification.id,
                         "action": "view",
                         "from": "lockscreen"
                     });
 
-                pendingNotification = null;
+                shell.pendingNotification = null;
             }
         }
         onCancelled: {
             Logger.info("PinScreen", "Cancelled by user");
-            showPinScreen = false;
+            shell.showPinScreen = false;
             lockScreen.swipeProgress = 0;
             pinScreen.reset();
-            if (pendingLaunch) {
+            if (shell.pendingLaunch) {
                 Logger.info("Shell", "Clearing pending launch");
-                pendingLaunch = null;
+                shell.pendingLaunch = null;
             }
-            if (pendingNotification) {
+            if (shell.pendingNotification) {
                 Logger.info("Shell", "Clearing pending notification action");
-                pendingNotification = null;
+                shell.pendingNotification = null;
             }
         }
     }
@@ -2074,14 +2074,14 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         Component.onCompleted: {
-            focusConnection.target = shellWindow;
+            focusConnection.target = shell.shellWindow;
         }
 
         Connections {
             id: focusConnection
 
             function onActiveFocusItemChanged() {
-                var item = shellWindow ? shellWindow["activeFocusItem"] : null;
+                var item = shell.shellWindow ? shell.shellWindow["activeFocusItem"] : null;
                 if (!item) {
                     if (!InputMethodEngine.active)
                         virtualKeyboard.active = false;
@@ -2117,7 +2117,7 @@ Item {
             }
 
             function onInputItemUnfocused() {
-                var item = shellWindow ? shellWindow["activeFocusItem"] : null;
+                var item = shell.shellWindow ? shell.shellWindow["activeFocusItem"] : null;
                 var isInternalInput = item && (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
                 if (!isInternalInput) {
                     Logger.info("Shell", "InputMethodEngine: Input item unfocused");
@@ -2140,8 +2140,8 @@ Item {
             }
         }
 
-        target: compositor
-        enabled: compositor !== null
+        target: shell.compositor
+        enabled: shell.compositor !== null
     }
 
     MouseArea {

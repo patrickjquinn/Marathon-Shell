@@ -66,7 +66,7 @@ Item {
             drag.axis: Drag.YAxis
             drag.minimumY: -errorCard.height
             drag.maximumY: 100
-            onReleased: {
+            onReleased: function(mouse) {
                 if (errorCard.y > 50)
                     errorToast.hide();
                 else

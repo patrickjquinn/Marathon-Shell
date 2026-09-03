@@ -51,7 +51,7 @@ Item {
         id: autoDismissTimer
 
         interval: 50
-        running: !searchGestureActive && searchPullProgress > 0.01 && searchPullProgress < 0.99 && !UIStore.searchOpen
+        running: !appGrid.searchGestureActive && appGrid.searchPullProgress > 0.01 && appGrid.searchPullProgress < 0.99 && !UIStore.searchOpen
         repeat: false
         onTriggered: {
             appGrid.searchPullProgress = 0;
@@ -60,7 +60,7 @@ Item {
 
     Connections {
         function onSearchOpenChanged() {
-            if (!UIStore.searchOpen && !searchGestureActive)
+            if (!UIStore.searchOpen && !appGrid.searchGestureActive)
                 appGrid.searchPullProgress = 0;
         }
 
@@ -197,7 +197,7 @@ Item {
                         MAppIcon {
                             id: appIcon
 
-                            source: appData ? appData.icon : ""
+                            source: iconCell.appData ? iconCell.appData.icon : ""
                             size: parent.width
                             anchors.centerIn: parent
                             z: 1
@@ -246,18 +246,18 @@ Item {
                             border.width: 2
                             border.color: MColors.elev0
                             visible: {
-                                if (!appData || !SettingsManagerCpp.showNotificationBadges)
+                                if (!iconCell.appData || !SettingsManagerCpp.showNotificationBadges)
                                     return false;
 
-                                return NotificationService.getNotificationCountForApp(appData.id) > 0;
+                                return NotificationService.getNotificationCountForApp(iconCell.appData.id) > 0;
                             }
 
                             Text {
                                 text: {
-                                    if (!appData)
+                                    if (!iconCell.appData)
                                         return "";
 
-                                    var count = NotificationService.getNotificationCountForApp(appData.id);
+                                    var count = NotificationService.getNotificationCountForApp(iconCell.appData.id);
                                     return count > 9 ? "9+" : count.toString();
                                 }
                                 color: MColors.textOnAccent
@@ -279,7 +279,7 @@ Item {
                     Text {
                         width: parent.parent.width
                         horizontalAlignment: Text.AlignHCenter
-                        text: appData ? appData.name : ""
+                        text: iconCell.appData ? iconCell.appData.name : ""
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeFootnote
@@ -341,15 +341,15 @@ Item {
                             return;
                         }
                         if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
-                            if (appData) {
-                                appGrid.appLaunched(appData);
+                            if (iconCell.appData) {
+                                appGrid.appLaunched(iconCell.appData);
                                 HapticManager.medium();
                             }
                         }
                         isSearchGesture = false;
                     }
                     onPressAndHold: {
-                        if (appData) {
+                        if (iconCell.appData) {
                             var globalPos = mapToItem(appGrid.parent, mouseX, mouseY);
                             HapticManager.heavy();
                             appGrid.longPress();
@@ -411,13 +411,13 @@ Item {
     }
 
     Behavior on searchPullProgress {
-        enabled: !searchGestureActive && searchPullProgress > 0.01 && !UIStore.searchOpen
+        enabled: !appGrid.searchGestureActive && appGrid.searchPullProgress > 0.01 && !UIStore.searchOpen
 
         NumberAnimation {
             duration: 200
             easing.type: Easing.OutCubic
             onRunningChanged: {
-                if (!running && searchPullProgress < 0.02)
+                if (!running && appGrid.searchPullProgress < 0.02)
                     appGrid.searchPullProgress = 0;
             }
         }

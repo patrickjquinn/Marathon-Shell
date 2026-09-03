@@ -38,7 +38,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
         layer.enabled: true
-        visible: showing
+        visible: screenshotPreview.showing
         opacity: 0
 
         MTopHairline {
@@ -61,7 +61,7 @@ Item {
 
                 Image {
                     anchors.fill: parent
-                    source: thumbnailPath || ""
+                    source: screenshotPreview.thumbnailPath || ""
                     sourceSize: Qt.size(width, height)
                     fillMode: Image.PreserveAspectFit
                     smooth: true
@@ -84,10 +84,10 @@ Item {
 
             anchors.fill: parent
             onClicked: {
-                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
+                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + screenshotPreview.filePath);
                 hide();
                 NavigationRouter.navigateToDeepLink("gallery", "/image", {
-                    "path": filePath
+                    "path": screenshotPreview.filePath
                 });
             }
             onPressed: mouse => {
@@ -120,7 +120,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false;
+            screenshotPreview.showing = false;
         }
     }
 

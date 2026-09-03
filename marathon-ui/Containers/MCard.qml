@@ -43,10 +43,10 @@ Rectangle {
     Rectangle {
         id: shadowLayer
         anchors.fill: parent
-        anchors.topMargin: shadowMargin3
-        anchors.leftMargin: -shadowMargin1
-        anchors.rightMargin: -shadowMargin1
-        anchors.bottomMargin: -shadowMargin4
+        anchors.topMargin: root.shadowMargin3
+        anchors.leftMargin: -root.shadowMargin1
+        anchors.rightMargin: -root.shadowMargin1
+        anchors.bottomMargin: -root.shadowMargin4
         z: -1
         radius: root.radius
         opacity: 0.4
@@ -68,8 +68,8 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        anchors.topMargin: shadowMargin1
-        anchors.bottomMargin: -shadowMargin1
+        anchors.topMargin: root.shadowMargin1
+        anchors.bottomMargin: -root.shadowMargin1
         z: -2
         radius: root.radius
         color: Qt.rgba(0, 0, 0, 0.8)
@@ -97,9 +97,9 @@ Rectangle {
     // so the highlight follows the card's corner radius.
     MTopHairline {
         radius: root.radius
-        color: MElevation.getBorderInner(elevation)
-        lineWidth: borderWidth
-        inset: shadowMargin1
+        color: MElevation.getBorderInner(root.elevation)
+        lineWidth: root.borderWidth
+        inset: root.shadowMargin1
     }
 
     Item {
@@ -114,17 +114,17 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        enabled: interactive
+        enabled: root.interactive
 
         onPressed: function (mouse) {
-            if (interactive) {
+            if (root.interactive) {
                 root.pressed = true;
                 ripple.trigger(Qt.point(mouse.x, mouse.y));
             }
         }
         onReleased: root.pressed = false
         onCanceled: root.pressed = false
-        onClicked: if (interactive)
+        onClicked: if (root.interactive)
             root.clicked()
     }
 }

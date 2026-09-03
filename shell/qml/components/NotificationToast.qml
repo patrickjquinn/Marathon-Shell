@@ -53,7 +53,7 @@ Item {
         // title and body are scaled type tokens while these heights were
         // physical px, so at 1.5x the two lines overflowed the card and
         // painted over the status bar and the surface underneath.
-        height: showInlineReply
+        height: toastContainer.showInlineReply
                 ? mainContent.height + replyRow.height + MSpacing.sm + MSpacing.xs * 2
                 : mainContent.height + MSpacing.md
         elevation: 0
@@ -72,9 +72,9 @@ Item {
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
                 anchors.left: parent.left
                 anchors.leftMargin: MSpacing.md
-                anchors.verticalCenter: showInlineReply ? undefined : parent.verticalCenter
-                anchors.top: showInlineReply ? parent.top : undefined
-                anchors.topMargin: showInlineReply ? MSpacing.xs : 0
+                anchors.verticalCenter: toastContainer.showInlineReply ? undefined : parent.verticalCenter
+                anchors.top: toastContainer.showInlineReply ? parent.top : undefined
+                anchors.topMargin: toastContainer.showInlineReply ? MSpacing.xs : 0
                 spacing: MSpacing.md
 
                 Rectangle {
@@ -86,7 +86,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
-                        name: (currentToast && currentToast.icon) ? currentToast.icon : "bell"
+                        name: (toastContainer.currentToast && toastContainer.currentToast.icon) ? toastContainer.currentToast.icon : "bell"
                         size: Math.round(24 * toastContainer.scaleFactor)
                         color: MColors.textPrimary
                         anchors.centerIn: parent
@@ -100,7 +100,7 @@ Item {
                     spacing: Math.round(2 * toastContainer.scaleFactor)
 
                     MLabel {
-                        text: (currentToast && currentToast.title) ? currentToast.title : ""
+                        text: (toastContainer.currentToast && toastContainer.currentToast.title) ? toastContainer.currentToast.title : ""
                         variant: "primary"
                         font.weight: MTypography.weightBold
                         font.pixelSize: MTypography.sizeBody
@@ -109,7 +109,7 @@ Item {
                     }
 
                     MLabel {
-                        text: (currentToast && currentToast.body) ? currentToast.body : ""
+                        text: (toastContainer.currentToast && toastContainer.currentToast.body) ? toastContainer.currentToast.body : ""
                         variant: "secondary"
                         font.pixelSize: MTypography.sizeSmall
                         elide: Text.ElideRight
@@ -127,7 +127,7 @@ Item {
                 anchors.top: mainContent.bottom
                 anchors.topMargin: MSpacing.sm
                 spacing: MSpacing.sm
-                visible: showInlineReply
+                visible: toastContainer.showInlineReply
 
                 MTextInput {
                     id: replyField
@@ -136,16 +136,16 @@ Item {
                     height: Math.round(40 * toastContainer.scaleFactor)
                     placeholderText: "Reply..."
                     onAccepted: {
-                        if (text.trim().length > 0 && currentToast) {
+                        if (text.trim().length > 0 && toastContainer.currentToast) {
                             Logger.info("NotificationToast", "Sending inline reply: " + text);
-                            FreedesktopNotifications.InvokeReply(currentToast.id, text);
+                            FreedesktopNotifications.InvokeReply(toastContainer.currentToast.id, text);
                             text = "";
-                            showInlineReply = false;
+                            toastContainer.showInlineReply = false;
                             dismissToast();
                         }
                     }
                     Keys.onEscapePressed: {
-                        showInlineReply = false;
+                        toastContainer.showInlineReply = false;
                         text = "";
                     }
                 }
@@ -187,21 +187,21 @@ Item {
                 }
             }
             onClicked: {
-                var supportsInlineReply = currentToast && (currentToast.appId === "messages" || currentToast.appId === "org.telegram.desktop" || currentToast.appId === "signal-desktop" || (currentToast.category && currentToast.category.includes("message")));
-                if (supportsInlineReply && !showInlineReply) {
-                    Logger.info("NotificationToast", "Showing inline reply for: " + currentToast.id);
-                    showInlineReply = true;
+                var supportsInlineReply = toastContainer.currentToast && (toastContainer.currentToast.appId === "messages" || toastContainer.currentToast.appId === "org.telegram.desktop" || toastContainer.currentToast.appId === "signal-desktop" || (toastContainer.currentToast.category && toastContainer.currentToast.category.includes("message")));
+                if (supportsInlineReply && !toastContainer.showInlineReply) {
+                    Logger.info("NotificationToast", "Showing inline reply for: " + toastContainer.currentToast.id);
+                    toastContainer.showInlineReply = true;
                     autoHideTimer.stop();
                     Qt.callLater(function () {
                         replyField.forceActiveFocus();
                     });
-                } else if (!showInlineReply) {
-                    Logger.info("NotificationToast", "Toast tapped: " + currentToast.id);
-                    NotificationService.clickNotification(currentToast.id);
-                    NotificationModel.markAsRead(currentToast.id);
-                    if (currentToast.appId)
-                        NavigationRouter.navigateToDeepLink(currentToast.appId, "", {
-                            "notificationId": currentToast.id,
+                } else if (!toastContainer.showInlineReply) {
+                    Logger.info("NotificationToast", "Toast tapped: " + toastContainer.currentToast.id);
+                    NotificationService.clickNotification(toastContainer.currentToast.id);
+                    NotificationModel.markAsRead(toastContainer.currentToast.id);
+                    if (toastContainer.currentToast.appId)
+                        NavigationRouter.navigateToDeepLink(toastContainer.currentToast.appId, "", {
+                            "notificationId": toastContainer.currentToast.id,
                             "action": "view",
                             "from": "notification"
                         });

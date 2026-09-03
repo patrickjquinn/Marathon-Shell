@@ -22,11 +22,11 @@ Item {
     Rectangle {
         id: toggleableTile
 
-        visible: isToggleable
+        visible: tile.isToggleable
         anchors.fill: parent
         color: "transparent"
-        scale: isPressed ? 0.98 : 1
-        opacity: isAvailable ? 1 : 0.5
+        scale: tile.isPressed ? 0.98 : 1
+        opacity: tile.isAvailable ? 1 : 0.5
 
         Row {
             anchors.fill: parent
@@ -38,18 +38,18 @@ Item {
                 width: Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
-                color: toggleData.active ? MColors.accentBright : MColors.bb10Elevated
+                color: tile.toggleData.active ? MColors.accentBright : MColors.bb10Elevated
                 antialiasing: Constants.enableAntialiasing
 
                 Icon {
                     name: {
-                        var iconName = toggleData.icon || "grid";
-                        if (!toggleData.active && (toggleData.id === "wifi" || toggleData.id === "bluetooth"))
+                        var iconName = tile.toggleData.icon || "grid";
+                        if (!tile.toggleData.active && (tile.toggleData.id === "wifi" || tile.toggleData.id === "bluetooth"))
                             iconName = iconName + "-off";
 
                         return iconName;
                     }
-                    color: toggleData.active ? MColors.background : MColors.text
+                    color: tile.toggleData.active ? MColors.background : MColors.text
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
 
@@ -72,9 +72,9 @@ Item {
                 width: parent.width - Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
-                color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
+                color: tile.isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
                 border.width: Constants.borderWidthThin
-                border.color: toggleData.active ? MColors.accentBright : MColors.border
+                border.color: tile.toggleData.active ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
 
                 // DS edge spec: "lit from above" hairline that follows
@@ -97,7 +97,7 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: toggleData.label || ""
+                            text: tile.toggleData.label || ""
                             variant: "body"
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
@@ -105,8 +105,8 @@ Item {
                         }
 
                         MLabel {
-                            visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
-                            text: toggleData.subtitle || ""
+                            visible: tile.toggleData.subtitle !== undefined && tile.toggleData.subtitle !== ""
+                            text: tile.toggleData.subtitle || ""
                             font.pixelSize: MTypography.sizeXSmall
                             elide: Text.ElideRight
                             width: parent.width
@@ -124,9 +124,9 @@ Item {
                     height: 3
                     radius: Constants.borderRadiusSharp
                     color: MColors.accentBright
-                    visible: toggleData.active
+                    visible: tile.toggleData.active
                     antialiasing: Constants.enableAntialiasing
-                    opacity: toggleData.active ? 1 : 0
+                    opacity: tile.toggleData.active ? 1 : 0
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -146,8 +146,8 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: toggleData.active ? MColors.background : MColors.accentBright
-            opacity: isPressed ? 0.1 : 0
+            color: tile.toggleData.active ? MColors.background : MColors.accentBright
+            opacity: tile.isPressed ? 0.1 : 0
             radius: Constants.borderRadiusSharp
 
             Behavior on opacity {
@@ -172,15 +172,15 @@ Item {
     Rectangle {
         id: linkTile
 
-        visible: !isToggleable
+        visible: !tile.isToggleable
         anchors.fill: parent
         radius: Constants.borderRadiusSharp
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        color: isAvailable ? MColors.bb10Card : Qt.rgba(MColors.bb10Card.r, MColors.bb10Card.g, MColors.bb10Card.b, 0.5)
+        color: tile.isAvailable ? MColors.bb10Card : Qt.rgba(MColors.bb10Card.r, MColors.bb10Card.g, MColors.bb10Card.b, 0.5)
         antialiasing: Constants.enableAntialiasing
-        scale: isPressed ? 0.98 : 1
-        opacity: isAvailable ? 1 : 0.5
+        scale: tile.isPressed ? 0.98 : 1
+        opacity: tile.isAvailable ? 1 : 0.5
 
         // Top-edge inset highlight following the squircle path.
         MTopHairline {
@@ -206,8 +206,8 @@ Item {
                     antialiasing: Constants.enableAntialiasing
 
                     Icon {
-                        name: toggleData.icon || "grid"
-                        color: isAvailable ? MColors.text : MColors.textSecondary
+                        name: tile.toggleData.icon || "grid"
+                        color: tile.isAvailable ? MColors.text : MColors.textSecondary
                         size: Constants.iconSizeMedium
                         anchors.centerIn: parent
                     }
@@ -219,7 +219,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     MLabel {
-                        text: toggleData.label || ""
+                        text: tile.toggleData.label || ""
                         variant: "body"
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
@@ -227,8 +227,8 @@ Item {
                     }
 
                     MLabel {
-                        visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
-                        text: toggleData.subtitle || ""
+                        visible: tile.toggleData.subtitle !== undefined && tile.toggleData.subtitle !== ""
+                        text: tile.toggleData.subtitle || ""
                         font.pixelSize: MTypography.sizeXSmall
                         elide: Text.ElideRight
                         width: parent.width
@@ -242,7 +242,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: MColors.text
-            opacity: isPressed ? 0.08 : 0
+            opacity: tile.isPressed ? 0.08 : 0
             radius: Constants.borderRadiusSharp
 
             Behavior on opacity {
@@ -268,26 +268,26 @@ Item {
         id: toggleMouseArea
 
         anchors.fill: parent
-        enabled: isAvailable
+        enabled: tile.isAvailable
         onPressed: function (mouse) {
-            isPressed = true;
+            tile.isPressed = true;
             HapticManager.light();
         }
         onReleased: {
-            isPressed = false;
+            tile.isPressed = false;
         }
         onCanceled: {
-            isPressed = false;
+            tile.isPressed = false;
         }
         onClicked: {
-            if (!isAvailable) {
-                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id);
+            if (!tile.isAvailable) {
+                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + tile.toggleData.id);
                 return;
             }
             tile.tapped();
         }
         onPressAndHold: {
-            if (!isAvailable)
+            if (!tile.isAvailable)
                 return;
 
             HapticManager.medium();

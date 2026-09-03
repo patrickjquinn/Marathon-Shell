@@ -114,8 +114,8 @@ Rectangle {
             anchors.top: parent.top
             anchors.topMargin: MSpacing.md
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(40 * scaleFactor)
-            height: Math.round(4 * scaleFactor)
+            width: Math.round(40 * root.scaleFactor)
+            height: Math.round(4 * root.scaleFactor)
             radius: 2
             color: MColors.textTertiary
         }

@@ -43,8 +43,8 @@ Item {
             anchors.fill: parent
             onClicked: {
                 cancelled();
-                if (onCancel)
-                    onCancel();
+                if (confirmDialog.onCancel)
+                    confirmDialog.onCancel();
 
                 hide();
             }
@@ -83,7 +83,7 @@ Item {
                 spacing: MSpacing.md
 
                 Text {
-                    text: title
+                    text: confirmDialog.title
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
@@ -93,7 +93,7 @@ Item {
                 }
 
                 Text {
-                    text: message
+                    text: confirmDialog.message
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
@@ -107,26 +107,26 @@ Item {
                 spacing: MSpacing.md
 
                 MButton {
-                    text: cancelText
+                    text: confirmDialog.cancelText
                     variant: "secondary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         cancelled();
-                        if (onCancel)
-                            onCancel();
+                        if (confirmDialog.onCancel)
+                            confirmDialog.onCancel();
 
                         hide();
                     }
                 }
 
                 MButton {
-                    text: confirmText
+                    text: confirmDialog.confirmText
                     variant: "primary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         confirmed();
-                        if (onConfirm)
-                            onConfirm();
+                        if (confirmDialog.onConfirm)
+                            confirmDialog.onConfirm();
 
                         hide();
                     }

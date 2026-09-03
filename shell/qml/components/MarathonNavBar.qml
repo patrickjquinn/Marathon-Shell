@@ -71,15 +71,15 @@ Rectangle {
 
         property real targetX: parent.width / 2 - width / 2
         property real targetY: parent.height / 2 - height / 2
-        property real dragX: currentX * 0.3
-        property real dragY: currentY * 0.3
+        property real dragX: navBar.currentX * 0.3
+        property real dragY: navBar.currentY * 0.3
 
         width: Constants.cardBannerHeight
         height: Constants.spacingXSmall
         radius: Constants.borderRadiusSharp
         color: MColors.text
-        opacity: pinScreenMode ? 0 : 0.9
-        visible: !pinScreenMode
+        opacity: navBar.pinScreenMode ? 0 : 0.9
+        visible: !navBar.pinScreenMode
         antialiasing: Constants.enableAntialiasing
         x: targetX + dragX
         y: targetY - dragY
@@ -114,8 +114,8 @@ Rectangle {
         width: Math.round(16 * Constants.scaleFactor)
         height: Math.round(16 * Constants.scaleFactor)
         z: 300
-        visible: !pinScreenMode
-        opacity: pinScreenMode ? 0 : 1
+        visible: !navBar.pinScreenMode
+        opacity: navBar.pinScreenMode ? 0 : 1
 
         Rectangle {
             anchors.fill: parent
@@ -234,8 +234,8 @@ Rectangle {
         anchors.topMargin: 0
         z: 200
         onPressed: mouse => {
-            startX = mouse.x;
-            startY = mouse.y;
+            navBar.startX = mouse.x;
+            navBar.startY = mouse.y;
             lastX = mouse.x;
             lastY = mouse.y;
             lastTime = Date.now();
@@ -245,12 +245,12 @@ Rectangle {
             prevDiffY = 0;
             var leftBoundary = parent.width * 0.15;
             var rightBoundary = parent.width * 0.85;
-            isLeftZone = !pinScreenMode && mouse.x < leftBoundary;
+            isLeftZone = !navBar.pinScreenMode && mouse.x < leftBoundary;
             isRightZone = mouse.x > rightBoundary;
             if (isLeftZone)
                 Logger.info("NavBar", "Touch in LEFT ZONE (x=" + mouse.x + ")");
             else if (isRightZone)
-                Logger.info("NavBar", "Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + pinScreenMode + ")");
+                Logger.info("NavBar", "Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + navBar.pinScreenMode + ")");
         }
         onPositionChanged: mouse => {
             var now = Date.now();
@@ -262,15 +262,15 @@ Rectangle {
             lastX = mouse.x;
             lastY = mouse.y;
             lastTime = now;
-            var diffX = mouse.x - startX;
-            var diffY = startY - mouse.y;
+            var diffX = mouse.x - navBar.startX;
+            var diffY = navBar.startY - mouse.y;
             if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
                 if (!isVerticalGesture) {}
                 isVerticalGesture = true;
             }
             if (isVerticalGesture) {
-                currentY = Math.max(0, diffY);
-                currentX = 0;
+                navBar.currentY = Math.max(0, diffY);
+                navBar.currentX = 0;
                 if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
                     if (!UIStore.quickSettingsDragging)
                         UIStore.quickSettingsDragging = true;
@@ -287,23 +287,23 @@ Rectangle {
                     // runtime.
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
-                } else if (isAppOpen) {
-                    var oldProgress = gestureProgress;
+                } else if (navBar.isAppOpen) {
+                    var oldProgress = navBar.gestureProgress;
                     var progressThreshold = Constants.screenHeight * 0.25;
-                    gestureProgress = Math.min(1, diffY / progressThreshold);
-                    if (oldProgress <= 0.15 && gestureProgress > 0.15)
+                    navBar.gestureProgress = Math.min(1, diffY / progressThreshold);
+                    if (oldProgress <= 0.15 && navBar.gestureProgress > 0.15)
                         startPageTransition();
                 }
             } else {
-                currentX = diffX;
-                currentY = 0;
-                gestureProgress = 0;
+                navBar.currentX = diffX;
+                navBar.currentY = 0;
+                navBar.gestureProgress = 0;
                 // Predictive back — only when an app is open and
                 // user is dragging LEFT (diffX < 0). Progress is
                 // the leftward distance normalised against backProgressTravel,
                 // clamped to [0, 1]. The shell listens to backProgress
                 // and shrinks appWindowContainer toward backExitScaleEnd.
-                if (isAppOpen && diffX < 0) {
+                if (navBar.isAppOpen && diffX < 0) {
                     navBar.backProgress = Math.min(1, -diffX / Math.max(1, navBar.backProgressTravel));
                 } else if (navBar.backProgress !== 0) {
                     navBar.backProgress = 0;
@@ -311,13 +311,13 @@ Rectangle {
             }
         }
         onReleased: mouse => {
-            var diffX = mouse.x - startX;
-            var diffY = startY - mouse.y;
+            var diffX = mouse.x - navBar.startX;
+            var diffY = navBar.startY - mouse.y;
             Logger.gesture("NavBar", "released", {
                 "diffX": diffX,
                 "diffY": diffY,
                 "velocity": velocityX,
-                "isAppOpen": isAppOpen,
+                "isAppOpen": navBar.isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
             if ((isLeftZone || isRightZone) && diffY > 50) {
@@ -330,16 +330,16 @@ Rectangle {
                     HapticManager.medium();
                     navBar.toggleKeyboard();
                 }
-                startX = 0;
-                startY = 0;
-                currentX = 0;
-                currentY = 0;
+                navBar.startX = 0;
+                navBar.startY = 0;
+                navBar.currentX = 0;
+                navBar.currentY = 0;
                 velocityX = 0;
                 velocityY = 0;
                 isVerticalGesture = false;
                 isLeftZone = false;
                 isRightZone = false;
-                gestureProgress = 0;
+                navBar.gestureProgress = 0;
                 return;
             }
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
@@ -363,98 +363,98 @@ Rectangle {
                     "flingUp": isFlingUp,
                     "deliberateUp": isDeliberateSwipeUp
                 });
-                startX = 0;
-                startY = 0;
+                navBar.startX = 0;
+                navBar.startY = 0;
                 velocityX = 0;
                 velocityY = 0;
                 isVerticalGesture = false;
                 prevDiffY = 0;
-                currentX = 0;
-                currentY = 0;
-                gestureProgress = 0;
+                navBar.currentX = 0;
+                navBar.currentY = 0;
+                navBar.gestureProgress = 0;
                 return;
             }
             if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
                 Logger.info("NavBar", "Closing Search with upward gesture");
                 UIStore.closeSearch();
-                startX = 0;
-                startY = 0;
+                navBar.startX = 0;
+                navBar.startY = 0;
                 velocityX = 0;
                 isVerticalGesture = false;
-                currentX = 0;
-                currentY = 0;
-                gestureProgress = 0;
+                navBar.currentX = 0;
+                navBar.currentY = 0;
+                navBar.gestureProgress = 0;
                 return;
             }
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
-                if (diffY > longSwipeThreshold) {
+                if (diffY > navBar.longSwipeThreshold) {
                     Logger.info("NavBar", " LONG SWIPE UP TRIGGERED ");
-                    Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + longSwipeThreshold);
-                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen);
+                    Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + navBar.longSwipeThreshold);
+                    Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
                     longSwipeUp();
-                    currentX = 0;
-                    currentY = 0;
-                    gestureProgress = 0;
-                } else if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
+                    navBar.currentX = 0;
+                    navBar.currentY = 0;
+                    navBar.gestureProgress = 0;
+                } else if (navBar.isAppOpen && (diffY > 100 || navBar.gestureProgress > 0.4)) {
                     Logger.info("NavBar", "⬆⬆⬆ MINIMIZE GESTURE TRIGGERED ⬆⬆⬆");
-                    Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + gestureProgress);
-                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen);
+                    Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + navBar.gestureProgress);
+                    Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
                     minimizeApp(velocityY);
-                    currentX = 0;
-                    currentY = 0;
-                    gestureProgress = 0;
-                } else if (diffY > shortSwipeThreshold) {
+                    navBar.currentX = 0;
+                    navBar.currentY = 0;
+                    navBar.gestureProgress = 0;
+                } else if (diffY > navBar.shortSwipeThreshold) {
                     Logger.info("NavBar", "Short swipe up - Go home");
                     shortSwipeUp();
-                    currentX = 0;
-                    currentY = 0;
-                    gestureProgress = 0;
+                    navBar.currentX = 0;
+                    navBar.currentY = 0;
+                    navBar.gestureProgress = 0;
                 }
             } else if (!isVerticalGesture && (Math.abs(diffX) > 50 || Math.abs(velocityX) > 500)) {
                 if (diffX < 0 || velocityX < 0) {
                     Logger.gesture("NavBar", "swipeLeft", {
                         "velocity": velocityX,
-                        "isAppOpen": isAppOpen,
+                        "isAppOpen": navBar.isAppOpen,
                         "backProgress": navBar.backProgress
                     });
-                    if (isAppOpen)
+                    if (navBar.isAppOpen)
                         swipeBack();
                     else
                         swipeLeft();
                 } else {
                     Logger.gesture("NavBar", "swipeRight", {
                         "velocity": velocityX,
-                        "isAppOpen": isAppOpen,
+                        "isAppOpen": navBar.isAppOpen,
                         "diffX": diffX
                     });
                     swipeRight();
                 }
-                currentX = 0;
-                currentY = 0;
-                gestureProgress = 0;
+                navBar.currentX = 0;
+                navBar.currentY = 0;
+                navBar.gestureProgress = 0;
                 // commit — shell pop transition takes over from here.
                 navBar.backProgress = 0;
             } else {
                 Logger.info("NavBar", " GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY);
-                currentX = 0;
-                currentY = 0;
-                gestureProgress = 0;
+                navBar.currentX = 0;
+                navBar.currentY = 0;
+                navBar.gestureProgress = 0;
                 // cancel — Behavior spring-snaps backProgress to 0.
                 navBar.backProgress = 0;
             }
-            startX = 0;
-            startY = 0;
+            navBar.startX = 0;
+            navBar.startY = 0;
             velocityX = 0;
             isVerticalGesture = false;
             isLeftZone = false;
             isRightZone = false;
             prevDiffY = 0;
             // Unconditional — the branch chain above has non-resetting gaps.
-            gestureProgress = 0;
+            navBar.gestureProgress = 0;
             navBar.backProgress = 0;
         }
     }

@@ -76,7 +76,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: currentAlarm ? currentAlarm.label : "Alarm"
+            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : "Alarm"
             color: MColors.text
             font.pixelSize: MTypography.sizeXLarge
             font.weight: MTypography.weightBold

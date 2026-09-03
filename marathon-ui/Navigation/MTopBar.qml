@@ -87,7 +87,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: borderWidth
+        height: root.borderWidth
         color: MColors.borderGlass
     }
 
@@ -96,7 +96,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: borderWidth
+        height: root.borderWidth
         color: Qt.rgba(1, 1, 1, 0.06)
     }
 
@@ -162,10 +162,10 @@ Rectangle {
         anchors.bottomMargin: root.insetLg
         text: root.title
         color: MColors.textPrimary
-        font.pixelSize: titleFontSize
+        font.pixelSize: root.titleFontSize
         font.weight: MTypography.weightExtraLight     // 200 per DS
         font.family: MTypography.fontFamily
-        font.letterSpacing: titleLetterSpacing
+        font.letterSpacing: root.titleLetterSpacing
     }
 
     Row {

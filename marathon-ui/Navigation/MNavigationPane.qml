@@ -74,8 +74,8 @@ Rectangle {
         anchors.left: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: Math.round(1000 * scaleFactor)
-        visible: expanded
+        width: Math.round(1000 * root.scaleFactor)
+        visible: root.expanded
         onClicked: root.expanded = false
     }
 }

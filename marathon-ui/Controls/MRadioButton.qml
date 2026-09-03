@@ -62,9 +62,9 @@ Item {
 
         Rectangle {
             id: radioRect
-            width: radioSize
-            height: radioSize
-            radius: radioRadius
+            width: root.radioSize
+            height: root.radioSize
+            radius: root.radioRadius
             anchors.verticalCenter: parent.verticalCenter
 
             color: {
@@ -75,7 +75,7 @@ Item {
                 return "transparent";
             }
 
-            border.width: borderWidth
+            border.width: root.borderWidth
             border.color: {
                 if (root.disabled)
                     return MColors.textHint;
@@ -109,9 +109,9 @@ Item {
             Rectangle {
                 id: innerCircle
                 anchors.centerIn: parent
-                width: innerSize
-                height: innerSize
-                radius: innerRadius
+                width: root.innerSize
+                height: root.innerSize
+                radius: root.innerRadius
                 color: MColors.marathonTeal
                 visible: root.checked && !root.disabled
                 scale: root.checked ? 1 : 0

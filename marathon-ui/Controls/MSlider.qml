@@ -37,7 +37,7 @@ Item {
         id: track
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width
-        height: trackHeight
+        height: root.trackHeight
         radius: height / 2          // pill end-caps
         color: MColors.whiteOverlay08
 
@@ -94,8 +94,8 @@ Item {
         id: handle
         x: (root.value - root.from) / (root.to - root.from) * (parent.width - width)
         anchors.verticalCenter: parent.verticalCenter
-        width: handleSize
-        height: handleSize
+        width: root.handleSize
+        height: root.handleSize
         radius: width / 2
         color: "#FFFFFF"
 

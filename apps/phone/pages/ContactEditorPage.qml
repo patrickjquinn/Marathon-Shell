@@ -78,7 +78,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
-                    text: isNewContact ? "New Contact" : "Edit Contact"
+                    text: contactEditorPage.isNewContact ? "New Contact" : "Edit Contact"
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.text
@@ -143,7 +143,7 @@ Rectangle {
 
                         width: parent.width
                         placeholderText: "Enter name"
-                        text: contactName
+                        text: contactEditorPage.contactName
                     }
                 }
 
@@ -163,7 +163,7 @@ Rectangle {
 
                         width: parent.width
                         placeholderText: "+1 (555) 123-4567"
-                        text: contactPhone
+                        text: contactEditorPage.contactPhone
                         Component.onCompleted: {
                             textInput.inputMethodHints = Qt.ImhDialableCharactersOnly;
                         }
@@ -186,7 +186,7 @@ Rectangle {
 
                         width: parent.width
                         placeholderText: "email@example.com"
-                        text: contactEmail
+                        text: contactEditorPage.contactEmail
                         Component.onCompleted: {
                             textInput.inputMethodHints = Qt.ImhEmailCharactersOnly;
                         }
@@ -199,7 +199,7 @@ Rectangle {
 
                 MButton {
                     width: parent.width - parent.padding * 2
-                    text: isNewContact ? "Create Contact" : "Save Changes"
+                    text: contactEditorPage.isNewContact ? "Create Contact" : "Save Changes"
                     variant: "primary"
                     enabled: nameInput.text.length > 0 && phoneInput.text.length > 0
                     onClicked: {
@@ -211,7 +211,7 @@ Rectangle {
                     width: parent.width - parent.padding * 2
                     text: "Cancel"
                     variant: "secondary"
-                    visible: !isNewContact
+                    visible: !contactEditorPage.isNewContact
                     onClicked: {
                         cancelled();
                     }
@@ -221,7 +221,7 @@ Rectangle {
                     width: parent.width - parent.padding * 2
                     text: "Delete Contact"
                     variant: "secondary"
-                    visible: !isNewContact
+                    visible: !contactEditorPage.isNewContact
                     onClicked: {
                         deleteContact();
                     }

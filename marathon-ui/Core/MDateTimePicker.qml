@@ -49,7 +49,7 @@ Rectangle {
 
         Icon {
             name: root.mode === "date" ? "calendar" : "clock"
-            size: Math.round(24 * scaleFactor)
+            size: Math.round(24 * root.scaleFactor)
             color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }

@@ -165,10 +165,10 @@ Item {
     Connections {
         function onAuthenticationSuccess() {
             Logger.info("PinScreen", " Authentication successful, hiding spinner");
-            authenticating = false;
+            pinScreen.authenticating = false;
             HapticManager.medium();
-            pin = "";
-            password = "";
+            pinScreen.pin = "";
+            pinScreen.password = "";
             passwordTextInput.text = "";
             SessionStore.triggerUnlockAnimation();
             unlockDelayTimer.start();
@@ -176,23 +176,23 @@ Item {
 
         function onAuthenticationFailed(reason) {
             Logger.warn("PinScreen", " Authentication failed, hiding spinner:", reason);
-            authenticating = false;
+            pinScreen.authenticating = false;
             HapticManager.heavy();
-            error = reason;
+            pinScreen.error = reason;
             errorTimer.start();
-            biometricInProgress = false;
+            pinScreen.biometricInProgress = false;
             SessionStore.triggerShakeAnimation();
         }
 
         function onBiometricPrompt(message) {
             Logger.info("PinScreen", "Biometric prompt:", message);
-            error = message;
+            pinScreen.error = message;
         }
 
         function onLockoutStateChanged() {
             if (SecurityManagerCpp.isLockedOut) {
                 var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-                error = "Locked for " + secs + "s";
+                pinScreen.error = "Locked for " + secs + "s";
                 Logger.warn("PinScreen", "Account locked for", secs, "seconds");
             }
         }
@@ -267,7 +267,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: passwordMode ? "Enter Password" : "Enter PIN"
+                text: pinScreen.passwordMode ? "Enter Password" : "Enter PIN"
                 color: MColors.text
                 font.pixelSize: Math.round(24 * Constants.scaleFactor)
                 font.weight: Font.Medium
@@ -276,19 +276,19 @@ Item {
                 Behavior on text {
                     SequentialAnimation {
                         NumberAnimation {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "opacity"
                             to: 0
                             duration: 100
                         }
 
                         PropertyAction {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "text"
                         }
 
                         NumberAnimation {
-                            target: parent.children[1]
+                            target: pinScreen.parent.children[1]
                             property: "opacity"
                             to: 1
                             duration: 100
@@ -348,8 +348,8 @@ Item {
                 anchors.verticalCenter: pinCircles.verticalCenter
                 size: Math.round(32 * Constants.scaleFactor)
                 color: MColors.accentBright
-                running: authenticating && !passwordMode
-                visible: authenticating && !passwordMode
+                running: pinScreen.authenticating && !pinScreen.passwordMode
+                visible: pinScreen.authenticating && !pinScreen.passwordMode
                 opacity: visible ? 1 : 0
 
                 Behavior on opacity {
@@ -366,12 +366,12 @@ Item {
             height: Math.round(40 * Constants.scaleFactor)
             radius: Math.round(8 * Constants.scaleFactor)
             color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
-            visible: error !== ""
-            opacity: error !== "" ? 1 : 0
+            visible: pinScreen.error !== ""
+            opacity: pinScreen.error !== "" ? 1 : 0
 
             Text {
                 anchors.centerIn: parent
-                text: error
+                text: pinScreen.error
                 color: MColors.error
                 font.pixelSize: Math.round(14 * Constants.scaleFactor)
                 font.weight: Font.Medium
@@ -385,7 +385,7 @@ Item {
             }
 
             SequentialAnimation on x {
-                running: error !== ""
+                running: pinScreen.error !== ""
 
                 NumberAnimation {
                     to: 8
@@ -417,7 +417,7 @@ Item {
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(12 * Constants.scaleFactor)
-            visible: !passwordMode
+            visible: !pinScreen.passwordMode
 
             // MCircularIconButton scales `buttonSize` / `iconSize` by
             // Constants.scaleFactor internally. Pass DESIGN px here —
@@ -474,7 +474,7 @@ Item {
                         iconSize: pinScreen.compactLayout ? 20 : 24
                         buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
-                        visible: !passwordMode
+                        visible: !pinScreen.passwordMode
                         onClicked: {
                             HapticManager.light();
                             switchToPasswordMode();
@@ -513,8 +513,8 @@ Item {
                         iconColor: MColors.textSecondary
                         onClicked: {
                             HapticManager.light();
-                            pin = "";
-                            error = "";
+                            pinScreen.pin = "";
+                            pinScreen.error = "";
                         }
                     }
                 }
@@ -524,7 +524,7 @@ Item {
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(24 * Constants.scaleFactor)
-            visible: passwordMode
+            visible: pinScreen.passwordMode
             width: Math.round(320 * Constants.scaleFactor)
 
             Item {
@@ -541,7 +541,7 @@ Item {
                     border.width: 2
                     border.color: passwordTextInput.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
                     Component.onCompleted: {
-                        if (passwordMode)
+                        if (pinScreen.passwordMode)
                             Qt.callLater(function () {
                                 passwordTextInput.forceActiveFocus();
                             });
@@ -574,8 +574,8 @@ Item {
                         echoMode: TextInput.Password
                         onAccepted: verifyPasswordInput()
                         onTextChanged: {
-                            password = text;
-                            error = "";
+                            pinScreen.password = text;
+                            pinScreen.error = "";
                         }
                     }
 
@@ -592,8 +592,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     size: Math.round(28 * Constants.scaleFactor)
                     color: MColors.accentBright
-                    running: authenticating && passwordMode
-                    visible: authenticating && passwordMode
+                    running: pinScreen.authenticating && pinScreen.passwordMode
+                    visible: pinScreen.authenticating && pinScreen.passwordMode
                     opacity: visible ? 1 : 0
 
                     Behavior on opacity {
@@ -620,7 +620,7 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
                     variant: "primary"
-                    enabled: !authenticating
+                    enabled: !pinScreen.authenticating
                     onClicked: verifyPasswordInput()
                 }
             }
@@ -632,7 +632,7 @@ Item {
             iconSize: 28
             buttonSize: 64
             variant: "secondary"
-            visible: SecurityManagerCpp.fingerprintAvailable && !biometricInProgress && !passwordMode
+            visible: SecurityManagerCpp.fingerprintAvailable && !pinScreen.biometricInProgress && !pinScreen.passwordMode
             enabled: !SecurityManagerCpp.isLockedOut
             onClicked: {
                 HapticManager.light();
@@ -680,8 +680,8 @@ Item {
 
         interval: 1200
         onTriggered: {
-            pin = "";
-            error = "";
+            pinScreen.pin = "";
+            pinScreen.error = "";
         }
     }
 

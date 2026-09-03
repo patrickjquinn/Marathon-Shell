@@ -46,7 +46,7 @@ Item {
 
         Icon {
             anchors.horizontalCenter: parent.horizontalCenter
-            name: iconName
+            name: root.iconName
             size: Math.round(root.iconSize * (Constants.scaleFactor || 1.0))
             color: MColors.textTertiary
             opacity: 0.6
@@ -58,7 +58,7 @@ Item {
 
             MLabel {
                 width: parent.width
-                text: title
+                text: root.title
                 variant: "primary"
                 font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.DemiBold
@@ -67,23 +67,23 @@ Item {
 
             MLabel {
                 width: parent.width
-                text: message
+                text: root.message
                 variant: "secondary"
                 font.pixelSize: MTypography.sizeBody
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                visible: message.length > 0
+                visible: root.message.length > 0
             }
         }
 
         MButton {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: actionText
+            text: root.actionText
             variant: "primary"
             // Empty-state CTA is a primary action — use the large size so it
             // reads as a proper padded button, not tight-wrapped text.
             size: "large"
-            visible: actionText.length > 0
+            visible: root.actionText.length > 0
             onClicked: root.actionClicked()
         }
     }

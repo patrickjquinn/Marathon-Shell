@@ -98,7 +98,7 @@ Rectangle {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: Math.round(18 * scaleFactor)
+                    size: Math.round(18 * root.scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.collapsed ? -90 : 0

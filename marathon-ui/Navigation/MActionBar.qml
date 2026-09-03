@@ -182,15 +182,15 @@ Rectangle {
                             gradient: Gradient {
                                 GradientStop {
                                     position: 0.0
-                                    color: isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
                                 }
                                 GradientStop {
                                     position: 0.5
-                                    color: isActive ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
                                 }
                                 GradientStop {
                                     position: 1.0
-                                    color: isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
+                                    color: actionTab.isActive ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
                                 }
                             }
                         }
@@ -200,7 +200,7 @@ Rectangle {
                             anchors.top: topIndicator.bottom
                             width: topIndicator.width
                             height: Math.round(35 * root.scaleFactor)
-                            visible: isActive
+                            visible: actionTab.isActive
                             opacity: 0.6
                             gradient: Gradient {
                                 GradientStop {
@@ -227,7 +227,7 @@ Rectangle {
                         }
 
                         Rectangle {
-                            visible: isActive
+                            visible: actionTab.isActive
                             anchors.right: parent.right
                             anchors.rightMargin: -Math.round(8 * root.scaleFactor)
                             anchors.top: parent.top
@@ -267,7 +267,7 @@ Rectangle {
                             Icon {
                                 name: modelData.icon || ""
                                 size: Math.round(22 * root.scaleFactor)
-                                color: isActive ? MColors.textPrimary : MColors.textSecondary
+                                color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Behavior on color {
@@ -279,7 +279,7 @@ Rectangle {
 
                             Text {
                                 text: modelData.label || ""
-                                color: isActive ? MColors.textPrimary : MColors.textSecondary
+                                color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Normal
                                 font.family: MTypography.fontFamily

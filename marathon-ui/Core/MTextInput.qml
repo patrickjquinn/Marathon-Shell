@@ -65,10 +65,10 @@ Rectangle {
     // back to the subtle frame on default state.
     Rectangle {
         anchors.fill: parent
-        anchors.margins: innerMargin
-        radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
+        anchors.margins: root.innerMargin
+        radius: parent.radius > root.innerMargin ? parent.radius - root.innerMargin : 0
         color: "transparent"
-        border.width: borderWidth
+        border.width: root.borderWidth
         border.color: textInput.activeFocus ? Qt.rgba(1, 1, 1, 0.02) : MColors.borderSubtle
 
         Behavior on border.color {
@@ -95,12 +95,12 @@ Rectangle {
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.md
         verticalAlignment: TextInput.AlignVCenter
-        color: disabled ? MColors.textHint : MColors.textPrimary
+        color: root.disabled ? MColors.textHint : MColors.textPrimary
         selectedTextColor: MColors.textOnAccent
         selectionColor: MColors.marathonTeal
         font.pixelSize: MTypography.sizeBody
         font.family: MTypography.fontFamily
-        enabled: !disabled
+        enabled: !root.disabled
 
         onAccepted: root.accepted()
         onTextChanged: root.textChanged()

@@ -105,7 +105,7 @@ QtObject {
             if (Math.abs(x - to) < spring.restDelta && Math.abs(v) < spring.restVelocity) {
                 spring.velocity = 0;
                 spring.value = to;
-                _frame.running = false;
+                spring._frame.running = false;
                 spring.settled();
             }
         }

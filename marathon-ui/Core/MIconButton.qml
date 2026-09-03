@@ -43,13 +43,13 @@ Item {
         clicked()
 
     Rectangle {
-        visible: variant === "primary"
+        visible: root.variant === "primary"
         anchors.centerIn: parent
-        width: buttonRect.width + borderGlowOffset * 2
-        height: buttonRect.height + borderGlowOffset * 2
-        radius: shape === "circular" ? (width / 2) : (MRadius.md + borderGlowOffset)
+        width: buttonRect.width + root.borderGlowOffset * 2
+        height: buttonRect.height + root.borderGlowOffset * 2
+        radius: root.shape === "circular" ? (width / 2) : (MRadius.md + root.borderGlowOffset)
         color: "transparent"
-        border.width: borderGlowWidth
+        border.width: root.borderGlowWidth
         border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
     }
 
@@ -59,25 +59,25 @@ Item {
         width: root.implicitWidth
         height: root.implicitHeight
 
-        radius: shape === "circular" ? width / 2 : MRadius.md
+        radius: root.shape === "circular" ? width / 2 : MRadius.md
         color: {
-            if (disabled)
+            if (root.disabled)
                 return "transparent";
             if (mouseArea.pressed) {
-                if (variant === "primary")
+                if (root.variant === "primary")
                     return MColors.marathonTealDark;
-                if (variant === "secondary")
+                if (root.variant === "secondary")
                     return MColors.bb10Elevated;
                 return MColors.hover;
             }
-            if (variant === "primary")
+            if (root.variant === "primary")
                 return MColors.marathonTeal;
-            if (variant === "secondary")
+            if (root.variant === "secondary")
                 return MColors.bb10Surface;
             return "transparent";
         }
 
-        border.width: variant === "secondary" ? borderWidth : 0
+        border.width: root.variant === "secondary" ? root.borderWidth : 0
         border.color: MColors.borderGlass
 
         scale: mouseArea.pressed ? 0.92 : 1.0
@@ -97,16 +97,16 @@ Item {
         }
 
         Icon {
-            name: iconName
-            size: scaledIconSize
-            color: disabled ? MColors.textHint : (variant === "primary" ? "#000000" : iconColor)
+            name: root.iconName
+            size: root.scaledIconSize
+            color: root.disabled ? MColors.textHint : (root.variant === "primary" ? "#000000" : root.iconColor)
             anchors.centerIn: parent
         }
 
         MouseArea {
             id: mouseArea
             anchors.fill: parent
-            enabled: !disabled
+            enabled: !root.disabled
             onPressed: MHaptics.lightImpact()
             onClicked: root.clicked()
         }

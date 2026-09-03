@@ -68,15 +68,15 @@ Rectangle {
             }
         }
 
-        border.width: borderWidth
+        border.width: root.borderWidth
         border.color: MColors.borderGlass
 
         Rectangle {
             anchors.fill: parent
-            anchors.topMargin: shadowTopMargin
-            anchors.leftMargin: -shadowLRMargin
-            anchors.rightMargin: -shadowLRMargin
-            anchors.bottomMargin: -shadowBottomMargin
+            anchors.topMargin: root.shadowTopMargin
+            anchors.leftMargin: -root.shadowLRMargin
+            anchors.rightMargin: -root.shadowLRMargin
+            anchors.bottomMargin: -root.shadowBottomMargin
             z: -1
             radius: parent.radius
             opacity: 0.5
@@ -100,10 +100,10 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: innerMargin
-            radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
+            anchors.margins: root.innerMargin
+            radius: parent.radius > root.innerMargin ? parent.radius - root.innerMargin : 0
             color: "transparent"
-            border.width: borderWidth
+            border.width: root.borderWidth
             border.color: MColors.highlightSubtle
         }
 

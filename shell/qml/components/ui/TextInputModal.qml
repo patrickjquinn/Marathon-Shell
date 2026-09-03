@@ -34,7 +34,7 @@ Modal {
 
                 Text {
                     visible: !textInput.text && !textInput.activeFocus
-                    text: placeholderText
+                    text: textInputModal.placeholderText
                     color: MColors.textTertiary
                     font: textInput.font
                     anchors.fill: parent

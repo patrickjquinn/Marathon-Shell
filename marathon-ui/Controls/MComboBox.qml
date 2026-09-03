@@ -133,7 +133,7 @@ Item {
                     }
 
                     Keys.onDownPressed: {
-                        if (root.expanded && filteredOptions.length > 0) {
+                        if (root.expanded && root.filteredOptions.length > 0) {
                             listView.currentIndex = 0;
                             listView.forceActiveFocus();
                         }
@@ -145,7 +145,7 @@ Item {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: Math.round(18 * scaleFactor)
+                    size: Math.round(18 * root.scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.expanded ? 180 : 0
@@ -162,7 +162,7 @@ Item {
 
     Rectangle {
         id: dropdownMenu
-        visible: root.expanded && filteredOptions.length > 0
+        visible: root.expanded && root.filteredOptions.length > 0
         y: inputContainer.y + inputContainer.height + MSpacing.xs
         width: parent.width
         height: Math.min(listView.contentHeight, root.maxVisibleItems * 44)

@@ -112,9 +112,9 @@ Item {
     Rectangle {
         id: thumb
         anchors.verticalCenter: parent.verticalCenter
-        x: root.checked ? parent.width - width - thumbInset : thumbInset
-        width: thumbSize
-        height: thumbSize
+        x: root.checked ? parent.width - width - root.thumbInset : root.thumbInset
+        width: root.thumbSize
+        height: root.thumbSize
         radius: width / 2
         color: "#FFFFFF"
         border.width: 1

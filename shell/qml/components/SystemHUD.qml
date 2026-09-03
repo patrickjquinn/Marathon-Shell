@@ -54,7 +54,7 @@ Item {
         border.color: MElevation.getBorderOuter(4)
         antialiasing: true
         opacity: 0
-        visible: hudVisible
+        visible: hudContainer.hudVisible
 
         // Inner hairline highlight — same role as MTopHairline elsewhere,
         // but a HUD only ever sits as a free-floating overlay so the
@@ -74,7 +74,7 @@ Item {
             width: parent.width - Math.round(40 * (Constants.scaleFactor || 1))
 
             Icon {
-                name: hudType === "volume" ? "volume-2" : "sun"
+                name: hudContainer.hudType === "volume" ? "volume-2" : "sun"
                 size: Constants.iconSizeXLarge
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -93,7 +93,7 @@ Item {
                     border.color: MColors.whiteOverlay04
 
                     Rectangle {
-                        width: parent.width * hudValue
+                        width: parent.width * hudContainer.hudValue
                         height: parent.height
                         radius: parent.radius
                         // DS teal accent — was an inline RGB literal duplicating
@@ -110,7 +110,7 @@ Item {
                 }
 
                 MText {
-                    text: Math.round(hudValue * 100) + "%"
+                    text: Math.round(hudContainer.hudValue * 100) + "%"
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeHeadline
                     font.weight: MTypography.weightDemiBold

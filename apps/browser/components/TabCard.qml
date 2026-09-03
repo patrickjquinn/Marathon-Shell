@@ -46,7 +46,7 @@ MCard {
                 anchors.top: parent.top
                 name: "globe"
                 size: Constants.iconSizeSmall
-                color: isCurrentTab ? MColors.accentBright : MColors.textSecondary
+                color: tabCard.isCurrentTab ? MColors.accentBright : MColors.textSecondary
             }
 
             Column {
@@ -58,17 +58,17 @@ MCard {
 
                 Text {
                     width: parent.width
-                    text: tabData ? (tabData.title || "New Tab") : "New Tab"
+                    text: tabCard.tabData ? (tabCard.tabData.title || "New Tab") : "New Tab"
                     font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     font.family: MTypography.fontFamily
-                    color: isCurrentTab ? MColors.text : MColors.textSecondary
+                    color: tabCard.isCurrentTab ? MColors.text : MColors.textSecondary
                     elide: Text.ElideRight
                 }
 
                 Text {
                     width: parent.width
-                    text: tabData ? (tabData.url || "about:blank") : "about:blank"
+                    text: tabCard.tabData ? (tabCard.tabData.url || "about:blank") : "about:blank"
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
                     color: MColors.textTertiary
@@ -88,7 +88,7 @@ MCard {
 
             Text {
                 anchors.centerIn: parent
-                text: tabData ? (tabData.title || tabData.url || "Loading...") : "Loading..."
+                text: tabCard.tabData ? (tabCard.tabData.title || tabCard.tabData.url || "Loading...") : "Loading..."
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary

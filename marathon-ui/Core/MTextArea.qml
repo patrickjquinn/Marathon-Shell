@@ -49,10 +49,10 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        anchors.margins: innerMargin
-        radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
+        anchors.margins: root.innerMargin
+        radius: parent.radius > root.innerMargin ? parent.radius - root.innerMargin : 0
         color: "transparent"
-        border.width: borderWidth
+        border.width: root.borderWidth
         border.color: textArea.activeFocus ? Qt.rgba(0, 191 / 255, 165 / 255, 0.15) : Qt.rgba(1, 1, 1, 0.04)
 
         Behavior on border.color {
@@ -83,13 +83,13 @@ Rectangle {
         TextEdit {
             id: textArea
             width: parent.width
-            color: disabled ? MColors.textHint : MColors.textPrimary
+            color: root.disabled ? MColors.textHint : MColors.textPrimary
             selectedTextColor: MColors.textOnAccent
             selectionColor: MColors.marathonTeal
             font.pixelSize: MTypography.sizeBody
             font.family: MTypography.fontFamily
             wrapMode: root.wrapMode
-            enabled: !disabled
+            enabled: !root.disabled
         }
     }
 }

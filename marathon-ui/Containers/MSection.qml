@@ -42,14 +42,14 @@ Item {
         id: headerColumn
         width: parent.width
         spacing: MSpacing.xs
-        visible: title !== ""
+        visible: section.title !== ""
 
         Text {
             // Two modes:
             //   eyebrow = true  → DS settings label: 11/700 + 1.4 tracking,
             //                     uppercase, --text-secondary. No subtitle.
             //   eyebrow = false → Legacy Title 3: 22/500 with -0.3 tracking.
-            text: section.eyebrow ? title.toUpperCase() : title
+            text: section.eyebrow ? section.title.toUpperCase() : section.title
             color: section.eyebrow ? MColors.textSecondary : MColors.textPrimary
             font.pixelSize: section.eyebrow ? MTypography.sizeEyebrow : MTypography.sizeTitle3
             font.weight: section.eyebrow ? MTypography.weightBold : MTypography.weightMedium
@@ -62,8 +62,8 @@ Item {
             // Subtitle suppressed in eyebrow mode — DS doesn't pair the
             // small-caps label with descriptive copy. Only Title-3 mode
             // surfaces this slot.
-            visible: !section.eyebrow && subtitle !== ""
-            text: subtitle
+            visible: !section.eyebrow && section.subtitle !== ""
+            text: section.subtitle
             color: MColors.textSecondary
             font.pixelSize: MTypography.sizeSmall
             font.family: MTypography.fontFamily
@@ -76,7 +76,7 @@ Item {
     Rectangle {
         id: contentCard
         anchors.top: headerColumn.bottom
-        anchors.topMargin: title !== "" ? MSpacing.md : 0
+        anchors.topMargin: section.title !== "" ? MSpacing.md : 0
         width: parent.width
         height: contentColumn.height
         color: MColors.bb10Card

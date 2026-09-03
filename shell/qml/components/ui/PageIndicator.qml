@@ -15,11 +15,11 @@ Row {
     spacing: Constants.spacingMedium
 
     Rectangle {
-        visible: showHubIcon
+        visible: pageIndicator.showHubIcon
         width: Constants.iconSizeMedium
         height: Constants.iconSizeMedium
         radius: Constants.borderRadiusSmall
-        color: currentPage === -2 ? "#FFFFFF" : "#666666"
+        color: pageIndicator.currentPage === -2 ? "#FFFFFF" : "#666666"
 
         Icon {
             name: "bell"
@@ -35,11 +35,11 @@ Row {
     }
 
     Rectangle {
-        visible: showTaskSwitcherIcon
+        visible: pageIndicator.showTaskSwitcherIcon
         width: Constants.iconSizeMedium
         height: Constants.iconSizeMedium
         radius: Constants.borderRadiusSmall
-        color: currentPage === -1 ? "#FFFFFF" : "#666666"
+        color: pageIndicator.currentPage === -1 ? "#FFFFFF" : "#666666"
 
         Icon {
             name: "layout-grid"
@@ -55,7 +55,7 @@ Row {
     }
 
     Repeater {
-        model: totalPages
+        model: pageIndicator.totalPages
 
         Rectangle {
             width: Constants.pageIndicatorSizeInactive / 2

@@ -144,7 +144,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerName
+                    text: callOverlay.callerName
                     font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
@@ -153,7 +153,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callerNumber
+                    text: callOverlay.callerNumber
                     font.pixelSize: MTypography.sizeLarge
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary

@@ -27,7 +27,7 @@ Rectangle {
 
     opacity: entranceProgress
     transform: Translate {
-        y: (1 - entranceProgress) * 20
+        y: (1 - root.entranceProgress) * 20
     }
 
     Component.onCompleted: {
@@ -38,7 +38,7 @@ Rectangle {
 
     Timer {
         id: entranceDelay
-        interval: animationIndex * MMotion.staggerShort
+        interval: root.animationIndex * MMotion.staggerShort
         running: false
         onTriggered: {
             root.entranceProgress = 1;
@@ -46,7 +46,7 @@ Rectangle {
     }
 
     Behavior on entranceProgress {
-        enabled: enableEntrance
+        enabled: root.enableEntrance
         NumberAnimation {
             duration: MMotion.moderate
             easing.bezierCurve: MMotion.easingDecelerateCurve
@@ -54,7 +54,7 @@ Rectangle {
     }
 
     Behavior on opacity {
-        enabled: enableEntrance
+        enabled: root.enableEntrance
         NumberAnimation {
             duration: MMotion.quick
             easing.bezierCurve: MMotion.easingDecelerateCurve
@@ -130,8 +130,8 @@ Rectangle {
         Rectangle {
             id: thumbRect
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.round(72 * scaleFactor)
-            height: Math.round(72 * scaleFactor)
+            width: Math.round(72 * root.scaleFactor)
+            height: Math.round(72 * root.scaleFactor)
             radius: MRadius.lg
             gradient: Gradient {
                 GradientStop {
@@ -167,7 +167,7 @@ Rectangle {
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - thumbRect.width - MSpacing.lg - timeText.width - MSpacing.lg
-            spacing: Math.round(4 * scaleFactor)
+            spacing: Math.round(4 * root.scaleFactor)
 
             Text {
                 id: titleText

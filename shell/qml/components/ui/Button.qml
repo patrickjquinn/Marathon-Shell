@@ -38,18 +38,18 @@ Rectangle {
         spacing: Constants.spacingSmall
 
         Icon {
-            name: iconName
+            name: button.iconName
             size: 24
             anchors.verticalCenter: parent.verticalCenter
             color: "white"
-            visible: iconName !== ""
+            visible: button.iconName !== ""
         }
 
         Text {
             id: buttonText
 
             text: button.text
-            color: disabled ? "#666666" : "#FFFFFF"
+            color: button.disabled ? "#666666" : "#FFFFFF"
             font.pixelSize: Constants.fontSizeMedium
             font.weight: Font.Medium
             font.family: MTypography.fontFamily
@@ -61,7 +61,7 @@ Rectangle {
         id: mouseArea
 
         anchors.fill: parent
-        enabled: !disabled
+        enabled: !button.disabled
         onPressed: {
             button.scale = 0.95;
             button.pressed();

@@ -62,7 +62,7 @@ Item {
                 spacing: MSpacing.sm
 
                 Text {
-                    text: noteTitle || "Untitled"
+                    text: noteItem.noteTitle || "Untitled"
                     color: MColors.text
                     font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
@@ -73,7 +73,7 @@ Item {
                 Text {
                     id: timestampText
 
-                    text: formatTimestamp(noteTimestamp)
+                    text: formatTimestamp(noteItem.noteTimestamp)
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
                     anchors.baseline: parent.children[0].baseline
@@ -82,7 +82,7 @@ Item {
 
             Text {
                 width: parent.width
-                text: noteContent.substring(0, 100) + (noteContent.length > 100 ? "..." : "")
+                text: noteItem.noteContent.substring(0, 100) + (noteItem.noteContent.length > 100 ? "..." : "")
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeSmall
                 elide: Text.ElideRight

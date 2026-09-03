@@ -262,14 +262,14 @@ Item {
                         id: tabBar
 
                         height: parent.height
-                        width: Math.max(categoryFlickable.width, categoryList.length * 60 * Constants.scaleFactor)
+                        width: Math.max(categoryFlickable.width, layout.categoryList.length * 60 * Constants.scaleFactor)
                         color: "transparent"
                         border.width: 0
                         tabs: {
                             var t = [];
-                            for (var i = 0; i < categoryList.length; i++) {
+                            for (var i = 0; i < layout.categoryList.length; i++) {
                                 t.push({
-                                    "icon": categoryList[i].icon,
+                                    "icon": layout.categoryList[i].icon,
                                     "label": ""
                                 });
                             }
@@ -277,7 +277,7 @@ Item {
                         }
                         activeTab: getCategoryIndex(layout.currentCategoryId)
                         onTabSelected: index => {
-                            layout.currentCategoryId = categoryList[index].id;
+                            layout.currentCategoryId = layout.categoryList[index].id;
                         }
                     }
                 }

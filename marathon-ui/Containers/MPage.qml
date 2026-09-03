@@ -36,7 +36,7 @@ Rectangle {
         Rectangle {
             id: topBar
 
-            visible: showTopBar
+            visible: root.showTopBar
             width: parent.width
             height: root.topBarHeight
             color: MColors.elevated
@@ -51,7 +51,7 @@ Rectangle {
                 spacing: MSpacing.md
 
                 Icon {
-                    visible: showBackButton
+                    visible: root.showBackButton
                     name: "chevron-left"
                     size: Math.round(24 * root.scaleFactor)
                     color: MColors.textPrimary
@@ -79,7 +79,7 @@ Rectangle {
             id: scrollView
 
             width: parent.width
-            height: parent.height - (showTopBar ? root.topBarHeight : 0) - (showBottomBar ? root.bottomBarHeight : 0)
+            height: parent.height - (root.showTopBar ? root.topBarHeight : 0) - (root.showBottomBar ? root.bottomBarHeight : 0)
             contentHeight: contentContainer.height
             clip: true
             flickDeceleration: 5000
@@ -95,7 +95,7 @@ Rectangle {
         Rectangle {
             id: bottomBar
 
-            visible: showBottomBar
+            visible: root.showBottomBar
             width: parent.width
             height: root.bottomBarHeight
             color: MColors.elevated

@@ -49,7 +49,7 @@ Flickable {
     ScrollBar.vertical: ScrollBar {
         id: vbar
         policy: ScrollBar.AsNeeded
-        width: Math.round(6 * scaleFactor)
+        width: Math.round(6 * root.scaleFactor)
         active: root.moving || root.flicking || edgeScrollArea.containsMouse
     }
 
@@ -58,7 +58,7 @@ Flickable {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: Math.round(20 * scaleFactor)
+        width: Math.round(20 * root.scaleFactor)
         hoverEnabled: true
         preventStealing: true
         z: 100

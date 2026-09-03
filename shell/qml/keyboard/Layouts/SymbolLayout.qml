@@ -33,7 +33,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row1Keys
+                model: layout.row1Keys
 
                 Key {
                     required property string modelData
@@ -60,7 +60,7 @@ Item {
             spacing: Math.round(1 * Constants.scaleFactor)
 
             Repeater {
-                model: row2Keys
+                model: layout.row2Keys
 
                 Key {
                     required property string modelData
@@ -97,7 +97,7 @@ Item {
             }
 
             Repeater {
-                model: row3Keys
+                model: layout.row3Keys
 
                 Key {
                     required property string modelData

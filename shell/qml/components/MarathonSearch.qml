@@ -356,7 +356,7 @@ Item {
     }
 
     Behavior on opacity {
-        enabled: !active
+        enabled: !searchOverlay.active
 
         NumberAnimation {
             duration: 200
