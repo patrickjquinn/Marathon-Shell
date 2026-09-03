@@ -253,14 +253,26 @@ RECIPES: dict[str, tuple] = {
     # right. y=1340 was below it, in the home-pill strip.
     "browser":     ("tap", 313, 1285, 0.005),
 
-    # Store: scroll the catalog.
-    "store":       ("swipe", 360, 900, 360, 600, 0.005),
+    # Store: tap the "Apps" bottom tab, which swaps the whole view.
+    #
+    # It used to swipe the catalog from y=900. The Discover content ends
+    # around y=810 and the list is not scrollable when it fits, so the
+    # swipe began in empty space and moved nothing. It passed only on
+    # runs where enough Flathub cards had loaded to make the list
+    # overflow -- i.e. it was measuring the network, not the app.
+    "store":       ("tap", 270, 1287, 0.02),
 
-    # Terminal: tap "+" (bottom-right) to toggle the keyboard overlay.
-    # Terminal: collapse the Esc/Tab/Ctrl key row with the chevron at its
-    # right end. y=1245 sat above the row entirely. Collapsing repaints a
-    # large band, unlike typing a single glyph.
-    "terminal":    ("tap", 688, 1307, 0.005),
+    # Terminal: no recipe. A fresh prompt has no control that repaints a
+    # measurable area -- the key row, a body tap and the row chevron all
+    # produce the same reading, and typing a character puts one monospace
+    # glyph on a 720x1440 canvas. Measured: every candidate came back at
+    # 0.02%, which is what the status-bar clock alone contributes when it
+    # ticks over mid-capture; a no-op capture measures 0.000%. So that
+    # 0.02% was the clock, not the tap, and any threshold low enough to
+    # "pass" would pass a dead app too. Driving this properly needs a
+    # region-cropped diff over the text area rather than a whole-frame
+    # one.
+    "terminal":    None,
 }
 
 
