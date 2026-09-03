@@ -130,7 +130,8 @@ jobs:
             podman zstd \
             qemu-utils qemu-system-arm qemu-efi-aarch64 \
             sshpass dosfstools e2fsprogs mtools \
-            debian-archive-keyring ubuntu-keyring
+            debian-archive-keyring ubuntu-keyring \
+            dnf
           command -v qemu-system-aarch64
           ls /usr/share/AAVMF/ 2>/dev/null || ls /usr/share/qemu-efi-aarch64/ 2>/dev/null || true
 
