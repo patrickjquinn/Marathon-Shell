@@ -28,15 +28,18 @@ libs_to_deploy.txt
 
 # Profiling output
 profile_data.qtd
+
+# Editor/scripted-edit backups
+*.bak
+*.orig
 shell_perf.log
 
-# AI assistant guidance (local only)
+# Local, per-developer editor and tooling config (not shared)
 CLAUDE.md
 
 # Local build trees produced by scripts/build-all.sh, podman-build/build.sh, etc.
 build-podman/
 
-# Claude Code tooling/project state
 .claude/
 
 # Per-deployment OAuth client IDs (see oauth-clients.env.example).
