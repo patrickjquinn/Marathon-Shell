@@ -79,13 +79,16 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
 
-  # The image bake is a SEPARATE job on purpose. GitHub caps a job at 6h,
-  # and a cold shell+apps compile on a 4-vCPU arm runner runs to roughly
-  # 5-6h on its own (it is ~3h on an 8-core box, and it is LTO-bound).
-  # Splitting gives the compile and the bake 6h each instead of sharing
-  # one budget, and the bake itself is minutes once the apk exists:
+  # The image bake is a SEPARATE job. Measured: the apk job takes about
+  # 8 minutes on a 4-vCPU arm runner and produces the full ~81 MB
+  # package -- far quicker than the local timings suggested, because
+  # those were competing with a QEMU suite on the same machine.
+  #
+  # The split still earns its keep: each job gets its own 6h cap and its
+  # own disk, and the bake reuses the apk rather than rebuilding it --
   # build-image.sh treats mkosi.packages/ as a cache and skips any
-  # package whose exact pkgver-pkgrel apk is already sitting there.
+  # package whose exact pkgver-pkgrel apk is already sitting there. It
+  # also means a bake failure does not cost the compile again.
   image:
     needs: apk
     runs-on: ubuntu-24.04-arm
@@ -122,6 +125,15 @@ jobs:
             sshpass dosfstools e2fsprogs mtools
           command -v qemu-system-aarch64
           ls /usr/share/AAVMF/ 2>/dev/null || ls /usr/share/qemu-efi-aarch64/ 2>/dev/null || true
+
+      - name: Bootstrap the build trees
+        # Must run BEFORE the apk is staged. bootstrap.sh clones duranium
+        # with `git clone`, which needs the target directory to be absent
+        # or empty, and it rejects an existing duranium/ that carries no
+        # Marathon patches. Creating .../duranium/mkosi.packages first to
+        # hold the apk tripped exactly that guard: "exists but has no
+        # Marathon patches applied". Clone first, seed second.
+        run: bash packaging/pipeline-patches/bootstrap.sh "$HOME/.cache/marathon-build"
 
       - name: Restore the apk built above
         uses: actions/download-artifact@v4
