@@ -97,8 +97,16 @@ def run(drv: QemuDriver, since: str) -> int:
     # Walk the pages. The page count is not fixed (seven dots at the time
     # of writing) and some pages need input before Next does anything, so
     # drive it adaptively: tap Next, and if the frame did not change,
-    # assume this page wants the passcode and type it before retrying.
-    # That avoids hard-coding which page index is the passcode page.
+    # type the passcode before retrying. That avoids hard-coding which
+    # page index is the passcode page.
+    #
+    # Caveat, measured: under the software renderer a page can take
+    # longer than the 1.5 s settle to repaint, so "frame did not change"
+    # also fires on merely-slow pages and types digits into them
+    # harmlessly. OOBE does complete, but do NOT assume this leaves a
+    # passcode provisioned -- observed runs finish with no
+    # quickpin.conf. That is fine for automation (no lock prompt to
+    # satisfy); it is not a substitute for a real passcode-setup test.
     for step in range(2, 16):
         if oobe_done():
             break

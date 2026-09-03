@@ -73,7 +73,9 @@ def runner_pids(drv: QemuDriver) -> set[int]:
     return {int(t) for t in out.split() if t.isdigit()}
 
 
-# The passcode scenario 02 provisions during OOBE.
+# Best-effort unlock. Scenario 02 does not reliably provision a
+# passcode (see its notes), so this is a no-op on most runs -- it
+# exists for images that were set up with the documented PIN.
 DEV_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
 
 
@@ -97,9 +99,10 @@ def wake_display(drv: QemuDriver):
     the screen-off timer and the lock timer, so set that for the run.
     """
     drv.ssh("marathon-dev wake 2>/dev/null || true")
-    drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
-            "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
-            "SetProperty sv screenTimeout i 0 2>/dev/null || true")
+    for prop in ("screenTimeout", "autoLockTimeout"):
+        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
+                "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
+                f"SetProperty sv {prop} i 0 2>/dev/null || true")
     time.sleep(1.0)
     # If the session already locked, clear it -- screenTimeout=0 only
     # prevents the NEXT lock, it does not dismiss a lock already up, and
@@ -180,6 +183,7 @@ def run(drv: QemuDriver, since: str) -> int:
     for appid in APPS:
         print(f"\n  ==> {appid}")
         before = drv.ssh(f"date -u +'%Y-%m-%d %H:%M:%S UTC'")[1].strip()
+        wake_display(drv)
         reset_runners(drv)
 
         rc, out, err = busctl(drv, "LaunchApp", appid)

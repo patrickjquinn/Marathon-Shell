@@ -65,7 +65,9 @@ def runner_pids(drv: QemuDriver) -> set[int]:
     return {int(t) for t in out.split() if t.isdigit()}
 
 
-# The passcode scenario 02 provisions during OOBE.
+# Best-effort unlock. Scenario 02 does not reliably provision a
+# passcode (see its notes), so this is a no-op on most runs -- it
+# exists for images that were set up with the documented PIN.
 DEV_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
 
 
@@ -89,9 +91,10 @@ def wake_display(drv: QemuDriver):
     the screen-off timer and the lock timer, so set that for the run.
     """
     drv.ssh("marathon-dev wake 2>/dev/null || true")
-    drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
-            "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
-            "SetProperty sv screenTimeout i 0 2>/dev/null || true")
+    for prop in ("screenTimeout", "autoLockTimeout"):
+        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
+                "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
+                f"SetProperty sv {prop} i 0 2>/dev/null || true")
     time.sleep(1.0)
     # If the session already locked, clear it -- screenTimeout=0 only
     # prevents the NEXT lock, it does not dismiss a lock already up, and
@@ -296,6 +299,14 @@ def run(drv: QemuDriver, since: str) -> int:
         if recipe is None:
             print(f"     SKIP  no recipe (QEMU-specific gap; see comment)")
             continue
+
+        # Wake + unlock per app, not once per scenario. Scenario 06
+        # restarts greetd on its way out, so 07 meets a FRESH shell whose
+        # screenTimeout is back at the default -- the panel then blanks
+        # part-way through the pass and every remaining screendump comes
+        # back as the same 3.5 KB black frame. Re-asserting per app costs
+        # a couple of ssh round-trips and removes the whole class.
+        wake_display(drv)
 
         # Clean slate: the recipes below tap coordinates that assume the
         # app's FIRST page, so a resident instance left on a sub-page
