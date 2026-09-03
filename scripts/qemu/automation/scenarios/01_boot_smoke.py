@@ -73,6 +73,14 @@ def run(drv: QemuDriver, since: str) -> int:
         # link its restrict_filesystems program. Nothing to fix here --
         # it is a kernel capability, not a failure of the image.
         "bpf-restrict-fs",
+        # gpt-auto sees the pmOS_root partition and tries to open it as
+        # LUKS. It is not encrypted, so this fails. The unit is masked on
+        # the kernel cmdline, but these two lines come from the INITRD,
+        # which has already run by the time any mask applies -- so they
+        # cannot be suppressed, only recognised. Harmless: root mounts
+        # fine immediately afterwards.
+        "Failed to load LUKS superblock",
+        "Failed to start Cryptography Setup for root",
     ]
     if not drv.assert_no_journal_errors_since(since, allowlist=allow):
         fails += 1
