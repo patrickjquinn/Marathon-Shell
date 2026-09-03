@@ -4,65 +4,203 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
-# Builds the marathon-shell apk on Alpine (postmarketOS-compatible) and
-# attaches it to a GitHub Release. Devices poll the Releases API via the
-# in-shell UpdateService and tap-to-update — no custom server required.
+# Builds the marathon-shell apk and attaches it to a GitHub Release.
+# Devices poll the Releases API via the in-shell UpdateService and
+# tap-to-update -- no custom server required.
+#
+# Two things this deliberately does NOT do, both of which the previous
+# version got wrong:
+#
+#   * It does not run `abuild` against the APKBUILD at the repo root.
+#     That file is a pre-monorepo leftover: 156 lines at pkgrel=0, while
+#     the recipe every image is actually built from is
+#     packaging/packages/marathon-shell/APKBUILD -- 380 lines, currently
+#     r359. Releases were shipping a package built from a stale recipe
+#     that knows nothing about the apps, the dmabuf plugin or the systemd
+#     units.
+#
+#   * It does not build on x86_64. Marathon targets aarch64 phones, so an
+#     x86_64 apk is of no use to a device. Public repos get free arm64
+#     runners, so build natively.
+#
+# It reuses scripts/qemu/lib/build-marathon-shell-apk.sh -- the same path
+# local image builds take -- which stages the checked-out tree as the
+# source tarball and re-runs `abuild -F checksum`. That matters for
+# reproducibility: the APKBUILD's source= URL points at a moving branch
+# and its own comment warns against relying on it. Going through the
+# script means the tag you push is the tree that ships.
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
-    container: alpine:3.20
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
     steps:
-      - name: Install build deps
-        run: |
-          apk add --no-cache \
-            alpine-sdk abuild git \
-            cmake ninja samurai \
-            qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
-            qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qtsensors-dev \
-            qt6-qtwebengine-dev pkgconf \
-            wayland-protocols wayland-dev \
-            hunspell-dev libdrm-dev pipewire-dev pulseaudio-dev
-
       - uses: actions/checkout@v4
 
-      - name: Configure abuild
+      - name: Install podman
         run: |
-          adduser -D builder
-          addgroup builder abuild || true
-          mkdir -p /home/builder/.abuild
-          # Ephemeral signing key — do NOT use this for releases users will trust;
-          # for the real flow inject ABUILD_KEY_BASE64 from a repo secret.
-          if [ -n "${{ secrets.ABUILD_KEY_BASE64 }}" ]; then
-            echo "${{ secrets.ABUILD_KEY_BASE64 }}" | base64 -d > /home/builder/.abuild/marathon.rsa
-            ssh-keygen -y -f /home/builder/.abuild/marathon.rsa > /home/builder/.abuild/marathon.rsa.pub
-            echo "PACKAGER_PRIVKEY=/home/builder/.abuild/marathon.rsa" > /home/builder/.abuild/abuild.conf
-          else
-            su builder -c 'cd /home/builder && abuild-keygen -a -n -q'
-          fi
-          chown -R builder:builder /home/builder/.abuild
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq podman
 
-      - name: Build apk
+      - name: Build marathon-shell apk (aarch64)
+        env:
+          MARATHON_SHELL_SRC: ${{ github.workspace }}
         run: |
-          chown -R builder:builder $GITHUB_WORKSPACE
-          su builder -c "cd $GITHUB_WORKSPACE && abuild -F -r"
+          mkdir -p "$HOME/.cache/marathon-build/duranium/mkosi.packages"
+          bash scripts/qemu/lib/build-marathon-shell-apk.sh
 
       - name: Stage artifacts
+        id: stage
         run: |
           mkdir -p artifacts
-          find /home/builder/packages -name '*.apk' -exec cp {} artifacts/ \;
-          cp /home/builder/.abuild/marathon.rsa.pub artifacts/ || true
+          find "$HOME/.cache/marathon-build/duranium/mkosi.packages" \
+               -name 'marathon-shell-*.apk' -exec cp {} artifacts/ \;
+          # Fail loudly rather than publishing an empty release.
+          if [ -z "$(ls -A artifacts)" ]; then
+            echo "no apk produced" >&2
+            exit 1
+          fi
           ls -la artifacts/
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marathon-shell-apk
+          path: artifacts/*.apk
+
       - name: Publish to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/*.apk
-            artifacts/*.pub
+          files: artifacts/*.apk
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
+
+  # The image bake is a SEPARATE job on purpose. GitHub caps a job at 6h,
+  # and a cold shell+apps compile on a 4-vCPU arm runner runs to roughly
+  # 5-6h on its own (it is ~3h on an 8-core box, and it is LTO-bound).
+  # Splitting gives the compile and the bake 6h each instead of sharing
+  # one budget, and the bake itself is minutes once the apk exists:
+  # build-image.sh treats mkosi.packages/ as a cache and skips any
+  # package whose exact pkgver-pkgrel apk is already sitting there.
+  image:
+    needs: apk
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 350
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reclaim disk
+        # The full build cache measures ~15 GB against a ~14 GB runner
+        # disk, so this is not optional housekeeping -- without it the
+        # bake runs out of space part-way through and leaves a truncated
+        # image behind.
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
+                      /opt/ghc /usr/local/share/boost \
+                      "$AGENT_TOOLSDIRECTORY" || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Install build deps
+        # scripts/qemu/lib/check-host.sh runs unconditionally and aborts
+        # the build if any of these is absent -- including the aarch64 EFI
+        # firmware and sshpass, which the bake itself does not use but the
+        # shared host check still demands. mkosi needs the filesystem
+        # tools to lay down the ESP and rootfs.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            podman zstd \
+            qemu-utils qemu-system-arm qemu-efi-aarch64 \
+            sshpass dosfstools e2fsprogs mtools
+          command -v qemu-system-aarch64
+          ls /usr/share/AAVMF/ 2>/dev/null || ls /usr/share/qemu-efi-aarch64/ 2>/dev/null || true
+
+      - name: Restore the apk built above
+        uses: actions/download-artifact@v4
+        with:
+          name: marathon-shell-apk
+          path: apk-in
+
+      - name: Seed the package cache
+        run: |
+          mkdir -p "$HOME/.cache/marathon-build/duranium/mkosi.packages"
+          cp apk-in/*.apk "$HOME/.cache/marathon-build/duranium/mkosi.packages/"
+          ls -la "$HOME/.cache/marathon-build/duranium/mkosi.packages/"
+
+      - name: Build the QEMU image
+        run: bash scripts/build-qemu-image.sh
+
+      - name: Compress
+        id: pack
+        run: |
+          out=$(ls -t "$HOME"/.cache/marathon-build/duranium/mkosi.output/qemu-aarch64_marathon_edge/*.raw \
+                | grep -vE '\.(esp|root-arm64|dev-tools-[a-z]+-arm64)\.' | head -1)
+          [ -n "$out" ] || { echo "no image produced" >&2; exit 1; }
+          echo "raw: $(du -h --apparent-size "$out" | cut -f1) apparent, $(du -h "$out" | cut -f1) on disk"
+          mkdir -p release
+          # "devsim" is in the filename deliberately. scripts/qemu/lib/
+          # setup-trees.sh patches RootPassword to a known dev hash
+          # ("marathon") and its own comment says DEV/QA ONLY, replace
+          # before shipping a release image. That is the right call for
+          # the developer simulator -- being able to ssh in is the point
+          # -- but this asset is downloadable by anyone, so the name has
+          # to say what it is. Do NOT reuse this job for a device image
+          # without re-locking the root account first.
+          name="marathon-qemu-aarch64-devsim-${GITHUB_REF_NAME}.raw.zst"
+          # Level 12, not 19. Measured on a real 6.4 GB image: level 3
+          # gives 831 MB in 6 s, level 12 gives 782 MB in 19 s, and 19
+          # would spend an hour on a 4-vCPU runner to save ~30 MB. Both
+          # are far under the 2 GB asset cap, so the extra time buys
+          # nothing. (--sparse is a decompression-side flag; it does
+          # nothing when compressing.)
+          zstd -12 -T0 -o "release/$name" "$out"
+          # A GitHub release asset is capped at 2 GB. Say so plainly here
+          # rather than failing inside the upload step.
+          sz=$(stat -c%s "release/$name")
+          echo "compressed: $(numfmt --to=iec "$sz")"
+          if [ "$sz" -gt 2000000000 ]; then
+            echo "asset exceeds GitHub's 2 GB limit -- split or drop to a smaller rootfs" >&2
+            exit 1
+          fi
+          sha256sum "release/$name" > "release/$name.sha256"
+          ls -la release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marathon-qemu-image
+          path: release/*
+
+      - name: Publish to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.raw.zst
+            release/*.sha256
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          # Notes are generated by the apk job; appending here keeps that
+          # job's changelog and adds the credential warning below it.
+          append_body: true
+          body: |
+
+            ### QEMU developer simulator image
+
+            `marathon-qemu-aarch64-devsim-*.raw.zst` is the **developer
+            simulator**, not a device image. It ships with a known root
+            password (`marathon`) so it can be driven over SSH. Do not
+            flash it to hardware or expose it to a network you do not
+            control.
+
+            ```
+            zstd -d marathon-qemu-aarch64-devsim-*.raw.zst
+            scripts/qemu/automation/run_scenarios.py   # or boot it yourself
+            ```
