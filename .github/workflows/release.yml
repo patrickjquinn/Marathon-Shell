@@ -154,6 +154,31 @@ jobs:
         # Marathon patches applied". Clone first, seed second.
         run: bash packaging/pipeline-patches/bootstrap.sh "$HOME/.cache/marathon-build"
 
+      - name: Pin mkosi's tools tree to Fedora
+        # duranium sets ToolsTree=default, which mkosi resolves against the
+        # HOST distribution. On the Fedora workstation this is developed on
+        # that yields a Fedora tools tree and everything resolves. On an
+        # Ubuntu runner it yields a Debian one, and two things break:
+        #
+        #   E: Unable to locate package ukify
+        #        duranium lists `ukify` in ToolsTreePackages -- the Fedora
+        #        name. Debian ships it as systemd-ukify.
+        #   E: Package 'grub-pc-bin' has no installation candidate
+        #        pulled in by mkosi's own Debian defaults; it is x86-only
+        #        and this tools tree is arm64.
+        #
+        # Pinning the distribution keeps CI on the same tools tree the
+        # image is actually developed against, rather than teaching the
+        # shipped config a second set of package names.
+        run: |
+          mkdir -p "$HOME/.cache/marathon-build/duranium/mkosi.conf.d"
+          cat > "$HOME/.cache/marathon-build/duranium/mkosi.conf.d/10-ci-tools-tree.conf" <<'EOF'
+          [Build]
+          ToolsTreeDistribution=fedora
+          EOF
+          sed -i 's/^          //' "$HOME/.cache/marathon-build/duranium/mkosi.conf.d/10-ci-tools-tree.conf"
+          cat "$HOME/.cache/marathon-build/duranium/mkosi.conf.d/10-ci-tools-tree.conf"
+
       - name: Restore the apk built above
         uses: actions/download-artifact@v4
         with:
