@@ -41,7 +41,7 @@ EXEMPT = {
     "auto", "back", "forward",
 }
 SKIP_DIRS = {
-    "build", "build-ui", "build-apps", ".claude", ".git",
+    "build", "build-ui", "build-apps", ".git",
     "node_modules",
 }
 

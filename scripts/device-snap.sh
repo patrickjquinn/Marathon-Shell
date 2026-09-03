@@ -7,7 +7,7 @@
 # writes to /tmp/marathon-shot.png on device, then scp's to host.
 set -euo pipefail
 LABEL="${1:?usage: device-snap <label>}"
-OUT_DIR="${MARATHON_SNAP_DIR:-/tmp/claude-1000/-home-patrickquinn-Developer-Marathon-Shell/b5c9540a-ab57-4656-8085-ffa97307f874/scratchpad}"
+OUT_DIR="${MARATHON_SNAP_DIR:-${TMPDIR:-/tmp}/marathon-snaps}"
 HOST="${MARATHON_HOST:-marathon.local}"
 mkdir -p "$OUT_DIR"
 sshpass -p marathon ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
@@ -34,8 +34,8 @@ RAW="$OUT_DIR/.$LABEL.raw.png"
 sshpass -p marathon scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR root@"$HOST":/tmp/marathon-shot.png "$RAW" 2>/dev/null
 # Re-encode via ImageMagick (sRGB, 8-bit RGBA, no esoteric chunks). Qt's
-# QImage::save sometimes emits PNGs the Anthropic media decoder rejects;
-# magick produces a clean baseline file every time.
+# QImage::save can emit PNGs that stricter decoders reject; magick
+# produces a clean baseline file every time.
 magick "$RAW" -strip -define png:color-type=6 "$OUT_DIR/$LABEL.png" 2>/dev/null \
   || convert "$RAW" -strip "$OUT_DIR/$LABEL.png"
 rm -f "$RAW"

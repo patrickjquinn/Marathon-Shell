@@ -1,14 +1,17 @@
-# CODING AGENTS: READ THIS FIRST
+# Marathon OS design bundle
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+An exported HTML/CSS/JS mockup bundle: the source of truth for the
+next-generation surfaces, used as the visual reference when implementing
+them for real.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+## How to use it
 
-## What you should do — IMPORTANT
+**Read `marathonos/project/Marathon OS.html` in full** -- it is the primary
+design. Then follow its imports: shared components, CSS and scripts, so the
+pieces are understood together before implementing.
 
-**Read `marathonos/project/Marathon OS.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
-
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+Confirm anything ambiguous before building -- clarifying scope up front is
+cheaper than building the wrong thing.
 
 ## About the design files
 

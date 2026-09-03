@@ -647,9 +647,9 @@ signal lowMemoryWarning()                // Low memory warning
 
 ## Further Reading
 
-- [Marathon UI Component Guide](./MARATHON_UI_GUIDE.md)
+- [UI Design System](./UI_DESIGN_SYSTEM.md)
 - [App Development Tutorial](./APP_DEVELOPMENT.md)
-- [Shell Architecture](./SHELL_ARCHITECTURE.md)
+- [Architecture](./ARCHITECTURE.md)
 
 ---
 

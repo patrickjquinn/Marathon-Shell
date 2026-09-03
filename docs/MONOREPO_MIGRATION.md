@@ -156,7 +156,7 @@ the wrong one.
 - `docs/IMAGE_BUILD_ARCHITECTURE.md` — the "THREE independent git trees"
   section is now two
 - `docs/BUILDING.md` — same
-- `CLAUDE.md` / `CONTEXT.md` — repo layout
+- `CONTEXT.md` — repo layout
 
 ### 6. Archive Marathon-Image
 

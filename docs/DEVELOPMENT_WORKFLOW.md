@@ -399,5 +399,5 @@ diff -r ./apps/phone ~/.local/share/marathon-apps/phone  # Compare source vs ins
 
 - [App Development Guide](APP_DEVELOPMENT.md) - Creating Marathon apps
 
-- [Developer CLI Guide](DEVELOPER_GUIDE.md) - Using marathon-dev tool
+- [Developer CLI Guide](DEV_CLI.md) - Using the marathon CLI
 - [Code Signing Guide](CODE_SIGNING_GUIDE.md) - GPG signing for apps

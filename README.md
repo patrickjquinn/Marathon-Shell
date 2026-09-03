@@ -579,7 +579,7 @@ The `marathon-dev` tool covers app development end-to-end:
 ./build/tools/marathon-dev/marathon-dev validate apps/myapp
 ```
 
-See `docs/DEVELOPER_GUIDE.md` for complete CLI documentation.
+See `docs/DEV_CLI.md` for complete CLI documentation.
 
 ### Creating Marathon Apps
 
@@ -748,12 +748,10 @@ Marathon Shell uses Landlock for application sandboxing on Linux kernel 5.13+. O
 - [UI Design System](docs/UI_DESIGN_SYSTEM.md) - MarathonUI component reference
 
 - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Development process and conventions
-- [Developer CLI Guide](docs/DEVELOPER_GUIDE.md) - marathon-dev tool usage
+- [Developer CLI Guide](docs/DEV_CLI.md) - marathon CLI reference and recipes
 - [Code Signing Guide](docs/CODE_SIGNING_GUIDE.md) - GPG signing for apps
 - [Permission Guide](docs/PERMISSION_GUIDE.md) - Permission system implementation
 - [Publishing Guide](docs/PUBLISHING_GUIDE.md) - App distribution process
-- [Keyboard Specification](docs/KEYBOARD_SPEC.md) - Virtual keyboard implementation
-- [QML Validation](docs/QML_VALIDATION.md) - QML linting and validation
 - [RT Scheduling](docs/RT_SCHEDULING.md) - Real-time scheduling configuration
 
 ## Contributing

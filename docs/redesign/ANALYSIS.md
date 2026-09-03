@@ -1,6 +1,6 @@
 # Marathon OS — Redesign Handoff Analysis
 
-Analysis of the `MarathonOS-handoff` bundle(s) from Claude Design (extracted to `docs/redesign/marathonos/`). No code has been changed; this is a prep document for the redesign work on the `ux-overhaul` branch.
+Analysis of the `MarathonOS-handoff` design bundle(s) (extracted to `docs/redesign/marathonos/`). No code has been changed; this is a prep document for the redesign work on the `ux-overhaul` branch.
 
 Source files referenced are relative to `docs/redesign/marathonos/project/`.
 
