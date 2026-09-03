@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 3 Sep 2026 22:30:00 +0100
+Subject: [PATCH] fix(tools): use systemd-ukify, not the dropped ukify package
+
+Fedora no longer ships a standalone `ukify` package -- /usr/bin/ukify
+moved into systemd-ukify -- so building the mkosi tools tree against a
+current Fedora fails with:
+
+    No match for argument: ukify
+    Error: Unable to find a match: ukify
+
+This is invisible on a developer machine whose tools tree was cached
+while the old package still existed. It bites any cold cache: a fresh
+clone, a new workstation, or CI.
+
+mkosi's own default tools packages already include systemd-ukify, so
+naming it here is belt-and-braces rather than strictly required; keeping
+the explicit entry preserves upstream's intent that the tools tree is
+guaranteed to carry ukify.
+---
+ mkosi.conf | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/mkosi.conf b/mkosi.conf
+index 6d81ebc..9bc8f01 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -19,7 +19,13 @@ CacheDirectory=mkosi.cache
+ Incremental=no
+ ToolsTreePackages=
+ 	erofs-utils
+-	ukify
++	# systemd-ukify, not ukify. Fedora dropped the standalone `ukify`
++	# package -- /usr/bin/ukify now ships in systemd-ukify -- so a
++	# tools tree built against current Fedora fails with
++	# "No match for argument: ukify". Existing checkouts only survive
++	# it because their tools tree was cached while the old package
++	# still existed; any cold cache hits it.
++	systemd-ukify
+ 	# binutils for objcopy: mkosi.finalize extracts UKI .linux + .initrd
+ 	# sections to /boot/kernel_2712.img + /boot/initramfs_2712 for Pi
+ 	# firmware boot (no UEFI on Pi 5, so the UKI itself isn't loaded —
+-- 
+2.51.0
+
