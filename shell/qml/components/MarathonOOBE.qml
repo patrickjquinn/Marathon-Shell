@@ -565,7 +565,18 @@ Item {
 
                                         SequentialAnimation on opacity {
                                             loops: Animation.Infinite
-                                            running: !wifiPage.firstScanDone
+                                            // C8: gate on oobeRoot.visible, not just the scan
+                                            // flag. OOBE is instantiated unconditionally in
+                                            // MarathonShell.qml (no Loader) and merely hidden
+                                            // via `visible: !firstRunComplete`, and
+                                            // firstScanDone stays false forever wherever no
+                                            // Wi-Fi networks are ever found (QEMU, or a device
+                                            // with the radio off). The skeleton shimmer then
+                                            // ran permanently on an INVISIBLE item, holding the
+                                            // scene graph dirty: measured ~30fps of identical
+                                            // frames and 90-95% shell CPU on an idle home
+                                            // screen, with zero clients and zero tasks.
+                                            running: oobeRoot.visible && !wifiPage.firstScanDone
 
                                             NumberAnimation {
                                                 from: 0.25
