@@ -105,7 +105,7 @@ subpackages="$pkgname-doc"
 # still resolves. It tracks a moving branch and is therefore NOT reproducible:
 # prefer the build script, or pin this to a commit before relying on it.
 source="
-	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/ux-overhaul.tar.gz
+	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
 	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	marathon-shell-session
 	marathon-touchctl
