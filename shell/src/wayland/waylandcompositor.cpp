@@ -285,8 +285,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         connect(statsTimer, &QTimer::timeout, this, [this]() {
             const int frames  = m_frameSwapCount.fetchAndStoreRelaxed(0);
             const int commits = m_clientCommitCount.fetchAndStoreRelaxed(0);
-            qInfo().nospace() << "[PresentStats] compositor=" << frames
-                              << "fps client_commits=" << commits << "/s";
+            // qWarning, not qInfo: release builds define QT_NO_INFO_OUTPUT,
+            // which compiled this meter out of exactly the images worth
+            // measuring. The env gate above already makes it opt-in, so it
+            // is never noise.
+            qWarning().nospace() << "[PresentStats] compositor=" << frames
+                                 << "fps client_commits=" << commits << "/s";
         });
         statsTimer->start();
         qInfo() << "[WaylandCompositor] Present stats ENABLED (1Hz compositor/client "

@@ -1,5 +1,5 @@
 // Header-only diagnostic. Hooks QQuickWindow::frameSwapped and emits
-// P50/P99/max frame-delta every kReportEveryN swaps via qInfo. Off by default
+// P50/P99/max frame-delta every kReportEveryN swaps via qWarning. Off by default
 // at every call site; gate with an env var or runtime flag in the caller.
 
 #pragma once
@@ -45,9 +45,12 @@ namespace marathon::diag {
             const qint64 p50 = sorted[sorted.size() / 2];
             const qint64 p99 = sorted[sorted.size() * 99 / 100];
             const qint64 max = sorted.back();
-            qInfo().nospace() << "[FrameTiming] " << s->label << "  P50=" << (p50 / 1000)
-                              << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000) << "µs  ("
-                              << sorted.size() << " frames)";
+            // qWarning, not qInfo: QT_NO_INFO_OUTPUT in release builds
+            // compiled this out of the images worth profiling. Opt-in via
+            // env above, so the level costs nothing when it is off.
+            qWarning().nospace() << "[FrameTiming] " << s->label << "  P50=" << (p50 / 1000)
+                                 << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000)
+                                 << "µs  (" << sorted.size() << " frames)";
             s->samples.clear();
         });
 
