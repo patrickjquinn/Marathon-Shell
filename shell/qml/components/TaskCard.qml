@@ -385,16 +385,13 @@ Item {
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: taskCard.registeredSurfaceItem
                                     visible: taskCard.useRegisteredSurface
-                                    // Gated, not bare `live: true`. The switcher is page 1
-                                    // and home is page 2, so the page ListView keeps this
-                                    // delegate instantiated while home is showing -- and an
-                                    // off-screen ListView delegate is translated away, not
-                                    // hidden, so `visible` stays true. A live+recursive
-                                    // ShaderEffectSource then re-renders every frame forever:
-                                    // measured 95% CPU and ~30fps of identical frames with
-                                    // zero client commits, on an idle home screen.
-                                    // taskSwitcherVisible is the same signal line 26 already
-                                    // uses to gate native-surface loading.
+                                    // The switcher is page 1 and home is page 2, so the page
+                                    // ListView keeps this delegate instantiated while home is
+                                    // showing, and an off-screen ListView delegate is
+                                    // translated away rather than hidden -- `visible` stays
+                                    // true. A bare `live: true` here would re-render every
+                                    // frame regardless. taskSwitcherVisible is the same signal
+                                    // line 26 uses to gate native-surface loading.
                                     live: taskCard.taskSwitcherVisible
                                     recursive: true
                                     hideSource: false
