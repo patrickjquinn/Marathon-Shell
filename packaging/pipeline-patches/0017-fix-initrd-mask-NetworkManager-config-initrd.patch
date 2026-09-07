@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 7 Sep 2026 13:20:00 +0100
+Subject: [PATCH] fix(initrd): mask NetworkManager-config-initrd.service
+
+The service fails on every boot:
+
+    NetworkManager-config-initrd.service: Main process exited,
+        code=exited, status=127/n/a
+    Failed to start NetworkManager Configuration (initrd).
+
+127 is command-not-found. Its ExecStart is
+
+    /bin/sh -c "/usr/libexec/nm-initrd-generator -- $(cat /proc/cmdline)"
+
+and no Alpine package ships nm-initrd-generator -- checked every
+networkmanager* subpackage in edge. The networkmanager package installs
+the unit file; the generator it invokes is never packaged, so the unit
+cannot succeed on this distribution at all.
+
+It only surfaced now because a rebuild pulled a newer networkmanager that
+started shipping the unit. Nothing here configures networking from the
+kernel cmdline, so the service has no work to do even when it is whole.
+
+Masking has to happen in the initrd. `systemctl --failed` reports the
+unit as masked, which is misleading: that mask is in the rootfs, while
+the unit runs and fails in the initrd before switch-root.
+
+Only this unit is masked. NetworkManager-initrd.service
+(/usr/sbin/NetworkManager) and NetworkManager-wait-online-initrd.service
+(/usr/bin/nm-online) both call binaries that are present in the initrd
+and are left alone.
+
+Verified: full QEMU scenario suite 7/7, 0 failures, 0 coredumps, and no
+journal errors in 01_boot_smoke -- which failed on this before.
+---
+ mkosi.initrd.conf/mkosi.finalize | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/mkosi.initrd.conf/mkosi.finalize b/mkosi.initrd.conf/mkosi.finalize
+index eff56d2..3bc4ffa 100644
+--- a/mkosi.initrd.conf/mkosi.finalize
++++ b/mkosi.initrd.conf/mkosi.finalize
+@@ -6,3 +6,14 @@ set -e
+ sed -i "s/^IMAGE_ID=.*/IMAGE_ID=$PMOS_DEVICE/" "$BUILDROOT/usr/lib/os-release"
+ # Add VARIANT_ID for UI
+ echo "VARIANT_ID=$PMOS_VARIANT" >> "$BUILDROOT/usr/lib/os-release"
++
++## Mask NetworkManager-config-initrd.service.
++# Its ExecStart is /usr/libexec/nm-initrd-generator, and no Alpine package
++# ships that binary -- the unit file is installed, the generator never is,
++# so the service exits 127 on every boot and leaves a failed unit behind.
++# Nothing here configures networking from the kernel cmdline, so the
++# service has no work to do even when it is whole.
++# Only this unit is masked: NetworkManager-initrd.service and
++# NetworkManager-wait-online-initrd.service call binaries that ARE present.
++mkdir -p "$BUILDROOT/etc/systemd/system"
++ln -sf /dev/null "$BUILDROOT/etc/systemd/system/NetworkManager-config-initrd.service"
+-- 
+2.51.0
+
