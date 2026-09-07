@@ -1091,7 +1091,19 @@ Item {
                                 }
 
                                 SequentialAnimation {
-                                    running: gesturesPage.currentCoachmark === index && modelData.direction !== "none"
+                                    // C8: gate on oobeRoot.visible. OOBE is instantiated unconditionally
+                                    // in MarathonShell.qml (no Loader) and only hidden via
+                                    // `visible: !firstRunComplete`, and a hidden item's
+                                    // animation keeps running and keeps the scene graph
+                                    // dirty. currentCoachmark defaults to 0, so coachmark 0
+                                    // matched immediately and this infinite nudge ran forever
+                                    // on a wizard page that is not on screen -- on a device
+                                    // that finished setup months ago.
+                                    // Measured: the compositor synced, rendered and swapped
+                                    // ~50 pixel-identical frames/sec while completely idle
+                                    // (95% shell CPU under software GL). Gating this one
+                                    // binding takes it to 0.
+                                    running: oobeRoot.visible && gesturesPage.currentCoachmark === index && modelData.direction !== "none"
                                     loops: Animation.Infinite
 
                                     NumberAnimation {
