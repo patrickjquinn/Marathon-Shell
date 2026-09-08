@@ -192,22 +192,21 @@ ShellSurfaceItem {
     // black void. Re-nudge briefly until the surface actually has content. The
     // binding stops the instant it paints (hasFirstFrame); a genuinely dead
     // client is still caught by MarathonAppWindow's 20 s launch watchdog.
-    // Preview views need it too: a fresh view of an already-mapped surface
-    // holds no buffer until the client commits again.
     Timer {
         id: contentNudge
         interval: 150
         repeat: true
-        running: surfaceItem.surfaceId !== -1 && surfaceItem.shellSurface
-                 && !surfaceItem.hasFirstFrame
-                 && (surfaceItem.isPreview || !surfaceItem.isMinimized)
+        running: !surfaceItem.isPreview && !surfaceItem.isMinimized && surfaceItem.surfaceId !== -1
+                 && surfaceItem.shellSurface && !surfaceItem.hasFirstFrame
         onTriggered: surfaceItem._nudge()
     }
     // Deferred one tick: preview items get isMinimized set just after creation.
     onSurfaceIdChanged: Qt.callLater(_nudgePreview)
     Component.onCompleted: Qt.callLater(_nudgePreview)
     Component.onDestruction: {
-        if (surfaceId !== -1 && !isMinimized)
+        // isPreview, not isMinimized: a backgrounded app is minimized but is
+        // still the registered view, and preview views never register.
+        if (surfaceId !== -1 && !isPreview)
             SurfaceRegistry.unregisterSurface(surfaceId);
     }
 
