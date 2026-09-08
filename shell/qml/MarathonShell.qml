@@ -1463,6 +1463,13 @@ Item {
         onFinished: {
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
+                // Keep in step with handleHomeKey(): isMinimized drives
+                // bufferLocked on the Wayland view, and an unlocked view lets
+                // advance() move off the last buffer once the backgrounded
+                // client stops committing.
+                if (appInstance.isMinimized !== undefined)
+                    appInstance.isMinimized = true;
+
                 appInstance.parent = backgroundAppsContainer;
                 appInstance.visible = true;
             }

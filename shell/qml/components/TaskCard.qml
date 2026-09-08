@@ -23,7 +23,11 @@ Item {
     property Item nativeSurfaceItem: null
     property bool nativeSurfaceActive: false
     property Item registeredSurfaceItem: null
-    readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
+    // Which preview path this card takes. Not `type === "native"`: a task
+    // created through the warm-pool route carries its manifest type instead,
+    // so an out-of-process app can read "marathon". Owning a surface is the
+    // test that holds whichever route launched it.
+    readonly property bool hasWaylandSurface: taskCard.surfaceId > 0 && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
     // Plain bool, not a derived property binding: Qt's binding-loop detector
     // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
     // fanning out signals. Updated explicitly from updateRegisteredSurface().
@@ -32,14 +36,22 @@ Item {
     signal closed
     signal taskClosed(string appId)
 
+    // A function, not a derived property, and every term read straight from
+    // its source: this is called from onTaskSwitcherVisibleChanged, and Qt
+    // does not guarantee a binding has been re-evaluated by the time a change
+    // handler for one of its dependencies runs.
+    function wantsNativeSurface() {
+        return taskCard.taskSwitcherVisible && taskCard.haveWayland && taskCard.surfaceId > 0 && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null;
+    }
+
     function refreshNativeSurface() {
-        if (!shouldLoadNativeSurface) {
+        if (!wantsNativeSurface()) {
             nativeSurfaceActive = false;
             return;
         }
         nativeSurfaceActive = false;
         Qt.callLater(function () {
-            nativeSurfaceActive = shouldLoadNativeSurface;
+            nativeSurfaceActive = taskCard.wantsNativeSurface();
         });
     }
 
@@ -210,7 +222,7 @@ Item {
                                         liveApp = null;
                                     }
                                     trackedAppId = taskCard.appId;
-                                    if (taskCard.type === "native") {
+                                    if (taskCard.hasWaylandSurface) {
                                         liveApp = null;
                                         return;
                                     }
@@ -240,7 +252,7 @@ Item {
 
                                 Connections {
                                     function onAppRegistered(appId, instance) {
-                                        if (taskCard.type === "native")
+                                        if (taskCard.hasWaylandSurface)
                                             return;
 
                                         if (appId !== taskCard.appId)
@@ -332,8 +344,8 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
                                     height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
-                                    visible: taskCard.type === "native"
-                                    active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
+                                    visible: taskCard.hasWaylandSurface
+                                    active: taskCard.nativeSurfaceActive
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
                                         if (item) {
@@ -342,6 +354,11 @@ Item {
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
                                             item.isMinimized = true;
+                                            // Gates bufferLocked, front-buffer discard and
+                                            // the content nudge. Without it this view takes
+                                            // foreground semantics and locks onto a buffer it
+                                            // was never given.
+                                            item.isPreview = true;
                                         } else {
                                             taskCard.nativeSurfaceItem = null;
                                         }
@@ -384,15 +401,11 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: taskCard.registeredSurfaceItem
-                                    visible: taskCard.useRegisteredSurface
-                                    // The switcher is page 1 and home is page 2, so the page
-                                    // ListView keeps this delegate instantiated while home is
-                                    // showing, and an off-screen ListView delegate is
-                                    // translated away rather than hidden -- `visible` stays
-                                    // true. A bare `live: true` here would re-render every
-                                    // frame regardless. taskSwitcherVisible is the same signal
-                                    // line 26 uses to gate native-surface loading.
-                                    live: taskCard.taskSwitcherVisible
+                                    // Mirror only when the card has no view of its
+                                    // own. Declared after the loader, so a stale
+                                    // `visible` here paints over it.
+                                    visible: taskCard.useRegisteredSurface && !taskCard.nativeSurfaceActive
+                                    live: true
                                     recursive: true
                                     hideSource: false
                                     smooth: false
@@ -441,7 +454,7 @@ Item {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    visible: previewContainer.liveApp === null && (taskCard.type !== "native" || !taskCard.waylandSurface)
+                                    visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
                                     color: MColors.background
 
                                     Column {

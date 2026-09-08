@@ -7,6 +7,11 @@ Item {
     id: taskSwitcher
 
     readonly property bool haveWayland: HAVE_WAYLAND
+    // Whether this page is the one on screen. `visible` cannot answer that:
+    // a MarathonPageView delegate is translated off screen rather than
+    // hidden, so it stays true from creation to destruction. Defaults true
+    // for a caller that shows the switcher on its own.
+    property bool pageActive: true
     property real searchPullProgress: 0
     property bool searchGestureActive: false
     property var compositor: null
@@ -185,7 +190,7 @@ Item {
             height: GridView.view.cellHeight
             haveWayland: taskSwitcher.haveWayland
             compositor: taskSwitcher.compositor
-            taskSwitcherVisible: taskSwitcher.visible
+            taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
             gridMoving: taskGrid.moving
             gridDragging: taskGrid.dragging
             onClosed: taskSwitcher.closed()

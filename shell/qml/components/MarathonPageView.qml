@@ -197,6 +197,8 @@ Item {
 
             MarathonTaskSwitcher {
                 opacity: 1
+                // Index 1 is this page; see the page index map below.
+                pageActive: pageView.currentIndex === 1
                 compositor: pageViewContainer.compositor
                 onSearchPullProgressChanged: {
                     pageViewContainer.searchPullProgress = searchPullProgress;
