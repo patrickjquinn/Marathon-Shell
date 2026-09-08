@@ -71,10 +71,13 @@ extract_uki_kernel_initrd "$UKI" /tmp/marathon-qemu-uki || exit 1
 # $WAYLAND_DISPLAY on the host and qemu-system-aarch64 built with GTK.)
 
 # QEMU keeps whatever window size it opened with, so shape it from outside
-# once it maps. xdotool needs an X11 window, which is why the gtk branch
-# forces GDK_BACKEND. Best-effort: without xdotool, DISPLAY, or a window
-# inside the timeout the window is left as QEMU made it.
+# once it maps. xdotool needs an X11 window, which is why the gtk branch sets
+# GDK_BACKEND. Matching is by PID -- this script exec's QEMU, so QEMU inherits
+# $$ -- because a concurrent instance (the ports are overridable for exactly
+# that) would otherwise have its window resized instead. Best-effort: without
+# xdotool, DISPLAY, or a window inside the timeout the window is left alone.
 resize_gtk_window_to_guest_aspect() {
+    local qemu_pid="$1"
     command -v xdotool >/dev/null 2>&1 || return 0
     [ -n "${DISPLAY:-}" ] || return 0
     local win="" geom w h target_h target_w
@@ -82,7 +85,7 @@ resize_gtk_window_to_guest_aspect() {
     # searches exit non-zero, and under `set -eo pipefail` that would kill
     # this subshell on the first iteration.
     for _ in $(seq 1 60); do
-        win="$(xdotool search --class qemu 2>/dev/null | while read -r c; do
+        win="$(xdotool search --pid "$qemu_pid" 2>/dev/null | while read -r c; do
                    geom="$(xdotool getwindowgeometry --shell "$c" 2>/dev/null)" || continue
                    eval "$geom"
                    [ "${WIDTH:-0}" -gt 100 ] && echo "$c"
@@ -101,6 +104,10 @@ resize_gtk_window_to_guest_aspect() {
     echo "==> gtk window resized to ${target_w}x${target_h} (guest ${GUEST_WIDTH}x${GUEST_HEIGHT})"
 }
 
+# Where the guest console goes when a display would otherwise swallow it.
+# `none` is left alone so its default stdio console keeps streaming.
+SERIAL_LOG="${MARATHON_QEMU_SERIAL_LOG:-/tmp/marathon-qemu-serial.log}"
+
 DISPLAY_MODE="${MARATHON_QEMU_DISPLAY:-vnc}"
 
 DISPLAY_ARGS=()
@@ -111,14 +118,22 @@ case "$DISPLAY_MODE" in
         # size the helper above sets. show-cursor=on because QEMU hides the
         # host pointer whenever an absolute input device is attached, and a
         # touch shell draws no cursor of its own.
-        DISPLAY_ARGS=(-display "gtk,gl=on,zoom-to-fit=on,show-menubar=off,show-cursor=on")
-        export GDK_BACKEND=x11
+        DISPLAY_ARGS=(-display "gtk,gl=on,zoom-to-fit=on,show-menubar=off,show-cursor=on"
+                      -serial "file:$SERIAL_LOG")
+        # Only where there is an X display to force it onto: a Wayland-only
+        # host has no XWayland to fall back to and GTK would fail to start.
+        if [ -n "${DISPLAY:-}" ]; then
+            export GDK_BACKEND=x11
+            resize_gtk_window_to_guest_aspect "$$" &
+        fi
         echo "==> display: gtk window (GL accelerated, zoom-to-fit)"
-        resize_gtk_window_to_guest_aspect &
+        echo "==> serial log: $SERIAL_LOG"
         ;;
     vnc)
-        DISPLAY_ARGS=(-display "egl-headless,gl=on" -vnc "127.0.0.1:$VNC_DISPLAY_NUM")
+        DISPLAY_ARGS=(-display "egl-headless,gl=on" -vnc "127.0.0.1:$VNC_DISPLAY_NUM"
+                      -serial "file:$SERIAL_LOG")
         echo "==> display: VNC on 127.0.0.1:$((5900 + VNC_DISPLAY_NUM)) (egl-headless GL)"
+        echo "==> serial log: $SERIAL_LOG"
         ;;
     none)
         DISPLAY_ARGS=(-display "none")
@@ -154,15 +169,8 @@ pmos.force-partition-resize psi=1 video=Virtual-1:${GUEST_WIDTH}x${GUEST_HEIGHT}
 # backslash continuation, so a '#' comments out the rest of the command and
 # QEMU launches with no display, no GPU and no kernel -- it exits at once and
 # prints nothing, which looks exactly like a silent crash.
-#
-# With a display attached QEMU's default serial backend is a tab inside the
-# window, so route it to a file: a guest that dies before sshd is up leaves
-# nothing else to read.
-SERIAL_LOG="${MARATHON_QEMU_SERIAL_LOG:-/tmp/marathon-qemu-serial.log}"
-echo "==> serial log: $SERIAL_LOG"
 
 exec qemu-system-aarch64 \
-    -serial "file:$SERIAL_LOG" \
     -machine type=virt,memory-backend=mem -cpu host -accel kvm \
     -smp 2 -m 2048M \
     -object memory-backend-memfd,id=mem,size=2048M,share=on \
