@@ -248,6 +248,17 @@ MApp {
                     id: dialerPane
                     color: MColors.background
 
+                    // Action row height plus the margin that clears the tab
+                    // bar. The dial pad sizes itself against this, so both have
+                    // to read the same number.
+                    readonly property real actionRowReserve: 96 + 56
+                    readonly property real dialPadTopMargin: 20
+                    readonly property real dialPadBottomMargin: 16
+                    // Fits a 36 px digit row over the 14 px contact-match
+                    // subtitle; taller reads as dead air before a number is
+                    // entered.
+                    readonly property real numberDisplayHeight: 70
+
                     // Resolve a contact from the dialed number via the
                     // ContactsManager IPC client. Falls back to empty when
                     // no contact matches or the client isn't available.
@@ -280,20 +291,14 @@ MApp {
                         anchors.bottom: actionRow.top
                         anchors.leftMargin: 24
                         anchors.rightMargin: 24
-                        anchors.topMargin: 20
-                        anchors.bottomMargin: 16
+                        anchors.topMargin: dialerPane.dialPadTopMargin
+                        anchors.bottomMargin: dialerPane.dialPadBottomMargin
                         spacing: 0
 
                         // Display: dialed number + contact match.
-                        // 70 px is enough for a 36 px digit row with
-                        // the 14 px contact-match subtitle below;
-                        // anything taller showed as dead air above
-                        // the first dial-pad row when no number was
-                        // entered yet (the JSX canvas has a similarly
-                        // tight display block).
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 70
+                            Layout.preferredHeight: dialerPane.numberDisplayHeight
 
                             Column {
                                 anchors.centerIn: parent
@@ -333,17 +338,15 @@ MApp {
 
                             Layout.alignment: Qt.AlignHCenter
 
-                            // Key diameter scales with the available width
-                            // (parent column width minus 2 × 18 px gaps).
-                            // Was hard-clamped at 124, which on a 720 px
-                            // device (≈672 px content width after the 24 px
-                            // side padding) shrank the keys to ~140 px when
-                            // there was room for ~212 px each. Now caps at
-                            // 180 so they're chunky on phone-class screens
-                            // but still leave headroom for the 4×3 grid +
-                            // dial-number display + action row on the 1140
-                            // logical-px canvas (~960 px tall content area).
-                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), 180)
+                            // Constrained on both axes. A ColumnLayout whose
+                            // children do not fit overflows past its own bottom
+                            // anchor rather than shrinking them, so a grid sized
+                            // on width alone lands under the action row. The
+                            // height budget comes from dialerPane, not from this
+                            // Layout, whose height this grid feeds.
+                            readonly property real widthCap: Math.floor((parent.width - columnSpacing * 2) / 3)
+                            readonly property real heightCap: Math.floor((dialerPane.height - dialerPane.actionRowReserve - dialerPane.dialPadTopMargin - dialerPane.dialPadBottomMargin - dialerPane.numberDisplayHeight - rowSpacing * 3 - topPadding - bottomPadding) / 4)
+                            readonly property real cellSize: Math.min(widthCap, heightCap, 180)
 
                             columns: 3
                             rowSpacing: 14
@@ -499,7 +502,7 @@ MApp {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 56
-                        height: 96
+                        height: dialerPane.actionRowReserve - anchors.bottomMargin
 
                         Row {
                             anchors.fill: parent
