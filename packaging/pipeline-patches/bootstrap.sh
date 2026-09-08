@@ -47,10 +47,25 @@ MKOSI_DIR="$DEST_DIR/mkosi-src"
 SKIP_DURANIUM=0
 if [ -d "$DURANIUM_DIR" ]; then
     DURANIUM_SUBJECTS="$(git -C "$DURANIUM_DIR" log --format=%s -n 60 2>/dev/null || true)"
+    # Match the subject of the HIGHEST-numbered patch, not a fixed early one.
+    # This used to hard-code patch 0007's subject, so a tree bootstrapped
+    # before a later patch existed reported "already bootstrapped" forever and
+    # silently never received it -- verified: existing trees here were missing
+    # both 0016 (systemd-ukify) and 0017 (NetworkManager-config-initrd) while
+    # this said they were up to date. CI never saw it because its runner is
+    # always a fresh clone.
+    NEWEST_PATCH="$(ls "$SCRIPT_DIR"/[0-9]*.patch 2>/dev/null | sort | tail -1)"
+    NEWEST_SUBJECT="$(sed -n 's/^Subject: \[PATCH[^]]*\] //p' "$NEWEST_PATCH" | head -1)"
     case "$DURANIUM_SUBJECTS" in
-        *"synthesize /boot/loader/entries"*)
-            echo "==> $DURANIUM_DIR already bootstrapped — skipping"
+        *"$NEWEST_SUBJECT"*)
+            echo "==> $DURANIUM_DIR already bootstrapped (through: $NEWEST_SUBJECT) — skipping"
             SKIP_DURANIUM=1
+            ;;
+        *"synthesize /boot/loader/entries"*)
+            echo "error: $DURANIUM_DIR has Marathon patches but is MISSING newer ones" >&2
+            echo "       (newest expected: $NEWEST_SUBJECT)." >&2
+            echo "       Move or delete the tree, then re-run to pick them up." >&2
+            exit 1
             ;;
         *)
             echo "error: $DURANIUM_DIR exists but has no Marathon patches applied." >&2

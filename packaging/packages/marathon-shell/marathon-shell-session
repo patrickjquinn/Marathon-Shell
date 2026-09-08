@@ -128,33 +128,6 @@ fi
 #   1. MARATHON_FORCE_SOFTWARE_RENDER=1 in env (harness override), OR
 #   2. We're on virtio-gpu AND the virgl-enabled libgallium isn't on disk
 #      (=> no hardware GL possible).
-# WebEngine GPU shape for the virtio-gpu dev-sim.
-#
-# The shell's device-wide default is --use-gl=disabled, chosen for the
-# Librem 5 where Chromium's GPU process asks etnaviv (GLES2-only) for an
-# ES 3.x config and gets EGL_BAD_MATCH. The sim is not that machine: virgl
-# reports "virgl (Apple M1)" at OpenGL 4.3.
-#
-# --use-angle=gl, NOT --use-gl=angle. They are different switches and the
-# distinction is the whole fix. --use-gl picks the GL implementation and
-# OVERRIDES ANGLE; --use-angle picks ANGLE's backend. Chromium requires
-# ANGLE for WebGL, so every --use-gl=... value we had tried was disabling
-# the layer WebGL needs:
-#   --use-gl=disabled → no GPU at all, MapLibre reports "Failed to
-#                       initialize WebGL" (the shipped behaviour)
-#   --use-gl=egl      → page content renders GPU-accelerated, but the
-#                       moment a page asks for a WebGL context the GPU
-#                       process SIGTRAPs. Reproduced on GL 4.3 virgl, so
-#                       that crash is NOT the etnaviv GLES2 limitation the
-#                       default's comment attributes it to.
-#   --use-gl=angle    → what the earlier note tested and rejected; it is
-#                       not the switch that selects an ANGLE backend.
-# With --use-gl=angle --use-angle=gl the Maps basemap renders: MapLibre
-# gets a live WebGL context and draws vector tiles, verified in the sim.
-if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${QTWEBENGINE_CHROMIUM_FLAGS:-}" ]; then
-    export QTWEBENGINE_CHROMIUM_FLAGS="--use-gl=angle --use-angle=gl --ignore-gpu-blocklist --no-sandbox --disable-dev-shm-usage --num-raster-threads=2 --enable-viewport --main-frame-resizes-are-orientation-changes"
-fi
-
 NEED_SOFTWARE_BACKEND=0
 if [ "${MARATHON_FORCE_SOFTWARE_RENDER:-0}" = "1" ]; then
     NEED_SOFTWARE_BACKEND=1
@@ -193,6 +166,36 @@ if [ "$NEED_SOFTWARE_BACKEND" = 1 ]; then
     unset QT_QPA_EGLFS_INTEGRATION
     unset QT_QPA_EGLFS_ALWAYS_SET_MODE
     echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software + QT_QPA_PLATFORM=linuxfb" >&2
+fi
+
+# ---- WebEngine GPU shape for the virtio-gpu dev-sim --------------------------
+#
+# Deliberately AFTER the NEED_SOFTWARE_BACKEND decision and gated on it. The
+# sim only has hardware GL when virgl is present; when it is not, the block
+# above falls back to QT_QUICK_BACKEND=software + linuxfb precisely because
+# LLVMpipe SIGSEGVs here. Handing WebEngine --use-angle/--ignore-gpu-blocklist
+# in that state would force Chromium onto a GL stack the rest of the session
+# has just declared unusable, so leave the shell's own etnaviv-safe
+# kDefaultChromiumFlags (--use-gl=disabled) in charge.
+#
+# --use-angle=gl, NOT --use-gl=angle: they are different switches. --use-gl
+# picks the GL implementation and OVERRIDES ANGLE; --use-angle picks ANGLE's
+# backend, and Chromium needs ANGLE for WebGL. That is why every --use-gl=...
+# value tried previously disabled the layer WebGL depends on:
+#   --use-gl=disabled  no GPU; MapLibre reports "Failed to initialize WebGL"
+#   --use-gl=egl       page content renders, but the GPU process SIGTRAPs the
+#                      moment a page asks for a WebGL context -- reproduced on
+#                      GL 4.3 virgl, so that crash is NOT the etnaviv GLES2
+#                      limitation kDefaultChromiumFlags attributes it to
+# With ANGLE selected the Maps basemap renders live vector tiles.
+#
+# NOTE: this is the shell's own environment, which AppLaunchService treats as
+# the highest-priority source (env > manifest chromiumFlags > device default),
+# so in the sim an app's manifest chromiumFlags cannot override it. Acceptable
+# for a dev image; do not copy this shape to a real device profile.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ "$NEED_SOFTWARE_BACKEND" = 0 ] \
+   && [ -z "${QTWEBENGINE_CHROMIUM_FLAGS:-}" ]; then
+    export QTWEBENGINE_CHROMIUM_FLAGS="--use-gl=angle --use-angle=gl --ignore-gpu-blocklist --no-sandbox --disable-dev-shm-usage --num-raster-threads=2 --enable-viewport --main-frame-resizes-are-orientation-changes"
 fi
 
 # ---- Vivante blob GPU stack (opt-in, DEFENSIVE) ------------------------------

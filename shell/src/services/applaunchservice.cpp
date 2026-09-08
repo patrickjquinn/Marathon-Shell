@@ -1418,15 +1418,28 @@ void AppLaunchService::spawnSpareRunner() {
                     const bool wasHealthy = livedMs >= kSpareHealthyMs;
                     qWarning() << "[AppLaunchService] Spare runner died unadopted, exit" << exitCode
                                << "after" << livedMs << "ms"
-                               << (wasHealthy ? "(healthy - not counted)" : "(early - counted)");
+                               << (wasHealthy ? "(healthy - not counted)" : "(early - counted)")
+                               << "healthyDeaths" << m_spareHealthyDeaths;
                     m_spareProcess   = nullptr;
                     m_sparePid       = -1;
                     m_spareAdoptable = false;
-                    if (wasHealthy)
-                        m_spareFailures = 0;
-                    else
+                    // A healthy death does not count against the budget, but it
+                    // does not zero it either. Resetting would (a) let an
+                    // intermittent broken spawn -- fail, fail, one long-lived
+                    // death -- respawn forever without ever reaching the
+                    // ceiling, and (b) turn the very case this exists for into
+                    // a loop: oomd reaps the idle spare, we rebuild an mlockall
+                    // 'd Qt runner 5s later, which restores the pressure that
+                    // caused the kill. Back off instead, so repeated reaping
+                    // costs progressively less.
+                    int delayMs = 5000;
+                    if (!wasHealthy) {
                         ++m_spareFailures;
-                    QTimer::singleShot(5000, this, &AppLaunchService::spawnSpareRunner);
+                    } else {
+                        ++m_spareHealthyDeaths;
+                        delayMs = qMin(5000 << qMin(m_spareHealthyDeaths - 1, 5), 300000);
+                    }
+                    QTimer::singleShot(delayMs, this, &AppLaunchService::spawnSpareRunner);
                 } else if (pid > 0) {
                     onCompositorAppClosed(pid);
                 }

@@ -104,7 +104,7 @@ Pi MBR rewrite. The device will not boot.
 ### What lives where
 
 - `~/duranium-build/duranium/` — upstream duranium clone, pinned at commit
-  `394290c6`. Marathon's divergence is a 16-patch series applied by
+  `394290c6`. Marathon's divergence is a 17-patch series applied by
   `bootstrap.sh`.
 - `packaging/packages/` — Alpine APKBUILDs for every Marathon component
   (shell, ui controls, device tunings, app images, mail helper, etc.). Bump
@@ -331,7 +331,7 @@ wrong.
 | `~/Developer/Marathon-Shell/scripts/`             | Host-side scripts. `device-snap.sh`, `flash/`, `qemu/automation/`. |
 | `~/Developer/Marathon-Shell/docs/redesign/`       | JSX source-of-truth for next-gen surfaces (incl. `ds-qml-guide.jsx`). |
 | `~/Developer/Marathon-Shell/packaging/packages/` | 15 APKBUILDs (shell, ui controls, device tunings, app images, mail helper, etc.). |
-| `~/Developer/Marathon-Shell/packaging/pipeline-patches/`| 16-patch series applied by bootstrap.sh against duranium `394290c6`. |
+| `~/Developer/Marathon-Shell/packaging/pipeline-patches/`| 17-patch series applied by bootstrap.sh against duranium `394290c6`. |
 | `~/Developer/Marathon-Shell/packaging/devices/`  | Per-device config (L5, CM5, OnePlus 6, QEMU).                     |
 | `~/Developer/Marathon-Shell/packaging/scripts/`  | `setup-librem5-recovery.sh`, `build-cm5-pmbootstrap.sh`, `push-cm5.sh`, `sync-and-build-marathon.sh`, plus older `build-rootless-*.sh` variants (use `build-image.py` instead). |
 | `~/duranium-build/`                               | Build root. Not a repo itself — holds vendored duranium + mkosi.  |

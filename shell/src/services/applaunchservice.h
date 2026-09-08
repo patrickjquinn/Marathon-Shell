@@ -122,6 +122,7 @@ class AppLaunchService : public QObject {
     qint64      m_sparePid       = -1;
     bool        m_spareAdoptable = false;
     int         m_spareFailures  = 0;
+    int         m_spareHealthyDeaths = 0;
 
     static bool invokeVoid(QObject *obj, const char *method, const QVariantList &args);
     static bool invokeBool(QObject *obj, const char *method, const QVariantList &args,
