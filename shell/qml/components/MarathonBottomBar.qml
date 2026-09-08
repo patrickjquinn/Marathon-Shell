@@ -54,16 +54,13 @@ Item {
         height: Constants.touchTargetSmall
         z: 10
 
-        Image {
-            source: "qrc:/images/phone.svg"
-            width: Constants.iconSizeMedium
-            height: Constants.iconSizeMedium
-            sourceSize.width: Constants.iconSizeMedium
-            sourceSize.height: Constants.iconSizeMedium
-            fillMode: Image.PreserveAspectFit
+        // Shell shortcut, not a docked app: same role and treatment as
+        // MarathonLockShortcuts.
+        Icon {
+            name: "phone"
+            size: Constants.iconSizeMedium
+            color: MColors.textPrimary
             anchors.centerIn: parent
-            asynchronous: true
-            cache: true
             opacity: phoneMouseArea.pressed ? 0.6 : 1
 
             Behavior on opacity {
@@ -332,15 +329,12 @@ Item {
         height: Constants.touchTargetSmall
         z: 10
 
-        Image {
-            source: "qrc:/images/camera.svg"
-            width: Constants.iconSizeMedium
-            height: Constants.iconSizeMedium
-            sourceSize.width: Constants.iconSizeMedium
-            sourceSize.height: Constants.iconSizeMedium
-            fillMode: Image.PreserveAspectFit
-            asynchronous: true
-            cache: true
+        // Shell shortcut, not a docked app: same role and treatment as
+        // MarathonLockShortcuts.
+        Icon {
+            name: "camera"
+            size: Constants.iconSizeMedium
+            color: MColors.textPrimary
             anchors.centerIn: parent
             opacity: cameraMouseArea.pressed ? 0.6 : 1
 
