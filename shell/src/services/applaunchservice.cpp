@@ -14,6 +14,7 @@
 #include <QRegularExpression>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QDateTime>
 #include <QJsonObject>
 #include <QSettings>
 #include <QGuiApplication>
@@ -1346,6 +1347,10 @@ QStringList AppLaunchService::spareSandboxArgs() const {
     return args;
 }
 
+// A spare that survives this long has finished Qt init and is genuinely warm;
+// anything shorter means the spawn itself is broken.
+static constexpr qint64 kSpareHealthyMs = 30000;
+
 void AppLaunchService::spawnSpareRunner() {
     if (m_spareProcess)
         return;
@@ -1390,6 +1395,7 @@ void AppLaunchService::spawnSpareRunner() {
         if (proc == m_spareProcess) {
             m_sparePid       = pid;
             m_spareAdoptable = true;
+            proc->setProperty("marathonSpareStartMs", QDateTime::currentMSecsSinceEpoch());
             qInfo() << "[AppLaunchService] Spare runner ready, pid" << pid;
         }
     });
@@ -1397,12 +1403,29 @@ void AppLaunchService::spawnSpareRunner() {
             [this, proc](int exitCode, QProcess::ExitStatus) {
                 const qint64 pid = proc->property("marathonPoolPid").toLongLong();
                 if (proc == m_spareProcess) {
-                    qWarning() << "[AppLaunchService] Spare runner died unadopted, exit"
-                               << exitCode;
+                    // Only a spare that never got healthy counts against the
+                    // retry budget. One that ran for a while and then died was
+                    // working -- something outside took it: PSI/oomd reaping the
+                    // idlest process (which is exactly what a warm spare looks
+                    // like), or a tool that SIGTERMs every runner. Counting
+                    // those was self-defeating: m_spareFailures only ever
+                    // incremented, so three reaps over a long uptime disabled
+                    // the pool for the rest of the session and silently put
+                    // ~1s back onto every app launch until reboot.
+                    const qint64 startedMs = proc->property("marathonSpareStartMs").toLongLong();
+                    const qint64 livedMs =
+                        startedMs > 0 ? QDateTime::currentMSecsSinceEpoch() - startedMs : 0;
+                    const bool wasHealthy = livedMs >= kSpareHealthyMs;
+                    qWarning() << "[AppLaunchService] Spare runner died unadopted, exit" << exitCode
+                               << "after" << livedMs << "ms"
+                               << (wasHealthy ? "(healthy - not counted)" : "(early - counted)");
                     m_spareProcess   = nullptr;
                     m_sparePid       = -1;
                     m_spareAdoptable = false;
-                    ++m_spareFailures;
+                    if (wasHealthy)
+                        m_spareFailures = 0;
+                    else
+                        ++m_spareFailures;
                     QTimer::singleShot(5000, this, &AppLaunchService::spawnSpareRunner);
                 } else if (pid > 0) {
                     onCompositorAppClosed(pid);
