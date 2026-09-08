@@ -401,11 +401,14 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: taskCard.registeredSurfaceItem
-                                    // Mirror only when the card has no view of its
-                                    // own. Declared after the loader, so a stale
-                                    // `visible` here paints over it.
-                                    visible: taskCard.useRegisteredSurface && !taskCard.nativeSurfaceActive
-                                    live: true
+                                    // Mirror only when the card is on screen and has
+                                    // no view of its own. Declared after the loader, so
+                                    // a stale `visible` here paints over it; and
+                                    // useRegisteredSurface tracks the registry alone, so
+                                    // without the page term this reads true precisely
+                                    // when the page is off screen.
+                                    visible: taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface && !taskCard.nativeSurfaceActive
+                                    live: registeredSurfacePreview.visible
                                     recursive: true
                                     hideSource: false
                                     smooth: false
