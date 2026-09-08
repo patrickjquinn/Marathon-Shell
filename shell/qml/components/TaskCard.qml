@@ -359,6 +359,13 @@ Item {
                                             // foreground semantics and locks onto a buffer it
                                             // was never given.
                                             item.isPreview = true;
+                                            // Scale the surface into the card. Qt defaults
+                                            // this true, which forces the item to the
+                                            // surface's own size and ignores the anchors
+                                            // below, so the app rendered at device size
+                                            // inside a card-sized hole: offset left and
+                                            // clipped on the right.
+                                            item.sizeFollowsSurface = false;
                                         } else {
                                             taskCard.nativeSurfaceItem = null;
                                         }
