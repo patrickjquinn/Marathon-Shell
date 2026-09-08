@@ -345,7 +345,10 @@ MApp {
                             // height budget comes from dialerPane, not from this
                             // Layout, whose height this grid feeds.
                             readonly property real widthCap: Math.floor((parent.width - columnSpacing * 2) / 3)
-                            readonly property real heightCap: Math.floor((dialerPane.height - dialerPane.actionRowReserve - dialerPane.dialPadTopMargin - dialerPane.dialPadBottomMargin - dialerPane.numberDisplayHeight - rowSpacing * 3 - topPadding - bottomPadding) / 4)
+                            // Clamped at 0: dialerPane has no height until the
+                            // first layout pass, and a negative cell size reaches
+                            // font.pixelSize.
+                            readonly property real heightCap: Math.max(0, Math.floor((dialerPane.height - dialerPane.actionRowReserve - dialerPane.dialPadTopMargin - dialerPane.dialPadBottomMargin - dialerPane.numberDisplayHeight - rowSpacing * 3 - topPadding - bottomPadding) / 4))
                             readonly property real cellSize: Math.min(widthCap, heightCap, 180)
 
                             columns: 3
