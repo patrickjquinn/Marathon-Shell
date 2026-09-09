@@ -1,0 +1,144 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 9 Sep 2026 13:10:00 +0100
+Subject: [PATCH] feat(pipeline): local apk trust, Plymouth in the initrd, L5 boot script
+
+Three changes that lived only in a scratch duranium checkout and were about
+to be deleted with it. Verified to apply to the current pin.
+
+RepositoryKeyCheck=no: Marathon's own apks are signed by
+marathon-snapshot@local-1, which the build sandbox has no reason to trust.
+On-device trust is unaffected -- the public key is still baked into the
+rootfs through mkosi.images/base/mkosi.skeleton/etc/apk/keys.
+
+marathon-plymouth-theme in InitrdPackages: Plymouth starts from the
+initramfs, long before the rootfs theme directory exists, so a theme
+installed only into the rootfs is never seen. Without this the initramfs
+falls back to postmarketos-bootsplash's pmos-spin and there is no Marathon
+mark at boot at all. Confirmed by unpacking initrd.cpio.gz and finding
+/usr/share/plymouth/themes empty.
+
+Librem 5 boot.scr: u-boot-librem5's stock boot.cmd sets a minimal bootargs
+with no splash, no console=tty1 and no quiet, so Plymouth never engages on
+the DSI panel and kernel printk floods the tty. The device aport ships
+marathon-boot.cmd; compile it with mkimage and replace boot.scr.
+
+build-image.py also syncs linux-*-marathon aports, not just device-*, so
+the resolver can satisfy a Marathon kernel fork inside the sandbox, and
+decompresses .raw.zst when the compressed profile leaves no .raw for the
+L5 GPT rebuild to operate on.
+
+Refs: docs/CODING_RULES.md G1
+---
+diff --git a/mkosi.conf b/mkosi.conf
+index 6d81ebc..7f15192 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -2,6 +2,11 @@
+ Distribution=postmarketos
+ # NOTE: Passed to build-image.py (with --release=), or defaults to 'edge'
+ # Release=
++# Marathon-local APKs are signed by marathon-snapshot@local-1; bypass
++# per-package signature checks in the build sandbox. The pub key is still
++# baked into the rootfs via mkosi.images/base/mkosi.skeleton/etc/apk/keys
++# so on-device trust is unaffected.
++RepositoryKeyCheck=no
+ 
+ [Config]
+ # Pass these PMOS_* variables so they are available in sub-images (e.g. initrd)
+@@ -73,6 +78,18 @@ KernelCommandLine=
+ Devicetrees=*
+ InitrdPackages=
+ 	postmarketos-duranium-initramfs
++	# Marathon-branded Plymouth theme. MUST be in the *initrd*, not just
++	# the rootfs — Plymouth fires from initramfs (long before the rootfs
++	# /usr/share/plymouth/themes/marathon/ directory exists) and picks
++	# its theme from /etc/plymouth/plymouthd.conf or the bundled
++	# /usr/share/plymouth/plymouthd.defaults. Without this entry the
++	# initramfs ends up with postmarketos-bootsplash's Theme=pmos-spin
++	# fallback — i.e. no Marathon mark at all (verified 2026-06-24 by
++	# unpacking initrd.cpio.gz and finding /usr/share/plymouth/themes
++	# empty). The aport also declares replaces=postmarketos-bootsplash
++	# so the plymouthd.defaults file in the initramfs is the marathon
++	# one, not the spinner one.
++	marathon-plymouth-theme
+ # Remove any el2-related devicetrees, since these confuse dtbauto and it can end
+ # up selecting the wrong one, which is bad (system won't boot)
+ RemoveFiles=/boot/dtbs/**/*-el2.dtb
+diff --git a/mkosi.finalize b/mkosi.finalize
+index a78632b..e9e2dcf 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -595,6 +595,23 @@ CONFIG
+             else
+                 echo "warning: /boot/boot.scr missing — u-boot-librem5 pkg should have installed it"
+             fi
++            # Marathon override: u-boot-librem5's stock boot.cmd sets a
++            # minimal bootargs (no splash, no console=tty1, no quiet) so
++            # Plymouth never engages on the DSI panel and kernel printk
++            # floods tty. device-purism-librem5-marathon ships our
++            # marathon-boot.cmd at /usr/share/marathon/; compile it via
++            # mkimage (in u-boot-tools, pulled by u-boot-librem5) and
++            # replace /boot/boot.scr.
++            if [ -f "$BUILDROOT/usr/share/marathon/marathon-boot.cmd" ] \
++               && [ -x "$BUILDROOT/usr/bin/mkimage" ]; then
++                chroot "$BUILDROOT" /usr/bin/mkimage \
++                    -A arm64 -O linux -T script -C none \
++                    -n "Marathon Librem 5 boot script" \
++                    -d /usr/share/marathon/marathon-boot.cmd \
++                    /boot/boot.scr 2>&1 | sed 's/^/  mkimage: /' \
++                    && echo "info: Librem 5 boot.scr replaced with Marathon splash-enabled boot script" \
++                    || echo "warning: Librem 5 mkimage failed — leaving stock u-boot-librem5 boot.scr"
++            fi
+         fi
+ 
+     else
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index aeea589..f3049f2 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -76,7 +76,21 @@ def build_image(components: List[str], extra_args: List[str]):
+         pmaports_community = os.path.join("pmaports", "device", "community")
+         if os.path.isdir(marathon_image_dir) and os.path.isdir(pmaports_community):
+             for marathon_aport in os.listdir(os.path.join(marathon_image_dir, "packages")):
+-                if not marathon_aport.startswith("device-") or not marathon_aport.endswith("-marathon"):
++                # Sync Marathon device aports (device-*-marathon) AND Marathon
++                # kernel forks (linux-*-marathon) into pmaports/device/community
++                # so apk's resolver can satisfy depends inside the mkosi sandbox.
++                # device-* covers per-board overlay; linux-* covers our patched
++                # kernels (e.g. linux-purism-librem5-marathon carries the kCFI
++                # fix for the out-of-tree Silicon Labs RS9116 redpine driver).
++                is_device = (
++                    marathon_aport.startswith("device-")
++                    and marathon_aport.endswith("-marathon")
++                )
++                is_kernel = (
++                    marathon_aport.startswith("linux-")
++                    and marathon_aport.endswith("-marathon")
++                )
++                if not is_device and not is_kernel:
+                     continue
+                 src = os.path.join(marathon_image_dir, "packages", marathon_aport)
+                 dst = os.path.join(pmaports_community, marathon_aport)
+@@ -160,6 +174,19 @@ def build_image(components: List[str], extra_args: List[str]):
+                 "mkosi.output", image_id,
+                 f"{image_id}_{open('mkosi.version').read().strip()}.raw"
+             )
++            # The `compressed` mkosi profile drops the uncompressed .raw and
++            # keeps only .raw.zst. For L5 we need the uncompressed image to
++            # rebuild the GPT (sgdisk doesn't work on a zstd stream and
++            # losetup needs a real disk image). If the .zst exists but the
++            # .raw doesn't, decompress in place so the rebuild below has
++            # something to operate on. We DO NOT re-compress afterward:
++            # build-image.py's downstream consumers (the Jumpdrive flash
++            # path) prefer .raw → dd over .raw.zst → zstd -dc | dd, and
++            # decompression is fast enough to make either fine.
++            if not os.path.exists(raw_path) and os.path.exists(raw_path + ".zst"):
++                print(f"Librem 5: decompressing {raw_path}.zst → {raw_path}")
++                subprocess.run(["zstd", "-d", "--rm", raw_path + ".zst", "-o", raw_path],
++                               check=True)
+             if not os.path.exists(raw_path):
+                 print(f"warning: expected raw output not found at {raw_path}; skipping L5 disk rebuild")
+             else:
+-- 
+2.51.0
