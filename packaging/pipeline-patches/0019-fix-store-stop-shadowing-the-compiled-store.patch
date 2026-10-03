@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 3 Oct 2026 14:05:00 +0100
+Subject: [PATCH] fix(store): stop shadowing the compiled Store with a loose QML copy
+
+The Store was the only one of sixteen apps loading its QML from disk at
+every launch. marathon-app-runner prefers an on-disk entryPoint over the
+compiled module (tools/marathon-app-runner/main.cpp), so this one install
+step made libstoreplugin.so dead weight on the image.
+
+It was right when it was written: the bundled Store was a "Coming Soon"
+placeholder and the override carried the Flathub-backed UI. apps/store has
+since become that UI -- it holds the same flathub.org/api/v2 client -- and a
+diff of the two files is three imports, all of them unused in either copy.
+So the override now costs a parse per launch and buys nothing.
+
+It also cost real work. The vendored copy is what nobody could see was
+authoritative, and an untracked rewrite of it was lost on 2026-09-01; the
+nine "Binding loop detected for property text" warnings a session logs come
+from this file too, and they will now be fixed once, in apps/store, rather
+than in whichever copy someone happens to open.
+
+With the file gone the runner falls through to findAppQmldirPath, builds a
+wrapper that imports MarathonApp.Store and instantiates StoreApp, and the
+Store loads exactly as the other fifteen apps do.
+
+Patch 0011, which vendored the file, is removed alongside this.
+---
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -449,15 +449,6 @@
+ unset __cmd __SENT
+ EOF
+ 
+-# --- App Store: real Flathub-backed browser ----------------------------------
+-# Replace the bundled `Coming Soon` Store QML with one that pulls live data
+-# from flathub.org/api/v2. marathon-app-runner checks the manifest entryPoint
+-# file on disk first (tools/marathon-app-runner/main.cpp:644); when present,
+-# it bypasses the compiled libstoreplugin.so resource bundle. We drop the
+-# replacement at the path the manifest already names: StoreApp.qml.
+-install -Dm644 /work/src/marathon-extras/StoreApp.qml \
+-    "$BUILDROOT/usr/share/marathon-apps/store/StoreApp.qml"
+-
+ # Install handler + state-refresh helper. The handler is invoked via
+ # Qt.openUrlExternally("marathon-store://<verb>/<arg>") from the Store QML;
+ # xdg-open routes the URL scheme through .desktop MimeType. Verbs accepted:
+-- 
+2.51.0
