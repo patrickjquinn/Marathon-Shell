@@ -360,49 +360,65 @@ MApp {
         return out;
     }
 
-    // Returns a human-readable category for a trending entry.
-    // Collection responses don't include categories per-hit, so we
-    // opportunistically fetch the appstream payload for each trending
-    // app — the category lands ~150 ms after first paint and the
-    // tile re-renders. `_categoryTick` is bumped on each cache write
-    // so QML re-evaluates the binding.
+    // A human-readable category for a trending entry. Collection responses
+    // don't carry categories per hit, so the appstream payload is fetched
+    // per app; the category lands ~150 ms after first paint and the tile
+    // re-renders because `_categoryTick` is bumped on each cache write.
+    //
+    // Read and fetch are separate on purpose. They used to be one function
+    // called straight from the tile's `text` binding, and it assigned
+    // `_categoryFor` -- a property that same binding had just read. The
+    // write dirtied the binding, QML re-evaluated it, it wrote again, and
+    // Qt stopped it with "Binding loop detected for property text", nine
+    // times over on a nine-tile grid. A binding has to be pure; the fetch
+    // is now kicked off once per tile from Component.onCompleted.
     property int _categoryTick: 0
     property var _categoryFor: ({})
 
-    function categoryForApp(app) {
+    // Pure: reads the cache, never writes it. Safe in a binding.
+    function categoryLabel(app) {
         const _ = root._categoryTick;
         if (!app)
             return "App";
         const id = app.app_id || app.id || "";
         if (root._categoryFor[id])
             return root._categoryFor[id];
-        // Fall back to in-band metadata if the collection endpoint
-        // happened to include it (it usually doesn't).
+        // In-band metadata if the collection endpoint happened to include
+        // it, which it usually does not.
         if (app.categories && app.categories.length > 0)
             return app.categories[0];
-        // Lazy-fetch the appstream and cache the result.
-        if (id && !root._categoryFor["__inflight__" + id]) {
-            const next = Object.assign({}, root._categoryFor);
-            next["__inflight__" + id] = true;
-            root._categoryFor = next;
-            root.loadAppstream(id, function (full) {
-                if (!full)
-                    return;
-                let cat = "App";
-                if (full.categories && full.categories.length > 0)
-                    cat = full.categories[0];
-                else if (full.main_categories && full.main_categories.length > 0)
-                    cat = full.main_categories[0];
-                else if (full.project_group)
-                    cat = full.project_group;
-                const after = Object.assign({}, root._categoryFor);
-                after[id] = cat;
-                delete after["__inflight__" + id];
-                root._categoryFor = after;
-                root._categoryTick = root._categoryTick + 1;
-            });
-        }
         return "App";
+    }
+
+    // Side-effecting: starts one appstream fetch per app. Call it from a
+    // handler, never from a binding.
+    function ensureCategory(app) {
+        if (!app)
+            return;
+        const id = app.app_id || app.id || "";
+        if (!id || root._categoryFor[id])
+            return;
+        if (root._categoryFor["__inflight__" + id])
+            return;
+        const next = Object.assign({}, root._categoryFor);
+        next["__inflight__" + id] = true;
+        root._categoryFor = next;
+        root.loadAppstream(id, function (full) {
+            if (!full)
+                return;
+            let cat = "App";
+            if (full.categories && full.categories.length > 0)
+                cat = full.categories[0];
+            else if (full.main_categories && full.main_categories.length > 0)
+                cat = full.main_categories[0];
+            else if (full.project_group)
+                cat = full.project_group;
+            const after = Object.assign({}, root._categoryFor);
+            after[id] = cat;
+            delete after["__inflight__" + id];
+            root._categoryFor = after;
+            root._categoryTick = root._categoryTick + 1;
+        });
     }
 
     Timer {
@@ -837,6 +853,8 @@ MApp {
                                     width: (parent.width - parent.spacing * 2) / 3
                                     spacing: 8
 
+                                    Component.onCompleted: root.ensureCategory(modelData)
+
                                     // Real flathub icon at full bleed in a
                                     // 4 px-radius squircle. Falls back to a
                                     // tinted elev-3 square if the URL is
@@ -904,7 +922,7 @@ MApp {
                                         anchors.left: parent.left
                                         width: parent.width
                                         text: {
-                                            const cat = root.categoryForApp(modelData);
+                                            const cat = root.categoryLabel(modelData);
                                             const installs = modelData.installs_last_month;
                                             if (typeof installs === "number" && installs > 0)
                                                 return cat + " · ★ " + (installs > 1000 ? (Math.round(installs / 1000)) + "k" : installs);
