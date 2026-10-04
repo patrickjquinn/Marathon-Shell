@@ -506,6 +506,8 @@ MApp {
             id: navStack
             anchors.fill: parent
             initialItem: homeShell
+            // MApp.handleBack only emits backPressed while navigationDepth > 0.
+            onDepthChanged: root.navigationDepth = depth - 1
         }
 
         Connections {
