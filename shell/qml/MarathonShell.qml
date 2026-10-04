@@ -835,6 +835,16 @@ Item {
         target: NavigationRouter
     }
 
+    // Back to an out-of-process app is answered asynchronously; a refusal
+    // closes the app, as an in-process "not handled" does in onSwipeBack.
+    Connections {
+        function onSystemBackUnhandled() {
+            if (UIStore.appWindowOpen)
+                UIStore.closeApp();
+        }
+        target: AppLifecycleManager
+    }
+
     // Single-modal rule (iOS HIG / Material): only one backdropped
     // surface visible at a time. Wire new system modals here too.
     Connections {
