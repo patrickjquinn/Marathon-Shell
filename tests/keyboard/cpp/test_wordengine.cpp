@@ -24,7 +24,11 @@ class TestWordEngine : public QObject {
 
 void TestWordEngine::initTestCase() {
     engine = new WordEngine(this);
-    QTest::qWait(500);
+    // Disabled until the keyboard first shows, so the dictionary isn't
+    // resident on idle devices. Enabling queues the load on the worker
+    // ahead of any prediction request.
+    QVERIFY(!engine->enabled());
+    engine->setEnabled(true);
 }
 
 void TestWordEngine::cleanupTestCase() {

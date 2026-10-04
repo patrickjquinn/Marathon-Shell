@@ -33,7 +33,7 @@ add_executable(test_core_permissionmanager
     ../../shell/src/marathonpermissionmanager.cpp
     ../../shell/src/components/portalmanager.cpp
 )
-target_link_libraries(test_core_permissionmanager Qt6::Test Qt6::Core Qt6::DBus)
+target_link_libraries(test_core_permissionmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
 target_include_directories(test_core_permissionmanager PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/components
