@@ -19,6 +19,7 @@
 #include <QWaylandInputMethodControl>
 #include <QWaylandQuickSurface>
 #include <QtMath>
+#include <QQmlEngine>
 #include <QQuickItem>
 #include <QKeyEvent>
 #include <QScreen>
@@ -196,7 +197,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // resource lifecycle exactly as createDefaultSurface() would.
     connect(this, &QWaylandCompositor::surfaceRequested, this,
             [this](QWaylandClient *client, uint id, int version) {
-                new QWaylandQuickSurface(this, client, id, version);
+                auto *surface = new QWaylandQuickSurface(this, client, id, version);
+                // Parentless, so a surface handed to QML (getSurfaceById)
+                // became the JS engine's to collect. A collected surface
+                // took its xdg_surface with it, and the client's next
+                // set_window_geometry crashed the compositor.
+                QQmlEngine::setObjectOwnership(surface, QQmlEngine::CppOwnership);
             });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
