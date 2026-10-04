@@ -337,8 +337,10 @@ QtObject {
                     stiffness: stiffnessLow,
                     damping: 0.22
                 },
+                // Low stiffness took over 2 s to fade a dialog or sheet out
+                // (spec: 240 ms), leaving a ghost of it over the page.
                 effects: {
-                    stiffness: stiffnessLow,
+                    stiffness: stiffnessHigh,
                     damping: dampingCritical
                 }
             },

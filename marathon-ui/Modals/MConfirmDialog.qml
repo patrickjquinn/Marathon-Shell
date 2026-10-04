@@ -19,7 +19,9 @@ Rectangle {
 
     anchors.fill: parent
     color: MColors.overlay
-    visible: opacity > 0
+    // The fade spring settles within its epsilon of 0, not at 0; hiding at
+    // exactly 0 left a faint, touch-eating overlay after closing.
+    visible: showing || opacity > MMotion.epsilon
     opacity: showing ? 1.0 : 0.0
     z: 10000
 
