@@ -282,6 +282,10 @@ MApp {
         return false;
     }
 
+    function openDetail(app) {
+        root.openDetailRequested(app.app_id || app.id, app);
+    }
+
     function hasUpdate(appId) {
         for (let i = 0; i < pendingUpdates.length; i++) {
             if (pendingUpdates[i].app_id === appId)
