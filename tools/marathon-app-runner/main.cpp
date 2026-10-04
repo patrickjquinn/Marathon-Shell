@@ -167,18 +167,32 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
 
     void setRoot(QObject *root) {
         m_root = root;
+        const int sig = root->metaObject()->indexOfSignal("minimizeRequested()");
+        if (sig >= 0)
+            connect(root, root->metaObject()->method(sig), this,
+                    metaObject()->method(metaObject()->indexOfSlot("onMinimizeRequested()")));
     }
 
   public slots:
     bool Back() {
         if (!verifyCallerIsShell())
             return false;
-        return invokeBool("handleBack");
+        // An MApp with nothing to go back to emits minimizeRequested.
+        // Nothing here acts on it; answer "unhandled" so the shell sends
+        // the app home.
+        m_minimizeRequested = false;
+        const bool handled  = invokeBool("handleBack");
+        return handled && !m_minimizeRequested;
     }
     bool Forward() {
         if (!verifyCallerIsShell())
             return false;
         return invokeBool("handleForward");
+    }
+
+  private slots:
+    void onMinimizeRequested() {
+        m_minimizeRequested = true;
     }
 
   private:
@@ -222,8 +236,9 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
         return ret.toBool();
     }
 
-    qint64            m_expectedShellPid = -1;
+    qint64            m_expectedShellPid  = -1;
     QPointer<QObject> m_root;
+    bool              m_minimizeRequested = false;
 };
 
 static QString capitalizeAppId(const QString &appId) {

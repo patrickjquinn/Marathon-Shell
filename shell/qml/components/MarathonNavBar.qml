@@ -233,6 +233,22 @@ Rectangle {
         anchors.fill: parent
         anchors.topMargin: 0
         z: 200
+        function resetGesture() {
+            navBar.currentX = 0;
+            navBar.currentY = 0;
+            navBar.gestureProgress = 0;
+            navBar.backProgress = 0;
+            navBar.startX = 0;
+            navBar.startY = 0;
+            velocityX = 0;
+            isVerticalGesture = false;
+            isLeftZone = false;
+            isRightZone = false;
+            prevDiffY = 0;
+        }
+
+        // A grab stolen mid-drag ends here instead of in onReleased.
+        onCanceled: resetGesture()
         onPressed: mouse => {
             navBar.startX = mouse.x;
             navBar.startY = mouse.y;
@@ -446,16 +462,8 @@ Rectangle {
                 // cancel — Behavior spring-snaps backProgress to 0.
                 navBar.backProgress = 0;
             }
-            navBar.startX = 0;
-            navBar.startY = 0;
-            velocityX = 0;
-            isVerticalGesture = false;
-            isLeftZone = false;
-            isRightZone = false;
-            prevDiffY = 0;
             // Unconditional — the branch chain above has non-resetting gaps.
-            navBar.gestureProgress = 0;
-            navBar.backProgress = 0;
+            resetGesture();
         }
     }
 

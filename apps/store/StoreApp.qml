@@ -38,6 +38,165 @@ MApp {
     readonly property string stateDir: "/run/user/" + (typeof userUid !== "undefined" ? userUid : "1000") + "/marathon-store-state"
     readonly property real sf: Constants.scaleFactor || 1.0
 
+    // The JSX spec is drawn at scale 1. Sizes with no MSpacing / MRadius /
+    // MTypography token go through here, or they stay at design size while
+    // the tokenised chrome around them grows with the display's DPI.
+    function dp(n) {
+        return Math.round(n * root.sf);
+    }
+
+    // Flathub icon in the DS tile: elev-3 square, black hairline, top-edge
+    // highlight. The glyph shows until the image is Ready, so a slow or
+    // failed fetch reads as a placeholder rather than an empty box.
+    component AppIcon: Rectangle {
+        id: tile
+
+        property url source
+        // Retried because a lookup can fail while the resolver settles after
+        // boot or resume, and a pooled runner outlives that. Each retry changes
+        // only the fragment: never sent to the server, but a new pixmap-cache
+        // key, so Image refetches.
+        property int attempt: 0
+
+        onSourceChanged: attempt = 0
+        radius: MRadius.md
+        color: MColors.elev3
+        border.width: 1
+        border.color: Qt.rgba(0, 0, 0, 0.6)
+
+        Image {
+            id: img
+            anchors.fill: parent
+            anchors.margins: Math.round(parent.width * 0.12)
+            source: tile.source.toString() === "" ? "" : tile.source + (tile.attempt > 0 ? "#retry" + tile.attempt : "")
+            sourceSize: Qt.size(192, 192)
+            asynchronous: true
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+        }
+        Timer {
+            interval: 3000 * (tile.attempt + 1)
+            running: img.status === Image.Error && tile.attempt < 3
+            onTriggered: tile.attempt++
+        }
+        Icon {
+            anchors.centerIn: parent
+            visible: img.status !== Image.Ready
+            name: "package"
+            size: Math.round(parent.width * 0.42)
+            color: MColors.textSecondary
+        }
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 1
+            height: 1
+            color: Qt.rgba(1, 1, 1, 0.15)
+        }
+    }
+
+    // DS list card: icon + title + subtitle + compact action per row, with
+    // hairline dividers inset past the icon. Inline components cannot see
+    // `root`, hence the local scale factor and the caller-supplied icon URL.
+    component AppRowCard: MCard {
+        id: card
+
+        property var model: []
+        property var iconFor: app => ""
+        property var subtitleFor: app => ""
+        property var actionFor: app => ""
+        readonly property real sf: Constants.scaleFactor || 1.0
+
+        signal actionClicked(var app)
+        signal rowClicked(var app)
+
+        elevation: 2
+        height: rows.height
+
+        // MCard insets its content by MSpacing.md; the rows run edge to edge.
+        Column {
+            id: rows
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: -MSpacing.md
+
+            Repeater {
+                model: card.model
+                delegate: Item {
+                    width: rows.width
+                    height: Math.round(62 * card.sf)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.light();
+                            card.rowClicked(modelData);
+                        }
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: Math.round(14 * card.sf)
+                        anchors.rightMargin: Math.round(14 * card.sf)
+                        spacing: Math.round(12 * card.sf)
+
+                        AppIcon {
+                            id: rowIcon
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.round(38 * card.sf)
+                            height: width
+                            source: card.iconFor(modelData)
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - rowIcon.width - rowAction.width - parent.spacing * 2
+                            Text {
+                                width: parent.width
+                                text: modelData.name || modelData.app_id || ""
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeSubhead
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                width: parent.width
+                                text: card.subtitleFor(modelData)
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MButton {
+                            id: rowAction
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: card.actionFor(modelData)
+                            variant: "primary"
+                            size: "compact"
+                            onClicked: card.actionClicked(modelData)
+                        }
+                    }
+
+                    Rectangle {
+                        visible: index < card.model.length - 1
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: Math.round((14 + 38 + 12) * card.sf)
+                        anchors.rightMargin: Math.round(14 * card.sf)
+                        height: 1
+                        color: MColors.whiteOverlay04
+                    }
+                }
+            }
+        }
+    }
+
     property var collections: ({})
     property var appOfTheDay: null
     property var appstreamCache: ({})
@@ -282,6 +441,10 @@ MApp {
         return false;
     }
 
+    function openDetail(app) {
+        root.openDetailRequested(app.app_id || app.id, app);
+    }
+
     function hasUpdate(appId) {
         for (let i = 0; i < pendingUpdates.length; i++) {
             if (pendingUpdates[i].app_id === appId)
@@ -355,6 +518,22 @@ MApp {
         for (let i = 0; i < list.length && out.length < 3; i++) {
             const id = list[i].app_id || list[i].id;
             if (id && id !== heroId)
+                out.push(list[i]);
+        }
+        return out;
+    }
+
+    // Made-for-phones rows: the mobile collection minus anything already
+    // shown above it, so Discover never lists the same app twice.
+    function pickMobileApps(heroApp, trending) {
+        const shown = trending.map(a => a.app_id || a.id);
+        if (heroApp)
+            shown.push(heroApp.app_id || heroApp.id);
+        const list = root.collections["mobile"] || [];
+        const out = [];
+        for (let i = 0; i < list.length && out.length < 5; i++) {
+            const id = list[i].app_id || list[i].id;
+            if (id && shown.indexOf(id) < 0)
                 out.push(list[i]);
         }
         return out;
@@ -497,11 +676,14 @@ MApp {
         // re-evaluate when collections / AOTD finishes loading.
         readonly property var heroApp: root.appOfTheDay || (root.collections["verified"] && root.collections["verified"][0]) || (root.collections["popular"] && root.collections["popular"][0]) || (root.collections["trending"] && root.collections["trending"][0]) || null
         readonly property var trendingApps: root.pickTrendingApps(heroApp)
+        readonly property var mobileApps: root.pickMobileApps(heroApp, trendingApps)
 
         MStackView {
             id: navStack
             anchors.fill: parent
             initialItem: homeShell
+            // MApp.handleBack only emits backPressed while navigationDepth > 0.
+            onDepthChanged: root.navigationDepth = depth - 1
         }
 
         Connections {
@@ -537,17 +719,17 @@ MApp {
                         actions: [
                             Icon {
                                 name: "search"
-                                size: 22
+                                size: root.dp(22)
                                 color: MColors.textSecondary
                                 MouseArea {
                                     anchors.fill: parent
-                                    anchors.margins: -10
+                                    anchors.margins: -root.dp(10)
                                     onClicked: HapticService.light()
                                 }
                             },
                             Rectangle {
-                                width: 32
-                                height: 32
+                                width: root.dp(28)
+                                height: width
                                 radius: width / 2
                                 color: MColors.elev3
                                 border.width: 1
@@ -555,7 +737,7 @@ MApp {
                                 Icon {
                                     anchors.centerIn: parent
                                     name: "user"
-                                    size: 16
+                                    size: root.dp(16)
                                     color: MColors.textSecondary
                                 }
                                 MouseArea {
@@ -631,15 +813,15 @@ MApp {
         // ── Discover page (JSX layout) ─────────────────────────
         //
         // EDITORS' PICK hero → Trending now 3-tile grid → Updates
-        // available rows. Vertical stack inside a Flickable so the
-        // page scrolls cleanly on shorter screens.
+        // available rows → Made for phones. Vertical stack inside a
+        // Flickable so the page scrolls cleanly on shorter screens.
         Component {
             id: discoverPage
 
             Flickable {
                 id: discoverFlick
                 contentWidth: width
-                contentHeight: discoverCol.height + 20
+                contentHeight: discoverCol.height + MSpacing.lg
                 clip: true
 
                 Column {
@@ -650,90 +832,90 @@ MApp {
                     // the viewport's. Every child below sizes off this, so
                     // getting it wrong collapses the entire page.
                     width: discoverFlick.width
-                    topPadding: 16
-                    spacing: 18
+                    topPadding: root.dp(14)
+                    spacing: MSpacing.lg
 
                     // ── EDITORS' PICK hero ────────────────────
-                    // Per screens-apps-1.jsx:StoreDiscover. Diagonal
-                    // teal-to-black background, 220 px radial teal-
-                    // bright glow bleeding into the upper-right
-                    // third, text-only foreground (no screenshot
-                    // overlay — that's the duranium app-of-the-day
-                    // hero, which is a different design language).
+                    // Per screens-apps-1.jsx:StoreDiscover: 135° teal-to-
+                    // black card with a radial teal glow bleeding in from the
+                    // top-right, text-only foreground. Height follows the
+                    // text, so a two-line name never clips the buttons.
                     Item {
                         id: heroSlot
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        height: 200
+                        anchors.leftMargin: MSpacing.md
+                        anchors.rightMargin: MSpacing.md
+                        height: heroText.implicitHeight + root.dp(18) * 2
                         visible: navStack.parent.heroApp !== null
-                        clip: true
 
                         readonly property var hero: navStack.parent.heroApp
 
+                        // Both layers are painted in one Canvas clipped to the
+                        // card's rounded rect: a Rectangle gradient can only
+                        // run along an axis, and the glow would otherwise
+                        // spill past the rounded corner it sits on.
+                        Canvas {
+                            id: heroBg
+                            anchors.fill: parent
+                            onPaint: {
+                                const ctx = getContext("2d");
+                                const r = MRadius.md;
+                                ctx.clearRect(0, 0, width, height);
+                                ctx.save();
+                                ctx.beginPath();
+                                ctx.roundedRect(0, 0, width, height, r, r);
+                                ctx.clip();
+                                const span = Math.max(width, height);
+                                const bg = ctx.createLinearGradient(0, 0, span, span);
+                                bg.addColorStop(0.0, "#1a4a3e");
+                                bg.addColorStop(0.7, "#040404");
+                                ctx.fillStyle = bg;
+                                ctx.fillRect(0, 0, width, height);
+                                // The spec's 200 px box sits 40 px off the right
+                                // and 30 px off the top; CSS sizes a circle
+                                // gradient to the box's farthest corner.
+                                const gx = width - root.dp(60);
+                                const gy = root.dp(70);
+                                const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, root.dp(141));
+                                glow.addColorStop(0.0, "rgba(0, 191, 165, 0.35)");
+                                glow.addColorStop(0.6, "rgba(0, 191, 165, 0.0)");
+                                ctx.fillStyle = glow;
+                                ctx.fillRect(0, 0, width, height);
+                                ctx.restore();
+                            }
+                            onWidthChanged: requestPaint()
+                            onHeightChanged: requestPaint()
+                        }
                         Rectangle {
                             anchors.fill: parent
                             radius: MRadius.md
+                            color: "transparent"
                             border.width: 1
                             border.color: MColors.tealBorder
-                            gradient: Gradient {
-                                orientation: Gradient.Vertical
-                                GradientStop {
-                                    position: 0
-                                    color: "#1a4a3e"
-                                }
-                                GradientStop {
-                                    position: 0.7
-                                    color: "#040404"
-                                }
-                            }
-                        }
-                        // Radial teal glow on the top-right corner.
-                        Rectangle {
-                            anchors.top: parent.top
-                            anchors.right: parent.right
-                            anchors.topMargin: -60
-                            anchors.rightMargin: -60
-                            width: 220
-                            height: 220
-                            radius: width / 2
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop {
-                                    position: 0
-                                    color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
-                                }
-                                GradientStop {
-                                    position: 1
-                                    color: Qt.rgba(0, 191 / 255, 165 / 255, 0.0)
-                                }
-                            }
                         }
                         // Top-edge inset highlight per DS.
                         Rectangle {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.leftMargin: 1
-                            anchors.rightMargin: 1
-                            anchors.topMargin: 1
+                            anchors.margins: 1
                             height: 1
                             color: Qt.rgba(1, 1, 1, 0.10)
                         }
 
                         Column {
-                            anchors.fill: parent
-                            anchors.leftMargin: 18
-                            anchors.rightMargin: 18
-                            anchors.topMargin: 16
-                            anchors.bottomMargin: 16
-                            spacing: 8
+                            id: heroText
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: root.dp(18)
+                            spacing: 0
 
                             Rectangle {
-                                width: pickText.implicitWidth + 16
-                                height: 22
-                                radius: 2
+                                width: pickText.implicitWidth + MSpacing.md
+                                height: root.dp(22)
+                                radius: MRadius.sm
                                 color: MColors.marathonTealBright
                                 Text {
                                     id: pickText
@@ -749,12 +931,13 @@ MApp {
 
                             Text {
                                 width: parent.width
+                                topPadding: root.dp(12)
                                 text: heroSlot.hero ? (heroSlot.hero.name || heroSlot.hero.app_id || "") : ""
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 22
+                                font.pixelSize: MTypography.sizeTitle3
                                 font.weight: Font.Medium
-                                font.letterSpacing: -0.3
+                                font.letterSpacing: MTypography.trackingTitle3
                                 lineHeight: 1.15
                                 wrapMode: Text.WordWrap
                                 maximumLineCount: 2
@@ -763,6 +946,7 @@ MApp {
 
                             Text {
                                 width: parent.width
+                                topPadding: root.dp(8)
                                 text: {
                                     if (!heroSlot.hero)
                                         return "";
@@ -774,19 +958,15 @@ MApp {
                                 }
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 13
+                                font.pixelSize: MTypography.sizeFootnote
                                 wrapMode: Text.WordWrap
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
                             }
 
-                            Item {
-                                width: parent.width
-                                height: 4
-                            }
-
                             Row {
-                                spacing: 8
+                                topPadding: root.dp(14)
+                                spacing: root.dp(8)
                                 MButton {
                                     text: heroSlot.hero && root.isInstalled(heroSlot.hero.app_id || heroSlot.hero.id) ? "Open" : "Get"
                                     variant: "primary"
@@ -805,10 +985,7 @@ MApp {
                                     text: "Preview"
                                     variant: "ghost"
                                     size: "compact"
-                                    onClicked: {
-                                        if (heroSlot.hero)
-                                            root.openDetail(heroSlot.hero);
-                                    }
+                                    onClicked: root.openDetail(heroSlot.hero)
                                 }
                             }
                         }
@@ -817,88 +994,44 @@ MApp {
                     // ── Trending now ──────────────────────────
                     Column {
                         width: parent.width
-                        spacing: 10
+                        spacing: 0
                         visible: navStack.parent.trendingApps.length > 0
 
                         Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 16
+                            x: MSpacing.md
                             text: "Trending now"
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: 18
-                            font.weight: Font.Medium
-                            font.letterSpacing: -0.2
+                            font.pixelSize: MTypography.sizeHeadline
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: MTypography.trackingHeadline
                         }
                         Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 16
+                            x: MSpacing.md
+                            bottomPadding: root.dp(8)
                             text: "Top picks from across Flathub"
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
+                            font.pixelSize: MTypography.sizeCaption
                         }
 
                         Row {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            anchors.topMargin: 8
-                            spacing: 10
+                            x: MSpacing.md
+                            width: parent.width - MSpacing.md * 2
+                            spacing: MSpacing.sm
 
                             Repeater {
                                 model: navStack.parent.trendingApps
                                 delegate: Column {
                                     width: (parent.width - parent.spacing * 2) / 3
-                                    spacing: 8
+                                    spacing: 0
 
                                     Component.onCompleted: root.ensureCategory(modelData)
 
-                                    // Real flathub icon at full bleed in a
-                                    // 4 px-radius squircle. Falls back to a
-                                    // tinted elev-3 square if the URL is
-                                    // empty or the network image hasn't
-                                    // resolved yet, so the row never
-                                    // collapses to a row of blank rectangles.
-                                    Rectangle {
-                                        anchors.horizontalCenter: parent.horizontalCenter
+                                    AppIcon {
                                         width: parent.width
                                         height: width
-                                        radius: 4
-                                        color: MColors.elev3
-                                        border.width: 1
-                                        border.color: Qt.rgba(0, 0, 0, 0.6)
-
-                                        Image {
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            source: root.safeImageUrl(modelData.icon || "")
-                                            sourceSize: Qt.size(192, 192)
-                                            asynchronous: true
-                                            fillMode: Image.PreserveAspectFit
-                                            smooth: true
-                                        }
-                                        // Glyph fallback when the network
-                                        // image hasn't landed.
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            visible: !modelData.icon || root.safeImageUrl(modelData.icon) === ""
-                                            name: "package"
-                                            size: 38
-                                            color: MColors.textSecondary
-                                        }
-                                        // Top-edge inset highlight per DS.
-                                        Rectangle {
-                                            anchors.left: parent.left
-                                            anchors.right: parent.right
-                                            anchors.top: parent.top
-                                            anchors.leftMargin: 1
-                                            anchors.rightMargin: 1
-                                            anchors.topMargin: 1
-                                            height: 1
-                                            color: Qt.rgba(1, 1, 1, 0.15)
-                                        }
+                                        source: root.safeImageUrl(modelData.icon || "")
                                         MouseArea {
                                             anchors.fill: parent
                                             onClicked: {
@@ -909,17 +1042,16 @@ MApp {
                                     }
 
                                     Text {
-                                        anchors.left: parent.left
                                         width: parent.width
+                                        topPadding: root.dp(8)
                                         text: modelData.name || modelData.app_id || ""
                                         color: MColors.textPrimary
                                         font.family: MTypography.fontFamily
-                                        font.pixelSize: 13
+                                        font.pixelSize: MTypography.sizeFootnote
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
                                     Text {
-                                        anchors.left: parent.left
                                         width: parent.width
                                         text: {
                                             const cat = root.categoryLabel(modelData);
@@ -930,7 +1062,7 @@ MApp {
                                         }
                                         color: MColors.textSecondary
                                         font.family: MTypography.fontFamily
-                                        font.pixelSize: 11
+                                        font.pixelSize: MTypography.sizeCaption
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -941,119 +1073,64 @@ MApp {
                     // ── Updates available ─────────────────────
                     Column {
                         width: parent.width
-                        spacing: 10
+                        spacing: root.dp(8)
                         visible: root.pendingUpdates.length > 0
 
                         Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 16
+                            x: MSpacing.md
                             text: "Updates available · " + root.pendingUpdates.length
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: 18
-                            font.weight: Font.Medium
-                            font.letterSpacing: -0.2
+                            font.pixelSize: MTypography.sizeHeadline
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: MTypography.trackingHeadline
                         }
 
-                        MCard {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            elevation: 2
-                            height: updateRows.height + 8
+                        AppRowCard {
+                            x: MSpacing.md
+                            width: parent.width - MSpacing.md * 2
+                            model: root.pendingUpdates
+                            iconFor: app => root.safeImageUrl(app.icon || "")
+                            subtitleFor: app => "Update available"
+                            actionFor: app => "Update"
+                            onActionClicked: app => root.installApp(app.app_id)
+                            onRowClicked: app => root.openDetail(app)
+                        }
+                    }
 
-                            Column {
-                                id: updateRows
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: -10
-                                anchors.rightMargin: -10
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 0
+                    // ── Made for phones ───────────────────────
+                    // Flathub's mobile collection: apps that declare a
+                    // phone form factor.
+                    Column {
+                        width: parent.width
+                        spacing: root.dp(8)
+                        visible: navStack.parent.mobileApps.length > 0
 
-                                Repeater {
-                                    model: root.pendingUpdates
-                                    delegate: Item {
-                                        width: parent.width
-                                        height: 62
+                        Text {
+                            x: MSpacing.md
+                            text: "Made for phones"
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeHeadline
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: MTypography.trackingHeadline
+                        }
 
-                                        Row {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 14
-                                            anchors.rightMargin: 14
-                                            spacing: 12
-
-                                            Rectangle {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                width: 38
-                                                height: 38
-                                                radius: 4
-                                                color: MColors.elev3
-                                                border.width: 1
-                                                border.color: Qt.rgba(0, 0, 0, 0.6)
-                                                Image {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 6
-                                                    source: root.safeImageUrl(modelData.icon || "")
-                                                    asynchronous: true
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                }
-                                                Icon {
-                                                    anchors.centerIn: parent
-                                                    visible: !modelData.icon || root.safeImageUrl(modelData.icon) === ""
-                                                    name: "package"
-                                                    size: 18
-                                                    color: MColors.textSecondary
-                                                }
-                                            }
-
-                                            Column {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                width: parent.width - 38 - 92 - parent.spacing * 2
-                                                spacing: 2
-                                                Text {
-                                                    text: modelData.name || modelData.app_id
-                                                    color: MColors.textPrimary
-                                                    font.family: MTypography.fontFamily
-                                                    font.pixelSize: MTypography.sizeSubhead
-                                                    font.weight: Font.Medium
-                                                    elide: Text.ElideRight
-                                                    width: parent.width
-                                                }
-                                                Text {
-                                                    width: parent.width
-                                                    text: "Update available"
-                                                    color: MColors.textSecondary
-                                                    font.family: MTypography.fontFamily
-                                                    font.pixelSize: MTypography.sizeFootnote
-                                                    elide: Text.ElideRight
-                                                }
-                                            }
-
-                                            MButton {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: "Update"
-                                                variant: "primary"
-                                                size: "compact"
-                                                onClicked: root.installApp(modelData.app_id)
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            visible: index < root.pendingUpdates.length - 1
-                                            anchors.bottom: parent.bottom
-                                            anchors.left: parent.left
-                                            anchors.right: parent.right
-                                            anchors.leftMargin: 14 + 38 + 12
-                                            anchors.rightMargin: 14
-                                            height: 1
-                                            color: MColors.whiteOverlay04
-                                        }
-                                    }
-                                }
+                        AppRowCard {
+                            x: MSpacing.md
+                            width: parent.width - MSpacing.md * 2
+                            model: navStack.parent.mobileApps
+                            iconFor: app => root.safeImageUrl(app.icon || "")
+                            subtitleFor: app => app.summary || app.developer_name || ""
+                            actionFor: app => root.isInstalled(app.app_id || app.id) ? "Open" : "Get"
+                            onActionClicked: app => {
+                                const id = app.app_id || app.id;
+                                if (root.isInstalled(id))
+                                    Qt.openUrlExternally("marathon-store://open/" + id);
+                                else
+                                    root.installApp(id);
                             }
+                            onRowClicked: app => root.openDetail(app)
                         }
                     }
 
@@ -1080,11 +1157,9 @@ MApp {
                         width: discoverCol.width - MSpacing.lg * 2
                         visible: !root.catalogLoading && root.catalogAppCount === 0 && !navStack.parent.heroApp
                         iconName: "wifi-slash"
-                        iconSize: 64
+                        iconSize: root.dp(64)
                         title: "Can't reach Flathub"
-                        message: root.lastError !== ""
-                                 ? "Check your network connection and pull down to retry.\n(" + root.lastError + ")"
-                                 : "Check your network connection and pull down to retry."
+                        message: root.lastError !== "" ? "Check your network connection and pull down to retry.\n(" + root.lastError + ")" : "Check your network connection and pull down to retry."
                     }
                 }
             }
@@ -1108,58 +1183,39 @@ MApp {
                 ListView {
                     id: appsList
                     anchors.fill: parent
-                    anchors.topMargin: 8
+                    anchors.topMargin: root.dp(8)
                     clip: true
                     spacing: 0
                     // Leave clearance for the tab bar's halo + home
                     // indicator so the last list item's Get button
                     // doesn't crowd the active-tab radial glow.
-                    bottomMargin: 16
+                    bottomMargin: MSpacing.md
                     model: root.collections["popular"] || []
                     visible: model.length > 0
 
                     delegate: Item {
                         width: ListView.view.width
-                        height: 76
+                        height: root.dp(76)
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            anchors.topMargin: 10
-                            anchors.bottomMargin: 10
-                            spacing: 14
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: MSpacing.md
+                            spacing: root.dp(14)
 
-                            Rectangle {
+                            AppIcon {
+                                id: appsRowIcon
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 56
-                                height: 56
-                                radius: 6
-                                color: MColors.elev3
-                                border.width: 1
-                                border.color: Qt.rgba(0, 0, 0, 0.6)
-                                Image {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    source: root.safeImageUrl(modelData.icon || "")
-                                    sourceSize: Qt.size(128, 128)
-                                    asynchronous: true
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-                                Icon {
-                                    anchors.centerIn: parent
-                                    visible: !modelData.icon || root.safeImageUrl(modelData.icon) === ""
-                                    name: "package"
-                                    size: 24
-                                    color: MColors.textSecondary
-                                }
+                                width: root.dp(56)
+                                height: width
+                                radius: MRadius.lg
+                                source: root.safeImageUrl(modelData.icon || "")
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 56 - 80 - parent.spacing * 2
-                                spacing: 2
+                                width: parent.width - appsRowIcon.width - appsRowAction.width - parent.spacing * 2
+                                spacing: root.dp(2)
                                 Text {
                                     text: modelData.name || modelData.app_id
                                     color: MColors.textPrimary
@@ -1181,6 +1237,7 @@ MApp {
                             }
 
                             MButton {
+                                id: appsRowAction
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: root.isInstalled(modelData.app_id) ? "Open" : "Get"
                                 variant: root.isInstalled(modelData.app_id) ? "secondary" : "primary"
@@ -1198,9 +1255,9 @@ MApp {
                         Rectangle {
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
-                            anchors.leftMargin: 16 + 56 + 14
+                            anchors.leftMargin: MSpacing.md + root.dp(56 + 14)
                             anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            anchors.rightMargin: MSpacing.md
                             height: 1
                             color: MColors.whiteOverlay04
                         }
@@ -1218,14 +1275,14 @@ MApp {
 
                 MEmptyState {
                     anchors.centerIn: parent
-                    width: parent.width - 48
+                    width: parent.width - MSpacing.xxl
                     // Mirrors the ListView's own `visible: model.length > 0`
                     // above, so the list and its empty state can never both
                     // be hidden -- the split-predicate shape that left
                     // Discover rendering a void with nothing to explain it.
                     visible: !appsList.visible && !root.catalogLoading
                     iconName: "grid"
-                    iconSize: 64
+                    iconSize: root.dp(64)
                     title: "No catalog yet"
                     message: "The Flathub catalog hasn't loaded. Check your network and try the refresh button in Discover."
                 }
@@ -1242,7 +1299,7 @@ MApp {
 
                 ListView {
                     anchors.fill: parent
-                    anchors.topMargin: 8
+                    anchors.topMargin: root.dp(8)
                     clip: true
                     spacing: 0
                     visible: root.installedApps.length > 0
@@ -1250,52 +1307,33 @@ MApp {
 
                     delegate: Item {
                         width: ListView.view.width
-                        height: 68
+                        height: root.dp(68)
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            anchors.topMargin: 10
-                            anchors.bottomMargin: 10
-                            spacing: 14
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: MSpacing.md
+                            spacing: root.dp(14)
 
-                            Rectangle {
+                            AppIcon {
+                                id: installedRowIcon
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 48
-                                height: 48
-                                radius: 6
-                                color: MColors.elev3
-                                border.width: 1
-                                border.color: Qt.rgba(0, 0, 0, 0.6)
-                                Image {
-                                    anchors.fill: parent
-                                    anchors.margins: 6
-                                    // marathon-store-refresh-state emits
-                                    // file:// URLs to PNGs in
-                                    // ~/.local/share/flatpak/exports/share/icons/…
-                                    // Local paths bypass the SSRF clamp
-                                    // because they were written by the
-                                    // shell-handler script.
-                                    source: modelData.icon || ""
-                                    sourceSize: Qt.size(96, 96)
-                                    asynchronous: true
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-                                Icon {
-                                    anchors.centerIn: parent
-                                    visible: !modelData.icon
-                                    name: "package"
-                                    size: 22
-                                    color: MColors.textSecondary
-                                }
+                                width: root.dp(48)
+                                height: width
+                                radius: MRadius.lg
+                                // marathon-store-refresh-state emits
+                                // file:// URLs to PNGs in
+                                // ~/.local/share/flatpak/exports/share/icons/…
+                                // Local paths bypass the SSRF clamp
+                                // because they were written by the
+                                // shell-handler script.
+                                source: modelData.icon || ""
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 48 - parent.spacing
-                                spacing: 2
+                                width: parent.width - installedRowIcon.width - parent.spacing
+                                spacing: root.dp(2)
                                 Text {
                                     text: modelData.name || modelData.app_id
                                     color: MColors.textPrimary
@@ -1319,9 +1357,9 @@ MApp {
                         Rectangle {
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
-                            anchors.leftMargin: 16 + 48 + 14
+                            anchors.leftMargin: MSpacing.md + root.dp(48 + 14)
                             anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            anchors.rightMargin: MSpacing.md
                             height: 1
                             color: MColors.whiteOverlay04
                         }
@@ -1338,10 +1376,10 @@ MApp {
 
                 MEmptyState {
                     anchors.centerIn: parent
-                    width: parent.width - 48
+                    width: parent.width - MSpacing.xxl
                     visible: root.installedApps.length === 0
                     iconName: "download"
-                    iconSize: 64
+                    iconSize: root.dp(64)
                     title: "Nothing installed yet"
                     message: "Tap Discover to find your first app from Flathub."
                 }
@@ -1356,9 +1394,9 @@ MApp {
                 color: MColors.background
                 MEmptyState {
                     anchors.centerIn: parent
-                    width: parent.width - 48
+                    width: parent.width - MSpacing.xxl
                     iconName: "user"
-                    iconSize: 64
+                    iconSize: root.dp(64)
                     title: "Marathon Account"
                     message: "Sign-in, billing, and purchase history will appear here once Marathon identity lands. For now Flathub installs go through the system flatpak user remote."
                 }
@@ -1392,60 +1430,47 @@ MApp {
                     // → navStack.pop()) for consistency with Settings,
                     // Phone, Notes, etc.
                     MTopBar {
+                        id: detailTopBar
                         width: parent.width
                         title: displayApp ? (displayApp.name || appId) : appId
                     }
 
                     Flickable {
                         width: parent.width
-                        height: parent.height - 96
+                        height: parent.height - detailTopBar.height
                         clip: true
-                        contentHeight: detailCol.height + 20
+                        contentHeight: detailCol.height + MSpacing.lg
 
                         Column {
                             id: detailCol
                             width: parent.width
-                            topPadding: 16
-                            spacing: 16
+                            topPadding: MSpacing.md
+                            spacing: MSpacing.md
 
                             Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 14
+                                x: MSpacing.md
+                                width: parent.width - MSpacing.md * 2
+                                spacing: root.dp(14)
 
-                                Rectangle {
-                                    width: 88
-                                    height: 88
-                                    radius: 8
-                                    color: MColors.elev3
-                                    border.width: 1
-                                    border.color: Qt.rgba(0, 0, 0, 0.6)
-                                    Image {
-                                        anchors.fill: parent
-                                        anchors.margins: 10
-                                        source: displayApp ? root.safeImageUrl(displayApp.icon || "") : ""
-                                        sourceSize: Qt.size(192, 192)
-                                        asynchronous: true
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: true
-                                    }
+                                AppIcon {
+                                    id: detailIcon
+                                    width: root.dp(88)
+                                    height: width
+                                    radius: MRadius.xl
+                                    source: displayApp ? root.safeImageUrl(displayApp.icon || "") : ""
                                 }
 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
+                                    width: parent.width - detailIcon.width - parent.spacing
+                                    spacing: root.dp(4)
                                     Text {
-                                        text: displayApp ? (displayApp.name || appId) : ""
-                                        color: MColors.textPrimary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: 22
-                                        font.weight: Font.DemiBold
-                                    }
-                                    Text {
+                                        width: parent.width
                                         text: displayApp ? (displayApp.developer_name || displayApp.author || "") : ""
                                         color: MColors.textSecondary
                                         font.family: MTypography.fontFamily
-                                        font.pixelSize: 13
+                                        font.pixelSize: MTypography.sizeFootnote
+                                        elide: Text.ElideRight
                                     }
                                     MButton {
                                         text: displayApp && root.isInstalled(appId) ? "Open" : "Get"
@@ -1462,25 +1487,30 @@ MApp {
                             }
 
                             Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                width: parent.width - 32
+                                x: MSpacing.md
+                                width: parent.width - MSpacing.md * 2
                                 text: displayApp ? (displayApp.summary || "") : ""
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 15
+                                font.pixelSize: MTypography.sizeHeadline
                                 font.weight: Font.Medium
                                 wrapMode: Text.WordWrap
                             }
 
                             Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                width: parent.width - 32
-                                text: displayApp ? (displayApp.description || "").replace(/<[^>]+>/g, "") : ""
+                                x: MSpacing.md
+                                width: parent.width - MSpacing.md * 2
+                                // Appstream descriptions are <p>/<ul>/<li> markup
+                                // carrying the source XML's indentation, which
+                                // StyledText would render literally. <img> is
+                                // dropped: StyledText fetches it, bypassing the
+                                // safeImageUrl clamp.
+                                text: displayApp ? (displayApp.description || "").replace(/<img[^>]*>/gi, "").replace(/\s+/g, " ") : ""
+                                textFormat: Text.StyledText
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 14
+                                font.pixelSize: MTypography.sizeSubhead
+                                lineHeight: 1.3
                                 wrapMode: Text.WordWrap
                             }
                         }

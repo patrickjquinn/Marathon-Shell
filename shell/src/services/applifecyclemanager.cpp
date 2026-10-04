@@ -34,6 +34,13 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
     // known. Both are best-effort on the dev box (procfs and cgroup writes
     // may be denied) but reliable on the duranium image.
     if (m_appLaunchService) {
+        // Only act on a refusal from the app that is still in front; the
+        // user may have switched apps while the reply was in flight.
+        connect(m_appLaunchService, &AppLaunchService::runnerBackUnhandled, this,
+                [this](const QString &appId) {
+                    if (appId == m_foregroundAppId)
+                        emit systemBackUnhandled();
+                });
         connect(m_appLaunchService, &AppLaunchService::pidRegistered, this,
                 [this](qint64 pid, const QString &appId) {
                     // Runner-based apps (marathon-app-runner subprocess)
@@ -209,10 +216,13 @@ bool AppLifecycleManager::handleSystemBack() {
     // Marathon apps launch as a separate marathon-app-runner process; the
     // shell does NOT hold a QObject for them in m_appRegistry (the MApp
     // root lives in the runner). Route the back gesture over DBus to the
-    // runner first — its app-side MAppRouter pops the nav stack if it has
-    // depth, or surfaces an unhandled response so we can minimise the app.
-    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId))
-        return m_appLaunchService->sendBackToRunner(m_foregroundAppId);
+    // runner, which pops its nav stack or minimises itself. The call is
+    // asynchronous, so report it handled now; a refusal comes back as
+    // systemBackUnhandled.
+    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
+        m_appLaunchService->sendBackToRunner(m_foregroundAppId);
+        return true;
+    }
 
     QObject *app = m_appRegistry.value(m_foregroundAppId);
     if (!app)
@@ -241,8 +251,10 @@ bool AppLifecycleManager::handleSystemForward() {
 
     // Marathon apps live in marathon-app-runner; route forward via DBus
     // before consulting the local m_appRegistry. See handleSystemBack().
-    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId))
-        return m_appLaunchService->sendForwardToRunner(m_foregroundAppId);
+    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
+        m_appLaunchService->sendForwardToRunner(m_foregroundAppId);
+        return true;
+    }
 
     QObject *app = m_appRegistry.value(m_foregroundAppId);
     if (!app)

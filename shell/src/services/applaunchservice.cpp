@@ -24,9 +24,9 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QDBusConnection>
-#include <QDBusInterface>
 #include <QDBusMessage>
-#include <QDBusReply>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
@@ -1648,26 +1648,30 @@ static QString runnerServiceNameForAppId(const QString &appId) {
     return QStringLiteral("org.marathonos.AppRunner.%1").arg(sanitizedAppId(appId));
 }
 
-static bool callRunnerLifecycle(const QString &appId, const char *method) {
-    if (appId.isEmpty())
-        return false;
-    QDBusInterface iface(
+// Must not block: this runs on the compositor thread, and the runner can be
+// waiting on a frame callback that only this thread sends.
+static QDBusPendingCall callRunnerLifecycle(const QString &appId, const char *method) {
+    const QDBusMessage msg = QDBusMessage::createMethodCall(
         runnerServiceNameForAppId(appId), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
-        QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QDBusConnection::sessionBus());
-    if (!iface.isValid())
-        return false;
-    QDBusReply<bool> r = iface.call(QString::fromLatin1(method));
-    if (!r.isValid())
-        return false;
-    return r.value();
+        QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QString::fromLatin1(method));
+    return QDBusConnection::sessionBus().asyncCall(msg);
 }
 
-bool AppLaunchService::sendBackToRunner(const QString &appId) {
-    return callRunnerLifecycle(appId, "Back");
+void AppLaunchService::sendBackToRunner(const QString &appId) {
+    if (appId.isEmpty())
+        return;
+    auto *watcher = new QDBusPendingCallWatcher(callRunnerLifecycle(appId, "Back"), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, appId](QDBusPendingCallWatcher *w) {
+        const QDBusPendingReply<bool> reply = *w;
+        if (reply.isError() || !reply.value())
+            emit runnerBackUnhandled(appId);
+        w->deleteLater();
+    });
 }
 
-bool AppLaunchService::sendForwardToRunner(const QString &appId) {
-    return callRunnerLifecycle(appId, "Forward");
+void AppLaunchService::sendForwardToRunner(const QString &appId) {
+    if (!appId.isEmpty())
+        callRunnerLifecycle(appId, "Forward");
 }
 
 #ifdef Q_OS_LINUX

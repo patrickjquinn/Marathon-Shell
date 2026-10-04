@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 3 Oct 2026 22:00:45 +0100
+Subject: [PATCH] fix(base): drop postmarketos-base-nofde
+
+Image builds stopped resolving packages. postmarketos-duranium-initramfs
+21-r0 now requires postmarketos-buffybox-unl0kr by name, and that package
+provides postmarketos-fde-unlocker -- the same virtual that
+postmarketos-base-nofde's stub provides. Asking for both made the set
+unsatisfiable, since each conflicts with the other's provider.
+
+base-nofde was only there to keep apk from picking unl0kr-3.5.1, whose
+cmd:f0rmz clashed with the f0rmz-3.4.2 that postmarketos-duranium 11-r0
+required. buffybox-unl0kr is a different package, so that clash does not
+come back with the stub gone.
+---
+ mkosi.images/base/mkosi.conf | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index 9d7e1fb..5271ccd 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -5,14 +5,16 @@ Format=directory
+ CleanPackageMetadata=no
+ Packages=
+ 	postmarketos-duranium
+-	# Explicit fde-unlocker provider: postmarketos-duranium-initramfs pulls
+-	# postmarketos-initramfs which needs postmarketos-fde-unlocker. apk's
+-	# default choice is unl0kr-3.5.1 (provides cmd:f0rmz=3.5.1) but that
+-	# conflicts with the f0rmz-3.4.2 package postmarketos-duranium 11-r0
+-	# directly requires. postmarketos-base-nofde provides a stub
+-	# postmarketos-fde-unlocker=0.0.0-r0 that satisfies the requirement
+-	# without dragging in unl0kr — duranium-on-Pi5 has no FDE anyway.
+-	postmarketos-base-nofde
++	# No explicit fde-unlocker provider. This used to name
++	# postmarketos-base-nofde, whose stub postmarketos-fde-unlocker=0.0.0-r0
++	# satisfied postmarketos-initramfs without dragging in unl0kr-3.5.1,
++	# which clashed with the f0rmz-3.4.2 that postmarketos-duranium 11-r0
++	# required. postmarketos-duranium-initramfs 21-r0 now requires
++	# postmarketos-buffybox-unl0kr by name, and that package provides the
++	# same postmarketos-fde-unlocker the stub did -- so asking for both made
++	# the set unsatisfiable: each conflicts with the other's provider.
++	# buffybox-unl0kr is a different package from the unl0kr the stub was
++	# avoiding, so the original clash does not apply to it.
+ 	# The initramfs that actually understands duranium's /usr-only +
+ 	# composefs layout. postmarketos-mkinitfs's stock init.sh assumes
+ 	# pmbootstrap-style boot+rootfs partitions and fails to find root
+-- 
+2.55.0
+

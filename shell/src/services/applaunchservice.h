@@ -158,12 +158,15 @@ class AppLaunchService : public QObject {
   signals:
     void pidRegistered(qint64 pid, const QString &appId);
     void pidUnregistered(qint64 pid, const QString &appId);
+    // The runner answered Back with "not handled", or could not be reached.
+    void runnerBackUnhandled(const QString &appId);
 
   public:
     Q_INVOKABLE bool isMarathonAppId(const QString &appId) const;
 
-    Q_INVOKABLE bool sendBackToRunner(const QString &appId);
-    Q_INVOKABLE bool sendForwardToRunner(const QString &appId);
+    // Fire-and-forget: the outcome of Back arrives as runnerBackUnhandled.
+    void sendBackToRunner(const QString &appId);
+    void sendForwardToRunner(const QString &appId);
 
   private:
     QHash<qint64, QString> m_pidToAppId;

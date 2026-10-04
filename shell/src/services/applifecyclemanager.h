@@ -83,6 +83,8 @@ class AppLifecycleManager : public QObject {
     void appUnregistered(const QString &appId);
     void stateChanged(const QString &appId, int oldState, int newState);
     void capabilitiesChanged(const QString &appId);
+    // Back went to an out-of-process app asynchronously and it declined.
+    void systemBackUnhandled();
 
   private:
     struct AppState {
