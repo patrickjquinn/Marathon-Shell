@@ -1500,10 +1500,17 @@ MApp {
                             Text {
                                 x: MSpacing.md
                                 width: parent.width - MSpacing.md * 2
-                                text: displayApp ? (displayApp.description || "").replace(/<[^>]+>/g, "") : ""
+                                // Appstream descriptions are <p>/<ul>/<li> markup
+                                // carrying the source XML's indentation, which
+                                // StyledText would render literally. <img> is
+                                // dropped: StyledText fetches it, bypassing the
+                                // safeImageUrl clamp.
+                                text: displayApp ? (displayApp.description || "").replace(/<img[^>]*>/gi, "").replace(/\s+/g, " ") : ""
+                                textFormat: Text.StyledText
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeSubhead
+                                lineHeight: 1.3
                                 wrapMode: Text.WordWrap
                             }
                         }
