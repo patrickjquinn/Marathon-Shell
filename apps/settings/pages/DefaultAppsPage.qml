@@ -20,8 +20,9 @@ SettingsPageTemplate {
         title: "Choose Browser"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("browser", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -33,7 +34,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("browser", modelData.id);
-                    browserSheet.visible = false;
+                    browserSheet.hide();
                 }
             }
         }
@@ -45,8 +46,9 @@ SettingsPageTemplate {
         title: "Choose Phone App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("dialer", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -58,7 +60,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("dialer", modelData.id);
-                    dialerSheet.visible = false;
+                    dialerSheet.hide();
                 }
             }
         }
@@ -70,8 +72,9 @@ SettingsPageTemplate {
         title: "Choose Messaging App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("messaging", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -83,7 +86,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("messaging", modelData.id);
-                    messagingSheet.visible = false;
+                    messagingSheet.hide();
                 }
             }
         }
@@ -95,8 +98,9 @@ SettingsPageTemplate {
         title: "Choose Email App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("email", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -108,7 +112,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("email", modelData.id);
-                    emailSheet.visible = false;
+                    emailSheet.hide();
                 }
             }
         }
@@ -120,8 +124,9 @@ SettingsPageTemplate {
         title: "Choose Camera App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("camera", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -133,7 +138,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("camera", modelData.id);
-                    cameraSheet.visible = false;
+                    cameraSheet.hide();
                 }
             }
         }
@@ -145,8 +150,9 @@ SettingsPageTemplate {
         title: "Choose Gallery App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("gallery", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -158,7 +164,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("gallery", modelData.id);
-                    gallerySheet.visible = false;
+                    gallerySheet.hide();
                 }
             }
         }
@@ -170,8 +176,9 @@ SettingsPageTemplate {
         title: "Choose Music App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("music", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -183,7 +190,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("music", modelData.id);
-                    musicSheet.visible = false;
+                    musicSheet.hide();
                 }
             }
         }
@@ -195,8 +202,9 @@ SettingsPageTemplate {
         title: "Choose Video App"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("video", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -208,7 +216,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("video", modelData.id);
-                    videoSheet.visible = false;
+                    videoSheet.hide();
                 }
             }
         }
@@ -220,8 +228,9 @@ SettingsPageTemplate {
         title: "Choose File Manager"
         height: Math.min(600, defaultAppsPage.height * 0.75)
 
-        ListView {
-            anchors.fill: parent
+        content: ListView {
+            width: parent.width
+            height: parent.height
             model: SettingsController.appsForHandler("files", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
@@ -233,7 +242,7 @@ SettingsPageTemplate {
                 subtitle: modelData.id
                 onSettingClicked: {
                     SettingsController.setDefaultApp("files", modelData.id);
-                    filesSheet.visible = false;
+                    filesSheet.hide();
                 }
             }
         }
@@ -261,7 +270,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("browser", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "globe"
-                    onSettingClicked: browserSheet.visible = true
+                    onSettingClicked: browserSheet.show()
                 }
 
                 MSettingsListItem {
@@ -269,7 +278,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("dialer", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "phone"
-                    onSettingClicked: dialerSheet.visible = true
+                    onSettingClicked: dialerSheet.show()
                 }
 
                 MSettingsListItem {
@@ -277,7 +286,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("messaging", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "message-circle"
-                    onSettingClicked: messagingSheet.visible = true
+                    onSettingClicked: messagingSheet.show()
                 }
 
                 MSettingsListItem {
@@ -285,7 +294,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("email", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "mail"
-                    onSettingClicked: emailSheet.visible = true
+                    onSettingClicked: emailSheet.show()
                 }
             }
 
@@ -298,7 +307,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("camera", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "camera"
-                    onSettingClicked: cameraSheet.visible = true
+                    onSettingClicked: cameraSheet.show()
                 }
 
                 MSettingsListItem {
@@ -306,7 +315,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("gallery", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "image"
-                    onSettingClicked: gallerySheet.visible = true
+                    onSettingClicked: gallerySheet.show()
                 }
 
                 MSettingsListItem {
@@ -314,7 +323,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("music", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "music"
-                    onSettingClicked: musicSheet.visible = true
+                    onSettingClicked: musicSheet.show()
                 }
 
                 MSettingsListItem {
@@ -322,7 +331,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("video", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "video"
-                    onSettingClicked: videoSheet.visible = true
+                    onSettingClicked: videoSheet.show()
                 }
             }
 
@@ -335,7 +344,7 @@ SettingsPageTemplate {
                     value: SettingsController.defaultAppName("files", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "folder"
-                    onSettingClicked: filesSheet.visible = true
+                    onSettingClicked: filesSheet.show()
                 }
             }
 

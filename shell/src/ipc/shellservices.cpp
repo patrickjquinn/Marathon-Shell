@@ -29,6 +29,7 @@
 #include "marathonappregistry.h"
 #include "davsyncengine.h"
 
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QProcess>
@@ -336,7 +337,15 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
     if (!requireSystem())
         return;
 
-    const QVariant v = value.variant();
+    // Maps and lists inside the variant arrive as QDBusArgument, which
+    // toMap()/toStringList() turn into empty values: picking a default app
+    // wiped every default.
+    QVariant v = value.variant();
+    if (v.userType() == qMetaTypeId<QDBusArgument>()) {
+        const QDBusArgument arg = v.value<QDBusArgument>();
+        v = arg.currentType() == QDBusArgument::MapType ? QVariant(qdbus_cast<QVariantMap>(arg)) :
+                                                          QVariant(qdbus_cast<QVariantList>(arg));
+    }
     if (name == "userScaleFactor")
         m_settings->setUserScaleFactor(v.toReal());
     else if (name == "wallpaperPath")

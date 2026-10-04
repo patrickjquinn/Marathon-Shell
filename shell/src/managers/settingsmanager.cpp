@@ -283,7 +283,7 @@ void SettingsManager::load() {
     // these seeds every "open in default…" path is broken until the
     // user manually picks an app in Settings — which doesn't happen
     // because there's no UI surface that prompts. Marathon app IDs:
-    //   browser, camera, email (defaultFor "mail"), gallery,
+    //   browser, camera, email, gallery,
     //   messages, music, phone (defaultFor "dialer").
     // video/files are intentionally empty — Marathon doesn't ship a
     // first-party video player or file manager today; let the resolver

@@ -10,7 +10,7 @@
   "protected": false,
   "categories": ["Productivity"],
   "handlesUriSchemes": ["mailto"],
-  "defaultFor": ["mail"],
+  "defaultFor": ["email"],
   "searchKeywords": [
     "mail",
     "email",

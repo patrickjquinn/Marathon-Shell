@@ -80,23 +80,11 @@ QString SettingsController::defaultAppName(const QString &handler, int) {
         resolveDependencies();
     }
 
-    QVariantMap defaults  = defaultAppsMap();
-    QString     defaultId = defaults.value(handler).toString();
-
-    if (defaultId.isEmpty()) {
-        const QVariantList eligible = buildEligibleApps(handler);
-        if (eligible.isEmpty()) {
-            return QStringLiteral("None");
-        }
-        const QVariantMap first = eligible.first().toMap();
-        defaultId               = first.value("id").toString();
-        if (!defaultId.isEmpty()) {
-            defaults.insert(handler, defaultId);
-            updateDefaultApps(defaults);
-        }
-    }
-
-    const QString appName = findAppName(defaultId);
+    // Read-only: QML binds to this with defaultAppsRevision, so writing a
+    // default from here bumped the revision and looped the binding. The
+    // shell's SettingsManager seeds the defaults.
+    const QString defaultId = defaultAppsMap().value(handler).toString();
+    const QString appName   = findAppName(defaultId);
     return appName.isEmpty() ? QStringLiteral("None") : appName;
 }
 
