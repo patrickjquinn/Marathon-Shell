@@ -211,6 +211,9 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
 #include "src/components/mpris_types.h"
 #include <utility>   // std::as_const
+#include <QtPlugin>
+
+Q_IMPORT_PLUGIN(MarathonInputContextPlugin)
 
 int main(int argc, char *argv[]) {
 
@@ -313,7 +316,13 @@ int main(int argc, char *argv[]) {
         QSurfaceFormat::setDefaultFormat(fmt);
     }
 
+    // The shell's own input context (src/managers/marathoninputcontext.cpp)
+    // carries the compositor's keyboard show/hide requests. QT_IM_MODULES
+    // outranks the QT_IM_MODULE=none in some device configs, and it is unset
+    // once the context exists so apps keep their QT_IM_MODULE=wayland.
+    qputenv("QT_IM_MODULES", "marathon");
     QGuiApplication app(argc, argv);
+    qunsetenv("QT_IM_MODULES");
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
     // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW

@@ -4,6 +4,7 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QInputMethodQueryEvent>
+#include <QInputMethodEvent>
 #include <QKeyEvent>
 
 MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
@@ -74,76 +75,19 @@ QRect MarathonInputMethodEngine::inputItemRect() const {
     return m_inputMethod->inputItemRectangle().toRect();
 }
 
-static int charToKey(QChar ch) {
-    if (ch.isLetter()) {
-        return Qt::Key_A + (ch.toUpper().unicode() - 'A');
-    }
-    if (ch.isDigit()) {
-        return Qt::Key_0 + (ch.unicode() - '0');
-    }
-    switch (ch.unicode()) {
-        case ' ': return Qt::Key_Space;
-        case '\n': return Qt::Key_Return;
-        case '\t': return Qt::Key_Tab;
-        case '.': return Qt::Key_Period;
-        case ',': return Qt::Key_Comma;
-        case ';': return Qt::Key_Semicolon;
-        case ':': return Qt::Key_Colon;
-        case '\'': return Qt::Key_Apostrophe;
-        case '"': return Qt::Key_QuoteDbl;
-        case '!': return Qt::Key_Exclam;
-        case '?': return Qt::Key_Question;
-        case '@': return Qt::Key_At;
-        case '#': return Qt::Key_NumberSign;
-        case '$': return Qt::Key_Dollar;
-        case '%': return Qt::Key_Percent;
-        case '^': return Qt::Key_AsciiCircum;
-        case '&': return Qt::Key_Ampersand;
-        case '*': return Qt::Key_Asterisk;
-        case '(': return Qt::Key_ParenLeft;
-        case ')': return Qt::Key_ParenRight;
-        case '-': return Qt::Key_Minus;
-        case '_': return Qt::Key_Underscore;
-        case '=': return Qt::Key_Equal;
-        case '+': return Qt::Key_Plus;
-        case '[': return Qt::Key_BracketLeft;
-        case ']': return Qt::Key_BracketRight;
-        case '{': return Qt::Key_BraceLeft;
-        case '}': return Qt::Key_BraceRight;
-        case '\\': return Qt::Key_Backslash;
-        case '|': return Qt::Key_Bar;
-        case '/': return Qt::Key_Slash;
-        case '`': return Qt::Key_QuoteLeft;
-        case '~': return Qt::Key_AsciiTilde;
-        case '<': return Qt::Key_Less;
-        case '>': return Qt::Key_Greater;
-        default: return 0;
-    }
-}
-
+// Text goes in as an input-method commit, not as key events. A synthetic
+// QKeyEvent carries no native scan code, so when the focus object is an app's
+// surface item the compositor forwarded it to the client as keycode 0 and the
+// app typed nothing. A commit reaches in-shell text fields directly and
+// reaches apps through text-input (QWaylandQuickItem forwards it).
 void MarathonInputMethodEngine::commitText(const QString &text) {
-    if (!m_inputMethod)
+    QObject *focus = QGuiApplication::focusObject();
+    if (!focus || text.isEmpty())
         return;
 
-    for (const QChar &ch : text) {
-        int                   key  = charToKey(ch);
-        Qt::KeyboardModifiers mods = Qt::NoModifier;
-
-        if (ch.isLetter() && ch.isUpper()) {
-            mods |= Qt::ShiftModifier;
-        }
-
-        QKeyEvent *pressEvent   = new QKeyEvent(QEvent::KeyPress, key, mods, QString(ch));
-        QKeyEvent *releaseEvent = new QKeyEvent(QEvent::KeyRelease, key, mods, QString(ch));
-
-        if (QGuiApplication::focusObject()) {
-            QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
-            QGuiApplication::sendEvent(QGuiApplication::focusObject(), releaseEvent);
-        }
-
-        delete pressEvent;
-        delete releaseEvent;
-    }
+    QInputMethodEvent event;
+    event.setCommitString(text);
+    QGuiApplication::sendEvent(focus, &event);
 
     if (!m_preeditText.isEmpty()) {
         m_preeditText.clear();
@@ -151,32 +95,27 @@ void MarathonInputMethodEngine::commitText(const QString &text) {
     }
 }
 
+// Backspace and Enter stay key events, but with the scan code and keysym a
+// real keyboard would send, so the compositor can forward them to apps.
+// Scan codes are evdev codes plus the XKB offset of 8.
+static void sendKey(Qt::Key key, quint32 scanCode, quint32 keysym, const QString &text) {
+    QObject *focus = QGuiApplication::focusObject();
+    if (!focus)
+        return;
+    QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, scanCode, keysym, 0, text);
+    QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, scanCode, keysym, 0, text);
+    QGuiApplication::sendEvent(focus, &press);
+    QGuiApplication::sendEvent(focus, &release);
+}
+
 void MarathonInputMethodEngine::sendBackspace() {
-    QKeyEvent *pressEvent = new QKeyEvent(QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier, "");
-    QKeyEvent *releaseEvent =
-        new QKeyEvent(QEvent::KeyRelease, Qt::Key_Backspace, Qt::NoModifier, "");
-
-    if (QGuiApplication::focusObject()) {
-        QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
-        QGuiApplication::sendEvent(QGuiApplication::focusObject(), releaseEvent);
-    }
-
-    delete pressEvent;
-    delete releaseEvent;
+    sendKey(Qt::Key_Backspace, 14 + 8, 0xff08 /* XKB_KEY_BackSpace */, QString());
 }
 
 void MarathonInputMethodEngine::sendEnter() {
-    QKeyEvent *pressEvent = new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, "\n");
-    QKeyEvent *releaseEvent =
-        new QKeyEvent(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier, "\n");
-
-    if (QGuiApplication::focusObject()) {
-        QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
-        QGuiApplication::sendEvent(QGuiApplication::focusObject(), releaseEvent);
-    }
-
-    delete pressEvent;
-    delete releaseEvent;
+    // No text: Qt's seat sends a key with text to text-input-v3 clients as a
+    // commit of "\r", which GTK inserts instead of activating the field.
+    sendKey(Qt::Key_Return, 28 + 8, 0xff0d /* XKB_KEY_Return */, QString());
 }
 
 void MarathonInputMethodEngine::replacePreedit(const QString &word) {

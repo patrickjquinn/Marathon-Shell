@@ -10,6 +10,7 @@
 #include <QWaylandQuickOutput>
 #include <QWaylandViewporter>
 #include <QWaylandTextInputManager>
+#include <QWaylandTextInputManagerV3>
 #include <QWaylandIdleInhibitManagerV1>
 #include <QWaylandClient>
 #include <QWaylandSeat>
@@ -19,7 +20,6 @@
 #include <QPointer>
 #include <QAtomicInt>
 
-class TextInputManagerV3;
 class SecurityContextManagerV1;
 class FifoManagerV1;
 class CommitTimingManagerV1;
@@ -95,9 +95,13 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleSurfaceDestroyed();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
-    void handleTextInputEnabled(bool enabled);
+    void connectTextInputs();
+    void handleTextInputBound(void *client);
+    void handleTextInputSurfaceEnabled(QWaylandSurface *surface);
+    void handleTextInputSurfaceDisabled(QWaylandSurface *surface);
 
   private:
+    void watchTextInputBinds();
     void setCompositorRealtimePriority();
     void calculateAndSetPhysicalSize();
     // DPMS-off/on the primary output (opt-in via MARATHON_DOZE_DPMS).
@@ -118,7 +122,8 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandWlShell                        *m_wlShell                  = nullptr;
     QWaylandViewporter                     *m_viewporter               = nullptr;
     QWaylandTextInputManager               *m_textInputManager         = nullptr;
-    TextInputManagerV3                     *m_textInputManagerV3Custom = nullptr;
+    QWaylandTextInputManagerV3             *m_textInputManagerV3       = nullptr;
+    QSet<QWaylandSurface *>                 m_textInputSurfaces;
     SecurityContextManagerV1               *m_securityContextManager   = nullptr;
     FifoManagerV1                          *m_fifoManager              = nullptr;
     CommitTimingManagerV1                  *m_commitTimingManager      = nullptr;

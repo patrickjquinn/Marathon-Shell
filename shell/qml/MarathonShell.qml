@@ -2098,6 +2098,13 @@ Item {
 
                     return;
                 }
+                // An app's surface item: the app's own text-input state
+                // decides, via the compositor's nativeTextInputPanelRequested.
+                // Treating it as "not a text field" hid the keyboard each time
+                // an app surface took focus, including right after it asked
+                // for the keyboard.
+                if (item.surface !== undefined)
+                    return;
                 var isInput = (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
                 if (isInput && !Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
@@ -2137,6 +2144,18 @@ Item {
 
             target: InputMethodEngine
         }
+    }
+
+    // Going home or closing the app never leaves the keyboard over the home
+    // screen or the switcher.
+    Connections {
+        function onAppWindowOpenChanged() {
+            if (!UIStore.appWindowOpen && virtualKeyboard.active)
+                virtualKeyboard.active = false;
+        }
+
+        target: UIStore
+        enabled: UIStore !== null
     }
 
     Connections {
