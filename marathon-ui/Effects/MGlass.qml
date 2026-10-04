@@ -46,11 +46,32 @@ Item {
     property real brightness: 0.0
 
     // Snapshot only the chrome region. Smaller rect = cheaper blur,
-    // especially on Pinephone-class hardware. Bind to the parent's
-    // bounds by default; override at the call site if the host item is
-    // larger than the visible glass area (e.g. an animated sheet whose
-    // host extends off-screen).
-    property rect sourceRect: Qt.rect(x, y, width, height)
+    // especially on Pinephone-class hardware. Defaults to the glass's own
+    // bounds in sourceItem's coordinates; override at the call site if the
+    // host item is larger than the visible glass area (e.g. an animated
+    // sheet whose host extends off-screen).
+    property rect sourceRect: _backdropRect
+
+    // The glass's x/y are in its parent's coordinates, which for a dialog
+    // or sheet panel are not sourceItem's, so the snapshot showed the top
+    // of the page instead of what is behind the panel. Sum the offsets up
+    // to sourceItem rather than mapToItem(): that is tracked, so a panel
+    // that slides is followed, and it ignores the panel's scale-in, which
+    // would otherwise re-capture a backdrop that now holds the panel.
+    readonly property rect _backdropRect: {
+        let dx = 0;
+        let dy = 0;
+        let p = root;
+        for (; p && p !== root.sourceItem; p = p.parent) {
+            dx += p.x;
+            dy += p.y;
+        }
+        if (!root.sourceItem || !p) {
+            const pos = root.sourceItem ? root.mapToItem(root.sourceItem, 0, 0) : Qt.point(x, y);
+            return Qt.rect(pos.x, pos.y, width, height);
+        }
+        return Qt.rect(dx, dy, width, height);
+    }
 
     // Default false: most chrome (status bar, nav bar, dock, tab bar) sits
     // over a backdrop that is static at idle. Live-sampling every vsync
@@ -69,10 +90,22 @@ Item {
     readonly property bool _reduceBlur: MMotion.reduceBlur
     readonly property color _opaqueTint: Qt.rgba(tint.r, tint.g, tint.b, 1.0)
 
+    // Sheets, modals and dialogs pass their own parent as the backdrop, and
+    // that parent contains this glass. Qt renders such a self-containing
+    // source as garbage unless the capture is marked recursive.
+    readonly property bool _sourceContainsSelf: {
+        for (let p = root.parent; p; p = p.parent) {
+            if (p === root.sourceItem)
+                return true;
+        }
+        return false;
+    }
+
     ShaderEffectSource {
         id: snap
         anchors.fill: parent
         sourceItem: root.sourceItem
+        recursive: root._sourceContainsSelf
         sourceRect: root.sourceRect
         visible: false
         live: root.live && !root._reduceBlur
