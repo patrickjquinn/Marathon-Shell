@@ -146,6 +146,15 @@ Rectangle {
             if (existingNativeInstance) {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 existingNativeInstance.visible = true;
+                // Going home minimized it, which locks its buffer; left set,
+                // the restored window showed no new frames.
+                if (existingNativeInstance.isMinimized !== undefined)
+                    existingNativeInstance.isMinimized = false;
+                // A backgrounded app sits in a frozen cgroup. The switcher
+                // thaws it through restoreApp(), but a restore that arrives
+                // here (home-screen tap, LaunchApp) drew the app's last frame
+                // over a process that could not respond to input.
+                AppLifecycleManager.bringToForeground(id);
                 appWindow.pendingAppInstance = existingNativeInstance;
                 if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
                     appWindow.appContainer["adoptPendingApp"]();
