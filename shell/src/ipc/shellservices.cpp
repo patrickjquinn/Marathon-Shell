@@ -31,6 +31,7 @@
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QProcess>
 #include <QDBusError>
 #include <QDBusMessage>
 #include <QCoreApplication>
@@ -2114,6 +2115,20 @@ void AppStoreObject::CancelDownload(const QString &appId) {
         return;
     if (m_appStore)
         m_appStore->cancelDownload(appId);
+}
+
+void AppStoreObject::RunStoreUrl(const QString &url) {
+    if (!requireSystem())
+        return;
+    // The handler validates each verb and ref itself; only its scheme is
+    // checked here.
+    if (!url.startsWith(QLatin1String("marathon-store://"))) {
+        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("Not a marathon-store:// URL"));
+        return;
+    }
+    if (!QProcess::startDetached(QStringLiteral("/usr/bin/marathon-store-handler"), {url}))
+        sendErrorReply(QDBusError::Failed,
+                       QStringLiteral("Could not start marathon-store-handler"));
 }
 
 AppLifecycleObject::AppLifecycleObject(AppLifecycleManager *lifecycle,

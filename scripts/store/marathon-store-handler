@@ -49,67 +49,117 @@ if [ "$verb" != "refresh-state" ] && [ "$verb" != "update-all" ]; then
     fi
 fi
 
+# xdg-open runs this inside the calling app's sandbox, where /home/user is a
+# private tmpfs (flatpak --user would install into a throwaway home) and
+# systemd won't take requests from the sandbox's PID namespace. There, PID 1
+# is bwrap: hand the URL to the shell, which checks the caller holds the
+# "system" permission and runs this handler from outside. In the session,
+# re-run as a transient unit so the work outlives xdg-open and stays out of
+# the shell's process tree. Validation above has already run.
+if [ -z "${MARATHON_STORE_UNIT:-}" ]; then
+    if [ "$(cat /proc/1/comm 2>/dev/null)" != systemd ]; then
+        exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/AppStore \
+            org.marathonos.Shell.AppStore1 RunStoreUrl s "$url"
+    fi
+    exec systemd-run --user --quiet --collect --setenv=MARATHON_STORE_UNIT=1 \
+        "$(readlink -f "$0")" "$url"
+fi
+
 write_state() {
-    local appid=$1 state=$2 pct=$3
+    local appid=$1 state=$2 pct=$3 msg=${4:-}
     local target="$STATE_DIR/install-progress-${appid}.json"
     local tmp
+    # The message is flatpak's own error text: keep it printable and free of
+    # the two characters that could break out of the JSON string.
+    msg=$(printf '%s' "$msg" | tr -d '"\\' | tr -c '[:print:]' ' ' | cut -c1-400)
     tmp=$(mktemp "${target}.XXXXXX")
-    printf '{"appId":"%s","state":"%s","percent":%s,"ts":%s}\n' \
-        "$appid" "$state" "$pct" "$(date +%s)" > "$tmp"
+    printf '{"appId":"%s","state":"%s","percent":%s,"error":"%s","ts":%s}\n' \
+        "$appid" "$state" "$pct" "$msg" "$(date +%s)" > "$tmp"
     mv "$tmp" "$target"
 }
 
-run_flatpak_progress() {
-    local op=$1 appid=$2
-    write_state "$appid" pending -1
-    # --ostree-verbose unlocks the 'Receiving N%' progress lines. flatpak emits
-    # carriage-return-overwritten progress, so we tr \r -> \n to make it line-
-    # oriented before grepping percentages. PIPESTATUS[0] is the flatpak rc;
-    # we use bash so this is reliable.
-    flatpak --ostree-verbose --user "$op" -y --noninteractive "$REMOTE" "$appid" 2>&1 \
-        | tr '\r' '\n' \
-        | while IFS= read -r line; do
-            pct=$(printf '%s\n' "$line" | sed -n 's/.* \([0-9]\{1,3\}\)%.*/\1/p' | head -1)
-            case "$line" in
-                *Receiving*)              write_state "$appid" downloading "${pct:--1}" ;;
-                *Installing*|*Updating*)  write_state "$appid" downloading "${pct:--1}" ;;
-                *Deploying*|*Pulling*)    write_state "$appid" deploying "${pct:--1}" ;;
-                *Already*installed*)      write_state "$appid" done 100 ;;
-            esac
-        done
-    rc=${PIPESTATUS[0]}
-    if [ "$rc" = "0" ]; then
-        write_state "$appid" done 100
-    else
-        write_state "$appid" failed -1
-    fi
-    /usr/libexec/marathon-store-refresh-state || true
+# User installs need a user remote; the image only registers Flathub for the
+# system installation.
+ensure_remote() {
+    local repo=/etc/flatpak/remotes.d/flathub.flatpakrepo
+    [ -f "$repo" ] || repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+    flatpak --user remote-add --if-not-exists "$REMOTE" "$repo"
 }
 
+# install / update / uninstall one app, reporting progress through the state
+# file the QML polls. Runs with errexit off: under -e a failing flatpak ended
+# the script before it could record the failure, so the UI waited on
+# "pending" forever.
+run_op() {
+    local op=$1 appid=$2 log rc=0 busy done_state="done" cmd
+    case "$op" in
+        install)   cmd="flatpak --user install -y $REMOTE $appid"; busy=installing ;;
+        update)    cmd="flatpak --user update -y $appid"; busy=installing ;;
+        uninstall) cmd="flatpak --user uninstall -y $appid"; busy=removing; done_state=removed ;;
+    esac
+    log=$(mktemp "$STATE_DIR/log.XXXXXX")
+    set +e
+    write_state "$appid" pending -1
+    [ "$op" = install ] && ensure_remote >>"$log" 2>&1
+    # flatpak only draws progress ("Installing 2/3… 45%") on a terminal, so
+    # it runs under script(1) for a pty; -e passes its exit status through.
+    # Each redraw ends in a carriage return, so read on those: a tr/sed pipe
+    # would block-buffer and deliver every percentage at once at the end.
+    # Each step's percentage folds into one figure across all the steps.
+    script -q -e -c "$cmd" /dev/null 2>&1 | while IFS= read -r -d $'\r' chunk || [ -n "$chunk" ]; do
+        printf '%s\n' "$chunk" >> "$log"
+        if [[ $chunk =~ ([0-9]+)/([0-9]+)….*[^0-9]([0-9]{1,3})% ]]; then
+            write_state "$appid" "$busy" \
+                $(( ((BASH_REMATCH[1] - 1) * 100 + BASH_REMATCH[3]) / BASH_REMATCH[2] ))
+        fi
+    done
+    rc=${PIPESTATUS[0]}
+    if [ "$rc" = 0 ]; then
+        write_state "$appid" "$done_state" 100
+    else
+        # flatpak's own reason, without the terminal escapes and progress
+        # redraws that share its line.
+        write_state "$appid" failed -1 "$(sed -e 's/\x1b\][^\x1b]*\x1b\\//g' -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$log" \
+            | grep -o 'error: .*' | tail -1 | sed 's/^error: //')"
+    fi
+    rm -f "$log"
+    /usr/libexec/marathon-store-refresh-state
+    set -e
+}
+
+update_all() {
+    flatpak --user remote-ls --updates --columns=application 2>/dev/null \
+        | grep -vE '\.(Locale|Sources|Debug)$' \
+        | while read -r app; do run_op update "$app"; done
+}
+
+# arg has already been validated against REF_RE, so nothing shell-meaningful
+# survives into flatpak's argv. The QML polls the per-app state files. Inside
+# the transient unit the work runs in the foreground: systemd kills a unit's
+# leftover processes once its main process exits. Without systemd, detach so
+# xdg-open returns at once.
 case "$verb" in
-    install)
-        # Detach so xdg-open returns immediately. No terminal window pops up;
-        # the QML polls per-appid state files for progress. arg has already
-        # been validated against REF_RE so no shell-meaningful characters
-        # can survive into this exec.
-        (run_flatpak_progress install "$arg" </dev/null >/dev/null 2>&1 &)
-        ;;
-    update)
-        (run_flatpak_progress update "$arg" </dev/null >/dev/null 2>&1 &)
-        ;;
-    uninstall)
-        flatpak --user uninstall -y "$arg" >/dev/null 2>&1 || true
-        write_state "$arg" done 0
-        /usr/libexec/marathon-store-refresh-state || true
+    install|update|uninstall)
+        if [ -n "${MARATHON_STORE_UNIT:-}" ]; then
+            run_op "$verb" "$arg"
+        else
+            (run_op "$verb" "$arg" </dev/null >/dev/null 2>&1 &)
+        fi
         ;;
     update-all)
-        flatpak --user update -y --noninteractive >/dev/null 2>&1 || true
-        /usr/libexec/marathon-store-refresh-state || true
+        if [ -n "${MARATHON_STORE_UNIT:-}" ]; then
+            update_all
+        else
+            (update_all </dev/null >/dev/null 2>&1 &)
+        fi
         ;;
     refresh-state)
         exec /usr/libexec/marathon-store-refresh-state
         ;;
+    # Launch through the shell like a home-screen tap, so the app gets the
+    # compositor's socket and a place in the task switcher.
     open)
-        exec flatpak --user run "$arg"
+        exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+            org.marathonos.Shell.Navigation1 LaunchApp s "$arg"
         ;;
 esac
