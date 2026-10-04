@@ -1263,14 +1263,15 @@ int main(int argc, char *argv[]) {
         appScanner->scanApplications();
 #endif
 
-            QStringList flatpakDirs;
-            for (const QString &p :
-                 {QStringLiteral("/var/lib/flatpak/exports/share/applications"),
-                  QDir::homePath() +
-                      QStringLiteral("/.local/share/flatpak/exports/share/applications")}) {
-                if (QDir(p).exists())
-                    flatpakDirs.append(p);
-            }
+            // The user directory only appears with the first flatpak install,
+            // which is exactly the change this watch exists to catch, so
+            // create it rather than skip it.
+            const QString userFlatpakApps = QDir::homePath() +
+                QStringLiteral("/.local/share/flatpak/exports/share/applications");
+            QDir().mkpath(userFlatpakApps);
+            QStringList flatpakDirs{userFlatpakApps};
+            if (QDir(QStringLiteral("/var/lib/flatpak/exports/share/applications")).exists())
+                flatpakDirs.append(QStringLiteral("/var/lib/flatpak/exports/share/applications"));
             if (!flatpakDirs.isEmpty()) {
                 auto *flatpakWatcher = new QFileSystemWatcher(&app);
                 flatpakWatcher->addPaths(flatpakDirs);
