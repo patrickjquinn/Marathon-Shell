@@ -213,6 +213,21 @@ class TestDesktopFileParser : public QObject {
         QVERIFY(app["exec"].toString().startsWith("FLATPAK:"));
     }
 
+    // Flathub's own exports use the absolute binary path.
+    void flathubExportIsFlatpak() {
+        QTemporaryDir dir;
+        writeFile(dir.path() + "/org.test.App.desktop",
+                  basicDesktop("FP App",
+                               "/usr/bin/flatpak run --branch=stable --arch=aarch64 "
+                               "--command=app org.test.App"));
+
+        DesktopFileParser parser;
+        QVariantMap       app = parser.parseDesktopFile(dir.path() + "/org.test.App.desktop");
+
+        QCOMPARE(app["type"].toString(), QString("flatpak"));
+        QVERIFY(app["exec"].toString().startsWith("FLATPAK:flatpak run "));
+    }
+
     // === CONTRACT: Snap apps get SNAP: prefix ===
 
     void snapAppsPrefixed() {
