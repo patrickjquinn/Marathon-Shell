@@ -35,7 +35,7 @@ add_executable(test_shell_notificationmodel
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/dbus/notificationdatabase.cpp
 )
-target_link_libraries(test_shell_notificationmodel Qt6::Test Qt6::Core Qt6::Sql)
+target_link_libraries(test_shell_notificationmodel Qt6::Test Qt6::Core Qt6::Sql Qt6::Qml)
 target_include_directories(test_shell_notificationmodel PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/models
     ${CMAKE_SOURCE_DIR}/shell/src
@@ -47,7 +47,7 @@ add_executable(test_shell_taskmodel
     test_taskmodel.cpp
     ../../shell/src/models/taskmodel.cpp
 )
-target_link_libraries(test_shell_taskmodel Qt6::Test Qt6::Core Qt6::Gui)
+target_link_libraries(test_shell_taskmodel Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml)
 target_include_directories(test_shell_taskmodel PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/models
 )

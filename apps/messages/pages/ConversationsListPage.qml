@@ -282,7 +282,7 @@ Page {
                         HapticService.medium();
                         contextMenu.conversationId = modelData.id;
                         contextMenu.isUnread = (modelData.unreadCount || 0) > 0;
-                        contextMenu.visible = true;
+                        contextMenu.show();
                     }
                 }
             }
@@ -320,10 +320,9 @@ Page {
         property string conversationId: ""
         property bool isUnread: false
 
-        visible: false
         title: "Conversation Options"
 
-        Column {
+        content: Column {
             width: parent.width
             spacing: 0
 
@@ -335,7 +334,7 @@ Page {
                     if (contextMenu.isUnread)
                         SMSService.markAsRead(contextMenu.conversationId);
                     HapticService.light();
-                    contextMenu.visible = false;
+                    contextMenu.hide();
                 }
             }
 
@@ -346,7 +345,7 @@ Page {
                 onSettingClicked: {
                     deleteConversation(contextMenu.conversationId);
                     HapticService.medium();
-                    contextMenu.visible = false;
+                    contextMenu.hide();
                 }
             }
         }

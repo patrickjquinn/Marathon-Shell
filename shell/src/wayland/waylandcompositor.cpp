@@ -4,7 +4,6 @@
 #include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/wldrm.h"
 #include "src/wayland/securitycontextv1.h"
-#include "src/wayland/textinputv3.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -16,9 +15,11 @@
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
-#include <QWaylandInputMethodControl>
+#include <QWaylandQuickItem>
 #include <QWaylandQuickSurface>
+#include <QWaylandView>
 #include <QtMath>
+#include <QQmlEngine>
 #include <QQuickItem>
 #include <QKeyEvent>
 #include <QScreen>
@@ -27,7 +28,7 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <cstring>
-#include "textinputv3.h"
+#include <wayland-server-core.h>
 
 #include "util/frametiming.h"
 #include "util/rtprio.h"
@@ -113,11 +114,11 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 disabled";
     }
 
-    m_textInputManagerV3Custom = new TextInputManagerV3(this);
-    connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputEnabled, this,
-            [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(true); });
-    connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputDisabled, this,
-            [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(false); });
+    // Qt's text-input-v3 carries the keyboard's commits to GTK and other v3
+    // clients. Keyboard show/hide follows their enable/disable requests (see
+    // connectTextInputs()).
+    m_textInputManagerV3 = new QWaylandTextInputManagerV3(this);
+    watchTextInputBinds();
 
     // wp_security_context_v1 — lets sandbox engines (marathon-app-runner,
     // future Flatpak) tag connections with a fixed (engine, app_id,
@@ -178,6 +179,14 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 if (wlVerbose() && newFocus)
                     qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
                              << newFocus;
+                // A different app took focus: drop the keyboard. Qt clients
+                // stay "enabled" after their field is gone, so showing here
+                // opened it over apps with no field focused. An app that
+                // wants it asks again: GTK re-enables on enter, Qt clients on
+                // the next field tap (see marathoninputcontext.cpp). With no
+                // client focused, the shell's own fields own the panel.
+                if (newFocus)
+                    emit nativeTextInputPanelRequested(false);
             });
 
     // Create QWaylandQuickSurface, not the default plain QWaylandSurface.
@@ -196,7 +205,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // resource lifecycle exactly as createDefaultSurface() would.
     connect(this, &QWaylandCompositor::surfaceRequested, this,
             [this](QWaylandClient *client, uint id, int version) {
-                new QWaylandQuickSurface(this, client, id, version);
+                auto *surface = new QWaylandQuickSurface(this, client, id, version);
+                // Parentless, so a surface handed to QML (getSurfaceById)
+                // became the JS engine's to collect. A collected surface
+                // took its xdg_surface with it, and the client's next
+                // set_window_geometry crashed the compositor.
+                QQmlEngine::setObjectOwnership(surface, QQmlEngine::CppOwnership);
             });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
@@ -485,6 +499,9 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("MOZ_ENABLE_WAYLAND", "1");
 
     env.insert("QT_IM_MODULE", "wayland");
+    // GTK 4 otherwise falls back to its "simple" module, never binds
+    // text-input, and the keyboard can't open or type into GTK apps.
+    env.insert("GTK_IM_MODULE", "wayland");
     env.insert("ELECTRON_OZONE_PLATFORM_HINT", "wayland");
 
     env.insert("LIBADWAITA_MOBILE", "1");
@@ -781,16 +798,8 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
         });
     }
 
-    if (auto *inputControl = surface->inputMethodControl()) {
-        qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
-        // QWaylandInputMethodControl::enabledChanged isn't exported in the public
-        // Qt build, so the Qt5 pointer-to-member form fails to link. The SIGNAL/
-        // SLOT macro form uses MOC's string dispatch and works without the symbol.
-        connect(inputControl, SIGNAL(enabledChanged(bool)), this,
-                SLOT(handleTextInputEnabled(bool)));
-    } else {
-        qDebug() << "[WaylandCompositor] No inputMethodControl available for surface";
-    }
+    connect(surface, &QObject::destroyed, this,
+            [this, surface]() { m_textInputSurfaces.remove(surface); });
 
     int surfaceId           = m_nextSurfaceId++;
     m_surfaceMap[surfaceId] = surface;
@@ -848,8 +857,104 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
     }
 }
 
-void WaylandCompositor::handleTextInputEnabled(bool enabled) {
-    emit nativeTextInputPanelRequested(enabled);
+// QWaylandInputMethodControl can't drive the keyboard: it subscribes only to
+// text-input objects that exist when the surface is created, and Qt creates
+// them lazily on a client's first request, so for most surfaces it never sees
+// a client enable or disable text input. Subscribe to the per-seat text-input
+// objects directly instead. Neither class exports its meta-object, so they are
+// found by class name and connected through MOC's string dispatch.
+void WaylandCompositor::connectTextInputs() {
+    QWaylandSeat *seat = defaultSeat();
+    if (!seat)
+        return;
+    const auto extensions = seat->extensions();
+    for (QWaylandCompositorExtension *ext : extensions) {
+        const QByteArray cls = ext->metaObject()->className();
+        if (cls != "QWaylandTextInput" && cls != "QWaylandTextInputV3")
+            continue;
+        connect(ext, SIGNAL(surfaceEnabled(QWaylandSurface *)), this,
+                SLOT(handleTextInputSurfaceEnabled(QWaylandSurface *)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface *)), this,
+                SLOT(handleTextInputSurfaceDisabled(QWaylandSurface *)), Qt::UniqueConnection);
+    }
+}
+
+namespace {
+    struct ClientCreatedWatch {
+        wl_listener        listener;
+        WaylandCompositor *compositor;
+    };
+
+    struct TextInputBindWatch {
+        wl_listener        resourceCreated;
+        wl_listener        clientDestroyed;
+        WaylandCompositor *compositor;
+    };
+
+    void textInputResourceCreated(wl_listener *listener, void *data) {
+        TextInputBindWatch *watch    = wl_container_of(listener, watch, resourceCreated);
+        auto               *resource = static_cast<wl_resource *>(data);
+        const char         *cls      = wl_resource_get_class(resource);
+        if (std::strcmp(cls, "zwp_text_input_v3") != 0 &&
+            std::strcmp(cls, "zwp_text_input_v2") != 0)
+            return;
+        // Queued: Qt records the client as a text-input user only after the
+        // resource is set up, and takeFocus() checks that record.
+        QMetaObject::invokeMethod(watch->compositor, "handleTextInputBound", Qt::QueuedConnection,
+                                  Q_ARG(void *, wl_resource_get_client(resource)));
+    }
+
+    void textInputClientDestroyed(wl_listener *listener, void *) {
+        TextInputBindWatch *watch = wl_container_of(listener, watch, clientDestroyed);
+        wl_list_remove(&watch->resourceCreated.link);
+        wl_list_remove(&watch->clientDestroyed.link);
+        delete watch;
+    }
+
+    void clientCreated(wl_listener *listener, void *data) {
+        ClientCreatedWatch *created   = wl_container_of(listener, created, listener);
+        auto               *client    = static_cast<wl_client *>(data);
+        auto               *watch     = new TextInputBindWatch{};
+        watch->compositor             = created->compositor;
+        watch->resourceCreated.notify = textInputResourceCreated;
+        watch->clientDestroyed.notify = textInputClientDestroyed;
+        wl_client_add_resource_created_listener(client, &watch->resourceCreated);
+        wl_client_add_destroy_listener(client, &watch->clientDestroyed);
+    }
+} // namespace
+
+// Qt sends a text-input enter only from QWaylandQuickItem::takeFocus(), and
+// only to clients that already hold a text-input object. GTK creates its
+// object when a field first takes focus, which is after the tap that took
+// focus, so it never gets the enter and never enables text input. Watch
+// every client for text-input objects and take focus again when one appears.
+void WaylandCompositor::watchTextInputBinds() {
+    static ClientCreatedWatch watch;
+    watch.compositor      = this;
+    watch.listener.notify = clientCreated;
+    wl_display_add_client_created_listener(static_cast<wl_display *>(display()), &watch.listener);
+}
+
+void WaylandCompositor::handleTextInputBound(void *client) {
+    // The seat's text-input objects are created by the first client to bind.
+    connectTextInputs();
+    QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
+    if (!focus || focus->waylandClient() != client || !focus->primaryView())
+        return;
+    if (auto *item = qobject_cast<QWaylandQuickItem *>(focus->primaryView()->renderObject()))
+        item->takeFocus();
+}
+
+void WaylandCompositor::handleTextInputSurfaceEnabled(QWaylandSurface *surface) {
+    m_textInputSurfaces.insert(surface);
+    if (defaultSeat() && surface == defaultSeat()->keyboardFocus())
+        emit nativeTextInputPanelRequested(true);
+}
+
+void WaylandCompositor::handleTextInputSurfaceDisabled(QWaylandSurface *surface) {
+    m_textInputSurfaces.remove(surface);
+    if (defaultSeat() && surface == defaultSeat()->keyboardFocus())
+        emit nativeTextInputPanelRequested(false);
 }
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,

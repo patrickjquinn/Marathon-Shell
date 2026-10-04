@@ -1,0 +1,9 @@
+# Started by marathon-shell-session once the compositor is up. systemd only
+# lets a session unit start graphical-session.target (RefuseManualStart), and
+# xdg-desktop-portal is PartOf/Requisite it, so without this flatpak apps had
+# no portals: no file chooser, and no Secret portal for their keyrings.
+[Unit]
+Description=Marathon graphical session
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

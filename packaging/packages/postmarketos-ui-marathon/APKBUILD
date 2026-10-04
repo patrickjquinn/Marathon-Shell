@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -41,9 +41,6 @@ depends="
 	xdg-desktop-portal
 	xdg-desktop-portal-gtk
 	xdg-desktop-portal-wlr
-	"
-
-_pmb_recommends="
 	flatpak
 	"
 

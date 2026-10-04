@@ -87,6 +87,7 @@ set(SOURCES
     src/components/bluetoothagent.cpp
     src/managers/marathoninputmethodengine.h
     src/managers/marathoninputmethodengine.cpp
+    src/managers/marathoninputcontext.cpp
     src/managers/rtscheduler.h
     src/managers/rtscheduler.cpp
     src/dbus/freedesktopnotifications.h
@@ -170,8 +171,6 @@ if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
         src/wayland/waylandcompositor.h
         src/wayland/waylandcompositor.cpp
-        src/wayland/textinputv3.h
-        src/wayland/textinputv3.cpp
         src/wayland/securitycontextv1.h
         src/wayland/securitycontextv1.cpp
         src/wayland/fifov1.h
@@ -190,11 +189,8 @@ if(TARGET Qt6::WaylandCompositor)
         # wayland-scanner generates a server header + private-code .c
         # in the build dir, which we then add to SOURCES.
         #
-        # text-input-unstable-v3 is named the way it is for protocol-
-        # version compatibility (it follows the pre-staging naming).
-        # Everything else follows the staging naming (foo-vN.xml →
-        # foo-vN-server.h, foo-vN.c) which matches the upstream
-        # wayland-protocols layout.
+        # Each follows the staging naming (foo-vN.xml → foo-vN-server.h,
+        # foo-vN.c), which matches the upstream wayland-protocols layout.
         function(marathon_scan_protocol XML_STEM HEADER_STEM)
             set(_xml    ${CMAKE_CURRENT_SOURCE_DIR}/protocols/${XML_STEM}.xml)
             set(_hdr    ${CMAKE_CURRENT_BINARY_DIR}/${HEADER_STEM}-server.h)
@@ -208,7 +204,6 @@ if(TARGET Qt6::WaylandCompositor)
             set(SOURCES ${SOURCES} ${_code} ${_hdr} PARENT_SCOPE)
         endfunction()
 
-        marathon_scan_protocol(text-input-unstable-v3 text-input-unstable-v3)
         marathon_scan_protocol(security-context-v1    security-context-v1)
         marathon_scan_protocol(fifo-v1                fifo-v1)
         marathon_scan_protocol(commit-timing-v1       commit-timing-v1)
@@ -315,6 +310,9 @@ endif()
 message(STATUS "Found PAM library: ${PAM_LIBRARY}")
 
 qt6_add_executable(marathon-shell ${SOURCES})
+# A static plugin compiled into the shell; Q_IMPORT_PLUGIN in main.cpp.
+set_source_files_properties(src/managers/marathoninputcontext.cpp PROPERTIES
+    COMPILE_DEFINITIONS QT_STATICPLUGIN)
 
 # Mark singleton files BEFORE adding QML module
 set(SINGLETON_FILES

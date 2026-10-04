@@ -17,8 +17,12 @@ emit_installed() {
     local first=1
     while IFS=$'\t' read -r app_id version name; do
         [ -z "$app_id" ] && continue
-        local icon="$HOME/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/$app_id.png"
-        [ -f "$icon" ] || icon=""
+        local icons="$HOME/.local/share/flatpak/exports/share/icons/hicolor" icon=""
+        for candidate in 128x128/apps/$app_id.png 256x256/apps/$app_id.png \
+                         512x512/apps/$app_id.png scalable/apps/$app_id.svg \
+                         64x64/apps/$app_id.png; do
+            [ -f "$icons/$candidate" ] && { icon="$icons/$candidate"; break; }
+        done
         [ "$first" = 1 ] || printf ','
         first=0
         printf '{"app_id":%s,"name":%s,"version":%s,"icon":%s}' \

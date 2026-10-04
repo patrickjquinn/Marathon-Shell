@@ -166,8 +166,9 @@ void InputContext::detectInputMode() {
     const Qt::InputMethodHints hints     = static_cast<Qt::InputMethodHints>(hintValue.toInt());
     if (hints & Qt::ImhEmailCharactersOnly) {
         setInputModeInternal("email");
-    } else if ((hints & Qt::ImhUrlCharactersOnly) ||
-               ((hints & Qt::ImhNoAutoUppercase) && (hints & Qt::ImhNoPredictiveText))) {
+    } else if (hints & Qt::ImhUrlCharactersOnly) {
+        // Only the explicit hint: GTK's plain entries arrive over
+        // text-input-v3 as no-autocaps + no-prediction, which isn't a URL.
         setInputModeInternal("url");
     } else if (hints & Qt::ImhDigitsOnly) {
         setInputModeInternal("number");

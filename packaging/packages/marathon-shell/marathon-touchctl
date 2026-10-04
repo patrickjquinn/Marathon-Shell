@@ -155,6 +155,10 @@ def main():
             for line in sys.stdin:
                 parse_and_run(ui, line)
     finally:
+        # Let the compositor read the last release before the device goes
+        # away; removing it first cancels the touch, so one-shot taps were
+        # dropped about a quarter of the time.
+        time.sleep(0.2)
         ui.close()
 
 

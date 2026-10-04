@@ -725,6 +725,10 @@ class AppStoreObject : public IpcPermissionedService {
     void         CheckForUpdates();
     void         DownloadApp(const QString &appId);
     void         CancelDownload(const QString &appId);
+    // Runs marathon-store-handler for a marathon-store:// URL. The Store's
+    // own sandbox gives it a private home, so flatpak --user must run from
+    // the shell's side of that boundary.
+    void RunStoreUrl(const QString &url);
 
   signals:
     void StateChanged(const QVariantMap &state);

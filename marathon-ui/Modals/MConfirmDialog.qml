@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
@@ -6,6 +7,7 @@ import QtQuick
 Rectangle {
     id: root
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
     property string title: "Confirm"
     property string message: ""
     property string confirmText: "Confirm"
@@ -17,7 +19,9 @@ Rectangle {
 
     anchors.fill: parent
     color: MColors.overlay
-    visible: opacity > 0
+    // The fade spring settles within its epsilon of 0, not at 0; hiding at
+    // exactly 0 left a faint, touch-eating overlay after closing.
+    visible: showing || opacity > MMotion.epsilon
     opacity: showing ? 1.0 : 0.0
     z: 10000
 
@@ -37,7 +41,7 @@ Rectangle {
     Rectangle {
         id: dialogContainer
         anchors.centerIn: parent
-        width: Math.min(parent.width * 0.9, 400)
+        width: Math.min(parent.width * 0.9, Math.round(400 * root.scaleFactor))
         height: contentColumn.height + MSpacing.xl * 2
 
         color: "transparent"

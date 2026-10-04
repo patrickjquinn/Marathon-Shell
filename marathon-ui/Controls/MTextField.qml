@@ -11,7 +11,8 @@ import MarathonOS.Shell
 // slot and a `placeholder` alias (so callers don't need to learn the
 // upstream "placeholderText" key). `text` is read+write and binds two-way
 // like a TextField; `enabled` controls whether the user can interact.
-Item {
+// A FocusScope so forceActiveFocus() on the control reaches the input.
+FocusScope {
     id: root
 
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
@@ -65,6 +66,7 @@ Item {
             font.pixelSize: MTypography.sizeBody
             verticalAlignment: TextInput.AlignVCenter
             selectByMouse: true
+            focus: true
             // Drop the upstream FrameStyle — we draw the surround ourselves.
             background: null
             enabled: root.enabled

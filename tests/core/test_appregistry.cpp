@@ -104,17 +104,19 @@ class TestAppRegistry : public QObject {
     void getAppReturnsCompleteData() {
         MarathonAppRegistry registry;
 
-        auto                app = makeApp("com.full", "Full App");
-        app.permissions         = {"camera", "location"};
-        app.searchKeywords      = {"photo", "snap"};
-        app.categories          = {"utilities", "media"};
-        app.handlesUriSchemes   = {"https", "marathon"};
-        app.defaultFor          = {"image/jpeg"};
-        app.deepLinksJson       = R"({"open":"/open"})";
+        auto                app    = makeApp("com.full", "Full App");
+        app.permissions            = {"camera", "location"};
+        app.searchKeywords         = {"photo", "snap"};
+        app.categories             = {"utilities", "media"};
+        app.handlesUriSchemes      = {"https", "marathon"};
+        app.defaultFor             = {"image/jpeg"};
+        app.deepLinksJson          = R"({"open":"/open"})";
+        app.backgroundCapabilities = {"audio"};
+        app.requiresQtModules      = {"QtMultimedia"};
         registry.registerAppInfo(app);
 
         QVariantMap result = registry.getApp("com.full");
-        QCOMPARE(result.count(), 14);
+        QCOMPARE(result.count(), 16);
         QCOMPARE(result["id"].toString(), QString("com.full"));
         QCOMPARE(result["permissions"].toStringList(), QStringList({"camera", "location"}));
         QCOMPARE(result["searchKeywords"].toStringList(), QStringList({"photo", "snap"}));
@@ -122,6 +124,8 @@ class TestAppRegistry : public QObject {
         QCOMPARE(result["handlesUriSchemes"].toStringList(), QStringList({"https", "marathon"}));
         QCOMPARE(result["defaultFor"].toStringList(), QStringList({"image/jpeg"}));
         QCOMPARE(result["deepLinks"].toString(), QString(R"({"open":"/open"})"));
+        QCOMPARE(result["backgroundCapabilities"].toStringList(), QStringList({"audio"}));
+        QCOMPARE(result["requiresQtModules"].toStringList(), QStringList({"QtMultimedia"}));
     }
 
     // === CONTRACT: Model data() roles must match getApp() keys ===

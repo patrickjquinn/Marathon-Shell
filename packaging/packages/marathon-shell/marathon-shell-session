@@ -449,6 +449,50 @@ mkdir -p /home/user/.marathon 2>/dev/null
     fi
 } > /home/user/.marathon/session-env.log 2>&1
 
+# ---- Secret Service ----------------------------------------------------------
+#
+# Apps keep tokens and passwords through org.freedesktop.secrets, which
+# gnome-keyring serves from a default keyring. greetd logs in without a
+# password, so pam_gnome_keyring has nothing to unlock a keyring with and there
+# is no prompter to create one: every Secret Service call failed ("Secret
+# Service Error" in Authenticator and the like). Seed a plain-text "login"
+# keyring as the default when none exists, then start the daemon and unlock it.
+# Plain text because the session has no password to derive a key from: the
+# secrets are as safe as the device and this mode-600 file.
+if command -v gnome-keyring-daemon >/dev/null 2>&1 && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    keyrings="$HOME/.local/share/keyrings"
+    if [ ! -e "$keyrings/default" ]; then
+        mkdir -p "$keyrings" && chmod 700 "$keyrings"
+        printf '[keyring]\ndisplay-name=Login\nctime=0\nmtime=0\nlock-on-idle=false\nlock-after=false\n' \
+            > "$keyrings/login.keyring"
+        printf login > "$keyrings/default"
+        chmod 600 "$keyrings/login.keyring" "$keyrings/default"
+    fi
+    gnome-keyring-daemon --replace --components=secrets --daemonize >/dev/null 2>&1 || true
+    busctl --user call org.freedesktop.secrets /org/freedesktop/secrets \
+        org.freedesktop.Secret.Service Unlock ao 1 /org/freedesktop/secrets/collection/login \
+        >/dev/null 2>&1 || true
+fi
+
+# ---- Graphical session -------------------------------------------------------
+#
+# xdg-desktop-portal (file chooser, and the Secret portal flatpak apps use for
+# their keyrings) is PartOf/Requisite graphical-session.target, which only a
+# session unit may start. Once the compositor's socket exists, hand the user
+# manager the display and start marathon-session.target, which binds it.
+if command -v systemctl >/dev/null 2>&1; then
+    (
+        socket="${MARATHON_WL_SOCKET_NAME:-marathon-wayland-0}"
+        for _ in $(seq 1 60); do
+            [ -S "$XDG_RUNTIME_DIR/$socket" ] && break
+            sleep 0.5
+        done
+        systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
+            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland
+        systemctl --user start marathon-session.target
+    ) </dev/null >/dev/null 2>&1 &
+fi
+
 # ---- Launch ------------------------------------------------------------------
 #
 # The shell is launched inside a Delegate=yes user slice so it can carve

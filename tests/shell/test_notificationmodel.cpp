@@ -27,7 +27,9 @@ class TestNotificationModel : public QObject {
 
         int               id = model.addNotification("com.app", "Title", "Body", "icon");
 
-        QVERIFY(id > 0);
+        // addNotification() is the transient (model-only) path: negative ids,
+        // disjoint from database-backed ones (see NotificationModel).
+        QVERIFY(id < 0);
         QCOMPARE(model.count(), 1);
         QCOMPARE(model.unreadCount(), 1);
         QCOMPARE(countSpy.count(), 1);
@@ -36,16 +38,17 @@ class TestNotificationModel : public QObject {
         QCOMPARE(addedSpy.first().first().toInt(), id);
     }
 
-    // === CONTRACT: IDs are monotonically increasing ===
+    // === CONTRACT: transient IDs are unique and never collide with persisted ones ===
 
-    void idsAreIncreasing() {
+    void transientIdsAreUnique() {
         NotificationModel model;
         int               id1 = model.addNotification("a", "T1", "B1", "i");
         int               id2 = model.addNotification("a", "T2", "B2", "i");
         int               id3 = model.addNotification("b", "T3", "B3", "i");
 
-        QVERIFY(id2 > id1);
-        QVERIFY(id3 > id2);
+        QVERIFY(id1 < 0 && id2 < 0 && id3 < 0);
+        QVERIFY(id2 < id1);
+        QVERIFY(id3 < id2);
     }
 
     // === CONTRACT: Newest notification is at index 0 ===

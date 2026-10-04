@@ -489,10 +489,29 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
         return false;
     }
 
+    // Already running with a surface: bring it forward rather than spawn.
+    // This sat in launchMarathonApp only, so native apps and flatpaks always
+    // re-spawned; a single-instance app then handed off to its running copy,
+    // no new surface ever arrived, and the launch timed out.
+    if (hasUsableSurface) {
+        qInfo() << "[AppLaunchService] Restoring running app:" << appId << "surfaceId"
+                << heldTask->surfaceId() << "type" << heldTask->appType();
+        if (m_uiStore)
+            invokeVoid(m_uiStore, "restoreApp", {appId, name, appObj.value("icon")});
+        invokeVoid(win, "show",
+                   {appId, name, appObj.value("icon"), heldTask->appType(),
+                    QVariant::fromValue(heldTask->waylandSurface()), heldTask->surfaceId()});
+        m_launchingApps.remove(appId);
+        emit appLaunchCompleted(appId, name);
+        return true;
+    }
+
     m_launchingApps.insert(appId);
     emit appLaunchStarted(appId, name);
 
-    if (type == "native")
+    // A flatpak is a native Wayland client too; the compositor's launchApp
+    // recognises its FLATPAK: exec and adds the socket arguments.
+    if (type == "native" || type == "flatpak")
         return launchNativeApp(appObj, comp, win);
     return launchMarathonApp(appObj, comp, win);
 }
@@ -549,42 +568,11 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         return false;
     }
 
+    // launchApp() has already restored any task with a usable surface.
     if (m_taskModel) {
-        if (Task *existing = m_taskModel->getTaskByAppId(appId)) {
-            if (existing->appType() == "native" && existing->surfaceId() >= 0 &&
-                existing->waylandSurface()) {
-                if (m_uiStore)
-                    invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
-
-                invokeVoid(appWindowRef, "show",
-                           {appId, name, icon, QStringLiteral("native"),
-                            QVariant::fromValue(existing->waylandSurface()),
-                            existing->surfaceId()});
-
-                m_launchingApps.remove(appId);
-                emit appLaunchCompleted(appId, name);
-                return true;
-            }
-            // Marathon (QML) app already in the task model — bring it forward
-            // instead of re-spawning. Without this, a tap on the task-switcher
-            // card while the surface is still attaching spawned a parallel
-            // bwrap + runner pair (two 75-100 MB clones for the same app).
-            if (existing->surfaceId() >= 0 && existing->waylandSurface()) {
-                qWarning() << "[AppLaunchService] Restore branch:" << appId << "surfaceId"
-                           << existing->surfaceId() << "type" << existing->appType();
-                if (m_uiStore)
-                    invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
-                invokeVoid(appWindowRef, "show",
-                           {appId, name, icon, existing->appType(),
-                            QVariant::fromValue(existing->waylandSurface()),
-                            existing->surfaceId()});
-                m_launchingApps.remove(appId);
-                emit appLaunchCompleted(appId, name);
-                return true;
-            }
+        if (Task *existing = m_taskModel->getTaskByAppId(appId))
             qWarning() << "[AppLaunchService] Task without usable surface for" << appId
                        << "- surfaceId" << existing->surfaceId() << "- falling to cold spawn";
-        }
     }
 
     if (m_uiStore)

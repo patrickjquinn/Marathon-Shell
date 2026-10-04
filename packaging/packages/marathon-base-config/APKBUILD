@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=38
+pkgrel=39
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -68,6 +68,8 @@ source="
 	marathon-mailserver.service
 	greetd-marathon.toml
 	marathon.slice
+	marathon-session.target
+	marathon-portals.conf
 "
 package() {
 	install -Dm644 "$srcdir/99-marathon.conf" \
@@ -122,6 +124,10 @@ package() {
 	# overhaul). See marathon-shell-session for the systemd-run hook.
 	install -Dm644 "$srcdir/marathon.slice" \
 		"$pkgdir/usr/lib/systemd/user/marathon.slice"
+	install -Dm644 "$srcdir/marathon-session.target" \
+		"$pkgdir/usr/lib/systemd/user/marathon-session.target"
+	install -Dm644 "$srcdir/marathon-portals.conf" \
+		"$pkgdir/usr/share/xdg-desktop-portal/marathon-portals.conf"
 	install -Dm644 "$srcdir/greetd-marathon.toml" \
 		"$pkgdir/etc/greetd/config.toml"
 	install -d "$pkgdir"/etc/systemd/system/graphical.target.wants
@@ -158,44 +164,25 @@ disable NetworkManager-wait-online.service
 disable iwd.service
 PRESET
 
-	# User-scope preset: disable gnome-keyring-daemon + xdg-desktop-portal
-	# auto-start. Marathon doesn't use gnome-keyring (we have our own
-	# SecretService impl); the keyring daemon dangles, spams
-	# "couldn't unlock the login keyring" on every PAM session, and its
-	# socket sitting in basic.target.wants drags xdg-desktop-portal's
-	# start into a failed-dependency cascade. Disabling both at user
-	# scope kills the whole noise tree.
+	# User-scope preset: no socket-activated gnome-keyring. The session
+	# script starts the daemon itself with the login keyring it prepares
+	# (marathon-shell-session); the socket in basic.target.wants started it
+	# early and unprepared, spamming "couldn't unlock the login keyring".
 	install -dm755 "$pkgdir/usr/lib/systemd/user-preset"
 	cat > "$pkgdir/usr/lib/systemd/user-preset/10-marathon-no-keyring.preset" <<'PRESET'
-# We don't use gnome-keyring; mask its auto-start sockets/services so they
-# don't fail the xdg-desktop-portal dep chain.
+# marathon-shell-session starts gnome-keyring with the prepared keyring.
 disable gnome-keyring-daemon.service
 disable gnome-keyring-daemon.socket
 
-# xdg-desktop-portal needs graphical-session.target active to start.
-# Marathon's compositor runs in marathon-shell-bin (not a freedesktop
-# session manager), so graphical-session.target never activates and the
-# portal's Requisite chain fails with "dep failed" twice per boot.
-# Disable until we ship flatpak apps that actually need portal RPCs
-# (file pickers / screencast). When that day arrives, fix it by adding
-# a marathon-shell-session script that does
-# `systemctl --user start graphical-session.target` after the compositor
-# is up.
-disable xdg-desktop-portal.service
-disable xdg-desktop-portal-gtk.service
+# Marathon is not a wlroots compositor; the wlr portal can't work here.
 disable xdg-desktop-portal-wlr.service
 PRESET
 
-	# xdg-desktop-portal.service is shipped as `static` (no [Install]
-	# section), so a preset `disable` is a no-op. Mask it for all user
-	# sessions via /etc/systemd/user (equivalent to system-wide for the
-	# user manager). Without this the graphical-session.target's Wants=
-	# still pulls it in, it fails with "Dependency failed for Portal",
-	# and we get 2 noisy lines per session. The /dev/null symlink kills
-	# the activation cleanly.
+	# The wlr portal is D-Bus activatable regardless of presets, so mask it.
+	# xdg-desktop-portal and its GTK backend stay live: flatpak apps need
+	# them, and marathon-session.target now brings up the
+	# graphical-session.target they require.
 	install -d "$pkgdir/etc/systemd/user"
-	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal.service"
-	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal-gtk.service"
 	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal-wlr.service"
 
 	# Ship a placeholder /etc/resolv.conf so avahi-daemon (Type=dbus
@@ -317,4 +304,6 @@ a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb
 059e2963443a8df6d93976901981f71084da5772f625ebb44ed8302ec66ffac8a69e9b78bba44b75b6fc335a2a0e2b2f610adb5a912d3762b29d897fc7432745  marathon-mailserver.service
 962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
 4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
+c02b29a3a33e11c1d9605ff96f272c5026d7958dd7acf6fff79a3826e5a83960c815707485e93259b8e47a813c91a9c5ac2cbe55e7eeb678c5c0968a1274ad41  marathon-session.target
+2fb2c1e9b5d47ce35765a5df82847735c5d105bdecf1a2fc59d4a482c8d4f68e6957ff7d0b52c8a7ed1226172696ca5f5af6900394e5ba6e82b32646d1458f49  marathon-portals.conf
 "

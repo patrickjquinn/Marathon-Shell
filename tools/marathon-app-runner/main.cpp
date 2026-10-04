@@ -788,6 +788,11 @@ int main(int argc, char *argv[]) {
         qCritical() << "[marathon-app-runner] App not found in registry:" << appId;
         return 3;
     }
+    // System apps configure other apps (Settings' default-app pickers and
+    // notification toggles), so they need every app in the registry, not
+    // just their own. The scan only appends, so `info` stays valid.
+    if (info->permissions.contains(QStringLiteral("system")))
+        scanner.scanApplications();
 
     QQuickView view;
     view.setResizeMode(QQuickView::SizeRootObjectToView);

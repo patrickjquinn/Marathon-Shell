@@ -288,8 +288,10 @@ Item {
                         // before truncating. At ≥1.25× canvas the cell width
                         // can't hold "Calculator" / "App Store" / "Messages"
                         // / "Calendar" in one line at the scaled footnote
-                        // size; wrap → fit instead of "Calcul…".
-                        wrapMode: Text.Wrap
+                        // size; wrap → fit instead of "Calcul…". Only at
+                        // word boundaries: one long word elides rather than
+                        // splitting as "Authenticat / or".
+                        wrapMode: Text.WordWrap
                         elide: Text.ElideRight
                         maximumLineCount: 2
                     }

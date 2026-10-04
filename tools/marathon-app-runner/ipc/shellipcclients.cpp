@@ -786,7 +786,9 @@ void SettingsClient::refresh() {
             return;
         }
 
-        m_state = r.value();
+        // Nested maps (defaultApps) arrive as QDBusArgument; unwrap so
+        // toMap() on them isn't empty.
+        m_state = normalizeMapDeep(r.value());
 
         emit userScaleFactorChanged();
         emit wallpaperPathChanged();
@@ -849,7 +851,7 @@ void SettingsClient::setProp(const QString &name, const QVariant &value) {
 }
 
 void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &value) {
-    m_state.insert(name, value.variant());
+    m_state.insert(name, normalizeDbusVariantDeep(value.variant()));
 
     using Notify                                           = void (SettingsClient::*)();
     static const QHash<QString, Notify> kSignalForProperty = {

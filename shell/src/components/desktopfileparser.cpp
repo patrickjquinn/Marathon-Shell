@@ -352,6 +352,12 @@ QString DesktopFileParser::cleanExecLine(const QString &exec) {
         return QString();
     }
 
+    // Flathub's exports spell the binary out in full. Unrecognised, every
+    // flatpak was typed "native": it skipped the compositor's flatpak launch
+    // path and the flatpak-export watcher never removed it on uninstall.
+    if (cleaned.startsWith(QLatin1String("/usr/bin/flatpak run ")))
+        cleaned.remove(0, int(qstrlen("/usr/bin/")));
+
     if (cleaned.startsWith("flatpak run ")) {
         qDebug() << "[DesktopFileParser] Detected Flatpak app, adding Wayland permissions:"
                  << cleaned;

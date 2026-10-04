@@ -10,6 +10,9 @@
 # MARATHON_SHELL_SRC="" (explicitly empty) to fall back to cloning
 # MARATHON_SHELL_GIT at MARATHON_SHELL_REF.
 #
+# ALPINE_MIRROR=https://mirrors.edge.kernel.org/alpine (for example) builds
+# against that mirror instead of the CDN, for when edge is mid-rebuild.
+#
 # The APKBUILD's source= URL is a floating branch tarball and is NOT what
 # gets built here — the tree below is staged into /var/cache/distfiles
 # under the expected filename and abuild -F checksum is re-run over it,
@@ -57,12 +60,20 @@ podman run --rm -i \
     -e PKGVER="$PKGVER" \
     -e PKGREL="$PKGREL" \
     -e TARGET="$TARGET" \
+    -e ALPINE_MIRROR="${ALPINE_MIRROR:-}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
     -v "$MKOSI_PKG_DIR:/local-apks:z,ro" \
     "${SHELL_MOUNT_ARGS[@]}" \
     alpine:edge sh -s <<'CSCRIPT'
 set -euo pipefail
+# edge is sometimes caught mid-rebuild on the CDN (a library bumped before
+# its dependents are rebuilt), which makes the dependency set unsatisfiable.
+# ALPINE_MIRROR points at a mirror that hasn't synced the half-done state yet.
+if [ -n "$ALPINE_MIRROR" ]; then
+    printf '%s/edge/main\n%s/edge/community\n' "$ALPINE_MIRROR" "$ALPINE_MIRROR" \
+        > /etc/apk/repositories
+fi
 apk add --no-cache --quiet \
     abuild rsync curl ca-certificates git \
     cmake samurai build-base \
