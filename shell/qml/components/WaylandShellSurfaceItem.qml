@@ -104,20 +104,26 @@ ShellSurfaceItem {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: size unchanged (" + newSize.width + "x" + newSize.height + " vs " + lastSentSize.width + "x" + lastSentSize.height + ")");
             return;
         }
+        var firstConfigure = !hasSentInitialSize;
         lastSentSize = newSize;
         hasSentInitialSize = true;
         Logger.info("WaylandShellSurfaceItem", "Configuring app size: " + newSize.width + "x" + newSize.height);
         var states = [];
         states.push(1);
         toplevel.sendConfigure(newSize, states);
-        if (AppLaunchService.compositor) {
+        // Focus a surface when it first maps; after that, keyboard focus
+        // follows QML focus. Re-taking it on every resize let a background
+        // surface steal focus whenever the keyboard resized the app area,
+        // and the keyboard toggling that caused bounced focus between apps
+        // hundreds of times a second.
+        if (firstConfigure && AppLaunchService.compositor) {
             AppLaunchService.compositor.activateSurface(surfaceId);
             Qt.callLater(takeFocusForKeyboard);
         }
     }
 
     function takeFocusForKeyboard() {
-        if (!isMinimized && hasSentInitialSize)
+        if (!isPreview && !isMinimized && hasSentInitialSize && visible)
             forceActiveFocus();
     }
 
@@ -183,8 +189,16 @@ ShellSurfaceItem {
             SurfaceRegistry.registerSurface(surfaceId, this);
     }
     onIsMinimizedChanged: {
-        if (!isMinimized)
+        if (!isMinimized) {
             Qt.callLater(_assertPrimary);
+            Qt.callLater(takeFocusForKeyboard);
+        }
+    }
+    // A restored or switched-to app is shown, not resized, so its surface
+    // takes keyboard focus here (focus follows QML focus from then on).
+    onVisibleChanged: {
+        if (visible)
+            Qt.callLater(takeFocusForKeyboard);
     }
     // A restored / just-thawed idle client won't commit a fresh buffer until a
     // frame callback fires. The single nudge in _assertPrimary can race ahead
