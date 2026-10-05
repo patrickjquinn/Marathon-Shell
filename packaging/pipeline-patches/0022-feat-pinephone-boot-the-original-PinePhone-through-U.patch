@@ -1,0 +1,284 @@
+From 3b33cf1f07ea2e614aec50dd6fce8992eca23cb9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 5 Oct 2026 07:59:54 +0100
+Subject: [PATCH] feat(pinephone): boot the original PinePhone through U-Boot
+ like the Librem 5
+
+The PinePhone's A64 BROM loads U-Boot from byte 8 KiB of the SD card,
+and the device's boot.scr loads vmlinuz, initramfs and
+${fdtfile} (allwinner/<board>.dtb on arm64 sunxi) from an ext4
+partition 1. mkosi's default ESP + GPT layout fits neither: the GPT's
+partition-entry array covers the 8 KiB slot, and nothing put U-Boot or
+the boot files where the board looks for them.
+
+That is the Librem 5's boot shape, so the PinePhone joins its path:
+- mkosi-configure: Bootloader=uki for pine64-pinephone (exact match;
+  the PinePhone Pro boots differently).
+- mkosi.finalize: LIBREM5_UBOOT_BOOT becomes UBOOT_SCRIPT_BOOT, set for
+  both devices, so the PinePhone gets the /etc stash and the boot
+  composer (vmlinuz, chroot mkinitfs). The Librem 5's board-revision
+  DTB fallback is now gated to the Librem 5.
+- build-image.py: the Librem 5 disk rebuild is shared, parameterised
+  by the U-Boot blob, its byte offset and the partition table. The
+  PinePhone rebuild copies the board DTBs to allwinner/ on the boot
+  partition, replaces the GPT with a pure MBR (as pmOS does), and
+  writes u-boot-sunxi-with-spl-528.bin at 8 KiB.
+---
+ mkosi.finalize             | 66 ++++++++++++++++++++------------------
+ scripts/build-image.py     | 52 +++++++++++++++++++++++++++---
+ scripts/mkosi-configure.py |  7 ++++
+ 3 files changed, 90 insertions(+), 35 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index e9e2dcf..74f3bbe 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -129,14 +129,16 @@ fi
+ # systemd-confext-initrd.service in the initramfs. Needs the same /etc
+ # stash dance as the Pi (without it PID 1 systemd starts on empty /etc
+ # and hangs).
+-LIBREM5_UBOOT_BOOT=""
+-if [ "${PMOS_DEVICE#purism-librem5}" != "$PMOS_DEVICE" ]; then
+-    LIBREM5_UBOOT_BOOT=1
+-fi
++# The PinePhone boots the same way: U-Boot runs its boot.scr against an
++# ext4 partition 1 holding vmlinuz, initramfs and DTBs.
++UBOOT_SCRIPT_BOOT=""
++case "$PMOS_DEVICE" in
++    purism-librem5*|pine64-pinephone) UBOOT_SCRIPT_BOOT=1 ;;
++esac
+ 
+ NEED_ETC_STASH=""
+ [ -n "$PI_BASE_FIRMWARE_BOOT" ] && NEED_ETC_STASH=1
+-[ -n "$LIBREM5_UBOOT_BOOT" ] && NEED_ETC_STASH=1
++[ -n "$UBOOT_SCRIPT_BOOT" ] && NEED_ETC_STASH=1
+ 
+ PI_ETC_STASH=""
+ if [ -n "$NEED_ETC_STASH" ] && [ -d "$BUILDROOT/etc" ]; then
+@@ -502,7 +504,7 @@ CONFIG
+         # /boot. Restore it, build a real duranium-initramfs via chroot
+         # mkinitfs (the UKI's .initrd is kmods-only), and stage the three
+         # board-rev DTBs alongside.
+-        if [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++        if [ -n "${UBOOT_SCRIPT_BOOT:-}" ]; then
+             LIBREM5_KVER=$(ls "$BUILDROOT/usr/lib/modules/" 2>/dev/null | grep librem5 | head -1)
+             if [ -z "$LIBREM5_KVER" ]; then
+                 LIBREM5_KVER=$(ls "$BUILDROOT/usr/lib/modules/" 2>/dev/null | head -1)
+@@ -573,23 +575,25 @@ CONFIG
+             # for the common case; this loop is the fallback for when
+             # boot-deploy is disabled or fails. Warn only if BOTH
+             # /boot and the kernel-pkg source are missing the DTB.
+-            for r in r2 r3 r4; do
+-                DST="$BUILDROOT/boot/imx8mq-librem5-$r.dtb"
+-                if [ -f "$DST" ]; then
+-                    echo "info: Librem 5 DTB imx8mq-librem5-$r.dtb already at /boot/ (boot-deploy)"
+-                    continue
+-                fi
+-                SRC=""
+-                if [ -n "$LIBREM5_KVER" ]; then
+-                    SRC="$BUILDROOT/usr/lib/modules/$LIBREM5_KVER/dtb/freescale/imx8mq-librem5-$r.dtb"
+-                fi
+-                if [ -n "$SRC" ] && [ -f "$SRC" ]; then
+-                    cp "$SRC" "$DST"
+-                    echo "info: Librem 5 staged DTB imx8mq-librem5-$r.dtb from kernel pkg"
+-                else
+-                    echo "warning: Librem 5 DTB imx8mq-librem5-$r.dtb absent (neither /boot/ nor kernel pkg)"
+-                fi
+-            done
++            if [ "${PMOS_DEVICE#purism-librem5}" != "$PMOS_DEVICE" ]; then
++                for r in r2 r3 r4; do
++                    DST="$BUILDROOT/boot/imx8mq-librem5-$r.dtb"
++                    if [ -f "$DST" ]; then
++                        echo "info: Librem 5 DTB imx8mq-librem5-$r.dtb already at /boot/ (boot-deploy)"
++                        continue
++                    fi
++                    SRC=""
++                    if [ -n "$LIBREM5_KVER" ]; then
++                        SRC="$BUILDROOT/usr/lib/modules/$LIBREM5_KVER/dtb/freescale/imx8mq-librem5-$r.dtb"
++                    fi
++                    if [ -n "$SRC" ] && [ -f "$SRC" ]; then
++                        cp "$SRC" "$DST"
++                        echo "info: Librem 5 staged DTB imx8mq-librem5-$r.dtb from kernel pkg"
++                    else
++                        echo "warning: Librem 5 DTB imx8mq-librem5-$r.dtb absent (neither /boot/ nor kernel pkg)"
++                    fi
++                done
++            fi
+             if [ -f "$BUILDROOT/boot/boot.scr" ]; then
+                 echo "info: Librem 5 boot.scr present at /boot/boot.scr"
+             else
+@@ -617,7 +621,7 @@ CONFIG
+     else
+         # No systemd-boot loader entries AND not a Pi-firmware-or-L5 device.
+         # Hard fail.
+-        if [ -z "${PI_FIRMWARE_BOOT:-}" ] && [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
++        if [ -z "${PI_FIRMWARE_BOOT:-}" ] && [ -z "${UBOOT_SCRIPT_BOOT:-}" ]; then
+             echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
+             exit 1
+         fi
+@@ -707,8 +711,8 @@ CONFIG
+         # Pi-firmware fallback path retained for the case where the UKI
+         # truly is missing. Librem 5 always runs this path — its UKI
+         # initrd is kmods-only and needs duranium-initramfs overlay.
+-        if [ -n "${PI_FIRMWARE_BOOT:-}" ] || [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
+-            if [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++        if [ -n "${PI_FIRMWARE_BOOT:-}" ] || [ -n "${UBOOT_SCRIPT_BOOT:-}" ]; then
++            if [ -n "${UBOOT_SCRIPT_BOOT:-}" ]; then
+                 echo "info: Librem 5 running mkinitfs to overlay duranium-initramfs onto kmods-only UKI initrd"
+             else
+                 echo "warning: no loader/entries AND no UKI — Pi-firmware path falling back to legacy mkinitfs composer"
+@@ -816,7 +820,7 @@ CONFIG
+                 # Stage destination differs per boot path:
+                 #   Pi 5: /boot/initramfs_2712 (Pi OS Lite default name)
+                 #   L5:   /boot/initramfs (matches boot.scr's ext2load)
+-                if [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++                if [ -n "${UBOOT_SCRIPT_BOOT:-}" ]; then
+                     STAGED="$BUILDROOT/boot/initramfs"
+                 else
+                     STAGED="$BUILDROOT/boot/initramfs_2712"
+@@ -830,14 +834,14 @@ CONFIG
+                 # Pi 5 only: decompress gzip → plain cpio (recent EEPROM
+                 # chokes on gzip). Librem 5 U-Boot's booti handles
+                 # gzip-compressed initramfs natively, no decomp needed.
+-                if [ -z "${LIBREM5_UBOOT_BOOT:-}" ] \
++                if [ -z "${UBOOT_SCRIPT_BOOT:-}" ] \
+                    && file "$STAGED" 2>/dev/null | grep -q "gzip compressed"; then
+                     gunzip -c "$STAGED" > "$STAGED.cpio"
+                     mv "$STAGED.cpio" "$STAGED"
+                     echo "info: decompressed gzip -> plain cpio (Pi 5 BootROM-friendly)"
+                 fi
+                 # Pi 5 also stages initramfs-rpi as a backwards-compat alias.
+-                if [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
++                if [ -z "${UBOOT_SCRIPT_BOOT:-}" ]; then
+                     cp "$STAGED" "$BUILDROOT/boot/initramfs-rpi"
+                     echo "info: promoted $INITRD_SRC -> /boot/initramfs_2712 (+ initramfs-rpi alias)"
+                 else
+@@ -854,7 +858,7 @@ CONFIG
+             # name kernel_2712.img. auto_initramfs=1 (in config.txt
+             # below) pairs kernel_2712.img with initramfs_2712
+             # automatically. Skip for Librem 5.
+-            if [ -z "${LIBREM5_UBOOT_BOOT:-}" ] \
++            if [ -z "${UBOOT_SCRIPT_BOOT:-}" ] \
+                && [ -f "$BUILDROOT/boot/vmlinuz-rpi" ] \
+                && [ ! -f "$BUILDROOT/boot/kernel_2712.img" ]; then
+                 cp "$BUILDROOT/boot/vmlinuz-rpi" "$BUILDROOT/boot/kernel_2712.img"
+@@ -867,7 +871,7 @@ CONFIG
+             # Without the overlay, the kernel has no DPI panel node and
+             # /dev/fb0 never materialises — blank screen on HyperPixel.
+             # Skip entirely for Librem 5.
+-            if [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
++            if [ -z "${UBOOT_SCRIPT_BOOT:-}" ]; then
+             DTBO="$BUILDROOT/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo"
+             for PI5_DTB in \
+                 "$BUILDROOT/boot/dtbs/broadcom/bcm2712-rpi-5-b.dtb" \
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index f3049f2..8e36db7 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -169,7 +169,19 @@ def build_image(components: List[str], extra_args: List[str]):
+         # Wasted space: ~770 MiB between new boot end and root start
+         # (sectors 528384..2099199). Acceptable cost for an unbreakable
+         # layout. Future iteration: rebuild root forward too.
++        # Devices whose ROM loads U-Boot from a fixed byte offset and whose
++        # boot.scr reads /boot from an ext4 partition 1 share this rebuild:
++        # (U-Boot blob inside the rootfs, byte offset in KiB, partition table).
++        uboot_boot = None
+         if device_name.startswith("purism-librem5"):
++            uboot_boot = ("usr/share/u-boot/librem5/phone-boot.img", 33, "gpt")
++        elif device_name == "pine64-pinephone":
++            # The A64 BROM reads SPL at 8 KiB, which is inside a GPT's
++            # partition-entry array, hence MBR (as pmOS: msdos).
++            uboot_boot = ("usr/share/u-boot/pine64-pinephone/u-boot-sunxi-with-spl-528.bin",
++                          8, "mbr")
++        if uboot_boot:
++            blob_rel, blob_kib, table = uboot_boot
+             raw_path = os.path.join(
+                 "mkosi.output", image_id,
+                 f"{image_id}_{open('mkosi.version').read().strip()}.raw"
+@@ -212,13 +224,22 @@ def build_image(components: List[str], extra_args: List[str]):
+                     sh(["sudo", "-A", "umount", esp_mnt], check=True)
+ 
+                     sh(["sudo", "-A", "mount", "-o", "ro", f"{lo_dev}p2", root_mnt], check=True)
+-                    phone_src = os.path.join(root_mnt, "usr/share/u-boot/librem5/phone-boot.img")
++                    phone_src = os.path.join(root_mnt, blob_rel)
+                     sh(["sudo", "-A", "cp", phone_src, phone_boot_tmp], check=True)
+                     sh(["sudo", "-A", "chmod", "0644", phone_boot_tmp], check=True)
+                     sh(["sudo", "-A", "umount", root_mnt], check=True)
+                 finally:
+                     sh(["sudo", "-A", "losetup", "-d", lo_dev], check=False)
+ 
++                # PinePhone: U-Boot (arm64 sunxi) sets fdtfile=allwinner/<board>.dtb
++                # and boot.scr loads it from partition 1's root; boot-deploy
++                # leaves the board DTBs under dtbs/allwinner/.
++                if device_name == "pine64-pinephone":
++                    import shutil
++                    shutil.copytree(os.path.join(boot_stage, "dtbs", "allwinner"),
++                                    os.path.join(boot_stage, "allwinner"), dirs_exist_ok=True)
++                    print(f"{device_name}: board DTBs staged under allwinner/ on the boot partition")
++
+                 staged_size = sum(
+                     os.path.getsize(os.path.join(dp, f))
+                     for dp, _, fns in os.walk(boot_stage) for f in fns
+@@ -256,15 +277,38 @@ def build_image(components: List[str], extra_args: List[str]):
+                 finally:
+                     sh(["sudo", "-A", "losetup", "-d", lo_dev], check=False)
+ 
+-                # Stage 4: dd phone-boot.img to byte 33 KiB.
++                # Stage 3b (MBR devices): replace the GPT with a pure MBR
++                # describing the same two partitions, before the blob lands
++                # where the GPT's partition entries were.
++                if table == "mbr":
++                    import json
++                    parts = json.loads(sh(["sudo", "-A", "sfdisk", "--json", raw_path],
++                                          capture_output=True, text=True, check=True).stdout
++                                       )["partitiontable"]["partitions"]
++                    sectors = os.path.getsize(raw_path) // 512
++                    sh(["sudo", "-A", "dd", "if=/dev/zero", f"of={raw_path}", "bs=512",
++                        "seek=1", "count=33", "conv=notrunc"], check=True)
++                    sh(["sudo", "-A", "dd", "if=/dev/zero", f"of={raw_path}", "bs=512",
++                        f"seek={sectors - 33}", "count=33", "conv=notrunc"], check=True)
++                    sfdisk_input = (
++                        "label: dos\n"
++                        "unit: sectors\n\n"
++                        f"start={parts[0]['start']}, size={parts[0]['size']}, type=83, bootable\n"
++                        f"start={parts[1]['start']}, size={parts[1]['size']}, type=83\n"
++                    )
++                    sh(["sudo", "-A", "sfdisk", "--no-reread", "--no-tell-kernel", raw_path],
++                       input=sfdisk_input.encode(), check=True)
++                    print(f"{device_name}: GPT replaced with pure MBR (boot + root)")
++
++                # Stage 4: dd the U-Boot blob to its ROM's offset.
+                 sh([
+                     "sudo", "-A", "dd",
+                     f"if={phone_boot_tmp}",
+                     f"of={raw_path}",
+-                    "bs=1024", "seek=33",
++                    "bs=1024", f"seek={blob_kib}",
+                     "conv=notrunc,fsync",
+                 ], check=True)
+-                print(f"Librem 5: dd phone-boot.img to byte 33 KiB of {raw_path}")
++                print(f"{device_name}: dd {os.path.basename(blob_rel)} to byte {blob_kib} KiB of {raw_path}")
+ 
+                 # Cleanup
+                 sh(["sudo", "-A", "rm", "-rf", boot_stage], check=False)
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index b641183..b3bbcd3 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -82,6 +82,13 @@ def main() -> int:
+             # mkosi with the correct layout (boot at 4096 + root after).
+             # mkosi keeps the default layout for now; the rebuild step
+             # is the source of truth.
++        # Original PinePhone: U-Boot (raw-written at 8 KiB of the SD card by
++        # build-image.py) runs the device's boot.scr, which loads vmlinuz,
++        # initramfs and the board DTB from an ext4 partition 1 -- the
++        # Librem 5 shape, so the same Bootloader=uki + finalize composer.
++        # Exact match: pine64-pinephonepro boots differently.
++        if device == "pine64-pinephone":
++            config["Bootloader"] = "uki"
+     elif image == "base":
+         # base gets device+UI packages resolved from pmaports
+         existing = config.get("Packages", [])
+-- 
+2.55.0
+
