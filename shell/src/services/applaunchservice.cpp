@@ -1338,6 +1338,8 @@ QStringList AppLaunchService::spareSandboxArgs() const {
 // A spare that survives this long has finished Qt init and is genuinely warm;
 // anything shorter means the spawn itself is broken.
 static constexpr qint64 kSpareHealthyMs = 30000;
+// Delay before replacing an adopted spare (see adoptSpareRunner).
+static constexpr int kSpareRefillDelayMs = 8000;
 
 void AppLaunchService::spawnSpareRunner() {
     if (m_spareProcess)
@@ -1478,7 +1480,12 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
     m_spareProcess   = nullptr;
     m_sparePid       = -1;
     m_spareAdoptable = false;
-    QTimer::singleShot(1500, this, &AppLaunchService::spawnSpareRunner);
+    // Refill once the adopted app has finished starting. A replacement
+    // spare spends several seconds of CPU loading Qt, Mesa (with LLVM) and
+    // the warm-up QML; spawned 1.5 s after adoption it competed with the
+    // app's own startup on the PinePhone's four A53 cores. An app launched
+    // within this window starts cold.
+    QTimer::singleShot(kSpareRefillDelayMs, this, &AppLaunchService::spawnSpareRunner);
     return true;
 }
 
