@@ -25,6 +25,7 @@ class FifoManagerV1;
 class CommitTimingManagerV1;
 class LinuxDmabufManagerV1;
 class WlDrmManager;
+struct wl_client;
 
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
@@ -41,6 +42,9 @@ class WaylandCompositor : public QWaylandCompositor {
   public:
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
+
+    // A client created a text-input object (see watchTextInputBinds()).
+    void                      handleTextInputBound(wl_client *client);
 
     QQmlListProperty<QObject> surfaces();
     QWaylandQuickOutput      *output() const {
@@ -96,7 +100,6 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
     void connectTextInputs();
-    void handleTextInputBound(void *client);
     void handleTextInputSurfaceEnabled(QWaylandSurface *surface);
     void handleTextInputSurfaceDisabled(QWaylandSurface *surface);
 

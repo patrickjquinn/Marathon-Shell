@@ -900,8 +900,11 @@ namespace {
             return;
         // Queued: Qt records the client as a text-input user only after the
         // resource is set up, and takeFocus() checks that record.
-        QMetaObject::invokeMethod(watch->compositor, "handleTextInputBound", Qt::QueuedConnection,
-                                  Q_ARG(void *, wl_resource_get_client(resource)));
+        WaylandCompositor *compositor = watch->compositor;
+        wl_client         *client     = wl_resource_get_client(resource);
+        QMetaObject::invokeMethod(
+            compositor, [compositor, client]() { compositor->handleTextInputBound(client); },
+            Qt::QueuedConnection);
     }
 
     void textInputClientDestroyed(wl_listener *listener, void *) {
@@ -935,7 +938,7 @@ void WaylandCompositor::watchTextInputBinds() {
     wl_display_add_client_created_listener(static_cast<wl_display *>(display()), &watch.listener);
 }
 
-void WaylandCompositor::handleTextInputBound(void *client) {
+void WaylandCompositor::handleTextInputBound(wl_client *client) {
     // The seat's text-input objects are created by the first client to bind.
     connectTextInputs();
     QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
