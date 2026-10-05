@@ -13,7 +13,9 @@
 # It rewrites after every shell restart (greetd's Restart=on-failure or
 # a manual `systemctl restart greetd`) without needing greetd to know.
 #
-# Cost is minimal: 5-second poll, ~1 ms of syscalls per iteration.
+# Each poll forks at most once (find) while the shell keeps running: the
+# shell PID is cached and checked with a builtin, and pgrep, which scans
+# every process, runs only after the shell restarts.
 
 set -eu
 
@@ -26,41 +28,42 @@ POLL_INTERVAL=5
 # on child cgroups with default owner root:root — even though the
 # parent slice is delegated to user:user. This blocks the shell's
 # uclamp.min write path (mainline "touch boost"). Iterate every poll
-# and re-chown; idempotent (already-user-owned files are a no-op).
+# and re-chown the files that are not yet user-owned.
 chown_cpu_files() {
     for slice in \
         /sys/fs/cgroup/user.slice/user-*.slice/user@*.service/marathon.slice; do
-        [ -d "$slice" ] || continue
+        [ -d "$slice/marathon-apps" ] || continue
         # Extract the uid from user-<UID>.slice
-        uid=$(echo "$slice" | sed -E 's|.*user-([0-9]+)\.slice.*|\1|')
+        uid=${slice#*/user-}
+        uid=${uid%%.slice*}
         [ -z "$uid" ] && continue
-        for cg in "$slice"/marathon-apps/marathon-app-*/; do
-            [ -d "$cg" ] || continue
-            for f in "$cg"cpu.uclamp.min "$cg"cpu.uclamp.max \
-                     "$cg"cpu.weight "$cg"cpu.weight.nice \
-                     "$cg"cpu.max "$cg"cpu.max.burst "$cg"cpu.idle; do
-                [ -e "$f" ] || continue
-                owner=$(stat -c %u "$f" 2>/dev/null || echo 0)
-                if [ "$owner" != "$uid" ]; then
-                    chown "$uid:$uid" "$f" 2>/dev/null || true
-                fi
-            done
-        done
+        find "$slice/marathon-apps" -mindepth 2 -maxdepth 2 \
+            -path '*/marathon-app-*/cpu.*' \( -name cpu.uclamp.min -o \
+            -name cpu.uclamp.max -o -name cpu.weight -o -name cpu.weight.nice \
+            -o -name cpu.max -o -name cpu.max.burst -o -name cpu.idle \) \
+            ! -user "$uid" -exec chown "$uid:$uid" {} + 2>/dev/null || true
     done
 }
 
+pinned=""
 while true; do
-    for pid in $(pgrep -f marathon-shell-bin 2>/dev/null); do
-        score_path="/proc/$pid/oom_score_adj"
-        [ -w "$score_path" ] || continue
-        cur=$(cat "$score_path" 2>/dev/null || echo "?")
-        if [ "$cur" != "$TARGET_SCORE" ]; then
-            if echo "$TARGET_SCORE" > "$score_path" 2>/dev/null; then
-                logger -t marathon-shell-oom \
-                    "pinned PID $pid oom_score_adj $cur → $TARGET_SCORE"
+    if [ -z "$pinned" ] || [ ! -d "/proc/$pinned" ]; then
+        pinned=""
+        for pid in $(pgrep -f marathon-shell-bin 2>/dev/null); do
+            score_path="/proc/$pid/oom_score_adj"
+            [ -w "$score_path" ] || continue
+            read -r cur < "$score_path" 2>/dev/null || cur="?"
+            if [ "$cur" != "$TARGET_SCORE" ]; then
+                if echo "$TARGET_SCORE" > "$score_path" 2>/dev/null; then
+                    logger -t marathon-shell-oom \
+                        "pinned PID $pid oom_score_adj $cur → $TARGET_SCORE"
+                    pinned=$pid
+                fi
+            else
+                pinned=$pid
             fi
-        fi
-    done
+        done
+    fi
     chown_cpu_files
     sleep "$POLL_INTERVAL"
 done
