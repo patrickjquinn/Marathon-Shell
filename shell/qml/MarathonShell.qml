@@ -364,7 +364,11 @@ Item {
                 event.accepted = true;
                 return;
             }
-            if (!powerButtonTimer.running)
+            // A press while the screen is off is a wake press. Waking the
+            // display holds this thread for ~800ms on the PinePhone, so the
+            // release arrived after the long-press timer had fired and a
+            // plain wake opened the power menu.
+            if (!powerButtonTimer.running && DisplayPolicyControllerCpp.screenOn)
                 powerButtonTimer.start();
 
             event.accepted = true;
