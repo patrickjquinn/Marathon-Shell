@@ -916,8 +916,12 @@ Item {
                     // graph at the animation rate even when the lock screen is
                     // hidden, which under software rasterization keeps all four
                     // LLVMpipe threads + QSGRenderThread busy at idle.
+                    // A few bobs each time the lock screen appears, then
+                    // rest: any running animation makes the scene graph
+                    // redraw the whole screen every frame, which cost a
+                    // quarter of a core on the PinePhone's lock screen.
                     running: MMotion.gate(lockScreen.visible)
-                    loops: Animation.Infinite
+                    loops: 3
 
                     NumberAnimation {
                         to: -6
