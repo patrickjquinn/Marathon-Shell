@@ -4,4 +4,8 @@
 ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
   RUN+="/bin/sh -c 'echo ondemand > /sys/devices/system/cpu/%k/cpufreq/scaling_governor'"
 
-
+# Let the shell's InputBoost raise the frequency floor while the user
+# interacts (the session user is in the input group). Re-applied here
+# because CPU hotplug recreates the cpufreq files with root-only modes.
+ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
+  RUN+="/bin/sh -c 'f=/sys/devices/system/cpu/%k/cpufreq/scaling_min_freq; [ -e $$f ] && chgrp input $$f && chmod g+w $$f'"

@@ -53,6 +53,7 @@
 #include "src/managers/deviceprofile.h"
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
+#include "src/services/inputboost.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"

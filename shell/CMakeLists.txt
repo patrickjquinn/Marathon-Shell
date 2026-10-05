@@ -104,6 +104,8 @@ set(SOURCES
     src/services/updateservice.cpp
     src/services/motiondaemon.h
     src/services/motiondaemon.cpp
+    src/services/inputboost.h
+    src/services/inputboost.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h
