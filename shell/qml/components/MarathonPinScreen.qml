@@ -236,6 +236,10 @@ Item {
         MultiEffect {
             anchors.fill: parent
             source: wallpaperCapture
+            // The capture is static (live: false); render the blur into a
+            // layer once instead of re-running the full-screen effect
+            // shader on every frame of PIN entry.
+            layer.enabled: true
             blurEnabled: true
             blur: 1
             // 24 instead of 64 — the kernel growing beyond ~24 produces no

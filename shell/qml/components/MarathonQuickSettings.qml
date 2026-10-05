@@ -72,8 +72,17 @@ Item {
 
     // Backdrop: live blur of the running app (iOS-style glass-over-app)
     // when one is open, dark tint over the wallpaper otherwise.
+    //
+    // Both backdrops keep the open shade's size while the shade animates;
+    // the shade clips them. Filling the shade made every frame of the pull
+    // resize the capture and the blur's render targets and re-run the whole
+    // blur: 25-33 ms of GPU per frame on the PinePhone, about 30 fps. At a
+    // fixed size the blur renders once and each frame draws one texture.
     AppBackdropBlur {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: quickSettings.maxHeight
         source: quickSettings.appBackdrop
         blurAmount: 1.0
         blurMax: MBlur.lg
@@ -100,7 +109,10 @@ Item {
         color: MColors.elev0
     }
     AppBackdropBlur {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: quickSettings.maxHeight
         visible: quickSettings.appBackdrop === null
         source: quickSettings.homeBackdrop
         // 1:1 slice of the wallpaper (same size as the shade) — NOT the whole

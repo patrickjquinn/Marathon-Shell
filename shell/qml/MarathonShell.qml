@@ -23,6 +23,10 @@ Item {
     // (which starts locked) uploaded the full-screen wallpaper mid-way
     // through the first unlock swipe, and lima tiles uploads on the CPU.
     readonly property bool wallpaperCovered: (state === "locked" && lockScreen.swipeProgress === 0) || state === "pinEntry"
+    // An app at rest covers everything but the status bar, whose glass lets
+    // the wallpaper show through. The wallpaper is clipped to that strip
+    // then, instead of being shaded full-screen under every app frame.
+    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && navBar.backProgress === 0 && appWindowContainer.scale === 1 && appWindowContainer.opacity === 1 && appWindow.scale === 1 && appWindow.opacity === 1
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -909,13 +913,22 @@ Item {
         id: shellInitialization
     }
 
-    Image {
-        id: wallpaperImage
-        anchors.fill: parent
-        source: WallpaperStore.path
-        fillMode: Image.PreserveAspectCrop
-        opacity: shell.wallpaperCovered ? 0 : 1
+    Item {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: shell.appCoversWallpaper ? Constants.statusBarHeight : parent.height
+        clip: true
         z: Constants.zIndexBackground
+
+        Image {
+            id: wallpaperImage
+            width: shell.width
+            height: shell.height
+            source: WallpaperStore.path
+            fillMode: Image.PreserveAspectCrop
+            opacity: shell.wallpaperCovered ? 0 : 1
+        }
     }
 
     // Dither overlay — see WallpaperSlateAurora.qml for rationale.

@@ -78,6 +78,12 @@ Item {
     MultiEffect {
         anchors.fill: parent
         source: capture
+        // A static backdrop's output never changes, but MultiEffect still
+        // runs its full-size compositing shader (several blur levels,
+        // saturation, brightness per pixel) on every frame: 15-30 ms of GPU
+        // a frame under the Quick Settings shade on the PinePhone. The layer
+        // renders it once and each frame samples one texture.
+        layer.enabled: !root.live
         blurEnabled: true
         blur: root.blurAmount
         blurMax: root.blurMax
