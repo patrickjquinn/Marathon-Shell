@@ -116,6 +116,9 @@ void DeviceProfile::load() {
     if (conf.value("MARATHON_GPU_HDR", QStringLiteral("GPU_RGBA16F"), s))
         m_gpuRgba16f = toBool(s, m_gpuRgba16f);
 
+    if (conf.value("MARATHON_PANEL_DITHER", QStringLiteral("PANEL_DITHER"), s))
+        m_panelDither = toBool(s, m_panelDither);
+
     if (conf.value("MARATHON_RENDER_NODE", QStringLiteral("RENDER_NODE"), s))
         m_renderNode = s;
     if (conf.value("MARATHON_CPU_GOVERNOR", QStringLiteral("CPU_GOVERNOR"), s))

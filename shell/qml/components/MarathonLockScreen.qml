@@ -210,6 +210,7 @@ Item {
         WallpaperSlateAurora {
             anchors.fill: parent
             visible: lockScreen.appBackdrop === null
+            dither: DeviceProfile.panelDither
         }
 
         AppBackdropBlur {

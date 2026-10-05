@@ -28,6 +28,7 @@ class DeviceProfile : public QObject {
     Q_PROPERTY(bool surfaceHasAlpha READ surfaceHasAlpha CONSTANT)
     Q_PROPERTY(int hwMsaaSamples READ hwMsaaSamples CONSTANT)
     Q_PROPERTY(bool gpuRgba16f READ gpuRgba16f CONSTANT)
+    Q_PROPERTY(bool panelDither READ panelDither CONSTANT)
     Q_PROPERTY(QString renderNode READ renderNode CONSTANT)
     Q_PROPERTY(QString cpuGovernor READ cpuGovernor CONSTANT)
     Q_PROPERTY(qreal brightnessFloor READ brightnessFloor CONSTANT)
@@ -62,6 +63,9 @@ class DeviceProfile : public QObject {
     bool gpuRgba16f() const {
         return m_gpuRgba16f;
     }
+    bool panelDither() const {
+        return m_panelDither;
+    }
     const QString &renderNode() const {
         return m_renderNode;
     }
@@ -91,6 +95,9 @@ class DeviceProfile : public QObject {
     bool    m_surfaceHasAlpha = false; // i.MX8 LCDIF CRTC is XRGB8888
     int     m_hwMsaaSamples   = 0;     // GC7000Lite reports GL_MAX_SAMPLES <= 1
     bool    m_gpuRgba16f      = false;
+    // 18 bpp panels (HyperPixel 4.0 Square on the CM5) band on the wallpaper
+    // gradient without a noise overlay; 24 bpp panels gain nothing from it.
+    bool    m_panelDither     = true;
     QString m_renderNode      = QStringLiteral("/dev/dri/renderD128");
     QString m_cpuGovernor     = QStringLiteral("ondemand");
     qreal   m_brightnessFloor = 0.28; // L5 panel min visible duty cycle

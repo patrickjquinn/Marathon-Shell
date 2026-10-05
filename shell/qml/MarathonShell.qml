@@ -930,6 +930,7 @@ Item {
         opacity: shell.wallpaperCovered ? 0 : 0.04
         smooth: false
         cache: true
+        visible: DeviceProfile.panelDither
         z: Constants.zIndexBackground + 1
     }
 
