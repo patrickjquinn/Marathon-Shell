@@ -110,6 +110,16 @@ function(add_marathon_app APP_NAME)
 
   target_link_libraries(${APP_NAME} PRIVATE Qt6::Core Qt6::Qml Qt6::Quick)
 
+  # Bind the module's references to its own symbols at link time. The
+  # generated QML code exports everything, and Settings' library refers to
+  # its own functions, vtables and cache units ~14,500 times; musl resolves
+  # every such relocation at dlopen by searching all ~200 loaded libraries,
+  # which was most of an app launch's CPU time on the PinePhone. Nothing
+  # outside the module interposes these symbols.
+  if(NOT APPLE)
+    target_link_options(${APP_NAME} PRIVATE "-Wl,-Bsymbolic")
+  endif()
+
   if(APPLE)
     set(RPATH_VALUE "@loader_path")
   else()
