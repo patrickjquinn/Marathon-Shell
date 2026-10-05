@@ -148,8 +148,7 @@ Rectangle {
                 existingNativeInstance.visible = true;
                 // Going home minimized it, which locks its buffer; left set,
                 // the restored window showed no new frames.
-                if (existingNativeInstance.isMinimized !== undefined)
-                    existingNativeInstance.isMinimized = false;
+                _unminimize(existingNativeInstance);
                 // A backgrounded app sits in a frozen cgroup. The switcher
                 // thaws it through restoreApp(), but a restore that arrives
                 // here (home-screen tap, LaunchApp) drew the app's last frame
@@ -234,10 +233,14 @@ Rectangle {
         slideOut.start();
     }
 
-    function reattachInstance(instance, id, name, icon, type) {
-        Logger.warn("AppWindow", "Re-attaching detached instance: " + id);
+    function _unminimize(instance) {
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
+    }
+
+    function reattachInstance(instance, id, name, icon, type) {
+        Logger.warn("AppWindow", "Re-attaching detached instance: " + id);
+        _unminimize(instance);
 
         appWindow.appId = id;
         appWindow.appName = name;
