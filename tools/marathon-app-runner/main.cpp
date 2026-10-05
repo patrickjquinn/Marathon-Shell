@@ -669,6 +669,55 @@ int main(int argc, char *argv[]) {
                 warmCtx.doneCurrent();
         }
 
+        // Load the QML modules and fonts every app uses. Each import
+        // dlopens a plugin and its backing library, and musl resolves all
+        // of a library's relocations at dlopen; the first FontLoader makes
+        // fontconfig build its whole configuration and FreeType initialise.
+        // On the PinePhone that was most of a launch's CPU time. Plugins
+        // stay loaded, and Qt Quick caches FontLoader fonts by URL for the
+        // whole process, so the adopted app finds both ready. The URLs
+        // match what Qt.resolvedUrl gives MTypography and Icon.
+        {
+            QQmlEngine    warmEngine;
+            QQmlComponent warmImports(&warmEngine);
+            warmImports.setData("import QtQuick\n"
+                                "import QtQuick.Controls\n"
+                                "import QtQuick.Layouts\n"
+                                "import QtQuick.Shapes\n"
+                                "import QtQuick.Effects\n"
+                                "import MarathonUI.Theme\n"
+                                "import MarathonUI.Core\n"
+                                "import MarathonUI.Controls\n"
+                                "import MarathonUI.Containers\n"
+                                "import MarathonUI.Effects\n"
+                                "import MarathonUI.Feedback\n"
+                                "import MarathonUI.Lists\n"
+                                "import MarathonUI.Modals\n"
+                                "import MarathonUI.Navigation\n"
+                                "QtObject {\n"
+                                "    property list<QtObject> fonts: [\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Thin.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-ExtraLight.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Light.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Regular.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Medium.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-SemiBold.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Bold.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-ExtraBold.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/JetBrainsMono-Medium.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Core/fonts/Phosphor-Light.ttf\" },\n"
+                                "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Core/fonts/Phosphor-Bold.ttf\" }\n"
+                                "    ]\n"
+                                "}\n",
+                                QUrl());
+            if (warmImports.isError())
+                qWarning() << "[marathon-app-runner] pool: QML warm-up failed:"
+                           << warmImports.errorString();
+            else
+                delete warmImports.create();
+        }
+
         // Keep the warmed pages resident while the pool idles. Reclaim to
         // zram during idle is what made the v1 pool lose to cold launch:
         // adoption faulted the Qt heap + warmed GL state back in (~800 ms).
