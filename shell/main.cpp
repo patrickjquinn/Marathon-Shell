@@ -782,9 +782,15 @@ int main(int argc, char *argv[]) {
     //
     // Both event sources (QML Keys.onReleased when shell has focus,
     // PowerKeyListener when it doesn't) invoke the same
-    // handlePowerButtonPress; a 200 ms dedupe there absorbs the case
-    // where both fire for the same physical press.
+    // handlePowerButtonPress, which acts once per key-DOWN stamped by
+    // PowerKeyListener, so both firing for one physical press toggle once.
     auto *powerKeyListener    = new PowerKeyListener(&app);
+    // Full CPU clock while the user interacts; the power key counts, since
+    // waking the display is the slowest thing a press does.
+    auto *inputBoost = new InputBoost(&app);
+    app.installEventFilter(inputBoost);
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, inputBoost,
+                     &InputBoost::boost);
     auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
         ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
         hapticManager, &app);

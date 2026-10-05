@@ -41,18 +41,24 @@ class PowerBatteryHandlerCpp : public QObject {
     QPointer<DisplayManagerCpp>       m_displayManager;
     QPointer<HapticManager>           m_haptics;
 
-    // Dedupe window for handlePowerButtonPress. Two event sources can
-    // fire back-to-back (QML Keys.onReleased when the shell has focus,
-    // AND PowerKeyListener's /dev/input reader when a Wayland app
-    // subprocess owns focus). Both call this handler; without a dedupe
+    // Fallback dedupe window for handlePowerButtonPress, used when
+    // PowerKeyListener has not seen a key-DOWN (see m_rawKeySeen). Two event
+    // sources fire for one press (QML Keys.onReleased when the shell has
+    // focus, AND PowerKeyListener's /dev/input reader); without a dedupe
     // the press would toggle twice — enter Doze then immediately exit
-    // again (or vice versa). 200 ms covers the ~1-5 ms typical gap.
+    // again (or vice versa).
     qint64 m_lastPressMs = 0;
 
     // Wall-clock of the most recent power key-DOWN (see notePowerButtonDown).
     // Compared against key-UP time to classify short vs long press. 0 = no
     // press in flight.
     qint64 m_pressDownMs = 0;
+
+    // Set once PowerKeyListener has reported a key-DOWN. From then on every
+    // physical press is stamped in m_pressDownMs, so the press itself is the
+    // dedupe key and m_lastPressMs is only the fallback for devices where
+    // the raw listener found no power key.
+    bool m_rawKeySeen = false;
 
     // Hold threshold that promotes a press to a LONG press (power menu). Must
     // match the QML powerButtonTimer interval in MarathonShell.qml so both
