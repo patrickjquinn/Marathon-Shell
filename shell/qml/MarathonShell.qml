@@ -16,6 +16,13 @@ Item {
     property alias appWindowContainer: appWindowContainer
     property bool showPinScreen: false
     property bool isTransitioningToActiveFrames: false
+    // The lock and PIN screens paint their own full-screen backdrop. While
+    // one of them is at rest, the shell wallpaper below is never seen but
+    // would still be drawn and blended every frame. It is hidden with
+    // opacity, not visible: an invisible Image gets no texture, so the shell
+    // (which starts locked) uploaded the full-screen wallpaper mid-way
+    // through the first unlock swipe, and lima tiles uploads on the CPU.
+    readonly property bool wallpaperCovered: (state === "locked" && lockScreen.swipeProgress === 0) || state === "pinEntry"
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -907,6 +914,7 @@ Item {
         anchors.fill: parent
         source: WallpaperStore.path
         fillMode: Image.PreserveAspectCrop
+        opacity: shell.wallpaperCovered ? 0 : 1
         z: Constants.zIndexBackground
     }
 
@@ -919,7 +927,7 @@ Item {
         anchors.fill: parent
         source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
-        opacity: 0.04
+        opacity: shell.wallpaperCovered ? 0 : 0.04
         smooth: false
         cache: true
         z: Constants.zIndexBackground + 1
