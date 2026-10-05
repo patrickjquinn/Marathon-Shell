@@ -1,0 +1,60 @@
+From fe6ac353552b9651e1e4d5a860c89cf5ca42aabe Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 5 Oct 2026 09:58:56 +0100
+Subject: [PATCH] fix(finalize): name the device in the U-Boot boot script step
+
+The step that compiles marathon-boot.cmd into boot.scr runs for every
+U-Boot boot-script device since the PinePhone joined the Librem 5's
+path, but still named the image "Marathon Librem 5 boot script" and
+logged "Librem 5" on PinePhone builds. Use $PMOS_DEVICE for both. The
+image name stays within the legacy header's 32-byte field
+("Marathon pine64-pinephone boot" is 30).
+---
+ mkosi.finalize | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 74f3bbe..b6d9621 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -595,26 +595,25 @@ CONFIG
+                 done
+             fi
+             if [ -f "$BUILDROOT/boot/boot.scr" ]; then
+-                echo "info: Librem 5 boot.scr present at /boot/boot.scr"
++                echo "info: $PMOS_DEVICE boot.scr present at /boot/boot.scr"
+             else
+-                echo "warning: /boot/boot.scr missing — u-boot-librem5 pkg should have installed it"
++                echo "warning: /boot/boot.scr missing — $PMOS_DEVICE's U-Boot or device pkg should have installed it"
+             fi
+-            # Marathon override: u-boot-librem5's stock boot.cmd sets a
+-            # minimal bootargs (no splash, no console=tty1, no quiet) so
+-            # Plymouth never engages on the DSI panel and kernel printk
+-            # floods tty. device-purism-librem5-marathon ships our
+-            # marathon-boot.cmd at /usr/share/marathon/; compile it via
+-            # mkimage (in u-boot-tools, pulled by u-boot-librem5) and
+-            # replace /boot/boot.scr.
++            # Marathon override: the stock boot scripts set minimal bootargs
++            # (no splash, no console=tty1) so Plymouth never engages on the
++            # panel and kernel printk floods the tty. Each device's Marathon
++            # overlay ships marathon-boot.cmd at /usr/share/marathon/;
++            # compile it with mkimage (u-boot-tools) over /boot/boot.scr.
++            # The image name is the legacy header's, capped at 32 bytes.
+             if [ -f "$BUILDROOT/usr/share/marathon/marathon-boot.cmd" ] \
+                && [ -x "$BUILDROOT/usr/bin/mkimage" ]; then
+                 chroot "$BUILDROOT" /usr/bin/mkimage \
+                     -A arm64 -O linux -T script -C none \
+-                    -n "Marathon Librem 5 boot script" \
++                    -n "Marathon $PMOS_DEVICE boot" \
+                     -d /usr/share/marathon/marathon-boot.cmd \
+                     /boot/boot.scr 2>&1 | sed 's/^/  mkimage: /' \
+-                    && echo "info: Librem 5 boot.scr replaced with Marathon splash-enabled boot script" \
+-                    || echo "warning: Librem 5 mkimage failed — leaving stock u-boot-librem5 boot.scr"
++                    && echo "info: $PMOS_DEVICE boot.scr replaced with Marathon splash-enabled boot script" \
++                    || echo "warning: $PMOS_DEVICE mkimage failed — leaving the stock boot.scr"
+             fi
+         fi
+ 
+-- 
+2.55.0
+
