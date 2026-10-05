@@ -337,6 +337,12 @@ void AudioRoutingManager::onPwGlobalAdded(quint32 id, const QString &type, const
     if (!type.contains(QStringLiteral("Interface:Node")))
         return;
 
+    if (mediaClass == QStringLiteral("Stream/Output/Audio")) {
+        m_pw->kinds[id] = QStringLiteral("stream");
+        emit playbackStreamsChanged();
+        return;
+    }
+
     if (mediaClass == QStringLiteral("Audio/Sink")) {
         if (nodeName.contains("earpiece", Qt::CaseInsensitive) && m_earpieceSinkId.isEmpty()) {
             m_earpieceSinkId = QString::number(id);
@@ -371,6 +377,11 @@ void AudioRoutingManager::onPwGlobalRemoved(quint32 id) {
     const QString kind = m_pw->kinds.take(id);
     if (kind.isEmpty())
         return;
+
+    if (kind == QStringLiteral("stream")) {
+        emit playbackStreamsChanged();
+        return;
+    }
 
     if (kind == QStringLiteral("card")) {
         m_audioCardId.clear();

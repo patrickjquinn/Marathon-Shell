@@ -77,7 +77,6 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
     , m_muted(false)
     , m_isPlaying(false)
     , m_streamModel(new AudioStreamModel(this))
-    , m_streamRefreshTimer(new QTimer(this))
     , m_pa_mainloop(nullptr)
     , m_pa_context(nullptr) {
     qDebug() << "[AudioManagerCpp] Initializing";
@@ -106,9 +105,7 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
             m_muted = true;
         }
 
-        parseWpctlStatus();
-
-        startStreamMonitoring();
+        refreshStreams();
     } else {
 
         if (initPulseAudio()) {
@@ -136,17 +133,13 @@ void AudioManagerCpp::setVolume(double volume) {
     volume = qBound(0.0, volume, 1.0);
 
     if (m_isPipeWire) {
-        QProcess wpctl;
-        wpctl.start("wpctl", {"set-volume", "@DEFAULT_AUDIO_SINK@", QString::number(volume)});
-        wpctl.waitForFinished(500);
-
-        if (wpctl.exitCode() == 0) {
-            m_currentVolume = volume;
-            emit volumeChanged();
-            qDebug() << "[AudioManagerCpp] Set volume to:" << qRound(volume * 100)
-                     << "% (PipeWire)";
-            return;
-        }
+        // A slider drag calls this many times a second; only the newest
+        // value is sent once the write in flight finishes.
+        m_currentVolume = volume;
+        emit volumeChanged();
+        m_pendingVolume = volume;
+        sendPendingVolume();
+        return;
     } else {
 
         if (m_pa_context && m_pa_mainloop) {
@@ -181,16 +174,15 @@ void AudioManagerCpp::setMuted(bool muted) {
     }
 
     if (m_isPipeWire) {
-        QProcess wpctl;
-        wpctl.start("wpctl", {"set-mute", "@DEFAULT_AUDIO_SINK@", muted ? "1" : "0"});
-        wpctl.waitForFinished(500);
-
-        if (wpctl.exitCode() == 0) {
-            m_muted = muted;
-            emit mutedChanged();
-            qDebug() << "[AudioManagerCpp] Set muted to:" << muted << "(PipeWire)";
-            return;
-        }
+        m_muted = muted;
+        emit mutedChanged();
+        runWpctl({"set-mute", "@DEFAULT_AUDIO_SINK@", muted ? "1" : "0"}, [muted](bool ok) {
+            if (ok)
+                qDebug() << "[AudioManagerCpp] Set muted to:" << muted << "(PipeWire)";
+            else
+                qWarning() << "[AudioManagerCpp] Failed to set mute";
+        });
+        return;
     } else {
 
         if (m_pa_context && m_pa_mainloop) {
@@ -216,17 +208,16 @@ void AudioManagerCpp::setStreamVolume(int streamId, double volume) {
 
     volume = qBound(0.0, volume, 1.0);
 
-    QProcess wpctl;
-    wpctl.start("wpctl", {"set-volume", QString::number(streamId), QString::number(volume)});
-    wpctl.waitForFinished(500);
-
-    if (wpctl.exitCode() == 0) {
-        qDebug() << "[AudioManagerCpp] Set stream" << streamId
-                 << "volume to:" << qRound(volume * 100) << "%";
-        refreshStreams();
-    } else {
-        qWarning() << "[AudioManagerCpp] Failed to set stream volume:" << wpctl.errorString();
-    }
+    runWpctl({"set-volume", QString::number(streamId), QString::number(volume)},
+             [this, streamId, volume](bool ok) {
+                 if (ok) {
+                     qDebug() << "[AudioManagerCpp] Set stream" << streamId
+                              << "volume to:" << qRound(volume * 100) << "%";
+                     refreshStreams();
+                 } else {
+                     qWarning() << "[AudioManagerCpp] Failed to set stream volume";
+                 }
+             });
 }
 
 void AudioManagerCpp::setStreamMuted(int streamId, bool muted) {
@@ -235,34 +226,84 @@ void AudioManagerCpp::setStreamMuted(int streamId, bool muted) {
         return;
     }
 
-    QProcess wpctl;
-    wpctl.start("wpctl", {"set-mute", QString::number(streamId), muted ? "1" : "0"});
-    wpctl.waitForFinished(500);
-
-    if (wpctl.exitCode() == 0) {
-        qDebug() << "[AudioManagerCpp] Set stream" << streamId << "muted to:" << muted;
-        refreshStreams();
-    } else {
-        qWarning() << "[AudioManagerCpp] Failed to set stream mute:" << wpctl.errorString();
-    }
+    runWpctl({"set-mute", QString::number(streamId), muted ? "1" : "0"},
+             [this, streamId, muted](bool ok) {
+                 if (ok) {
+                     qDebug() << "[AudioManagerCpp] Set stream" << streamId << "muted to:" << muted;
+                     refreshStreams();
+                 } else {
+                     qWarning() << "[AudioManagerCpp] Failed to set stream mute";
+                 }
+             });
 }
 
+// Called when PipeWire adds or removes a playback stream, and after this
+// manager changes a stream; nothing polls.
 void AudioManagerCpp::refreshStreams() {
-    if (m_isPipeWire) {
-        parseWpctlStatus();
-    }
-}
-
-void AudioManagerCpp::parseWpctlStatus() {
-    QProcess process;
-    process.start("wpctl", {"status"});
-    process.waitForFinished(2000);
-
-    if (process.exitCode() != 0) {
+    if (!m_isPipeWire)
+        return;
+    if (m_statusRunning) {
+        m_statusPending = true;
         return;
     }
+    m_statusRunning = true;
 
-    QString                         output = process.readAllStandardOutput();
+    auto *process = new QProcess(this);
+    connect(process, &QProcess::finished, this,
+            [this, process](int exitCode, QProcess::ExitStatus status) {
+                process->deleteLater();
+                m_statusRunning = false;
+                if (status == QProcess::NormalExit && exitCode == 0)
+                    parseWpctlStatus(QString::fromUtf8(process->readAllStandardOutput()));
+                if (std::exchange(m_statusPending, false))
+                    refreshStreams();
+            });
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError e) {
+        if (e != QProcess::FailedToStart)
+            return;
+        process->deleteLater();
+        m_statusRunning = false;
+        m_statusPending = false;
+    });
+    process->start("wpctl", {"status"});
+}
+
+void AudioManagerCpp::runWpctl(const QStringList &args, const std::function<void(bool ok)> &done) {
+    auto *process = new QProcess(this);
+    connect(process, &QProcess::finished, this,
+            [process, done](int exitCode, QProcess::ExitStatus status) {
+                process->deleteLater();
+                if (done)
+                    done(status == QProcess::NormalExit && exitCode == 0);
+            });
+    connect(process, &QProcess::errorOccurred, this, [process, done](QProcess::ProcessError e) {
+        if (e != QProcess::FailedToStart)
+            return;
+        process->deleteLater();
+        if (done)
+            done(false);
+    });
+    process->start("wpctl", args);
+}
+
+void AudioManagerCpp::sendPendingVolume() {
+    if (m_volumeRunning || m_pendingVolume < 0)
+        return;
+    const double volume = std::exchange(m_pendingVolume, -1.0);
+    m_volumeRunning     = true;
+    runWpctl({"set-volume", "@DEFAULT_AUDIO_SINK@", QString::number(volume)},
+             [this, volume](bool ok) {
+                 m_volumeRunning = false;
+                 if (ok)
+                     qDebug() << "[AudioManagerCpp] Set volume to:" << qRound(volume * 100)
+                              << "% (PipeWire)";
+                 else
+                     qWarning() << "[AudioManagerCpp] Failed to set volume";
+                 sendPendingVolume();
+             });
+}
+
+void AudioManagerCpp::parseWpctlStatus(const QString &output) {
     QList<AudioStream>              streams;
 
     static const QRegularExpression streamRe(
@@ -314,13 +355,6 @@ void AudioManagerCpp::parseWpctlStatus() {
     emit streamsChanged();
 
     updatePlaybackState();
-}
-
-void AudioManagerCpp::startStreamMonitoring() {
-
-    connect(m_streamRefreshTimer, &QTimer::timeout, this, &AudioManagerCpp::refreshStreams);
-    m_streamRefreshTimer->start(5000);
-    qDebug() << "[AudioManagerCpp] Started stream monitoring (5s interval)";
 }
 
 void AudioManagerCpp::updatePlaybackState() {

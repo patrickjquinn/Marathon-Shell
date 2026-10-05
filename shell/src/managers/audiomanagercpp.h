@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <QAbstractListModel>
-#include <QTimer>
+#include <functional>
 
 #include <pulse/pulseaudio.h>
 #include <qqml.h>
@@ -102,8 +102,9 @@ class AudioManagerCpp : public QObject {
     void updateFromPulse(double vol, bool isMuted);
 
   private:
-    void        parseWpctlStatus();
-    void        startStreamMonitoring();
+    void        parseWpctlStatus(const QString &output);
+    void        runWpctl(const QStringList &args, const std::function<void(bool ok)> &done = {});
+    void        sendPendingVolume();
     void        updatePlaybackState();
 
     bool        initPulseAudio();
@@ -118,7 +119,14 @@ class AudioManagerCpp : public QObject {
     bool        m_muted;
     bool        m_isPlaying;
     AudioStreamModel     *m_streamModel;
-    QTimer               *m_streamRefreshTimer;
+
+    // wpctl runs asynchronously. One status query and one sink-volume write
+    // are in flight at a time; requests that arrive meanwhile are folded
+    // into a single follow-up.
+    bool                  m_statusRunning  = false;
+    bool                  m_statusPending  = false;
+    bool                  m_volumeRunning  = false;
+    double                m_pendingVolume  = -1.0;
 
     QString               m_defaultSinkName;
     int                   m_sinkChannels;
