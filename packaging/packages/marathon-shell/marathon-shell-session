@@ -410,6 +410,16 @@ if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     fi
 fi
 
+# Send the shell's stdout/stderr to the journal. Otherwise they are the VT
+# greetd started the session on, and fbcon draws every log line on the CPU
+# even while the shell owns the display: on the PinePhone each scroll held
+# the shell's GUI thread in write() for 100+ ms. Read the log with
+# `journalctl -t marathon-shell`.
+JOURNAL=""
+if command -v systemd-cat >/dev/null 2>&1; then
+    JOURNAL="systemd-cat --identifier=marathon-shell"
+fi
+
 # Fallback when the systemd-user-instance bus is NOT reachable (e.g. PAM
 # race on Librem 5, or systemd-less distros): spawn dbus-run-session as
 # the IMMEDIATE parent of marathon-shell-bin so the bus stays alive for
@@ -418,7 +428,7 @@ fi
 # we explicitly skip the scope branch here. Lifecycle freezer becomes
 # a no-op on this path; functional shell trumps cgroup features.
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
-    exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+    exec $JOURNAL dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
 fi
 
 # Diagnostic: leave a breadcrumb of the env we're about to exec marathon-shell-bin
@@ -524,7 +534,7 @@ if command -v systemd-run >/dev/null 2>&1 && \
     # reply" cluster on every boot. The full env list below forwards
     # every variable our session script established BEFORE handing off
     # to the cgroup-scoped marathon-shell-bin.
-    exec systemd-run --user --quiet --collect --scope \
+    exec $JOURNAL systemd-run --user --quiet --collect --scope \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
         --setenv=DBUS_SESSION_BUS_ADDRESS \
@@ -556,4 +566,4 @@ if command -v systemd-run >/dev/null 2>&1 && \
         -- /usr/bin/marathon-shell-bin "$@"
 fi
 
-exec /usr/bin/marathon-shell-bin "$@"
+exec $JOURNAL /usr/bin/marathon-shell-bin "$@"
