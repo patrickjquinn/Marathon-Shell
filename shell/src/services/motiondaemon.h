@@ -3,7 +3,10 @@
 #include <QDate>
 #include <QObject>
 #include <QString>
+#include <QThread>
 #include <QTimer>
+
+class AccelSampler;
 
 // MotionDaemon — Apple-Watch-style Activity Rings backend.
 //
@@ -77,13 +80,11 @@ class MotionDaemon : public QObject {
     void availableChanged();
 
   private slots:
-    void onSampleTick();
+    void onStepsChanged(int algoSteps);
     void onMinuteTick();
 
   private:
     bool detectIioAccelerometer();
-    bool readIioSample(int &x, int &y, int &z);
-    void feedSample(qint64 timeMs, int x, int y, int z);
     void rollDayIfNeeded();
 
     // Sources
@@ -91,9 +92,11 @@ class MotionDaemon : public QObject {
     bool    m_available = false;
     bool    m_demoMode  = false;
 
-    // 50 Hz sample timer + 60 s rollup timer
-    QTimer m_sampleTimer;
-    QTimer m_minuteTimer;
+    // Sampling and the step algorithm run on m_samplerThread; the GUI
+    // thread only sees step-count changes and the 60 s rollup.
+    QThread       m_samplerThread;
+    AccelSampler *m_sampler = nullptr;
+    QTimer        m_minuteTimer;
 
     // Day rollup
     QDate m_today;

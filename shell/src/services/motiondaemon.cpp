@@ -6,6 +6,13 @@
 #include <QFile>
 #include <QRandomGenerator>
 
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+
 extern "C" {
 #include <StepCountingAlgo.h>
 }
@@ -20,7 +27,115 @@ namespace {
     constexpr int kMinuteMs       = 60 * 1000;
     constexpr int kActiveStepsMin = 100; // ≥ 100 steps/minute = walking
     constexpr int kStandStepsMin  = 30;  // ≥ 30 steps in any minute of an hour ⇒ "stood"
+    // While the accelerometer refuses reads (iio-sensor-proxy holding its
+    // buffer makes direct reads fail with EBUSY), retry once a second
+    // instead of failing 50 times a second.
+    constexpr int kRetryMs = 1000;
 } // namespace
+
+// Samples the accelerometer and runs the step algorithm on its own thread,
+// so the 50 Hz reads never stall the shell's GUI thread. The Oxford
+// algorithm keeps global state, so every call into it happens here.
+class AccelSampler : public QObject {
+    Q_OBJECT
+
+  public:
+    AccelSampler(const QString &iioBaseDir, bool demoMode)
+        : m_iioBaseDir(iioBaseDir)
+        , m_demoMode(demoMode) {}
+
+    ~AccelSampler() override {
+        for (int fd : m_fds) {
+            if (fd >= 0)
+                ::close(fd);
+        }
+    }
+
+  public slots:
+    void start() {
+        if (!m_demoMode) {
+            // Keep the sysfs files open and re-read them with pread rather
+            // than opening three files per sample.
+            const char *axes[] = {"x", "y", "z"};
+            for (int i = 0; i < 3; i++) {
+                const QByteArray path =
+                    QFile::encodeName(m_iioBaseDir + "/in_accel_" + axes[i] + "_raw");
+                m_fds[i] = ::open(path.constData(), O_RDONLY | O_CLOEXEC);
+                if (m_fds[i] < 0) {
+                    qWarning() << "[MotionDaemon] Cannot open" << path << strerror(errno);
+                    return;
+                }
+            }
+        }
+        m_timer = new QTimer(this);
+        m_timer->setTimerType(Qt::CoarseTimer);
+        connect(m_timer, &QTimer::timeout, this, &AccelSampler::tick);
+        m_timer->start(kSampleMs);
+    }
+
+    void resetAlgo() {
+        ::resetAlgo();
+        m_lastSteps = 0;
+    }
+
+    void resetSteps() {
+        ::resetSteps();
+        m_lastSteps = 0;
+    }
+
+  signals:
+    void stepsChanged(int algoSteps);
+
+  private:
+    bool readAxis(int fd, int &out) {
+        char          buf[16];
+        const ssize_t n = ::pread(fd, buf, sizeof(buf) - 1, 0);
+        if (n <= 0)
+            return false;
+        buf[n]    = '\0';
+        char *end = nullptr;
+        out       = static_cast<int>(strtol(buf, &end, 10));
+        return end != buf;
+    }
+
+    void tick() {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        int          x = 0, y = 0, z = 0;
+
+        if (m_demoMode) {
+            // Synthesize a brisk walking sinusoid centred on -1 g vertical
+            // with peak-to-peak ≥ Oxford's MOTION_THRESHOLD (500) so the
+            // algorithm leaves the no-motion path. Frequency is ~1 step
+            // per 0.6 s ≈ 100 spm — fast enough to register exercise
+            // minutes once the warmup window passes.
+            const double t   = double(now) / 1000.0;
+            const double phi = t * 10.0; // ~1 step / 0.63 s
+            z                = static_cast<int>(-980 + 600 * std::sin(phi));
+            x                = static_cast<int>(300 * std::sin(phi * 0.5));
+            y                = static_cast<int>(250 * std::cos(phi * 0.5));
+        } else {
+            const bool ok = readAxis(m_fds[0], x) && readAxis(m_fds[1], y) &&
+                readAxis(m_fds[2], z);
+            m_timer->setInterval(ok ? kSampleMs : kRetryMs);
+            if (!ok)
+                return;
+        }
+
+        ::processSample(static_cast<int32_t>(now), static_cast<int16_t>(x),
+                        static_cast<int16_t>(y), static_cast<int16_t>(z));
+        const int steps = static_cast<int>(::getSteps());
+        if (steps != m_lastSteps) {
+            m_lastSteps = steps;
+            emit stepsChanged(steps);
+        }
+    }
+
+    const QString m_iioBaseDir;
+    const bool    m_demoMode;
+    int           m_fds[3]    = {-1, -1, -1};
+    QTimer       *m_timer     = nullptr;
+    int           m_lastSteps = 0;
+};
 
 MotionDaemon::MotionDaemon(QObject *parent)
     : QObject(parent)
@@ -41,20 +156,26 @@ MotionDaemon::MotionDaemon(QObject *parent)
         return;
     }
 
-    m_sampleTimer.setInterval(kSampleMs);
-    m_sampleTimer.setTimerType(Qt::CoarseTimer);
-    connect(&m_sampleTimer, &QTimer::timeout, this, &MotionDaemon::onSampleTick);
+    m_sampler = new AccelSampler(m_iioBaseDir, m_demoMode);
+    m_sampler->moveToThread(&m_samplerThread);
+    connect(&m_samplerThread, &QThread::started, m_sampler, &AccelSampler::start);
+    connect(&m_samplerThread, &QThread::finished, m_sampler, &QObject::deleteLater);
+    connect(m_sampler, &AccelSampler::stepsChanged, this, &MotionDaemon::onStepsChanged);
+    m_samplerThread.setObjectName(QStringLiteral("MotionSampler"));
 
     m_minuteTimer.setInterval(kMinuteMs);
     m_minuteTimer.setTimerType(Qt::CoarseTimer);
     connect(&m_minuteTimer, &QTimer::timeout, this, &MotionDaemon::onMinuteTick);
 
-    m_sampleTimer.start();
+    m_samplerThread.start(QThread::LowPriority);
     m_minuteTimer.start();
     qInfo() << "[MotionDaemon] Started (source:" << (m_demoMode ? "demo" : m_iioBaseDir) << ")";
 }
 
-MotionDaemon::~MotionDaemon() = default;
+MotionDaemon::~MotionDaemon() {
+    m_samplerThread.quit();
+    m_samplerThread.wait();
+}
 
 double MotionDaemon::movePercent() const {
     if (m_moveGoal <= 0)
@@ -75,7 +196,8 @@ double MotionDaemon::standPercent() const {
 }
 
 void MotionDaemon::reset() {
-    ::resetAlgo();
+    if (m_sampler)
+        QMetaObject::invokeMethod(m_sampler, &AccelSampler::resetAlgo, Qt::QueuedConnection);
     m_stepsToday        = 0;
     m_activeMinutes     = 0;
     m_standHours        = 0;
@@ -107,49 +229,9 @@ bool MotionDaemon::detectIioAccelerometer() {
     return false;
 }
 
-bool MotionDaemon::readIioSample(int &x, int &y, int &z) {
-    auto read = [&](const QString &axis, int &out) {
-        QFile f(m_iioBaseDir + "/in_accel_" + axis + "_raw");
-        if (!f.open(QIODevice::ReadOnly))
-            return false;
-        out = f.readAll().trimmed().toInt();
-        return true;
-    };
-    return read("x", x) && read("y", y) && read("z", z);
-}
-
-void MotionDaemon::feedSample(qint64 timeMs, int x, int y, int z) {
-    ::processSample(static_cast<int32_t>(timeMs), static_cast<int16_t>(x), static_cast<int16_t>(y),
-                    static_cast<int16_t>(z));
-    const int newSteps = static_cast<int>(::getSteps());
-    if (newSteps != m_stepsToday - m_stepsAtMidnight) {
-        m_stepsToday = m_stepsAtMidnight + newSteps;
-        emit ringsChanged();
-    }
-}
-
-void MotionDaemon::onSampleTick() {
-    rollDayIfNeeded();
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-
-    if (m_demoMode) {
-        // Synthesize a brisk walking sinusoid centred on -1 g vertical
-        // with peak-to-peak ≥ Oxford's MOTION_THRESHOLD (500) so the
-        // algorithm leaves the no-motion path. Frequency is ~1 step
-        // per 0.6 s ≈ 100 spm — fast enough to register exercise
-        // minutes once the warmup window passes.
-        const double t   = double(now) / 1000.0;
-        const double phi = t * 10.0; // ~1 step / 0.63 s
-        const int    z   = static_cast<int>(-980 + 600 * std::sin(phi));
-        const int    x   = static_cast<int>(300 * std::sin(phi * 0.5));
-        const int    y   = static_cast<int>(250 * std::cos(phi * 0.5));
-        feedSample(now, x, y, z);
-        return;
-    }
-
-    int x = 0, y = 0, z = 0;
-    if (readIioSample(x, y, z))
-        feedSample(now, x, y, z);
+void MotionDaemon::onStepsChanged(int algoSteps) {
+    m_stepsToday = m_stepsAtMidnight + algoSteps;
+    emit ringsChanged();
 }
 
 void MotionDaemon::onMinuteTick() {
@@ -184,7 +266,11 @@ void MotionDaemon::rollDayIfNeeded() {
             m_minuteSteps[i] = 0;
             m_hourStood[i]   = false;
         }
-        ::resetSteps();
+        if (m_sampler)
+            QMetaObject::invokeMethod(m_sampler, &AccelSampler::resetSteps,
+                                      Qt::QueuedConnection);
         emit ringsChanged();
     }
 }
+
+#include "motiondaemon.moc"
