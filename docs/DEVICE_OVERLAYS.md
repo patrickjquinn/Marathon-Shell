@@ -51,6 +51,7 @@ location (for host testing).
 | `SURFACE_ALPHA` | `MARATHON_SURFACE_ALPHA` | `0` | 1 if the CRTC framebuffer has an alpha channel (ARGB); 0 for XRGB (i.MX8 LCDIF) |
 | `GPU_MSAA` | `MARATHON_LAYER_SAMPLES` | `0` | Max HW FBO sample count (0 = none) |
 | `GPU_RGBA16F` | `MARATHON_GPU_HDR` | `0` | HDR/RGBA16F capable |
+| `PANEL_DITHER` | `MARATHON_PANEL_DITHER` | `1` | Overlay dither noise on the wallpaper; needed on 18 bpp panels, 0 on 24 bpp panels saves a full-screen blended layer |
 | `RENDER_NODE` | `MARATHON_RENDER_NODE` | `/dev/dri/renderD128` | DRM render node for dmabuf |
 | `CPU_GOVERNOR` | `MARATHON_CPU_GOVERNOR` | `ondemand` | Balanced-mode governor |
 | `BRIGHTNESS_FLOOR` | `MARATHON_BRIGHTNESS_FLOOR` | `0.28` | Min visible backlight duty cycle |

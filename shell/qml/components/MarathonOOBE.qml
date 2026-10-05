@@ -103,6 +103,7 @@ Item {
             fillMode: Image.Tile
             smooth: false
             opacity: 0.04
+            visible: DeviceProfile.panelDither
             z: Constants.zIndexBackground + 1
         }
 

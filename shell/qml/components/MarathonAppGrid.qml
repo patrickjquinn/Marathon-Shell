@@ -102,47 +102,38 @@ Item {
                     index: index
                     stagger: MMotion.staggerMicro
                 }
-                transform: [
-                    Scale {
-                        origin.x: width / 2
-                        origin.y: height / 2
-                        xScale: iconMouseArea.pressed ? 0.95 : 1
-                        yScale: iconMouseArea.pressed ? 0.95 : 1
 
-                        Behavior on xScale {
-                            enabled: Constants.enableAnimations
-
-                            NumberAnimation {
-                                duration: MMotion.durationFor("microPress")
-                                easing.type: MMotion.easingFor("microPress")
-                            }
-                        }
-
-                        Behavior on yScale {
-                            enabled: Constants.enableAnimations
-
-                            NumberAnimation {
-                                duration: MMotion.durationFor("microPress")
-                                easing.type: MMotion.easingFor("microPress")
-                            }
-                        }
-                    },
-                    Translate {
-                        y: iconMouseArea.pressed ? -2 : 0
-
-                        Behavior on y {
-                            enabled: Constants.enableAnimations
-
-                            NumberAnimation {
-                                duration: MMotion.durationFor("microPress")
-                                easing.type: MMotion.easingFor("microPress")
-                            }
-                        }
-                    }
-                ]
-
+                // Press feedback scales and lifts this column, not the cell:
+                // a transform list on every cell (even at scale 1) gives
+                // each icon a non-translate matrix, which stops Qt Quick
+                // merging the antialiased shapes and labels across icons
+                // (126 draw calls per frame on the home screen). The
+                // scale property at 1.0 leaves the matrix translate-only.
+                // The cell itself is left to MEntrance, which writes its
+                // scale and y.
                 Column {
                     anchors.centerIn: parent
+                    anchors.verticalCenterOffset: iconMouseArea.pressed ? -2 : 0
+                    scale: iconMouseArea.pressed ? 0.95 : 1
+
+                    Behavior on scale {
+                        enabled: Constants.enableAnimations
+
+                        NumberAnimation {
+                            duration: MMotion.durationFor("microPress")
+                            easing.type: MMotion.easingFor("microPress")
+                        }
+                    }
+
+                    Behavior on anchors.verticalCenterOffset {
+                        enabled: Constants.enableAnimations
+
+                        NumberAnimation {
+                            duration: MMotion.durationFor("microPress")
+                            easing.type: MMotion.easingFor("microPress")
+                        }
+                    }
+
                     // 10 px between the squircle and the label per the
                     // home-grid reference (screens-shell.jsx HomePage1).
                     // 4 px (the previous value) packed labels visually

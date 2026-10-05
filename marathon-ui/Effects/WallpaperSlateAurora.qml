@@ -10,6 +10,9 @@ import QtQuick
 // on Hackberry CM5 quantises the slate gradient to 6 bpc per channel
 // and produces visible Mach bands without dithering).
 Item {
+    // Off on 24 bpp panels: the overlay is a full-screen blended layer.
+    property bool dither: true
+
     anchors.fill: parent
 
     Image {
@@ -34,5 +37,6 @@ Item {
         opacity: 0.04
         smooth: false
         cache: true
+        visible: parent.dither
     }
 }

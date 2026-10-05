@@ -48,6 +48,8 @@ class AudioRoutingManager : public QObject {
     void mutedChanged(bool muted);
     void audioDeviceChanged(const QString &device);
     void audioRoutingFailed(const QString &error);
+    // An application's playback stream appeared or went away.
+    void playbackStreamsChanged();
 
   private slots:
     void onWpctlFinished(int exitCode, QProcess::ExitStatus exitStatus);

@@ -52,6 +52,7 @@ class TelephonyService : public QObject {
 
   private:
     void    connectToModemManager();
+    void    onManagedObjects(const QDBusMessage &msg);
     void    setupDBusConnections();
     void    setupCallMonitoring(const QString &callPath);
     void    monitorIncomingCalls();
@@ -68,6 +69,7 @@ class TelephonyService : public QObject {
     QDBusInterface         *m_voiceCall;
     QString                 m_callState;
     bool                    m_hasModem;
+    bool                    m_modemCheckPending = false;
     QString                 m_activeNumber;
     QString                 m_modemPath;
     QString                 m_activeCallPath;

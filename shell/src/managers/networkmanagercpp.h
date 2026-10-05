@@ -122,14 +122,17 @@ class NetworkManagerCpp : public QObject {
     void updateWifiDetails();
     void scanAccessPoints();
     void processAccessPoint(const QString &apPath);
+    void onNmPropertiesChanged(const QString &interface, const QVariantMap &changed,
+                               const QStringList &invalidated);
+    void onApPropertiesChanged(const QString &interface, const QVariantMap &changed,
+                               const QStringList &invalidated);
 
   private:
     void            setupDBusConnections();
     void            detectHardwareAvailability();
 
     QDBusInterface *m_nmInterface;
-    QTimer         *m_signalMonitor;
-    QTimer         *m_connectionMonitor;
+    QTimer         *m_signalMonitor = nullptr;
 
     bool            m_wifiEnabled;
     bool            m_wifiConnected;

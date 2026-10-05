@@ -21,6 +21,7 @@ void PowerBatteryHandlerCpp::notePowerButtonDown() {
     // Stamp the raw key-DOWN. PowerKeyListener delivers this for every
     // physical press regardless of focus, so it's the reliable hold-start.
     m_pressDownMs = QDateTime::currentMSecsSinceEpoch();
+    m_rawKeySeen  = true;
 }
 
 void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool screenOnHint) {
@@ -42,12 +43,22 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
         m_lastPressMs = nowMs;
         return;
     }
-    m_pressDownMs = 0;
 
     // A single physical power press fans out to TWO handlers — QML
     // Keys.onReleased (when the shell has focus) and PowerKeyListener
-    // (raw /dev/input) — which must be coalesced to one action. The
-    // second one is DELAYED by the compositor doze/resume transition:
+    // (raw /dev/input) — which must be coalesced to one action. When the
+    // raw listener is running it stamps every key-DOWN, so the press is
+    // consumed here and its twin finds nothing pending, however late it
+    // arrives. A time window cannot do this: the twin is delayed by the
+    // doze exit, which blocks this thread for ~800ms on the PinePhone,
+    // and a twin landing past the window reversed the action (the screen
+    // woke, then went straight back off).
+    if (m_rawKeySeen && m_pressDownMs == 0)
+        return;
+    m_pressDownMs = 0;
+
+    // Without the raw listener, fall back to a time window. The
+    // second event is DELAYED by the compositor doze/resume transition:
     // with the deep-idle display-off (CRTC ACTIVE=0 + releaseResources +
     // DDR downshift) it lands 265-402ms after the first (measured on
     // L5), past the old 200ms window, where it sees screenOn already

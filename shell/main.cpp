@@ -53,6 +53,7 @@
 #include "src/managers/deviceprofile.h"
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
+#include "src/services/inputboost.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
@@ -684,6 +685,8 @@ int main(int argc, char *argv[]) {
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
+    QObject::connect(audioRoutingManager, &AudioRoutingManager::playbackStreamsChanged,
+                     audioManager, &AudioManagerCpp::refreshStreams);
     auto *securityManager = new SecurityManager(&app);
     qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
                                                   securityManager);
@@ -780,9 +783,15 @@ int main(int argc, char *argv[]) {
     //
     // Both event sources (QML Keys.onReleased when shell has focus,
     // PowerKeyListener when it doesn't) invoke the same
-    // handlePowerButtonPress; a 200 ms dedupe there absorbs the case
-    // where both fire for the same physical press.
+    // handlePowerButtonPress, which acts once per key-DOWN stamped by
+    // PowerKeyListener, so both firing for one physical press toggle once.
     auto *powerKeyListener    = new PowerKeyListener(&app);
+    // Full CPU clock while the user interacts; the power key counts, since
+    // waking the display is the slowest thing a press does.
+    auto *inputBoost = new InputBoost(&app);
+    app.installEventFilter(inputBoost);
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, inputBoost,
+                     &InputBoost::boost);
     auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
         ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
         hapticManager, &app);

@@ -30,14 +30,14 @@ Item {
 
     Shape {
         anchors.fill: parent
-        antialiasing: true
-        // CurveRenderer does GPU-side analytical AA per fragment — strictly
-        // sharper than GeometryRenderer + layer.samples MSAA for curves,
-        // and avoids the FBO round-trip the `layer.enabled` path forced.
-        // This is the single biggest crispness win for every squircle
-        // hairline in the system (cards, buttons, toggles, app icons,
-        // sheets, modals).
-        preferredRendererType: Shape.CurveRenderer
+        // GeometryRenderer, not CurveRenderer. The curve renderer's material
+        // cannot be batched and runs analytic antialiasing per fragment: on
+        // the PinePhone's Mali-400 the home grid's hairlines alone took the
+        // GPU from 4.5 to 8.3 ms a frame and added a draw call per icon.
+        // Geometry output is a vertex-colour mesh that merges across every
+        // hairline on screen; for a 1 px line at 15% white the unsmoothed
+        // corners are not visible.
+        preferredRendererType: Shape.GeometryRenderer
 
         ShapePath {
             strokeWidth: root.lineWidth

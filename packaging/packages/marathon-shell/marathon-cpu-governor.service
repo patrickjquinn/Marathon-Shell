@@ -14,11 +14,11 @@ Description=Marathon — set cpufreq governor to ondemand
 # Doze enter/wake timing unchanged (~300 ms). WiFi ping in Doze
 # with PSM on: 10/10 packets, 14-39 ms RTT (same as schedutil).
 #
-# Downside: 100 ms sampling means UI touch-to-frame latency may add
-# up to one sample if the CPU has to ramp from 100 MHz. Not observed
-# in visual testing so far. If it becomes a problem, revert to
-# schedutil OR patch the kernel's schedutil to skip RT boost for
-# non-DL tasks.
+# Downside: ondemand only ramps when a sample is over 95% busy, and a
+# frame's work is a short burst, so gestures ran at low clocks (on the
+# PinePhone a swipe's median frame was 20.7 ms on a 14.4 ms panel). The
+# shell's InputBoost raises scaling_min_freq while the user interacts;
+# the second ExecStart lets it, by giving the input group write access.
 DefaultDependencies=no
 After=local-fs.target
 Before=greetd.service
@@ -27,6 +27,7 @@ Before=greetd.service
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor; do echo ondemand > "$g" 2>/dev/null || true; done'
+ExecStart=/bin/sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_min_freq; do chgrp input "$f" && chmod g+w "$f"; done; true'
 
 [Install]
 WantedBy=multi-user.target

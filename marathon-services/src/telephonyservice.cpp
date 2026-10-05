@@ -342,10 +342,25 @@ void TelephonyService::checkModemStatus() {
         return;
     }
 
+    // Asynchronous: this runs on the GUI thread every 10 s and on every
+    // ModemManager InterfacesAdded/Removed, and the reply for a cellular
+    // modem is large. A synchronous call stalled the shell's frames.
+    if (m_modemCheckPending)
+        return;
+    m_modemCheckPending = true;
+    auto *watcher =
+        new QDBusPendingCallWatcher(m_modemManager->asyncCall("GetManagedObjects"), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        m_modemCheckPending = false;
+        onManagedObjects(w->reply());
+    });
+}
+
+void TelephonyService::onManagedObjects(const QDBusMessage &msg) {
     typedef QMap<QString, QVariantMap>           InterfaceList;
     typedef QMap<QDBusObjectPath, InterfaceList> ManagedObjectList;
 
-    QDBusMessage                                 msg = m_modemManager->call("GetManagedObjects");
     if (msg.type() == QDBusMessage::ErrorMessage) {
         qDebug() << "[TelephonyService] Failed to get modems:" << msg.errorMessage();
         if (m_hasModem) {

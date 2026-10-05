@@ -16,6 +16,13 @@ Item {
     property alias appWindowContainer: appWindowContainer
     property bool showPinScreen: false
     property bool isTransitioningToActiveFrames: false
+    // The lock and PIN screens paint their own full-screen backdrop. While
+    // one of them is at rest, the shell wallpaper below is never seen but
+    // would still be drawn and blended every frame. It is hidden with
+    // opacity, not visible: an invisible Image gets no texture, so the shell
+    // (which starts locked) uploaded the full-screen wallpaper mid-way
+    // through the first unlock swipe, and lima tiles uploads on the CPU.
+    readonly property bool wallpaperCovered: (state === "locked" && lockScreen.swipeProgress === 0) || state === "pinEntry"
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -364,7 +371,11 @@ Item {
                 event.accepted = true;
                 return;
             }
-            if (!powerButtonTimer.running)
+            // A press while the screen is off is a wake press. Waking the
+            // display holds this thread for ~800ms on the PinePhone, so the
+            // release arrived after the long-press timer had fired and a
+            // plain wake opened the power menu.
+            if (!powerButtonTimer.running && DisplayPolicyControllerCpp.screenOn)
                 powerButtonTimer.start();
 
             event.accepted = true;
@@ -903,6 +914,7 @@ Item {
         anchors.fill: parent
         source: WallpaperStore.path
         fillMode: Image.PreserveAspectCrop
+        opacity: shell.wallpaperCovered ? 0 : 1
         z: Constants.zIndexBackground
     }
 
@@ -915,9 +927,10 @@ Item {
         anchors.fill: parent
         source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
-        opacity: 0.04
+        opacity: shell.wallpaperCovered ? 0 : 0.04
         smooth: false
         cache: true
+        visible: DeviceProfile.panelDither
         z: Constants.zIndexBackground + 1
     }
 
