@@ -165,16 +165,16 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
         m_wifiSignalStrength = 0;
     }
 
-    m_signalMonitor = new QTimer(this);
-    m_signalMonitor->setInterval(5000);
-    connect(m_signalMonitor, &QTimer::timeout, this, &NetworkManagerCpp::updateWifiSignalStrength);
-    m_signalMonitor->start();
-
-    m_connectionMonitor = new QTimer(this);
-    m_connectionMonitor->setInterval(3000);
-    connect(m_connectionMonitor, &QTimer::timeout, this, &NetworkManagerCpp::queryConnectionState);
-    if (m_hasNetworkManager) {
-        m_connectionMonitor->start();
+    // With NetworkManager, connection state and signal strength arrive as
+    // D-Bus signals (see setupDBusConnections). Polling them every few
+    // seconds blocked this (GUI) thread on a burst of synchronous property
+    // reads, dropping frames on the PinePhone. Only the mock simulates.
+    if (!m_hasNetworkManager) {
+        m_signalMonitor = new QTimer(this);
+        m_signalMonitor->setInterval(5000);
+        connect(m_signalMonitor, &QTimer::timeout, this,
+                &NetworkManagerCpp::updateWifiSignalStrength);
+        m_signalMonitor->start();
     }
 
     m_scanTimer = new QTimer(this);
@@ -251,10 +251,46 @@ void NetworkManagerCpp::setupDBusConnections() {
         "org.freedesktop.NetworkManager", "StateChanged", this, SLOT(queryWifiState()));
 
     if (!connected) {
-        qDebug() << "[NetworkManagerCpp] NetworkManager StateChanged signal connection failed "
-                    "(expected - using polling instead)";
+        qDebug() << "[NetworkManagerCpp] NetworkManager StateChanged signal connection failed";
     } else {
         qInfo() << "[NetworkManagerCpp] Connected to NetworkManager StateChanged signal";
+    }
+
+    // ActiveConnections, PrimaryConnection and State change whenever a
+    // connection comes up or goes away.
+    QDBusConnection::systemBus().connect(
+        "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
+        "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
+        SLOT(onNmPropertiesChanged(QString, QVariantMap, QStringList)));
+
+    // Any active connection reaching or leaving ACTIVATED. Switching between
+    // networks can leave the global state at CONNECTED throughout, so this
+    // is what reports a pending connect as done. The empty path matches
+    // every active-connection object.
+    QDBusConnection::systemBus().connect("org.freedesktop.NetworkManager", QString(),
+                                         "org.freedesktop.NetworkManager.Connection.Active",
+                                         "StateChanged", this, SLOT(queryConnectionState()));
+}
+
+void NetworkManagerCpp::onNmPropertiesChanged(const QString &, const QVariantMap &changed,
+                                              const QStringList &) {
+    if (changed.contains(QStringLiteral("ActiveConnections")) ||
+        changed.contains(QStringLiteral("PrimaryConnection")) ||
+        changed.contains(QStringLiteral("State")))
+        queryConnectionState();
+    if (changed.contains(QStringLiteral("WirelessEnabled")))
+        queryWifiState();
+}
+
+void NetworkManagerCpp::onApPropertiesChanged(const QString &, const QVariantMap &changed,
+                                              const QStringList &) {
+    const auto it = changed.constFind(QStringLiteral("Strength"));
+    if (it == changed.constEnd())
+        return;
+    const int strength = static_cast<int>(it->toUInt());
+    if (m_wifiSignalStrength != strength) {
+        m_wifiSignalStrength = strength;
+        emit wifiSignalStrengthChanged();
     }
 }
 
@@ -415,8 +451,17 @@ void NetworkManagerCpp::updateWifiDetails() {
             }
         }
     } else {
-
+        // Follow the new access point's Strength as it changes instead of
+        // re-reading it on a timer.
+        auto bus = QDBusConnection::systemBus();
+        if (!m_activeApPath.isEmpty())
+            bus.disconnect("org.freedesktop.NetworkManager", m_activeApPath,
+                           "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
+                           SLOT(onApPropertiesChanged(QString, QVariantMap, QStringList)));
         m_activeApPath = apPath.path();
+        bus.connect("org.freedesktop.NetworkManager", m_activeApPath,
+                    "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
+                    SLOT(onApPropertiesChanged(QString, QVariantMap, QStringList)));
 
         QDBusInterface ap("org.freedesktop.NetworkManager", apPath.path(),
                           "org.freedesktop.NetworkManager.AccessPoint",
