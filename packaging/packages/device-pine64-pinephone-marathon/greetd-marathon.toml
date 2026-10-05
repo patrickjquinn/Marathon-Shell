@@ -1,0 +1,21 @@
+# Marathon Shell greetd configuration — PinePhone
+# Same autologin as marathon-base-config's, with the PinePhone's display
+# settings in the shell's environment:
+#
+#   MARATHON_FORCE_DPI=270    5.95" 720x1440 panel. The shell passes this
+#                             on to apps; without it they fall back to
+#                             ~96 DPI and render at about a third of
+#                             their size.
+#   MARATHON_LAYER_SAMPLES=0  lima (Mali-400) has no multisample
+#                             renderbuffers; layers asked for 4x MSAA.
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/bin/env MARATHON_FORCE_DPI=270 MARATHON_LAYER_SAMPLES=0 /usr/bin/marathon-shell-session"
+user = "user"
+
+[initial_session]
+command = "/usr/bin/env MARATHON_FORCE_DPI=270 MARATHON_LAYER_SAMPLES=0 /usr/bin/marathon-shell-session"
+user = "user"

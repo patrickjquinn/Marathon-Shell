@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Marathon's greetd config with the PinePhone display environment
+# (relative path). marathon-base-config owns /etc/greetd/config.toml.
+ln -sf marathon-config.toml /etc/greetd/config.toml
+
+exit 0
