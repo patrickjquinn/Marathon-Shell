@@ -1,0 +1,58 @@
+# Reference: <https://postmarketos.org/devicepkg>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+
+pkgname=device-pine64-pinephone-marathon
+pkgdesc="PINE64 PinePhone device package for Marathon OS"
+pkgver=1.0.0
+pkgrel=0
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="Apache-2.0"
+arch="aarch64"
+options="!check !archcheck"
+# device-pine64-pinephone (pmaports testing) brings the kernel, DTBs,
+# U-Boot, the modem stack (eg25-manager) and the stock boot.scr; the
+# pipeline's U-Boot boot path (pipeline patch 0022) lays out the disk.
+# This overlay only adds Marathon's settings for the device.
+depends="
+	device-pine64-pinephone
+	marathon-shell
+	marathon-base-config
+	marathon-plymouth-theme
+	plymouth
+	u-boot-tools
+"
+install="$pkgname.post-install"
+source="
+	greetd-marathon.toml
+	logind.conf
+	device-profile.conf
+	marathon-boot.cmd
+	"
+
+package() {
+	# greetd autologin with the PinePhone display environment (DPI, no
+	# MSAA layers). The post-install points /etc/greetd/config.toml,
+	# owned by marathon-base-config, at it.
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/marathon-config.toml"
+
+	# The shell handles the power key (lock / power menu). Left to
+	# logind's default, a press powers the phone off.
+	install -Dm644 "$srcdir/logind.conf" \
+		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
+
+	install -Dm644 "$srcdir/device-profile.conf" \
+		"$pkgdir/etc/marathon/device-profile.conf"
+
+	# U-Boot script with splash enabled. mkosi.finalize compiles it to
+	# /boot/boot.scr with mkimage (u-boot-tools), replacing the stock one.
+	install -Dm644 "$srcdir/marathon-boot.cmd" \
+		"$pkgdir/usr/share/marathon/marathon-boot.cmd"
+}
+
+sha512sums="
+cb4ae7fb9259b803c1adb79e378397649ca2cd35c0b1e6c33d0f30fa20ae45a018e5209840eed57dfc6d3fb21a07a503b5a5776c358ee5347b80bf9a3e36677a  greetd-marathon.toml
+334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
+351e1800e4631a33db9be08b619cfa5d73b88cdf40e89d85952f39c707ba5a6447cfbd2b95089847a5d085f8c5f3f5498f1509ae91d62623cd8ba39531c35403  device-profile.conf
+e52c281fb3e043502fa0d6ced696dd78b95a74ccce1947d8d90d9bf6ad93d34f17113bb7dfabca8549b3b4504b10ec81cc0bb38b03fc3d4800ee8f9431839935  marathon-boot.cmd
+"
