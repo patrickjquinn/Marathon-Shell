@@ -1,0 +1,203 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.lipstick 0.1 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "KeelLauncherFolderModel"
+        prototype: "LauncherFolderModel"
+        exports: ["org.nemomobile.lipstick/LauncherFolderModel 0.1"]
+        exportMetaObjectRevisions: [1]
+    }
+    Component {
+        name: "KeelLauncherModel"
+        prototype: "LauncherModel"
+        exports: ["org.nemomobile.lipstick/LauncherModel 0.1"]
+        exportMetaObjectRevisions: [1]
+    }
+    Component {
+        name: "LauncherFolderItem"
+        prototype: "QObjectListModel"
+        exports: ["org.nemomobile.lipstick/LauncherFolderItem 0.1"]
+        exportMetaObjectRevisions: [1]
+        Property { name: "type"; type: "LauncherModel::ItemType"; isReadonly: true }
+        Property { name: "title"; type: "QString" }
+        Property { name: "iconId"; type: "QString" }
+        Property { name: "isUpdating"; type: "bool"; isReadonly: true }
+        Property { name: "updatingProgress"; type: "int"; isReadonly: true }
+        Property { name: "parentFolder"; type: "LauncherFolderItem"; isReadonly: true; isPointer: true }
+        Signal { name: "directoryFileChanged" }
+        Signal { name: "saveNeeded" }
+        Method {
+            name: "createFolder"
+            type: "LauncherFolderItem*"
+            Parameter { name: "index"; type: "int" }
+            Parameter { name: "name"; type: "QString" }
+        }
+        Method { name: "destroyFolder" }
+    }
+    Component {
+        name: "LauncherFolderModel"
+        prototype: "LauncherFolderItem"
+        Property { name: "scope"; type: "QString" }
+        Property { name: "directories"; type: "QStringList" }
+        Property { name: "iconDirectories"; type: "QStringList" }
+        Property { name: "categories"; type: "QStringList" }
+        Property { name: "blacklistedApplications"; type: "QStringList" }
+        Property { name: "replacementIdentityKey"; type: "QString" }
+        Property { name: "allItems"; type: "LauncherModel"; isReadonly: true; isPointer: true }
+        Signal {
+            name: "notifyLaunching"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+        }
+        Signal {
+            name: "canceledNotifyLaunching"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+        }
+        Signal {
+            name: "applicationRemoved"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+        }
+        Method { name: "load" }
+        Method { name: "save" }
+        Method {
+            name: "moveToFolder"
+            type: "bool"
+            Parameter { name: "item"; type: "QObject"; isPointer: true }
+            Parameter { name: "folder"; type: "LauncherFolderItem"; isPointer: true }
+            Parameter { name: "index"; type: "int" }
+        }
+        Method {
+            name: "moveToFolder"
+            type: "bool"
+            Parameter { name: "item"; type: "QObject"; isPointer: true }
+            Parameter { name: "folder"; type: "LauncherFolderItem"; isPointer: true }
+        }
+    }
+    Component {
+        name: "LauncherItem"
+        prototype: "QObject"
+        exports: ["org.nemomobile.lipstick/LauncherItem 0.1"]
+        exportMetaObjectRevisions: [1]
+        Property { name: "type"; type: "LauncherModel::ItemType"; isReadonly: true }
+        Property { name: "filePath"; type: "QString" }
+        Property { name: "fileID"; type: "QString"; isReadonly: true }
+        Property { name: "exec"; type: "QString"; isReadonly: true }
+        Property { name: "title"; type: "QString"; isReadonly: true }
+        Property { name: "entryType"; type: "QString"; isReadonly: true }
+        Property { name: "iconId"; type: "QString"; isReadonly: true }
+        Property { name: "desktopCategories"; type: "QStringList"; isReadonly: true }
+        Property { name: "mimeType"; type: "QStringList"; isReadonly: true }
+        Property { name: "titleUnlocalized"; type: "QString"; isReadonly: true }
+        Property { name: "shouldDisplay"; type: "bool"; isReadonly: true }
+        Property { name: "isSandboxed"; type: "bool"; isReadonly: true }
+        Property { name: "isValid"; type: "bool"; isReadonly: true }
+        Property { name: "isLaunching"; type: "bool" }
+        Property { name: "isUpdating"; type: "bool" }
+        Property { name: "isTemporary"; type: "bool" }
+        Property { name: "dBusActivated"; type: "bool"; isReadonly: true }
+        Property { name: "dBusServiceName"; type: "QString"; isReadonly: true }
+        Property { name: "packageName"; type: "QString" }
+        Property { name: "updatingProgress"; type: "int" }
+        Property { name: "isBlacklisted"; type: "bool" }
+        Signal { name: "itemChanged" }
+        Method {
+            name: "setIsLaunching"
+            Parameter { name: "isLaunching"; type: "bool" }
+        }
+        Method { name: "setIsLaunching" }
+        Method { name: "launchApplication" }
+        Method {
+            name: "launchWithArguments"
+            Parameter { name: "arguments"; type: "QStringList" }
+        }
+        Method {
+            name: "readValue"
+            type: "QString"
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "canOpenMimeType"
+            type: "bool"
+            Parameter { name: "mimeType"; type: "QString" }
+        }
+    }
+    Component {
+        name: "LauncherModel"
+        prototype: "QObjectListModel"
+        Enum {
+            name: "ItemType"
+            values: {
+                "Application": 0,
+                "Folder": 1
+            }
+        }
+        Property { name: "directories"; type: "QStringList" }
+        Property { name: "iconDirectories"; type: "QStringList" }
+        Property { name: "categories"; type: "QStringList" }
+        Property { name: "blacklistedApplications"; type: "QStringList" }
+        Property { name: "replacementIdentityKey"; type: "QString" }
+        Property { name: "scope"; type: "QString" }
+        Signal {
+            name: "launcherReplaced"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+            Parameter { name: "oldFilePath"; type: "QString" }
+        }
+        Signal {
+            name: "notifyLaunching"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+        }
+        Signal {
+            name: "canceledNotifyLaunching"
+            Parameter { name: "item"; type: "LauncherItem"; isPointer: true }
+        }
+        Method { name: "savePositions" }
+        Method { name: "removeTemporaryLaunchers" }
+    }
+    Component {
+        name: "LauncherWatcherModel"
+        prototype: "QObjectListModel"
+        exports: ["org.nemomobile.lipstick/LauncherWatcherModel 0.1"]
+        exportMetaObjectRevisions: [1]
+        Property { name: "filePaths"; type: "QStringList" }
+    }
+    Component {
+        name: "QObjectListModel"
+        prototype: "QAbstractListModel"
+        Property { name: "itemCount"; type: "int"; isReadonly: true }
+        Signal {
+            name: "itemAdded"
+            Parameter { name: "item"; type: "QObject"; isPointer: true }
+        }
+        Signal {
+            name: "itemRemoved"
+            Parameter { name: "item"; type: "QObject"; isPointer: true }
+        }
+        Method { name: "reset" }
+        Method {
+            name: "move"
+            Parameter { name: "oldRow"; type: "int" }
+            Parameter { name: "newRow"; type: "int" }
+        }
+        Method {
+            name: "update"
+            Parameter { name: "row"; type: "int" }
+        }
+        Method {
+            name: "get"
+            type: "QObject*"
+            Parameter { name: "index"; type: "int" }
+        }
+        Method {
+            name: "indexOf"
+            type: "int"
+            Parameter { name: "obj"; type: "QObject"; isPointer: true }
+        }
+    }
+}

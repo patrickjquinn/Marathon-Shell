@@ -1,0 +1,4 @@
+// SPDX-FileCopyrightText: 2009-2011 Nokia Corporation.
+// SPDX-FileCopyrightText: 2012-2016 Canonical Ltd.
+// SPDX-License-Identifier: LGPL-2.1-only
+#include <Accounts/account.h>

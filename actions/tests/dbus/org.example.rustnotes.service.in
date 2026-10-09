@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+# The Rust test app: the host with the native library and its compiled-in
+# manifest.
+[D-BUS Service]
+Name=org.example.rustnotes
+Exec=@KEEL_ACTIONS_TEST_HOST@ --keel-actions --native=@KEEL_ACTIONS_TEST_NATIVE@ --no-env-manifest @CMAKE_CURRENT_SOURCE_DIR@/dbus/Native.qml

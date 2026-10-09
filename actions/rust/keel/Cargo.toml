@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "keel"
+description = "Keel Actions for Rust apps (ADR-0018): #[keel::action], #[keel::entity], the native action table the Keel.Actions runtime calls"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+publish.workspace = true
+
+[dependencies]
+keel-macros = { path = "../keel-macros" }
+inventory = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+keel-actions-schema = { path = "../../schema" }
+
+[lints]
+workspace = true

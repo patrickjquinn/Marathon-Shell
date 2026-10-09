@@ -1,0 +1,132 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types Keel 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "keel::Ambience"
+        prototype: "QObject"
+        exports: ["Keel/Ambience 1.0"]
+        isCreatable: false
+        isSingleton: true
+        exportMetaObjectRevisions: [256]
+        Property { name: "highlightColor"; type: "QString"; isReadonly: true }
+        Property { name: "primaryColor"; type: "QString"; isReadonly: true }
+        Property { name: "secondaryColor"; type: "QString"; isReadonly: true }
+        Property { name: "secondaryHighlightColor"; type: "QString"; isReadonly: true }
+        Property { name: "highlightBackgroundColor"; type: "QString"; isReadonly: true }
+        Property { name: "highlightDimmerColor"; type: "QString"; isReadonly: true }
+        Property { name: "overlayBackgroundColor"; type: "QString"; isReadonly: true }
+        Property { name: "errorColor"; type: "QString"; isReadonly: true }
+        Property { name: "colorScheme"; type: "int"; isReadonly: true }
+        Property { name: "pixelRatio"; type: "double"; isReadonly: true }
+        Property { name: "highlightBackgroundOpacity"; type: "double"; isReadonly: true }
+        Property { name: "backgroundImage"; type: "QString"; isReadonly: true }
+        Property { name: "fontFamily"; type: "QString"; isReadonly: true }
+        Property { name: "fontFamilyHeading"; type: "QString"; isReadonly: true }
+        Property { name: "ambienceName"; type: "QString"; isReadonly: true }
+        Property { name: "source"; type: "QString"; isReadonly: true }
+        Signal { name: "ambienceChanged" }
+        Method { name: "reload" }
+        Method {
+            name: "applyForwarded"
+            Parameter { name: "lines"; type: "QString" }
+        }
+        Method {
+            name: "highlightFromColor"
+            type: "QString"
+            Parameter { name: "color"; type: "QString" }
+            Parameter { name: "scheme"; type: "::std::int32_t" }
+        }
+        Method {
+            name: "secondaryHighlightFromColor"
+            type: "QString"
+            Parameter { name: "color"; type: "QString" }
+            Parameter { name: "scheme"; type: "::std::int32_t" }
+        }
+        Method {
+            name: "highlightBackgroundFromColor"
+            type: "QString"
+            Parameter { name: "color"; type: "QString" }
+            Parameter { name: "scheme"; type: "::std::int32_t" }
+        }
+        Method {
+            name: "highlightDimmerFromColor"
+            type: "QString"
+            Parameter { name: "color"; type: "QString" }
+            Parameter { name: "scheme"; type: "::std::int32_t" }
+        }
+    }
+    Component {
+        name: "keel::LinkParser"
+        prototype: "QObject"
+        exports: ["Keel/LinkParser 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "text"; type: "QString" }
+        Property { name: "shortenUrl"; type: "bool" }
+        Property { name: "linkedText"; type: "QString"; isReadonly: true }
+        Signal { name: "inputsChanged" }
+        Method {
+            name: "setText"
+            Parameter { name: "value"; type: "QString" }
+        }
+        Method {
+            name: "setShortenUrl"
+            Parameter { name: "value"; type: "bool" }
+        }
+    }
+    Component {
+        name: "keel::ShellClient"
+        prototype: "QObject"
+        exports: ["Keel/Shell 1.0"]
+        isCreatable: false
+        isSingleton: true
+        exportMetaObjectRevisions: [256]
+        Enum {
+            name: "CoverStatus"
+            values: {
+                "CoverInactive": 0,
+                "CoverActive": 1
+            }
+        }
+        Property { name: "underShell"; type: "bool"; isReadonly: true }
+        Property { name: "direct"; type: "bool"; isReadonly: true }
+        Property { name: "phone"; type: "bool"; isReadonly: true }
+        Property { name: "connected"; type: "bool"; isReadonly: true }
+        Property { name: "protocolVersion"; type: "int"; isReadonly: true }
+        Property { name: "orientation"; type: "int"; isReadonly: true }
+        Property { name: "active"; type: "bool"; isReadonly: true }
+        Property { name: "coverStatus"; type: "int"; isReadonly: true }
+        Property { name: "dpi"; type: "int"; isReadonly: true }
+        Property { name: "coverTitle"; type: "QString"; isReadonly: true }
+        Property { name: "coverEnabled"; type: "bool"; isReadonly: true }
+        Property { name: "ambience"; type: "QVariantMap"; isReadonly: true }
+        Signal { name: "closeRequested" }
+        Method {
+            name: "connectTo"
+            type: "bool"
+            Parameter { name: "address"; type: "QString" }
+        }
+        Method { name: "activate" }
+        Method {
+            name: "setContentOrientation"
+            Parameter { name: "degrees"; type: "int" }
+        }
+        Method {
+            name: "prepareCoverWindow"
+            Parameter { name: "object"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "setLipstickProperty"
+            Parameter { name: "object"; type: "QObject"; isPointer: true }
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "value"; type: "QVariant" }
+        }
+    }
+}

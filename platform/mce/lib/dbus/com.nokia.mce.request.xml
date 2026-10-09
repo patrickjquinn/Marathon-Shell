@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+  "http://standards.freedesktop.org/dbus/1.0/introspect.dtd">
+<node name="/com/nokia/mce/request">
+  <interface name="com.nokia.mce.request">
+    <method name="get_charging_state">
+      <arg direction="out" name="charging_state" type="s"/>
+    </method>
+    <method name="get_button_backlight">
+      <arg direction="out" name="enabled" type="b"/>
+    </method>
+    <method name="req_button_backlight_mode">
+      <arg direction="in" name="mode" type="i"/>
+    </method>
+    <method name="req_button_backlight_change">
+      <arg direction="in" name="enable" type="b"/>
+    </method>
+    <method name="get_memory_level">
+      <arg direction="out" name="memory_level" type="s"/>
+    </method>
+    <method name="req_cpu_keepalive_wakeup">
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <method name="req_cpu_keepalive_stop">
+      <arg direction="in" name="session_id" type="s"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <method name="req_cpu_keepalive_start">
+      <arg direction="in" name="session_id" type="s"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <method name="req_cpu_keepalive_period">
+      <arg direction="in" name="session_id" type="s"/>
+      <arg direction="out" name="period" type="i"/>
+    </method>
+    <method name="get_psm_state">
+      <arg direction="out" name="power_saving_mode_active" type="b"/>
+    </method>
+    <method name="get_call_state">
+      <arg direction="out" name="call_state" type="s"/>
+      <arg direction="out" name="call_type" type="s"/>
+    </method>
+    <method name="req_call_state_change">
+      <arg direction="in" name="call_state" type="s"/>
+      <arg direction="in" name="call_type" type="s"/>
+      <arg direction="out" name="accepted" type="b"/>
+    </method>
+    <method name="remove_activity_callback">
+    </method>
+    <method name="add_activity_callback">
+      <arg direction="in" name="service_name" type="s"/>
+      <arg direction="in" name="object_path" type="s"/>
+      <arg direction="in" name="interface_name" type="s"/>
+      <arg direction="in" name="method_name" type="s"/>
+      <arg direction="out" name="added" type="b"/>
+    </method>
+    <method name="get_inactivity_status">
+      <arg direction="out" name="device_inactive" type="b"/>
+    </method>
+    <method name="req_led_disable">
+    </method>
+    <method name="req_led_enable">
+    </method>
+    <method name="req_led_pattern_deactivate">
+      <arg direction="in" name="pattern_name" type="s"/>
+    </method>
+    <method name="req_led_pattern_activate">
+      <arg direction="in" name="pattern_name" type="s"/>
+    </method>
+    <method name="get_key_backlight_state">
+      <arg direction="out" name="backlight_state" type="b"/>
+    </method>
+<!--
+    <method name="get_display_stats">
+      <arg direction="out" name="display_state_statistics" type="a{s(xx)}"/>
+    </method>
+-->
+    <method name="req_cabc_mode">
+      <arg direction="in" name="requested_cabc_mode" type="s"/>
+      <arg direction="out" name="activated_cabc_mode" type="s"/>
+    </method>
+    <method name="req_display_cancel_blanking_pause">
+    </method>
+    <method name="req_display_blanking_pause">
+    </method>
+    <method name="req_display_state_lpm_off">
+    </method>
+    <method name="req_display_state_lpm_on">
+    </method>
+    <method name="req_display_state_lpm">
+    </method>
+    <method name="req_display_state_off">
+    </method>
+    <method name="req_display_state_dim">
+    </method>
+    <method name="req_display_state_on">
+    </method>
+    <method name="get_cabc_mode">
+      <arg direction="out" name="cabc_mode" type="s"/>
+    </method>
+    <method name="get_display_status">
+      <arg direction="out" name="display_state_curr" type="s"/>
+    </method>
+    <method name="get_display_blanking_inhibit">
+      <arg direction="out" name="blanking_inhibit" type="s"/>
+    </method>
+    <method name="get_display_blanking_pause_allowed">
+      <arg direction="out" name="allowed" type="b"/>
+    </method>
+    <method name="get_display_blanking_pause">
+      <arg direction="out" name="blanking_pause" type="s"/>
+    </method>
+    <method name="req_color_profile_change">
+      <arg direction="in" name="profile_name" type="s"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <method name="get_color_profile_ids">
+      <arg direction="out" name="profile_names" type="as"/>
+    </method>
+    <method name="get_color_profile">
+      <arg direction="out" name="profile_name" type="s"/>
+    </method>
+    <method name="req_radio_states_change">
+      <arg direction="in" name="radio_states" type="u"/>
+      <arg direction="in" name="states_to_chage" type="u"/>
+    </method>
+    <method name="get_radio_states">
+      <arg direction="out" name="radio_states" type="u"/>
+    </method>
+    <method name="get_battery_level">
+      <arg direction="out" name="battery_level" type="i"/>
+    </method>
+    <method name="get_battery_state">
+      <arg direction="out" name="battery_state" type="s"/>
+    </method>
+    <method name="get_battery_status">
+      <arg direction="out" name="battery_status" type="s"/>
+    </method>
+    <method name="get_charger_state">
+      <arg direction="out" name="charger_state" type="s"/>
+    </method>
+    <method name="get_charger_type">
+      <arg direction="out" name="charger_type" type="s"/>
+    </method>
+    <method name="get_usb_cable_state">
+      <arg direction="out" name="usb_cable_state" type="s"/>
+    </method>
+    <method name="get_display_blanking_policy">
+      <arg direction="out" name="blanking_policy" type="s"/>
+    </method>
+    <method name="keyboard_available_state_req">
+      <arg direction="out" name="keyboard_state" type="s"/>
+    </method>
+    <method name="keyboard_slide_state_req">
+      <arg direction="out" name="slide_state" type="s"/>
+    </method>
+    <method name="notification_end_req">
+      <arg direction="in" name="notification_name" type="s"/>
+      <arg direction="in" name="linger_time" type="i"/>
+    </method>
+    <method name="notification_begin_req">
+      <arg direction="in" name="notification_name" type="s"/>
+      <arg direction="in" name="duration_time" type="i"/>
+      <arg direction="in" name="activity_extend_time" type="i"/>
+    </method>
+    <method name="tklock_callback">
+      <arg direction="in" name="lock_status" type="i"/>
+    </method>
+    <method name="req_tklock_mode_change">
+      <arg direction="in" name="mode_name" type="s"/>
+    </method>
+    <method name="get_tklock_mode">
+      <arg direction="out" name="mode_name" type="s"/>
+    </method>
+    <method name="get_touch_input_policy">
+      <arg direction="out" name="input_policy" type="s"/>
+    </method>
+    <method name="get_keypad_input_policy">
+      <arg direction="out" name="input_policy" type="s"/>
+    </method>
+    <method name="req_ignore_incoming_call">
+      <!-- NOT DEFINED -->
+    </method>
+    <method name="req_trigger_powerkey_event">
+      <arg direction="in" name="action" type="u"/>
+    </method>
+    <method name="set_verbosity">
+      <arg direction="in" name="level" type="i"/>
+    </method>
+    <method name="get_verbosity">
+      <arg direction="out" name="level" type="i"/>
+    </method>
+    <method name="get_suspend_stats">
+      <arg direction="out" name="uptime_ms" type="x"/>
+      <arg direction="out" name="suspend_ms" type="x"/>
+    </method>
+    <method name="reset_config">
+      <arg direction="in" name="key_part" type="s"/>
+      <arg direction="out" name="count" type="i"/>
+    </method>
+    <method name="set_config">
+      <arg direction="in" name="key_name" type="s"/>
+      <arg direction="in" name="key_value" type="v"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <method name="get_config_all">
+      <arg direction="out" name="values" type="a{sv}"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QVariantMap"/>
+    </method>
+    <method name="get_config">
+      <arg direction="in" name="key_name" type="s"/>
+      <arg direction="out" name="key_value" type="v"/>
+    </method>
+    <method name="get_version">
+      <arg direction="out" name="version" type="s"/>
+    </method>
+  </interface>
+</node>

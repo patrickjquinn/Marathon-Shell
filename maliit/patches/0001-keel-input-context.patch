@@ -1,0 +1,43 @@
+From: Shipwright
+Subject: [PATCH] Qt 6 input context for Keel apps on Lipstick
+
+Two faults in the Qt 6 input context (Chum's qt6-sfos-maliit-
+platforminputcontext), found on the Jolla Phone:
+
+- containerConnectionInterface was only assigned when
+  FLATPAK_MALIIT_CONTAINER_DBUS is set and was left uninitialised
+  otherwise, so the first updateInputMethodArea from maliit-server
+  dereferenced garbage: every Qt 6 app crashed when its keyboard opened.
+- keyboardRect() returned an empty rectangle ("taken care by
+  compositor"). Keel apps run on Lipstick directly and lay out around
+  QInputMethod::keyboardRectangle, as Silica does on Qt 5, so text
+  fields stayed under the keyboard.
+
+SPDX-FileCopyrightText: 2026 Patrick Quinn
+SPDX-License-Identifier: LGPL-2.1-only
+---
+diff --git a/input-context/minputcontext.cpp b/input-context/minputcontext.cpp
+index 97240fc..3130688 100644
+--- a/input-context/minputcontext.cpp
++++ b/input-context/minputcontext.cpp
+@@ -61,6 +61,7 @@ bool MInputContext::debug = false;
+ 
+ MInputContext::MInputContext()
+     : imServer(0),
++      containerConnectionInterface(nullptr),
+       active(false),
+       inputPanelState(InputPanelHidden),
+       preeditCursorPos(-1),
+@@ -413,8 +414,10 @@ bool MInputContext::filterEvent(const QEvent *event)
+ 
+ QRectF MInputContext::keyboardRect() const
+ {
+-    return QRectF();
+-    //return keyboardRectangle;
++    // Shipwright: Qt 6 apps on Lipstick itself (Keel) lay out around the
++    // keyboard from QInputMethod::keyboardRectangle, as Silica on Qt 5 does;
++    // an empty rectangle left text fields under the keyboard.
++    return keyboardRectangle;
+ }
+ 
+ bool MInputContext::isAnimating() const

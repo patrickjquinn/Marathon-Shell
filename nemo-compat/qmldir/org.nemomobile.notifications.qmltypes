@@ -1,0 +1,147 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.notifications 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "Notification"
+        prototype: "QObject"
+        exports: ["org.nemomobile.notifications/Notification 1.0"]
+        exportMetaObjectRevisions: [256]
+        Enum {
+            name: "Urgency"
+            values: {
+                "Low": 0,
+                "Normal": 1,
+                "Critical": 2
+            }
+        }
+        Enum {
+            name: "CloseReason"
+            values: {
+                "Expired": 0,
+                "DismissedByUser": 1,
+                "Closed": 2
+            }
+        }
+        Enum {
+            name: "Progress"
+            values: {
+                "ProgressIndeterminate": -1
+            }
+        }
+        Property { name: "category"; type: "QString" }
+        Property { name: "appName"; type: "QString" }
+        Property { name: "replacesId"; type: "uint" }
+        Property { name: "icon"; type: "QString" }
+        Property { name: "appIcon"; type: "QString" }
+        Property { name: "summary"; type: "QString" }
+        Property { name: "body"; type: "QString" }
+        Property { name: "urgency"; type: "Notification::Urgency" }
+        Property { name: "expireTimeout"; type: "int" }
+        Property { name: "timestamp"; type: "QDateTime" }
+        Property { name: "previewSummary"; type: "QString" }
+        Property { name: "previewBody"; type: "QString" }
+        Property { name: "subText"; type: "QString" }
+        Property { name: "sound"; type: "QString" }
+        Property { name: "soundName"; type: "QString" }
+        Property { name: "iconData"; type: "QImage" }
+        Property { name: "itemCount"; type: "int" }
+        Property { name: "remoteActions"; type: "QVariantList" }
+        Property { name: "isTransient"; type: "bool" }
+        Property { name: "resident"; type: "bool" }
+        Property { name: "progress"; type: "QVariant" }
+        Property { name: "remoteDBusCallServiceName"; type: "QString" }
+        Property { name: "remoteDBusCallObjectPath"; type: "QString" }
+        Property { name: "remoteDBusCallInterface"; type: "QString" }
+        Property { name: "remoteDBusCallMethodName"; type: "QString" }
+        Property { name: "remoteDBusCallArguments"; type: "QVariantList" }
+        Property { name: "origin"; type: "QString" }
+        Property { name: "maxContentLines"; type: "int" }
+        Signal { name: "clicked" }
+        Signal {
+            name: "actionInvoked"
+            Parameter { name: "name"; type: "QString" }
+        }
+        Signal {
+            name: "inputActionInvoked"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "inputText"; type: "QString" }
+        }
+        Signal {
+            name: "closed"
+            Parameter { name: "reason"; type: "uint" }
+        }
+        Signal { name: "remoteDBusCallChanged" }
+        Method { name: "publish" }
+        Method { name: "close" }
+        Method { name: "notifications"; type: "QList<QObject*>" }
+        Method {
+            name: "notifications"
+            type: "QList<QObject*>"
+            Parameter { name: "owner"; type: "QString" }
+        }
+        Method {
+            name: "notificationsByCategory"
+            type: "QList<QObject*>"
+            Parameter { name: "category"; type: "QString" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+            Parameter { name: "service"; type: "QString" }
+            Parameter { name: "path"; type: "QString" }
+            Parameter { name: "iface"; type: "QString" }
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QVariantList" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+            Parameter { name: "service"; type: "QString" }
+            Parameter { name: "path"; type: "QString" }
+            Parameter { name: "iface"; type: "QString" }
+            Parameter { name: "method"; type: "QString" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+            Parameter { name: "service"; type: "QString" }
+            Parameter { name: "path"; type: "QString" }
+            Parameter { name: "iface"; type: "QString" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+            Parameter { name: "service"; type: "QString" }
+            Parameter { name: "path"; type: "QString" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+            Parameter { name: "service"; type: "QString" }
+        }
+        Method {
+            name: "remoteAction"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "displayName"; type: "QString" }
+        }
+    }
+}

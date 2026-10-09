@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# A test double of Qt WebEngine's QML module (the host has no Qt WebEngine):
+# the names Keel's WebEngineBackend.qml uses, as Qt 6.4's QtWebEngine
+# plugins.qmltypes declares them. It renders nothing; tests drive it.
+module QtWebEngine
+WebEngineView 1.10 WebEngineView.qml
+WebEngineProfile 1.10 WebEngineProfile.qml
+WebEngineSettings 1.10 WebEngineSettings.qml
+WebEngineLoadingInfo 1.10 WebEngineLoadingInfo.qml
+WebEngineNavigationRequest 1.10 WebEngineNavigationRequest.qml
+JavaScriptDialogRequest 1.10 JavaScriptDialogRequest.qml
+AuthenticationDialogRequest 1.10 AuthenticationDialogRequest.qml
+ContextMenuRequest 1.10 ContextMenuRequest.qml
+FileDialogRequest 1.10 FileDialogRequest.qml
+ColorDialogRequest 1.10 ColorDialogRequest.qml
+singleton FakeLog 1.10 FakeLog.qml

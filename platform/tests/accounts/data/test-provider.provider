@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2012 Jolla Ltd. -->
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!DOCTYPE provider>
+<provider version="1.0" id="test-provider">
+    <name>Provider(test)</name>
+    <description>Test provider file to test accounts plugin</description>
+    <icon>icon-l-google</icon>
+    <sign-up-link>www.google.com</sign-up-link>
+    <account-setup>
+        <register type="formular"/>
+        <setting name="email" type="email"/>
+        <setting name="customerID" type="integer"/>
+        <setting name="use_ssl" type="checkbox" default_value="true"/>
+        <setting name="alternative_host" type="string"/>
+        <setting name="store_password_in_accounts" type="boolean" default_value="true" />
+        <authsession>
+            <validate method="password" mechanism="ClientLogin" AuthServer="https://www.google.com/accounts" />
+            <method name="google" token="all">
+                <mechanism name="ClientLogin" token="me"/>
+                    <tokens>token1, token2</tokens>
+                <mechanism name="AuthSub"/>
+            </method>
+            <method name="password" token="nobody">
+            </method>
+            <realms>
+                <realm>youtube.com</realm>
+                <realm>google.com</realm>
+            </realms>
+        </authsession>
+        <authdomain separator="@" default_domain="gmail.com"/>
+    </account-setup>
+</provider>

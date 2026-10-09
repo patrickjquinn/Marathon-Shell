@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2012 Jolla Ltd. -->
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<service-type id="test-service-type2">
+  <name>Test IM</name>
+  <description>Instant messaging for testing</description>
+  <icon>message</icon>
+  <tags>
+    <tag>testing</tag>
+    <tag>messaging</tag>
+  </tags>
+</service-type>

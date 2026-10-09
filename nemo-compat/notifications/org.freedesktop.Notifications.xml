@@ -1,0 +1,58 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+SPDX-FileCopyrightText: Jolla Ltd.
+SPDX-License-Identifier: BSD-3-Clause
+-->
+<node>
+  <interface name="org.freedesktop.Notifications">
+    <!-- Desktop Notification Specification interface -->
+    <method name="GetCapabilities">
+      <arg name="capabilities" type="as" direction="out"/>
+    </method>
+    <method name="Notify">
+      <arg name="app_name" type="s" direction="in"/>
+      <arg name="replaces_id" type="u" direction="in"/>
+      <arg name="app_icon" type="s" direction="in"/>
+      <arg name="summary" type="s" direction="in"/>
+      <arg name="body" type="s" direction="in"/>
+      <arg name="actions" type="as" direction="in"/>
+      <arg name="hints" type="a{sv}" direction="in"/>
+      <arg name="expire_timeout" type="i" direction="in"/>
+      <arg name="id" type="u" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In6" value="QVariantHash"/>
+    </method>
+    <method name="CloseNotification">
+      <arg name="id" type="u" direction="in"/>
+    </method>
+    <method name="GetServerInformation">
+      <arg type="s" direction="out"/>
+      <arg name="name" type="s" direction="out"/>
+      <arg name="vendor" type="s" direction="out"/>
+      <arg name="version" type="s" direction="out"/>
+    </method>
+    <signal name="NotificationClosed">
+      <arg name="id" type="u"/>
+      <arg name="reason" type="u"/>
+    </signal>
+    <signal name="ActionInvoked">
+      <arg name="id" type="u"/>
+      <arg name="action_key" type="s"/>
+    </signal>
+
+    <!-- Nemo extensions -->
+    <method name="GetNotifications">
+      <arg name="app_name" type="s" direction="in"/>
+      <arg name="notifications" type="a(sussasa{sv}i)" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QList &lt; NotificationData &gt; "/>
+    </method>
+    <method name="GetNotificationsByCategory">
+      <arg name="category" type="s" direction="in"/>
+      <arg name="notifications" type="a(sussasa{sv}i)" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QList &lt; NotificationData &gt; "/>
+    </method>
+    <signal name="InputTextSet">
+      <arg name="id" type="u"/>
+      <arg name="input" type="s"/>
+    </signal>
+  </interface>
+</node>

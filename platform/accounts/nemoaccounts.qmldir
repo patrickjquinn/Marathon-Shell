@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+module org.nemomobile.accounts
+plugin nemoaccounts
+typeinfo plugins.qmltypes

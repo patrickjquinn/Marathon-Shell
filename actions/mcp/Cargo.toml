@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "keel-mcp"
+description = "keel-mcp (ADR-0018): every Keel app's actions, entities, context and shortcuts as one MCP server, over stdio or a Unix socket"
+version.workspace = true
+edition.workspace = true
+# rmcp 3.5 needs 1.88 (the workspace floor is 1.87).
+rust-version = "1.88"
+license = "MIT"
+publish.workspace = true
+
+[[bin]]
+name = "keel-mcp"
+path = "src/main.rs"
+
+[dependencies]
+keel-actions-schema = { path = "../schema" }
+rmcp = { version = "3.5", default-features = false, features = ["server", "transport-io"] }
+serde = "1"
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "io-std", "io-util", "net", "time", "sync", "fs"] }
+zbus = { version = "5", default-features = false, features = ["async-io"] }
+
+[lints]
+workspace = true

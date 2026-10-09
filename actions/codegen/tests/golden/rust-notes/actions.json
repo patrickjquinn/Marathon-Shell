@@ -1,0 +1,318 @@
+{
+  "appId": "org.example.rustnotes",
+  "entities": [
+    {
+      "description": "A note with a title and a body.",
+      "findTool": "org.example.rustnotes/note.find",
+      "schema": {
+        "$defs": {
+          "org.example.rustnotes.note": {
+            "format": "uri",
+            "maxLength": 290,
+            "pattern": "^keel://org\\.example\\.rustnotes/note/[^/?#\\s]{1,256}$",
+            "type": "string",
+            "x-keel-entity": "org.example.rustnotes/note"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 20000,
+            "type": "string"
+          },
+          "created": {
+            "maxLength": 32,
+            "type": "string",
+            "x-keel-indexable": true,
+            "x-keel-summarisable": true
+          },
+          "id": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "uri": {
+            "$ref": "#/$defs/org.example.rustnotes.note"
+          }
+        },
+        "required": [
+          "uri",
+          "id",
+          "title",
+          "created",
+          "body"
+        ],
+        "type": "object"
+      },
+      "title": "Note",
+      "type": "note",
+      "uriTemplate": "keel://org.example.rustnotes/note/{id}"
+    }
+  ],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/find": "note",
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Find Note items by text. Returns references (uri, id, title) for later steps. A note with a title and a body.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Text to look for; empty for the most recent.",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.example.rustnotes/note.find",
+      "outputSchema": {
+        "$defs": {
+          "org.example.rustnotes.note": {
+            "format": "uri",
+            "maxLength": 290,
+            "pattern": "^keel://org\\.example\\.rustnotes/note/[^/?#\\s]{1,256}$",
+            "type": "string",
+            "x-keel-entity": "org.example.rustnotes/note"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "created": {
+                  "maxLength": 32,
+                  "type": "string",
+                  "x-keel-indexable": true,
+                  "x-keel-summarisable": true
+                },
+                "id": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "title": {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                "uri": {
+                  "$ref": "#/$defs/org.example.rustnotes.note"
+                }
+              },
+              "required": [
+                "uri",
+                "id",
+                "title",
+                "created"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "title": "Find Note"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "notes.delete",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Delete a note permanently; it cannot be restored.",
+      "inputSchema": {
+        "$defs": {
+          "org.example.rustnotes.note": {
+            "format": "uri",
+            "maxLength": 290,
+            "pattern": "^keel://org\\.example\\.rustnotes/note/[^/?#\\s]{1,256}$",
+            "type": "string",
+            "x-keel-entity": "org.example.rustnotes/note"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "$ref": "#/$defs/org.example.rustnotes.note"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "type": "object"
+      },
+      "name": "org.example.rustnotes/notes.delete"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "notes.panic",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Test action that panics, to check the FFI guard.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.example.rustnotes/notes.panic",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "notes.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search notes by text. Returns up to `limit` matches.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.example.rustnotes/notes.search",
+      "outputSchema": {
+        "$defs": {
+          "org.example.rustnotes.note": {
+            "format": "uri",
+            "maxLength": 290,
+            "pattern": "^keel://org\\.example\\.rustnotes/note/[^/?#\\s]{1,256}$",
+            "type": "string",
+            "x-keel-entity": "org.example.rustnotes/note"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "note": {
+                  "$ref": "#/$defs/org.example.rustnotes.note"
+                },
+                "title": {
+                  "maxLength": 200,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "note",
+                "title"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "notes.touch",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Marks the notes list as seen; has no result.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.example.rustnotes/notes.touch"
+    }
+  ],
+  "version": 1
+}

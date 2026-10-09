@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types Nemo.Ngf 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "DeclarativeNgfEvent"
+        prototype: "QObject"
+        exports: ["Nemo.Ngf/NonGraphicalFeedback 1.0"]
+        exportMetaObjectRevisions: [256]
+        Enum {
+            name: "EventStatus"
+            values: {
+                "Stopped": 0,
+                "Failed": 1,
+                "Playing": 2,
+                "Paused": 3
+            }
+        }
+        Property { name: "connected"; type: "bool"; isReadonly: true }
+        Property { name: "event"; type: "QString" }
+        Property { name: "status"; type: "DeclarativeNgfEvent::EventStatus"; isReadonly: true }
+        Property {
+            name: "properties"
+            type: "DeclarativeNgfEventProperty"
+            isList: true
+            isReadonly: true
+        }
+        Method { name: "play" }
+        Method { name: "pause" }
+        Method { name: "resume" }
+        Method { name: "stop" }
+    }
+    Component {
+        name: "DeclarativeNgfEventProperty"
+        prototype: "QObject"
+        exports: ["Nemo.Ngf/NgfProperty 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "name"; type: "QString" }
+        Property { name: "value"; type: "QVariant" }
+    }
+}

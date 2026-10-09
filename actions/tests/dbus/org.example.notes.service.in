@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+# The test app's activation file: the generated one
+# (keel/actions/codegen/tests/golden/qml-notes) with the test host for Exec.
+[D-BUS Service]
+Name=org.example.notes
+Exec=@KEEL_ACTIONS_TEST_HOST@ --keel-actions

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Example .desktop file for a Keel app run through keel-shell.
+# Lipstick launches keel-shell; keel-shell owns both Lipstick windows (app
+# and cover), so they share one pid, which is how Lipstick ties a cover to an
+# app. [VERIFY] on device.
+[Desktop Entry]
+Type=Application
+Name=Example
+Icon=org.example.weather
+Exec=/usr/bin/keel-shell -- /usr/bin/org.example.weather
+X-Nemo-Application-Type=no-invoker
+X-Nemo-Single-Instance=yes
+
+[X-Sailjail]
+OrganizationName=org.example
+ApplicationName=weather
+Permissions=Internet

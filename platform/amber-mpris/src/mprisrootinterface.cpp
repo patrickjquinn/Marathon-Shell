@@ -1,0 +1,113 @@
+// SPDX-FileCopyrightText: 2015-2022 Jolla Ltd.
+// SPDX-License-Identifier: LGPL-2.1-or-later
+/*
+ *
+ * Copyright (C) 2015-2022 Jolla Ltd.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+
+#include <QLoggingCategory>
+#include "mprisclient_p.h"
+
+using namespace Amber;
+
+namespace {
+    Q_LOGGING_CATEGORY(lcIface, "org.amber.mpris.iface", QtWarningMsg)
+}
+
+/*
+ * Implementation of interface class MprisRootInterface
+ */
+
+MprisRootInterface::MprisRootInterface(const QString &service, const QString &path, const QDBusConnection &connection, QObject *parent)
+    : DBusExtendedAbstractInterface(service, path, staticInterfaceName(), connection, parent)
+    , m_canQuit(false)
+    , m_canRaise(false)
+    , m_canSetFullscreen(false)
+    , m_fullscreen(false)
+    , m_hasTrackList(false)
+{
+    connect(this, SIGNAL(propertyChanged(QString, QVariant)), this, SLOT(onPropertyChanged(QString, QVariant)));
+}
+
+MprisRootInterface::~MprisRootInterface()
+{
+}
+
+void MprisRootInterface::onPropertyChanged(const QString &propertyName, const QVariant &value)
+{
+    if (propertyName == QStringLiteral("CanQuit")) {
+        bool canQuit = value.toBool();
+        if (m_canQuit != canQuit) {
+            m_canQuit = canQuit;
+            Q_EMIT canQuitChanged(m_canQuit);
+        }
+    } else if (propertyName == QStringLiteral("CanRaise")) {
+        bool canRaise = value.toBool();
+        if (m_canRaise != canRaise) {
+            m_canRaise = canRaise;
+            Q_EMIT canRaiseChanged(m_canRaise);
+        }
+    } else if (propertyName == QStringLiteral("CanSetFullscreen")) {
+        bool canSetFullscreen = value.toBool();
+        if (m_canSetFullscreen != canSetFullscreen) {
+            m_canSetFullscreen = canSetFullscreen;
+            Q_EMIT canSetFullscreenChanged(m_canSetFullscreen);
+        }
+    } else if (propertyName == QStringLiteral("DesktopEntry")) {
+        QString desktopEntry = value.toString();
+        if (m_desktopEntry != desktopEntry) {
+            m_desktopEntry = desktopEntry;
+            Q_EMIT desktopEntryChanged(m_desktopEntry);
+        }
+    } else if (propertyName == QStringLiteral("Fullscreen")) {
+        bool fullscreen = value.toBool();
+        if (m_fullscreen != fullscreen) {
+            m_fullscreen = fullscreen;
+            Q_EMIT fullscreenChanged(m_fullscreen);
+        }
+    } else if (propertyName == QStringLiteral("HasTrackList")) {
+        bool hasTrackList = value.toBool();
+        if (m_hasTrackList != hasTrackList) {
+            m_hasTrackList = hasTrackList;
+            Q_EMIT hasTrackListChanged(m_hasTrackList);
+        }
+    } else if (propertyName == QStringLiteral("Identity")) {
+        QString identity = value.toString();
+        if (m_identity != identity) {
+            m_identity = identity;
+            Q_EMIT identityChanged(m_identity);
+        }
+    } else if (propertyName == QStringLiteral("SupportedMimeTypes")) {
+        QStringList supportedUriSchemes = value.toStringList();
+        if (m_supportedUriSchemes != supportedUriSchemes) {
+            m_supportedUriSchemes = supportedUriSchemes;
+            Q_EMIT supportedMimeTypesChanged(m_supportedUriSchemes);
+        }
+    } else if (propertyName == QStringLiteral("SupportedUriSchemes")) {
+        QStringList supportedMimeTypes = value.toStringList();
+        if (m_supportedMimeTypes != supportedMimeTypes) {
+            m_supportedMimeTypes = supportedMimeTypes;
+            Q_EMIT supportedUriSchemesChanged(m_supportedMimeTypes);
+        }
+    } else {
+        qCWarning(lcIface) << Q_FUNC_INFO
+                           << "Received PropertyChanged signal from unknown property: "
+                           << propertyName;
+    }
+}
+

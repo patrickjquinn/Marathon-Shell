@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@KEEL_ACCOUNTS_INCLUDEDIR@
+
+Name: libaccounts-qt6
+Description: Accounts Library for Qt 6 (Keel build of libaccounts-qt 1.17)
+Version: 1.17
+Requires: Qt6Core Qt6Xml
+Requires.private: libaccounts-glib
+Libs: -L${libdir} -laccounts-qt6
+Cflags: -I${includedir}

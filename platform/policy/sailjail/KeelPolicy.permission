@@ -1,0 +1,18 @@
+# -*- mode: sh -*-
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Sailjail permission for Keel's Sailfish.Policy (AccessPolicy), installed by
+# shipwright-keel-platform-policy as
+# /etc/sailjail/permissions/KeelPolicy.permission. Jolla's own app profiles
+# include sailfish-policy.inc to read the device's access policy
+# (/var/lib/policy/policy.conf, read only); no plain permission does, so a
+# sandboxed Keel app could not read it and every policy read as unknown,
+# which AccessPolicy reports as disabled ("Camera is disabled by the device
+# policy" with no policy set). An app that reads AccessPolicy lists
+# `KeelPolicy` in its desktop file's [X-Sailjail] Permissions=.
+
+# x-sailjail-description = Device policy
+# x-sailjail-long-description = Read whether the device policy allows the camera, microphone and other features
+
+include /etc/sailjail/permissions/sailfish-policy.inc

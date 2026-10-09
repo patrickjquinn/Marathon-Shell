@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Qt 5's QtGraphicalEffects 1.x URI on Qt 6: re-exports Qt5Compat.GraphicalEffects
+# (Chum: qt6-qt5compat; Debian/Ubuntu: qml6-module-qt5compat-graphicaleffects),
+# which carries the same types and API. Re-exported at 6.0 because Qt 6 does not
+# accept `import Qt5Compat.GraphicalEffects 1.x`.
+module QtGraphicalEffects
+import Qt5Compat.GraphicalEffects 6.0

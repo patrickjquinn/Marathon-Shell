@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- SPDX-FileCopyrightText: 2012 Jolla Ltd. -->
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<service id="test-service2">
+  <type>test-service-type2</type>
+  <provider>test-provider</provider>
+  <name>Test Service</name>
+  <icon>test</icon>
+  <tags>
+    <tag>testing</tag>
+  </tags>
+
+  <!-- default settings (account settings have precedence over these) -->
+  <template>
+    <setting name="manager">gabble</setting>
+    <setting name="protocol">jabber</setting>
+    <group name="parameters">
+      <setting name="server">talk.google.com</setting>
+      <setting name="port" type="i">5223</setting>
+      <setting name="old-ssl" type="b">true</setting>
+      <setting name="fallback-conference-server">conference.jabber.org</setting>
+    </group>
+    <group name="auth">
+        <setting name="method">password</setting>
+        <setting name="mechanism">password</setting>
+    </group>
+  </template>
+</service>

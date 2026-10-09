@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@KEEL_POLICY_INCLUDEDIR@
+
+Name: libsailfishpolicy-qt6
+Description: Sailfish OS device (MDM) policy API for Qt 6 (Keel, read only)
+Version: @KEEL_POLICY_VERSION@
+Requires: Qt6Core
+Libs: -L${libdir} -lsailfishpolicy-qt6
+Cflags: -I${includedir}

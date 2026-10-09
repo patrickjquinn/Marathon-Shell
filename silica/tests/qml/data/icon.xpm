@@ -1,0 +1,10 @@
+/* XPM */
+/* SPDX-FileCopyrightText: 2026 Patrick Quinn */
+/* SPDX-License-Identifier: MIT */
+/* A 2x2 test icon for the URL resolution tests (tst_corpusgaps.qml). */
+static char *icon[] = {
+"2 2 1 1",
+"x c #00ff00",
+"xx",
+"xx"
+};

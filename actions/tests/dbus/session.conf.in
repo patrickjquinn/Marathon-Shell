@@ -1,0 +1,16 @@
+<!-- SPDX-FileCopyrightText: 2026 Patrick Quinn
+     SPDX-License-Identifier: MIT
+     A private session bus for the Keel Actions tests, with the test app's
+     activation file. -->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <type>session</type>
+  <listen>unix:tmpdir=/tmp</listen>
+  <servicedir>@KEEL_ACTIONS_SERVICE_DIR@</servicedir>
+  <policy context="default">
+    <allow send_destination="*" eavesdrop="true"/>
+    <allow eavesdrop="true"/>
+    <allow own="*"/>
+  </policy>
+</busconfig>

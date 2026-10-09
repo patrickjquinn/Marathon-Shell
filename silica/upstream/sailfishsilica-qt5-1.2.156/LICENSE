@@ -1,0 +1,13 @@
+/****************************************************************************
+**
+** Copyright (C) 2012-2021 Jolla Ltd.
+** Copyright (C) 2019-2021 Open Mobile Platform LLC.
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** All rights reserved.
+**
+*****************************************************************************/
+
+Sailfish.Silica module's QML code and QML examples have been licensed under BSD.
+Following components PageStack, ImageProvider, ThemeIconResolver, OpacityRamp
+and MInverseMouseArea are based on BSD-licensed components by Nokia Corporation.
+See BSD license in LICENSE.BSD. Rest of Silica is under proprietary license.

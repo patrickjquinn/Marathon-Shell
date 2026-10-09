@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Qt 5's QtFeedback 5.0 (qtfeedback, never ported to Qt 6) as a no-op module:
+# the API resolves and the state machine runs, but no vibration is played.
+# See README.md for the Nemo NGF follow-up.
+module QtFeedback
+Feedback 5.0 Feedback.qml
+ThemeEffect 5.0 ThemeEffect.qml
+HapticsEffect 5.0 HapticsEffect.qml
+FileEffect 5.0 FileEffect.qml
+internal FeedbackEffect FeedbackEffect.qml
