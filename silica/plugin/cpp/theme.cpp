@@ -75,7 +75,7 @@ void KeelTheme::update()
         set(m_backgroundImage, a->property("backgroundImage").toString());
     }
 
-    set(m_screenWidth, qreal(screenWidth(m_screen)));
+    set(m_screenWidth, static_cast<qreal>(screenWidth(m_screen)));
     set(m_phoneScreen, phoneSized(m_screen));
 
     // From the ambience when dconf has it; otherwise, on a phone (Keel runs
@@ -202,7 +202,7 @@ QColor KeelTheme::toColor(const QVariant &color)
 QColor KeelTheme::rgba(const QColor &color, qreal opacity) const
 {
     QColor c = orTransparent(color);
-    c.setAlphaF(float(opacity));
+    c.setAlphaF(static_cast<float>(opacity));
     return c;
 }
 

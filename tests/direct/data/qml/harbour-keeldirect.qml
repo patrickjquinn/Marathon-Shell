@@ -58,7 +58,9 @@ ApplicationWindow {
     }
 
     Connections {
-        target: app.Window.window
+        // The window is attached after this file is created: null until then.
+        target: app.Window.window || null
+        ignoreUnknownSignals: true
         function onFrameSwapped() {
             if (!app._firstFrameSeen && app.pageStack.depth > 0) {
                 app._firstFrameSeen = true

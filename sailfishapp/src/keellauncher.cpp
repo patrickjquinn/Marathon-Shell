@@ -81,8 +81,8 @@ void setQmlCachePerBuild()
         home = qgetenv("HOME") + "/.cache";
     const QString base = QString::fromUtf8(home + '/' + name);
     const QString current = QStringLiteral("qmlcache-%1-%2")
-                                .arg(qulonglong(exe.st_ino), 0, 16)
-                                .arg(qulonglong(exe.st_ctim.tv_sec), 0, 16);
+                                .arg(static_cast<qulonglong>(exe.st_ino), 0, 16)
+                                .arg(static_cast<qulonglong>(exe.st_ctim.tv_sec), 0, 16);
     QDir dir(base);
     const QStringList old = dir.entryList(QStringList() << QStringLiteral("qmlcache*"),
                                           QDir::Dirs | QDir::NoDotAndDotDot);

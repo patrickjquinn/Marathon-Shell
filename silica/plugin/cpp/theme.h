@@ -170,7 +170,7 @@ public:
     qreal widthScale() const { return m_phoneScreen ? qMax(1.0, m_screenWidth / 540) : m_pixelRatio; }
     qreal horizontalPageMargin() const
     {
-        return m_phoneScreen ? qMax(paddingLarge(), qreal(jsRound(24 * widthScale()))) : 2 * paddingLarge();
+        return m_phoneScreen ? qMax(paddingLarge(), static_cast<qreal>(jsRound(24 * widthScale()))) : 2 * paddingLarge();
     }
     qreal itemSizeExtraSmall() const { return measured() ? 106 : jsRound(70 * m_pixelRatio); }
     qreal itemSizeSmall() const { return jsRound(80 * m_pixelRatio); }
@@ -306,7 +306,7 @@ signals:
 
 private:
     // JavaScript's Math.round for the values Theme.qml computed with it.
-    static int jsRound(qreal v) { return int(std::floor(v + 0.5)); }
+    static int jsRound(qreal v) { return static_cast<int>(std::floor(v + 0.5)); }
     static QColor toColor(const QVariant &color);
     bool measured() const { return m_pixelRatio == 1.5; }
     // An unset colour (QML's undefined or null) as transparent, as before.

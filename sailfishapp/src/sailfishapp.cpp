@@ -169,9 +169,9 @@ void traceFirstFrame()
                 connect(window, &QQuickWindow::frameSwapped, this, [this] {
                     if (done.exchange(true))
                         return;
-                    timespec ts;
+                    timespec ts {};
                     clock_gettime(CLOCK_MONOTONIC, &ts);
-                    fprintf(stderr, "keel-startup: first frame %ld.%06ld\n", long(ts.tv_sec), ts.tv_nsec / 1000);
+                    fprintf(stderr, "keel-startup: first frame %ld.%06ld\n", static_cast<long>(ts.tv_sec), ts.tv_nsec / 1000);
                     QMetaObject::invokeMethod(this, [this] {
                         qApp->removeEventFilter(this);
                         deleteLater();

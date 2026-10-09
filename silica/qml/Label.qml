@@ -78,7 +78,7 @@ Private.SilicaText {
     onImplicitWidthChanged: {
         if (elide !== Text.ElideNone && implicitWidth > _laidOutImplicitWidth) {
             _laidOutImplicitWidth = implicitWidth
-            Qt.callLater(forceLayout)
+            Qt.callLater(root.forceLayout)
         }
     }
     on_FadeTextChanged: {

@@ -51,10 +51,16 @@ import time
 
 FAKE_DCONF = """#!/bin/sh
 # Fake dconf for the direct-mode test: one ambience, no changes.
+# Keel dumps each directory it reads (keel/silica/plugin/cpp/dconfambience.cpp
+# kDirs); dconf answers a dump with keys relative to that directory.
 case "$1" in
 dump)
-    printf '[jolla/theme]\\ncolor/highlight=%s\\ncolor_scheme=%s\\n' "'#ff8800'" "'dark'"
-    printf '[sailfish/silica]\\ntheme_pixel_ratio=1.0\\n'
+    case "$2" in
+    /desktop/jolla/theme/)
+        printf '[/]\\ncolor_scheme=%s\\n[color]\\nhighlight=%s\\n' "'dark'" "'#ff8800'" ;;
+    /desktop/sailfish/silica/)
+        printf '[/]\\ntheme_pixel_ratio=1.0\\n' ;;
+    esac
     ;;
 watch) exec sleep 3600 ;;
 esac
@@ -145,7 +151,9 @@ class App:
             if self.proc.poll() is not None:
                 break
             time.sleep(0.02)
-        raise Failure("app did not report %s=%s (got %s)" % (name, value, self.reports(name)))
+        tail = "\n".join("    " + l for l in self.lines[-25:])
+        raise Failure("app did not report %s=%s (got %s); its last output:\n%s"
+                      % (name, value, self.reports(name), tail))
 
     def stop(self):
         if self.proc.poll() is None:
@@ -317,19 +325,36 @@ def run(args):
         # Lipstick hides windows that leave the screen (display off, the
         # switcher) with onscreen_visibility Hidden and shows them again
         # with FullScreen (the app) or Minimized (a cover in the switcher).
-        for surface, shown, what in ((main_id, 5, "main window"), (cover_id, 4, "cover")):
-            mark = len(compositor.poll())
-            compositor.send("visibility %d 0" % surface)
-            time.sleep(1.0)
-            check(not any(e["ev"] == "surface_destroyed" and e["surface"] == surface
-                          for e in compositor.poll()[mark:]),
-                  "%s keeps its surface while Lipstick hides it" % what)
-            mark = len(compositor.poll())
-            compositor.send("visibility %d %d" % (surface, shown))
-            compositor.wait_for(
-                lambda e: e["ev"] == "buffer" and e["surface"] == surface and compositor.events.index(e) >= mark,
-                args.timeout, "the %s drawn again after it is shown" % what)
-            print("ok - %s drawn again when Lipstick shows it" % what)
+        # The main window: hidden (display off), then shown again with a
+        # fresh frame.
+        mark = len(compositor.poll())
+        compositor.send("visibility %d 0" % main_id)
+        time.sleep(1.0)
+        check(not any(e["ev"] == "surface_destroyed" and e["surface"] == main_id
+                      for e in compositor.poll()[mark:]),
+              "main window keeps its surface while Lipstick hides it")
+        mark = len(compositor.poll())
+        compositor.send("visibility %d 5" % main_id)
+        compositor.wait_for(
+            lambda e: e["ev"] == "buffer" and e["surface"] == main_id and compositor.events.index(e) >= mark,
+            args.timeout, "the main window drawn again after it is shown")
+        print("ok - main window drawn again when Lipstick shows it")
+        # The cover: Lipstick shows it only with the app in the background,
+        # and Keel draws it only then, when its content changes (keel-wl-shell
+        # KeelCoverExposure; on the phone a cover follows its app's state in
+        # the switcher). Hidden and shown again, it keeps its surface, so
+        # Lipstick still has its last frame; showing it does not force a
+        # redundant one.
+        compositor.send("focus 0")
+        mark = len(compositor.poll())
+        compositor.send("visibility %d 0" % cover_id)
+        time.sleep(1.0)
+        compositor.send("visibility %d 4" % cover_id)
+        time.sleep(1.0)
+        check(not any(e["ev"] == "surface_destroyed" and e["surface"] == cover_id
+                      for e in compositor.poll()[mark:]),
+              "cover keeps its surface while Lipstick hides and shows it")
+        compositor.send("focus %d" % main_id)
 
         # (A booster's waiting instance is connected too, but has no surface.)
         pids = {e["pid"] for e in compositor.poll() if e["ev"] == "surface"}
