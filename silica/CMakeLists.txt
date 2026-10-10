@@ -108,6 +108,7 @@ qt_add_qml_module(keelplugin
     OUTPUT_DIRECTORY "${KEEL_QML_OUTPUT_DIR}/Keel"
     SOURCES
         plugin/cpp/keelplugin.cpp
+        plugin/cpp/glyphwarning.cpp
         plugin/cpp/shellclient.cpp plugin/cpp/shellclient.h
         plugin/cpp/dconfambience.cpp plugin/cpp/dconfambience.h
         plugin/cpp/keeldconf.cpp plugin/cpp/keeldconf.h

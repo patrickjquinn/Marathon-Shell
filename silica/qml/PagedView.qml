@@ -239,6 +239,25 @@ SilicaPrivate.PagedViewBase {
         }
     }
 
+    // A page made later than asked for: create() makes it asynchronously
+    // and returns null inside another incubation (a PagedView in a page
+    // that loads in the background). The layout tries again shortly until
+    // it is made; it used to give up, and the view had no current page at
+    // all (the camera's roll, opened before a photo was taken, stayed
+    // black). A delegate that cannot be made at all is tried for a few
+    // seconds, not for ever.
+    Timer {
+        id: unmadeRetry
+
+        property int tries
+
+        interval: 32
+        onTriggered: {
+            if (++tries < 150)
+                view._layout()
+        }
+    }
+
     function _layout() {
         if (!_ready)
             return
@@ -251,11 +270,14 @@ SilicaPrivate.PagedViewBase {
         Qt.callLater(_releasePages)
         var pages = []
         var current = null
+        var unmade = false
         for (var key in wanted) {
             var idx = Number(key)
             var item = delegateModel.items.create(idx)
-            if (!item)
+            if (!item) {
+                unmade = true
                 continue
+            }
             _bind(item, wanted[key])
             pages.push({ "item": item, "r": wanted[key], "index": idx })
             if (idx === currentIndex)
@@ -272,6 +294,12 @@ SilicaPrivate.PagedViewBase {
                 old.visible = false
         }
         _window = pages
+        if (unmade) {
+            unmadeRetry.restart()
+        } else {
+            unmadeRetry.stop()
+            unmadeRetry.tries = 0
+        }
         // The attached properties first: a currentItem handler reads
         // PagedView.isCurrentItem (jolla-camera's switcher does).
         _updateAttached()

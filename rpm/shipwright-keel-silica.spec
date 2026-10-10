@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    25
+Release:    26
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -130,6 +130,10 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Sat Oct 10 2026 Shipwright - 0.1.0-26
+- PagedView shows a page that was made later than asked for. In a page that loads in the background, its pages were made in the background too, and the view never showed them: Shoal Camera's roll, opened before a photo was taken, stayed black.
+- No more "load glyph failed ... glyph=65535" warnings in every app's log. Sailfish's UI font keeps its ligatures in Apple's format, and Qt warned about a placeholder glyph while laying out text such as "left"; nothing was drawn wrongly.
+
 * Fri Oct 09 2026 Shipwright - 0.1.0-25
 - Requires Keel's Nemo.Configuration. Silica's remorse popups and items need it, and without it a page that has one could not be opened: on a phone that had nothing else of Keel's installed, tapping an app in Reef did nothing.
 - A page that cannot be created says why in the app's log, as Qt's Loader does.

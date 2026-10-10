@@ -127,6 +127,30 @@ Item {
         }
     }
 
+    // A PagedView in a page that loads in the background, as the camera's
+    // roll is: its pages are made in the background too.
+    Component {
+        id: asyncHost
+        Loader {
+            asynchronous: true
+            sourceComponent: Item {
+                property alias view: nested
+                width: 400
+                height: 600
+                PagedView {
+                    id: nested
+                    anchors.fill: parent
+                    model: 5
+                    delegate: Rectangle {
+                        width: PagedView.contentWidth
+                        height: PagedView.contentHeight
+                        color: "gray"
+                    }
+                }
+            }
+        }
+    }
+
     TestCase {
         name: "PagedView"
         when: windowShown
@@ -341,6 +365,15 @@ Item {
             wait(50)
             compare(v.count, 1)
             verify(v.currentItem !== null)
+            verify(v.currentItem.visible)
+        }
+
+        function test_pagesMadeInTheBackground() {
+            var host = createTemporaryObject(asyncHost, root)
+            tryCompare(host, "status", Loader.Ready)
+            var v = host.item.view
+            compare(v.count, 5)
+            tryVerify(function() { return v.currentItem !== null })
             verify(v.currentItem.visible)
         }
 
