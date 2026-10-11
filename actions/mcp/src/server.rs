@@ -57,6 +57,25 @@ fn error_result(message: impl Into<String>) -> Value {
     json!({ "content": [text(message)], "isError": true })
 }
 
+/// A result marked complete (MCP 2026-07-28 requires `resultType`; rmcp
+/// drops it for peers on an older version).
+fn complete(mut value: Value) -> Value {
+    value["resultType"] = json!("complete");
+    value
+}
+
+/// A list or read result: complete, cacheable for `ttl_ms` by this client
+/// only (the catalogue changes as apps are installed and run).
+fn cached(value: Value, ttl_ms: u64) -> Value {
+    let mut value = complete(value);
+    value["ttlMs"] = json!(ttl_ms);
+    value["cacheScope"] = json!("private");
+    value
+}
+
+/// How long lists stay fresh: the catalogue is rebuilt every 2 s.
+const LIST_TTL_MS: u64 = 2000;
+
 fn convert<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, ErrorData> {
     serde_json::from_value(value).map_err(|e| {
         ErrorData::internal_error(format!("keel-mcp built an invalid result: {e}"), None)
@@ -160,6 +179,15 @@ impl KeelMcp {
             .map(|entry| {
                 let mut tool = entry.tool.clone();
                 tool["name"] = json!(exposed(entry.name()));
+                // A sensitive result goes to the person, never as structured
+                // content, and a tool with an outputSchema MUST return
+                // conforming structuredContent: it is not declared (the
+                // schema still checks the app's result here).
+                if entry.sensitive() {
+                    if let Some(t) = tool.as_object_mut() {
+                        t.remove("outputSchema");
+                    }
+                }
                 if let Some(meta) = tool.get_mut("_meta").and_then(Value::as_object_mut) {
                     meta.insert(meta_key("name"), json!(entry.name()));
                     meta.insert(meta_key("app"), json!(entry.app));
@@ -250,8 +278,11 @@ impl KeelMcp {
     ) -> Result<Value, ErrorData> {
         let user_initiated = meta_flag(meta, "userInitiated");
         if name == PLAN_VALIDATE || name == PLAN_RUN {
-            validate(&plan_schema(), &arguments)
-                .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
+            // Bad arguments to a known tool are a tool error the model can
+            // correct, not a protocol error.
+            if let Err(e) = validate(&plan_schema(), &arguments) {
+                return Ok(error_result(format!("InvalidArguments: {e}")));
+            }
             return Ok(self.plan(&arguments["plan"], name == PLAN_RUN, meta).await);
         }
         let catalogue = self.catalogue();
@@ -402,7 +433,14 @@ impl KeelMcp {
         let parts: Vec<&str> = rest.split('/').collect();
         let catalogue = self.catalogue();
         let contents = |value: &Value| json!({ "contents": [ { "uri": uri, "mimeType": "application/json", "text": value.to_string() } ] });
-        let error = |e: CallError| ErrorData::resource_not_found(e.to_string(), None);
+        // The app missing an entity is "not found"; the app not answering
+        // or unreachable is the server's own failure.
+        let error = |e: CallError| match e {
+            CallError::Keel { .. } => ErrorData::resource_not_found(e.to_string(), None),
+            CallError::Unreachable(_) | CallError::Timeout => {
+                ErrorData::internal_error(e.to_string(), None)
+            }
+        };
         match parts.as_slice() {
             [app, "context"] => {
                 if self.inner.external {
@@ -564,7 +602,7 @@ impl ServerHandler for KeelMcp {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        convert(json!({ "tools": self.tools_json() }))
+        convert(cached(json!({ "tools": self.tools_json() }), LIST_TTL_MS))
     }
 
     async fn call_tool(
@@ -577,8 +615,9 @@ impl ServerHandler for KeelMcp {
         if let Some(m) = request.meta {
             meta.extend(m.0 .0);
         }
-        let result: CallToolResult =
-            convert(self.call_tool_json(&request.name, arguments, &meta).await?)?;
+        let result: CallToolResult = convert(complete(
+            self.call_tool_json(&request.name, arguments, &meta).await?,
+        ))?;
         Ok(result.into())
     }
 
@@ -587,7 +626,10 @@ impl ServerHandler for KeelMcp {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
-        convert(json!({ "resources": self.resources_json() }))
+        convert(cached(
+            json!({ "resources": self.resources_json() }),
+            LIST_TTL_MS,
+        ))
     }
 
     async fn list_resource_templates(
@@ -595,7 +637,10 @@ impl ServerHandler for KeelMcp {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, ErrorData> {
-        convert(json!({ "resourceTemplates": self.resource_templates_json() }))
+        convert(cached(
+            json!({ "resourceTemplates": self.resource_templates_json() }),
+            LIST_TTL_MS,
+        ))
     }
 
     async fn read_resource(
@@ -607,8 +652,10 @@ impl ServerHandler for KeelMcp {
         if let Some(m) = request.meta {
             meta.extend(m.0 .0);
         }
-        let result: ReadResourceResult =
-            convert(self.read_resource_json(&request.uri, &meta).await?)?;
+        let result: ReadResourceResult = convert(cached(
+            self.read_resource_json(&request.uri, &meta).await?,
+            0,
+        ))?;
         Ok(result.into())
     }
 
@@ -617,7 +664,10 @@ impl ServerHandler for KeelMcp {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, ErrorData> {
-        convert(json!({ "prompts": self.prompts_json() }))
+        convert(cached(
+            json!({ "prompts": self.prompts_json() }),
+            LIST_TTL_MS,
+        ))
     }
 
     async fn get_prompt(
@@ -625,8 +675,9 @@ impl ServerHandler for KeelMcp {
         request: GetPromptRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<GetPromptResponse, ErrorData> {
-        let result: GetPromptResult =
-            convert(self.get_prompt_json(&request.name, &request.arguments.unwrap_or_default())?)?;
+        let result: GetPromptResult = convert(complete(
+            self.get_prompt_json(&request.name, &request.arguments.unwrap_or_default())?,
+        ))?;
         Ok(result.into())
     }
 }

@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    2
+Release:    3
 License:    MIT
 URL:        https://github.com/shipwright/shipwright
 
@@ -58,6 +58,11 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-3
+- MCP 2026-07-28: every result says resultType "complete", and lists and reads say how long they may be cached (ttlMs, cacheScope private).
+- A sensitive tool no longer declares an outputSchema it never fills (its result is for the person, never structured content).
+- An app that does not answer, or cannot be reached, is a server error, not "not found"; a malformed plan is a tool error the model can correct.
+
 * Sat Oct 03 2026 Shipwright - 0.1.0-2
 - Licence: MIT (LICENSING.md).
 

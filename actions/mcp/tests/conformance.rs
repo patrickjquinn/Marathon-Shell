@@ -446,8 +446,26 @@ async fn stateless_2026_07_28() {
     });
     let tools = c.result("tools/list", json!({ "_meta": meta })).await;
     assert_eq!(tools["tools"].as_array().unwrap().len(), 9);
+    // Every modern result says it is complete; lists say how long they
+    // keep and for whom.
+    assert_eq!(tools["resultType"], "complete", "{tools}");
+    assert_eq!(tools["ttlMs"], 2000);
+    assert_eq!(tools["cacheScope"], "private");
     let prompts = c.result("prompts/list", json!({ "_meta": meta })).await;
     assert_eq!(prompts["prompts"].as_array().unwrap().len(), 1);
+    assert_eq!(prompts["resultType"], "complete");
+    let resources = c.result("resources/list", json!({ "_meta": meta })).await;
+    assert_eq!(resources["resultType"], "complete");
+    assert!(resources["ttlMs"].is_u64());
+    let call = c
+        .result(
+            "tools/call",
+            json!({ "_meta": meta, "name": "keel__plan.validate", "arguments": { "plan": "not a plan" } }),
+        )
+        .await;
+    assert_eq!(call["resultType"], "complete", "{call}");
+    // A malformed plan is the model's to fix: a tool error, not a protocol one.
+    assert_eq!(call["isError"], true, "{call}");
 }
 
 #[tokio::test]
@@ -506,6 +524,13 @@ async fn sensitive_results_never_reach_a_model() {
             .await
             .unwrap();
         assert!(result.get("structuredContent").is_none(), "{result}");
+        // No structuredContent, so no outputSchema promising it.
+        let listed = server.tools_json();
+        let tool = listed
+            .iter()
+            .find(|t| t["name"] == "org.example.notes__notes.search")
+            .unwrap();
+        assert!(tool.get("outputSchema").is_none(), "{tool}");
         if external {
             assert!(!result.to_string().contains("note/n2"), "{result}");
             assert!(
