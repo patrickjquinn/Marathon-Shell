@@ -51,6 +51,8 @@ bool runsOneOf(qint64 pid, const QStringList &paths);
 
 // The effective group of process `pid`, from /proc/<pid>/status.
 std::optional<uint> effectiveGid(qint64 pid);
+// The saved group of `pid`.
+std::optional<uint> savedGid(qint64 pid);
 
 // The id of the "privileged" group, if the system has one.
 std::optional<uint> privilegedGid();

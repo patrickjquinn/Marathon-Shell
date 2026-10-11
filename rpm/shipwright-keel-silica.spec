@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    27
+Release:    28
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -146,6 +146,9 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-28
+- Keel Actions recognises Pilot by its saved privileged group as well as its effective one.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-27
 - Keel Actions: an app believes that the person started a request (userInitiated) only from Pilot, keel-mcp or itself, recognised by the calling process (its executable, or Sailfish's privileged group), not by what the call says. From anyone else the request reaches the app as its own.
 - Requires Qt 6.8 (below 6.9): Keel uses Qt's private API and compiled QML internals, which change between Qt minor releases.

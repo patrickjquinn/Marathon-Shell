@@ -33,7 +33,7 @@ bool runsOneOf(qint64 pid, const QStringList &paths)
     return false;
 }
 
-std::optional<uint> effectiveGid(qint64 pid)
+std::optional<uint> gidField(qint64 pid, int field)
 {
     if (pid <= 0)
         return std::nullopt;
@@ -46,10 +46,23 @@ std::optional<uint> effectiveGid(qint64 pid)
             continue;
         const QList<QByteArray> ids = line.mid(4).simplified().split(' ');
         bool ok = false;
-        const uint gid = ids.value(1).toUInt(&ok);
+        const uint gid = ids.value(field).toUInt(&ok);
         return ok ? std::optional<uint>(gid) : std::nullopt;
     }
     return std::nullopt;
+}
+
+std::optional<uint> effectiveGid(qint64 pid)
+{
+    return gidField(pid, 1);
+}
+
+// What a setgid program keeps after setting its effective group back:
+// pilotd runs as the person's group and raises privileged only to read the
+// calendar and contacts.
+std::optional<uint> savedGid(qint64 pid)
+{
+    return gidField(pid, 2);
 }
 
 std::optional<uint> privilegedGid()
@@ -67,7 +80,7 @@ bool isTrusted(qint64 pid)
     if (runsOneOf(pid, trustedExecutables()))
         return true;
     const std::optional<uint> privileged = privilegedGid();
-    return privileged && effectiveGid(pid) == privileged;
+    return privileged && (effectiveGid(pid) == privileged || savedGid(pid) == privileged);
 }
 
 } // namespace KeelCallerTrust

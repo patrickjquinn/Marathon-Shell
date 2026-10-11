@@ -44,13 +44,25 @@ pub fn runs_one_of(pid: u32, paths: &[&Path]) -> bool {
 /// The effective group of process `pid` (`/proc/<pid>/status`).
 #[must_use]
 pub fn effective_gid(pid: u32) -> Option<u32> {
+    gids(pid)?.get(1).copied()
+}
+
+/// The saved group of process `pid`: what a setgid program keeps after
+/// it sets its effective group back (pilotd runs as the person's group
+/// and raises `privileged` only to read the calendar and contacts).
+#[must_use]
+pub fn saved_gid(pid: u32) -> Option<u32> {
+    gids(pid)?.get(2).copied()
+}
+
+/// "Gid:\t<real>\t<effective>\t<saved>\t<filesystem>" of `/proc/<pid>/status`.
+fn gids(pid: u32) -> Option<Vec<u32>> {
     if pid == 0 {
         return None;
     }
     let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
-    // "Gid:\t<real>\t<effective>\t<saved>\t<filesystem>"
     let line = status.lines().find_map(|l| l.strip_prefix("Gid:"))?;
-    line.split_whitespace().nth(1)?.parse().ok()
+    line.split_whitespace().map(|g| g.parse().ok()).collect()
 }
 
 /// The id of the group `name` in `group_file` (`/etc/group` format).
@@ -66,7 +78,9 @@ pub fn group_id(group_file: &str, name: &str) -> Option<u32> {
 }
 
 /// Whether process `pid` is a trusted client: [`TRUSTED_CLIENTS`], or a
-/// process whose effective group is `privileged`.
+/// process whose effective or saved group is `privileged` (only a setgid
+/// privileged program has it; pilotd keeps it saved while it runs as the
+/// person's group).
 #[must_use]
 pub fn is_trusted_client(pid: u32) -> bool {
     let paths: Vec<&Path> = TRUSTED_CLIENTS.iter().map(Path::new).collect();
@@ -76,7 +90,7 @@ pub fn is_trusted_client(pid: u32) -> bool {
     let privileged = std::fs::read_to_string("/etc/group")
         .ok()
         .and_then(|g| group_id(&g, "privileged"));
-    privileged.is_some() && effective_gid(pid) == privileged
+    privileged.is_some() && (effective_gid(pid) == privileged || saved_gid(pid) == privileged)
 }
 
 /// Binds a Unix socket at `path` that is never reachable with wider

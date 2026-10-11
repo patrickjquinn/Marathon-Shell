@@ -54,6 +54,7 @@ private Q_SLOTS:
     void effectiveGroup()
     {
         QCOMPARE(KeelCallerTrust::effectiveGid(QCoreApplication::applicationPid()), std::optional<uint>(::getegid()));
+        QVERIFY(KeelCallerTrust::savedGid(QCoreApplication::applicationPid()).has_value());
     }
 
     void whoIsTrusted()
@@ -67,7 +68,7 @@ private Q_SLOTS:
         // it runs in the privileged group.
         const qint64 parent = ::getppid();
         const std::optional<uint> privileged = KeelCallerTrust::privilegedGid();
-        const bool parentPrivileged = privileged && KeelCallerTrust::effectiveGid(parent) == privileged;
+        const bool parentPrivileged = privileged && (KeelCallerTrust::effectiveGid(parent) == privileged || KeelCallerTrust::savedGid(parent) == privileged);
         QCOMPARE(KeelCallerTrust::isTrusted(parent), parentPrivileged);
     }
 };
