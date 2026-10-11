@@ -7,8 +7,9 @@
 //! ([`KeelMcp::call_tool_json`] and friends) so that it is testable without
 //! a transport; the trait methods convert to rmcp's types.
 
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant};
 
 use keel_actions_schema::meta_key;
 use keel_actions_schema::plan::{parse_plan, resolve_arguments, validate_plan};
@@ -18,9 +19,9 @@ use rmcp::model::{
     GetPromptResponse, GetPromptResult, Implementation, ListPromptsResult,
     ListResourceTemplatesResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
     ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, ServerCapabilities,
-    ServerConfig,
+    ServerConfig, SubscriptionFilter,
 };
-use rmcp::service::RequestContext;
+use rmcp::service::{NotificationContext, RequestContext, SubscriptionContext};
 use rmcp::{ErrorData, RoleServer, ServerHandler};
 use serde_json::{json, Map, Value};
 
@@ -33,14 +34,25 @@ pub const PLAN_RUN: &str = "keel__plan.run";
 struct Inner {
     catalogue: RwLock<Arc<Catalogue>>,
     backend: Arc<dyn Backend>,
-    /// Serving a paired desktop agent: no sensitive results, no context.
+    /// Serving a paired desktop agent: no sensitive results, no context,
+    /// and nothing it says the person confirmed or started is believed.
     external: bool,
+    /// Ticks when the tools, prompts or resources change.
+    changed: tokio::sync::broadcast::Sender<()>,
 }
 
-/// The server. Cheap to clone (one per connection).
+/// Tool calls one connection may make in [`CALL_WINDOW`] (a plan's steps
+/// count one each): far above a person's pace, and a stop to a client
+/// looping on an app.
+pub const CALLS_PER_WINDOW: usize = 60;
+pub const CALL_WINDOW: Duration = Duration::from_secs(10);
+
+/// The server. Cheap to clone; [`KeelMcp::connection`] gives each
+/// connection its own call budget.
 #[derive(Clone)]
 pub struct KeelMcp {
     inner: Arc<Inner>,
+    calls: Arc<Mutex<VecDeque<Instant>>>,
 }
 
 fn meta_flag(meta: &Map<String, Value>, key: &str) -> bool {
@@ -152,14 +164,56 @@ impl KeelMcp {
                 catalogue: RwLock::new(Arc::new(Catalogue::default())),
                 backend,
                 external,
+                changed: tokio::sync::broadcast::channel(4).0,
             }),
+            calls: Arc::default(),
         }
     }
 
+    /// The server for one more connection: the same catalogue, its own
+    /// call budget.
+    #[must_use]
+    pub fn connection(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+            calls: Arc::default(),
+        }
+    }
+
+    /// Replaces the catalogue, telling listening clients when what they
+    /// list changed.
     pub fn set_catalogue(&self, catalogue: Catalogue) {
         if let Ok(mut c) = self.inner.catalogue.write() {
+            let differs = c.apps != catalogue.apps;
             *c = Arc::new(catalogue);
+            if differs {
+                let _ = self.inner.changed.send(());
+            }
         }
+    }
+
+    /// A receiver that ticks when the catalogue changes.
+    pub fn changes(&self) -> tokio::sync::broadcast::Receiver<()> {
+        self.inner.changed.subscribe()
+    }
+
+    /// Counts a tool call against this connection's budget.
+    fn spend_call(&self) -> bool {
+        let Ok(mut calls) = self.calls.lock() else {
+            return false;
+        };
+        let now = Instant::now();
+        while calls
+            .front()
+            .is_some_and(|t| now.duration_since(*t) >= CALL_WINDOW)
+        {
+            calls.pop_front();
+        }
+        if calls.len() >= CALLS_PER_WINDOW {
+            return false;
+        }
+        calls.push_back(now);
+        true
     }
 
     pub fn catalogue(&self) -> Arc<Catalogue> {
@@ -276,7 +330,16 @@ impl KeelMcp {
         arguments: Value,
         meta: &Map<String, Value>,
     ) -> Result<Value, ErrorData> {
-        let user_initiated = meta_flag(meta, "userInitiated");
+        // A paired computer's word that the person started or confirmed
+        // something is not the person's: its calls go to the apps as the
+        // app's own requests (an app asks the person itself).
+        let user_initiated = !self.inner.external && meta_flag(meta, "userInitiated");
+        if !self.spend_call() {
+            return Ok(error_result(format!(
+                "RateLimited: more than {CALLS_PER_WINDOW} tool calls in {} s; wait before calling again",
+                CALL_WINDOW.as_secs()
+            )));
+        }
         if name == PLAN_VALIDATE || name == PLAN_RUN {
             // Bad arguments to a known tool are a tool error the model can
             // correct, not a protocol error.
@@ -331,6 +394,12 @@ impl KeelMcp {
             let out = json!({ "valid": true, "needsConfirmation": summary.needs_confirmation, "errors": [] });
             return json!({ "content": [text(out.to_string())], "structuredContent": out });
         }
+        if !summary.needs_confirmation.is_empty() && self.inner.external {
+            return error_result(format!(
+                "NeedsConfirmation: steps {:?} change data, reach the network or ask to confirm, and only the person on the device can confirm them; a paired computer cannot run them",
+                summary.needs_confirmation
+            ));
+        }
         if !summary.needs_confirmation.is_empty() && !meta_flag(meta, "confirmed") {
             return error_result(format!(
                 "NeedsConfirmation: steps {:?} change data, reach the network or ask to confirm; show the whole plan to the person and run it again with _meta \"org.shipwright.keel/confirmed\": true",
@@ -346,7 +415,16 @@ impl KeelMcp {
                 break;
             };
             let result = match resolve_arguments(&step.arguments, &outputs) {
-                Ok(arguments) => self.run_tool(entry, &arguments, true).await,
+                Ok(arguments) => {
+                    if self.spend_call() {
+                        self.run_tool(entry, &arguments, !self.inner.external).await
+                    } else {
+                        Err(format!(
+                            "RateLimited: more than {CALLS_PER_WINDOW} tool calls in {} s",
+                            CALL_WINDOW.as_secs()
+                        ))
+                    }
+                }
                 Err(e) => Err(format!("InvalidArguments: {e}")),
             };
             match result {
@@ -584,8 +662,10 @@ fn substitute(value: &Value, arguments: &Map<String, Value>) -> Value {
 impl ServerHandler for KeelMcp {
     fn get_info(&self) -> ServerConfig {
         let capabilities: ServerCapabilities =
-            serde_json::from_value(json!({ "tools": {}, "resources": {}, "prompts": {} }))
-                .unwrap_or_default();
+            serde_json::from_value(json!({ "tools": { "listChanged": true },
+                                          "resources": { "listChanged": true },
+                                          "prompts": { "listChanged": true } }))
+            .unwrap_or_default();
         let mut config = ServerConfig::new(capabilities);
         config.server_info = Implementation::new("keel-mcp", env!("CARGO_PKG_VERSION"));
         config.instructions = Some(
@@ -595,6 +675,59 @@ impl ServerHandler for KeelMcp {
                 .into(),
         );
         config
+    }
+
+    /// MCP 2026-07-28: list changes go to clients that listen for them.
+    fn accepted_subscription_filter(
+        &self,
+        _requested: &SubscriptionFilter,
+    ) -> Option<SubscriptionFilter> {
+        Some(
+            SubscriptionFilter::builder()
+                .tools_list_changed()
+                .prompts_list_changed()
+                .resources_list_changed()
+                .build(),
+        )
+    }
+
+    async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {
+        let mut changes = self.changes();
+        loop {
+            tokio::select! {
+                () = context.cancelled() => return Ok(()),
+                tick = changes.recv() => {
+                    if matches!(tick, Err(tokio::sync::broadcast::error::RecvError::Closed)) {
+                        return Ok(());
+                    }
+                    let sink = context.sink();
+                    // A category the client did not ask for is refused by
+                    // the sink; that is no failure.
+                    let _ = sink.notify_tool_list_changed().await;
+                    let _ = sink.notify_prompt_list_changed().await;
+                    let _ = sink.notify_resource_list_changed().await;
+                }
+            }
+        }
+    }
+
+    /// Earlier versions: an initialised client hears of every change for
+    /// as long as it is connected.
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
+        let mut changes = self.changes();
+        let peer = context.peer;
+        tokio::spawn(async move {
+            while !matches!(
+                changes.recv().await,
+                Err(tokio::sync::broadcast::error::RecvError::Closed)
+            ) {
+                if peer.notify_tool_list_changed().await.is_err() {
+                    return;
+                }
+                let _ = peer.notify_prompt_list_changed().await;
+                let _ = peer.notify_resource_list_changed().await;
+            }
+        });
     }
 
     async fn list_tools(

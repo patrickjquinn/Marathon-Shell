@@ -82,10 +82,10 @@ async fn serve_socket(server: KeelMcp, path: PathBuf) -> std::io::Result<()> {
     eprintln!("keel-mcp: listening on {}", path.display());
     loop {
         let (stream, _) = listener.accept().await?;
-        let server = server.clone();
+        let server = server.connection();
         tokio::spawn(async move {
             let (read, write) = stream.into_split();
-            match server.serve((read, write)).await {
+            match server.serve(keel_mcp::guard::guard(read, write)).await {
                 Ok(running) => {
                     let _ = running.waiting().await;
                 }
@@ -133,7 +133,13 @@ async fn main() -> ExitCode {
 
     let result = match args.socket {
         Some(path) => serve_socket(server, path).await.map_err(|e| e.to_string()),
-        None => match server.serve(rmcp::transport::stdio()).await {
+        None => match server
+            .serve(keel_mcp::guard::guard(
+                tokio::io::stdin(),
+                tokio::io::stdout(),
+            ))
+            .await
+        {
             Ok(running) => running
                 .waiting()
                 .await

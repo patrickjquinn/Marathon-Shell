@@ -25,6 +25,16 @@ pub fn exposed(canonical: &str) -> String {
     canonical.replacen('/', "__", 1)
 }
 
+/// Whether an exposed name is a valid MCP tool name: 1 to 128 of
+/// `A-Z a-z 0-9 _ - .` (MCP 2025-11-25, Tool names). Clients refuse or
+/// mangle others, so such a tool is left out.
+pub fn is_tool_name(name: &str) -> bool {
+    (1..=128).contains(&name.len())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
 /// An MCP name (or a manifest name) as the manifest name.
 pub fn canonical(name: &str) -> String {
     if name.contains('/') {
@@ -111,7 +121,7 @@ impl Catalogue {
                 let Some(name) = tool.get("name").and_then(Value::as_str) else {
                     continue;
                 };
-                if !name.starts_with(&format!("{app}/")) {
+                if !name.starts_with(&format!("{app}/")) || !is_tool_name(&exposed(name)) {
                     continue;
                 }
                 c.tools.insert(
@@ -212,5 +222,19 @@ mod tests {
             c.tool("org.a.b__x.y").unwrap().tool["description"],
             "installed"
         );
+    }
+
+    #[test]
+    fn tool_names_clients_refuse_are_left_out() {
+        let long = format!("org.a.b/{}", "x".repeat(130));
+        let m = json!({ "version": 1, "appId": "org.a.b", "tools": [
+            { "name": "org.a.b/ok.name-1" }, { "name": "org.a.b/has space" }, { "name": long } ] });
+        let c = Catalogue::build(vec![m], Vec::new());
+        assert_eq!(
+            c.tools.keys().collect::<Vec<_>>(),
+            vec!["org.a.b/ok.name-1"]
+        );
+        assert!(is_tool_name(&"a".repeat(128)));
+        assert!(!is_tool_name(""));
     }
 }

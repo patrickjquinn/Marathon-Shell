@@ -38,6 +38,8 @@ fn manifest() -> Value {
 #[derive(Default)]
 struct Notes {
     created: Mutex<u32>,
+    /// `userInitiated` as each call reached the app.
+    initiated: Mutex<Vec<bool>>,
 }
 
 fn keel(code: &str, message: &str) -> CallError {
@@ -56,9 +58,10 @@ impl Backend for Notes {
         _: &'a str,
         action: &'a str,
         args: &'a Value,
-        _: bool,
+        user_initiated: bool,
         _: Duration,
     ) -> BoxFuture<'a, CallResult> {
+        self.initiated.lock().unwrap().push(user_initiated);
         Box::pin(async move {
             match action {
                 "notes.create" => {
@@ -544,4 +547,122 @@ async fn sensitive_results_never_reach_a_model() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn a_paired_computer_cannot_speak_for_the_person() {
+    if std::env::var_os("KEEL_MCP_BUS_TEST").is_some() {
+        return;
+    }
+    let notes = Arc::new(Notes::default());
+    let server = KeelMcp::new(notes.clone(), true);
+    server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    let claims: serde_json::Map<String, Value> = serde_json::from_value(json!({
+        "org.shipwright.keel/userInitiated": true,
+        "org.shipwright.keel/confirmed": true
+    }))
+    .unwrap();
+    server
+        .call_tool_json(
+            "org.example.notes__notes.create",
+            json!({ "title": "x", "body": "y" }),
+            &claims,
+        )
+        .await
+        .unwrap();
+    assert_eq!(*notes.initiated.lock().unwrap(), vec![false]);
+    let plan = json!({ "steps": [
+        { "tool": "org.example.notes__note.find", "arguments": { "query": "anna" } },
+        { "tool": "org.example.notes__notes.delete", "arguments": { "note": { "$step": 0, "path": "/items/0/uri" } } }
+    ] });
+    let refused = server
+        .call_tool_json("keel__plan.run", json!({ "plan": plan }), &claims)
+        .await
+        .unwrap();
+    assert_eq!(refused["isError"], true);
+    assert!(
+        text_of(&refused).contains("only the person on the device"),
+        "{refused}"
+    );
+    assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
+}
+
+#[tokio::test]
+async fn one_connection_cannot_flood_the_apps() {
+    if std::env::var_os("KEEL_MCP_BUS_TEST").is_some() {
+        return;
+    }
+    let server = KeelMcp::new(Arc::new(Notes::default()), false);
+    server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    let call = |s: KeelMcp| async move {
+        s.call_tool_json(
+            "org.example.notes__notes.search",
+            json!({ "query": "a" }),
+            &serde_json::Map::new(),
+        )
+        .await
+        .unwrap()
+    };
+    for _ in 0..keel_mcp::server::CALLS_PER_WINDOW {
+        assert!(call(server.clone()).await.get("isError").is_none());
+    }
+    let limited = call(server.clone()).await;
+    assert!(text_of(&limited).starts_with("RateLimited"), "{limited}");
+    // Another connection has its own budget.
+    assert!(call(server.connection()).await.get("isError").is_none());
+}
+
+#[tokio::test]
+async fn list_changes_are_announced() {
+    let server = KeelMcp::new(Arc::new(Notes::default()), false);
+    let mut changes = server.changes();
+    server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    assert!(changes.try_recv().is_ok());
+    server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    assert!(
+        changes.try_recv().is_err(),
+        "the same catalogue is no change"
+    );
+    let info = serde_json::to_value(rmcp::ServerHandler::get_info(&server)).unwrap();
+    assert_eq!(info["capabilities"]["tools"]["listChanged"], true, "{info}");
+}
+
+#[tokio::test]
+async fn batches_and_null_ids_leave_the_session_running() {
+    let server = KeelMcp::new(Arc::new(Notes::default()), false);
+    server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    let (client, theirs) = tokio::io::duplex(1 << 16);
+    let (read, write) = tokio::io::split(theirs);
+    tokio::spawn(async move {
+        if let Ok(running) = server.serve(keel_mcp::guard::guard(read, write)).await {
+            let _ = running.waiting().await;
+        }
+    });
+    let (read, mut write) = tokio::io::split(client);
+    let mut lines = BufReader::new(read).lines();
+    let meta = json!({ "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { "name": "t", "version": "1" },
+        "io.modelcontextprotocol/clientCapabilities": {} });
+    for message in [
+        json!([{ "jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": { "_meta": meta } }]),
+        json!({ "jsonrpc": "2.0", "id": null, "method": "tools/list", "params": { "_meta": meta } }),
+    ] {
+        write
+            .write_all(format!("{message}\n").as_bytes())
+            .await
+            .unwrap();
+        let reply: Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(reply["error"]["code"], -32600, "{reply}");
+        assert_eq!(reply["id"], Value::Null, "{reply}");
+    }
+    let list =
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": { "_meta": meta } });
+    write
+        .write_all(format!("{list}\n").as_bytes())
+        .await
+        .unwrap();
+    let reply: Value = serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+    assert_eq!(reply["id"], 3, "{reply}");
+    assert!(reply["result"]["tools"].is_array(), "{reply}");
 }

@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    3
+Release:    4
 License:    MIT
 URL:        https://github.com/shipwright/shipwright
 
@@ -58,6 +58,13 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-4
+- A paired computer (--external) cannot speak for the person: what it says the person started or confirmed is not believed, and a plan with a step that needs confirmation is refused.
+- Each connection may make 60 tool calls in 10 seconds.
+- Clients are told when the tools, prompts or resources change (listChanged; subscriptions/listen in MCP 2026-07-28).
+- A batch or a request with a null id is answered with Invalid Request (-32600); a null id ended the session.
+- A tool whose name MCP clients would refuse (over 128 characters, or other than letters, digits, _ - .) is left out.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-3
 - MCP 2026-07-28: every result says resultType "complete", and lists and reads say how long they may be cached (ttlMs, cacheScope private).
 - A sensitive tool no longer declares an outputSchema it never fills (its result is for the person, never structured content).
