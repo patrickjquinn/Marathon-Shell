@@ -8,7 +8,7 @@
 
 Name:       shipwright-keel-sailfishapp
 Version:    0.1.0
-Release:    13
+Release:    14
 Summary:    SailfishApp library for Qt6 apps (Keel)
 # keel-wl-shell's protocol code is generated from Qt's BSD-3-Clause
 # surface-extension.xml (keel/shell/PROVENANCE.md).
@@ -24,10 +24,19 @@ BuildRequires:  qt6-qtdeclarative-devel >= 6.8
 # keel-wl-shell: Qt's Wayland client plugin API, libwayland-client and
 # wayland-scanner.
 BuildRequires:  qt6-qtwayland-devel >= 6.8
+BuildRequires:  qt6-qtwayland-devel < 6.9
 BuildRequires:  wayland-devel
 Requires:       qt6-qtbase-gui >= 6.8
 Requires:       qt6-qtwayland >= 6.8
 Requires:       qt6-qtdeclarative >= 6.8
+# Qt 6.8 only (< 6.9): keel-wl-shell is built on QtWaylandClient's and
+# QtGui's private API, which keeps no ABI across Qt minor releases, and Qt
+# 6.9 dropped qt_extended_surface, the protocol Lipstick reads window
+# properties and covers through. A newer Qt would leave every Keel app
+# without its window and cover. Sailfish OS 5.2.0.15 and 5.2.0.18 build
+# against Chum's 6.8.4 (tools/build/reef/chum-qt6.lock).
+Requires:       qt6-qtbase-gui < 6.9
+Requires:       qt6-qtwayland < 6.9
 Requires:       shipwright-keel-silica
 
 %description
@@ -64,6 +73,7 @@ available.
     -DKEEL_BUILD_QT5COMPAT=OFF \
     -DKEEL_BUILD_PLATFORM=OFF \
     -DBUILD_TESTING=OFF \
+    -DKEEL_REQUIRE_WL_SHELL=ON \
     -DKEEL_QML_INSTALL_DIR=%{_libdir}/qt6/qml \
     -DKEEL_SAILFISHAPP_SHARE_DIR=%{_datadir}
 cmake --build build-keel-sailfishapp %{?_smp_mflags}
@@ -94,6 +104,10 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %{_libdir}/cmake/KeelSailfishApp
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-14
+- Requires Qt 6.8 (below 6.9): keel-wl-shell uses QtWaylandClient's private API, and Qt 6.9 dropped qt_extended_surface, which Lipstick needs for windows and covers.
+- The build fails if keel-wl-shell cannot be built, instead of leaving it out.
+
 * Fri Oct 09 2026 Shipwright - 0.1.0-13
 - An update restarts the running app boosters, so apps start with the new library.
 

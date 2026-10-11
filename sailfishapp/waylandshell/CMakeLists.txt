@@ -5,7 +5,11 @@
 # (wl_shell + qt_extended_surface, as Lipstick expects; see keelwlshell.cpp).
 # Keel's launcher asks for it first (QT_WAYLAND_SHELL_INTEGRATION=
 # "keel-wl-shell;wl-shell"). Built when Qt's Wayland client private headers,
-# libwayland-client and wayland-scanner are found.
+# libwayland-client and wayland-scanner are found; with
+# KEEL_REQUIRE_WL_SHELL=ON (the RPM builds) their absence is an error, so a
+# shipping build can never leave the plugin out without saying so.
+
+option(KEEL_REQUIRE_WL_SHELL "Fail the configure step when keel-wl-shell cannot be built" OFF)
 
 find_package(Qt6 ${KEEL_QT_MIN_VERSION} QUIET COMPONENTS WaylandClient)
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
@@ -17,8 +21,14 @@ endif()
 find_program(KEEL_WAYLAND_SCANNER wayland-scanner)
 if(NOT TARGET Qt6::WaylandClientPrivate OR NOT TARGET Qt6::GuiPrivate OR NOT KEEL_WAYLAND_CLIENT_FOUND
    OR NOT KEEL_WAYLAND_SCANNER)
-    message(STATUS "keel-wl-shell: Qt Wayland client private headers, libwayland-client or "
-                   "wayland-scanner missing; not built")
+    set(_keel_wl_shell_missing "keel-wl-shell: Qt Wayland client private headers, libwayland-client or "
+                               "wayland-scanner missing")
+    if(KEEL_REQUIRE_WL_SHELL)
+        message(FATAL_ERROR "${_keel_wl_shell_missing} (KEEL_REQUIRE_WL_SHELL is ON). Direct mode on "
+                            "Lipstick needs it: install qt6-qtwayland-devel (with its private headers), "
+                            "wayland-devel and wayland-scanner.")
+    endif()
+    message(WARNING "${_keel_wl_shell_missing}; not built (direct mode on Lipstick needs it)")
     return()
 endif()
 

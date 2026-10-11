@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Patrick Quinn
+SPDX-License-Identifier: MIT
+-->
+
 # Keel
 
 Keel lets Sailfish apps written for Silica run on Qt6 (see `docs/plan.md`,
@@ -408,7 +413,7 @@ does what keel-shell did, against Lipstick itself:
 | What | How (direct mode) | Lipstick side |
 | --- | --- | --- |
 | Main window | The `QQuickView`, shown full screen (`Keel::showMainWindow`), with `WINID`, `BACKGROUND_VISIBLE` (Lipstick draws the dimmed ambience behind it), `SAILFISH_HAVE_COVER` and `SAILFISH_COVER_WINDOW` (`"__winref:<cover WINID>"`), as Silica's Qt 5 window sets them | `wl_shell` surface, `set_fullscreen`; `qt_extended_surface` generic properties (Qt 5.6 `QDataStream` format) |
-| Shown and hidden | `keel-wl-shell` (`sailfishapp/waylandshell`): Lipstick's `onscreen_visibility` Hidden makes a window not exposed (Qt Quick stops rendering it) and keeps its surface; any other value exposes it again. Qt 6's own wl-shell hid the `QWindow`, which destroyed its surface: the app lost its window on display off and in the switcher | `qt_extended_surface.onscreen_visibility` (display off, switcher; covers: Minimized when shown in the switcher) |
+| Shown and hidden | `keel-wl-shell` (`sailfishapp/waylandshell`): on Lipstick's `onscreen_visibility` Hidden a window keeps its surface and stays exposed (on the Jolla Phone Lipstick sends Minimized then Hidden to an app that has just come to the front, so following Hidden left foreground apps at 9 frames a second, `d450352f`); a window Lipstick does not show gets no frame callbacks, which throttles rendering anyway, and the value stays readable as `keelOnscreenVisibility`. The cover is the exception: exposed until its first frame and then only while the app is inactive, so exactly one window drives the threaded render loop (`2e1e3b98`). Qt 6's own wl-shell hid the `QWindow`, which destroyed its surface: on the phone the app lost its window on lock and its cover in the switcher (`8ef27b62`) | `qt_extended_surface.onscreen_visibility` (display off, switcher; covers: Minimized when shown in the switcher) |
 | Cover | Second top-level window (title `keel:cover:<app>`), `Shell.prepareCoverWindow()` creates it and sets the window property `CATEGORY=cover` before it is shown | `qt_extended_surface.update_generic_property("CATEGORY", QString "cover")`, before the first buffer; Lipstick reads it when the window is first mapped (`lipstickcompositor.cpp`) |
 | Device orientation | `QScreen::orientation()` → `Shell.orientation` (0, 90, 180, 270 for Portrait, Landscape, PortraitInverted, LandscapeInverted) | `wl_output` transform (`setScreenOrientation`) |
 | Content orientation | `Shell.setContentOrientation()` → `QWindow::reportContentOrientationChange()` on every app window except the cover | `wl_surface.set_buffer_transform` (Qt 5.6 and Qt 6 use the same table) |
@@ -529,7 +534,22 @@ nemo-compat RPMs (3 passed). Running under qemu is not running on a device.
 
 ## Needs device verification
 
-Nothing here has run on a Jolla Phone. Steps, on a phone with developer mode,
+What has run on the Jolla Phone (Sailfish OS 5.2.0.18, since 5 October 2026),
+as the commits record it: Keel apps (Reef, Pacific, Shoal Camera, Pilot,
+Keys, Mail, iCloud, Migrate) in direct mode through `keel-wl-shell`, with
+their covers in the switcher (`8ef27b62`, `d450352f`, `2e1e3b98`); the
+keyboard, after rebuilding the Qt 6 Maliit input context (`47ba0e40`);
+per-app boosters for sandboxed apps (step 0e, `3eb3da1c`); Theme values at
+pixel ratio 1.5 and the ambience through libdconf (`2c33f609`, `625080d0`);
+QML compiled at build time and Silica types in C++, measured against stock
+Qt 5 Silica (`8f4d1366`, `2e122ba1`). `docs/STATUS.md` ("On the phone")
+keeps the full list. Nothing has run on 5.2.0.15 or 5.1 on a phone, and the
+steps below have not been run as a set: `tools/phase0/keel-runtime-test.sh`
+has no committed results, and steps 1 to 13 (look side by side, Nemo,
+ambience key names, orientation, Silica translations, Keel Actions
+activation) are still open unless a commit above covers them.
+
+Steps, on a phone with developer mode,
 Chum `chum:testing` Qt6 (`qt6-qtbase`, `qt6-qtbase-gui`,
 `qt6-qtdeclarative`, `qt6-qtwayland`, `qt6-sfos-maliit-platforminputcontext`)
 and the Keel RPMs (`shipwright-keel-silica`, `-sailfishapp`, `-booster`,
@@ -618,7 +638,7 @@ file back.
    (offscreen software scene graph: no shader effects there).
    a. On the phone, run each scene under Keel (direct mode; the `qml` tool
       does not go through Keel's launcher, so set its variables:
-      `KEEL_DIRECT=1 QT_QPA_PLATFORM=wayland-egl QT_WAYLAND_SHELL_INTEGRATION=wl-shell
+      `KEEL_DIRECT=1 QT_QPA_PLATFORM=wayland-egl QT_WAYLAND_SHELL_INTEGRATION="keel-wl-shell;wl-shell"
       QT_WAYLAND_DISABLE_WINDOWDECORATION=1 /usr/lib64/qt6/bin/qml <scene>.qml`, or under
       keel-shell: `keel-shell -- /usr/lib64/qt6/bin/qml <scene>.qml`) and take a
       screenshot (Volume up and Volume down together, or

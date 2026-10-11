@@ -53,6 +53,12 @@ pub const CALL_WINDOW: Duration = Duration::from_secs(10);
 pub struct KeelMcp {
     inner: Arc<Inner>,
     calls: Arc<Mutex<VecDeque<Instant>>>,
+    /// This connection's client may speak for the person (it is `pilotd`,
+    /// see [`crate::peer`]): only then is its word that the person started
+    /// or confirmed a request believed. On for a server made in process
+    /// (its client is the process that made it, as in pilotd's tests); the
+    /// binary sets it for every client from the client's process.
+    trusted_client: bool,
 }
 
 fn meta_flag(meta: &Map<String, Value>, key: &str) -> bool {
@@ -167,16 +173,43 @@ impl KeelMcp {
                 changed: tokio::sync::broadcast::channel(4).0,
             }),
             calls: Arc::default(),
+            trusted_client: true,
         }
     }
 
     /// The server for one more connection: the same catalogue, its own
-    /// call budget.
+    /// call budget, the same trust until [`KeelMcp::trusting_client`]
+    /// changes it.
     #[must_use]
     pub fn connection(&self) -> Self {
         Self {
             inner: Arc::clone(&self.inner),
             calls: Arc::default(),
+            trusted_client: self.trusted_client,
+        }
+    }
+
+    /// The same connection, with a client that may (or may not) speak for
+    /// the person: `pilotd`, identified by its process ([`crate::peer`]).
+    #[must_use]
+    pub fn trusting_client(mut self, trusted: bool) -> Self {
+        self.trusted_client = trusted;
+        self
+    }
+
+    /// Whether what the client says the person started or confirmed is
+    /// believed: never from a paired computer, and only from a trusted
+    /// client on the device.
+    fn speaks_for_person(&self) -> bool {
+        self.trusted_client && !self.inner.external
+    }
+
+    /// Who can confirm, for a client that cannot.
+    fn who_confirms(&self) -> &'static str {
+        if self.inner.external {
+            "only the person on the device can confirm them; a paired computer cannot run them"
+        } else {
+            "only Pilot, which asks the person, can confirm them"
         }
     }
 
@@ -330,10 +363,11 @@ impl KeelMcp {
         arguments: Value,
         meta: &Map<String, Value>,
     ) -> Result<Value, ErrorData> {
-        // A paired computer's word that the person started or confirmed
-        // something is not the person's: its calls go to the apps as the
-        // app's own requests (an app asks the person itself).
-        let user_initiated = !self.inner.external && meta_flag(meta, "userInitiated");
+        // A paired computer's (or any other untrusted client's) word that
+        // the person started or confirmed something is not the person's: its
+        // calls go to the apps as the app's own requests (an app asks the
+        // person itself).
+        let user_initiated = self.speaks_for_person() && meta_flag(meta, "userInitiated");
         if !self.spend_call() {
             return Ok(error_result(format!(
                 "RateLimited: more than {CALLS_PER_WINDOW} tool calls in {} s; wait before calling again",
@@ -394,10 +428,11 @@ impl KeelMcp {
             let out = json!({ "valid": true, "needsConfirmation": summary.needs_confirmation, "errors": [] });
             return json!({ "content": [text(out.to_string())], "structuredContent": out });
         }
-        if !summary.needs_confirmation.is_empty() && self.inner.external {
+        if !summary.needs_confirmation.is_empty() && !self.speaks_for_person() {
             return error_result(format!(
-                "NeedsConfirmation: steps {:?} change data, reach the network or ask to confirm, and only the person on the device can confirm them; a paired computer cannot run them",
-                summary.needs_confirmation
+                "NeedsConfirmation: steps {:?} change data, reach the network or ask to confirm, and {}",
+                summary.needs_confirmation,
+                self.who_confirms()
             ));
         }
         if !summary.needs_confirmation.is_empty() && !meta_flag(meta, "confirmed") {
@@ -417,7 +452,8 @@ impl KeelMcp {
             let result = match resolve_arguments(&step.arguments, &outputs) {
                 Ok(arguments) => {
                     if self.spend_call() {
-                        self.run_tool(entry, &arguments, !self.inner.external).await
+                        self.run_tool(entry, &arguments, self.speaks_for_person())
+                            .await
                     } else {
                         Err(format!(
                             "RateLimited: more than {CALLS_PER_WINDOW} tool calls in {} s",
@@ -533,6 +569,12 @@ impl KeelMcp {
                     .is_none_or(|m| m.get("context").is_none())
                 {
                     return Err(not_found());
+                }
+                if !self.trusted_client {
+                    return Err(ErrorData::invalid_params(
+                        "an app's context is read only for a request the person started, and only Pilot can say so",
+                        None,
+                    ));
                 }
                 if !meta_flag(meta, "userInitiated") {
                     return Err(ErrorData::invalid_params(

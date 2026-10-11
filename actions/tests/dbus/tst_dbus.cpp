@@ -13,6 +13,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
 #include <QtTest>
 
 namespace {
@@ -132,6 +133,38 @@ private Q_SLOTS:
         QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
         const QJsonObject context = object(reply.arguments().value(0).toString());
         QCOMPARE(context.value(QLatin1String("purpose")).toString(), QStringLiteral("reading a note"));
+    }
+
+    // userInitiated is the sender's to prove, not to claim: this test process
+    // is neither Pilot, keel-mcp nor the app, so the app hears false
+    // (keel/actions/plugin/keelcallertrust.h; the trusted side is covered by
+    // tst_keel_actions_callertrust).
+    void userInitiatedFromAnUntrustedCaller()
+    {
+        const QString service = QStringLiteral("org.example.initiated");
+        QProcess host;
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("KEEL_ACTIONS_DBUS"), QStringLiteral("1"));
+        env.insert(QStringLiteral("KEEL_ACTIONS_APP_ID"), service);
+        host.setProcessEnvironment(env);
+        host.setProcessChannelMode(QProcess::ForwardedChannels);
+        host.start(QStringLiteral(KEEL_ACTIONS_TEST_HOST),
+                   {QStringLiteral("--no-env-manifest"), QStringLiteral(KEEL_ACTIONS_INITIATED_APP)});
+        QVERIFY(host.waitForStarted());
+        QTRY_VERIFY_WITH_TIMEOUT(QDBusConnection::sessionBus().interface()->isServiceRegistered(service), 10000);
+
+        QDBusInterface probe(service, Path, Interface);
+        probe.setTimeout(10000);
+        for (const bool claimed : {true, false}) {
+            const QDBusMessage reply = probe.call(QStringLiteral("Invoke"), QStringLiteral("probe.initiated"),
+                                                  QStringLiteral("{}"),
+                                                  QVariantMap{{QStringLiteral("userInitiated"), claimed}});
+            QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
+            QCOMPARE(object(reply.arguments().value(0).toString()), QJsonObject({{QStringLiteral("result"), false}}));
+        }
+        host.terminate();
+        if (!host.waitForFinished(5000))
+            host.kill();
     }
 
     void quitsWhenIdle()

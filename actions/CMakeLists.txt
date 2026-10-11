@@ -23,6 +23,7 @@ qt_add_qml_module(keelactionsplugin
         plugin/keelregistry.cpp plugin/keelregistry.h
         plugin/keelschema.cpp plugin/keelschema.h
         plugin/keeladaptor.cpp plugin/keeladaptor.h
+        plugin/keelcallertrust.cpp plugin/keelcallertrust.h
         plugin/keelnative.cpp plugin/keelnative.h
 )
 target_include_directories(keelactionsplugin PRIVATE plugin)

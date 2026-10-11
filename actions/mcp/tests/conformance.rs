@@ -121,7 +121,9 @@ async fn server() -> KeelMcp {
     } else {
         Arc::new(Notes::default())
     };
-    let server = KeelMcp::new(backend, false);
+    // Pilot's connection: its word that the person started or confirmed a
+    // request is believed.
+    let server = KeelMcp::new(backend, false).trusting_client(true);
     server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
     server
 }
@@ -555,7 +557,8 @@ async fn a_paired_computer_cannot_speak_for_the_person() {
         return;
     }
     let notes = Arc::new(Notes::default());
-    let server = KeelMcp::new(notes.clone(), true);
+    // Even on a connection that would otherwise be trusted.
+    let server = KeelMcp::new(notes.clone(), true).trusting_client(true);
     server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
     let claims: serde_json::Map<String, Value> = serde_json::from_value(json!({
         "org.shipwright.keel/userInitiated": true,
@@ -585,6 +588,66 @@ async fn a_paired_computer_cannot_speak_for_the_person() {
         "{refused}"
     );
     assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
+}
+
+#[tokio::test]
+async fn only_pilot_speaks_for_the_person() {
+    if std::env::var_os("KEEL_MCP_BUS_TEST").is_some() {
+        return;
+    }
+    let claims: serde_json::Map<String, Value> = serde_json::from_value(json!({
+        "org.shipwright.keel/userInitiated": true,
+        "org.shipwright.keel/confirmed": true
+    }))
+    .unwrap();
+    let plan = json!({ "steps": [
+        { "tool": "org.example.notes__note.find", "arguments": { "query": "anna" } },
+        { "tool": "org.example.notes__notes.delete", "arguments": { "note": { "$step": 0, "path": "/items/0/uri" } } }
+    ] });
+    let create = json!({ "title": "x", "body": "y" });
+
+    // Any other process that starts keel-mcp or connects to its socket
+    // (the binary decides this per client, keel_mcp::peer).
+    let notes = Arc::new(Notes::default());
+    let other = KeelMcp::new(notes.clone(), false).trusting_client(false);
+    other.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    other
+        .call_tool_json("org.example.notes__notes.create", create.clone(), &claims)
+        .await
+        .unwrap();
+    assert_eq!(*notes.initiated.lock().unwrap(), vec![false]);
+    let refused = other
+        .call_tool_json("keel__plan.run", json!({ "plan": plan }), &claims)
+        .await
+        .unwrap();
+    assert_eq!(refused["isError"], true);
+    assert!(text_of(&refused).contains("only Pilot"), "{refused}");
+    assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
+    let context = other
+        .read_resource_json("keel://org.example.notes/context", &claims)
+        .await;
+    assert!(
+        context.is_err(),
+        "context is not read for an untrusted client"
+    );
+
+    // Pilot.
+    let pilot = other.connection().trusting_client(true);
+    pilot
+        .call_tool_json("org.example.notes__notes.create", create, &claims)
+        .await
+        .unwrap();
+    assert_eq!(*notes.initiated.lock().unwrap(), vec![false, true]);
+    let ran = pilot
+        .call_tool_json("keel__plan.run", json!({ "plan": plan }), &claims)
+        .await
+        .unwrap();
+    assert_eq!(ran["structuredContent"]["ok"], true, "{ran}");
+    assert_eq!(*notes.initiated.lock().unwrap(), vec![false, true, true]);
+    assert!(pilot
+        .read_resource_json("keel://org.example.notes/context", &claims)
+        .await
+        .is_ok());
 }
 
 #[tokio::test]

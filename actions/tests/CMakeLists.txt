@@ -37,6 +37,15 @@ add_test(NAME keel_actions_generated_stub
 set_tests_properties(keel_actions_generated_stub PROPERTIES
     ENVIRONMENT "${_keel_actions_test_env}" TIMEOUT 120)
 
+# Who may say the person started a request (keelcallertrust.h): the
+# trusted side, which a D-Bus test from this process cannot reach.
+qt_add_executable(tst_keel_actions_callertrust
+    callertrust/tst_callertrust.cpp ../plugin/keelcallertrust.cpp)
+target_include_directories(tst_keel_actions_callertrust PRIVATE ../plugin)
+target_link_libraries(tst_keel_actions_callertrust PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME keel_actions_callertrust COMMAND tst_keel_actions_callertrust)
+set_tests_properties(keel_actions_callertrust PROPERTIES TIMEOUT 60)
+
 # D-Bus round trip on a private session bus: activation of the test host
 # (headless), every method of org.shipwright.Keel.Actions, idle exit.
 qt_add_executable(keel-actions-test-host dbus/keel-actions-test-host.cpp)
@@ -65,6 +74,9 @@ if(KEEL_DBUS_RUN_SESSION)
 
     qt_add_executable(tst_keel_actions_dbus dbus/tst_dbus.cpp)
     target_link_libraries(tst_keel_actions_dbus PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
+    target_compile_definitions(tst_keel_actions_dbus PRIVATE
+        KEEL_ACTIONS_TEST_HOST="$<TARGET_FILE:keel-actions-test-host>"
+        KEEL_ACTIONS_INITIATED_APP="${CMAKE_CURRENT_SOURCE_DIR}/dbus/Initiated.qml")
     add_dependencies(tst_keel_actions_dbus keel-actions-test-host)
     add_test(NAME keel_actions_dbus
         COMMAND ${KEEL_DBUS_RUN_SESSION} --config-file=${KEEL_ACTIONS_BUS_CONFIG}

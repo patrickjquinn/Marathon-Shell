@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    26
+Release:    27
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -32,15 +32,28 @@ BuildRequires:  ninja
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-qtbase-devel >= 6.8
 BuildRequires:  qt6-qtdeclarative-devel >= 6.8
+BuildRequires:  qt6-qtdeclarative-devel < 6.9
 # Direct mode tags the cover window CATEGORY=cover through Qt's platform
 # native interface (qpa/qplatformnativeinterface.h).
 BuildRequires:  qt6-qtbase-private-devel >= 6.8
+BuildRequires:  qt6-qtbase-private-devel < 6.9
 # dconf through libdconf (keel/silica/plugin/cpp/keeldconf.h): Sailjail's
 # private-bin leaves sandboxed apps no dconf program.
 BuildRequires:  pkgconfig(dconf)
+# Qt's private API, Qt 6.8 only (< 6.9): keelplugin and silicaprivateplugin
+# link QtGui's and QtQuick's private API, and qt_add_qml_module compiles the
+# QML ahead of time against QQmlPrivate internals, none of which keeps its
+# ABI across Qt minor releases. Qt 6.9 also dropped qt_extended_surface, which
+# direct mode needs (keel-wl-shell, shipwright-keel-sailfishapp). Sailfish OS
+# 5.2.0.15 and 5.2.0.18 build against Chum's 6.8.4
+# (tools/build/reef/chum-qt6.lock); a Chum Qt 6.9 must not be installed
+# under these packages until Keel is ported and rebuilt for it.
 Requires:       qt6-qtbase >= 6.8
+Requires:       qt6-qtbase < 6.9
 Requires:       qt6-qtbase-gui >= 6.8
+Requires:       qt6-qtbase-gui < 6.9
 Requires:       qt6-qtdeclarative >= 6.8
+Requires:       qt6-qtdeclarative < 6.9
 # Direct mode (ADR-0016): the app's windows are Lipstick windows through Qt 6's
 # Wayland client with the wl-shell integration; the ambience and the
 # display's cutouts are read through libdconf (in dconf). keel-shell is the
@@ -70,6 +83,9 @@ Summary:    Keel Actions: typed app actions for Pilot and MCP clients
 License:    MIT
 Requires:   qt6-qtbase >= 6.8
 Requires:   qt6-qtdeclarative >= 6.8
+# Qt 6.8 only, as the main package (compiled QML); also held by the exact
+# dependency on it below.
+Requires:   qt6-qtdeclarative < 6.9
 # Owns the Keel QML directory this module sits in.
 Requires:   %{name} = %{version}-%{release}
 
@@ -130,6 +146,10 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-27
+- Keel Actions: an app believes that the person started a request (userInitiated) only from Pilot, keel-mcp or itself, recognised by the calling process (its executable, or Sailfish's privileged group), not by what the call says. From anyone else the request reaches the app as its own.
+- Requires Qt 6.8 (below 6.9): Keel uses Qt's private API and compiled QML internals, which change between Qt minor releases.
+
 * Sat Oct 10 2026 Shipwright - 0.1.0-26
 - PagedView shows a page that was made later than asked for. In a page that loads in the background, its pages were made in the background too, and the view never showed them: Shoal Camera's roll, opened before a photo was taken, stayed black.
 - No more "load glyph failed ... glyph=65535" warnings in every app's log. Sailfish's UI font keeps its ligatures in Apple's format, and Qt warned about a placeholder glyph while laying out text such as "left"; nothing was drawn wrongly.

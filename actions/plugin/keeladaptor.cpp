@@ -4,11 +4,13 @@
 #include "keeladaptor.h"
 
 #include "keelcall.h"
+#include "keelcallertrust.h"
 #include "keelregistry.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QDBusReply>
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -28,6 +30,25 @@ QString compact(const QJsonValue &value)
 QString errorName(const QString &code)
 {
     return QStringLiteral("org.shipwright.Keel.Actions.Error.") + code;
+}
+
+// The options the app acts on, as far as the caller may give them:
+// userInitiated only from a trusted sender (keelcallertrust.h), identified
+// by the bus, never by the call.
+QVariantMap trustedOptions(const QVariantMap &options, const QDBusMessage &message)
+{
+    QVariantMap out;
+    if (!options.value(QStringLiteral("userInitiated")).toBool())
+        return out;
+    const QDBusReply<uint> pid = QDBusConnection::sessionBus().interface()->servicePid(message.service());
+    if (pid.isValid() && KeelCallerTrust::isTrusted(pid.value())) {
+        out.insert(QStringLiteral("userInitiated"), true);
+    } else {
+        qInfo().noquote() << "Keel.Actions: userInitiated from" << message.service()
+                          << (pid.isValid() ? QStringLiteral("(pid %1)").arg(pid.value()) : QStringLiteral("(no pid)"))
+                          << "is not believed: only Pilot, keel-mcp and the app itself may say the person started a request";
+    }
+    return out;
 }
 
 } // namespace
@@ -117,7 +138,7 @@ QString KeelActionsAdaptor::Invoke(const QString &action, const QString &argumen
             errorName(KeelCall::InvalidArguments), QStringLiteral("arguments must be a JSON object")));
         return {};
     }
-    answer(m_registry->invoke(action, doc.object().toVariantMap(), options), message);
+    answer(m_registry->invoke(action, doc.object().toVariantMap(), trustedOptions(options, message)), message);
     return {};
 }
 

@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    4
+Release:    5
 License:    MIT
 URL:        https://github.com/shipwright/shipwright
 
@@ -58,6 +58,10 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-5
+- Only Pilot speaks for the person: what a client says the person started or confirmed is believed only from pilotd (or another process in the privileged group); any other client's calls reach apps as the apps' own requests, its plans that need confirmation are refused, and it cannot read an app's context.
+- The socket (--socket) is created with mode 0600 from the start: it is bound in a private directory and moved into place.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-4
 - A paired computer (--external) cannot speak for the person: what it says the person started or confirmed is not believed, and a plan with a step that needs confirmation is refused.
 - Each connection may make 60 tool calls in 10 seconds.

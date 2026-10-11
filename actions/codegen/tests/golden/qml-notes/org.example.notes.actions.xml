@@ -17,7 +17,10 @@
       <arg name="manifest" type="s" direction="out"/>
     </method>
     <!-- Runs an action ("notes.create", without the app prefix). options:
-         userInitiated (b): the person started the request. The result is
+         userInitiated (b): the person started the request. Believed only
+         from Pilot, keel-mcp and the app's own process, recognised by the
+         sender's process (keel/actions/plugin/keelcallertrust.h), never by
+         the call; from anyone else it is false. The result is
          the structured output: an object, {"result": ...} for other result
          types, {} for actions without a result. -->
     <method name="Invoke">

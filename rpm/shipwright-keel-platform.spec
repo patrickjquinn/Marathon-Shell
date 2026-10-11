@@ -14,7 +14,7 @@
 
 Name:       shipwright-keel-platform
 Version:    0.1.0
-Release:    19
+Release:    20
 Summary:    Sailfish platform QML modules for Qt6 apps (Keel)
 # Clean-room code is Shipwright's; sailfish-secrets, nemo-qml-plugin-accounts,
 # nemo-qml-plugin-thumbnailer, libmce-qt and sailfish-components-accounts
@@ -38,6 +38,7 @@ BuildRequires:  qt6-qtdeclarative-devel >= 6.8
 # MediaKey sets the GRABBED_KEYS window property through Qt's platform
 # native interface (qpa/qplatformnativeinterface.h).
 BuildRequires:  qt6-qtbase-private-devel >= 6.8
+BuildRequires:  qt6-qtbase-private-devel < 6.9
 BuildRequires:  pkgconfig(libaccounts-glib) >= 1.24
 # Sailfish.Accounts: stored client keys and the user-group check, as the Qt 5
 # module uses them.
@@ -77,6 +78,9 @@ all of them except Amber.Mpris, which comes from
 %package media
 Summary:    Sailfish.Media 1.0 for Qt6 (MediaKey and media player types)
 Requires:   qt6-qtbase-gui >= 6.8
+# Qt 6.8 only (< 6.9): links QtGui's private API, which keeps no ABI across
+# Qt minor releases (see shipwright-keel-silica.spec).
+Requires:   qt6-qtbase-gui < 6.9
 Requires:   qt6-qtdeclarative >= 6.8
 Requires:   shipwright-keel-silica
 # MprisPlayerControls controls MPRIS players through Amber.Mpris (this
@@ -199,6 +203,9 @@ controls the other players. No C++ library is installed.
 %package thumbnailer
 Summary:    Nemo.Thumbnailer 1.0 for Qt6 (image, video and PDF thumbnails)
 Requires:   qt6-qtbase-gui >= 6.8
+# Qt 6.8 only (< 6.9): links QtGui's private API, which keeps no ABI across
+# Qt minor releases (see shipwright-keel-silica.spec).
+Requires:   qt6-qtbase-gui < 6.9
 Requires:   qt6-qtdeclarative >= 6.8
 # Video and PDF thumbnails come from thumbnaild's helpers
 # (thumbnaild-video, thumbnaild-pdf), as for the Qt 5 plugin.
@@ -431,6 +438,9 @@ install -D -m 0644 keel/platform/policy/sailjail/KeelPolicy.permission \
 %{_libdir}/pkgconfig/accounts-qt6.pc
 
 %changelog
+* Sun Oct 11 2026 Shipwright - 0.1.0-20
+- Sailfish.Media and Nemo.Thumbnailer require Qt 6.8 (below 6.9): they use QtGui's private API.
+
 * Mon Oct 05 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-19
 - KeelPolicy Sailjail permission: sandboxed apps can read the access policy
   store, so the camera no longer reads as disabled by the device policy.

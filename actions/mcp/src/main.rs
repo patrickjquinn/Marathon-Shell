@@ -9,7 +9,11 @@
 //!
 //! `--stdio` (default): one client on stdin/stdout (a client that spawns
 //! keel-mcp). `--socket`: clients connect to a Unix socket (default
-//! `$XDG_RUNTIME_DIR/keel-mcp.sock`, mode 0600), as `pilotd` does.
+//! `$XDG_RUNTIME_DIR/keel-mcp.sock`, mode 0600 from the moment it exists).
+//! `pilotd` starts it with `--stdio`. Only a client that is `pilotd` (the
+//! parent for `--stdio`, the socket peer for `--socket`; see
+//! [`keel_mcp::peer`]) may say that the person started or confirmed a
+//! request; anyone else's calls reach apps as the apps' own requests.
 //! `--external`: serving a paired desktop agent (no sensitive results, no
 //! context). Manifests come from `/usr/share/keel/actions` unless
 //! `--actions-dir` is given, and from running apps every `--probe-seconds`
@@ -75,14 +79,21 @@ fn parse() -> Result<Args, String> {
 }
 
 async fn serve_socket(server: KeelMcp, path: PathBuf) -> std::io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::remove_file(&path);
-    let listener = tokio::net::UnixListener::bind(&path)?;
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    // Bound in a private directory and moved into place at 0600: there is
+    // no moment when another user could connect.
+    let listener = keel_mcp::peer::bind_private(&path)?;
+    listener.set_nonblocking(true)?;
+    let listener = tokio::net::UnixListener::from_std(listener)?;
     eprintln!("keel-mcp: listening on {}", path.display());
     loop {
         let (stream, _) = listener.accept().await?;
-        let server = server.connection();
+        let trusted = stream
+            .peer_cred()
+            .ok()
+            .and_then(|c| c.pid())
+            .and_then(|pid| u32::try_from(pid).ok())
+            .is_some_and(keel_mcp::peer::is_trusted_client);
+        let server = server.connection().trusting_client(trusted);
         tokio::spawn(async move {
             let (read, write) = stream.into_split();
             match server.serve(keel_mcp::guard::guard(read, write)).await {
@@ -112,7 +123,8 @@ async fn main() -> ExitCode {
         }
     };
     let backend: Arc<dyn Backend> = Arc::new(bus);
-    let server = KeelMcp::new(Arc::clone(&backend), args.external);
+    // No client is trusted until its process says so (per connection, below).
+    let server = KeelMcp::new(Arc::clone(&backend), args.external).trusting_client(false);
     let probe = if args.probe == 0 {
         Duration::MAX / 4
     } else {
@@ -134,6 +146,10 @@ async fn main() -> ExitCode {
     let result = match args.socket {
         Some(path) => serve_socket(server, path).await.map_err(|e| e.to_string()),
         None => match server
+            .connection()
+            .trusting_client(keel_mcp::peer::is_trusted_client(
+                std::os::unix::process::parent_id(),
+            ))
             .serve(keel_mcp::guard::guard(
                 tokio::io::stdin(),
                 tokio::io::stdout(),

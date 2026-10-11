@@ -59,7 +59,9 @@ public:
     // Tool entry for an action / find tool, by action name ("notes.create").
     QJsonObject tool(const QString &action) const;
 
-    // Calls, as D-Bus does. `options`: userInitiated (bool).
+    // Calls, as D-Bus does. `options`: userInitiated (bool). The D-Bus
+    // adaptor passes userInitiated only from a trusted sender
+    // (keelcallertrust.h); in-process callers are the app itself.
     Q_INVOKABLE KeelCall *invoke(const QString &action, const QVariantMap &arguments,
                                  const QVariantMap &options = QVariantMap());
     Q_INVOKABLE KeelCall *getEntity(const QString &type, const QString &id);

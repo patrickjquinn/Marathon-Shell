@@ -12,6 +12,7 @@
 pub mod backend;
 pub mod catalogue;
 pub mod guard;
+pub mod peer;
 pub mod server;
 
 use std::path::PathBuf;

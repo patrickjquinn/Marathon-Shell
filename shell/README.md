@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Patrick Quinn
+SPDX-License-Identifier: MIT
+-->
+
 # keel-shell
 
 **keel-shell is now the opt-in fallback, not the default (ADR-0016).** Keel
