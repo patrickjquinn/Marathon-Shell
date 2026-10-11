@@ -23,7 +23,7 @@ Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
 # lists every file and its origin.
 License:    MIT AND BSD-3-Clause
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 # Chum's Qt6 (6.8.4 in chum:testing for Sailfish OS 5.2).

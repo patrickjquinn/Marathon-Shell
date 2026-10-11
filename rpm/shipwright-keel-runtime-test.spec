@@ -15,7 +15,7 @@ Version:    0.1.0
 Release:    4
 Summary:    Test apps for Keel's runtime on a phone (direct mode, booster, keel-shell)
 License:    MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 BuildRequires:  gcc-c++

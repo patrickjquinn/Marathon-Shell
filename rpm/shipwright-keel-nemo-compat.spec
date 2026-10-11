@@ -20,7 +20,7 @@ Summary:    Nemo QML plugins (DBus, Notifications, KeepAlive, Configuration) for
 # nemo-qml-plugin-configuration, nemo-qml-plugin-policy and lipstick's
 # synchronizelists.h are BSD-3-Clause.
 License:    LGPL-2.1-only AND BSD-3-Clause AND MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 BuildRequires:  cmake >= 3.19

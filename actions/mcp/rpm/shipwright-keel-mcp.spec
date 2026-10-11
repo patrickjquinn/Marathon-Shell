@@ -19,7 +19,7 @@ Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
 Release:    6
 License:    MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 
 # Apps are reached on the session bus; their manifests are installed under
 # /usr/share/keel/actions by each app's package (with the Keel.Actions

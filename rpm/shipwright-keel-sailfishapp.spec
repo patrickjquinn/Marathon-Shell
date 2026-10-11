@@ -13,7 +13,7 @@ Summary:    SailfishApp library for Qt6 apps (Keel)
 # keel-wl-shell's protocol code is generated from Qt's BSD-3-Clause
 # surface-extension.xml (keel/shell/PROVENANCE.md).
 License:    MIT AND BSD-3-Clause
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 BuildRequires:  cmake >= 3.19

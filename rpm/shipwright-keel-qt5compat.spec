@@ -14,7 +14,7 @@ Version:    0.1.0
 Release:    6
 Summary:    Qt 5 QML API shims for Sailfish apps on Keel
 License:    MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 # The qmldir files would otherwise make rpm provide qml(QtGraphicalEffects),

@@ -25,7 +25,7 @@ Summary:    Sailfish platform QML modules for Qt6 apps (Keel)
 # LGPL-2.1-only (Nokia, Canonical), qtmpris is LGPL-2.1-or-later (Jolla Ltd),
 # amber-mpris is LGPL-2.1-or-later with LGPL-2.1-only files (Jolla Ltd).
 License:    MIT AND BSD-3-Clause AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 # Chum's Qt6 (6.8.4 in chum:testing for Sailfish OS 5.2).

@@ -14,7 +14,7 @@ Version:    0.1.0
 Release:    5
 Summary:    Application launch booster for Keel (Qt 6 Silica) apps
 License:    MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 BuildRequires:  cmake >= 3.19

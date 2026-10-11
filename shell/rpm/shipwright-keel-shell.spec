@@ -9,7 +9,7 @@ Release:    3
 # are BSD-3-Clause (derived from qt-runner and newcompositor); the rest is
 # Shipwright proprietary until the Keel licence is chosen (docs/plan.md).
 License:    BSD-3-Clause AND MIT
-URL:        https://github.com/shipwright/shipwright
+URL:        https://github.com/patrickjquinn/shipwright-open
 Source0:    %{name}-%{version}.tar.bz2
 
 # Same Qt/compositor build dependencies as qt-runner (rinigus/qt-runner
