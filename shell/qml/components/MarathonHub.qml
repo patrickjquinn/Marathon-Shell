@@ -36,17 +36,14 @@ Rectangle {
         light: AmbienceService.light
     }
 
-    // ── Header (glass) ──────────────────────────────────────
-    // JSX HubScreen() positions the header at top: 28 so the status bar
-    // (28 px) stays visible above. Without this offset the "Hub" title
-    // is clipped by the status-bar overlay.
+    // ── Header: one title line, then the category chips ─────
     Item {
         id: header
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.topMargin: Constants.statusBarHeight
-        height: headerColumn.height + Silica.Theme.paddingLarge * 2
+        height: headerColumn.height + Silica.Theme.paddingMedium * 2
 
         Column {
             id: headerColumn
@@ -56,35 +53,18 @@ Rectangle {
             anchors.top: parent.top
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.topMargin: Silica.Theme.paddingLarge
-            spacing: Silica.Theme.paddingLarge
+            anchors.topMargin: Silica.Theme.paddingMedium
+            spacing: Silica.Theme.paddingMedium
 
-            // Title row
-            Item {
+            // A Silica page header: the title right-aligned in the highlight.
+            // The chips below carry the counts.
+            Silica.Label {
+                id: titleText
                 width: parent.width
-                height: titleColumn.height
-
-                // A Silica page header: title right-aligned in the highlight,
-                // the unread count beneath it.
-                Column {
-                    id: titleColumn
-
-                    anchors.right: parent.right
-
-                    Silica.Label {
-                        id: titleText
-                        anchors.right: parent.right
-                        text: qsTr("Events")
-                        color: Silica.Theme.highlightColor
-                        font.pixelSize: Silica.Theme.fontSizeLarge
-                    }
-                    Silica.Label {
-                        anchors.right: parent.right
-                        text: qsTr("%n unread", "", NotificationModel.unreadCount)
-                        color: Silica.Theme.secondaryHighlightColor
-                        font.pixelSize: Silica.Theme.fontSizeSmall
-                    }
-                }
+                horizontalAlignment: Text.AlignRight
+                text: qsTr("Events")
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
             }
 
             // Filter chip row — horizontally flickable.
@@ -150,24 +130,32 @@ Rectangle {
     // ageGroup role on NotificationModel — deferred until the C++
     // model exposes it. For now the rows render in
     // newest-first order without grouping.
+    // A quiet empty state just under the chips, not a banner mid-screen.
     Column {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.verticalCenter: list.verticalCenter
-        spacing: Silica.Theme.paddingMedium
+        anchors.top: header.bottom
+        anchors.topMargin: Silica.Theme.paddingLarge * 2
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        spacing: Silica.Theme.paddingSmall
         visible: hub.countForCategory(hub.selectedCategory) === 0
 
-        Silica.InfoLabel {
-            text: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
+        Silica.Label {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: hub.selectedCategory === "all" ? qsTr("All caught up") : hub.selectedCategory === "messages" ? qsTr("No messages") : hub.selectedCategory === "mail" ? qsTr("No mail") : hub.selectedCategory === "work" ? qsTr("No work items") : hub.selectedCategory === "call" ? qsTr("No call history") : qsTr("Nothing here")
+            color: Silica.Theme.secondaryColor
         }
 
         Silica.Label {
-            x: Silica.Theme.horizontalPageMargin
-            width: parent.width - 2 * x
-            text: hub.selectedCategory === "all" ? "Notifications from your apps appear here." : "Switch a category above to see other notifications."
+            width: parent.width
+            text: hub.selectedCategory === "all" ? qsTr("Notifications from your apps appear here.") : qsTr("Switch a category above to see other notifications.")
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
-            color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+            color: Silica.Theme.secondaryColor
+            opacity: 0.7
         }
     }
 
