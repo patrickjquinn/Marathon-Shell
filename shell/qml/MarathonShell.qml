@@ -27,7 +27,7 @@ Item {
     property bool pendingHub: false
     property IncomingCallOverlay incomingCallOverlay: null
     property var shellWindow: Window.window
-    readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
+    readonly property real maxQuickSettingsHeight: Math.min(shell.height - Constants.statusBarHeight - Constants.navBarHeight, quickSettings.preferredHeight)
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
     property var pendingLaunch: null
     property bool volumeUpPressed: false
@@ -1638,6 +1638,9 @@ Item {
             AppLaunchService.launchApp(app, shell.compositor, appWindow);
         }
         onPowerRequested: shell.showPowerMenu()
+        // The content changed size while open (hotspot details, tiles).
+        onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)
+            UIStore.quickSettingsHeight = maxHeight
 
         // reduceMotion collapses to an instant snap; otherwise a tokenized
         // panel-duration decelerate. (Velocity handoff from the drag is a

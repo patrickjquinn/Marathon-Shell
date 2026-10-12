@@ -33,7 +33,7 @@ Item {
 
         objectName: "ring"
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Silica.Theme.itemSizeExtraSmall
+        width: Silica.Theme.itemSizeSmall
         height: width
         radius: width / 2
         scale: tileMouse.pressed ? 0.92 : 1.0
@@ -54,7 +54,7 @@ Item {
         }
         Behavior on scale {
             enabled: !MMotion.reduceMotion
-            NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutBack }
+            NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutQuad }
         }
 
         GlyphIcon {

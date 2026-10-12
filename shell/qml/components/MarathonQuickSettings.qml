@@ -4,13 +4,17 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings, laid out as Sailfish's top menu: the ambiences, a grid of
-// switches, brightness and shortcuts; Marathon's extras below the fold.
-// Notifications live in the Hub, not here.
+// Quick Settings, laid out as Sailfish's top menu: Settings and Power, a grid
+// of switches, the sliders, now playing and shortcuts. Ambiences are picked in
+// Settings > Ambience; notifications live in the Hub.
 Item {
     id: quickSettings
 
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
+    // What the content needs; the shell opens the shade this far, as
+    // Sailfish's top menu, with the screen dimmed below it.
+    readonly property real preferredHeight: shadeScroll.contentHeight
 
     // The shade's fully-open height, supplied by the shell. `height` grows
     // from 0 while the shade opens, so it cannot be used to decide whether
@@ -27,16 +31,13 @@ Item {
     // MarathonShell.qml to showPowerMenu() — never a hard shutdown here.
     signal powerRequested
 
-    // How far the shade is open, 0..1, derived from its own (animating,
-    // drag-driven) height against the content it needs to show. Drives the
-    // content reveal so the chrome MATERIALISES as the shade pulls down and
-    // fades back out as it's dragged closed — motion coupled to the gesture,
-    // not a canned one-shot. +140 keeps it ~1 before the last pixels arrive.
     // Long-press on Hotspot shows what a client needs to join.
     property bool hotspotDetailsShown: false
     onVisibleChanged: if (!visible) hotspotDetailsShown = false
 
-    readonly property real openProgress: Math.min(1, height / Math.max(1, content.implicitHeight + 140))
+    // How far the shade is open, 0..1; drives the content reveal so it
+    // follows the finger.
+    readonly property real openProgress: Math.min(1, height / Math.max(1, maxHeight))
 
     // Backdrop: the ambience's wallpaper, lightly frosted, over any app or
     // the home screen alike. It keeps the open shade's size while the shade
@@ -114,7 +115,7 @@ Item {
         }
     }
 
-    // ── The switch grid, five across as in Sailfish's top menu ─
+    // ── The switch grid ───────────────────────────────────────
     // Settings › Quick settings switches tiles off by these IDs.
     function enabledOnly(list) {
         const enabled = SettingsManagerCpp.enabledQuickSettingsTiles;
@@ -137,22 +138,12 @@ Item {
         ];
         if (RotationManager.available)
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
-        else
-            t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
+        t.push({ id: "autobrightness", icon: "sun",         label: "Auto",    on: SystemControlStore.isAutoBrightnessOn },
+               { id: "lowpower",       icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode },
+               { id: "vibration",      icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn });
         return enabledOnly(t);
     }
-
-    // Below the fold: the rest of Marathon's controls.
-    readonly property var moreTiles: {
-        var t = [
-            { id: "lowpower",  icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode },
-            { id: "vibration", icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn }
-        ];
-        if (RotationManager.available)
-            t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
-        t.push({ id: "power", icon: "power", label: "Power", on: false, action: true });
-        return enabledOnly(t);
-    }
+    readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
     // ── Shortcuts row: one-shot actions and apps ──────────────
     readonly property var shortcuts: [
@@ -171,11 +162,14 @@ Item {
 
         width: Silica.Theme.itemSizeExtraLarge
         height: shortcutColumn.height
+        Accessible.role: Accessible.Button
+        Accessible.name: label
+        Accessible.onPressAction: activated()
 
         Column {
             id: shortcutColumn
 
-            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width
             spacing: Silica.Theme.paddingSmall
 
             GlyphIcon {
@@ -185,7 +179,9 @@ Item {
                 color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             }
             Text {
-                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
                 text: shortcut.label
                 color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
                 font.family: Silica.Theme.fontFamily
@@ -200,6 +196,27 @@ Item {
                 MHaptics.light();
                 shortcut.activated();
             }
+        }
+    }
+
+    // A bare glyph, as Silica's IconButton.
+    component HeaderButton: MouseArea {
+        id: headerButton
+
+        property string iconName
+        property string a11yName
+
+        width: Silica.Theme.itemSizeExtraSmall
+        height: width
+        Accessible.role: Accessible.Button
+        Accessible.name: a11yName
+        Accessible.onPressAction: clicked(null)
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            name: headerButton.iconName
+            size: Silica.Theme.iconSizeSmall
+            color: headerButton.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
         }
     }
 
@@ -222,159 +239,89 @@ Item {
         z: 2
     }
 
-    // The shade is a fixed-height surface but its contents are all scaled
-    // tokens, so past roughly 1.4x display size the column is taller than
-    // the shade and the Screenshot / Lock / Power row was simply sliced off
-    // the bottom with no way to reach it.
-    //
-    // interactive is gated on actual overflow: at the shipping default the
-    // content fits, the Flickable is inert, and drag-to-close behaves
-    // exactly as before. The dismiss DragHandler above deliberately grabs
-    // only the shade chrome and never the tiles/sliders, so this does not
-    // take a gesture that used to close the shade.
+    // Past roughly 1.4x display size the column is taller than the shade;
+    // the Flickable scrolls only then, so at the default scale an upward
+    // drag on the shade still closes it.
     Flickable {
         id: shadeScroll
 
         anchors.fill: parent
-        // Leave the drag handle at the bottom uncovered. Ask it for its
-        // geometry rather than restating it -- resizing the handle would
-        // otherwise silently re-clip the last row.
-        anchors.bottomMargin: dragHandle.height + MSpacing.md * 2
         // Clipping forces a scissor and breaks batching across the whole
         // shade, and `content` animates its opacity while the shade opens.
-        // Only pay for it when there is actually something to scroll.
         clip: interactive
-        contentHeight: content.y + content.height + MSpacing.lg
+        contentHeight: content.y + content.height + Silica.Theme.paddingLarge
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: MMotion.flickDecelerationFast
 
-        // Gated on the OPEN height, not the live one, so this is a function
-        // of display scale alone and does not flip during the open
-        // animation.
-        //
-        // Tradeoff, stated plainly: this Flickable fills the shade, and the
-        // dismiss DragHandler on the root has no bounds -- it worked only
-        // because the gaps between tiles had no other grabber. So when this
-        // is interactive, an upward drag on the shade body scrolls instead
-        // of closing. That only happens at the scales where the bottom
-        // controls were previously unreachable, and closing is still
-        // available from the drag handle below, a tap anywhere on the
-        // shade, and the nav bar.
-        // Compare against this Flickable's own settled viewport, not the
-        // shade's: the viewport is shorter by the drag-handle margin, and
-        // measuring against the shade made the threshold ~44px too high --
-        // the shade stopped scrolling at exactly the scales that need it.
-        readonly property real settledViewportHeight: quickSettings.maxHeight
-                                                      - anchors.bottomMargin
-        interactive: quickSettings.maxHeight > 0
-                     && contentHeight > settledViewportHeight
+        // Gated on the open height, not the animating one, so it does not
+        // flip while the shade opens.
+        interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
 
-        // The shade is hidden, not destroyed, so contentY survives a
-        // close/reopen: without this it would reopen still scrolled to the
-        // action row with the clock and sliders off the top.
+        // The shade is hidden, not destroyed: reopen at the top.
         onVisibleChanged: if (!visible) contentY = 0
 
         Column {
             id: content
 
             x: Silica.Theme.horizontalPageMargin
-            y: Silica.Theme.paddingLarge
+            y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: Silica.Theme.paddingMedium
+            spacing: Silica.Theme.paddingLarge * 2
 
             layer.enabled: true
 
             // Gesture-coupled reveal: fade + a small settle-up as the shade
-            // opens; both collapse to a no-op under reduceMotion. Anchored to
-            // the top and clip:true on the shade, so translating down just
-            // exposes panel above — never overlaps the status bar.
+            // opens; both collapse to a no-op under reduceMotion.
             opacity: MMotion.reduceMotion ? 1 : Math.min(1, quickSettings.openProgress * 1.35)
             transform: Translate {
-                y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * 16
+                y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * Silica.Theme.paddingLarge
             }
 
-            // ── Ambiences: the wallpapers, one tap away ──────────
-            ListView {
-                id: ambiences
-
+            // ── Date, Settings and Power ─────────────────────────
+            Item {
                 width: parent.width
-                height: Math.round(width / 3.6 * 1.25)
-                orientation: ListView.Horizontal
-                spacing: Silica.Theme.paddingSmall
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                snapMode: ListView.SnapToItem
-                model: WallpaperStore.wallpapers
-                // Opens on whole thumbnails with the current ambience in view.
-                onVisibleChanged: {
-                    if (!visible)
-                        return;
-                    const current = WallpaperStore.wallpapers.findIndex(w => w.path === WallpaperStore.path);
-                    positionViewAtIndex(Math.max(0, current - 1), ListView.Beginning);
+                height: Silica.Theme.itemSizeExtraSmall
+
+                Silica.Label {
+                    anchors.left: parent.left
+                    anchors.right: headerButtons.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: SystemStatusStore.dateString
+                    truncationMode: Silica.TruncationMode.Fade
+                    color: Silica.Theme.secondaryHighlightColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
                 }
+                Row {
+                    id: headerButtons
 
-                delegate: Item {
-                    id: ambience
+                    anchors.right: parent.right
+                    // Glyphs flush with the page margin.
+                    anchors.rightMargin: -(Silica.Theme.itemSizeExtraSmall - Silica.Theme.iconSizeSmall) / 2
 
-                    required property var modelData
-                    readonly property bool current: modelData.path === WallpaperStore.path
-
-                    width: Math.round(ambiences.width / 3.6)
-                    height: ambiences.height
-
-                    Image {
-                        anchors.fill: parent
-                        source: ambience.modelData.path
-                        sourceSize: Qt.size(width, height * 2)
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        opacity: ambienceMouse.pressed ? 0.7 : 1
+                    HeaderButton {
+                        objectName: "settingsButton"
+                        iconName: "gear"
+                        a11yName: qsTr("Settings")
+                        onClicked: quickSettings.toggle("settings")
                     }
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: ambienceName.height + Silica.Theme.paddingMedium * 2
-                        gradient: Gradient {
-                            GradientStop { position: 0; color: "transparent" }
-                            GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.6) }
-                        }
-                    }
-                    Text {
-                        id: ambienceName
-
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.margins: Silica.Theme.paddingSmall
-                        text: ambience.modelData.name
-                        elide: Text.ElideRight
-                        color: ambience.current ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                        font.family: Silica.Theme.fontFamily
-                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                    }
-                    Rectangle {
-                        anchors.fill: parent
-                        visible: ambience.current
-                        color: "transparent"
-                        border.width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
-                        border.color: Silica.Theme.highlightColor
-                    }
-                    MouseArea {
-                        id: ambienceMouse
-
-                        anchors.fill: parent
-                        onClicked: WallpaperStore.setWallpaper(ambience.modelData.path, ambience.modelData.isDark)
+                    HeaderButton {
+                        objectName: "powerButton"
+                        visible: quickSettings.powerShown
+                        iconName: "power"
+                        a11yName: qsTr("Power")
+                        onClicked: quickSettings.doAction("power")
                     }
                 }
             }
 
-            // ── Switches, five across ────────────────────────────
+            // ── Switches, four across ────────────────────────────
             Grid {
                 id: tileGrid
+
+                objectName: "tileGrid"
                 width: parent.width
-                columns: 5
-                rowSpacing: Silica.Theme.paddingMedium
+                columns: 4
+                rowSpacing: Silica.Theme.paddingLarge
                 readonly property real cellWidth: width / columns
 
                 Repeater {
@@ -410,61 +357,24 @@ Item {
                 }
             }
 
-            MQSSlider {
+            // ── Brightness and volume ────────────────────────────
+            Column {
                 width: parent.width
-                iconName: "sun"
-                a11yName: "Brightness"
-                value: SystemControlStore.brightness
-                onMoved: v => SystemControlStore.setBrightnessFromUser(v)
-            }
 
-            // ── Shortcuts, and Settings at the end ───────────────
-            Item {
-                width: parent.width
-                height: shortcutRow.height
-
-                Row {
-                    id: shortcutRow
-
-                    Repeater {
-                        model: quickSettings.shortcuts
-                        delegate: QSShortcut {
-                            required property var modelData
-                            width: (tileGrid.width - settingsButton.width) / quickSettings.shortcuts.length
-                            iconName: modelData.icon
-                            label: modelData.label
-                            onActivated: quickSettings.doAction(modelData.id)
-                        }
-                    }
+                MQSSlider {
+                    width: parent.width
+                    iconName: "sun"
+                    a11yName: "Brightness"
+                    value: SystemControlStore.brightness
+                    onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
-                QSShortcut {
-                    id: settingsButton
-
-                    anchors.right: parent.right
-                    width: tileGrid.cellWidth
-                    iconName: "gear"
-                    label: qsTr("Settings")
-                    onActivated: quickSettings.toggle("settings")
+                MQSSlider {
+                    width: parent.width
+                    iconName: "speaker-high"
+                    a11yName: "Volume"
+                    value: SystemControlStore.volume
+                    onMoved: v => SystemControlStore.setVolume(v)
                 }
-            }
-
-            // ── Below the fold: Marathon's extras ────────────────
-            Text {
-                width: parent.width
-                topPadding: Silica.Theme.paddingLarge
-                horizontalAlignment: Text.AlignRight
-                text: qsTr("More controls")
-                color: Silica.Theme.highlightColor
-                font.family: Silica.Theme.fontFamily
-                font.pixelSize: Silica.Theme.fontSizeSmall
-            }
-
-            MQSSlider {
-                width: parent.width
-                iconName: "speaker-high"
-                a11yName: "Volume"
-                value: SystemControlStore.volume
-                onMoved: v => SystemControlStore.setVolume(v)
             }
 
             MNowBar {
@@ -478,39 +388,20 @@ Item {
                 onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
             }
 
-            Grid {
-                id: moreGrid
-                width: parent.width
-                columns: 5
-                rowSpacing: Silica.Theme.paddingMedium
-
+            // ── Shortcuts, on the switch columns ─────────────────
+            Row {
                 Repeater {
-                    model: quickSettings.moreTiles
-                    delegate: MQSTile {
+                    model: quickSettings.shortcuts
+                    delegate: QSShortcut {
                         required property var modelData
                         width: tileGrid.cellWidth
                         iconName: modelData.icon
                         label: modelData.label
-                        on: modelData.on === true
-                        checkable: modelData.action !== true
-                        onToggled: modelData.action === true ? quickSettings.doAction(modelData.id) : quickSettings.toggle(modelData.id)
+                        onActivated: quickSettings.doAction(modelData.id)
                     }
                 }
             }
         }
-    }
-
-    // ── Drag handle ─────────────────────────────────────────
-    Rectangle {
-        id: dragHandle
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: MSpacing.md
-        width: 72
-        height: 6
-        radius: MRadius.md
-        color: Qt.rgba(1, 1, 1, 0.72)
-        z: 3
     }
 
     // ── Behaviour hooks ─────────────────────────────────────
