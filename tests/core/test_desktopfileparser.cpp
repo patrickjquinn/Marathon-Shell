@@ -77,7 +77,8 @@ class TestDesktopFileParser : public QObject {
         QCOMPARE(app.value("sailjailApplication").toString(), QString("foo"));
         QCOMPARE(app.value("name").toString(), QString("Foo"));
         QCOMPARE(app.value("exec").toString(),
-                 QString("marathon-keel-host --app-id harbour-foo -- sailfish-qml harbour-foo"));
+                 QString("marathon-keel-host --app-id harbour-foo --sailjail Internet,Pictures "
+                         "--org org.example --app foo -- sailfish-qml harbour-foo"));
     }
 
     void otherAppsAreNotSailfish() {
