@@ -19,55 +19,31 @@ Rectangle {
         onClicked: UIStore.closeClipboardManager()
     }
 
-    Column {
+    Item {
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight
         anchors.bottomMargin: Constants.navBarHeight
 
-        Item {
-            id: header
-
-            width: parent.width
-            height: Silica.Theme.itemSizeLarge
-
-            Silica.BackgroundItem {
-                anchors.left: parent.left
-                width: clearLabel.width + Silica.Theme.horizontalPageMargin * 2
-                height: parent.height
-                onClicked: {
-                    ClipboardManagerCpp.clearHistory();
-                    HapticManager.light();
-                }
-
-                Silica.Label {
-                    id: clearLabel
-
-                    anchors.left: parent.left
-                    anchors.leftMargin: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Clear"
-                    color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                }
-            }
-
-            Silica.Label {
-                anchors.right: parent.right
-                anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Clipboard History"
-                color: Silica.Theme.highlightColor
-                font.pixelSize: Silica.Theme.fontSizeLarge
-                font.family: Silica.Theme.fontFamilyHeading
-            }
-        }
-
-        ListView {
+        Silica.SilicaListView {
             id: clipList
 
-            width: parent.width
-            height: parent.height - header.height
+            anchors.fill: parent
             clip: true
             model: ClipboardManagerCpp.history
+
+            header: Silica.PageHeader {
+                title: qsTr("Clipboard history")
+            }
+
+            Silica.PullDownMenu {
+                visible: clipList.count > 0
+
+                Silica.MenuItem {
+                    objectName: "clearHistory"
+                    text: qsTr("Clear history")
+                    onClicked: clearRemorse.execute(qsTr("Clearing history"), () => ClipboardManagerCpp.clearHistory())
+                }
+            }
 
             delegate: Silica.BackgroundItem {
                 id: clipItem
@@ -126,6 +102,11 @@ Rectangle {
                 }
             }
         }
+
+        Silica.RemorsePopup {
+            id: clearRemorse
+
+            objectName: "clearRemorse"        }
     }
 
     Silica.Label {

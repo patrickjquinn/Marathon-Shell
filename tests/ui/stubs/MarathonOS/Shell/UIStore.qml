@@ -2,6 +2,8 @@ pragma Singleton
 import QtQml
 QtObject {
     property var opened: []
+    property bool clipboardManagerOpen: false
+    function closeClipboardManager() { clipboardManagerOpen = false; }
     property bool quickSettingsOpen: false
     property real quickSettingsHeight: 0
     property bool quickSettingsDragging: false
