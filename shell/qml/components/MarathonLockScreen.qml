@@ -214,6 +214,13 @@ Item {
             dither: DeviceProfile.panelDither
         }
 
+        // Nothing beneath the lock screen shows through the blur.
+        Rectangle {
+            anchors.fill: parent
+            visible: lockScreen.appBackdrop !== null
+            color: "black"
+        }
+
         AppBackdropBlur {
             anchors.fill: parent
             source: lockScreen.appBackdrop

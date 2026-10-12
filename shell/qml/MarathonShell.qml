@@ -1244,6 +1244,22 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+
+        // The Hub never outlives a lock or an app coming forward.
+        Connections {
+            target: SessionStore
+            function onIsLockedChanged() {
+                if (SessionStore.isLocked)
+                    peekFlow.closePeek();
+            }
+        }
+        Connections {
+            target: UIStore
+            function onAppWindowOpenChanged() {
+                if (UIStore.appWindowOpen)
+                    peekFlow.closePeek();
+            }
+        }
         onNotificationTapped: notification => {
             Logger.info("Shell", "Notification tapped from peek: " + notification.title);
             notificationToast.showToast(notification);
