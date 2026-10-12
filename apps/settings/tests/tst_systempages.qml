@@ -158,6 +158,7 @@ TestCase {
         const list = child(s.page, "accountList");
         compare(list.count, 0);
         verify(child(s.page, "placeholder").enabled);
+        verify(!child(s.page, "syncState").visible);
         verify(!child(s.page, "syncItem").enabled);
         child(s.page, "addItem").clicked();
         const dialog = pushed(s.app, s.page);
@@ -171,6 +172,7 @@ TestCase {
         compare(DavSync.calls, [["add", "pat", "https://cloud.example.com", "pat", "pw", "basic"]]);
         compare(list.count, 1);
         verify(!child(s.page, "placeholder").enabled);
+        verify(child(s.page, "syncState").visible);
         compare(s.page.checkingId, "acc1");
         verify(!child(s.page, "addItem").enabled);
         DavSync.accountDiscovered("acc1");

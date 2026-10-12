@@ -80,15 +80,26 @@ Page {
             PageHeader {
                 title: qsTr("Accounts")
             }
+            SectionHeader {
+                text: qsTr("CardDAV and CalDAV")
+                visible: view.count > 0
+            }
+        }
+
+        footer: Column {
+            width: view.width
+            visible: page.dav !== null && view.count > 0
+
+            SectionHeader {
+                text: qsTr("Sync")
+            }
             DetailItem {
                 objectName: "syncState"
-                visible: page.dav !== null
-                label: qsTr("Sync")
+                label: qsTr("Status")
                 value: page.dav && page.dav.syncing ? qsTr("Syncing…") : qsTr("Idle")
             }
             DetailItem {
                 objectName: "lastSync"
-                visible: page.dav !== null
                 label: qsTr("Last synced")
                 value: page.dav && page.dav.lastSyncMs > 0 ? Format.formatDate(new Date(page.dav.lastSyncMs), Formatter.TimepointRelative) : qsTr("Never")
             }
@@ -98,22 +109,16 @@ Page {
                 label: qsTr("Last error")
                 value: page.dav ? page.dav.lastError : ""
             }
-            SectionHeader {
-                text: qsTr("CardDAV and CalDAV")
-                visible: view.count > 0
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                topPadding: Theme.paddingLarge
+                bottomPadding: Theme.paddingLarge
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("Contacts sync into the device's address book. Google needs OAuth2 and isn't supported yet; use Nextcloud, Fastmail, an iCloud app password or Mailbox.org.")
             }
-        }
-
-        footer: Label {
-            x: Theme.horizontalPageMargin
-            width: view.width - 2 * Theme.horizontalPageMargin
-            topPadding: Theme.paddingLarge
-            bottomPadding: Theme.paddingLarge
-            visible: page.dav !== null
-            wrapMode: Text.Wrap
-            font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
-            text: qsTr("Contacts sync into the device's address book. Google needs OAuth2 and isn't supported yet; use Nextcloud, Fastmail, an iCloud app password or Mailbox.org.")
         }
 
         PullDownMenu {
@@ -179,7 +184,7 @@ Page {
             objectName: "placeholder"
             enabled: view.count === 0
             text: page.dav ? qsTr("No accounts") : qsTr("Accounts aren't available")
-            hintText: page.dav ? qsTr("Pull down to add a CardDAV or CalDAV account") : qsTr("Settings can't reach the sync service on this device")
+            hintText: page.dav ? qsTr("Pull down to add a CardDAV or CalDAV account, like Nextcloud") : qsTr("Settings can't reach the sync service on this device")
         }
 
         VerticalScrollDecorator {}
