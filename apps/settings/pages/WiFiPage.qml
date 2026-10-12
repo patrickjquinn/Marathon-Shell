@@ -159,8 +159,9 @@ Page {
             }
 
             SectionHeader {
+                objectName: "availableHeader"
                 text: qsTr("Available networks")
-                visible: Network.wifiEnabled
+                visible: Network.wifiAvailable && Network.wifiEnabled
             }
             Repeater {
                 objectName: "networks"

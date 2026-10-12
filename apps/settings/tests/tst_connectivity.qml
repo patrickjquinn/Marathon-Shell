@@ -75,6 +75,7 @@ TestCase {
         verify(!child(s.page, "wifiSwitch").enabled);
         verify(!child(s.page, "wifiSwitch").checked);
         verify(!child(s.page, "noNetworks").visible);
+        verify(!child(s.page, "availableHeader").visible);
     }
 
     function test_wifiListsNetworksAndCurrent() {
