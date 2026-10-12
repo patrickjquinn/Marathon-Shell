@@ -2,8 +2,8 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings switch: a round icon lit with the ambience highlight
-// when on, its label beneath. Sized from Silica's units, so it grows with
+// Quick Settings switch: a glass ring lit with the ambience highlight when
+// on, its label beneath. Sized from Silica's units, so it grows with
 // the density and the user's interface size.
 Item {
     id: tile
@@ -33,8 +33,11 @@ Item {
         height: width
         radius: width / 2
         scale: tileMouse.pressed ? 0.92 : 1.0
+        // A glass ring, filled with the highlight when on, as in Sailfish.
         color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-                       : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.2 : 0.1)
+                       : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
+        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+        border.color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
         Behavior on color {
             enabled: !MMotion.reduceMotion
@@ -63,7 +66,7 @@ Item {
         text: tile.label
         color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
         font.family: Silica.Theme.fontFamily
-        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+        font.pixelSize: Silica.Theme.fontSizeTiny
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
     }

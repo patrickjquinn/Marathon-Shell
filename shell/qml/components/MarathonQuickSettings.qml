@@ -4,19 +4,9 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Marathon DS · Quick Settings panel (§7.5).
-//
-// Pulled down from the top edge. Glass overlay over the wallpaper.
-// Layout, top to bottom (content-rich single shade):
-//   • Header — Sora Title3 time + Footnote date, left-anchored (live 1s tick)
-//   • Sliders block — brightness + volume (MQSSlider)
-//   • Primary tile grid — 4 cols × 2 rows of MQSTile (the common toggles)
-//   • Now-playing strip — MNowBar (only when media/call active)
-//   • "More Controls" — the secondary toggles, then Screenshot and Power
-//   • Drag handle — 72 × 6 bar centred at bottom
-//
-// Notifications deliberately DO NOT live here — they belong to the Hub.
-// This shade is controls-only: toggles + contextual controls + actions.
+// Quick Settings, laid out as Sailfish's top menu: the ambiences, a grid of
+// switches, brightness and shortcuts; Marathon's extras below the fold.
+// Notifications live in the Hub, not here.
 Item {
     id: quickSettings
 
@@ -28,14 +18,7 @@ Item {
     // at every scale.
     property real maxHeight: 0
 
-    // The running app surface to blur behind the QS chrome, if any.
-    // Set by MarathonShell.qml to appWindowContainer when an app is
-    // open; null otherwise (a dark tint covers the wallpaper).
-    property Item appBackdrop: null
-
-    // The wallpaper surface to frost behind the shade when NO app is open.
-    // Set by MarathonShell.qml. Lets the home-case shade read as frosted
-    // glass over the wallpaper rather than a flat opaque panel.
+    // The wallpaper, frosted behind the shade as Sailfish frosts its ambience.
     property Item homeBackdrop: null
 
     signal closed
@@ -51,58 +34,13 @@ Item {
     // not a canned one-shot. +140 keeps it ~1 before the last pixels arrive.
     readonly property real openProgress: Math.min(1, height / Math.max(1, content.implicitHeight + 140))
 
-    // Cheap, blur-free contact shadow: a dark→transparent gradient cast just
-    // below a floating card. Reads as real ambient occlusion on OLED without
-    // a MultiEffect (per the DS perf rule — no per-frame Gaussian on etnaviv).
-    // Drop as a child of any card; it anchors under the card's bottom edge.
-    component QSContactShadow: Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.bottom
-        height: 12
-        z: -1
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.5) }
-            GradientStop { position: 1.0; color: "transparent" }
-        }
-    }
-
-    // Backdrop: live blur of the running app (iOS-style glass-over-app)
-    // when one is open, dark tint over the wallpaper otherwise.
-    //
-    // Both backdrops keep the open shade's size while the shade animates;
-    // the shade clips them. Filling the shade made every frame of the pull
-    // resize the capture and the blur's render targets and re-run the whole
-    // blur: 25-33 ms of GPU per frame on the PinePhone, about 30 fps. At a
-    // fixed size the blur renders once and each frame draws one texture.
-    AppBackdropBlur {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: quickSettings.maxHeight
-        source: quickSettings.appBackdrop
-        blurAmount: 1.0
-        blurMax: MBlur.lg
-        blurMultiplier: 1.4
-        saturation: 0.5
-        brightness: -0.1
-        tint: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.82)
-        // QS shade is pulled over a snapshot — the underlying app is
-        // either frozen or the wallpaper. Either way, no per-frame work.
-        live: false
-    }
-
-    // Home case (no app behind): FROSTED MATTE glass over the wallpaper.
-    // A solid elev0 floor guarantees the shade stays opaque if the wallpaper
-    // source is ever missing; the blurred, heavily desaturated wallpaper on
-    // top gives the shade a frosted-glass face (iOS Control-Center-over-home)
-    // instead of a dead-flat black slab. Tuned MATTE, not glossy: high tint
-    // opacity + low saturation + extra blur diffusion so it reads as etched/
-    // sandblasted glass rather than a clear reflective pane. The elev0 floor
-    // still keeps the elev2/elev3 cards reading as layered surfaces above it.
+    // Backdrop: the ambience's wallpaper, lightly frosted, over any app or
+    // the home screen alike. It keeps the open shade's size while the shade
+    // animates and the shade clips it: resizing it every frame re-ran the
+    // blur at 25-33 ms of GPU per frame on the PinePhone. A solid floor keeps
+    // the shade opaque if the wallpaper is missing.
     Rectangle {
         anchors.fill: parent
-        visible: quickSettings.appBackdrop === null
         color: MColors.elev0
     }
     AppBackdropBlur {
@@ -110,19 +48,14 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         height: quickSettings.maxHeight
-        visible: quickSettings.appBackdrop === null
         source: quickSettings.homeBackdrop
-        // 1:1 slice of the wallpaper (same size as the shade) — NOT the whole
-        // frame squashed in, which produced the diagonal green smear. Heavy
-        // blur + deep desaturation + a high matte tint turn it into an even,
-        // milky frosted pane with only a whisper of wallpaper colour left.
         sourceRect: Qt.rect(0, 0, width, height)
         blurAmount: 1.0
         blurMax: MBlur.lg
         blurMultiplier: 2.2
-        saturation: 0.2
-        brightness: -0.1
-        tint: Qt.rgba(0.05, 0.055, 0.062, 0.82)
+        saturation: 0.8
+        brightness: -0.05
+        tint: Qt.rgba(0, 0, 0, 0.5)
         live: false
     }
 
@@ -177,40 +110,88 @@ Item {
         }
     }
 
-    // ── Primary toggles (the everyday four-plus-four) ────────
-    readonly property var tiles: [
-        { id: "wifi",           icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn },
-        { id: "bluetooth",      icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
-        { id: "cellular",       icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn },
-        { id: "airplane",       icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
-        { id: "dnd",            icon: "bell-slash",       label: "DND",       on: SystemControlStore.isDndMode },
-        { id: "torch",          icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn },
-        { id: "autobrightness", icon: "sun",              label: "Auto",      on: SystemControlStore.isAutoBrightnessOn },
-        { id: "settings",       icon: "gear",             label: "Settings",  on: false }
-    ]
-
-    // ── Secondary contextual controls (beyond the toggles) ───
-    // Rotation lock is only shown when an orientation sensor actually exists.
-    // On hardware with no accelerometer (e.g. Librem 5 with lsm6dsx
-    // blacklisted) auto-rotate can never fire, so a rotation-LOCK toggle
-    // would control nothing — hide it rather than present a dead switch.
-    readonly property var expandedTiles: {
-        var t = [];
+    // ── The switch grid, five across as in Sailfish's top menu ─
+    // Rotation lock only when an orientation sensor exists: without one it
+    // would control nothing.
+    readonly property var tiles: {
+        var t = [
+            { id: "wifi",      icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn },
+            { id: "cellular",  icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn },
+            { id: "bluetooth", icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
+            { id: "airplane",  icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
+            { id: "dnd",       icon: "bell-slash",       label: "Silent",    on: SystemControlStore.isDndMode },
+            { id: "torch",     icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn },
+            { id: "location",  icon: "map-pin",          label: "Location",  on: SystemControlStore.isLocationOn },
+            { id: "hotspot",   icon: "broadcast",        label: "Hotspot",   on: SystemControlStore.isHotspotOn },
+            { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn }
+        ];
         if (RotationManager.available)
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
-        t.push({ id: "nightlight", icon: "moon",        label: "Night",    on: SystemControlStore.isNightLightOn });
-        t.push({ id: "location",   icon: "map-pin",     label: "Location", on: SystemControlStore.isLocationOn });
-        t.push({ id: "hotspot",    icon: "broadcast",   label: "Hotspot",  on: SystemControlStore.isHotspotOn });
-        t.push({ id: "lowpower",   icon: "battery-low", label: "Saver",    on: SystemControlStore.isLowPowerMode });
-        t.push({ id: "vibration",  icon: "vibrate",     label: "Vibrate",  on: SystemControlStore.isVibrationOn });
+        else
+            t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
         return t;
     }
 
-    // ── One-shot actions (distinct from toggles) ─────────────
-    readonly property var actions: [
-        { id: "screenshot", icon: "camera", label: "Screenshot" },
-        { id: "power",      icon: "power",  label: "Power" }
+    // Below the fold: the rest of Marathon's controls.
+    readonly property var moreTiles: {
+        var t = [
+            { id: "lowpower",  icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode },
+            { id: "vibration", icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn }
+        ];
+        if (RotationManager.available)
+            t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
+        t.push({ id: "power", icon: "power", label: "Power", on: false, action: true });
+        return t;
+    }
+
+    // ── Shortcuts row: one-shot actions and apps ──────────────
+    readonly property var shortcuts: [
+        { id: "screenshot", icon: "camera-plus", label: "Screenshot" },
+        { id: "app:camera", icon: "camera",      label: "Camera" },
+        { id: "app:clock",  icon: "alarm",       label: "Alarm" },
+        { id: "app:notes",  icon: "note-pencil", label: "Note" }
     ]
+
+    component QSShortcut: Item {
+        id: shortcut
+
+        property string iconName
+        property string label
+        signal activated
+
+        width: Silica.Theme.itemSizeExtraLarge
+        height: shortcutColumn.height
+
+        Column {
+            id: shortcutColumn
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Silica.Theme.paddingSmall
+
+            GlyphIcon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                name: shortcut.iconName
+                size: Silica.Theme.iconSizeSmall
+                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: shortcut.label
+                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeTiny
+            }
+        }
+        MouseArea {
+            id: shortcutMouse
+
+            anchors.fill: parent
+            onClicked: {
+                MHaptics.light();
+                shortcut.activated();
+            }
+        }
+    }
 
     // ── Bottom edge terminus — soft hairline + shadow line ───
     Rectangle {
@@ -302,123 +283,137 @@ Item {
                 y: MMotion.reduceMotion ? 0 : (1 - quickSettings.openProgress) * 16
             }
 
-            // ── Header — live time + date, left-anchored ─────────
-            Item {
-                id: header
+            // ── Ambiences: the wallpapers, one tap away ──────────
+            ListView {
+                id: ambiences
+
                 width: parent.width
-                height: headerText.implicitHeight
+                height: Math.round(width / 3.6 * 1.25)
+                orientation: ListView.Horizontal
+                spacing: Silica.Theme.paddingSmall
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: WallpaperStore.wallpapers
 
-                property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
-                property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
-                // 1s tick so the shade clock never lags the status bar clock.
-                Timer {
-                    interval: 1000
-                    running: quickSettings.visible
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: {
-                        header.dateText = Qt.formatDateTime(new Date(), "dddd, MMMM d");
-                        header.timeText = Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm");
-                    }
-                }
+                delegate: Item {
+                    id: ambience
 
-                Column {
-                    id: headerText
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
-                    Text {
-                        text: header.timeText
-                        color: Silica.Theme.highlightColor
-                        font.family: Silica.Theme.fontFamilyHeading
-                        font.pixelSize: Silica.Theme.fontSizeLarge
-                        font.features: ({ "tnum": 1 })
+                    required property var modelData
+                    readonly property bool current: modelData.path === WallpaperStore.path
+
+                    width: Math.round(ambiences.width / 3.6)
+                    height: ambiences.height
+
+                    Image {
+                        anchors.fill: parent
+                        source: ambience.modelData.path
+                        sourceSize: Qt.size(width, height * 2)
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        opacity: ambienceMouse.pressed ? 0.7 : 1
+                    }
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: ambienceName.height + Silica.Theme.paddingMedium * 2
+                        gradient: Gradient {
+                            GradientStop { position: 0; color: "transparent" }
+                            GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.6) }
+                        }
                     }
                     Text {
-                        text: header.dateText
-                        color: Silica.Theme.secondaryHighlightColor
+                        id: ambienceName
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: Silica.Theme.paddingSmall
+                        text: ambience.modelData.name
+                        elide: Text.ElideRight
+                        color: ambience.current ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                         font.family: Silica.Theme.fontFamily
-                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: ambience.current
+                        color: "transparent"
+                        border.width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
+                        border.color: Silica.Theme.highlightColor
+                    }
+                    MouseArea {
+                        id: ambienceMouse
+
+                        anchors.fill: parent
+                        onClicked: WallpaperStore.setWallpaper(ambience.modelData.path, ambience.modelData.isDark)
                     }
                 }
             }
 
-            // ── Sliders — brightness + volume ────────────────────
-            Column {
-                width: parent.width
-
-                MQSSlider {
-                    id: brightness
-                    width: parent.width
-                    iconName: "sun"
-                    a11yName: "Brightness"
-                    value: SystemControlStore.brightness
-                    onMoved: v => SystemControlStore.setBrightnessFromUser(v)
-                }
-                MQSSlider {
-                    id: volume
-                    width: parent.width
-                    iconName: "speaker-high"
-                    a11yName: "Volume"
-                    value: SystemControlStore.volume
-                    onMoved: v => SystemControlStore.setVolume(v)
-                }
-            }
-
-            // ── Primary tile grid (4 × 2) ────────────────────────
+            // ── Switches, five across ────────────────────────────
             Grid {
                 id: tileGrid
                 width: parent.width
-                columns: 4
+                columns: 5
                 rowSpacing: Silica.Theme.paddingMedium
-                readonly property real cellWidth: width / 4
+                readonly property real cellWidth: width / columns
 
                 Repeater {
                     model: quickSettings.tiles
                     delegate: MQSTile {
                         required property var modelData
                         width: tileGrid.cellWidth
-                        iconName: modelData.icon || "square"
-                        label: modelData.label || ""
+                        iconName: modelData.icon
+                        label: modelData.label
                         on: modelData.on === true
                         onToggled: quickSettings.toggle(modelData.id)
                     }
                 }
             }
 
-            // ── Now-playing strip — always present ────────────────
-            // When media is live it shows the track; when idle it stays as a
-            // "tap to open Music" affordance rather than collapsing to a void.
-            // The whole strip taps through to Music either way. Wrapped so it
-            // carries a contact shadow and sits at a card-weight 56 design-px
-            // height (the bare NowBar read as loose text jammed between grids).
+            MQSSlider {
+                width: parent.width
+                iconName: "sun"
+                a11yName: "Brightness"
+                value: SystemControlStore.brightness
+                onMoved: v => SystemControlStore.setBrightnessFromUser(v)
+            }
+
+            // ── Shortcuts, and Settings at the end ───────────────
             Item {
                 width: parent.width
-                // Card weight is the floor; the bar's own content height wins
-                // if it is taller. This used to be a flat 76 chosen to clear
-                // the two eyebrow line-boxes at scaleFactor 1.79 — a caller-
-                // side workaround for MNowBar not scaling its own geometry.
-                // MNowBar now sizes to its text, so ask it instead of guessing.
-                height: Math.max(nowBar.implicitHeight,
-                                 Math.round(56 * quickSettings.scaleFactor))
+                height: shortcutRow.height
 
-                QSContactShadow {}
+                Row {
+                    id: shortcutRow
 
-                MNowBar {
-                    id: nowBar
-                    anchors.fill: parent
-                    variant: "music"
-                    iconName: "music-note"
-                    label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
-                    sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
-                    playing: MPRIS2Controller.isPlaying
-                    onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
+                    Repeater {
+                        model: quickSettings.shortcuts
+                        delegate: QSShortcut {
+                            required property var modelData
+                            width: (tileGrid.width - settingsButton.width) / quickSettings.shortcuts.length
+                            iconName: modelData.icon
+                            label: modelData.label
+                            onActivated: quickSettings.doAction(modelData.id)
+                        }
+                    }
+                }
+                QSShortcut {
+                    id: settingsButton
+
+                    anchors.right: parent.right
+                    width: tileGrid.cellWidth
+                    iconName: "gear"
+                    label: qsTr("Settings")
+                    onActivated: quickSettings.toggle("settings")
                 }
             }
 
-            // ── Section label ────────────────────────────────────
+            // ── Below the fold: Marathon's extras ────────────────
             Text {
                 width: parent.width
+                topPadding: Silica.Theme.paddingLarge
                 horizontalAlignment: Text.AlignRight
                 text: qsTr("More controls")
                 color: Silica.Theme.highlightColor
@@ -426,37 +421,41 @@ Item {
                 font.pixelSize: Silica.Theme.fontSizeSmall
             }
 
-            // ── Secondary toggles, then one-shot actions ─────────
-            Grid {
-                id: expandedGrid
+            MQSSlider {
                 width: parent.width
-                columns: 4
+                iconName: "speaker-high"
+                a11yName: "Volume"
+                value: SystemControlStore.volume
+                onMoved: v => SystemControlStore.setVolume(v)
+            }
+
+            MNowBar {
+                width: parent.width
+                height: Math.max(implicitHeight, Silica.Theme.itemSizeSmall)
+                variant: "music"
+                iconName: "music-note"
+                label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
+                sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
+                playing: MPRIS2Controller.isPlaying
+                onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
+            }
+
+            Grid {
+                id: moreGrid
+                width: parent.width
+                columns: 5
                 rowSpacing: Silica.Theme.paddingMedium
-                readonly property real cellWidth: width / 4
 
                 Repeater {
-                    model: quickSettings.expandedTiles
+                    model: quickSettings.moreTiles
                     delegate: MQSTile {
                         required property var modelData
-                        width: expandedGrid.cellWidth
-                        iconName: modelData.icon || "square"
-                        label: modelData.label || ""
-                        on: modelData.on === true
-                        onToggled: quickSettings.toggle(modelData.id)
-                    }
-                }
-                Repeater {
-                    model: quickSettings.actions
-                    delegate: MQSTile {
-                        required property var modelData
-                        width: expandedGrid.cellWidth
+                        width: tileGrid.cellWidth
                         iconName: modelData.icon
                         label: modelData.label
-                        checkable: false
-                        onToggled: {
-                            MHaptics.light();
-                            quickSettings.doAction(modelData.id);
-                        }
+                        on: modelData.on === true
+                        checkable: modelData.action !== true
+                        onToggled: modelData.action === true ? quickSettings.doAction(modelData.id) : quickSettings.toggle(modelData.id)
                     }
                 }
             }
@@ -500,6 +499,11 @@ Item {
     }
 
     function doAction(id) {
+        if (id.startsWith("app:")) {
+            quickSettings.closed();
+            quickSettings.launchApp({ "appId": id.slice(4) });
+            return;
+        }
         switch (id) {
         case "screenshot":
             // Dismiss first so the shade isn't in the capture.
