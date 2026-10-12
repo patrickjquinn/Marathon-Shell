@@ -92,7 +92,7 @@ TestCase {
         const note = findChild(current(app), "mapUnavailable");
         verify(note.visible);
         verify(note.y + note.height <= findChild(current(app), "bottomPanel").y);
-        mouseClick(findChild(current(app), "unavailableSearch"));
+        mouseClick(findChild(current(app), "searchButton"));
         tryCompare(app.pageStack, "depth", 2);
         compare(app.map.reloads, 0);
     }

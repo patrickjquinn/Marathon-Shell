@@ -84,13 +84,6 @@ Page {
             font.pixelSize: Theme.fontSizeMedium
             text: qsTr("You can still search for places and get spoken directions.")
         }
-        Button {
-            objectName: "unavailableSearch"
-            anchors.horizontalCenter: parent.horizontalCenter
-            visible: root.mode === "idle" && root.app.selectedPlace === null
-            text: qsTr("Search places")
-            onClicked: root.app.openSearch()
-        }
     }
 
     // Next maneuver, readable at a glance while driving.
