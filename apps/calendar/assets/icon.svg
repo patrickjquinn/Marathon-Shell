@@ -14,10 +14,6 @@
       <stop offset="0" stop-color="#770A2E"/>
       <stop offset="1" stop-color="#9D3342"/>
     </linearGradient>
-    <linearGradient id="gL" gradientUnits="userSpaceOnUse" x1="0.717" y1="85.283" x2="85.283" y2="0.717">
-      <stop offset="0" stop-color="#BA4760"/>
-      <stop offset="1" stop-color="#DC747D"/>
-    </linearGradient>
     <linearGradient id="gT" gradientUnits="userSpaceOnUse" x1="0.717" y1="85.283" x2="85.283" y2="0.717">
       <stop offset="0" stop-color="#F1A6B0"/>
       <stop offset="1" stop-color="#FDC8CA"/>
@@ -34,8 +30,8 @@
   <path d="M43.000,0.300 H43.000 A42.700,42.700 0 0 1 85.700,43.000 V43.000 A42.700,42.700 0 0 1 43.000,85.700 H1.723 A1.423,1.423 0 0 1 0.300,84.277 V43.000 A42.700,42.700 0 0 1 43.000,0.300 Z" fill="url(#gF)"/>
   <path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z" fill="url(#gC)"/>
   <clipPath id="face"><path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z"/></clipPath><path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="3" clip-path="url(#face)"/>
-  <path d="M43.000,17.300 H43.000 A25.700,25.700 0 0 1 68.700,43.000 V43.000 A25.700,25.700 0 0 1 43.000,68.700 H18.723 A1.423,1.423 0 0 1 17.300,67.277 V43.000 A25.700,25.700 0 0 1 43.000,17.300 Z" fill="url(#gD)"/>
-  <clipPath id="p1"><path d="M43.000,17.300 H43.000 A25.700,25.700 0 0 1 68.700,43.000 V43.000 A25.700,25.700 0 0 1 43.000,68.700 H18.723 A1.423,1.423 0 0 1 17.300,67.277 V43.000 A25.700,25.700 0 0 1 43.000,17.300 Z"/></clipPath><path d="M0 0H86V35H0Z" fill="url(#gE)" clip-path="url(#p1)"/>
-  <circle cx="31" cy="44" r="2.4" fill="url(#gC)"/><circle cx="39" cy="44" r="2.4" fill="url(#gC)"/><circle cx="47" cy="44" r="2.4" fill="url(#gC)"/><circle cx="55" cy="44" r="2.4" fill="url(#gC)"/><circle cx="31" cy="53" r="2.4" fill="url(#gC)"/><circle cx="39" cy="53" r="2.4" fill="url(#gC)"/><circle cx="47" cy="53" r="2.4" fill="url(#gC)"/><circle cx="55" cy="53" r="2.4" fill="url(#gC)"/><circle cx="31" cy="62" r="2.4" fill="url(#gC)"/><circle cx="39" cy="62" r="2.4" fill="url(#gC)"/>
-  <path d="M33 23V29M53 23V29" fill="none" stroke="url(#gC)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M43.000,16.300 H43.000 A26.700,26.700 0 0 1 69.700,43.000 V43.000 A26.700,26.700 0 0 1 43.000,69.700 H17.723 A1.423,1.423 0 0 1 16.300,68.277 V43.000 A26.700,26.700 0 0 1 43.000,16.300 Z" fill="url(#gD)"/>
+  <clipPath id="p1"><path d="M43.000,16.300 H43.000 A26.700,26.700 0 0 1 69.700,43.000 V43.000 A26.700,26.700 0 0 1 43.000,69.700 H17.723 A1.423,1.423 0 0 1 16.300,68.277 V43.000 A26.700,26.700 0 0 1 43.000,16.300 Z"/></clipPath><path d="M0 0H86V33H0Z" fill="url(#gE)" clip-path="url(#p1)"/>
+  <path d="M34 12V24M52 12V24" fill="none" stroke="url(#gC)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32.00" cy="43.00" r="3.0" fill="url(#gC)"/><circle cx="43.00" cy="43.00" r="3.0" fill="url(#gC)"/><circle cx="54.00" cy="43.00" r="3.0" fill="url(#gC)"/><circle cx="32.00" cy="53.00" r="3.0" fill="url(#gC)"/><circle cx="43.00" cy="53.00" r="3.0" fill="url(#gC)"/><circle cx="54.00" cy="53.00" r="3.0" fill="url(#gC)"/><circle cx="32.00" cy="63.00" r="3.0" fill="url(#gC)"/>
 </svg>

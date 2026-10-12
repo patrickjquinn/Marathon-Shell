@@ -22,6 +22,20 @@ Marathon's apps and the Shipwright apps sit side by side as one family.
 Marathon's icons carry no family mark: the two reef bands in the frame are
 Shipwright's.
 
+### One shape for the family
+
+Jolla's icon story gives each app the base shape that suits its metaphor:
+one shape for every icon "ends up with a compromise". Shipwright spends
+that freedom on the family instead, one square corner per family, and
+Marathon follows it: every Marathon app is the bottom-left shape, so the
+Marathon apps read as one set next to Reef, Shoal and Pilot. The
+metaphor's cue then comes from that one square corner, the way the stock
+Messaging icon's tail is its square corner: the handset bends round it, the
+bubble's tail, the folded page, the clock's hour hand, the = key, the
+pin's tip and the gear's whole tooth are all that corner. Squaring a
+second corner would collide with Shoal (bottom right) or Pilot (top
+right), and leave Marathon with no signal of its own.
+
 ## Colour
 
 One hue per icon, and only that hue. Each hue gives these tones, every one a
@@ -32,9 +46,8 @@ gradient along the frame's diagonal so all surfaces read matte:
 | F | 0.62 → 0.80, 0.18 → 0.14 | frame |
 | D | 0.45 → 0.57, 0.16 | the object |
 | E | 0.37 → 0.48, 0.14 | the object's darker facet |
-| L | 0.56 → 0.68, 0.15 | a lighter plane |
 | T | 0.80 → 0.88, 0.09 | pale tint |
-| R | radial 0.68 → 0.45 | glass (Camera lens) |
+| R | radial 0.68 → 0.45 | glass (the Camera lens) |
 | C | cream | cut-outs, in the face's colour |
 
 Yellows (hue 45–110) sit 0.09 lighter in D/E/L/R so they read ochre, not
@@ -74,30 +87,48 @@ as Store's hue.
 
 ## Objects
 
-One flat object per icon, built from the frame: the base shape inset
-concentrically (bubble, envelope, pin), or circles and arcs about the centre
-(globe, record, dial, gear), with details cut out in cream. Every cut-out
-line is 3.6 wide with round caps and joins. No text elements (lunasvg can't
-match fonts); the Store mark is a path.
+Jolla's template draws the base shape inset as a dashed guide "for guiding
+icon metaphors inside", and the stock icons build their metaphor on it: the
+Messaging bubble is the inset shape, the Clock and Browser are the inset
+circle, the Calculator's = key fills the square corner. Marathon does the
+same, and keeps every object abstract: one shape and at most two kinds of
+cut-out, never a drawn thing.
 
-| App | Object |
-|---|---|
-| Phone | handset (D) |
-| Messages | the inset shape as a speech bubble, its tail the square corner; two lines cut |
-| Mail | the inset shape as an envelope, flap in E, fold cut |
-| Browser | globe: disc, meridian and equator cut |
-| Store | the inset shape with the Marathon M cut through |
-| Music | record: E disc, T grooves catching light, T label |
-| Camera | body (D), lens ring cut, R glass, highlight |
-| Gallery | T sky, D hills, cream sun |
-| Maps | the family shape turned so its square corner points down: a pin, hole cut |
-| Calendar | page (D) with E header, binder rings and days cut |
-| Clock | dial (D), hands cut |
-| Calculator | the inset shape with + − × = cut |
-| Notes | page (D) with its corner turned down (E), lines cut |
-| Settings | gear about the centre, hub cut |
-| Terminal | the inset shape in E as a screen, prompt cut, cursor in T |
-| Test | flask (T) with D liquid, bubbles cut |
+- **The guide.** Every object is the frame's shape inset `OBJ` = 16
+  (8 inside the cream face), S(16). It is used whole, sliced by a straight
+  line, as its rim, turned (the pin), or set in a further 6 where the
+  object needs air round it (the flask's body, the pin).
+- **The contour.** The three round corners are quarter circles about the
+  centre (43, 43), so any circle or arc about the centre runs parallel to
+  the contour: a groove, a lens, a notch on a radial, a handle. Other arcs
+  take the face's radius (34.7): the globe's meridians, the hills.
+- **The square corner** carries the cue where the metaphor has one, and is
+  left alone where it hasn't.
+- **Tone.** The object is D. It may have one darker plane in E (a flap, a
+  band, a key, a fold, a near hill) and one pale plane in T (glass, sky).
+- **Cut-outs** are the face's cream, so a cut runs straight into the face:
+  lines `CUT_W` = 3.6 wide with round caps and joins, dots `DOT_R` = 3.
+  The gear's notches are 7 wide, the only exception. No text elements
+  (lunasvg can't match fonts).
+
+| App | Derived from S(16) | Cut-outs |
+|---|---|---|
+| Phone | the rim, 10 deep, round the square corner from the top to the right: the handset's back; its ends turn in as ear and mouth piece | — |
+| Messages | whole: the bubble, its tail the square corner | three dots across the centre |
+| Mail | whole: the envelope; the flap above the fold is E | the fold, a V to below the centre |
+| Browser | whole: the globe | meridians on arcs of the face's radius, the equator |
+| Store | sliced at y 36: the bag | — (its handle is a D arc about the centre) |
+| Music | whole: the record | two grooves about the centre, opposite each other; the label, hole in D |
+| Camera | whole: the body | the lens, a ring about the centre round R glass, a highlight |
+| Gallery | whole in T: the sky; hills on arcs of the face's radius in D and E | the sun on the light's diagonal |
+| Maps | S(22) turned −45° so the square corner points down: the pin | its hole |
+| Calendar | whole: the page; the band above y 33 is E | two rings across the band's top; the days as dots |
+| Clock | whole: the dial | the hands; the hour hand points into the square corner |
+| Calculator | whole, in quarters about the centre: four keys; the square corner's quarter is the = key, in E | + − × = |
+| Notes | whole: the page; its square corner folded over, the flap in E | three rules |
+| Settings | whole: the wheel, notched on the radials; the square corner stays whole as one tooth | the notches, the hub |
+| Terminal | whole in E: the screen | the prompt along the diagonals; the cursor in T |
+| Test | S(22) in T: the flask's body, its neck rising to S(16); the liquid below y 48 in D | two bubbles |
 
 ## Sizes
 
@@ -110,5 +141,8 @@ Third-party and desktop apps (Foot, Htop, Megapixels, …) keep their own icons.
 ## Adding an icon
 
 Add a draw function and an `ICONS` entry with a free hue from the wheel
-(not within 45° of its grid neighbours), run the script, and review it on a
-contact sheet next to the rest and next to the Shipwright icons.
+(not within 45° of its grid neighbours). Build the object from `inset()`
+and cut it with `cut()` and `dots()`, then add a row to the table above.
+Run the script, and review the icon on a contact sheet next to the rest,
+the Shipwright icons and Jolla's stock icons
+(sailfishos.org/design/icons, Sailfish-Apps-icon-template.zip).
