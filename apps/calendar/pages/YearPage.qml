@@ -1,149 +1,119 @@
 pragma ComponentBehavior: Bound
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
-Rectangle {
-    id: root
+Page {
+    id: page
 
     property int year: new Date().getFullYear()
     readonly property date today: new Date()
+    readonly property int weekStart: Qt.locale().firstDayOfWeek
 
     signal monthChosen(int year, int month)
 
-    color: MColors.background
+    SilicaFlickable {
+        objectName: "yearView"
+        anchors.fill: parent
+        contentHeight: column.height + Theme.paddingLarge
 
-    Item {
-        id: header
-
-        width: parent.width
-        height: Math.round(96 * Constants.scaleFactor)
-
-        Text {
-            anchors.left: parent.left
-            anchors.leftMargin: MSpacing.lg
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.year
-            color: MColors.textPrimary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeHuge
-            font.weight: MTypography.weightExtraLight
-        }
-
-        Row {
-            anchors.right: parent.right
-            anchors.rightMargin: MSpacing.sm
-            anchors.verticalCenter: parent.verticalCenter
-
-            MIconButton {
-                iconName: "chevron-left"
-                a11yName: "Previous year"
-                onClicked: root.year--
+        PullDownMenu {
+            MenuItem {
+                objectName: "previousYearItem"
+                text: qsTr("Previous year")
+                onClicked: page.year--
             }
-
-            MIconButton {
-                iconName: "chevron-right"
-                a11yName: "Next year"
-                onClicked: root.year++
+            MenuItem {
+                objectName: "thisYearItem"
+                text: qsTr("This year")
+                visible: page.year !== page.today.getFullYear()
+                onClicked: page.year = page.today.getFullYear()
+            }
+            MenuItem {
+                objectName: "nextYearItem"
+                text: qsTr("Next year")
+                onClicked: page.year++
             }
         }
-    }
 
-    Flickable {
-        anchors.top: header.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        contentHeight: monthGrid.height + MSpacing.xl * 4
-        clip: true
+        Column {
+            id: column
 
-        Grid {
-            id: monthGrid
+            width: parent.width
 
-            x: MSpacing.md
-            width: parent.width - MSpacing.md * 2
-            columns: 3
-            rowSpacing: MSpacing.lg
-            columnSpacing: MSpacing.md
+            PageHeader {
+                objectName: "yearHeader"
+                title: page.year
+            }
 
-            Repeater {
-                model: 12
+            Grid {
+                id: grid
 
-                Item {
-                    id: monthCell
+                x: Theme.horizontalPageMargin - Theme.paddingSmall
+                width: parent.width - 2 * x
+                columns: 3
+                rowSpacing: Theme.paddingLarge
 
-                    required property int index
-                    readonly property int firstDay: (new Date(root.year, index, 1).getDay() + 6) % 7
-                    readonly property int daysInMonth: new Date(root.year, index + 1, 0).getDate()
-                    readonly property bool isCurrentMonth: root.today.getFullYear() === root.year && root.today.getMonth() === index
+                Repeater {
+                    objectName: "months"
+                    model: 12
 
-                    width: (monthGrid.width - monthGrid.columnSpacing * 2) / 3
-                    height: monthTitle.height + MSpacing.xs + miniDays.height
+                    BackgroundItem {
+                        id: monthCell
 
-                    Accessible.role: Accessible.Button
-                    Accessible.name: Qt.locale().standaloneMonthName(index) + " " + root.year
-                    Accessible.onPressAction: root.monthChosen(root.year, index)
+                        required property int index
+                        readonly property int offset: (new Date(page.year, index, 1).getDay() - page.weekStart + 7) % 7
+                        readonly property int days: new Date(page.year, index + 1, 0).getDate()
+                        readonly property bool current: page.today.getFullYear() === page.year && page.today.getMonth() === index
 
-                    Text {
-                        id: monthTitle
+                        width: grid.width / 3
+                        height: monthTitle.height + miniDays.height + 2 * Theme.paddingSmall
+                        Accessible.name: Qt.locale().standaloneMonthName(index) + " " + page.year
+                        onClicked: page.monthChosen(page.year, index)
 
-                        text: Qt.locale().standaloneMonthName(monthCell.index, Locale.ShortFormat)
-                        color: monthCell.isCurrentMonth ? MColors.marathonTealBright : MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeSubhead
-                        font.weight: MTypography.weightDemiBold
-                    }
+                        Label {
+                            id: monthTitle
 
-                    Grid {
-                        id: miniDays
+                            x: Theme.paddingSmall
+                            y: Theme.paddingSmall
+                            text: Qt.locale().standaloneMonthName(monthCell.index, Locale.ShortFormat)
+                            color: monthCell.current || monthCell.highlighted ? Theme.highlightColor : Theme.primaryColor
+                            font.pixelSize: Theme.fontSizeMedium
+                        }
 
-                        anchors.top: monthTitle.bottom
-                        anchors.topMargin: MSpacing.xs
-                        width: parent.width
-                        columns: 7
+                        Grid {
+                            id: miniDays
 
-                        Repeater {
-                            model: 42
+                            anchors {
+                                top: monthTitle.bottom
+                                left: parent.left
+                                right: parent.right
+                                margins: Theme.paddingSmall
+                            }
+                            columns: 7
 
-                            Item {
-                                required property int index
-                                readonly property int day: index - monthCell.firstDay + 1
-                                readonly property bool isToday: monthCell.isCurrentMonth && day === root.today.getDate()
+                            Repeater {
+                                model: 42
 
-                                width: miniDays.width / 7
-                                height: width
+                                Label {
+                                    required property int index
+                                    readonly property int day: index - monthCell.offset + 1
+                                    readonly property bool isToday: monthCell.current && day === page.today.getDate()
 
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: parent.width
-                                    height: width
-                                    radius: width / 2
-                                    color: MColors.marathonTealBright
-                                    visible: parent.isToday
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: parent.day >= 1 && parent.day <= monthCell.daysInMonth
-                                    text: parent.day
-                                    color: parent.isToday ? MColors.textOnAccent : MColors.textSecondary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeEyebrow
+                                    width: miniDays.width / 7
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: day >= 1 && day <= monthCell.days ? day : ""
+                                    font.pixelSize: Theme.fontSizeTiny
+                                    font.bold: isToday
+                                    color: isToday ? Theme.highlightColor : Theme.secondaryColor
                                 }
                             }
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticService.light();
-                            root.monthChosen(root.year, monthCell.index);
                         }
                     }
                 }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

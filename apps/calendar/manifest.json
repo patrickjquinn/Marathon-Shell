@@ -3,7 +3,6 @@
   "name": "Calendar",
   "version": "1.0.0",
   "entryPoint": "CalendarApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["notifications", "storage"],

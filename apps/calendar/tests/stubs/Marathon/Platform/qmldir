@@ -1,0 +1,2 @@
+module Marathon.Platform
+singleton Calendar 1.0 Calendar.qml

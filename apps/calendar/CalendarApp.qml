@@ -1,186 +1,119 @@
-pragma ComponentBehavior: Bound
-import MarathonApp.Calendar
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "CalendarLogic.js" as Logic
+import "pages"
+import "cover"
 
-MApp {
-    id: calendarApp
+ApplicationWindow {
+    id: root
 
-    property date currentDate: new Date()
-    property var selectedDate: new Date()
-    property int currentView: 1
-    property var navStack: null
+    readonly property var events: Calendar.events || []
 
-    signal eventsChanged
-
-    function createEvent(title, date, time, allDay, recurring) {
-        var event = {
-            "title": title || "Untitled Event",
-            "date": date,
-            "time": time || "12:00",
-            "allDay": allDay || false,
-            "recurring": recurring || "none"
-        };
-        return calendarStorage.addEvent(event).id !== undefined;
+    function eventsOn(date) {
+        return Logic.eventsOn(events, date);
     }
 
-    function getEventsForDate(date) {
-        return calendarStorage.getEventsForDate(date);
+    function eventById(id) {
+        return events.find(e => e.id === id) || null;
     }
 
-    function getAllEvents() {
-        return calendarStorage.events;
+    function repeatText(mode) {
+        switch (mode) {
+        case "daily":
+            return qsTr("Every day");
+        case "weekly":
+            return qsTr("Every week");
+        case "monthly":
+            return qsTr("Every month");
+        default:
+            return qsTr("Never");
+        }
+    }
+
+    function reminderText(minutes) {
+        if (minutes < 0)
+            return qsTr("None");
+        if (minutes === 0)
+            return qsTr("At time of event");
+        if (minutes === 1440)
+            return qsTr("1 day before");
+        if (minutes === 60)
+            return qsTr("1 hour before");
+        return qsTr("%1 minutes before").arg(minutes);
+    }
+
+    function timeText(event) {
+        if (event.allDay)
+            return qsTr("All day");
+        const t = Logic.parseTime(event.time);
+        return Format.formatDate(new Date(2000, 0, 1, t.hour, t.minute), Formatter.TimeValue);
+    }
+
+    function dateText(event) {
+        return Format.formatDate(Logic.parseDate(event.date), Formatter.DateLong);
+    }
+
+    // `event` without an id is created.
+    function saveEvent(event) {
+        const ok = event.id === undefined ? Calendar.createEvent(event).id !== undefined : Calendar.updateEvent(event);
+        if (!ok)
+            Notices.show(qsTr("Couldn't save the event. Try again."));
+        return ok;
     }
 
     function deleteEvent(id) {
-        return calendarStorage.deleteEvent(id);
+        const ok = Calendar.deleteEvent(id);
+        if (!ok)
+            Notices.show(qsTr("Couldn't delete the event. Try again."));
+        return ok;
     }
 
-    function openEventDetail(event) {
-        navStack.push("pages/EventDetailPage.qml", {
-            "event": event,
-            "deleteCallback": eventId => {
-                calendarApp.deleteEvent(eventId);
-            }
+    function openEvent(event) {
+        return pageStack.push(Qt.resolvedUrl("pages/EventPage.qml"), { app: root, eventId: event.id });
+    }
+
+    function newEvent(date) {
+        const start = new Date();
+        start.setHours(start.getHours() + 1, 0, 0, 0);
+        return pageStack.push(Qt.resolvedUrl("pages/EventEditorDialog.qml"), {
+            app: root,
+            date: date || new Date(),
+            hour: start.getHours(),
+            minute: 0
         });
     }
 
-    function openEventCreation(day) {
-        navStack.push("pages/EventCreationPage.qml", {
-            "initialDate": day,
-            "saveCallback": event => calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring)
+    function editEvent(event) {
+        const t = Logic.parseTime(event.time);
+        return pageStack.push(Qt.resolvedUrl("pages/EventEditorDialog.qml"), {
+            app: root,
+            original: event,
+            title: event.title || "",
+            date: Logic.parseDate(event.date),
+            hour: t.hour,
+            minute: t.minute,
+            allDay: !!event.allDay,
+            recurring: event.recurring || "none",
+            reminder: event.reminder === undefined ? 0 : event.reminder,
+            description: event.description || ""
         });
     }
 
     appId: "calendar"
-    appName: "Calendar"
-    appIcon: "assets/icon.svg"
-    Component.onCompleted: {
-        calendarStorage.init();
-    }
-    navigationDepth: {
-        if (!navStack)
-            return 0;
-        if (navStack.depth > 1)
-            return navStack.depth - 1 + (navStack.currentItem.backLayers || 0);
-        return selectedDate !== null || currentView !== 1 ? 1 : 0;
-    }
-    onBackPressed: {
-        if (navStack.depth > 1) {
-            if (navStack.currentItem.backLayers > 0)
-                navStack.currentItem.handleBack();
-            else
-                navStack.pop();
-        } else if (calendarApp.selectedDate !== null) {
-            calendarApp.selectedDate = null;
-        } else {
-            calendarApp.currentView = 1;
+    cover: Component {
+        CalendarCover {
+            events: root.events
+            onNewEventRequested: {
+                root.activate();
+                root.newEvent(new Date());
+            }
         }
     }
-
-    CalendarStorage {
-        id: calendarStorage
-
-        onDataChanged: calendarApp.eventsChanged()
-        onEventsChanged: calendarApp.eventsChanged()
-    }
-
-    content: MStackView {
-        id: stackView
-
-        anchors.fill: parent
-        Component.onCompleted: calendarApp.navStack = stackView
-
-        initialItem: Rectangle {
-            color: MColors.background
-
-            Column {
-                anchors.fill: parent
-                spacing: 0
-
-                StackLayout {
-                    width: parent.width
-                    height: parent.height - tabBar.height
-                    currentIndex: calendarApp.currentView
-
-                    EventListPage {
-                        id: listPage
-
-                        app: calendarApp
-                    }
-
-                    CalendarGridPage {
-                        id: gridPage
-
-                        app: calendarApp
-                    }
-
-                    Loader {
-                        active: calendarApp.currentView === 2
-
-                        sourceComponent: YearPage {
-                            year: gridPage.currentYear
-                            onMonthChosen: (year, month) => {
-                                gridPage.showMonth(year, month);
-                                calendarApp.currentView = 1;
-                            }
-                        }
-                    }
-
-                    Loader {
-                        active: calendarApp.currentView === 3
-
-                        sourceComponent: EventSearchPage {
-                            events: calendarStorage.events
-                            onEventChosen: event => calendarApp.openEventDetail(event)
-                        }
-                    }
-                }
-
-                MTabBar {
-                    id: tabBar
-
-                    width: parent.width
-                    activeTab: calendarApp.currentView
-                    tabs: [
-                        {
-                            "label": "Day",
-                            "icon": "clock"
-                        },
-                        {
-                            "label": "Month",
-                            "icon": "calendar"
-                        },
-                        {
-                            "label": "Year",
-                            "icon": "squares-four"
-                        },
-                        {
-                            "label": "Search",
-                            "icon": "magnifying-glass"
-                        }
-                    ]
-                    onTabSelected: index => {
-                        HapticService.light();
-                        calendarApp.currentView = index;
-                    }
-                }
-            }
-
-            MFloatingActionButton {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: MSpacing.lg
-                anchors.bottomMargin: tabBar.height + MSpacing.lg
-                visible: calendarApp.currentView !== 3
-                label: "New event"
-                onClicked: calendarApp.openEventCreation(gridPage.selectedDate)
-            }
+    initialPage: Component {
+        MonthPage {
+            app: root
         }
     }
 }

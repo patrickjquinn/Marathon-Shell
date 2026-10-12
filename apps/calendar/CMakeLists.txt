@@ -8,14 +8,8 @@ file(GLOB_RECURSE QML_FILES
 )
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
-set(SOURCES
-    src/CalendarStorage.cpp
-    src/CalendarStorage.h
-)
-
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Calendar"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES ${SOURCES}
 )
