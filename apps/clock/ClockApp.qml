@@ -5,6 +5,7 @@ import Marathon.Platform 1.0
 import "ClockLogic.js" as Logic
 import "models"
 import "pages"
+import "cover"
 
 ApplicationWindow {
     id: root
@@ -94,6 +95,17 @@ ApplicationWindow {
     }
 
     appId: "clock"
+    cover: Component {
+        ClockCover {
+            alarms: root.alarms
+            stopwatch: root.stopwatch
+            countdown: root.countdown
+            onNewAlarmRequested: {
+                root.activate();
+                root.editAlarm(null);
+            }
+        }
+    }
     initialPage: Component {
         MainPage {
             app: root
