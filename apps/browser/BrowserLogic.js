@@ -58,12 +58,12 @@ function resolveInput(text, searchEngineUrl) {
         return { error: "" };
     const scheme = input.toLowerCase().split(":")[0];
     if (/^(javascript|data|file):/i.test(input))
-        return { error: "Browser can't open " + scheme + ": addresses" };
+        return { error: qsTr("Browser can't open %1: addresses").arg(scheme) };
     let url = input;
     if (!isWebUrl(input))
-        url = input.indexOf(".") !== -1 && input.indexOf(" ") === -1 ? "https://" + input : searchEngineUrl + encodeURIComponent(input);
+        url = looksLikeAddress(input) ? "https://" + input : searchEngineUrl + encodeURIComponent(input);
     if (!isWebUrl(url))
-        return { error: "Browser can't open this address" };
+        return { error: qsTr("Browser can't open this address") };
     return { url: url };
 }
 
@@ -96,11 +96,11 @@ function suggestions(query, bookmarks, history, engineName) {
         return startingPoints(bookmarks, history);
     const lower = q.toLowerCase();
     const out = [];
-    if ((q.indexOf(".") !== -1 && q.indexOf(" ") === -1) || /^https?:\/\//i.test(q)) {
+    if (looksLikeAddress(q) || /^https?:\/\//i.test(q)) {
         const url = isWebUrl(q) ? q : "https://" + q;
-        out.push({ kind: "go", title: "Go to " + url, subtitle: "", value: url });
+        out.push({ kind: "go", title: qsTr("Go to %1").arg(url), subtitle: "", value: url });
     }
-    out.push({ kind: "search", title: "Search " + engineName + " for \"" + q + "\"", subtitle: "", value: q });
+    out.push({ kind: "search", title: qsTr("Search %1 for \"%2\"").arg(engineName).arg(q), subtitle: "", value: q });
     const seen = {};
     const add = (kind, list) => {
         for (const entry of list) {
@@ -164,14 +164,16 @@ function removeHistory(history, url) {
     return history.filter(h => h.url !== url);
 }
 
+// Groups by local calendar day, so 23:00 yesterday is Yesterday.
 function dateGroup(timestamp, now) {
-    const day = 24 * 60 * 60 * 1000;
-    const diff = now - timestamp;
-    if (diff < day)
+    const midnight = new Date(now);
+    midnight.setHours(0, 0, 0, 0);
+    const daysBack = n => new Date(midnight.getFullYear(), midnight.getMonth(), midnight.getDate() - n).getTime();
+    if (timestamp >= daysBack(0))
         return "Today";
-    if (diff < day * 2)
+    if (timestamp >= daysBack(1))
         return "Yesterday";
-    if (diff < day * 7)
+    if (timestamp >= daysBack(6))
         return "This week";
     return "Older";
 }

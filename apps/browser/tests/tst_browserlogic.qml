@@ -38,6 +38,9 @@ TestCase {
         compare(Logic.resolveInput("FILE:///etc/passwd", engine).error, "Browser can't open file: addresses");
         compare(Logic.resolveInput("cats", "ftp://x/?q=").error, "Browser can't open this address");
         compare(Logic.resolveInput("  ", engine).url, undefined);
+        compare(Logic.resolveInput("localhost:8080", engine).url, "https://localhost:8080");
+        compare(Logic.resolveInput("router:8080/admin", engine).url, "https://router:8080/admin");
+        compare(Logic.resolveInput("localhost", engine).url, "https://localhost");
     }
 
     function test_homepageFromInput() {
@@ -128,11 +131,12 @@ TestCase {
     }
 
     function test_dateGroup() {
-        const day = 86400000, now = 100 * day;
-        compare(Logic.dateGroup(now - 1, now), "Today");
-        compare(Logic.dateGroup(now - day - 1, now), "Yesterday");
-        compare(Logic.dateGroup(now - 3 * day, now), "This week");
-        compare(Logic.dateGroup(now - 30 * day, now), "Older");
+        const now = new Date(2026, 9, 12, 9, 0).getTime();
+        compare(Logic.dateGroup(new Date(2026, 9, 12, 0, 5).getTime(), now), "Today");
+        compare(Logic.dateGroup(new Date(2026, 9, 11, 23, 0).getTime(), now), "Yesterday");
+        compare(Logic.dateGroup(new Date(2026, 9, 11, 0, 1).getTime(), now), "Yesterday");
+        compare(Logic.dateGroup(new Date(2026, 9, 7, 12, 0).getTime(), now), "This week");
+        compare(Logic.dateGroup(new Date(2026, 8, 12).getTime(), now), "Older");
     }
 
     function test_tabs() {
