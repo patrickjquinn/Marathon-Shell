@@ -41,13 +41,13 @@ TestCase {
     function test_placeholderWithoutAlarms() {
         const t = make([]);
         compare(t.cover.mode, "idle");
-        verify(findChild(t.cover, "coverPlaceholder").enabled);
+        verify(findChild(t.cover, "coverPlaceholder").visible);
     }
 
     function test_nextAlarm() {
         const t = make([{ id: "a", time: "07:00", label: "Early", enabled: true }, { id: "b", time: "09:30", label: "Standup", enabled: true }]);
         compare(t.cover.mode, "alarm");
-        verify(!findChild(t.cover, "coverPlaceholder").enabled);
+        verify(!findChild(t.cover, "coverPlaceholder").visible);
         compare(t.cover.next.alarm.id, "b");
         compare(findChild(t.cover, "coverSubtitle").text, "Standup");
     }

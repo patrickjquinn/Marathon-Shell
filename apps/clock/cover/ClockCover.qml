@@ -38,7 +38,7 @@ CoverBackground {
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
-        enabled: root.mode === "idle"
+        visible: root.mode === "idle"
         text: qsTr("No alarms")
     }
 
