@@ -153,6 +153,23 @@ TestCase {
         findChild(action, "cancelButton").clicked(null);
         compare(app.store.opened[app.store.opened.length - 1], "marathon-store://cancel/org.gnome.Maps");
         verify(!findChild(action, "cancelButton").visible);
+        verify(!findChild(page, "detailsFailed").visible);
+    }
+
+    function test_detailPageOffline() {
+        const app = makeApp();
+        app.store.openDetail({ "app_id": "org.example.Away", "name": "Away" });
+        const page = pushed(app, 2);
+        verify(findChild(page, "detailsBusy").visible);
+        tryCompare(page, "detailsLoading", false, 10000);
+        verify(findChild(page, "detailsFailed").visible);
+        verify(!findChild(page, "detailsBusy").visible);
+        verify(!findChild(page, "facts").visible);
+        verify(!findChild(page, "aboutSection").visible);
+        verify(page.detailsFailed);
+        findChild(page, "retryItem").clicked(null);
+        tryCompare(page, "detailsLoading", false, 10000);
+        verify(findChild(page, "detailsFailed").visible);
     }
 
     function test_savedCatalogExplained() {

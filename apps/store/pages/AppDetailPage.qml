@@ -17,6 +17,8 @@ Page {
     property var summary: null
     property var reviews: []
     property bool descriptionExpanded: false
+    property bool detailsLoading: true
+    property bool detailsFailed: false
 
     readonly property var app: fullApp || summaryApp || ({})
     readonly property var rating: store.ratingFor(appId)
@@ -32,17 +34,34 @@ Page {
         });
     }
 
-    Component.onCompleted: {
-        store.ensureRating(appId);
+    function load() {
+        detailsLoading = true;
+        detailsFailed = false;
+        let waiting = 2;
+        const settle = ok => {
+            if (!ok)
+                root.detailsFailed = true;
+            if (--waiting === 0)
+                root.detailsLoading = false;
+        };
         store.loadAppstream(appId, function (full) {
-            root.fullApp = full;
+            if (full)
+                root.fullApp = full;
+            settle(full !== null);
         });
         store.loadSummary(appId, function (s) {
-            root.summary = s;
+            if (s)
+                root.summary = s;
+            settle(s !== null);
         });
         store.loadReviews(appId, function (list) {
             root.reviews = list;
         });
+    }
+
+    Component.onCompleted: {
+        store.ensureRating(appId);
+        load();
     }
 
     RemorsePopup {
@@ -57,15 +76,23 @@ Page {
         contentHeight: body.height + Theme.paddingLarge
 
         PullDownMenu {
-            visible: root.installed
+            visible: root.installed || root.detailsFailed
             MenuItem {
                 objectName: "uninstallItem"
                 text: qsTr("Uninstall")
+                visible: root.installed
                 onClicked: root.uninstall()
             }
             MenuItem {
                 text: qsTr("Open")
+                visible: root.installed
                 onClicked: root.store.openApp(root.appId)
+            }
+            MenuItem {
+                objectName: "retryItem"
+                text: qsTr("Try again")
+                visible: root.detailsFailed
+                onClicked: root.load()
             }
         }
 
@@ -185,6 +212,32 @@ Page {
                 }
             }
 
+            BusyIndicator {
+                objectName: "detailsBusy"
+                anchors.horizontalCenter: parent.horizontalCenter
+                size: BusyIndicatorSize.Medium
+                running: root.detailsLoading && root.fullApp === null
+                visible: running
+            }
+            Column {
+                objectName: "detailsFailed"
+                width: parent.width
+                visible: root.detailsFailed && !root.detailsLoading
+
+                InfoLabel {
+                    text: qsTr("Couldn't load details")
+                }
+                Label {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    horizontalAlignment: Text.AlignHCenter
+                    text: qsTr("Check your connection, then pull down to try again")
+                    color: Theme.secondaryHighlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.Wrap
+                }
+            }
+
             // ── Key facts ─────────────────────────────────
             Row {
                 id: facts
@@ -204,8 +257,10 @@ Page {
                     }
                 ]
 
+                objectName: "facts"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: root.rating !== null || root.summary !== null || root.store.installsFor(root.app) > 0
 
                 Repeater {
                     model: facts.cells
@@ -313,7 +368,9 @@ Page {
 
             // ── About ─────────────────────────────────────
             Column {
+                objectName: "aboutSection"
                 width: parent.width
+                visible: !!root.app.summary || !!root.app.description
 
                 SectionHeader {
                     text: qsTr("About")
@@ -557,11 +614,13 @@ Page {
             // ── Information ───────────────────────────────
             Column {
                 width: parent.width
+                visible: infoRows.count > 0
 
                 SectionHeader {
                     text: qsTr("Information")
                 }
                 Repeater {
+                    id: infoRows
                     model: root.store.infoRows(root.app, root.summary)
                     delegate: Item {
                         id: info
