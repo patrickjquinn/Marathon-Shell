@@ -71,6 +71,8 @@ TestCase {
     function test_missedCountUntilSeen() {
         const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
         compare(app.missedCount, 1);
+        tryVerify(() => app.pageStack.currentPage !== null);
+        compare(findChild(app.pageStack.currentPage, "tabBar").model[1].count, 1);
     }
 
     function test_tapCalls() {
