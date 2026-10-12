@@ -6,7 +6,7 @@ import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
 // The home dock: Phone and Camera either side of the page indicator, on the
-// wallpaper fading into the ambience's dim.
+// wallpaper fading to black.
 Item {
     id: bottomBar
 
@@ -107,7 +107,7 @@ Item {
             }
             GradientStop {
                 position: 1
-                color: Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, Silica.Theme.opacityHigh)
+                color: Qt.rgba(0, 0, 0, 0.6)
             }
         }
     }

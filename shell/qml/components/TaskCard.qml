@@ -89,8 +89,8 @@ Item {
 
         anchors.fill: parent
         anchors.margins: Theme.paddingSmall
-        // A cover on Home: ambience glass, Silica's rounded corners.
-        color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityHigh)
+        // Neutral dark glass: the highlight colours only mark text and state.
+        color: Qt.rgba(0, 0, 0, 0.55)
         radius: Theme.paddingMedium
         antialiasing: true
         // Clip children to the rounded corners. Without this, the banner
@@ -190,18 +190,13 @@ Item {
                 radius: cardRoot.radius
                 clip: true
 
-                // The app's cover over the bottom half of its live preview,
-                // on the ambience so it reads over any app content.
+                // The app's cover over the bottom half of its live preview, on
+                // a neutral scrim so it reads over any app content.
                 Rectangle {
                     anchors.fill: coverView
                     z: 1
                     visible: coverView.available
-                    color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityOverlay)
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
-                    }
+                    color: Qt.rgba(0, 0, 0, 0.7)
                 }
 
                 KeelCoverView {
