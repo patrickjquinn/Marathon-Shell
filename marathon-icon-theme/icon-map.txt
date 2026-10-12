@@ -46,6 +46,7 @@ document file-text
 down caret-down
 download download-simple
 edit pencil-simple
+education graduation-cap
 email envelope
 end-call phone-x
 enter arrow-elbow-down-left
@@ -76,7 +77,9 @@ flash-off lightning-slash
 folder folder
 forward arrow-right
 gallery images
+game game-controller
 gps crosshair
+graphics palette
 headphone headphones
 health heartbeat
 hidden eye-slash
@@ -113,8 +116,10 @@ navigate compass
 new plus
 next-song skip-forward
 note note
+office briefcase
 other dots-three-circle
 outgoing-call phone-outgoing
+package package
 page-down caret-down
 page-up caret-up
 pause pause
@@ -138,6 +143,7 @@ right caret-right
 rotate arrows-clockwise
 save floppy-disk
 scale arrows-out
+science flask
 search magnifying-glass
 select-all checks
 send paper-plane-tilt
@@ -163,6 +169,8 @@ unlock lock-open
 up caret-up
 update arrow-circle-up
 usb usb
+utility wrench
+verified seal-check
 vibration vibrate
 video video-camera
 visible eye
