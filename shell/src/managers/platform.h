@@ -2,32 +2,13 @@
 #define PLATFORM_H
 
 #include <QString>
-#include <QProcess>
 #include <QFile>
 #include <QDebug>
 #include <utility>   // std::as_const
 
 namespace Platform {
 
-    inline bool isLinux() {
-#ifdef Q_OS_LINUX
-        return true;
-#else
-        return false;
-#endif
-    }
-
-    inline bool isMacOS() {
-#ifdef Q_OS_MACOS
-        return true;
-#else
-        return false;
-#endif
-    }
-
     inline bool hasSystemd() {
-        if (!isLinux())
-            return false;
         return QFile::exists("/run/systemd/system");
     }
 
@@ -35,25 +16,8 @@ namespace Platform {
         return hasSystemd() && QFile::exists("/run/systemd/seats");
     }
 
-    inline bool hasPulseAudio() {
-        if (!isLinux())
-            return false;
-        QProcess process;
-        process.start("pactl", {"--version"});
-        process.waitForFinished(1000);
-        return process.exitCode() == 0;
-    }
-
     inline bool hasBacklightControl() {
-        if (!isLinux())
-            return false;
         return QFile::exists("/sys/class/backlight");
-    }
-
-    inline bool hasIIOSensors() {
-        if (!isLinux())
-            return false;
-        return QFile::exists("/sys/bus/iio/devices");
     }
 
     inline bool hasHardwareKeyboard() {
@@ -61,9 +25,6 @@ namespace Platform {
             qInfo() << "[Platform] MARATHON_FORCE_VKB set - forcing virtual keyboard";
             return false;
         }
-
-        if (!isLinux())
-            return isMacOS();
 
         QFile devicesFile("/proc/bus/input/devices");
         if (!devicesFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
