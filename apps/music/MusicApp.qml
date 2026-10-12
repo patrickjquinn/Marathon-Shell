@@ -1,7 +1,10 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtMultimedia
@@ -11,11 +14,15 @@ import QtQuick.Layouts
 MApp {
     id: musicApp
 
+    property var playbackErrorBarRef: null
+
     property var currentTrack: null
     property bool isPlaying: audioPlayer.playbackState === MediaPlayer.PlayingState
     property bool shuffle: false
     property string repeatMode: "off"
     property var playlist
+    readonly property bool libraryAvailable: typeof MusicLibraryManager !== 'undefined'
+    readonly property bool scanning: libraryAvailable && MusicLibraryManager.isScanning
 
     function playTrack(track) {
         if (!track)
@@ -89,7 +96,7 @@ MApp {
                 if (playlist.length > 0)
                     currentTrack = playlist[0];
 
-                MusicLibraryManager.scanLibrary();
+                MusicLibraryManager.scanLibraryAsync();
             }
         });
     }
@@ -124,12 +131,15 @@ MApp {
                     musicApp.currentTrack.duration = newDur;
             }
         }
-        onPlaybackStateChanged: {
-            if (playbackState === MediaPlayer.StoppedState && musicApp.currentTrack)
-                playNext();
+        onMediaStatusChanged: {
+            if (mediaStatus === MediaPlayer.EndOfMedia && musicApp.currentTrack)
+                musicApp.playNext();
         }
         onErrorOccurred: function (error, errorString) {
             Logger.error("Music", "Playback error: " + errorString);
+            const title = musicApp.currentTrack ? "\u201C" + musicApp.currentTrack.title + "\u201D" : "this track";
+            if (musicApp.playbackErrorBarRef)
+                musicApp.playbackErrorBarRef.show("Can't play " + title + ". The file may be missing or in an unsupported format.", "Next");
         }
 
         audioOutput: AudioOutput {
@@ -213,7 +223,7 @@ MApp {
                                 }
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: currentTrack && currentTrack.album ? currentTrack.album : "Library"
+                                    text: musicApp.currentTrack && musicApp.currentTrack.album ? musicApp.currentTrack.album : "Library"
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeSubhead
@@ -262,6 +272,8 @@ MApp {
                                 Repeater {
                                     model: 16
                                     Rectangle {
+                                        required property int index
+
                                         anchors.top: parent.top
                                         anchors.bottom: parent.bottom
                                         width: 1
@@ -291,7 +303,7 @@ MApp {
 
                             Text {
                                 width: parent.width
-                                text: currentTrack ? currentTrack.title : "No Track"
+                                text: musicApp.currentTrack ? musicApp.currentTrack.title : "No Track"
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: 28
@@ -303,10 +315,10 @@ MApp {
                             Text {
                                 width: parent.width
                                 text: {
-                                    if (!currentTrack)
+                                    if (!musicApp.currentTrack)
                                         return "Select a track";
-                                    const a = currentTrack.artist || "";
-                                    const b = currentTrack.album || "";
+                                    const a = musicApp.currentTrack.artist || "";
+                                    const b = musicApp.currentTrack.album || "";
                                     return (a && b) ? a + " · " + b : (a || b);
                                 }
                                 color: MColors.textSecondary
@@ -325,10 +337,10 @@ MApp {
                             MSlider {
                                 width: parent.width
                                 from: 0
-                                to: (currentTrack && currentTrack.duration) ? currentTrack.duration : 100
-                                value: (currentTrack && currentTrack.position) ? currentTrack.position : 0
+                                to: (musicApp.currentTrack && musicApp.currentTrack.duration) ? musicApp.currentTrack.duration : 100
+                                value: (musicApp.currentTrack && musicApp.currentTrack.position) ? musicApp.currentTrack.position : 0
                                 onMoved: {
-                                    if (currentTrack && currentTrack.duration)
+                                    if (musicApp.currentTrack && musicApp.currentTrack.duration)
                                         audioPlayer.position = value * 1000;
                                 }
                             }
@@ -340,7 +352,7 @@ MApp {
                                 Text {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: formatTime(currentTrack ? currentTrack.position : 0)
+                                    text: musicApp.formatTime(musicApp.currentTrack ? musicApp.currentTrack.position : 0)
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
@@ -351,7 +363,7 @@ MApp {
                                 Text {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: formatTime(currentTrack ? currentTrack.duration : 0)
+                                    text: musicApp.formatTime(musicApp.currentTrack ? musicApp.currentTrack.duration : 0)
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
@@ -378,29 +390,39 @@ MApp {
                         // Shuffle — accent icon, no bay.
                         Item {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 32
+                            width: Constants.touchTargetMinimum
+                            height: Constants.touchTargetMinimum
+                            Accessible.role: Accessible.CheckBox
+                            Accessible.name: "Shuffle"
+                            Accessible.checkable: true
+                            Accessible.checked: musicApp.shuffle
+                            Accessible.onPressAction: musicApp.shuffle = !musicApp.shuffle
                             Icon {
                                 anchors.centerIn: parent
                                 name: "shuffle"
                                 size: 20
-                                color: shuffle ? MColors.marathonTealBright : MColors.textTertiary
+                                color: musicApp.shuffle ? MColors.marathonTealBright : MColors.textTertiary
                             }
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
-                                    shuffle = !shuffle;
+                                    musicApp.shuffle = !musicApp.shuffle;
                                 }
                             }
                         }
 
-                        // Previous — 42 dark circle.
+                        // Previous — dark circle.
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 42
-                            height: 42
+                            width: Constants.touchTargetMinimum
+                            height: Constants.touchTargetMinimum
                             radius: width / 2
+                            enabled: musicApp.currentTrack !== null
+                            opacity: enabled ? 1 : 0.4
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Previous track"
+                            Accessible.onPressAction: musicApp.playPrevious()
                             color: prevArea.pressed ? MColors.bb10Card : MColors.elev2
                             border.width: 1
                             border.color: MColors.whiteOverlay04
@@ -415,7 +437,7 @@ MApp {
                                 anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
-                                    playPrevious();
+                                    musicApp.playPrevious();
                                 }
                             }
                             Behavior on color {
@@ -431,6 +453,11 @@ MApp {
                             width: 64
                             height: 64
                             radius: width / 2
+                            enabled: musicApp.currentTrack !== null
+                            opacity: enabled ? 1 : 0.4
+                            Accessible.role: Accessible.Button
+                            Accessible.name: musicApp.isPlaying ? "Pause" : "Play"
+                            Accessible.onPressAction: playArea.togglePlayback()
                             border.width: 1
                             border.color: MColors.tealBorder
                             gradient: Gradient {
@@ -466,8 +493,8 @@ MApp {
                                     anchors.centerIn: parent
                                     name: "pause"
                                     size: 26
-                                    color: "#000000"
-                                    opacity: isPlaying ? 1 : 0
+                                    color: MColors.textOnAccent
+                                    opacity: musicApp.isPlaying ? 1 : 0
                                     Behavior on opacity {
                                         NumberAnimation {
                                             duration: MMotion.durationFor("tap")
@@ -478,8 +505,8 @@ MApp {
                                     anchors.centerIn: parent
                                     name: "play"
                                     size: 26
-                                    color: "#000000"
-                                    opacity: isPlaying ? 0 : 1
+                                    color: MColors.textOnAccent
+                                    opacity: musicApp.isPlaying ? 0 : 1
                                     Behavior on opacity {
                                         NumberAnimation {
                                             duration: MMotion.durationFor("tap")
@@ -503,25 +530,34 @@ MApp {
                             MouseArea {
                                 id: playArea
                                 anchors.fill: parent
-                                onClicked: {
-                                    HapticService.medium();
-                                    if (isPlaying) {
+                                function togglePlayback() {
+                                    if (musicApp.isPlaying) {
                                         audioPlayer.pause();
                                     } else {
-                                        if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
-                                            audioPlayer.source = currentTrack.path;
+                                        if (musicApp.currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
+                                            audioPlayer.source = musicApp.currentTrack.path;
                                         audioPlayer.play();
                                     }
+                                }
+
+                                onClicked: {
+                                    HapticService.medium();
+                                    togglePlayback();
                                 }
                             }
                         }
 
-                        // Next — 42 dark circle.
+                        // Next — dark circle.
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 42
-                            height: 42
+                            width: Constants.touchTargetMinimum
+                            height: Constants.touchTargetMinimum
                             radius: width / 2
+                            enabled: musicApp.currentTrack !== null
+                            opacity: enabled ? 1 : 0.4
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Next track"
+                            Accessible.onPressAction: musicApp.playNext()
                             color: nextArea.pressed ? MColors.bb10Card : MColors.elev2
                             border.width: 1
                             border.color: MColors.whiteOverlay04
@@ -536,7 +572,7 @@ MApp {
                                 anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
-                                    playNext();
+                                    musicApp.playNext();
                                 }
                             }
                             Behavior on color {
@@ -553,30 +589,55 @@ MApp {
                     Layout.fillHeight: true
                     clip: true
                     topMargin: MSpacing.md
-                    model: playlist
+                    model: musicApp.playlist
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: MSpacing.md
+                        visible: musicApp.scanning && musicApp.playlist.length === 0
+
+                        MActivityIndicator {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            running: parent.visible
+                        }
+
+                        MLabel {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Looking for music\u2026"
+                            variant: "secondary"
+                        }
+                    }
 
                     MEmptyState {
                         anchors.fill: parent
-                        visible: playlist.length === 0
+                        visible: !musicApp.scanning && musicApp.playlist.length === 0
                         iconName: "music-2"
                         iconSize: 96
-                        title: "No music yet"
-                        message: "Your music library is empty. Add some music files to get started."
+                        title: musicApp.libraryAvailable ? "No music yet" : "Music library unavailable"
+                        message: musicApp.libraryAvailable ? "Copy audio files (MP3, FLAC, OGG and more) into the Music folder in your home folder (~/Music). They'll appear here automatically." : "Music couldn't connect to the music library, so your songs can't be listed."
                     }
 
                     delegate: Item {
+                        id: trackRow
+
+                        required property var modelData
+                        readonly property bool isCurrent: musicApp.currentTrack !== null && modelData.id === musicApp.currentTrack.id
+
                         width: ListView.view.width
                         height: Constants.touchTargetLarge + MSpacing.sm
 
                         MCard {
+                            Accessible.role: Accessible.Button
+                            Accessible.name: trackRow.modelData.title + ", " + trackRow.modelData.artist
+                            Accessible.onPressAction: musicApp.playTrack(trackRow.modelData)
                             anchors.fill: parent
                             anchors.margins: MSpacing.md
                             anchors.topMargin: 0
                             interactive: true
-                            elevation: index === 0 ? 2 : 1
+                            elevation: trackRow.isCurrent ? 2 : 1
                             onClicked: {
                                 HapticService.light();
-                                playTrack(modelData);
+                                musicApp.playTrack(trackRow.modelData);
                             }
 
                             Row {
@@ -608,10 +669,10 @@ MApp {
 
                                     MLabel {
                                         width: parent.width
-                                        text: modelData.title
-                                        variant: index === 0 ? "accent" : "primary"
+                                        text: trackRow.modelData.title
+                                        variant: trackRow.isCurrent ? "accent" : "primary"
                                         font.pixelSize: MTypography.sizeBody
-                                        font.weight: index === 0 ? Font.Bold : Font.DemiBold
+                                        font.weight: trackRow.isCurrent ? Font.Bold : Font.DemiBold
                                         elide: Text.ElideRight
                                     }
 
@@ -619,7 +680,7 @@ MApp {
                                         spacing: MSpacing.sm
 
                                         MLabel {
-                                            text: modelData.artist
+                                            text: trackRow.modelData.artist
                                             variant: "secondary"
                                             font.pixelSize: MTypography.sizeSmall
                                         }
@@ -631,7 +692,7 @@ MApp {
                                         }
 
                                         MLabel {
-                                            text: formatTime(modelData.duration)
+                                            text: musicApp.formatTime(trackRow.modelData.duration)
                                             variant: "secondary"
                                             font.pixelSize: MTypography.sizeSmall
                                         }
@@ -640,9 +701,9 @@ MApp {
 
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: index === 0 && isPlaying ? "pause" : "play"
+                                    name: trackRow.isCurrent && musicApp.isPlaying ? "pause" : "play"
                                     size: Constants.iconSizeMedium
-                                    color: index === 0 ? MColors.marathonTeal : MColors.textTertiary
+                                    color: trackRow.isCurrent ? MColors.marathonTeal : MColors.textTertiary
                                 }
                             }
                         }
@@ -670,6 +731,19 @@ MApp {
                     tabBar.parent.currentView = index;
                 }
             }
+        }
+
+        MSnackbar {
+            id: playbackErrorBar
+            Component.onCompleted: musicApp.playbackErrorBarRef = playbackErrorBar
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: MSpacing.md
+            anchors.bottomMargin: tabBar.height + MSpacing.md
+            timeout: 8000
+            onActionTriggered: musicApp.playNext()
         }
     }
 }
