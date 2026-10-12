@@ -46,6 +46,7 @@ Page {
         id: stopwatchTab
         StopwatchTab {
             app: root.app
+            topMargin: tabs.tabBarHeight
         }
     }
     Component {

@@ -7,72 +7,107 @@ TabItem {
     id: root
 
     property var app
+    property real topMargin
     readonly property var stopwatch: app.stopwatch
+    readonly property var splits: Logic.lapSplits(stopwatch.laps)
+    readonly property real lastLap: stopwatch.laps.length > 0 ? stopwatch.laps[stopwatch.laps.length - 1] : 0
 
     flickable: list
 
+    InfoLabel {
+        objectName: "stopwatchHint"
+        y: parent.height / 3 - height / 2
+        visible: !root.stopwatch.running && root.stopwatch.elapsed === 0
+        text: qsTr("Tap below to start the stopwatch")
+    }
+
+    // Bottom-up, so the newest lap sits just above the running one, as in Jolla Clock.
     SilicaListView {
         id: list
 
         anchors.fill: parent
-        model: root.stopwatch.laps
+        verticalLayoutDirection: ListView.BottomToTop
+        model: root.splits.slice().reverse()
 
-        header: Column {
+        header: Item {
             width: list.width
-            spacing: Theme.paddingLarge
-            topPadding: Theme.paddingLarge * 2
-            bottomPadding: Theme.paddingLarge
+            height: current.height + Theme.paddingLarge * 2
 
-            Label {
-                objectName: "stopwatchTime"
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: Logic.formatStopwatch(root.stopwatch.elapsed)
-                font.pixelSize: Theme.fontSizeHuge
-                font.features: ({ "tnum": 1 })
-                color: root.stopwatch.running ? Theme.highlightColor : Theme.primaryColor
+            IconButton {
+                objectName: "startLap"
+                anchors.left: parent.left
+                anchors.leftMargin: Theme.horizontalPageMargin
+                anchors.verticalCenter: current.verticalCenter
+                icon.source: root.stopwatch.running ? "image://theme/icon-l-add" : "image://theme/icon-l-play"
+                Accessible.name: root.stopwatch.running ? qsTr("Lap") : qsTr("Start")
+                onClicked: root.stopwatch.running ? root.stopwatch.lap() : root.stopwatch.start()
             }
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.paddingLarge
+            Column {
+                id: current
 
-                Button {
-                    objectName: "startStop"
-                    text: root.stopwatch.running ? qsTr("Stop") : qsTr("Start")
-                    onClicked: root.stopwatch.running ? root.stopwatch.stop() : root.stopwatch.start()
+                y: Theme.paddingLarge
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                LapTime {
+                    objectName: "lapTime"
+                    time: root.stopwatch.elapsed - root.lastLap
+                    caption: qsTr("Lap")
+                    color: Theme.highlightColor
                 }
-                Button {
-                    objectName: "lapReset"
-                    text: root.stopwatch.running ? qsTr("Lap") : qsTr("Reset")
-                    enabled: root.stopwatch.running || root.stopwatch.elapsed > 0
-                    onClicked: root.stopwatch.running ? root.stopwatch.lap() : root.stopwatch.reset()
+                LapTime {
+                    objectName: "stopwatchTime"
+                    time: root.stopwatch.elapsed
+                    caption: qsTr("Total")
+                    color: Theme.primaryColor
                 }
+            }
+            IconButton {
+                objectName: "pauseReset"
+                anchors.right: parent.right
+                anchors.rightMargin: Theme.horizontalPageMargin
+                anchors.verticalCenter: current.verticalCenter
+                enabled: root.stopwatch.running || root.stopwatch.elapsed > 0
+                icon.source: root.stopwatch.running ? "image://theme/icon-l-pause" : "image://theme/icon-l-clear"
+                Accessible.name: root.stopwatch.running ? qsTr("Pause") : qsTr("Reset")
+                onClicked: root.stopwatch.running ? root.stopwatch.stop() : root.stopwatch.reset()
             }
         }
+        footer: Item {
+            width: list.width
+            height: root.topMargin
+        }
 
-        delegate: Item {
-            id: lap
-
+        delegate: LapTime {
             required property int index
             required property real modelData
 
-            width: list.width
-            height: Theme.itemSizeSmall
-
-            Label {
-                x: Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Lap %1").arg(lap.index + 1)
-                color: Theme.secondaryColor
-            }
-            Label {
-                anchors.right: parent.right
-                anchors.rightMargin: Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                text: Logic.formatStopwatch(lap.modelData)
-                font.features: ({ "tnum": 1 })
-            }
+            anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+            time: modelData
+            caption: root.splits.length - index
+            color: Theme.secondaryHighlightColor
         }
 
         VerticalScrollDecorator {}
+    }
+
+    component LapTime: Column {
+        id: lapTime
+
+        property real time
+        property string caption
+        property color color
+
+        Label {
+            text: Logic.formatStopwatch(lapTime.time)
+            font.pixelSize: Theme.fontSizeExtraLarge
+            font.features: ({ "tnum": 1 })
+            color: lapTime.color
+        }
+        Label {
+            anchors.right: parent.right
+            text: lapTime.caption
+            font.pixelSize: Theme.fontSizeExtraSmall
+            color: lapTime.color
+        }
     }
 }

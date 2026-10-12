@@ -143,4 +143,9 @@ TestCase {
     function test_alarmIn(data) {
         compare(Logic.alarmIn(data.when, data.now), data.out);
     }
+
+    function test_lapSplits() {
+        compare(Logic.lapSplits([]), []);
+        compare(Logic.lapSplits([1130, 2377, 3000]), [1130, 1247, 623]);
+    }
 }

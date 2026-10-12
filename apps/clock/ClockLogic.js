@@ -79,6 +79,11 @@ function formatStopwatch(ms) {
     return h > 0 ? h + ":" + rest : rest;
 }
 
+// The stopwatch stores cumulative lap times; Clock shows each lap's own length.
+function lapSplits(laps) {
+    return laps.map((t, i) => t - (i > 0 ? laps[i - 1] : 0));
+}
+
 function formatCountdown(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor(seconds % 3600 / 60);
