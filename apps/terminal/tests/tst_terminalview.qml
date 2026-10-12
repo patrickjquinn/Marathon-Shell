@@ -116,6 +116,25 @@ TestCase {
         compare(view.selection, "");
     }
 
+    function test_copyButtonAppearsWhereTheSelectionEnds() {
+        const view = makeView();
+        const area = findChild(view, "touchArea");
+        const copy = findChild(view, "copyButton");
+        verify(!copy.visible);
+        mousePress(area, 15, 400);
+        tryVerify(() => findChild(view, "renderer").selected !== null, 3000);
+        mouseMove(area, 200, 500);
+        mouseRelease(area, 200, 500);
+        verify(copy.visible);
+        const end = area.mapToItem(view, 200, 500);
+        verify(copy.y + copy.height < end.y);
+        verify(copy.x <= end.x && copy.x + copy.width >= end.x);
+        mouseClick(copy);
+        compare(Clipboard.text, "selected");
+        compare(view.selection, "");
+        verify(!copy.visible);
+    }
+
     function test_colorSchemes() {
         const view = makeView({ colorScheme: "light" });
         const r = findChild(view, "renderer");

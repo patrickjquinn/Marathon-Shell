@@ -113,11 +113,7 @@ Page {
                 objectName: "copyItem"
                 visible: !!page.currentView && page.currentView.selection !== ""
                 text: qsTr("Copy")
-                onClicked: {
-                    Clipboard.text = page.currentView.selection;
-                    page.currentView.clearSelection();
-                    Notices.show(qsTr("Copied to clipboard"));
-                }
+                onClicked: page.currentView.copySelection()
             }
         }
 

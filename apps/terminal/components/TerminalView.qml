@@ -30,6 +30,12 @@ Item {
         selection = "";
     }
 
+    function copySelection() {
+        Clipboard.text = selection;
+        clearSelection();
+        Notices.show(qsTr("Copied to clipboard"));
+    }
+
     function sendKey(key, text, modifiers) {
         session.sendKey(key, text, modifiers);
     }
@@ -152,13 +158,32 @@ Item {
                 const b = renderer.positionToGrid(mouse.x, mouse.y);
                 renderer.select(a.x, a.y, b.x, b.y);
             }
-            onReleased: {
+            onReleased: mouse => {
                 if (!selecting)
                     return;
                 selecting = false;
+                copyButton.anchor = mapToItem(root, mouse.x, mouse.y);
                 root.selection = renderer.selectedText();
             }
             onCanceled: selecting = false
+        }
+    }
+
+    // Just above where the selecting finger lifted.
+    Button {
+        id: copyButton
+
+        property point anchor
+
+        objectName: "copyButton"
+        x: Math.max(0, Math.min(root.width - width, anchor.x - width / 2))
+        y: Math.max(0, anchor.y - height - Theme.itemSizeSmall)
+        preferredWidth: Theme.buttonWidthTiny
+        visible: root.selection !== ""
+        text: qsTr("Copy")
+        onClicked: {
+            root.copySelection();
+            root.forceFocus();
         }
     }
 }
