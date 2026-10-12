@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Shapes
 import MarathonUI.Theme
@@ -38,11 +40,15 @@ Item {
             model: 8
 
             Shape {
+                id: segment
+
+                required property int index
+
                 anchors.fill: parent
                 visible: root.running
 
                 ShapePath {
-                    strokeColor: Qt.rgba(root.color.r, root.color.g, root.color.b, (1.0 - index / 8.0) * 0.8)
+                    strokeColor: Qt.rgba(root.color.r, root.color.g, root.color.b, (1.0 - segment.index / 8.0) * 0.8)
                     fillColor: "transparent"
                     strokeWidth: root.size / 8
                     capStyle: ShapePath.RoundCap
@@ -52,7 +58,7 @@ Item {
                         centerY: spinner.height / 2
                         radiusX: (root.size - root.size / 8) / 2
                         radiusY: (root.size - root.size / 8) / 2
-                        startAngle: -45 * index
+                        startAngle: -45 * segment.index
                         sweepAngle: 45
                     }
                 }
@@ -64,7 +70,7 @@ Item {
             to: 360
             duration: 1200
             loops: Animation.Infinite
-            running: root.running
+            running: root.running && root.visible
             easing.type: Easing.Linear
         }
 

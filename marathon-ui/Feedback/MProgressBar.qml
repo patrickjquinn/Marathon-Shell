@@ -15,6 +15,10 @@ Item {
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: Math.round(4 * scaleFactor)
+    clip: indeterminate
+
+    Accessible.role: Accessible.ProgressBar
+    Accessible.name: indeterminate ? "Loading" : Math.round((value - from) / (to - from) * 100) + "%"
 
     Rectangle {
         id: track
@@ -27,9 +31,7 @@ Item {
 
     Rectangle {
         id: fill
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        height: parent.height
         width: root.indeterminate ? parent.width * 0.3 : (root.value - root.from) / (root.to - root.from) * parent.width
         radius: height / 2
         color: root.color
@@ -46,7 +48,7 @@ Item {
 
     SequentialAnimation {
         id: indeterminateAnimation
-        running: root.indeterminate
+        running: root.indeterminate && root.visible
         loops: Animation.Infinite
 
         property real value: 0

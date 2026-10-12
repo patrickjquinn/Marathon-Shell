@@ -8,6 +8,7 @@ qt6_add_qml_module(marathon-ui-feedback
         MActivityIndicator.qml
         MProgressBar.qml
         MPressable.qml
+        MSnackbar.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Feedback
 )
 
@@ -23,6 +24,7 @@ if(QMLLINT_AVAILABLE)
         MActivityIndicator.qml
         MProgressBar.qml
         MPressable.qml
+        MSnackbar.qml
     )
 endif()
 
@@ -42,5 +44,6 @@ install(FILES
     MActivityIndicator.qml
     MProgressBar.qml
     MPressable.qml
+    MSnackbar.qml
     DESTINATION ${MARATHON_UI_DIR}/Feedback
 )

@@ -16,7 +16,7 @@ Rectangle {
 
     property string text: ""
     property color badgeColor: MColors.marathonTealBright
-    property color textColor: "#000000"
+    property color textColor: MColors.textOnAccent
     property int count: 0
     property bool dot: false          // true → 8 px teal dot, no text
 
