@@ -18,40 +18,22 @@ Item {
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
 
-    // A round ambience button that launches an app on a tap, and lets a
-    // vertical drag through to the gestures beneath.
-    component DockButton: Item {
+    // The lock screen's glass-ring shortcut, launching on a tap and
+    // ignoring a vertical drag through to the gestures beneath.
+    component DockButton: MCircularIconButton {
         id: dockButton
 
-        property string iconName
         property var app
 
-        width: Silica.Theme.itemSizeExtraSmall
+        width: Silica.Theme.itemSizeSmall
         height: width
         anchors.verticalCenter: parent.verticalCenter
         z: 10
-
-        Accessible.role: Accessible.Button
-        Accessible.name: app.name
-        Accessible.onPressAction: bottomBar.appLaunched(app)
-
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            scale: mouse.pressed ? 0.92 : 1
-            color: mouse.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
-
-            Behavior on scale {
-                NumberAnimation { duration: MMotion.quick }
-            }
-
-            GlyphIcon {
-                anchors.centerIn: parent
-                name: dockButton.iconName
-                size: Silica.Theme.iconSizeSmall
-                color: mouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-            }
-        }
+        iconSize: Silica.Theme.iconSizeSmall
+        variant: "secondary"
+        a11yName: app.name
+        down: mouse.pressed
+        onClicked: bottomBar.appLaunched(app)
 
         MouseArea {
             id: mouse
@@ -74,13 +56,18 @@ Item {
         id: glyph
 
         property string iconName
+        property string a11yName
         property bool active: false
 
         signal clicked
 
-        width: Silica.Theme.iconSizeSmall
+        width: Silica.Theme.itemSizeExtraSmall
         height: width
         anchors.verticalCenter: parent.verticalCenter
+
+        Accessible.role: Accessible.Button
+        Accessible.name: a11yName
+        Accessible.onPressAction: clicked()
 
         GlyphIcon {
             anchors.centerIn: parent
@@ -135,6 +122,7 @@ Item {
             id: hubIndicator
 
             iconName: "inbox"
+            a11yName: qsTr("Hub")
             active: bottomBar.currentPage === -2
             onClicked: bottomBar.pageNavigationRequested(-2)
         }
@@ -143,6 +131,7 @@ Item {
             id: framesIndicator
 
             iconName: "layers"
+            a11yName: qsTr("Open apps")
             active: bottomBar.currentPage === -1
             onClicked: bottomBar.pageNavigationRequested(-1)
         }
