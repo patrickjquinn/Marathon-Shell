@@ -188,14 +188,21 @@ QVariantMap CalendarManagerCpp::normalizeEvent(const QVariantMap &event) const {
         normalized["recurring"] = "none";
     if (!normalized.contains("description"))
         normalized["description"] = "";
+    if (!normalized.contains("reminder"))
+        normalized["reminder"] = 0;
     return normalized;
 }
 
 bool CalendarManagerCpp::shouldTriggerEvent(const QVariantMap &event, const QDateTime &now) const {
-    const QString dateStr   = now.date().toString("yyyy-MM-dd");
-    const QString timeStr   = now.time().toString("HH:mm");
-    const QString eventDate = event.value("date").toString();
-    const QString eventTime = event.value("time").toString();
+    // Minutes before the event; negative means no reminder.
+    const int reminder = event.value("reminder", 0).toInt();
+    if (reminder < 0)
+        return false;
+    const QDateTime at        = now.addSecs(qint64(reminder) * 60);
+    const QString   dateStr   = at.date().toString("yyyy-MM-dd");
+    const QString   timeStr   = at.time().toString("HH:mm");
+    const QString   eventDate = event.value("date").toString();
+    const QString   eventTime = event.value("time").toString();
     if (eventTime != timeStr)
         return false;
 
@@ -207,17 +214,17 @@ bool CalendarManagerCpp::shouldTriggerEvent(const QVariantMap &event, const QDat
         return false;
 
     const QDate baseDate = QDate::fromString(eventDate, "yyyy-MM-dd");
-    if (!baseDate.isValid() || now.date() < baseDate)
+    if (!baseDate.isValid() || at.date() < baseDate)
         return false;
 
     if (recurring == "daily")
         return true;
     if (recurring == "weekly") {
-        const int daysDiff = baseDate.daysTo(now.date());
+        const int daysDiff = baseDate.daysTo(at.date());
         return daysDiff % 7 == 0;
     }
     if (recurring == "monthly")
-        return baseDate.day() == now.date().day();
+        return baseDate.day() == at.date().day();
 
     return false;
 }
