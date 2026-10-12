@@ -271,7 +271,11 @@ TestCase {
         const s = open("bluetooth");
         SettingsController.showBluetoothDialog("Car", "DD", "device", "pin");
         const dialog = activeDialog(s.app);
-        verify(child(dialog, "pinField").visible);
+        const pinField = child(dialog, "pinField");
+        verify(pinField.visible);
+        const full = new RegExp("^(?:" + pinField.validator.regularExpression.source + ")$");
+        verify(full.test("A1b2C3d4E5f6G7h8"));
+        verify(!full.test("A1b2C3d4E5f6G7h89"));
         verify(!dialog.canAccept);
         dialog.pin = "1234";
         verify(dialog.canAccept);
