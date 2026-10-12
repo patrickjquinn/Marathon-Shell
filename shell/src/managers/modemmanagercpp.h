@@ -16,8 +16,7 @@ class ModemManagerCpp : public QObject {
     Q_PROPERTY(bool registered READ registered NOTIFY registeredChanged)
     Q_PROPERTY(QString operatorName READ operatorName NOTIFY operatorNameChanged)
     // 3GPP operator code (MCC + MNC concatenated, e.g. "23410" = O2 UK).
-    // Empty until the modem registers. Surfaced for MBPI-based APN
-    // auto-provisioning (see CarrierProvisioning).
+    // Empty until the modem registers.
     Q_PROPERTY(QString operatorCode READ operatorCode NOTIFY operatorCodeChanged)
     Q_PROPERTY(QString networkType READ networkType NOTIFY networkTypeChanged)
     Q_PROPERTY(bool roaming READ roaming NOTIFY roamingChanged)
