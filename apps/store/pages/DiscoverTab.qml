@@ -4,7 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../components"
 
-// Search, then Editors' pick → Trending → Updates → Made for phones → New on
+// Search, then App of the day (or Featured) → Trending → Updates → Made for phones → New on
 // Flathub. A query replaces the sections with Flathub search results,
 // aarch64 builds only.
 TabItem {
@@ -76,7 +76,7 @@ TabItem {
 
         ViewPlaceholder {
             objectName: "discoverPlaceholder"
-            enabled: root.query !== "" ? !root.searching && root.results.length === 0 : root.offline
+            enabled: root.query !== "" ? !root.searching && root.results.length === 0 : root.offline && root.store.updateApps.length === 0
             text: root.query === "" ? qsTr("Can't reach Flathub") : root.searchError !== "" ? qsTr("Search isn't available") : qsTr("No results")
             hintText: root.query === "" ? qsTr("Check your connection, then pull down to refresh") : root.searchError !== "" ? qsTr("Couldn't reach Flathub. Check your connection and try again.") : qsTr("Nothing on Flathub for this phone matches \"%1\"").arg(root.query)
         }
@@ -113,6 +113,18 @@ TabItem {
                 bottomPadding: Theme.paddingMedium
                 visible: root.query === "" && root.store.showingSavedCatalog
                 text: qsTr("Offline. Showing apps saved %1. Pull down to refresh.").arg(root.store.timeAgo(root.store.catalogSavedAt))
+                color: Theme.secondaryHighlightColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+            }
+
+            Label {
+                objectName: "offlineNote"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                visible: root.query === "" && root.offline && root.store.updateApps.length > 0
+                text: qsTr("Can't reach Flathub. Check your connection, then pull down to refresh.")
                 color: Theme.secondaryHighlightColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -155,7 +167,8 @@ TabItem {
                 }
 
                 SectionHeader {
-                    text: qsTr("Editors' pick")
+                    objectName: "heroHeader"
+                    text: root.store.appOfTheDay ? qsTr("App of the day") : qsTr("Featured")
                     visible: hero.visible
                 }
                 BackgroundItem {
@@ -167,7 +180,7 @@ TabItem {
                     width: parent.width
                     height: heroContent.height + 2 * Theme.paddingMedium
                     visible: app !== null
-                    Accessible.name: app ? qsTr("Editors' pick: %1").arg(app.name || app.app_id || "") : ""
+                    Accessible.name: app ? qsTr("Featured: %1").arg(app.name || app.app_id || "") : ""
                     onClicked: root.store.openDetail(app)
 
                     AppIcon {

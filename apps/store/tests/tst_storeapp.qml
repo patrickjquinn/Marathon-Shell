@@ -88,8 +88,31 @@ TestCase {
     function test_offlinePlaceholder() {
         const app = makeApp();
         const tab = showTab(app, 0);
+        tryCompare(app.store, "catalogLoading", false, 10000);
+        app.store.pendingUpdates = [];
         tryVerify(() => findChild(tab, "discoverPlaceholder").enabled, 3000);
         compare(findChild(tab, "discoverPlaceholder").text, "Can't reach Flathub");
+    }
+
+    function test_heroHeaderIsHonest() {
+        const app = makeApp();
+        const tab = showTab(app, 0);
+        app.store.collections = Fixtures.collections();
+        compare(findChild(tab, "heroHeader").text, "Featured");
+        app.store.appOfTheDay = Fixtures.app("org.example.Day", "Day");
+        compare(findChild(tab, "heroHeader").text, "App of the day");
+    }
+
+    function test_offlineUpdatesKeepAnInlineNote() {
+        const app = makeApp();
+        const tab = showTab(app, 0);
+        tryCompare(app.store, "catalogLoading", false, 10000);
+        app.store.pendingUpdates = [{ "app_id": "org.example.Old" }];
+        verify(!findChild(tab, "discoverPlaceholder").enabled);
+        verify(findChild(tab, "offlineNote").visible);
+        app.store.pendingUpdates = [];
+        verify(findChild(tab, "discoverPlaceholder").enabled);
+        verify(!findChild(tab, "offlineNote").visible);
     }
 
     function test_searchReplacesSections() {
