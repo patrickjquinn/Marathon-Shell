@@ -16,6 +16,7 @@ CoverBackground {
         objectName: "coverPlaceholder"
         visible: root.latest === null
         text: qsTr("No messages")
+        icon.source: "image://theme/icon-l-message"
     }
 
     Column {

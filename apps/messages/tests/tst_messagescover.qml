@@ -33,6 +33,7 @@ TestCase {
     function test_placeholderWhenEmpty() {
         const c = createTemporaryObject(cover, this, { conversations: [] });
         verify(findChild(c, "coverPlaceholder").visible);
+        compare(findChild(c, "coverPlaceholder").icon.source.toString(), "image://theme/icon-l-message");
     }
 
     function test_newMessageAction() {
