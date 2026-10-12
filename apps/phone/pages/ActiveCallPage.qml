@@ -37,33 +37,24 @@ Page {
     }
 
     Column {
+        id: info
+
         anchors {
             left: parent.left
             right: parent.right
             leftMargin: Theme.horizontalPageMargin
             rightMargin: Theme.horizontalPageMargin
             top: parent.top
-            topMargin: Theme.itemSizeLarge
+            topMargin: root.keypadOpen ? Theme.paddingLarge : Theme.itemSizeLarge
         }
-        spacing: Theme.paddingMedium
+        spacing: Theme.paddingSmall
 
-        Label {
-            objectName: "statusLabel"
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: root.callStatus
-            color: Theme.highlightColor
-            font.pixelSize: Theme.fontSizeExtraLarge
-            Accessible.name: root.connected ? qsTr("Call duration %1").arg(text) : text
-        }
         Label {
             objectName: "nameLabel"
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: root.phone.callName || Phone.format(root.phone.callNumber)
-            color: Theme.highlightColor
-            font.pixelSize: Theme.fontSizeHuge
-            font.weight: Font.ExtraLight
+            font.pixelSize: Theme.fontSizeExtraLarge
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
@@ -74,16 +65,63 @@ Page {
             horizontalAlignment: Text.AlignHCenter
             visible: text.length > 0
             text: root.keypadOpen && root.tones.length > 0 ? root.tones : root.phone.callName ? Phone.format(root.phone.callNumber) : ""
-            color: Theme.secondaryHighlightColor
-            font.pixelSize: Theme.fontSizeLarge
+            color: Theme.secondaryColor
             elide: Text.ElideLeft
+        }
+        Label {
+            objectName: "statusLabel"
+            width: parent.width
+            topPadding: root.keypadOpen ? 0 : Theme.paddingLarge
+            horizontalAlignment: Text.AlignHCenter
+            text: root.callStatus
+            color: Theme.highlightColor
+            font.pixelSize: Theme.fontSizeHuge
+            font.weight: Font.ExtraLight
+            Accessible.name: root.connected ? qsTr("Call duration %1").arg(text) : text
+        }
+    }
+
+    Row {
+        anchors {
+            top: info.bottom
+            topMargin: Theme.paddingLarge
+            horizontalCenter: parent.horizontalCenter
+        }
+        spacing: Theme.paddingLarge
+
+        CallToggle {
+            name: "speaker"
+            checked: root.speaker
+            icon: "image://theme/icon-l-speaker"
+            text: qsTr("Speaker")
+            onToggled: {
+                root.speaker = !root.speaker;
+                Telephony.setSpeakerphone(root.speaker);
+            }
+        }
+        CallToggle {
+            name: "keypad"
+            checked: root.keypadOpen
+            icon: "image://theme/icon-l-dialpad"
+            text: qsTr("Keypad")
+            onToggled: root.keypadOpen = !root.keypadOpen
+        }
+        CallToggle {
+            name: "mute"
+            checked: root.muted
+            icon: root.muted ? "image://theme/icon-l-mic-mute" : "image://theme/icon-l-mic"
+            text: qsTr("Mute")
+            onToggled: {
+                root.muted = !root.muted;
+                Telephony.setCallMuted(root.muted);
+            }
         }
     }
 
     Keypad {
         objectName: "dtmfKeypad"
         anchors {
-            bottom: controls.top
+            bottom: endCallButton.top
             bottomMargin: Theme.paddingLarge
         }
         visible: root.keypadOpen
@@ -91,64 +129,21 @@ Page {
         onClicked: number => root.sendTone(number)
     }
 
-    Column {
-        id: controls
+    Button {
+        id: endCallButton
 
+        objectName: "endCallButton"
         anchors {
-            left: parent.left
-            right: parent.right
+            horizontalCenter: parent.horizontalCenter
             bottom: parent.bottom
             bottomMargin: 2 * Theme.paddingLarge
         }
-        spacing: Theme.paddingLarge
-
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Theme.paddingLarge
-
-            CallToggle {
-                name: "mute"
-                checked: root.muted
-                icon: root.muted ? "image://theme/icon-l-mic-mute" : "image://theme/icon-l-mic"
-                text: root.muted ? qsTr("Muted") : qsTr("Mute")
-                accessibleName: qsTr("Mute")
-                onToggled: {
-                    root.muted = !root.muted;
-                    Telephony.setCallMuted(root.muted);
-                }
-            }
-            CallToggle {
-                name: "keypad"
-                checked: root.keypadOpen
-                icon: "image://theme/icon-l-dialpad"
-                text: qsTr("Keypad")
-                accessibleName: qsTr("Keypad")
-                onToggled: root.keypadOpen = !root.keypadOpen
-            }
-            CallToggle {
-                name: "speaker"
-                checked: root.speaker
-                icon: "image://theme/icon-l-speaker"
-                text: root.speaker ? qsTr("Speaker on") : qsTr("Speaker")
-                accessibleName: qsTr("Speaker")
-                onToggled: {
-                    root.speaker = !root.speaker;
-                    Telephony.setSpeakerphone(root.speaker);
-                }
-            }
-        }
-
-        Button {
-            objectName: "endCallButton"
-            anchors.horizontalCenter: parent.horizontalCenter
-            preferredWidth: Theme.buttonWidthLarge
-            color: Theme.errorColor
-            icon.source: "image://theme/icon-m-end-call"
-            text: qsTr("End call")
-            onClicked: {
-                Telephony.hangup();
-                root.phone.closeCallPages();
-            }
+        preferredWidth: Theme.buttonWidthLarge
+        icon.source: "image://theme/icon-m-end-call"
+        text: qsTr("End call")
+        onClicked: {
+            Telephony.hangup();
+            root.phone.closeCallPages();
         }
     }
 
@@ -159,24 +154,18 @@ Page {
         property bool checked
         property string icon
         property string text
-        property string accessibleName
 
         signal toggled
 
         width: Theme.itemSizeExtraLarge
-        spacing: Theme.paddingSmall
 
-        IconButton {
-            id: button
-
+        Switch {
             objectName: toggle.name + "Button"
             anchors.horizontalCenter: parent.horizontalCenter
+            automaticCheck: false
+            checked: toggle.checked
             icon.source: toggle.icon
-            highlighted: down || toggle.checked
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: toggle.accessibleName
-            Accessible.checkable: true
-            Accessible.checked: toggle.checked
+            Accessible.name: toggle.text
             onClicked: toggle.toggled()
         }
         Label {
@@ -184,7 +173,7 @@ Page {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: toggle.text
-            color: button.highlighted ? Theme.highlightColor : Theme.primaryColor
+            color: Theme.secondaryColor
             font.pixelSize: Theme.fontSizeExtraSmall
             wrapMode: Text.Wrap
             Accessible.ignored: true

@@ -104,7 +104,7 @@ TestCase {
         tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
     }
 
-    function test_callTogglesAreLabelledWithTheirState() {
+    function test_callTogglesAreLabelledSwitches() {
         const app = makeApp();
         app.call("5551234567");
         tryVerify(() => app.callPage !== null);
@@ -116,9 +116,11 @@ TestCase {
         findChild(page, "muteButton").clicked(null);
         findChild(page, "speakerButton").clicked(null);
         findChild(page, "keypadButton").clicked(null);
-        compare(findChild(page, "muteLabel").text, "Muted");
+        verify(findChild(page, "muteButton").checked);
+        verify(findChild(page, "keypadButton").checked);
+        verify(findChild(page, "speakerButton").checked);
         verify(findChild(page, "dtmfKeypad").visible);
-        compare(findChild(page, "speakerLabel").text, "Speaker on");
+        compare(findChild(page, "muteButton").Accessible.name, "Mute");
     }
 
     function test_callDurationShownWhenConnected() {
