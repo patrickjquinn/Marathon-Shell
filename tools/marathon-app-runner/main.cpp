@@ -35,6 +35,7 @@
 #include <QSocketNotifier>
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
+#include <QSurfaceFormat>
 #include <atomic>
 #include <cerrno>
 #include <cstring>
@@ -42,6 +43,8 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <csignal>
+#include <sys/socket.h>
 
 
 // Function-local statics: compiled once on first use, with no pre-main
@@ -152,6 +155,8 @@ static void applyMainPriorityForActive(bool active) {
 
 #include "ipc/shellipcclients.h"
 #include "pagetouch.h"
+#include "keelhost.h"
+#include "ambienceclient.h"
 #include "calendarmanagercpp.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
@@ -473,6 +478,14 @@ static QString peekAppId(int argc, char *argv[]) {
     return {};
 }
 
+// SIGTERM reaches the event loop through this pipe, so a Keel app gets
+// CloseRequested and a grace period to save.
+static int g_termFds[2] = {-1, -1};
+static void onTerm(int) {
+    const char c = 1;
+    (void)::write(g_termFds[0], &c, 1);
+}
+
 // MarathonUI and MarathonOS.Shell roots, ahead of Qt's defaults. App-independent,
 // so a pool spare sets them up before it is adopted.
 static int sharedImportPathCount = 0;
@@ -737,6 +750,28 @@ int main(int argc, char *argv[]) {
     QString launchRoute;
     QString launchRouteParams;
     std::unique_ptr<QQuickView>     pooledView;
+    std::unique_ptr<AmbienceClient> ambienceClient;
+    std::unique_ptr<KeelHost>       keelHost;
+    // Keel reads its host environment when its plugin first creates the Shell
+    // client, which in a pool spare happens during warm-up, so the host must
+    // exist before then.
+    auto startKeelHost = [&ambienceClient, &keelHost]() {
+        ambienceClient = std::make_unique<AmbienceClient>();
+        ambienceClient->fetchNow(1000);
+        keelHost = std::make_unique<KeelHost>(
+            qRound(QGuiApplication::primaryScreen()->physicalDotsPerInch()));
+        keelHost->setAmbience(ambienceClient->ambience());
+        if (!keelHost->start(qEnvironmentVariable("XDG_RUNTIME_DIR"))) {
+            qWarning() << "[marathon-app-runner] Keel host failed to start";
+            keelHost.reset();
+            return;
+        }
+        const auto env = keelHost->environment();
+        for (auto it = env.cbegin(); it != env.cend(); ++it)
+            qputenv(it.key().toUtf8(), it.value().toUtf8());
+        QObject::connect(ambienceClient.get(), &AmbienceClient::ambienceChanged, keelHost.get(),
+                         &KeelHost::setAmbience);
+    };
     if (poolMode) {
         // Warm the GL stack off the critical path: EGL display init, the
         // Mesa driver load, and the first context creation otherwise land
@@ -755,6 +790,7 @@ int main(int argc, char *argv[]) {
         // configuration, and compiled types stay in the engine's type
         // loader. Types are only compiled (inside Component), not created:
         // MarathonUI's singletons read services registered after adoption.
+        startKeelHost();
         pooledView = std::make_unique<QQuickView>();
         addSharedImportPaths(pooledView->engine());
         {
@@ -989,6 +1025,48 @@ int main(int argc, char *argv[]) {
         qEnvironmentVariableIntValue("MARATHON_APP_HEIGHT") :
         1140;
     view.resize(w, h);
+
+    if (!keelHost && KeelHost::wantedFor(info->toolkit))
+        startKeelHost();
+    if (keelHost && KeelHost::wantedFor(info->toolkit)) {
+        // The shell draws the ambience behind a Keel app, which leaves its
+        // background transparent; only these windows pay for alpha blending.
+        QSurfaceFormat format = view.format();
+        format.setAlphaBufferSize(8);
+        view.setFormat(format);
+    }
+    if (keelHost) {
+        QObject::connect(&view, &QWindow::activeChanged, keelHost.get(),
+                         [&view, host = keelHost.get()]() { host->setActive(view.isActive()); });
+        keelHost->onActivate = [appId]() { NavigationClient().launchApp(appId); };
+    }
+
+    // A Keel app is told to close (CloseRequested) and given a second to save,
+    // whether the close comes from the task switcher or as SIGTERM. Other
+    // apps keep SIGTERM's default disposition.
+    if (keelHost && KeelHost::wantedFor(info->toolkit)) {
+        auto beginClose = [host = keelHost.get(), closing = std::make_shared<bool>(false)]() {
+            if (*closing)
+                return;
+            *closing = true;
+            host->requestClose();
+            QTimer::singleShot(1000, qApp, &QCoreApplication::quit);
+        };
+        view.installEventFilter(new KeelCloseGuard(beginClose, &view));
+        if (::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, g_termFds) == 0) {
+            auto *termNotifier = new QSocketNotifier(g_termFds[1], QSocketNotifier::Read, &app);
+            QObject::connect(termNotifier, &QSocketNotifier::activated, &app, [beginClose]() {
+                char c;
+                (void)::read(g_termFds[1], &c, 1);
+                beginClose();
+            });
+            struct sigaction sa {};
+            sa.sa_handler = onTerm;
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = SA_RESTART;
+            ::sigaction(SIGTERM, &sa, nullptr);
+        }
+    }
 
     QQmlEngine *engine = view.engine();
 

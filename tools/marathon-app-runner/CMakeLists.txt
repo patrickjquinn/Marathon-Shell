@@ -17,6 +17,8 @@ find_package(Qt6 REQUIRED COMPONENTS
 set(SOURCES
     main.cpp
     pagetouch.cpp
+    keelhost.cpp
+    ambienceclient.cpp
     ipc/shellipcclients.cpp
     calendarmanagercpp.cpp
 )

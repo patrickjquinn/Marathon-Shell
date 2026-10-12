@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.21)
 enable_testing()
 
-find_package(Qt6 REQUIRED COMPONENTS Test Core)
+find_package(Qt6 REQUIRED COMPONENTS Test Core DBus Gui)
 
 # AppRegistry tests (pure data model, no external deps)
 add_executable(test_core_appregistry
@@ -100,3 +100,26 @@ target_include_directories(test_core_apptoolkit PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
 add_test(NAME Core_AppToolkit COMMAND test_core_apptoolkit)
+
+# Keel host protocol server (marathon-app-runner)
+add_executable(test_core_keelhost
+    test_keelhost.cpp
+    ../../tools/marathon-app-runner/keelhost.cpp
+)
+target_link_libraries(test_core_keelhost Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
+target_include_directories(test_core_keelhost PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_KeelHost COMMAND test_core_keelhost)
+
+# Ambience relay client (marathon-app-runner)
+add_executable(test_core_ambienceclient
+    test_ambienceclient.cpp
+    ../../tools/marathon-app-runner/ambienceclient.cpp
+)
+target_link_libraries(test_core_ambienceclient Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_core_ambienceclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_AmbienceClient COMMAND test_core_ambienceclient)
+set_tests_properties(Core_KeelHost PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
