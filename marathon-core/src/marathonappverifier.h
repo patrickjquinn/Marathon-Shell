@@ -2,7 +2,6 @@
 
 #include <QObject>
 #include <QString>
-#include <QStringList>
 
 class MarathonAppVerifier : public QObject {
     Q_OBJECT
@@ -22,18 +21,10 @@ class MarathonAppVerifier : public QObject {
 
     explicit MarathonAppVerifier(QObject *parent = nullptr);
 
-    Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyPackage(const QString &packagePath);
     Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyDirectory(const QString &appDir);
 
     Q_INVOKABLE bool        signManifest(const QString &manifestPath, const QString &signaturePath,
                                          const QString &keyId = QString());
-
-    Q_INVOKABLE bool        isTrustedKey(const QString &keyFingerprint);
-
-    Q_INVOKABLE bool        addTrustedKey(const QString &keyPath);
-    Q_INVOKABLE bool        removeTrustedKey(const QString &keyFingerprint);
-
-    Q_INVOKABLE QStringList getTrustedKeys();
 
     Q_INVOKABLE QString     lastError() const {
         return m_lastError;

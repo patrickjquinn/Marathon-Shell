@@ -3,11 +3,9 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
 #include <syslog.h>
-#include <utility>   // std::as_const
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
     : QObject(parent) {
@@ -170,25 +168,6 @@ MarathonAppVerifier::verifyDirectory(const QString &appDir) {
     return Valid;
 }
 
-MarathonAppVerifier::VerificationResult
-MarathonAppVerifier::verifyPackage(const QString &packagePath) {
-    qDebug() << "[MarathonAppVerifier] Verifying package:" << packagePath;
-
-    emit verificationStarted();
-
-    if (!QFile::exists(packagePath)) {
-        m_lastError = "Package file does not exist: " + packagePath;
-        emit error(m_lastError);
-        emit verificationComplete(VerificationFailed);
-        return VerificationFailed;
-    }
-
-    m_lastError =
-        "Direct package verification not yet implemented. Extract first, then verify directory.";
-    emit verificationComplete(VerificationFailed);
-    return VerificationFailed;
-}
-
 bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QString &signaturePath,
                                        const QString &keyId) {
     qDebug() << "[MarathonAppVerifier] Signing manifest:" << manifestPath;
@@ -239,73 +218,4 @@ bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QStrin
 
     qDebug() << "[MarathonAppVerifier] Manifest signed successfully";
     return true;
-}
-
-bool MarathonAppVerifier::isTrustedKey(const QString &keyFingerprint) {
-    QString     trustedKeysDir = getTrustedKeysDir();
-    QDir        keysDir(trustedKeysDir);
-    QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
-
-    for (const QString &keyFile : std::as_const(keyFiles)) {
-        if (keyFile.contains(keyFingerprint, Qt::CaseInsensitive)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool MarathonAppVerifier::addTrustedKey(const QString &keyPath) {
-    if (!QFile::exists(keyPath)) {
-        m_lastError = "Key file does not exist: " + keyPath;
-        return false;
-    }
-
-    QString trustedKeysDir = getTrustedKeysDir();
-    QString fileName       = QFileInfo(keyPath).fileName();
-    QString destPath       = trustedKeysDir + "/" + fileName;
-
-    if (QFile::exists(destPath)) {
-        if (!QFile::remove(destPath)) {
-            m_lastError = "Failed to remove existing key file";
-            return false;
-        }
-    }
-
-    if (!QFile::copy(keyPath, destPath)) {
-        m_lastError = "Failed to copy key file to trusted keys directory";
-        return false;
-    }
-
-    qDebug() << "[MarathonAppVerifier] Added trusted key:" << fileName;
-    return true;
-}
-
-bool MarathonAppVerifier::removeTrustedKey(const QString &keyFingerprint) {
-    QString     trustedKeysDir = getTrustedKeysDir();
-    QDir        keysDir(trustedKeysDir);
-    QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
-
-    for (const QString &keyFile : std::as_const(keyFiles)) {
-        if (keyFile.contains(keyFingerprint, Qt::CaseInsensitive)) {
-            QString fullPath = trustedKeysDir + "/" + keyFile;
-            if (QFile::remove(fullPath)) {
-                qDebug() << "[MarathonAppVerifier] Removed trusted key:" << keyFile;
-                return true;
-            } else {
-                m_lastError = "Failed to remove key file: " + keyFile;
-                return false;
-            }
-        }
-    }
-
-    m_lastError = "Key not found: " + keyFingerprint;
-    return false;
-}
-
-QStringList MarathonAppVerifier::getTrustedKeys() {
-    QString trustedKeysDir = getTrustedKeysDir();
-    QDir    keysDir(trustedKeysDir);
-
-    return keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 }
