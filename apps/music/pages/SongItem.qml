@@ -15,7 +15,7 @@ ListItem {
     signal playRequested
 
     contentHeight: Theme.itemSizeMedium
-    Accessible.name: qsTr("%1 by %2").arg(track.title).arg(track.artist)
+    Accessible.name: current ? qsTr("%1 by %2, playing").arg(track.title).arg(track.artist) : qsTr("%1 by %2").arg(track.title).arg(track.artist)
     onClicked: playRequested()
 
     menu: ContextMenu {
@@ -30,23 +30,35 @@ ListItem {
         }
     }
 
+    TextMetrics {
+        id: durationMetrics
+
+        font.pixelSize: Theme.fontSizeLarge
+        text: "00:00"
+    }
+
+    // Leading duration column, as in Jolla Media.
     Label {
         id: duration
 
+        objectName: "duration"
+        x: Theme.horizontalPageMargin
+        width: durationMetrics.width
+        anchors.verticalCenter: parent.verticalCenter
+        horizontalAlignment: Text.AlignRight
+        text: Library.formatTime(item.track.duration)
+        font.pixelSize: Theme.fontSizeLarge
+        color: item.highlighted || item.current ? Theme.highlightColor : Theme.secondaryColor
+    }
+
+    Column {
         anchors {
+            left: duration.right
+            leftMargin: Theme.paddingMedium
             right: parent.right
             rightMargin: Theme.horizontalPageMargin
             verticalCenter: parent.verticalCenter
         }
-        text: Library.formatTime(item.track.duration)
-        font.pixelSize: Theme.fontSizeSmall
-        color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-    }
-
-    Column {
-        x: Theme.horizontalPageMargin
-        width: duration.x - x - Theme.paddingMedium
-        anchors.verticalCenter: parent.verticalCenter
 
         Label {
             width: parent.width
