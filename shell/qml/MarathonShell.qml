@@ -41,6 +41,9 @@ Item {
             lockScreen.swipeProgress = 0;
             pinScreen.reset();
             overlayClosed = true;
+        } else if (confirmDialog.shown) {
+            confirmDialog.cancel();
+            overlayClosed = true;
         } else if (UIStore.searchOpen) {
             UIStore.closeSearch();
             overlayClosed = true;
@@ -1964,8 +1967,8 @@ Item {
         id: confirmDialog
 
         Connections {
-            function onShowConfirmDialog(title, message, onConfirm) {
-                confirmDialog.show(title, message, onConfirm);
+            function onShowConfirmDialog(title, message, onConfirm, confirmText) {
+                confirmDialog.show(title, message, onConfirm, confirmText);
             }
 
             target: UIStore

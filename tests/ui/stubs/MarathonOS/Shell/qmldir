@@ -29,3 +29,4 @@ singleton TelephonyService 1.0 TelephonyService.qml
 singleton UIStore 1.0 UIStore.qml
 singleton SystemStatusStore 1.0 SystemStatusStore.qml
 singleton MPhoneNumber 1.0 ../../../../../shell/qml/ui/MPhoneNumber.qml
+KeelAmbienceBackground 1.0 ../../../../../shell/qml/components/KeelAmbienceBackground.qml

@@ -114,7 +114,8 @@ class UIStore : public QObject {
     void clipboardManagerOpenChanged();
     void shellRefChanged();
 
-    void showConfirmDialog(const QString &title, const QString &message, const QVariant &onConfirm);
+    void showConfirmDialog(const QString &title, const QString &message, const QVariant &onConfirm,
+                           const QString &confirmText = QString());
 
   private:
     void     setQuickSettingsOpen(bool open);

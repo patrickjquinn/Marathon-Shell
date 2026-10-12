@@ -3,170 +3,140 @@ import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
+// A full-screen Silica dialog on the ambience: Cancel top-left, the
+// caller's verb top-right, then what will happen.
 Item {
     id: confirmDialog
 
     property string title: ""
     property string message: ""
-    property string confirmText: "Confirm"
-    property string cancelText: "Cancel"
+    property string confirmText: ""
     property var onConfirm: null
     property var onCancel: null
+    property bool shown: false
 
     signal confirmed
     signal cancelled
 
-    function show(titleText, messageText, confirmCallback) {
+    function show(titleText, messageText, confirmCallback, verb) {
         title = titleText;
         message = messageText;
         onConfirm = confirmCallback;
-        visible = true;
-        fadeIn.start();
+        confirmText = verb || qsTr("Accept");
+        shown = true;
     }
 
     function hide() {
-        fadeOut.start();
+        shown = false;
+    }
+
+    function cancel() {
+        cancelled();
+        if (onCancel)
+            onCancel();
+        hide();
+    }
+
+    function accept() {
+        confirmed();
+        if (onConfirm)
+            onConfirm();
+        hide();
     }
 
     anchors.fill: parent
-    visible: false
+    visible: opacity > 0
+    opacity: shown ? 1 : 0
     z: 2500
 
-    Rectangle {
-        id: backdrop
-
+    KeelAmbienceBackground {
         anchors.fill: parent
-        color: "#000000"
-        opacity: 0
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                confirmDialog.cancelled();
-                var callback = confirmDialog.onCancel;
-                if (callback)
-                    callback();
+    // Taps outside the header actions do nothing.
+    MouseArea {
+        anchors.fill: parent
+    }
 
-                confirmDialog.hide();
+    Item {
+        id: header
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Constants.statusBarHeight
+        height: Silica.Theme.itemSizeLarge
+
+        Silica.BackgroundItem {
+            objectName: "cancelButton"
+            anchors.left: parent.left
+            width: parent.width / 2
+            height: parent.height
+            onClicked: confirmDialog.cancel()
+
+            Silica.Label {
+                anchors.left: parent.left
+                anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Cancel")
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            }
+        }
+
+        Silica.BackgroundItem {
+            objectName: "confirmButton"
+            anchors.right: parent.right
+            width: parent.width / 2
+            height: parent.height
+            onClicked: confirmDialog.accept()
+
+            Silica.Label {
+                anchors.right: parent.right
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignRight
+                text: confirmDialog.confirmText
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: Silica.Theme.highlightColor
+                truncationMode: Silica.TruncationMode.Fade
             }
         }
     }
 
-    Rectangle {
-        id: dialog
+    Column {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: header.bottom
+        anchors.margins: Silica.Theme.horizontalPageMargin
+        anchors.topMargin: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
-        anchors.centerIn: parent
-        width: parent.width - Silica.Theme.horizontalPageMargin * 2
-        height: contentColumn.height + Silica.Theme.paddingLarge * 2
-        radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
-        border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
-        opacity: 0
+        Silica.Label {
+            width: parent.width
+            text: confirmDialog.title
+            color: Silica.Theme.highlightColor
+            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            font.family: Silica.Theme.fontFamilyHeading
+            wrapMode: Text.Wrap
+        }
 
-        Column {
-            id: contentColumn
-
-            anchors.centerIn: parent
-            width: parent.width - Silica.Theme.paddingLarge * 2
-            spacing: Silica.Theme.paddingLarge
-
-            Column {
-                width: parent.width
-                spacing: Silica.Theme.paddingSmall
-
-                Silica.Label {
-                    text: confirmDialog.title
-                    color: Silica.Theme.highlightColor
-                    font.pixelSize: Silica.Theme.fontSizeLarge
-                    font.family: Silica.Theme.fontFamilyHeading
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
-
-                Silica.Label {
-                    text: confirmDialog.message
-                    color: Silica.Theme.secondaryHighlightColor
-                    font.pixelSize: Silica.Theme.fontSizeSmall
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
-            }
-
-            Row {
-                width: parent.width
-                spacing: Silica.Theme.paddingMedium
-
-                Silica.Button {
-                    text: confirmDialog.cancelText
-                    width: (parent.width - Silica.Theme.paddingMedium) / 2
-                    onClicked: {
-                        confirmDialog.cancelled();
-                        var callback = confirmDialog.onCancel;
-                        if (callback)
-                            callback();
-
-                        confirmDialog.hide();
-                    }
-                }
-
-                Silica.Button {
-                    text: confirmDialog.confirmText
-                    width: (parent.width - Silica.Theme.paddingMedium) / 2
-                    onClicked: {
-                        confirmDialog.confirmed();
-                        var callback = confirmDialog.onConfirm;
-                        if (callback)
-                            callback();
-
-                        confirmDialog.hide();
-                    }
-                }
-            }
+        Silica.Label {
+            width: parent.width
+            text: confirmDialog.message
+            color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
+            wrapMode: Text.Wrap
         }
     }
 
-    ParallelAnimation {
-        id: fadeIn
-
+    Behavior on opacity {
         NumberAnimation {
-            target: backdrop
-            property: "opacity"
-            to: 0.7
-            duration: 200
+            duration: MMotion.quick
             easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: dialog
-            property: "opacity"
-            to: 1
-            duration: 200
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    ParallelAnimation {
-        id: fadeOut
-
-        onFinished: {
-            confirmDialog.visible = false;
-        }
-
-        NumberAnimation {
-            target: backdrop
-            property: "opacity"
-            to: 0
-            duration: 150
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: dialog
-            property: "opacity"
-            to: 0
-            duration: 150
-            easing.type: Easing.InCubic
         }
     }
 }
