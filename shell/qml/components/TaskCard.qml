@@ -431,40 +431,6 @@ Item {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                    visible: taskCard.type === "native" && !taskCard.haveWayland
-                                    color: "transparent"
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        spacing: Theme.paddingMedium
-
-                                        MAppIcon {
-                                            size: Theme.iconSizeLarge
-                                            source: taskCard.icon || "layout-grid"
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
-
-                                        Label {
-                                            text: taskCard.title || taskCard.appId
-                                            color: Theme.secondaryColor
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
-
-                                        Label {
-                                            text: "Native apps not available on macOS"
-                                            color: Theme.secondaryColor
-                                            font.pixelSize: Theme.fontSizeExtraSmall
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
                                     visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
                                     color: "transparent"
 
