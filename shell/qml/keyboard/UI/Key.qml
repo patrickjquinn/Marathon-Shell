@@ -20,6 +20,8 @@ Rectangle {
     property bool showingAlternates: false
     property int selectedAlternate: -1
     property bool autoRepeat: false
+    // Hold does something of its own, so release mustn't also click.
+    property bool consumesHold: autoRepeat
 
     signal clicked
     signal pressAndHold
@@ -196,7 +198,7 @@ Rectangle {
                     key.alternateSelected(key.alternateChars[key.selectedAlternate]);
                 else
                     key.clicked();
-            } else if (!(longPressTriggered && key.isSpecial) && containsMouse) {
+            } else if (!(longPressTriggered && key.consumesHold) && containsMouse) {
                 key.clicked();
             }
             key.showingAlternates = false;

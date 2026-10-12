@@ -151,6 +151,7 @@ Item {
                 text: "emoji"
                 iconName: "smiley"
                 isSpecial: true
+                consumesHold: true
                 onClicked: {
                     dynamicLayout.layoutSwitchClicked("emoji");
                 }

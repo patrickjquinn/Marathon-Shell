@@ -30,6 +30,7 @@ TestCase {
         key.alternateChars = ["à", "á", "â"];
         key.isSpecial = false;
         key.autoRepeat = false;
+        key.consumesHold = false;
         clickedSpy.clear();
         alternateSpy.clear();
         holdSpy.clear();
@@ -94,6 +95,7 @@ TestCase {
     function test_holdOnKeyWithoutAlternatesFiresPressAndHold() {
         key.alternateChars = [];
         key.isSpecial = true;
+        key.consumesHold = true;
         mousePress(key, key.width / 2, key.height / 2);
         tryCompare(holdSpy, "count", 1, 1000);
         mouseRelease(key, key.width / 2, key.height / 2);
@@ -108,10 +110,20 @@ TestCase {
         compare(clickedSpy.count, 1);
     }
 
+    function test_heldSpecialKeyWithoutHoldActionStillTypes() {
+        key.alternateChars = [];
+        key.isSpecial = true;
+        mousePress(key, key.width / 2, key.height / 2);
+        tryCompare(holdSpy, "count", 1, 1000);
+        mouseRelease(key, key.width / 2, key.height / 2);
+        compare(clickedSpy.count, 1);
+    }
+
     function test_autoRepeatWhileHeld() {
         key.alternateChars = [];
         key.isSpecial = true;
         key.autoRepeat = true;
+        key.consumesHold = true;
         mousePress(key, key.width / 2, key.height / 2);
         wait(400);
         compare(clickedSpy.count, 0);
