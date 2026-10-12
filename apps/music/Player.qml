@@ -45,6 +45,11 @@ QtObject {
         _play(start);
     }
 
+    // Plays `tracks` once in a random order, leaving the shuffle mode as it was.
+    function shuffleTracks(tracks) {
+        playTracks(Queue.shuffled(tracks, Math.random), 0);
+    }
+
     // Appends to the queue, or starts playing when nothing is loaded.
     function enqueue(track) {
         if (!currentTrack)

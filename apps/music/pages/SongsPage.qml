@@ -32,10 +32,7 @@ Page {
             enabled: view.count > 0
             MenuItem {
                 text: qsTr("Shuffle")
-                onClicked: {
-                    page.music.player.shuffle = true;
-                    page.music.player.playTracks(page.shown, Math.floor(Math.random() * page.shown.length));
-                }
+                onClicked: page.music.player.shuffleTracks(page.shown)
             }
         }
 

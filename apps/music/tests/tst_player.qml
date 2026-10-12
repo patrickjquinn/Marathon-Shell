@@ -38,6 +38,16 @@ TestCase {
         verify(p.playing);
     }
 
+    function test_shuffleTracksLeavesTheModeAlone() {
+        const p = makePlayer();
+        p.shuffleTracks(tracks);
+        verify(!p.shuffle);
+        compare(p.queue.length, 3);
+        compare(p.index, 0);
+        verify(p.playing);
+        compare(p.queue.map(t => t.id).sort(), [1, 2, 3]);
+    }
+
     function test_toggle() {
         const p = makePlayer();
         p.playTracks(tracks, 0);

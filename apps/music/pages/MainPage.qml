@@ -35,10 +35,7 @@ Page {
             }
             MenuItem {
                 text: qsTr("Shuffle all")
-                onClicked: {
-                    page.music.player.shuffle = true;
-                    page.music.player.playTracks(page.music.tracks, Math.floor(Math.random() * page.music.tracks.length));
-                }
+                onClicked: page.music.player.shuffleTracks(page.music.tracks)
             }
         }
 

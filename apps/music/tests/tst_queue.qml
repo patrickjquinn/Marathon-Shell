@@ -33,4 +33,18 @@ TestCase {
         compare(Queue.previous(3, 1), 0);
         compare(Queue.previous(3, 0), 2);
     }
+
+    function test_shuffledKeepsEveryItemOnce() {
+        const list = [1, 2, 3, 4, 5];
+        let seed = 0.37;
+        const out = Queue.shuffled(list, () => (seed = (seed * 7.3) % 1));
+        compare(out.length, 5);
+        compare(out.slice().sort(), list);
+        compare(list, [1, 2, 3, 4, 5], "the input is untouched");
+        compare(Queue.shuffled([], Math.random), []);
+    }
+
+    function test_shuffledUsesTheRandomSource() {
+        compare(Queue.shuffled([1, 2, 3], () => 0), [2, 3, 1]);
+    }
 }

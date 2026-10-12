@@ -18,3 +18,15 @@ function next(count, index, shuffle, wrap, random) {
 function previous(count, index) {
     return count === 0 ? -1 : (index - 1 + count) % count;
 }
+
+// A shuffled copy of `list`; `random()` returns values in [0, 1).
+function shuffled(list, random) {
+    const out = list.slice();
+    for (let i = out.length - 1; i > 0; --i) {
+        const j = Math.floor(random() * (i + 1));
+        const t = out[i];
+        out[i] = out[j];
+        out[j] = t;
+    }
+    return out;
+}
