@@ -47,12 +47,12 @@ Page {
         }
 
         PullDownMenu {
-            visible: root.canBookmark
+            objectName: "pulley"
+            visible: root.canBookmark && !root.browser.isPrivateMode
 
             MenuItem {
                 objectName: "toggleBookmarkItem"
                 text: root.bookmarked ? qsTr("Remove bookmark for this page") : qsTr("Bookmark this page")
-                color: root.browser.isPrivateMode ? Theme.secondaryColor : Theme.primaryColor
                 onClicked: root.browser.toggleBookmark()
             }
         }
@@ -61,7 +61,9 @@ Page {
             objectName: "placeholder"
             enabled: root.shown.length === 0
             text: root.browser.bookmarks.length === 0 ? qsTr("No bookmarks yet") : qsTr("No matching bookmarks")
-            hintText: root.browser.bookmarks.length === 0 ? qsTr("Pull down to bookmark the page you're on") : qsTr("Try a different word")
+            hintText: root.browser.bookmarks.length > 0 ? qsTr("Try a different word")
+                    : root.browser.isPrivateMode ? qsTr("Bookmarks are off in private browsing")
+                    : qsTr("Pull down to bookmark the page you're on")
         }
 
         delegate: ListItem {

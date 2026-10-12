@@ -263,6 +263,18 @@ TestCase {
         compare(findChild(page, "placeholder").text, "No bookmarks yet");
     }
 
+    function test_bookmarksInPrivateModeHideThePulley() {
+        const app = makeApp();
+        app.setPrivateMode(true);
+        app.navigateTo("https://kde.org");
+        const page = push(app, "BookmarksPage.qml");
+        verify(!findChild(page, "pulley").visible);
+        app.setPrivateMode(false);
+        app.navigateTo("https://kde.org");
+        verify(findChild(page, "pulley").visible);
+        compare(findChild(page, "placeholder").hintText, "Bookmarks are off in private browsing");
+    }
+
     function test_bookmarkDeleteUsesRemorse() {
         const app = makeApp([{ url: "https://kde.org", title: "KDE" }]);
         const page = push(app, "BookmarksPage.qml");
