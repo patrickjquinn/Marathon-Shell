@@ -1,6 +1,6 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonOS.Shell
+import Sailfish.Silica 1.0 as Silica
 
 // Marathon DS · Quick Settings slider — BB10-modern hybrid.
 //
@@ -24,7 +24,6 @@ Item {
     // because its label uses MTypography.sizeFootnote, which does — a
     // three-digit value overflowed the fixed 36 px column and the leading
     // digit was occluded by the thumb, so max volume read "00".
-    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string iconName: "brightness"
     property real value: 50          // 0..100
@@ -34,7 +33,7 @@ Item {
 
     signal moved(real value)
 
-    implicitHeight: 44
+    implicitHeight: Silica.Theme.itemSizeSmall
 
     Accessible.role: Accessible.Slider
     Accessible.name: a11yName
@@ -44,9 +43,9 @@ Item {
     // Single source of truth for the value column. The track width below
     // subtracted a hardcoded 36 for it; widening the column without updating
     // that arithmetic pushed the value clean off the right edge of the card.
-    readonly property real valueWidth: Math.round(44 * scaleFactor)
-    readonly property real rowSpacing: 14
-    readonly property real iconSize: 22
+    readonly property real valueWidth: Math.round(Silica.Theme.fontSizeSmall * 2)
+    readonly property real rowSpacing: Silica.Theme.paddingLarge
+    readonly property real iconSize: Silica.Theme.iconSizeSmall
 
     Row {
         anchors.fill: parent
@@ -56,7 +55,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             name: root.iconName
             size: root.iconSize
-            color: MColors.textPrimary
+            color: Silica.Theme.primaryColor
         }
 
         // Track sits in the middle, sized to fill remaining space minus
@@ -73,33 +72,23 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                height: 8
-                radius: 4
-                color: MColors.whiteOverlay08
+                height: Math.round(Silica.Theme.paddingSmall)
+                radius: height / 2
+                color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.15)
 
                 Rectangle {
                     width: Math.max(parent.height, parent.width * root.fraction)
                     height: parent.height
                     radius: parent.radius
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop {
-                            position: 0
-                            color: MColors.marathonTealDark
-                        }
-                        GradientStop {
-                            position: 1
-                            color: MColors.marathonTealBright
-                        }
-                    }
+                    color: Silica.Theme.highlightColor
                 }
 
                 Rectangle {
                     id: thumbHalo
-                    width: 34
-                    height: 34
-                    radius: 17
-                    color: Qt.rgba(29 / 255, 233 / 255, 182 / 255, 0.22)
+                    width: Silica.Theme.itemSizeExtraSmall / 2
+                    height: width
+                    radius: width / 2
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.3)
                     x: thumb.x + thumb.width / 2 - width / 2
                     y: thumb.y + thumb.height / 2 - height / 2
                     z: 0
@@ -107,10 +96,10 @@ Item {
 
                 Rectangle {
                     id: thumb
-                    width: 26
-                    height: 26
-                    radius: 13
-                    color: "#ffffff"
+                    width: Math.round(Silica.Theme.iconSizeSmall * 0.7)
+                    height: width
+                    radius: width / 2
+                    color: Silica.Theme.highlightColor
                     x: Math.max(0, Math.min(track.width - width, track.width * root.fraction - width / 2))
                     y: (track.height - height) / 2
                     z: 1
@@ -126,16 +115,6 @@ Item {
                             damping: MMotion.dampingSpatialFor("tap")
                             epsilon: MMotion.epsilon
                         }
-                    }
-
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowBlur: 0.8
-                        shadowVerticalOffset: 2
-                        shadowHorizontalOffset: 0
-                        shadowColor: Qt.rgba(0, 0, 0, 0.5)
-                        shadowOpacity: 1.0
                     }
                 }
 
@@ -189,10 +168,9 @@ Item {
             width: root.valueWidth
             horizontalAlignment: Text.AlignRight
             text: Math.round(root.value)
-            color: MColors.textPrimary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-            font.weight: MTypography.weightDemiBold
+            color: Silica.Theme.secondaryColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeSmall
             font.features: ({
                     "tnum": 1
                 })
