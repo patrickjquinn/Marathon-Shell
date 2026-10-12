@@ -14,6 +14,7 @@ ApplicationWindow {
     // "/emergency" comes from the lock screen's Emergency affordance: dialer only.
     property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
     readonly property bool emergencyOnly: route === "/emergency"
+    property string routeParams: typeof MARATHON_APP_ROUTE_PARAMS !== "undefined" ? MARATHON_APP_ROUTE_PARAMS : ""
 
     property bool hasContactsPermission: false
     readonly property var contacts: hasContactsPermission ? Contacts.contacts : []
@@ -49,6 +50,19 @@ ApplicationWindow {
     function contactName(number) {
         const match = contacts.find(c => Phone.sameNumber(c.phone, number));
         return match ? match.name : "";
+    }
+
+    // "/call" fills the dialer; another app never places the call itself.
+    function handleRoute(name, params) {
+        if (name !== "/call" || inCall)
+            return;
+        const number = String((params && params.number) || "").trim();
+        if (number.length === 0)
+            return;
+        dialedNumber = number;
+        const page = pageStack.currentPage;
+        if (page && page.tabs)
+            page.tabs.moveTo(0);
     }
 
     function call(number) {
@@ -152,6 +166,18 @@ ApplicationWindow {
     }
 
     Connections {
+        target: typeof NavigationRouter !== "undefined" ? NavigationRouter : null
+        ignoreUnknownSignals: true
+
+        function onDeepLinkRequested(appId, name, params) {
+            if (appId === root.appId) {
+                root.activate();
+                root.handleRoute(name, params);
+            }
+        }
+    }
+
+    Connections {
         target: Permissions
 
         function onPermissionGranted(appId, permission) {
@@ -172,6 +198,13 @@ ApplicationWindow {
             callName = contactName(callNumber);
             callStartedAt = Date.now();
             showCallPage();
+        }
+        if (route === "/call") {
+            let params = {};
+            try {
+                params = JSON.parse(routeParams || "{}");
+            } catch (e) {}
+            Qt.callLater(handleRoute, route, params);
         }
     }
 }

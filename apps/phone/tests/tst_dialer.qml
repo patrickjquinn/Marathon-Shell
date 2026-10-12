@@ -164,4 +164,17 @@ TestCase {
         type(app, "5551234");
         verify(findChild(app.pageStack.currentPage, "callButton").enabled);
     }
+
+    function test_callRouteOpensDialerWithNumberWithoutDialling() {
+        const app = makeApp({ route: "/call", routeParams: JSON.stringify({ number: "+353 87 123 4567" }) });
+        tryCompare(app, "dialedNumber", "+353 87 123 4567");
+        compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
+    }
+
+    function test_liveCallRouteFillsDialer() {
+        const app = makeApp();
+        app.handleRoute("/call", { number: "0871234567" });
+        compare(app.dialedNumber, "0871234567");
+        compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
+    }
 }
