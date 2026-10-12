@@ -308,52 +308,6 @@ QStringList MusicLibraryManager::getScanPaths() {
     return paths;
 }
 
-QVariantList MusicLibraryManager::getAlbums(const QString &artistName) {
-    QVariantList list;
-
-    QSqlQuery    query(m_database);
-    query.prepare("SELECT DISTINCT album, COUNT(*) as track_count FROM tracks WHERE artist = ? "
-                  "GROUP BY album ORDER BY album");
-    query.addBindValue(artistName);
-
-    if (query.exec()) {
-        while (query.next()) {
-            QVariantMap map;
-            map["name"]       = query.value(0).toString();
-            map["trackCount"] = query.value(1).toInt();
-            map["artist"]     = artistName;
-            list.append(map);
-        }
-    }
-
-    return list;
-}
-
-QVariantList MusicLibraryManager::getTracks(const QString &albumName) {
-    QVariantList list;
-
-    QSqlQuery    query(m_database);
-    query.prepare("SELECT id, path, title, artist, album, duration, track_number FROM tracks WHERE "
-                  "album = ? ORDER BY track_number, title");
-    query.addBindValue(albumName);
-
-    if (query.exec()) {
-        while (query.next()) {
-            QVariantMap map;
-            map["id"]          = query.value(0).toInt();
-            map["path"]        = "file://" + query.value(1).toString();
-            map["title"]       = query.value(2).toString();
-            map["artist"]      = query.value(3).toString();
-            map["album"]       = query.value(4).toString();
-            map["duration"]    = query.value(5).toInt();
-            map["trackNumber"] = query.value(6).toInt();
-            list.append(map);
-        }
-    }
-
-    return list;
-}
-
 QVariantList MusicLibraryManager::getAllTracks() {
     QVariantList list;
 
@@ -374,28 +328,6 @@ QVariantList MusicLibraryManager::getAllTracks() {
     }
 
     return list;
-}
-
-QVariantMap MusicLibraryManager::getTrackMetadata(int trackId) {
-    QVariantMap map;
-
-    QSqlQuery   query(m_database);
-    query.prepare("SELECT id, path, title, artist, album, duration, track_number, year FROM tracks "
-                  "WHERE id = ?");
-    query.addBindValue(trackId);
-
-    if (query.exec() && query.next()) {
-        map["id"]          = query.value(0).toInt();
-        map["path"]        = "file://" + query.value(1).toString();
-        map["title"]       = query.value(2).toString();
-        map["artist"]      = query.value(3).toString();
-        map["album"]       = query.value(4).toString();
-        map["duration"]    = query.value(5).toInt();
-        map["trackNumber"] = query.value(6).toInt();
-        map["year"]        = query.value(7).toString();
-    }
-
-    return map;
 }
 
 void MusicLibraryManager::onDirectoryChanged(const QString &path) {

@@ -67,10 +67,7 @@ class MusicLibraryManager : public QObject {
 
     Q_INVOKABLE void         scanLibrary();
     Q_INVOKABLE void         scanLibraryAsync();
-    Q_INVOKABLE QVariantList getAlbums(const QString &artistName);
-    Q_INVOKABLE QVariantList getTracks(const QString &albumName);
     Q_INVOKABLE QVariantList getAllTracks();
-    Q_INVOKABLE QVariantMap  getTrackMetadata(int trackId);
 
   signals:
     void libraryChanged();
