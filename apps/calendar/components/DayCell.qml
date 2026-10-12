@@ -3,7 +3,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../CalendarLogic.js" as Logic
 
-// A DatePicker day with a dot under days that have events.
+// A DatePicker day with a dot per event (up to three) under it.
 MouseArea {
     id: cell
 
@@ -46,18 +46,26 @@ MouseArea {
         color: cell.pressed && cell.containsMouse || cell.selected || cell.today ? Theme.highlightColor : cell.inMonth ? Theme.primaryColor : Theme.secondaryColor
     }
 
-    Rectangle {
-        objectName: "eventDot"
+    Row {
+        objectName: "eventDots"
         anchors {
             horizontalCenter: parent.horizontalCenter
             bottom: parent.bottom
             bottomMargin: Theme.paddingMedium
         }
-        width: Theme.paddingSmall
-        height: width
-        radius: width / 2
+        spacing: Theme.paddingSmall / 2
         visible: cell.eventCount > 0
-        color: cell.inMonth ? Theme.highlightColor : Theme.secondaryHighlightColor
+
+        Repeater {
+            model: Math.min(cell.eventCount, 3)
+
+            Rectangle {
+                width: Theme.paddingSmall
+                height: width
+                radius: width / 2
+                color: cell.inMonth ? Theme.highlightColor : Theme.secondaryHighlightColor
+            }
+        }
     }
 
     FocusFrame {

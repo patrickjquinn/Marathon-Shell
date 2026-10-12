@@ -70,7 +70,7 @@ TestCase {
     }
 
     function test_dayCellsMarkEvents() {
-        const app = makeApp([ev(1)]);
+        const app = makeApp([ev(1), ev(2), ev(3), ev(4)]);
         const picker = child(app.pageStack.currentPage, "datePicker");
         let dots = [];
         tryVerify(() => {
@@ -78,7 +78,7 @@ TestCase {
             const walk = item => {
                 for (let i = 0; i < item.children.length; ++i) {
                     const c = item.children[i];
-                    if (c.objectName === "eventDot" && c.visible)
+                    if (c.objectName === "eventDots" && c.visible)
                         dots.push(c);
                     walk(c);
                 }
@@ -87,8 +87,9 @@ TestCase {
             return dots.length > 0;
         }, 3000);
         const cell = dots[0].parent;
-        compare(cell.eventCount, 1);
-        verify(cell.Accessible.name.indexOf("1 event") !== -1);
+        compare(cell.eventCount, 4);
+        compare(dots[0].children.length - 1, 3);
+        verify(cell.Accessible.name.indexOf("4 events") !== -1);
     }
 
     function test_createEvent() {
