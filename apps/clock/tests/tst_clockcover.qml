@@ -58,8 +58,25 @@ TestCase {
         t.countdown.start();
         compare(t.cover.mode, "timer");
         compare(findChild(t.cover, "coverTitle").text, "1:30");
-        findChild(t.cover, "pauseTimer").triggered();
+        const toggle = findChild(t.cover, "toggleTimer");
+        compare(toggle.iconSource, "image://theme/icon-cover-pause");
+        toggle.triggered();
         verify(!t.countdown.running);
+    }
+
+    function test_pausedTimerStaysAndResumes() {
+        const t = make([{ id: "a", time: "09:00", label: "", enabled: true }]);
+        t.countdown.set(90);
+        t.countdown.start();
+        t.countdown.pause();
+        compare(t.cover.mode, "timer");
+        compare(findChild(t.cover, "coverDetail").text, "Paused");
+        const toggle = findChild(t.cover, "toggleTimer");
+        compare(toggle.iconSource, "image://theme/icon-cover-play");
+        toggle.triggered();
+        verify(t.countdown.running);
+        t.countdown.reset();
+        compare(t.cover.mode, "alarm");
     }
 
     function test_runningStopwatch() {

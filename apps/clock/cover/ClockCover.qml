@@ -11,7 +11,10 @@ CoverBackground {
     required property QtObject countdown
     property date now: new Date()
     readonly property var next: Logic.nextAlarm(alarms, now)
-    readonly property string mode: countdown.running ? "timer" : stopwatch.running ? "stopwatch" : next ? "alarm" : "idle"
+    readonly property string mode: countdown.running ? "timer"
+        : stopwatch.running ? "stopwatch"
+        : countdown.remaining > 0 ? "timer"
+        : next ? "alarm" : "idle"
 
     signal newAlarmRequested
 
@@ -68,9 +71,12 @@ CoverBackground {
             font.pixelSize: Theme.fontSizeMedium
         }
         Label {
+            objectName: "coverDetail"
             width: parent.width
-            visible: root.mode === "alarm"
-            text: root.next ? root.dayText(root.next.when) : ""
+            visible: text !== ""
+            text: root.mode === "alarm" && root.next ? root.dayText(root.next.when)
+                : root.mode === "timer" && !root.countdown.running ? qsTr("Paused")
+                : ""
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeMedium
             color: Theme.secondaryColor
@@ -81,9 +87,9 @@ CoverBackground {
         enabled: root.mode === "timer"
 
         CoverAction {
-            objectName: "pauseTimer"
-            iconSource: "image://theme/icon-cover-pause"
-            onTriggered: root.countdown.pause()
+            objectName: "toggleTimer"
+            iconSource: root.countdown.running ? "image://theme/icon-cover-pause" : "image://theme/icon-cover-play"
+            onTriggered: root.countdown.running ? root.countdown.pause() : root.countdown.start()
         }
     }
     CoverActionList {
