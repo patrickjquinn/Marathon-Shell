@@ -6,13 +6,16 @@ Item {
     id: alarmOverlay
 
     property var currentAlarm: null
+    readonly property var settings: {
+        const id = currentAlarm ? currentAlarm.id : "";
+        return AlarmManagerCpp.activeAlarms.find(a => a.id === id) || {};
+    }
+    readonly property bool canSnooze: settings.snoozeEnabled !== false
+    readonly property int snoozeMinutes: settings.snoozeDuration || 10
 
     function show(alarm) {
         currentAlarm = alarm;
         visible = true;
-        swipeUpText.opacity = 1;
-        if (!MMotion.reduceMotion)
-            swipeAnimation.start();
     }
 
     function dismiss() {
@@ -20,7 +23,6 @@ Item {
             AlarmManagerCpp.dismissAlarm(currentAlarm.id);
             currentAlarm = null;
         }
-        swipeAnimation.stop();
         visible = false;
     }
 
@@ -29,7 +31,6 @@ Item {
             AlarmManagerCpp.snoozeAlarm(currentAlarm.id);
             currentAlarm = null;
         }
-        swipeAnimation.stop();
         visible = false;
     }
 
@@ -44,6 +45,7 @@ Item {
         property string iconName
         property string label
         property bool emphasised: false
+        property bool holdToActivate: false
 
         signal activated
 
@@ -59,9 +61,17 @@ Item {
             height: width
             iconName: action.iconName
             iconSize: Silica.Theme.iconSizeMedium
-            variant: action.emphasised ? "primary" : "secondary"
+            variant: action.emphasised || holdArea.pressed ? "primary" : "secondary"
             a11yName: action.label
             onClicked: action.activated()
+
+            MouseArea {
+                id: holdArea
+
+                anchors.fill: parent
+                enabled: action.holdToActivate
+                onPressAndHold: action.activated()
+            }
         }
 
         Silica.Label {
@@ -79,28 +89,7 @@ Item {
     }
 
     MouseArea {
-        property real startY: 0
-        property bool dragging: false
-
         anchors.fill: parent
-        preventStealing: true
-        onPressed: mouse => {
-            startY = mouse.y;
-            dragging = false;
-        }
-        onPositionChanged: mouse => {
-            if (Math.abs(mouse.y - startY) > 20)
-                dragging = true;
-
-            if (dragging) {
-                var delta = mouse.y - startY;
-                if (delta < -100)
-                    alarmOverlay.dismiss();
-            }
-        }
-        onReleased: {
-            dragging = false;
-        }
     }
 
     Column {
@@ -121,7 +110,7 @@ Item {
             text: SystemStatusStore.timeString
             color: Silica.Theme.primaryColor
             font.family: Silica.Theme.fontFamilyHeading
-            font.pixelSize: Silica.Theme.fontSizeHuge * 1.5
+            font.pixelSize: Silica.Theme.fontSizeHuge
             font.weight: Font.Light
         }
 
@@ -144,61 +133,34 @@ Item {
             spacing: Silica.Theme.itemSizeMedium
 
             AlarmAction {
-                iconName: "clock"
-                label: "Snooze"
-                onActivated: {
-                    HapticManager.medium();
-                    alarmOverlay.snooze();
-                }
-            }
-
-            AlarmAction {
+                objectName: "dismissAction"
                 iconName: "x"
-                label: "Dismiss"
-                emphasised: true
+                label: qsTr("Dismiss")
+                holdToActivate: true
                 onActivated: {
                     HapticManager.medium();
                     alarmOverlay.dismiss();
                 }
             }
-        }
 
-        Item {
-            width: parent.width
-            height: Silica.Theme.paddingLarge
+            AlarmAction {
+                objectName: "snoozeAction"
+                visible: alarmOverlay.canSnooze
+                iconName: "clock"
+                label: qsTr("Snooze %n min", "", alarmOverlay.snoozeMinutes)
+                emphasised: true
+                onActivated: {
+                    HapticManager.medium();
+                    alarmOverlay.snooze();
+                }
+            }
         }
 
         Silica.Label {
-            id: swipeUpText
-
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "↑ Swipe up to dismiss"
+            text: qsTr("Hold Dismiss to stop the alarm")
             color: Silica.Theme.secondaryColor
             font.pixelSize: Silica.Theme.fontSizeExtraSmall
-
-            SequentialAnimation {
-                id: swipeAnimation
-
-                loops: Animation.Infinite
-
-                NumberAnimation {
-                    target: swipeUpText
-                    property: "opacity"
-                    from: 1
-                    to: 0.3
-                    duration: 1500
-                    easing.type: Easing.InOutQuad
-                }
-
-                NumberAnimation {
-                    target: swipeUpText
-                    property: "opacity"
-                    from: 0.3
-                    to: 1
-                    duration: 1500
-                    easing.type: Easing.InOutQuad
-                }
-            }
         }
     }
 }
