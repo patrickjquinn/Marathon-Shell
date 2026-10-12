@@ -99,7 +99,7 @@ Page {
             }
             MenuItem {
                 objectName: "restartItem"
-                visible: !!page.app.currentSession && page.app.currentSession.failed
+                visible: !!page.app.currentSession && !page.app.currentSession.running
                 text: qsTr("Restart session")
                 onClicked: page.app.currentSession.start()
             }
@@ -146,6 +146,18 @@ Page {
                         onTyped: flick.toLive()
                     }
                 }
+            }
+
+            Label {
+                objectName: "exitedHint"
+                anchors {
+                    bottom: keyRow.visible ? keyRow.top : parent.bottom
+                    bottomMargin: Theme.paddingLarge
+                    horizontalCenter: parent.horizontalCenter
+                }
+                visible: !!page.app.currentSession && !page.app.currentSession.running && !page.app.currentSession.failed
+                text: qsTr("Process exited. Tap to restart")
+                color: Theme.secondaryHighlightColor
             }
 
             VirtualKeyRow {

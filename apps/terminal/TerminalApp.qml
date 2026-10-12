@@ -49,14 +49,13 @@ ApplicationWindow {
         session.destroy();
     }
 
+    // The last session keeps its output and waits for a tap to restart.
     function _finished(session) {
         const index = sessions.indexOf(session);
-        if (index < 0 || session.failed)
+        if (index < 0 || session.failed || sessions.length < 2)
             return;
-        if (sessions.length > 1)
-            closeSession(index);
-        else
-            session.start();
+        closeSession(index);
+        Notices.show(qsTr("Session %1 closed").arg(index + 1));
     }
 
     appId: "terminal"

@@ -140,6 +140,10 @@ Item {
             anchors.fill: parent
             preventStealing: selecting
             onClicked: {
+                if (root.session && !root.session.running && !root.session.failed) {
+                    root.session.start();
+                    return;
+                }
                 root.clearSelection();
                 root.forceFocus();
                 Qt.inputMethod.show();

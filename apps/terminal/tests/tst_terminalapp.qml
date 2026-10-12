@@ -80,17 +80,26 @@ TestCase {
         const app = makeApp();
         app.newSession();
         const second = app.sessions[1];
+        Notices._queue = [];
+        Notices._dismissCurrent();
         app.sessions[0].finished(0);
         compare(app.sessions.length, 1);
         compare(app.currentSession, second);
+        compare(Notices._current.text, "Session 1 closed");
     }
 
-    function test_finishedLastShellRestarts() {
+    function test_finishedLastShellWaitsForATap() {
         const app = makeApp();
         const only = app.sessions[0];
+        only.running = false;
         only.finished(0);
         compare(app.sessions.length, 1);
+        compare(only.starts, 1, "the output stays until the user restarts");
+        const p = page(app);
+        verify(findChild(p, "exitedHint").visible);
+        mouseClick(findChild(p, "touchArea"));
         compare(only.starts, 2);
+        verify(!findChild(p, "exitedHint").visible);
     }
 
     function test_shellThatCantStartIsNotRespawned() {

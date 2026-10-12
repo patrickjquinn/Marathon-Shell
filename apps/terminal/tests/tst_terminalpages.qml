@@ -63,6 +63,7 @@ TestCase {
         const app = makeApp();
         openMenu(app);
         verify(!item(app, "restartItem").visible);
+        app.currentSession.running = false;
         app.currentSession.failed = true;
         verify(item(app, "restartItem").visible);
         item(app, "restartItem").clicked();
@@ -111,6 +112,7 @@ TestCase {
         const app = makeApp();
         app.newSession();
         app.pageStack.currentPage.currentView.selection = "x";
+        app.currentSession.running = false;
         app.currentSession.failed = true;
         const menu = openMenu(app);
         const names = ["settingsItem", "sessionsItem", "newSessionItem", "pasteItem", "copyItem", "restartItem"];
