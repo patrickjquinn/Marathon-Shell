@@ -37,7 +37,7 @@ QHash<QString, QString> KeelHost::environment() const {
         {QStringLiteral("KEEL_SHELL_PROTOCOL"), QStringLiteral("1")},
         {QStringLiteral("KEEL_SHELL_DBUS"), address()},
         {QStringLiteral("KEEL_SHELL_COVER_TITLE"), QStringLiteral("keel:cover")},
-        {QStringLiteral("KEEL_SHELL_COVER_ENABLED"), QStringLiteral("0")},
+        {QStringLiteral("KEEL_SHELL_COVER_ENABLED"), QStringLiteral("1")},
         {QStringLiteral("KEEL_SHELL_DPI"), QString::number(m_dpi)},
     };
     static const QRegularExpression nonAlnum(QStringLiteral("[^A-Z0-9]"));
@@ -67,6 +67,13 @@ void KeelHost::setActive(bool active) {
         return;
     m_active = active;
     emit ActiveChanged(m_active);
+}
+
+void KeelHost::setCoverStatus(int status) {
+    if (status == m_coverStatus)
+        return;
+    m_coverStatus = status;
+    emit CoverStatusChanged(m_coverStatus);
 }
 
 void KeelHost::requestClose() {

@@ -19,6 +19,7 @@ class TestKeelHost : public QObject {
 
     QTemporaryDir runtime;
     QVariantMap   m_last;
+    int           m_coverStatus = -1;
 
     static QDBusConnection peer(const QString &address, const QString &name) {
         return QDBusConnection::connectToPeer(address, name);
@@ -48,6 +49,9 @@ class TestKeelHost : public QObject {
     }
 
   public slots:
+    void onCoverStatus(int status) {
+        m_coverStatus = status;
+    }
     void onAmbience(const QVariantMap &m) {
         m_last = m;
     }
@@ -62,7 +66,7 @@ class TestKeelHost : public QObject {
         QCOMPARE(env.value("KEEL_SHELL"), QStringLiteral("1"));
         QCOMPARE(env.value("KEEL_SHELL_PROTOCOL"), QStringLiteral("1"));
         QCOMPARE(env.value("KEEL_SHELL_DBUS"), host.address());
-        QCOMPARE(env.value("KEEL_SHELL_COVER_ENABLED"), QStringLiteral("0"));
+        QCOMPARE(env.value("KEEL_SHELL_COVER_ENABLED"), QStringLiteral("1"));
         QCOMPARE(env.value("KEEL_SHELL_DPI"), QStringLiteral("144"));
         QCOMPARE(env.value("KEEL_AMBIENCE_COLOR_HIGHLIGHT"), QStringLiteral("#00ffaa"));
         QCOMPARE(env.value("KEEL_AMBIENCE_COLOR_SCHEME"), QStringLiteral("lightondark"));
@@ -87,6 +91,25 @@ class TestKeelHost : public QObject {
         QCOMPARE(property(bus, "ProtocolVersion").toInt(), 1);
         QCOMPARE(property(bus, "Active").toBool(), true);
         QDBusConnection::disconnectFromPeer("t1");
+    }
+
+    void coverStatusReachesPeer() {
+        KeelHost host(144);
+        QVERIFY(host.start(runtime.path()));
+        QDBusConnection bus = peer(host.address(), "tc");
+        QTRY_VERIFY(bus.isConnected());
+        QVERIFY(bus.connect(QString(), kPath, kIface, "CoverStatusChanged", this,
+                            SLOT(onCoverStatus(int))));
+        QCOMPARE(call(bus, kIface, "Ping").toString(), QStringLiteral("marathon"));
+        QCOMPARE(property(bus, "CoverStatus").toInt(), 0);
+        host.setCoverStatus(1);
+        QTRY_COMPARE(m_coverStatus, 1);
+        QCOMPARE(property(bus, "CoverStatus").toInt(), 1);
+        m_coverStatus = -1;
+        host.setCoverStatus(1);
+        QTest::qWait(100);
+        QCOMPARE(m_coverStatus, -1);
+        QDBusConnection::disconnectFromPeer("tc");
     }
 
     void ambienceChangeReachesPeer() {

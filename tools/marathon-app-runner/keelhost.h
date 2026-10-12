@@ -38,6 +38,8 @@ class KeelHost : public QObject {
 
     void setAmbience(const QVariantMap &ambience);
     void setActive(bool active);
+    // 1 while the app's cover is on screen in the task switcher.
+    void setCoverStatus(int status);
     void requestClose();
 
     int protocolVersion() const {
@@ -53,7 +55,7 @@ class KeelHost : public QObject {
         return m_active;
     }
     int coverStatus() const {
-        return 0;
+        return m_coverStatus;
     }
     QVariantMap ambience() const {
         return m_ambience;
@@ -84,6 +86,7 @@ class KeelHost : public QObject {
     QList<QDBusConnection> m_peers;
     QVariantMap            m_ambience;
     bool                   m_active             = false;
+    int                    m_coverStatus        = 0;
     int                    m_contentOrientation = 0;
     int                    m_dpi;
 };

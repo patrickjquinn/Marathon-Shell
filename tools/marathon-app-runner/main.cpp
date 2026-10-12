@@ -198,6 +198,16 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
             return false;
         return invokeBool("handleForward");
     }
+    // The shell shows (1) or hides (0) the app's cover in the task switcher.
+    void SetCoverStatus(int status) {
+        if (verifyCallerIsShell() && m_keelHost)
+            m_keelHost->setCoverStatus(status);
+    }
+
+  public:
+    void setKeelHost(KeelHost *host) {
+        m_keelHost = host;
+    }
 
   private slots:
     void onMinimizeRequested() {
@@ -247,6 +257,8 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
 
     qint64            m_expectedShellPid  = -1;
     QPointer<QObject> m_root;
+
+    QPointer<KeelHost> m_keelHost;
     bool              m_minimizeRequested = false;
 };
 
@@ -1361,6 +1373,7 @@ int main(int argc, char *argv[]) {
     view.show();
 
     AppRunnerLifecycleObject lifecycleObj;
+    lifecycleObj.setKeelHost(keelHost.get());
     {
         // Use the app-id rather than the PID. The runner runs inside a
         // bwrap PID namespace where applicationPid() returns 2 for
