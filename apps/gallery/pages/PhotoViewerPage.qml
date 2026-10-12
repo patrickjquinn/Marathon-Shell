@@ -1,107 +1,140 @@
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Modals
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Sailfish.Gallery 1.0
+import Sailfish.Share 1.0
+import "../GalleryModel.js" as Model
 
-Rectangle {
-    id: photoViewer
+FullscreenContentPage {
+    id: root
 
-    property var photo: null
-    readonly property alias deleteConfirm: deleteConfirm
+    property var store
+    property var photos: []
+    property alias currentIndex: slideshow.currentIndex
+    property bool overlayShown: true
+    readonly property var photo: photos.length > 0 ? photos[Math.max(0, currentIndex)] : null
 
-    function show(photoData) {
-        photo = photoData;
-        visible = true;
-    }
-
-    function hide() {
-        deleteConfirm.hide();
-        visible = false;
-    }
-
-    anchors.fill: parent
-    color: MColors.background
-    visible: false
-    z: 2000
-
-    MouseArea {
-        anchors.fill: parent
-        onClicked: function(mouse) {
-            if (mouse.y > parent.height * 0.1 && mouse.y < parent.height * 0.9)
-                photoViewer.hide();
+    function deleteCurrent() {
+        const id = photo.id;
+        const index = currentIndex;
+        store.deletePhoto(id);
+        const rest = Model.withoutId(photos, id);
+        if (rest.length === 0) {
+            pageStack.pop();
+            return;
         }
+        photos = rest;
+        currentIndex = Math.min(index, rest.length - 1);
     }
 
-    Image {
-        id: photoImage
+    // Vertical drags open the pulley, so the page goes back sideways.
+    navigationStyle: PageNavigation.Horizontal
+    onStatusChanged: if (status === PageStatus.Active) forceActiveFocus()
+    Keys.onLeftPressed: slideshow.decrementCurrentIndex()
+    Keys.onRightPressed: slideshow.incrementCurrentIndex()
+    Keys.onEscapePressed: pageStack.pop()
 
-        anchors.centerIn: parent
-        width: parent.width
-        height: parent.height
-        source: photoViewer.photo ? photoViewer.photo.path : ""
-        sourceSize: Qt.size(width, height)
-        fillMode: Image.PreserveAspectFit
-        asynchronous: true
-        cache: true
+    Rectangle {
+        anchors.fill: parent
+        color: root.backgroundColor
+    }
 
-        PinchArea {
+    SilicaFlickable {
+        anchors.fill: parent
+        contentHeight: height
+        interactive: !(slideshow.currentItem as ImageViewer)?.zoomed
+
+        PullDownMenu {
+            id: menu
+
+            objectName: "menu"
+
+            MenuItem {
+                objectName: "deleteAction"
+                text: qsTr("Delete")
+                onClicked: remorse.execute(qsTr("Deleted"), function () { root.deleteCurrent(); })
+            }
+            MenuItem {
+                objectName: "shareAction"
+                text: qsTr("Share")
+                visible: KeelShareService.available()
+                onClicked: share.trigger()
+            }
+            MenuItem {
+                objectName: "detailsAction"
+                text: qsTr("Details")
+                onClicked: pageStack.push(Qt.resolvedUrl("PhotoDetailsPage.qml"), { photo: root.photo })
+            }
+        }
+
+        SlideshowView {
+            id: slideshow
+
+            objectName: "slideshow"
             anchors.fill: parent
-            pinch.target: photoImage
-            pinch.minimumScale: 0.5
-            pinch.maximumScale: 3
-            pinch.dragAxis: Pinch.XAndYAxis
+            model: root.photos
+
+            delegate: ImageViewer {
+                required property var modelData
+
+                width: slideshow.width
+                height: slideshow.height
+                source: modelData.path
+                active: PathView.isCurrentItem
+                viewMoving: slideshow.moving
+                Accessible.role: Accessible.Graphic
+                Accessible.name: Model.fileName(modelData)
+                onClicked: root.overlayShown = !root.overlayShown
+            }
         }
     }
 
     Rectangle {
-        anchors.top: parent.top
+        objectName: "overlay"
         width: parent.width
-        height: Constants.actionBarHeight
-        color: MColors.overlayLight
+        height: counterLabel.y + counterLabel.height + Theme.paddingLarge * 2
+        visible: opacity > 0
+        opacity: root.overlayShown && !menu.active ? 1 : 0
+        gradient: Gradient {
+            GradientStop { position: 0; color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay) }
+            GradientStop { position: 1; color: "transparent" }
+        }
 
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: MSpacing.md
-            spacing: MSpacing.md
+        Behavior on opacity { FadeAnimator {} }
 
-            MIconButton {
-                Layout.alignment: Qt.AlignVCenter
-                iconName: "x"
-                iconSize: Constants.iconSizeLarge
-                iconColor: MColors.textPrimary
-                a11yName: "Close photo"
-                onClicked: photoViewer.hide()
-            }
+        Label {
+            id: titleLabel
 
-            Item {
-                Layout.fillWidth: true
-            }
+            x: Theme.horizontalPageMargin
+            y: Theme.paddingLarge
+            width: parent.width - 2 * Theme.horizontalPageMargin
+            text: root.photo && root.photo.timestamp
+                  ? Format.formatDate(new Date(root.photo.timestamp), Formatter.DateLong) : Model.fileName(root.photo)
+            truncationMode: TruncationMode.Fade
+            color: Theme.lightPrimaryColor
+        }
+        Label {
+            id: counterLabel
 
-            MIconButton {
-                Layout.alignment: Qt.AlignVCenter
-                iconName: "trash"
-                iconSize: Constants.iconSizeLarge
-                iconColor: MColors.textPrimary
-                a11yName: "Delete photo"
-                visible: photoViewer.photo !== null
-                onClicked: deleteConfirm.show()
-            }
+            anchors.top: titleLabel.bottom
+            x: Theme.horizontalPageMargin
+            text: qsTr("%1 of %2").arg(root.currentIndex + 1).arg(root.photos.length)
+            font.pixelSize: Theme.fontSizeExtraSmall
+            color: Theme.lightSecondaryColor
         }
     }
 
-    MConfirmDialog {
-        id: deleteConfirm
+    RemorsePopup {
+        id: remorse
 
-        title: "Delete this photo?"
-        message: "The photo will be permanently removed from this device."
-        confirmText: "Delete photo"
-        destructive: true
-        onCancelled: hide()
-        onConfirmed: {
-            MediaLibraryManager.deleteMedia(photoViewer.photo.id);
-            photoViewer.hide();
-        }
+        objectName: "remorse"
+    }
+
+    ShareAction {
+        id: share
+
+        mimeType: "image/*"
+        title: qsTr("Share image")
+        resources: root.photo ? [root.photo.path] : []
     }
 }

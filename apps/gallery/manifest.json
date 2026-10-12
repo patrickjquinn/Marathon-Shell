@@ -3,7 +3,6 @@
   "name": "Gallery",
   "version": "1.0.0",
   "entryPoint": "GalleryApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],

@@ -1,0 +1,2 @@
+module Marathon.Platform
+singleton MediaLibrary 1.0 MediaLibrary.qml
