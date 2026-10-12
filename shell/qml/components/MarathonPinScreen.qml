@@ -331,7 +331,7 @@ Item {
                         Behavior on scale {
                             NumberAnimation {
                                 duration: 150
-                                easing.type: Easing.OutBack
+                                easing.type: Easing.OutQuad
                             }
                         }
                     }

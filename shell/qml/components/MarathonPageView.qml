@@ -62,7 +62,7 @@ Item {
     function nudgeAtBoundary(direction) {
         nudgeAnimation.stop();
         nudgeAnimation.fromX = pageView.contentX;
-        nudgeAnimation.peakX = pageView.contentX + direction * 24;
+        nudgeAnimation.peakX = pageView.contentX + direction * Silica.Theme.paddingLarge;
         nudgeAnimation.start();
     }
 
@@ -84,7 +84,7 @@ Item {
             property: "contentX"
             to: nudgeAnimation.fromX
             duration: 200
-            easing.type: Easing.OutBack
+            easing.type: Easing.OutCubic
         }
     }
 
