@@ -989,19 +989,6 @@ bool SettingsManager::isNotificationsEnabledForApp(const QString &appId) const {
     return value.toBool();
 }
 
-void SettingsManager::setNotificationsEnabledForApp(const QString &appId, bool enabled) {
-    if (appId.isEmpty()) {
-        return;
-    }
-    const bool current = isNotificationsEnabledForApp(appId);
-    if (current == enabled) {
-        return;
-    }
-    m_appNotificationSettings.insert(appId, enabled);
-    emit appNotificationSettingsChanged();
-    save();
-}
-
 void SettingsManager::setShowFrequentApps(bool enabled) {
     if (m_showFrequentApps == enabled) {
         return;
