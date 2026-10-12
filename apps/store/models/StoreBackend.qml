@@ -64,57 +64,57 @@ QtObject {
     readonly property var categories: [
         {
             "id": "audiovideo",
-            "label": "Audio & Video",
+            "label": qsTr("Audio & Video"),
             "icon": "music"
         },
         {
             "id": "development",
-            "label": "Developer Tools",
+            "label": qsTr("Developer Tools"),
             "icon": "developer-mode"
         },
         {
             "id": "education",
-            "label": "Education",
+            "label": qsTr("Education"),
             "icon": "education"
         },
         {
             "id": "game",
-            "label": "Games",
+            "label": qsTr("Games"),
             "icon": "game"
         },
         {
             "id": "graphics",
-            "label": "Graphics & Photo",
+            "label": qsTr("Graphics & Photo"),
             "icon": "graphics"
         },
         {
             "id": "healthfitness",
-            "label": "Health & Fitness",
+            "label": qsTr("Health & Fitness"),
             "icon": "health"
         },
         {
             "id": "network",
-            "label": "Internet",
+            "label": qsTr("Internet"),
             "icon": "browser"
         },
         {
             "id": "office",
-            "label": "Productivity",
+            "label": qsTr("Productivity"),
             "icon": "office"
         },
         {
             "id": "science",
-            "label": "Science",
+            "label": qsTr("Science"),
             "icon": "science"
         },
         {
             "id": "system",
-            "label": "System",
+            "label": qsTr("System"),
             "icon": "settings"
         },
         {
             "id": "utility",
-            "label": "Utilities",
+            "label": qsTr("Utilities"),
             "icon": "utility"
         }
     ]
@@ -493,7 +493,7 @@ QtObject {
             return categoryName([].concat(app.main_categories)[0]);
         if (app && app.categories && app.categories.length > 0)
             return categoryName(app.categories[0]);
-        return "App";
+        return qsTr("App");
     }
 
     function ensureCategory(app) {
@@ -623,24 +623,24 @@ QtObject {
         if (!(seconds > 0) || days < 0)
             return "";
         if (days < 1)
-            return "today";
+            return qsTr("today");
         if (days < 2)
-            return "yesterday";
+            return qsTr("yesterday");
         if (days < 30)
-            return days + " days ago";
+            return qsTr("%1 days ago").arg(days);
         if (days < 365)
-            return Math.floor(days / 30) + (days < 60 ? " month ago" : " months ago");
-        return Math.floor(days / 365) + (days < 730 ? " year ago" : " years ago");
+            return days < 60 ? qsTr("1 month ago") : qsTr("%1 months ago").arg(Math.floor(days / 30));
+        return days < 730 ? qsTr("1 year ago") : qsTr("%1 years ago").arg(Math.floor(days / 365));
     }
 
     function releaseLine(release) {
         const when = timeAgo(Number(release.timestamp));
-        return "Version " + release.version + (when !== "" ? " · " + when : "");
+        return qsTr("Version %1").arg(release.version) + (when !== "" ? " · " + when : "");
     }
 
     function reviewByline(review) {
         const when = timeAgo(Number(review.date_created));
-        return (review.user_display || "Anonymous") + (when !== "" ? " · " + when : "");
+        return (review.user_display || qsTr("Anonymous")) + (when !== "" ? " · " + when : "");
     }
 
     // Appstream text is <p>/<ul>/<li> markup carrying the source XML's
@@ -676,16 +676,16 @@ QtObject {
         if (has(p.shared, "network"))
             out.push({
                 "icon": "world",
-                "label": "Internet",
-                "detail": "Can connect to the network"
+                "label": qsTr("Internet"),
+                "detail": qsTr("Can connect to the network")
             });
         const fs = p.filesystems || [];
         const broad = fs.filter(f => /^(host|home|host-os|host-etc)(:rw)?$/.test(f));
         if (broad.length > 0)
             out.push({
                 "icon": "file-folder",
-                "label": "All your files",
-                "detail": "Can read and change files outside its sandbox",
+                "label": qsTr("All your files"),
+                "detail": qsTr("Can read and change files outside its sandbox"),
                 "risky": true
             });
         // gvfs is GNOME's virtual-filesystem plumbing, not a user folder.
@@ -693,40 +693,40 @@ QtObject {
         if (broad.length === 0 && named.length > 0)
             out.push({
                 "icon": "folder",
-                "label": "Some folders",
+                "label": qsTr("Some folders"),
                 "detail": named.map(f => f.replace(/^xdg-/, "").replace(/:(ro|rw|create)$/, "")).join(", ")
             });
         if (has(p.devices, "all"))
             out.push({
                 "icon": "usb",
-                "label": "All devices",
-                "detail": "Camera, USB and other hardware",
+                "label": qsTr("All devices"),
+                "detail": qsTr("Camera, USB and other hardware"),
                 "risky": true
             });
         if (has(p.sockets, "pulseaudio"))
             out.push({
                 "icon": "speaker",
-                "label": "Audio",
-                "detail": "Can play and record sound"
+                "label": qsTr("Audio"),
+                "detail": qsTr("Can play and record sound")
             });
         if (has(p.sockets, "x11") && !has(p.sockets, "wayland"))
             out.push({
                 "icon": "display",
-                "label": "Legacy display access",
-                "detail": "Uses X11, which isolates apps from each other less well",
+                "label": qsTr("Legacy display access"),
+                "detail": qsTr("Uses X11, which isolates apps from each other less well"),
                 "risky": true
             });
         if (has(p.sockets, "cups"))
             out.push({
                 "icon": "print",
-                "label": "Printing",
-                "detail": "Can send documents to printers"
+                "label": qsTr("Printing"),
+                "detail": qsTr("Can send documents to printers")
             });
         if (has(p.features, "bluetooth") || has(p.devices, "bluetooth"))
             out.push({
                 "icon": "bluetooth",
-                "label": "Bluetooth",
-                "detail": "Can talk to Bluetooth devices"
+                "label": qsTr("Bluetooth"),
+                "detail": qsTr("Can talk to Bluetooth devices")
             });
         return out;
     }
@@ -741,11 +741,11 @@ QtObject {
                 });
         };
         const release = app.releases && app.releases.length > 0 ? app.releases[0] : null;
-        add("Developer", app.developer_name);
-        add("Version", release ? release.version : "");
-        add("Updated", release ? timeAgo(Number(release.timestamp)) : "");
-        add("Installed size", summary ? formatSize(summary.installed_size) : "");
-        add("License", app.project_license);
+        add(qsTr("Developer"), app.developer_name);
+        add(qsTr("Version"), release ? release.version : "");
+        add(qsTr("Updated"), release ? timeAgo(Number(release.timestamp)) : "");
+        add(qsTr("Installed size"), summary ? formatSize(summary.installed_size) : "");
+        add(qsTr("License"), app.project_license);
         return rows;
     }
 
@@ -759,17 +759,29 @@ QtObject {
         return null;
     }
 
-    readonly property string helperSilentError: "The Store helper didn't respond. Try again."
+    readonly property string helperSilentError: qsTr("The Store helper didn't respond. Try again.")
 
     // The handler records flatpak's last error line; turn the common ones
     // into something a phone user can act on.
     function jobError(job) {
         const raw = job && job.error ? job.error : "";
+        if (raw === helperSilentError)
+            return raw;
         if (/No space left|min-free-space/i.test(raw))
-            return "Not enough storage space on this phone.";
+            return qsTr("Not enough storage space on this phone.");
         if (/Could not resolve|Network|Couldn.t connect|timed out/i.test(raw))
-            return "Couldn't reach Flathub. Check your connection and try again.";
-        return raw !== "" ? raw : "Something went wrong.";
+            return qsTr("Couldn't reach Flathub. Check your connection and try again.");
+        if (/No remote refs|Nothing matches|not found in remote|No such ref|remote .* not found/i.test(raw))
+            return qsTr("Flathub doesn't have this app for this phone any more.");
+        if (/already installed/i.test(raw))
+            return qsTr("It's already installed. Pull down on Installed to refresh.");
+        if (/Permission denied|Not authorized|not allowed/i.test(raw))
+            return qsTr("The Store wasn't allowed to make this change.");
+        if (/GPG|signature|checksum/i.test(raw))
+            return qsTr("The download couldn't be verified. Try again later.");
+        if (raw !== "")
+            console.warn("Store: unrecognised flatpak error:", raw);
+        return qsTr("Couldn't finish. Try again later.");
     }
 
     function jobFor(appId) {

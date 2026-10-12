@@ -126,6 +126,10 @@ TestCase {
         tryCompare(finishedSpy, "count", 1, 3000);
         compare(finishedSpy.signalArguments[0][1], "update");
         compare(b.jobError(b.jobFor("org.example.Fail")), "Not enough storage space on this phone.");
+        compare(b.jobError({ "error": "error: No remote refs found for 'x'" }), "Flathub doesn't have this app for this phone any more.");
+        compare(b.jobError({ "error": "GPG verification enabled, but no signatures found" }), "The download couldn't be verified. Try again later.");
+        compare(b.jobError({ "error": "weird thing 0x42" }), "Couldn't finish. Try again later.");
+        compare(b.jobError(null), "Couldn't finish. Try again later.");
     }
 
     function test_updateAllMarksEveryUpdate() {
