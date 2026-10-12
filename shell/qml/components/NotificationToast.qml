@@ -1,6 +1,5 @@
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
@@ -41,24 +40,25 @@ Item {
     anchors.fill: parent
     z: 3000
 
-    MCard {
+    Rectangle {
         id: toast
 
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.margins: Silica.Theme.paddingSmall
         y: -height
-        width: parent.width
         // Derived from the row it has to hold, not a fixed 72/140. The
         // title and body are scaled type tokens while these heights were
         // physical px, so at 1.5x the two lines overflowed the card and
         // painted over the status bar and the surface underneath.
         height: toastContainer.showInlineReply
                 ? mainContent.height + replyRow.height + MSpacing.sm + MSpacing.xs * 2
-                : mainContent.height + MSpacing.md
-        elevation: 0
-        radius: 0
+                : mainContent.height + Silica.Theme.paddingLarge
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
+        border.width: 1
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         visible: false
-        layer.enabled: true
 
         Item {
             anchors.fill: parent
@@ -66,51 +66,42 @@ Item {
             Row {
                 id: mainContent
 
-                width: parent.width - MSpacing.md * 2
+                width: parent.width - Silica.Theme.paddingMedium * 2
                 // Whichever is taller: the icon tile or the two text lines.
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
                 anchors.left: parent.left
-                anchors.leftMargin: MSpacing.md
+                anchors.leftMargin: Silica.Theme.paddingMedium
                 anchors.verticalCenter: toastContainer.showInlineReply ? undefined : parent.verticalCenter
                 anchors.top: toastContainer.showInlineReply ? parent.top : undefined
-                anchors.topMargin: toastContainer.showInlineReply ? MSpacing.xs : 0
-                spacing: MSpacing.md
+                anchors.topMargin: toastContainer.showInlineReply ? Silica.Theme.paddingMedium : 0
+                spacing: Silica.Theme.paddingMedium
 
-                Rectangle {
+                GlyphIcon {
                     id: iconTile
-                    width: Math.round(48 * toastContainer.scaleFactor)
-                    height: width
-                    radius: MRadius.md
-                    color: MColors.elevated
+                    name: (toastContainer.currentToast && toastContainer.currentToast.icon) ? toastContainer.currentToast.icon : "bell"
+                    size: Silica.Theme.iconSizeSmallPlus
+                    color: Silica.Theme.highlightColor
                     anchors.verticalCenter: parent.verticalCenter
-
-                    GlyphIcon {
-                        name: (toastContainer.currentToast && toastContainer.currentToast.icon) ? toastContainer.currentToast.icon : "bell"
-                        size: Math.round(24 * toastContainer.scaleFactor)
-                        color: MColors.textPrimary
-                        anchors.centerIn: parent
-                    }
                 }
 
                 Column {
                     id: textColumn
-                    width: parent.width - iconTile.width - MSpacing.md
+                    width: parent.width - iconTile.width - Silica.Theme.paddingMedium
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Math.round(2 * toastContainer.scaleFactor)
 
                     Silica.Label {
                         text: (toastContainer.currentToast && toastContainer.currentToast.title) ? toastContainer.currentToast.title : ""
-                        color: MColors.textPrimary
-                        font.weight: MTypography.weightBold
-                        font.pixelSize: MTypography.sizeBody
-                        elide: Text.ElideRight
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        truncationMode: Silica.TruncationMode.Fade
                         width: parent.width
                     }
 
                     Silica.Label {
+                        visible: text.length > 0
                         text: (toastContainer.currentToast && toastContainer.currentToast.body) ? toastContainer.currentToast.body : ""
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeSmall
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
                         elide: Text.ElideRight
                         maximumLineCount: 1
                         width: parent.width
@@ -211,15 +202,6 @@ Item {
             }
         }
 
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#40000000"
-            shadowOpacity: 0.3
-            shadowBlur: 0.6
-            shadowVerticalOffset: 4
-            shadowHorizontalOffset: 0
-        }
-
         Behavior on y {
             NumberAnimation {
                 duration: MMotion.moderate
@@ -241,9 +223,8 @@ Item {
         target: toast
         property: "y"
         to: Constants.statusBarHeight
-        duration: 400
-        easing.type: Easing.OutBack
-        easing.overshoot: 1.2
+        duration: MMotion.moderate
+        easing.type: Easing.OutQuad
     }
 
     NumberAnimation {
