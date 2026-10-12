@@ -286,16 +286,6 @@ QString SettingsController::availableNetworkSubtitle(const QString &security, in
         .arg(freqLabel);
 }
 
-QString SettingsController::authModeLabel(int authMode) const {
-    switch (authMode) {
-        case 0: return QStringLiteral("System Password (PAM)");
-        case 1: return QStringLiteral("Quick PIN");
-        case 2: return QStringLiteral("Fingerprint Only");
-        case 3: return QStringLiteral("Fingerprint + PIN");
-        default: return QStringLiteral("System Password");
-    }
-}
-
 QString SettingsController::lockoutStatusText(bool lockedOut, int secondsRemaining) const {
     if (lockedOut) {
         return QStringLiteral("Locked (%1s remaining)").arg(std::max(0, secondsRemaining));

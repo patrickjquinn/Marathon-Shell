@@ -10,9 +10,11 @@ Page {
 
     // "set" or "remove" while the security service checks the system password.
     property string pending: ""
+    property string pendingPin: ""
 
     function setPin(pin, password) {
         pending = "set";
+        pendingPin = pin;
         Security.setQuickPIN(pin, password);
     }
 
@@ -21,8 +23,14 @@ Page {
         Security.removeQuickPIN(password);
     }
 
-    function openPinDialog() {
-        const dialog = pageStack.push(Qt.resolvedUrl("QuickPinDialog.qml"), { changing: Security.hasQuickPIN });
+    // After a wrong password the dialog comes back with the new PIN still filled in.
+    function openPinDialog(pin, error) {
+        const dialog = pageStack.push(Qt.resolvedUrl("QuickPinDialog.qml"), {
+            changing: Security.hasQuickPIN,
+            pin: pin || "",
+            confirmation: pin || "",
+            error: error || ""
+        });
         dialog.accepted.connect(() => page.setPin(dialog.pin, dialog.password));
     }
 
@@ -40,10 +48,12 @@ Page {
             page.pending = "";
         }
         function onAuthenticationFailed(reason) {
-            if (page.pending === "")
-                return;
+            const was = page.pending;
             page.pending = "";
-            Notices.show(reason);
+            if (was === "set")
+                page.openPinDialog(page.pendingPin, reason);
+            else if (was === "remove")
+                Notices.show(reason);
         }
     }
 
@@ -78,16 +88,22 @@ Page {
             PageHeader {
                 title: qsTr("Security")
             }
-            DetailItem {
-                objectName: "lockMethod"
-                label: qsTr("Lock method")
-                value: SettingsController.authModeLabel(Security.authMode)
+            SectionHeader {
+                text: qsTr("Device lock")
+            }
+            TextSwitch {
+                objectName: "autoLockSwitch"
+                text: qsTr("Lock automatically")
+                description: qsTr("Lock the device when the screen turns off")
+                automaticCheck: false
+                checked: Settings.autoLock
+                onClicked: Settings.autoLock = !Settings.autoLock
             }
             ActionItem {
                 objectName: "pinItem"
                 text: Security.hasQuickPIN ? qsTr("Change quick PIN") : qsTr("Set quick PIN")
                 enabled: page.pending === ""
-                onClicked: page.openPinDialog()
+                onClicked: page.openPinDialog("", "")
             }
             ActionItem {
                 objectName: "removePinItem"

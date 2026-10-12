@@ -19,6 +19,7 @@ QtObject {
     property bool showNotificationBadges: true
     property var enabledQuickSettingsTiles: ["wifi", "bluetooth"]
     property string deviceName: "Librem 5"
+    property bool autoLock: true
 
     function reset() {
         timeZone = "Europe/London";
@@ -38,6 +39,7 @@ QtObject {
         showNotificationBadges = true;
         enabledQuickSettingsTiles = ["wifi", "bluetooth"];
         deviceName = "Librem 5";
+        autoLock = true;
     }
     function availableRingtones() {
         return ["/sounds/ring_classic.wav", "/sounds/ring_bright.wav"];

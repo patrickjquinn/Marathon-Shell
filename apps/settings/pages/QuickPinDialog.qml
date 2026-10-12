@@ -10,6 +10,7 @@ Dialog {
     property alias pin: pinField.text
     property alias confirmation: confirmField.text
     property alias password: passwordField.text
+    property string error: ""
     readonly property bool mismatch: confirmation.length >= pin.length && confirmation.length > 0 && confirmation !== pin
 
     canAccept: SettingsController.quickPinValidationError(pin, password) === "" && confirmation === pin
@@ -48,7 +49,7 @@ Dialog {
                 validator: RegularExpressionValidator {
                     regularExpression: /[0-9]{0,6}/
                 }
-                focus: true
+                focus: dialog.error === ""
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: confirmField.focus = true
             }
@@ -75,7 +76,10 @@ Dialog {
                 width: parent.width
                 label: qsTr("System password")
                 placeholderText: qsTr("System password")
-                description: qsTr("Needed to change the PIN")
+                description: dialog.error !== "" ? dialog.error : qsTr("Needed to change the PIN")
+                errorHighlight: dialog.error !== ""
+                focus: dialog.error !== ""
+                onTextChanged: dialog.error = ""
                 inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                 EnterKey.enabled: dialog.canAccept
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"

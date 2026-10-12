@@ -143,9 +143,6 @@ QtObject {
     function availableNetworkSubtitle(security, strength, frequency) {
         return (security === "" ? "Open" : security) + " • " + strength + "% signal";
     }
-    function authModeLabel(mode) {
-        return ["System Password (PAM)", "Quick PIN", "Fingerprint Only", "Fingerprint + PIN"][mode] || "System Password";
-    }
     function lockoutStatusText(locked, seconds) {
         return locked ? "Locked (" + seconds + "s remaining)" : "Active";
     }

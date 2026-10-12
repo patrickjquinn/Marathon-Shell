@@ -60,7 +60,12 @@ TestCase {
         Security.fingerprintAvailable = true;
         Security.failedAttempts = 2;
         const s = open("security");
-        compare(child(s.page, "lockMethod").value, "System Password (PAM)");
+        compare(findChild(s.page, "lockMethod"), null);
+        const autoLock = child(s.page, "autoLockSwitch");
+        verify(autoLock.checked);
+        autoLock.clicked(null);
+        verify(!Settings.autoLock);
+        verify(!autoLock.checked);
         compare(child(s.page, "fingerprint").value, "Enrolled");
         compare(child(s.page, "failedAttempts").value, "2");
         compare(child(s.page, "accountStatus").value, "Active");
@@ -90,8 +95,19 @@ TestCase {
         compare(Security.calls, [["set", "1234", "secret"]]);
         verify(!child(s.page, "pinItem").enabled);
         Security.authenticationFailed("Wrong password");
-        verify(child(s.page, "pinItem").enabled);
         compare(s.page.pending, "");
+        const retry = pushed(s.app, s.page);
+        compare(retry.pin, "1234");
+        compare(retry.confirmation, "1234");
+        compare(retry.password, "");
+        verify(child(retry, "passwordField").errorHighlight);
+        compare(child(retry, "passwordField").description, "Wrong password");
+        retry.password = "right";
+        verify(!child(retry, "passwordField").errorHighlight);
+        verify(retry.canAccept);
+        retry.accept();
+        back(s);
+        compare(Security.calls[1], ["set", "1234", "right"]);
     }
 
     function test_removeQuickPin() {

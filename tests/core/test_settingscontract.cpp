@@ -71,6 +71,7 @@ namespace {
     const QHash<QString, Consumer> kConsumers = {
         {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
         {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
+        {"autoLock", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLock"}},
         {"appNotificationSettings",
          {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
         {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "dndEnabled"}},
