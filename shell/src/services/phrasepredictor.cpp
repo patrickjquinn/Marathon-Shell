@@ -81,8 +81,3 @@ QStringList PhrasePredictor::getPhrases(const QString &words) const {
     }
     return {};
 }
-
-QString PhrasePredictor::getTopPhrase(const QString &words) const {
-    const QStringList phrases = getPhrases(words);
-    return phrases.isEmpty() ? QString() : phrases.first();
-}

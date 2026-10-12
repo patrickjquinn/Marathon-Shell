@@ -24,7 +24,6 @@ class PhrasePredictor : public QObject {
     explicit PhrasePredictor(QObject *parent = nullptr);
 
     Q_INVOKABLE QStringList getPhrases(const QString &words) const;
-    Q_INVOKABLE QString     getTopPhrase(const QString &words) const;
 
   private:
     QHash<QString, QStringList> m_phraseMap;
