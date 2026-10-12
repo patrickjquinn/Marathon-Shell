@@ -211,10 +211,6 @@ TabItem {
                             maximumLineCount: 2
                             elide: Text.ElideRight
                         }
-                        GetButton {
-                            store: root.store
-                            appId: hero.app ? (hero.app.app_id || hero.app.id || "") : ""
-                        }
                     }
                 }
 

@@ -2,8 +2,9 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
-// One app in a list: icon, name, one line of summary, rating, Get button.
-// Tapping anywhere but the button opens the detail page.
+// One app in a list: icon, name, one line of summary, rating, and its
+// install state. Tapping opens the detail page, where the install action
+// lives; a running install can be cancelled from the press-and-hold menu.
 ListItem {
     id: root
 
@@ -13,6 +14,17 @@ ListItem {
 
     readonly property string appId: app.app_id || app.id || ""
     readonly property var rating: store.ratingFor(appId)
+    readonly property var job: store.jobFor(appId)
+    readonly property bool busy: job !== null && store.jobRunning(job)
+    readonly property string stateText: {
+        if (job !== null && job.state === "failed")
+            return qsTr("Failed");
+        if (store.hasUpdate(appId))
+            return qsTr("Update");
+        if (store.isInstalled(appId))
+            return qsTr("Installed");
+        return "";
+    }
     readonly property color primary: highlighted ? Theme.highlightColor : Theme.primaryColor
     readonly property color secondary: highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
 
@@ -23,6 +35,18 @@ ListItem {
         store.ensureIcon(app);
     }
     onClicked: store.openDetail(app)
+    menu: root.store.canCancel(root.job) ? cancelMenu : null
+
+    Component {
+        id: cancelMenu
+        ContextMenu {
+            MenuItem {
+                objectName: "cancelItem"
+                text: qsTr("Cancel")
+                onClicked: root.store.cancelJob(root.appId)
+            }
+        }
+    }
 
     Label {
         id: rankLabel
@@ -49,7 +73,7 @@ ListItem {
     Column {
         anchors.left: icon.right
         anchors.leftMargin: Theme.paddingLarge
-        anchors.right: action.left
+        anchors.right: status.left
         anchors.rightMargin: Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
 
@@ -85,12 +109,36 @@ ListItem {
         }
     }
 
-    GetButton {
-        id: action
+    Item {
+        id: status
+
         anchors.right: parent.right
         anchors.rightMargin: Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter
-        store: root.store
-        appId: root.appId
+        width: root.busy ? Theme.iconSizeMedium : stateLabel.implicitWidth
+        height: Theme.iconSizeMedium
+
+        Label {
+            id: stateLabel
+            objectName: "stateLabel"
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !root.busy
+            text: root.stateText
+            color: root.job !== null && root.job.state === "failed" ? Theme.errorColor : root.secondary
+            font.pixelSize: Theme.fontSizeExtraSmall
+        }
+        ProgressCircle {
+            anchors.fill: parent
+            visible: root.busy && root.job.percent >= 0
+            value: root.job && root.job.percent > 0 ? root.job.percent / 100 : 0
+            Accessible.role: Accessible.ProgressBar
+            Accessible.name: qsTr("Installing %1%").arg(root.job ? root.job.percent : 0)
+        }
+        BusyIndicator {
+            anchors.centerIn: parent
+            size: BusyIndicatorSize.Small
+            running: root.busy && !(root.job.percent >= 0)
+            visible: running
+        }
     }
 }

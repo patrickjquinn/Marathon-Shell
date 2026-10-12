@@ -172,6 +172,20 @@ TestCase {
         verify(findChild(page, "detailsFailed").visible);
     }
 
+    function test_rowsShowStateNotButtons() {
+        const app = makeApp();
+        const tab = showTab(app, 2);
+        tryCompare(findChild(tab, "installedRows"), "count", 2, 3000);
+        verify(findChild(tab, "getButton") === null);
+        const row = findChild(tab, "installedRows").itemAt(0);
+        compare(findChild(row, "stateLabel").text, "Installed");
+        compare(row.menu, null);
+        app.store.updateApp(row.appId);
+        verify(row.menu !== null);
+        app.store.cancelJob(row.appId);
+        compare(row.menu, null);
+    }
+
     function test_savedCatalogExplained() {
         const app = makeApp();
         const tab = showTab(app, 0);
