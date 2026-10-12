@@ -571,6 +571,9 @@ if(DEFINED ENV{KEEL_QML})
     list(APPEND _shell_qml_import_path "$ENV{KEEL_QML}")
 endif()
 set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH ${_shell_qml_import_path})
+# The import scan only links static QML plugins; Keel's are shared and load at
+# runtime, and scanning them warns that their link targets don't exist.
+set_property(TARGET marathon-shell PROPERTY QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
 
 # Link the big resources (sounds-only qrc) to the target
 target_sources(marathon-shell PRIVATE ${SHELL_SOUNDS})
