@@ -234,7 +234,8 @@ QtObject {
         const next = history.slice();
         next.push({
             "expression": lastExpression,
-            "result": lastResult
+            "result": lastResult,
+            "value": result
         });
         if (next.length > 8)
             next.shift();
@@ -298,8 +299,13 @@ QtObject {
     }
 
     function recallAnswer() {
+        recall(lastAnswer);
+    }
+
+    // Brings an earlier result back as the current number.
+    function recall(value) {
         errorText = "";
-        display = String(lastAnswer);
+        display = String(value);
         newNumber = true;
     }
 

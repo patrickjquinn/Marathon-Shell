@@ -157,6 +157,22 @@ TestCase {
         verify(!findChild(t.page, "historyPlaceholder").visible);
     }
 
+    function test_tapHistoryUsesResult() {
+        const t = make();
+        for (const k of ["1", "2", "×", "3", "=", "2", "×"])
+            t.calc.press(k);
+        const list = findChild(t.page, "history");
+        let item = null;
+        tryVerify(() => (item = findChild(list, "historyItem")) !== null);
+        mouseClick(item);
+        compare(t.calc.displayText, "36");
+        t.calc.press("=");
+        compare(t.calc.displayText, "72");
+        t.calc.undo();
+        t.calc.undo();
+        compare(t.calc.expressionText, "2 ×");
+    }
+
     function test_undoMenuItem() {
         const t = make();
         const undo = findChild(t.page, "undoItem");

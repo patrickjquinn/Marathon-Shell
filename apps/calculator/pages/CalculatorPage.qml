@@ -101,32 +101,47 @@ Page {
             clip: true
             interactive: contentHeight > height
             verticalLayoutDirection: ListView.BottomToTop
-            spacing: Theme.paddingMedium
             model: page.calc.history
 
-            delegate: Column {
+            // Tapping a result uses it in the current calculation, as in Jolla Calculator.
+            delegate: BackgroundItem {
                 id: entry
 
                 required property var modelData
 
+                objectName: "historyItem"
                 width: history.width
-
-                Label {
-                    x: Theme.horizontalPageMargin
-                    width: parent.width - 2 * Theme.horizontalPageMargin
-                    horizontalAlignment: Text.AlignRight
-                    truncationMode: TruncationMode.Fade
-                    text: entry.modelData.expression
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.secondaryColor
+                height: entryColumn.height + Theme.paddingSmall
+                enabled: entry.modelData.value !== undefined
+                Accessible.name: entry.modelData.expression + " " + entry.modelData.result
+                onClicked: {
+                    feedback.play();
+                    page.calc.snapshot();
+                    page.calc.recall(entry.modelData.value);
                 }
-                Label {
+
+                Column {
+                    id: entryColumn
+
                     x: Theme.horizontalPageMargin
                     width: parent.width - 2 * Theme.horizontalPageMargin
-                    horizontalAlignment: Text.AlignRight
-                    truncationMode: TruncationMode.Fade
-                    text: entry.modelData.result
-                    color: Theme.secondaryHighlightColor
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignRight
+                        truncationMode: TruncationMode.Fade
+                        text: entry.modelData.expression
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: entry.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                    }
+                    Label {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignRight
+                        truncationMode: TruncationMode.Fade
+                        text: entry.modelData.result
+                        color: entry.highlighted ? Theme.highlightColor : Theme.secondaryHighlightColor
+                    }
                 }
             }
 
