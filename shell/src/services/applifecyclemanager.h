@@ -57,10 +57,6 @@ class AppLifecycleManager : public QObject {
     // app exists. Wired from MemoryPressureMonitor::Critical in main.cpp.
     Q_INVOKABLE int         killOldestFrozenApp();
 
-    Q_INVOKABLE QVariantMap getAppState(const QString &appId) const;
-    Q_INVOKABLE bool        isAppRunning(const QString &appId) const;
-    Q_INVOKABLE QString     getForegroundAppId() const;
-
     Q_INVOKABLE int         lifecycleState(const QString &appId) const;
     Q_INVOKABLE QStringList activeCapabilities(const QString &appId) const;
 

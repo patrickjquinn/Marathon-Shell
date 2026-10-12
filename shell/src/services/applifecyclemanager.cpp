@@ -332,31 +332,6 @@ void AppLifecycleManager::closeApp(const QString &appId, bool skipNativeClose) {
     unregisterApp(appId);
 }
 
-QVariantMap AppLifecycleManager::getAppState(const QString &appId) const {
-    if (!m_appStates.contains(appId))
-        return {};
-    const auto &st = m_appStates[appId];
-    return {
-        {"appId", appId},
-        {"state", static_cast<int>(st.state)},
-        {"isActive", st.isActive},
-        {"isPaused", st.isPaused},
-        {"isMinimized", st.isMinimized},
-        {"launchTime", st.launchTimeMs},
-        {"lastActiveTime", st.lastActiveMs},
-        {"stateEnteredTime", st.stateEnteredMs},
-        {"capabilities", QStringList(st.capabilities.cbegin(), st.capabilities.cend())},
-    };
-}
-
-bool AppLifecycleManager::isAppRunning(const QString &appId) const {
-    return m_appRegistry.contains(appId);
-}
-
-QString AppLifecycleManager::getForegroundAppId() const {
-    return m_foregroundAppId.isEmpty() ? QString() : m_foregroundAppId;
-}
-
 int AppLifecycleManager::lifecycleState(const QString &appId) const {
     if (!m_appStates.contains(appId))
         return static_cast<int>(Unregistered);
