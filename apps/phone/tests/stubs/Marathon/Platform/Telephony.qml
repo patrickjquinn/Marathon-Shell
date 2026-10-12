@@ -13,6 +13,7 @@ QtObject {
     function reset() {
         callState = "idle";
         activeNumber = "";
+        hasModem = true;
         log = [];
     }
     function record(entry) { log = log.concat([entry]); }

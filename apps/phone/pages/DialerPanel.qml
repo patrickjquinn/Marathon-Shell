@@ -1,6 +1,7 @@
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import Nemo.Ngf 1.0
 import "../Phone.js" as Phone
 
@@ -11,6 +12,8 @@ Item {
     property bool _plusHeld: false
     readonly property string number: phone ? phone.dialedNumber : ""
     readonly property string match: number.length >= 3 && !phone.emergencyOnly ? phone.contactName(number) : ""
+    readonly property bool emergency: phone ? phone.emergencyOnly || Phone.isEmergency(number) : false
+    readonly property bool canCall: number.length > 0 && (Telephony.hasModem || emergency)
 
     function append(text) {
         phone.dialedNumber = number + text;
@@ -21,7 +24,8 @@ Item {
     }
 
     function call() {
-        phone.call(number);
+        if (canCall)
+            phone.call(number);
     }
 
     activeFocusOnTab: true
@@ -66,7 +70,7 @@ Item {
                 x: Theme.horizontalPageMargin + backspaceButton.width
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
-                text: root.number.length > 0 ? Phone.format(root.number) : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
+                text: root.number.length > 0 ? Phone.format(root.number) : !Telephony.hasModem ? qsTr("No SIM or modem found") : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
                 color: root.number.length > 0 ? Theme.primaryColor : Theme.secondaryColor
                 font.pixelSize: root.number.length > 0 ? Theme.fontSizeHuge : Theme.fontSizeLarge
                 font.weight: Font.ExtraLight
@@ -98,7 +102,7 @@ Item {
             objectName: "matchLabel"
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: root.match
+            text: root.number.length > 0 && !root.canCall ? qsTr("Calls aren't available") : root.match
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeSmall
             opacity: text.length > 0 ? 1 : 0
@@ -139,9 +143,9 @@ Item {
             bottomMargin: 2 * Theme.paddingLarge
         }
         preferredWidth: Theme.buttonWidthLarge
-        enabled: root.number.length > 0
+        enabled: root.canCall
         icon.source: "image://theme/icon-m-call"
-        text: root.phone && (root.phone.emergencyOnly || Phone.isEmergency(root.number)) ? qsTr("Emergency call") : qsTr("Call")
+        text: root.emergency ? qsTr("Emergency call") : qsTr("Call")
         onClicked: root.call()
     }
 }

@@ -136,4 +136,32 @@ TestCase {
         Telephony.callFailed("No modem available");
         tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
     }
+
+    function test_noModemSaysSoUpFront() {
+        Telephony.hasModem = false;
+        const app = makeApp();
+        dialer(app);
+        const page = app.pageStack.currentPage;
+        compare(findChild(page, "numberLabel").text, "No SIM or modem found");
+        type(app, "5551234");
+        verify(!findChild(page, "callButton").enabled);
+        compare(findChild(page, "matchLabel").text, "Calls aren't available");
+    }
+
+    function test_noModemStillAllowsEmergencyNumbers() {
+        Telephony.hasModem = false;
+        const app = makeApp();
+        type(app, "112");
+        const button = findChild(app.pageStack.currentPage, "callButton");
+        verify(button.enabled);
+        button.clicked(null);
+        compare(Telephony.log, ["emergency:112"]);
+    }
+
+    function test_noModemEmergencyRouteStaysEnabled() {
+        Telephony.hasModem = false;
+        const app = makeApp({ route: "/emergency" });
+        type(app, "5551234");
+        verify(findChild(app.pageStack.currentPage, "callButton").enabled);
+    }
 }
