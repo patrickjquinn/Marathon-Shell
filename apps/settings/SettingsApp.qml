@@ -21,7 +21,8 @@ ApplicationWindow {
         const arg = Logic.routeArgument(name);
         const props = arg !== "" ? { focusAppId: arg } : {};
         const main = replace ? pageStack.find(p => p.objectName === "mainPage") : null;
-        if (main)
+        // replaceAbove throws when nothing is above the main page.
+        if (main && pageStack.currentPage !== main)
             pageStack.replaceAbove(main, Qt.resolvedUrl("pages/" + file), props, operation);
         else
             pageStack.push(Qt.resolvedUrl("pages/" + file), props, operation);

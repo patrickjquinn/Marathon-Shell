@@ -148,6 +148,12 @@ TestCase {
         });
     }
 
+    function test_liveLinkFromMainPage() {
+        const app = makeApp();
+        verify(app.openPage("wifi", PageStackAction.Immediate, true));
+        tryVerify(() => app.pageStack.depth === 2 && app.pageStack.currentPage.status === PageStatus.Active, 3000);
+    }
+
     function test_unknownRoute() {
         const app = makeApp();
         verify(!app.openPage("nope"));
