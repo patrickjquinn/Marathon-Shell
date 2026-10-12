@@ -72,6 +72,13 @@ TestCase {
         verify(findChild(t.list, "alarmsPlaceholder").enabled);
     }
 
+    function test_headerShowsTheTime() {
+        const t = makeTab([]);
+        let clock = null;
+        tryVerify(() => (clock = findChild(t.list, "alarmsClock")) !== null);
+        compare(clock.text, Format.formatDate(new Date(), Formatter.TimeValue));
+    }
+
     function test_switchToggles() {
         const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
         tryCompare(t.list, "count", 1);
