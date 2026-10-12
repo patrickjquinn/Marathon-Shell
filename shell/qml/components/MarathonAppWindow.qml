@@ -4,6 +4,8 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Feedback
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Rectangle {
     id: appWindow
@@ -342,9 +344,9 @@ Rectangle {
                 visible: !splashIconImage.visible
             }
 
-            MActivityIndicator {
+            Silica.BusyIndicator {
                 anchors.horizontalCenter: parent.horizontalCenter
-                size: Math.round(28 * Constants.scaleFactor)
+                size: Silica.BusyIndicatorSize.Small
                 running: loadingSplash.visible && slowLaunch.fired
                 opacity: running ? 1 : 0
             }
@@ -408,9 +410,8 @@ Rectangle {
                 width: parent.width
                 spacing: MSpacing.sm
 
-                MButton {
+                Silica.Button {
                     text: "Try again"
-                    variant: "primary"
                     width: parent.width
                     onClicked: {
                         const id = appWindow.appId;
@@ -419,9 +420,9 @@ Rectangle {
                     }
                 }
 
-                MButton {
+                Silica.Button {
                     text: "Close"
-                    variant: "ghost"
+                    backgroundColor: "transparent"
                     width: parent.width
                     onClicked: appWindow.hide()
                 }

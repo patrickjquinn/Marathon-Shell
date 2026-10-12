@@ -177,15 +177,16 @@ Item {
                     width: parent.width - (Constants.iconSizeMedium + MSpacing.md * 2)
                     anchors.verticalCenter: parent.verticalCenter
 
-                    MLabel {
+                    Silica.Label {
                         text: tile.toggleData.label || ""
-                        variant: "body"
+                        color: MColors.textPrimary
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                         width: parent.width
                     }
 
-                    MLabel {
+                    Silica.Label {
                         visible: tile.toggleData.subtitle !== undefined && tile.toggleData.subtitle !== ""
                         text: tile.toggleData.subtitle || ""
                         font.pixelSize: MTypography.sizeXSmall

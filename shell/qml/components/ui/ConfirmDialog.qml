@@ -1,6 +1,8 @@
 import MarathonUI.Core
 import MarathonUI.Effects
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: confirmDialog
@@ -106,9 +108,10 @@ Item {
                 width: parent.width
                 spacing: MSpacing.md
 
-                MButton {
+                Silica.Button {
                     text: confirmDialog.cancelText
-                    variant: "secondary"
+                    backgroundColor: "transparent"
+                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         confirmDialog.cancelled();
@@ -120,9 +123,8 @@ Item {
                     }
                 }
 
-                MButton {
+                Silica.Button {
                     text: confirmDialog.confirmText
-                    variant: "primary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
                         confirmDialog.confirmed();

@@ -2,6 +2,8 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Rectangle {
     id: modal
@@ -109,8 +111,9 @@ Rectangle {
                     width: parent.width - MSpacing.touchTargetMedium - MSpacing.sm
                 }
 
-                MIconButton {
-                    iconName: "x"
+                Silica.IconButton {
+                    icon.source: "image://theme/icon-m-close"
+                    Accessible.name: "Close"
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: {

@@ -1,6 +1,7 @@
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: hudContainer
@@ -109,14 +110,16 @@ Item {
                     }
                 }
 
-                MText {
+                Silica.Label {
                     text: Math.round(hudContainer.hudValue * 100) + "%"
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeHeadline
                     font.weight: MTypography.weightDemiBold
                     font.letterSpacing: MTypography.trackingHeadline
                     // Tabular figures so the percentage digits don't jitter.
-                    tnum: true
+                    font.features: {
+                        "tnum": 1
+                    }
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }

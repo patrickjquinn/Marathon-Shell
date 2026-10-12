@@ -7,6 +7,8 @@ import MarathonUI.Core
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: oobeRoot
@@ -482,10 +484,11 @@ Item {
                             color: MColors.textPrimary
                         }
 
-                        MToggle {
-                            a11yName: "Wi-Fi"
+                        Silica.Switch {
+                            Accessible.name: "Wi-Fi"
                             checked: SystemStatusStore.isWifiOn
-                            onToggled: SystemControlStore.toggleWifi()
+                            automaticCheck: false
+                            onClicked: SystemControlStore.toggleWifi()
                         }
                     }
                 }
@@ -524,14 +527,12 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                             }
 
-                            MIconButton {
+                            Silica.IconButton {
                                 Layout.preferredWidth: MSpacing.touchTargetMedium
                                 Layout.preferredHeight: MSpacing.touchTargetMedium
                                 Layout.rightMargin: MSpacing.xs
-                                iconName: "refresh-cw"
-                                a11yName: "Rescan networks"
-                                iconSize: 18
-                                iconColor: MColors.marathonTealBright
+                                icon.source: "image://theme/icon-m-refresh"
+                                Accessible.name: "Rescan networks"
                                 onClicked: {
                                     HapticManager.light();
                                     wifiPage.firstScanDone = false;
@@ -911,23 +912,20 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: MSpacing.sm
 
-                            MButton {
-                                // Compact gives the label more horizontal
-                                // room; default-sized pills elide the
-                                // "Time Format" Text to "Time Form...".
+                            Silica.Button {
                                 text: "12h"
-                                variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
-                                size: "compact"
+                                preferredWidth: Silica.Theme.buttonWidthTiny
+                                color: SettingsManagerCpp.timeFormat === "12h" ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                                 onClicked: {
                                     SettingsManagerCpp.timeFormat = "12h";
                                     HapticManager.light();
                                 }
                             }
 
-                            MButton {
+                            Silica.Button {
                                 text: "24h"
-                                variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
-                                size: "compact"
+                                preferredWidth: Silica.Theme.buttonWidthTiny
+                                color: SettingsManagerCpp.timeFormat === "24h" ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                                 onClicked: {
                                     SettingsManagerCpp.timeFormat = "24h";
                                     HapticManager.light();
@@ -1598,11 +1596,9 @@ Item {
         anchors.bottomMargin: MSpacing.lg
         spacing: MSpacing.md
 
-        MButton {
+        Silica.Button {
             width: (parent.width - MSpacing.md) / 2
-            size: "large"
             text: "Back"
-            variant: "default"
             visible: oobeRoot.currentPage > 0
             onClicked: {
                 if (oobeRoot.currentPage > 0) {
@@ -1618,9 +1614,8 @@ Item {
             visible: oobeRoot.currentPage === 0
         }
 
-        MButton {
+        Silica.Button {
             width: (parent.width - MSpacing.md) / 2
-            size: "large"
             text: {
                 if (oobeRoot.currentPage === oobeRoot.pages.length - 1)
                     return "Get Started";
@@ -1628,8 +1623,7 @@ Item {
                     return passcodePage.stage === "enter" ? "Next" : "Set passcode";
                 return "Next";
             }
-            variant: "primary"
-            disabled: oobeRoot.currentPage === 5 && passcodePage.currentPin.length < passcodePage.requiredLength
+            enabled: !(oobeRoot.currentPage === 5 && passcodePage.currentPin.length < passcodePage.requiredLength)
             onClicked: {
                 HapticManager.light();
                 if (oobeRoot.currentPage === 5) {
@@ -1696,13 +1690,12 @@ Item {
             anchors.right: parent.right
             height: skipButton.visible ? skipButton.height : 0
 
-            MButton {
+            Silica.Button {
                 id: skipButton
 
                 anchors.right: parent.right
                 anchors.rightMargin: MSpacing.lg
                 text: "Skip"
-                variant: "default"
                 // The passcode can't be skipped: there is no PAM password to fall back on.
                 visible: oobeRoot.currentPage < 5
                 onClicked: {

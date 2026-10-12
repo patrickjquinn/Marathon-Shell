@@ -3,6 +3,8 @@ pragma ComponentBehavior: Bound
 import MarathonUI.Core
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 // Marathon DS · PermissionDialog (screens-shell.jsx PermissionDialog L1028).
 //
@@ -378,12 +380,6 @@ Item {
             }
 
             // 6. Actions: Deny secondary + Allow primary, side-by-side, flex:1.
-            // Allow opts out of MButton's cast-down glow — there's no
-            // room inside a 340 px modal for the spec's 24 px halo
-            // reach without leaking past the rounded edge, and the
-            // button reads correctly without the halo in this
-            // context (the gradient + double-ring + top highlight
-            // already carry the primary-variant identity).
             Item {
                 width: parent.width
                 height: Math.round(45 * Constants.scaleFactor) + Math.round(32 * Constants.scaleFactor)
@@ -397,18 +393,17 @@ Item {
                     anchors.topMargin: Math.round(16 * Constants.scaleFactor)
                     spacing: Math.round(10 * Constants.scaleFactor)
 
-                    MButton {
+                    Silica.Button {
                         width: (parent.width - Math.round(10 * Constants.scaleFactor)) / 2
                         text: "Deny"
-                        variant: "secondary"
+                        backgroundColor: "transparent"
+                        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
                         onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
                     }
 
-                    MButton {
+                    Silica.Button {
                         width: (parent.width - Math.round(10 * Constants.scaleFactor)) / 2
                         text: "Allow"
-                        variant: "primary"
-                        castGlow: false  // no room for the halo inside a 340 px dialog
                         onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
                     }
                 }

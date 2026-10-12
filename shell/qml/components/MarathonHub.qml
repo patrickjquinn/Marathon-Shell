@@ -6,6 +6,7 @@ import MarathonUI.Controls
 import MarathonUI.Core
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 // Marathon DS · Hub (§09) — unified inbox.
 //
@@ -115,35 +116,35 @@ Rectangle {
                 id: chipRow
                 spacing: Math.round(6 * (Constants.scaleFactor || 1.0))
 
-                MFilterChip {
-                    label: "All"
-                    count: String(NotificationModel.count || 0)
-                    active: hub.selectedCategory === "all"
-                    onActivated: hub.selectedCategory = "all"
+                Silica.FilterChip {
+                    text: "All " + (NotificationModel.count || 0)
+                    checked: hub.selectedCategory === "all"
+                    automaticCheck: false
+                    onClicked: hub.selectedCategory = "all"
                 }
-                MFilterChip {
-                    label: "Messages"
-                    count: String(hub.countForCategory("messages"))
-                    active: hub.selectedCategory === "messages"
-                    onActivated: hub.selectedCategory = "messages"
+                Silica.FilterChip {
+                    text: "Messages " + hub.countForCategory("messages")
+                    checked: hub.selectedCategory === "messages"
+                    automaticCheck: false
+                    onClicked: hub.selectedCategory = "messages"
                 }
-                MFilterChip {
-                    label: "Mail"
-                    count: String(hub.countForCategory("mail"))
-                    active: hub.selectedCategory === "mail"
-                    onActivated: hub.selectedCategory = "mail"
+                Silica.FilterChip {
+                    text: "Mail " + hub.countForCategory("mail")
+                    checked: hub.selectedCategory === "mail"
+                    automaticCheck: false
+                    onClicked: hub.selectedCategory = "mail"
                 }
-                MFilterChip {
-                    label: "Work"
-                    count: String(hub.countForCategory("work"))
-                    active: hub.selectedCategory === "work"
-                    onActivated: hub.selectedCategory = "work"
+                Silica.FilterChip {
+                    text: "Work " + hub.countForCategory("work")
+                    checked: hub.selectedCategory === "work"
+                    automaticCheck: false
+                    onClicked: hub.selectedCategory = "work"
                 }
-                MFilterChip {
-                    label: "Calls"
-                    count: String(hub.countForCategory("call"))
-                    active: hub.selectedCategory === "call"
-                    onActivated: hub.selectedCategory = "call"
+                Silica.FilterChip {
+                    text: "Calls " + hub.countForCategory("call")
+                    checked: hub.selectedCategory === "call"
+                    automaticCheck: false
+                    onClicked: hub.selectedCategory = "call"
                 }
             }
             }
@@ -156,15 +157,25 @@ Rectangle {
     // ageGroup role on NotificationModel — deferred until the C++
     // model exposes it. For now the rows render in
     // newest-first order without grouping.
-    MEmptyState {
+    Column {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: header.bottom
-        anchors.bottom: parent.bottom
+        anchors.verticalCenter: list.verticalCenter
+        spacing: Silica.Theme.paddingMedium
         visible: hub.countForCategory(hub.selectedCategory) === 0
-        iconName: "inbox"
-        title: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
-        message: hub.selectedCategory === "all" ? "Notifications from your apps appear here." : "Switch a category above to see other notifications."
+
+        Silica.InfoLabel {
+            text: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
+        }
+
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            text: hub.selectedCategory === "all" ? "Notifications from your apps appear here." : "Switch a category above to see other notifications."
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            color: Silica.Theme.secondaryHighlightColor
+        }
     }
 
     ListView {

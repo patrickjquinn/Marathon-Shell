@@ -3,6 +3,8 @@ import MarathonUI.Containers
 import MarathonUI.Core
 import QtQuick
 import QtQuick.Effects
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: toastContainer
@@ -98,18 +100,18 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Math.round(2 * toastContainer.scaleFactor)
 
-                    MLabel {
+                    Silica.Label {
                         text: (toastContainer.currentToast && toastContainer.currentToast.title) ? toastContainer.currentToast.title : ""
-                        variant: "primary"
+                        color: MColors.textPrimary
                         font.weight: MTypography.weightBold
                         font.pixelSize: MTypography.sizeBody
                         elide: Text.ElideRight
                         width: parent.width
                     }
 
-                    MLabel {
+                    Silica.Label {
                         text: (toastContainer.currentToast && toastContainer.currentToast.body) ? toastContainer.currentToast.body : ""
-                        variant: "secondary"
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeSmall
                         elide: Text.ElideRight
                         maximumLineCount: 1
@@ -149,7 +151,7 @@ Item {
                     }
                 }
 
-                MButton {
+                Silica.Button {
                     id: sendButton
 
                     text: "Send"

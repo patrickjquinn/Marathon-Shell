@@ -5,6 +5,8 @@ import MarathonUI.Core
 import MarathonUI.Feedback
 import QtQuick
 import QtQuick.Effects
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: pinScreen
@@ -358,9 +360,9 @@ Item {
                 }
             }
 
-            MActivityIndicator {
+            Silica.BusyIndicator {
                 anchors.verticalCenter: pinCircles.verticalCenter
-                size: Math.round(32 * Constants.scaleFactor)
+                size: Silica.BusyIndicatorSize.Small
                 color: MColors.accentBright
                 running: pinScreen.authenticating && !pinScreen.passwordMode
                 visible: pinScreen.authenticating && !pinScreen.passwordMode
@@ -603,11 +605,11 @@ Item {
                     }
                 }
 
-                MActivityIndicator {
+                Silica.BusyIndicator {
                     anchors.right: parent.right
                     anchors.rightMargin: Math.round(12 * Constants.scaleFactor)
                     anchors.verticalCenter: parent.verticalCenter
-                    size: Math.round(28 * Constants.scaleFactor)
+                    size: Silica.BusyIndicatorSize.Small
                     color: MColors.accentBright
                     running: pinScreen.authenticating && pinScreen.passwordMode
                     visible: pinScreen.authenticating && pinScreen.passwordMode
@@ -626,17 +628,17 @@ Item {
                 width: parent.width
                 spacing: Math.round(12 * Constants.scaleFactor)
 
-                MButton {
+                Silica.Button {
                     width: (parent.width - parent.spacing) / 2
                     text: "Use PIN"
-                    variant: "secondary"
+                    backgroundColor: "transparent"
+                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
                     onClicked: pinScreen.switchToPINMode()
                 }
 
-                MButton {
+                Silica.Button {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
-                    variant: "primary"
                     enabled: !pinScreen.authenticating
                     onClicked: pinScreen.verifyPasswordInput()
                 }
@@ -657,11 +659,11 @@ Item {
             }
         }
 
-        MButton {
+        Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
-            variant: "ghost"
-            textColor: MColors.textSecondary
+            backgroundColor: "transparent"
+            color: MColors.textSecondary
             onClicked: {
                 HapticManager.light();
                 pinScreen.cancelled();
@@ -672,11 +674,11 @@ Item {
         // without authentication (FCC E911 / EU Article 109). Launches the
         // phone app in --emergency-only mode; the modem itself enforces
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
-        MButton {
+        Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Emergency"
-            variant: "ghost"
-            textColor: MColors.error
+            backgroundColor: "transparent"
+            color: MColors.error
             onClicked: {
                 HapticManager.medium();
                 Logger.info("PinScreen", "Emergency dial requested from lock screen");
