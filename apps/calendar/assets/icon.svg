@@ -1,46 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Calendar icon: dark slate squircle with a teal "FRI" eyebrow band and a
-     big light "5" date — the design's daily-date tile. Drawn as path geometry
-     so it renders in every SVG engine; the previous <text> version came up
-     blank under lunasvg because the font-weight 200 face couldn't be matched.
-     The eyebrow is now teal letterforms drawn as paths, and the "5" is a
-     hand-built path glyph (ExtraLight 36 px). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1a1b1c"/>
-      <stop offset="1" stop-color="#0a0a0b"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
-
-  <!-- "FRI" eyebrow: three teal letters at the top, ~8 px cap height.
-       Built from rectangles since these are sans glyphs at a small size. -->
-  <g fill="#1de9b6">
-    <!-- F: vertical bar + 2 crossbars -->
-    <rect x="19" y="16" width="1.6" height="8"/>
-    <rect x="19" y="16" width="5"   height="1.4"/>
-    <rect x="19" y="19" width="3.6" height="1.2"/>
-    <!-- R: vertical bar + top arch + diagonal leg -->
-    <rect x="27" y="16" width="1.6" height="8"/>
-    <rect x="27" y="16" width="4.2" height="1.4"/>
-    <rect x="27" y="19" width="4.2" height="1.2"/>
-    <rect x="30" y="17" width="1.4" height="3"/>
-    <rect x="30.5" y="20" width="1.4" height="4" transform="rotate(-12 30.5 20)"/>
-    <!-- I: vertical bar with serifs -->
-    <rect x="36"   y="16" width="4"   height="1.4"/>
-    <rect x="37.2" y="16" width="1.6" height="8"/>
-    <rect x="36"   y="22.6" width="4" height="1.4"/>
-  </g>
-
-  <!-- "5" numeral: ExtraLight (thin strokes), ~32 px cap height, centred. -->
-  <g fill="none" stroke="#f5f5f5" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
-    <!-- Top horizontal bar of the 5 -->
-    <path d="M 41 31 L 26 31"/>
-    <!-- Left vertical down to the curve start -->
-    <path d="M 26 31 L 26 42"/>
-    <!-- The curve: bowl from upper-left into a lower-right loop -->
-    <path d="M 26 42 C 30 39, 38 39, 41 44 C 44 49, 41 55, 35 55 C 30 55, 26 53, 24 50"/>
-  </g>
+    <defs>
+        <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a45"/><stop offset="1" stop-color="#d03a12"/></linearGradient>
+        <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+    </defs>
+    <rect width="64" height="64" rx="15" fill="url(#tile)"/>
+    <rect width="64" height="64" rx="15" fill="url(#sheen)"/>
+    <path fill="#000000" fill-opacity="0.18" transform="translate(0 1.2)" d="M44.59 17.52H41.44V16.89Q41.44 16.1 40.89 15.55Q40.34 15 39.56 15Q38.77 15 38.22 15.55Q37.67 16.1 37.67 16.89V17.52H26.33V16.89Q26.33 16.1 25.78 15.55Q25.23 15 24.44 15Q23.66 15 23.11 15.55Q22.56 16.1 22.56 16.89V17.52H19.41Q18.11 17.52 17.18 18.44Q16.26 19.37 16.26 20.67V45.85Q16.26 47.15 17.18 48.08Q18.11 49 19.41 49H44.59Q45.89 49 46.82 48.08Q47.74 47.15 47.74 45.85V20.67Q47.74 19.37 46.82 18.44Q45.89 17.52 44.59 17.52ZM22.56 21.3Q22.56 22.08 23.11 22.63Q23.66 23.19 24.44 23.19Q25.23 23.19 25.78 22.63Q26.33 22.08 26.33 21.3H37.67Q37.67 22.08 38.22 22.63Q38.77 23.19 39.56 23.19Q40.34 23.19 40.89 22.63Q41.44 22.08 41.44 21.3H43.96V25.07H20.04V21.3ZM20.04 45.22V28.85H43.96V45.22Z"/>
+    <path fill="#ffffff" d="M44.59 17.52H41.44V16.89Q41.44 16.1 40.89 15.55Q40.34 15 39.56 15Q38.77 15 38.22 15.55Q37.67 16.1 37.67 16.89V17.52H26.33V16.89Q26.33 16.1 25.78 15.55Q25.23 15 24.44 15Q23.66 15 23.11 15.55Q22.56 16.1 22.56 16.89V17.52H19.41Q18.11 17.52 17.18 18.44Q16.26 19.37 16.26 20.67V45.85Q16.26 47.15 17.18 48.08Q18.11 49 19.41 49H44.59Q45.89 49 46.82 48.08Q47.74 47.15 47.74 45.85V20.67Q47.74 19.37 46.82 18.44Q45.89 17.52 44.59 17.52ZM22.56 21.3Q22.56 22.08 23.11 22.63Q23.66 23.19 24.44 23.19Q25.23 23.19 25.78 22.63Q26.33 22.08 26.33 21.3H37.67Q37.67 22.08 38.22 22.63Q38.77 23.19 39.56 23.19Q40.34 23.19 40.89 22.63Q41.44 22.08 41.44 21.3H43.96V25.07H20.04V21.3ZM20.04 45.22V28.85H43.96V45.22Z"/>
 </svg>
