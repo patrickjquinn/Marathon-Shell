@@ -171,6 +171,13 @@ build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$
 # right packages directly. Real devices need this.
 DEVICE_OVERLAY_APORT="$APORTS_DIR/device-$MARATHON_TARGET_DEVICE-marathon"
 if [ -d "$DEVICE_OVERLAY_APORT" ]; then
+    # Kernel and U-Boot forks the overlay depends on; apk takes them from
+    # mkosi.packages in place of the pmaports packages they replace.
+    for fork in $(set +u; . "$DEVICE_OVERLAY_APORT/APKBUILD"; echo $depends); do
+        case "$fork" in linux-*-marathon|u-boot-*-marathon) ;; *) continue ;; esac
+        APORT="$fork" build_if_missing "$fork" "$fork-*.apk" \
+            "$LIB/build-aport-apk.sh" "$APORTS_DIR/$fork/APKBUILD"
+    done
     build_if_missing "device-$MARATHON_TARGET_DEVICE-marathon" \
         "device-$MARATHON_TARGET_DEVICE-marathon-*.apk" \
         "$LIB/build-device-marathon-apk.sh" \
