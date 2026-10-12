@@ -33,6 +33,10 @@ TestCase {
         ErrorToast {
             id: errorToast
         }
+
+        ConnectionToast {
+            id: connectionToast
+        }
     }
 
     readonly property real bannerY: Constants.statusBarHeight + 20
@@ -46,6 +50,7 @@ TestCase {
     function cleanup() {
         notificationToast.dismissToast();
         errorToast.hide();
+        connectionToast.hide();
         wait(50);
     }
 
@@ -116,5 +121,12 @@ TestCase {
         swipeUp(40, bannerY);
         verify(!errorToast.shown);
         compare(underneath.taps, 0);
+    }
+
+    function test_connectionToastSwipesUp() {
+        connectionToast.show("Connected to Home", "wifi");
+        wait(50);
+        swipeUp(win.width / 2, bannerY);
+        verify(!connectionToast.shown);
     }
 }

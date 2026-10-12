@@ -2036,9 +2036,15 @@ Item {
     Connections {
         function onWifiConnectedChanged() {
             if (NetworkManagerCpp.wifiConnected)
-                connectionToast.show("Connected to Wi-Fi", "wifi");
-            else if (NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
-                connectionToast.show("Wi-Fi disconnected", "wifi-slash");
+                connectionToast.show(qsTr("Connected to %1").arg(NetworkManagerCpp.wifiSsid), "wifi");
+            else if (NetworkManagerCpp.wifiEnabled)
+                connectionToast.show(qsTr("Wi-Fi disconnected"), "wifi-slash");
+        }
+
+        // Emitted just after wifiConnectedChanged when the network is new.
+        function onWifiSsidChanged() {
+            if (NetworkManagerCpp.wifiConnected)
+                connectionToast.show(qsTr("Connected to %1").arg(NetworkManagerCpp.wifiSsid), "wifi");
         }
 
         function onEthernetConnectedChanged() {

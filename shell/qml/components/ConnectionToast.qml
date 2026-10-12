@@ -7,40 +7,42 @@ Item {
 
     property string message: ""
     property string iconName: "wifi"
-    property bool showing: false
-    property bool initialized: false
+    property bool shown: false
+    property real dragOffset: 0
 
     function show(msg, icon) {
         message = msg;
         iconName = icon || "wifi";
-        showing = true;
-        toast.y = -toast.height;
-        slideIn.start();
+        hideTimer.stop();
+        dragOffset = 0;
+        shown = true;
         autoHideTimer.restart();
     }
 
     function hide() {
-        slideOut.start();
+        if (!shown)
+            return;
+        autoHideTimer.stop();
+        shown = false;
+        dragOffset = 0;
+        hideTimer.restart();
     }
 
     anchors.fill: parent
     z: 2950
-    Component.onCompleted: {
-        initDelayTimer.start();
-    }
 
     Rectangle {
         id: toast
 
         anchors.horizontalCenter: parent.horizontalCenter
-        y: -height
+        y: (connectionToast.shown ? Constants.statusBarHeight + Silica.Theme.paddingSmall : -height) + connectionToast.dragOffset
         width: Math.min(toastRow.width + Silica.Theme.paddingLarge * 2, parent.width - Silica.Theme.paddingSmall * 2)
         height: Silica.Theme.itemSizeSmall
         radius: Silica.Theme.paddingMedium
         color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
         border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
-        visible: connectionToast.showing
+        visible: connectionToast.shown || hideTimer.running
 
         Row {
             id: toastRow
@@ -62,28 +64,46 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
-    }
 
-    NumberAnimation {
-        id: slideIn
+        MouseArea {
+            id: swipeArea
 
-        target: toast
-        property: "y"
-        to: Constants.statusBarHeight + Silica.Theme.paddingSmall
-        duration: 250
-        easing.type: Easing.OutCubic
-    }
+            property real startY: 0
+            property bool dragged: false
 
-    NumberAnimation {
-        id: slideOut
+            anchors.fill: parent
+            onPressed: mouse => {
+                startY = mapToItem(connectionToast, mouse.x, mouse.y).y;
+                dragged = false;
+                autoHideTimer.stop();
+            }
+            onPositionChanged: mouse => {
+                const dy = mapToItem(connectionToast, mouse.x, mouse.y).y - startY;
+                if (Math.abs(dy) > Silica.Theme.startDragDistance)
+                    dragged = true;
+                connectionToast.dragOffset = Math.max(Math.min(0, dy), -toast.height);
+            }
+            onReleased: {
+                if (connectionToast.dragOffset < -Silica.Theme.startDragDistance * 2) {
+                    connectionToast.hide();
+                } else {
+                    connectionToast.dragOffset = 0;
+                    autoHideTimer.restart();
+                }
+            }
+            onClicked: {
+                if (!dragged)
+                    connectionToast.hide();
+            }
+        }
 
-        target: toast
-        property: "y"
-        to: -toast.height
-        duration: 200
-        easing.type: Easing.InCubic
-        onFinished: {
-            connectionToast.showing = false;
+        Behavior on y {
+            enabled: !swipeArea.pressed
+
+            NumberAnimation {
+                duration: MMotion.moderate
+                easing.bezierCurve: MMotion.easingDecelerateCurve
+            }
         }
     }
 
@@ -94,36 +114,9 @@ Item {
         onTriggered: connectionToast.hide()
     }
 
-    Connections {
-        function onIsWifiOnChanged() {
-            if (connectionToast.initialized && SystemStatusStore.isWifiOn)
-                connectionToast.show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
-        }
-
-        function onIsBluetoothOnChanged() {
-            if (connectionToast.initialized && SystemStatusStore.isBluetoothOn)
-                connectionToast.show("Bluetooth enabled", "bluetooth");
-        }
-
-        function onIsAirplaneModeChanged() {
-            if (!connectionToast.initialized)
-                return;
-
-            if (SystemStatusStore.isAirplaneMode)
-                connectionToast.show("Airplane mode enabled", "plane");
-            else
-                connectionToast.show("Airplane mode disabled", "plane");
-        }
-
-        target: SystemStatusStore
-    }
-
     Timer {
-        id: initDelayTimer
+        id: hideTimer
 
-        interval: 1000
-        onTriggered: {
-            connectionToast.initialized = true;
-        }
+        interval: MMotion.moderate
     }
 }
