@@ -20,6 +20,7 @@ Item {
 
     property bool checked: false
     property bool disabled: false
+    property string a11yName: ""
 
     readonly property real scaleFactor: Constants.scaleFactor || 1
     readonly property real trackWidth: Math.round(44 * scaleFactor)
@@ -31,13 +32,9 @@ Item {
 
     function toggle() {
         if (!disabled) {
+            MHaptics.light();
             checked = !checked;
             toggled();
-            // Haptic moved from here to the thumb's SpringAnimation.
-            // onStopped below — fires when the thumb actually LANDS
-            // in the new position, not when the press registers. iOS
-            // / M3 Expressive feel: user perceives the action complete
-            // at settle, not at touch.
         }
     }
 
@@ -45,7 +42,7 @@ Item {
     implicitHeight: trackHeight
 
     Accessible.role: Accessible.CheckBox
-    Accessible.name: "Toggle switch"
+    Accessible.name: a11yName
     Accessible.checked: checked
     Accessible.onToggleAction: {
         if (!disabled)
@@ -74,11 +71,15 @@ Item {
         border.color: root.checked ? MColors.tealBorder : MColors.whiteOverlay08
 
         Behavior on color {
+            enabled: !MMotion.reduceMotion
+
             ColorAnimation {
                 duration: MMotion.quick
             }
         }
         Behavior on border.color {
+            enabled: !MMotion.reduceMotion
+
             ColorAnimation {
                 duration: MMotion.quick
             }
@@ -121,17 +122,20 @@ Item {
         border.color: Qt.rgba(0, 0, 0, 0.18)
 
         Behavior on x {
+            enabled: !MMotion.reduceMotion
+
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("tap")
                 damping: MMotion.dampingSpatialFor("tap")
                 epsilon: MMotion.epsilonSpatial
-                onStopped: MHaptics.light()
             }
         }
     }
 
     MouseArea {
         anchors.fill: parent
+        anchors.topMargin: -Math.round(9 * root.scaleFactor)
+        anchors.bottomMargin: -Math.round(9 * root.scaleFactor)
         enabled: !root.disabled
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
         onClicked: root.toggle()

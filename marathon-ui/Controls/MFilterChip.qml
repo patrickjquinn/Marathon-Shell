@@ -32,7 +32,16 @@ Rectangle {
     border.width: Math.max(1, Math.round(1 * scaleFactor))
     border.color: active ? MColors.tealBorder : MColors.whiteOverlay08
 
+    scale: chipMouse.pressed ? 0.96 : 1.0
+
+    Accessible.role: Accessible.Button
+    Accessible.name: chip.count.length > 0 ? chip.label + ", " + chip.count : chip.label
+    Accessible.checked: chip.active
+    Accessible.onPressAction: chip.activated()
+
     Behavior on color {
+        enabled: !MMotion.reduceMotion
+
         ColorAnimation {
             duration: MMotion.quick
             easing.type: Easing.OutCubic
@@ -46,7 +55,7 @@ Rectangle {
 
         Text {
             text: chip.label
-            color: chip.active ? "#000000" : MColors.textSecondary
+            color: chip.active ? MColors.textOnAccent : MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeFootnote
             font.weight: MTypography.weightMedium
@@ -58,7 +67,7 @@ Rectangle {
             // Per JSX HubScreen — count is slightly faded on the active
             // teal pill (0.65 alpha) so the label reads first.
             opacity: chip.active ? 0.65 : 1.0
-            color: chip.active ? "#000000" : MColors.textSecondary
+            color: chip.active ? MColors.textOnAccent : MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeEyebrow
             font.weight: MTypography.weightDemiBold
@@ -70,12 +79,16 @@ Rectangle {
     }
 
     MouseArea {
+        id: chipMouse
+
         anchors.fill: parent
+        anchors.topMargin: -Math.round(6 * chip.scaleFactor)
+        anchors.bottomMargin: -Math.round(6 * chip.scaleFactor)
         onClicked: chip.activated()
-        onPressed: chip.scale = 0.96
-        onReleased: chip.scale = 1.0
     }
     Behavior on scale {
+        enabled: !MMotion.reduceMotion
+
         NumberAnimation {
             duration: MMotion.quick
             easing.type: Easing.OutBack

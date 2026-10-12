@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
@@ -236,11 +238,13 @@ Item {
             model: root.options
 
             delegate: Rectangle {
+                id: optionItem
+
                 required property var modelData
                 required property int index
 
                 width: listView.width
-                height: Math.round(44 * scaleFactor)
+                height: Math.round(44 * root.scaleFactor)
                 color: {
                     if (index === root.selectedIndex)
                         return MColors.highlightMedium;
@@ -261,11 +265,11 @@ Item {
                     anchors.right: checkIcon.left
                     anchors.rightMargin: MSpacing.sm
                     anchors.verticalCenter: parent.verticalCenter
-                    text: typeof modelData === "object" ? modelData.text : modelData
+                    text: typeof optionItem.modelData === "object" ? optionItem.modelData.text : optionItem.modelData
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
-                    font.weight: index === root.selectedIndex ? MTypography.weightMedium : MTypography.weightNormal
+                    font.weight: optionItem.index === root.selectedIndex ? MTypography.weightMedium : MTypography.weightNormal
                     elide: Text.ElideRight
                 }
 
@@ -275,9 +279,9 @@ Item {
                     anchors.rightMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
                     name: "check"
-                    size: Math.round(16 * scaleFactor)
+                    size: Math.round(16 * root.scaleFactor)
                     color: MColors.marathonTeal
-                    visible: index === root.selectedIndex
+                    visible: optionItem.index === root.selectedIndex
                 }
 
                 MouseArea {
@@ -286,7 +290,7 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
 
-                    onClicked: root.selectByIndex(index)
+                    onClicked: root.selectByIndex(optionItem.index)
                 }
             }
         }

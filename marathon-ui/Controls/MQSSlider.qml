@@ -33,10 +33,14 @@ Item {
     property real value: 50          // 0..100
     property real from: 0
     property real to: 100
+    property string a11yName: ""
 
     signal moved(real value)
 
     implicitHeight: 44
+
+    Accessible.role: Accessible.Slider
+    Accessible.name: a11yName
 
     readonly property real fraction: (value - from) / Math.max(1, to - from)
 

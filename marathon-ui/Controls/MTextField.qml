@@ -23,13 +23,14 @@ FocusScope {
     property alias inputMethodHints: field.inputMethodHints
     property alias validator: field.validator
     property string label: ""
+    property string errorText: ""
 
     // Read-only flag mirrored from the inner TextField so callers can
     // bind to `focus` semantics without reaching inside.
     readonly property bool focused: field.activeFocus
 
     implicitWidth: parent ? parent.width : 240
-    implicitHeight: labelLabel.implicitHeight + (root.label !== "" ? 4 : 0) + Math.max(44, field.implicitHeight + 16)
+    implicitHeight: labelLabel.implicitHeight + (root.label !== "" ? 4 : 0) + Math.max(44, field.implicitHeight + 16) + (errorLabel.visible ? errorLabel.implicitHeight + 4 : 0)
 
     Text {
         id: labelLabel
@@ -53,7 +54,7 @@ FocusScope {
         radius: MRadius.md
         color: root.enabled ? MColors.bb10Surface : Qt.rgba(0, 0, 0, 0.2)
         border.width: 1
-        border.color: field.activeFocus ? MColors.marathonTeal : MColors.borderGlass
+        border.color: root.errorText !== "" ? MColors.error : (field.activeFocus ? MColors.marathonTeal : MColors.borderGlass)
 
         TextField {
             id: field
@@ -70,6 +71,22 @@ FocusScope {
             // Drop the upstream FrameStyle — we draw the surround ourselves.
             background: null
             enabled: root.enabled
+            Accessible.name: root.label !== "" ? root.label : field.placeholderText
+            Accessible.description: root.errorText
         }
+    }
+
+    Text {
+        id: errorLabel
+        visible: root.errorText !== ""
+        text: root.errorText
+        color: MColors.error
+        font.family: MTypography.fontFamily
+        font.pixelSize: MTypography.sizeFootnote
+        wrapMode: Text.Wrap
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: surface.bottom
+        anchors.topMargin: 4
     }
 }

@@ -20,6 +20,7 @@ Item {
     property real from: 0.0
     property real to: 1.0
     property bool disabled: false
+    property string a11yName: ""
 
     signal moved
     signal released
@@ -32,6 +33,10 @@ Item {
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: Math.round(24 * scaleFactor)
+
+    Accessible.role: Accessible.Slider
+    Accessible.name: a11yName
+    Accessible.ignored: disabled
 
     Rectangle {
         id: track

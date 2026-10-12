@@ -40,6 +40,13 @@ Rectangle {
     signal toggled
 
     implicitHeight: 84
+    scale: tileMouse.pressed ? 0.96 : 1.0
+
+    Accessible.role: Accessible.Button
+    Accessible.name: sublabel.length > 0 ? label + ", " + sublabel : label
+    Accessible.checkable: true
+    Accessible.checked: on
+    Accessible.onPressAction: toggled()
     radius: MRadius.md
     // Off = elev2 key; On = a dark teal-tinted key. The tile no longer floods
     // solid teal (that read as a flat 2014-era swatch) — activation is carried
@@ -52,6 +59,8 @@ Rectangle {
     // gets a brighter teal rim (hover-strength) so the lit key has a crisp edge.
     border.color: on ? MColors.tealBorderHover : MColors.whiteOverlay16
     Behavior on border.color {
+        enabled: !MMotion.reduceMotion
+
         ColorAnimation { duration: MMotion.quick }
     }
 
@@ -189,6 +198,8 @@ Rectangle {
     }
 
     Behavior on color {
+        enabled: !MMotion.reduceMotion
+
         ColorAnimation {
             duration: MMotion.quick
             easing.type: Easing.OutCubic
@@ -196,12 +207,14 @@ Rectangle {
     }
 
     MouseArea {
+        id: tileMouse
+
         anchors.fill: parent
         onClicked: tile.toggled()
-        onPressed: tile.scale = 0.96
-        onReleased: tile.scale = 1.0
     }
     Behavior on scale {
+        enabled: !MMotion.reduceMotion
+
         NumberAnimation {
             duration: MMotion.quick
             easing.type: Easing.OutBack

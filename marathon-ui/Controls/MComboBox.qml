@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
@@ -230,11 +232,13 @@ Item {
             }
 
             delegate: Rectangle {
+                id: optionItem
+
                 required property var modelData
                 required property int index
 
                 width: listView.width
-                height: Math.round(44 * scaleFactor)
+                height: Math.round(44 * root.scaleFactor)
                 color: {
                     if (index === listView.currentIndex && listView.activeFocus)
                         return MColors.marathonTealHoverGradient;
@@ -255,7 +259,7 @@ Item {
                     anchors.right: parent.right
                     anchors.rightMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    text: typeof modelData === "object" ? modelData.text : modelData
+                    text: typeof optionItem.modelData === "object" ? optionItem.modelData.text : optionItem.modelData
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
@@ -270,7 +274,7 @@ Item {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
-                        root.selectByIndex(index);
+                        root.selectByIndex(optionItem.index);
                         textInput.forceActiveFocus();
                     }
                 }
