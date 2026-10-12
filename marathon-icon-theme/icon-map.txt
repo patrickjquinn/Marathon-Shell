@@ -19,6 +19,7 @@ browser globe
 calendar calendar-blank
 call phone
 camera camera
+camera-switch camera-rotate
 cancel x
 capslock arrow-fat-up
 cellular cell-signal-full
