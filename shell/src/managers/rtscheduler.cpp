@@ -3,24 +3,17 @@
 #include <QFile>
 #include <QTextStream>
 
-#ifdef Q_OS_LINUX
 #include <sched.h>
 #include <sys/resource.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <cerrno>
-#include <cstring>
-#endif
 
 RTScheduler::RTScheduler(QObject *parent)
     : QObject(parent)
-    , m_isRealtimeKernel(false)
-    , m_hasRTPermissions(false) {
+    , m_isRealtimeKernel(false) {
     detectKernelCapabilities();
 }
 
 void RTScheduler::detectKernelCapabilities() {
-#ifdef Q_OS_LINUX
     // Two independent capabilities matter here:
     //
     //   (1) SCHED_FIFO permission -- the shell needs CAP_SYS_NICE (or rtprio in
@@ -61,9 +54,9 @@ void RTScheduler::detectKernelCapabilities() {
     sched_param current{};
     pthread_getschedparam(pthread_self(), &policy, &current);
     struct rlimit rtprio{};
-    const bool    rlimitAllows = getrlimit(RLIMIT_RTPRIO, &rtprio) == 0 && rtprio.rlim_cur > 0;
-    m_hasRTPermissions = policy == SCHED_RR || policy == SCHED_FIFO || rlimitAllows;
-    if (m_hasRTPermissions) {
+    const bool    rlimitAllows     = getrlimit(RLIMIT_RTPRIO, &rtprio) == 0 && rtprio.rlim_cur > 0;
+    const bool    hasRTPermissions = policy == SCHED_RR || policy == SCHED_FIFO || rlimitAllows;
+    if (hasRTPermissions) {
         qInfo() << "[RTScheduler] Real-time scheduling available";
     } else {
         qWarning() << "[RTScheduler] Real-time scheduling not permitted -- compositor and "
@@ -72,86 +65,13 @@ void RTScheduler::detectKernelCapabilities() {
         qWarning() << "[RTScheduler] Fix: grant rtprio via /etc/security/limits.d/ "
                       "(file capabilities on the shell break its D-Bus session bus).";
     }
-#else
-    qInfo() << "[RTScheduler] Not on Linux, RT scheduling disabled";
-#endif
-}
-
-bool RTScheduler::setRealtimePriority(int priority) const {
-#ifdef Q_OS_LINUX
-    if (!m_hasRTPermissions) {
-        qWarning() << "[RTScheduler] Cannot set RT priority - permissions not available (shell "
-                      "running with degraded performance)";
-        return false;
-    }
-
-    if (priority < 1 || priority > 99) {
-        qWarning() << "[RTScheduler] Invalid priority:" << priority << "(must be 1-99)";
-        return false;
-    }
-
-    struct sched_param param;
-    param.sched_priority = priority;
-
-    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) != 0) {
-        qWarning() << "[RTScheduler] Failed to set RT priority:" << strerror(errno);
-        return false;
-    }
-
-    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
-    return true;
-#else
-    Q_UNUSED(priority);
-    return false;
-#endif
-}
-
-bool RTScheduler::setThreadPriority(QThread *thread, int priority) const {
-#ifdef Q_OS_LINUX
-    if (!thread) {
-        qWarning() << "[RTScheduler] Null thread pointer";
-        return false;
-    }
-
-    if (!m_hasRTPermissions) {
-        qWarning() << "[RTScheduler] Cannot set RT priority without permissions";
-        return false;
-    }
-
-    if (priority < 1 || priority > 99) {
-        qWarning() << "[RTScheduler] Invalid priority:" << priority << "(must be 1-99)";
-        return false;
-    }
-
-    pthread_t          threadHandle = reinterpret_cast<pthread_t>(QThread::currentThreadId());
-
-    struct sched_param param;
-    param.sched_priority = priority;
-
-    if (pthread_setschedparam(threadHandle, SCHED_FIFO, &param) != 0) {
-        qWarning() << "[RTScheduler] Failed to set thread RT priority:" << strerror(errno);
-        return false;
-    }
-
-    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
-    return true;
-#else
-    Q_UNUSED(thread);
-    Q_UNUSED(priority);
-    return false;
-#endif
 }
 
 bool RTScheduler::isRealtimeKernel() const {
     return m_isRealtimeKernel;
 }
 
-bool RTScheduler::hasRealtimePermissions() const {
-    return m_hasRTPermissions;
-}
-
 QString RTScheduler::getCurrentPolicy() const {
-#ifdef Q_OS_LINUX
     int policy = sched_getscheduler(0);
 
     switch (policy) {
@@ -166,13 +86,9 @@ QString RTScheduler::getCurrentPolicy() const {
 #endif
         default: return "UNKNOWN";
     }
-#else
-    return "N/A (not Linux)";
-#endif
 }
 
 int RTScheduler::getCurrentPriority() const {
-#ifdef Q_OS_LINUX
     struct sched_param param;
     sched_getscheduler(0);
 
@@ -181,7 +97,4 @@ int RTScheduler::getCurrentPriority() const {
     }
 
     return -1;
-#else
-    return 0;
-#endif
 }
