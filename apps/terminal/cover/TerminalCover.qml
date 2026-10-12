@@ -30,7 +30,7 @@ CoverBackground {
         objectName: "coverPlaceholder"
         visible: cover.lines.length === 0
         text: qsTr("Terminal")
-        icon.source: "image://theme/icon-m-keyboard"
+        icon.source: "image://theme/icon-l-terminal"
     }
 
     Column {
