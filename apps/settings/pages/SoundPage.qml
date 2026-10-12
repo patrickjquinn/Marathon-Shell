@@ -37,12 +37,20 @@ Page {
                 maximumValue: 100
                 stepSize: 1
                 value: Logic.percent(Audio.volume)
-                valueText: qsTr("%1%").arg(Math.round(sliderValue))
+                valueText: Audio.muted ? qsTr("Muted") : qsTr("%1%").arg(Math.round(sliderValue))
                 onValueChanged: {
                     if (down)
                         page.setVolume(value);
                 }
                 onReleased: page.setVolume(value)
+            }
+            TextSwitch {
+                objectName: "muteSwitch"
+                text: qsTr("Mute")
+                description: qsTr("Silence all sounds")
+                automaticCheck: false
+                checked: Audio.muted
+                onClicked: Audio.setMuted(!Audio.muted)
             }
 
             SectionHeader {

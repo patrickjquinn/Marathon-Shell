@@ -21,6 +21,9 @@ QtObject {
     function setVolume(v) {
         volume = v;
     }
+    function setMuted(on) {
+        muted = on;
+    }
     function setDoNotDisturb(on) {
         doNotDisturb = on;
     }

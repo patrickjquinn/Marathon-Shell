@@ -120,6 +120,14 @@ TestCase {
         compare(volume.value, 40);
         s.page.setVolume(70);
         compare(Audio.volume, 0.7);
+        const muteSwitch = child(s.page, "muteSwitch");
+        verify(!muteSwitch.checked);
+        muteSwitch.clicked(null);
+        verify(Audio.muted);
+        verify(muteSwitch.checked);
+        compare(volume.valueText, "Muted");
+        muteSwitch.clicked(null);
+        verify(!Audio.muted);
         compare(child(s.page, "ringtoneButton").value, "Classic");
 
         Audio.streams.append({ streamId: 7, appName: "Music", volume: 0.5, muted: false });
