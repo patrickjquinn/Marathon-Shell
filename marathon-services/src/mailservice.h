@@ -194,15 +194,6 @@ class MailService : public QObject {
     void oauthLoginFailed(const QString &code, const QString &message);
 
   private slots:
-    // Slots take the QMF-side concrete types — the .cpp `#include`s the
-    // QMF headers, so this only resolves once we're building against
-    // qmf-dev. The signatures are documented as comments here to keep
-    // the header free of QMF dependencies.
-    //   void onAccountAdded(const QMailAccountId &id);
-    //   void onAccountRemoved(const QMailAccountId &id);
-    //   void onRetrievalProgress(uint progress, uint total);
-    //   void onActionCompleted(const QMailServiceAction::Status &status);
-    //
     // onMessagesUpdated() handles flag changes (read/unread, folder moves,
     // deletes). The QMailStore::messagesAdded lambda in the constructor
     // calls notifyForNewMessages() directly, then this slot for unread
