@@ -64,6 +64,9 @@ TestCase {
         compare(child(s.page, "appList").count, 3);
         const settings = child(s.page, "app-settings");
         verify(settings.menu === null);
+        compare(findChild(settings, "subtitle").text, "Version 1.0.0 · System app");
+        Apps.append({ id: "plain", name: "Plain", icon: "", version: "", isProtected: false });
+        verify(!findChild(child(s.page, "app-plain"), "subtitle").visible);
         const notes = child(s.page, "app-notes");
         verify(notes.menu !== null);
         s.page.uninstall("notes", "Notes");

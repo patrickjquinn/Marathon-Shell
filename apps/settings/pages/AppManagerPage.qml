@@ -116,8 +116,10 @@ Page {
                     color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
                 Label {
+                    objectName: "subtitle"
                     width: parent.width
-                    text: item.model.isProtected ? qsTr("Version %1 · system app").arg(item.model.version || "1.0.0") : qsTr("Version %1").arg(item.model.version || "1.0.0")
+                    visible: text !== ""
+                    text: [item.model.version ? qsTr("Version %1").arg(item.model.version) : "", item.model.isProtected ? qsTr("System app") : ""].filter(t => t !== "").join(" · ")
                     font.pixelSize: Theme.fontSizeExtraSmall
                     truncationMode: TruncationMode.Fade
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
