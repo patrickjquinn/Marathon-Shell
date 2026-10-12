@@ -38,19 +38,30 @@ function formatDuration(seconds) {
     return Math.floor(total / 60) + " h " + (total % 60) + " min";
 }
 
+var icons = {
+    depart: "image://theme/icon-m-maneuver-depart",
+    arrive: "image://theme/icon-m-maneuver-arrive",
+    left: "image://theme/icon-m-maneuver-left",
+    right: "image://theme/icon-m-maneuver-right",
+    slightLeft: "image://theme/icon-m-maneuver-slight-left",
+    slightRight: "image://theme/icon-m-maneuver-slight-right",
+    uturn: "image://theme/icon-m-maneuver-uturn",
+    roundabout: "image://theme/icon-m-maneuver-roundabout",
+    straight: "image://theme/icon-m-maneuver-straight"
+};
+
 // Valhalla maneuver type -> theme icon.
 function maneuverIcon(type) {
-    const name = {
+    return icons[{
         1: "depart", 2: "depart", 3: "depart",
         4: "arrive", 5: "arrive", 6: "arrive",
-        9: "slight-right", 37: "slight-right",
+        9: "slightRight", 37: "slightRight",
         10: "right", 11: "right", 18: "right", 20: "right", 23: "right",
-        16: "slight-left", 38: "slight-left",
+        16: "slightLeft", 38: "slightLeft",
         14: "left", 15: "left", 19: "left", 21: "left", 24: "left",
         12: "uturn", 13: "uturn",
         26: "roundabout", 27: "roundabout"
-    }[type] || "straight";
-    return "image://theme/icon-m-maneuver-" + name;
+    }[type] || "straight"];
 }
 
 function isArrival(maneuver) {
@@ -102,4 +113,21 @@ function via(maneuvers) {
     if (!names)
         return "";
     return Array.isArray(names) ? names.join(", ") : String(names);
+}
+
+// Distance (m) and time (s) left on the route from maneuver `index`, with
+// `toNext` metres to go before the next one.
+function remaining(maneuvers, index, toNext) {
+    if (!maneuvers || index >= maneuvers.length)
+        return { distance: 0, time: 0 };
+    const m = maneuvers[index];
+    const length = (m.length || 0) * 1000;
+    const left = Math.min(length, toNext >= 0 ? toNext : length);
+    let distance = left;
+    let time = length > 0 ? (m.time || 0) * left / length : 0;
+    for (let i = index + 1; i < maneuvers.length; i++) {
+        distance += (maneuvers[i].length || 0) * 1000;
+        time += maneuvers[i].time || 0;
+    }
+    return { distance: distance, time: time };
 }

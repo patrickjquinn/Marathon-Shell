@@ -89,4 +89,12 @@ TestCase {
         compare(Logic.via([{}]), "");
         compare(Logic.via(null), "");
     }
+
+    function test_remaining() {
+        const ms = [{ length: 1, time: 100 }, { length: 0.5, time: 50 }, { length: 0, time: 0 }];
+        compare(Logic.remaining(ms, 0, -1), { distance: 1500, time: 150 });
+        compare(Logic.remaining(ms, 0, 500), { distance: 1000, time: 100 });
+        compare(Logic.remaining(ms, 2, -1), { distance: 0, time: 0 });
+        compare(Logic.remaining(null, 0, -1), { distance: 0, time: 0 });
+    }
 }
