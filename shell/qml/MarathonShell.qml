@@ -43,9 +43,6 @@ Item {
         } else if (UIStore.searchOpen) {
             UIStore.closeSearch();
             overlayClosed = true;
-        } else if (UIStore.shareSheetOpen) {
-            UIStore.closeShareSheet();
-            overlayClosed = true;
         } else if (UIStore.clipboardManagerOpen) {
             UIStore.closeClipboardManager();
             overlayClosed = true;
@@ -1988,10 +1985,6 @@ Item {
         }
 
         target: ScreenshotService
-    }
-
-    ShareSheet {
-        id: shareSheet
     }
 
     AppContextMenu {
