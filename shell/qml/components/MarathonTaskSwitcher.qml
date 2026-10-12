@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: taskSwitcher
@@ -15,6 +16,8 @@ Item {
     property real searchPullProgress: 0
     property bool searchGestureActive: false
     property var compositor: null
+    // Re-read when the date string turns over at midnight.
+    readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
 
     signal closed
 
@@ -85,51 +88,36 @@ Item {
         }
     }
 
+    // No open apps: the lock screen's clock, in the same place.
     Column {
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: -80 - Constants.navBarHeight
-        // Match the lock screen clockColumn width — without an explicit
-        // width the Column collapses around its widest child, and the
-        // MHaloedDisplay's `parent.width` evaluates as zero, capping
-        // pixelSize via the (parent.width - 32) / 4.4 clamp.
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: Math.round(190 * Constants.scaleFactor) - Constants.statusBarHeight
         width: parent.width * 0.9
         spacing: Constants.spacingSmall
         visible: TaskModel.taskCount === 0
         z: 1
 
-        // Identical to the MarathonLockScreen clock — same MHaloedDisplay
-        // wrapper, same MTypography.weightThin + letterSpacing, same
-        // pixelSize formula. Don't change one without changing the other.
-        MHaloedDisplay {
-            text: SystemStatusStore.timeString
-            pixelSize: Math.min(Math.round(84 * Constants.scaleFactor), Math.floor((parent.width - 32) / 4.4))
-            weight: MTypography.weightThin
-            letterSpacing: -2
-            color: MColors.textPrimary
-            anchors.horizontalCenter: parent.horizontalCenter
+        Silica.Label {
             width: parent.width
-            maxWidth: parent.width - 32
+            text: SystemStatusStore.timeString
+            horizontalAlignment: Text.AlignHCenter
+            fontSizeMode: Text.HorizontalFit
+            font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * 1.9)
+            font.weight: Font.ExtraLight
+            color: Silica.Theme.primaryColor
         }
-
-        Text {
-            text: SystemStatusStore.dateString
-            color: MColors.text
-            font.pixelSize: MTypography.sizeLarge
-            font.weight: Font.Normal
+        Silica.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            opacity: 0.9
-
-            Text {
-                text: parent.text
-                color: "#80000000"
-                font.pixelSize: parent.font.pixelSize
-                font.weight: parent.font.weight
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: 2
-                z: -1
-                opacity: parent.opacity
-            }
+            text: Qt.formatDate(taskSwitcher.today, "dddd")
+            font.pixelSize: Silica.Theme.fontSizeLarge
+            color: Silica.Theme.primaryColor
+        }
+        Silica.Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: Qt.formatDate(taskSwitcher.today, "d MMMM")
+            font.pixelSize: Silica.Theme.fontSizeLarge
+            color: Silica.Theme.primaryColor
         }
     }
 
@@ -159,9 +147,9 @@ Item {
         flickDeceleration: 1500
         maximumFlickVelocity: 3000
         anchors.fill: parent
-        anchors.margins: 16
-        anchors.rightMargin: TaskModel.taskCount > 4 ? 24 : 16
-        anchors.bottomMargin: Constants.bottomBarHeight + 16
+        anchors.margins: Silica.Theme.paddingLarge
+        anchors.rightMargin: TaskModel.taskCount > 4 ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
+        anchors.bottomMargin: Constants.bottomBarHeight + Silica.Theme.paddingLarge
         cellWidth: width / 2
         cellHeight: height / 2
         clip: true
