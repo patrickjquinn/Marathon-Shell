@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
@@ -42,15 +44,6 @@ MApp {
     onAppWillTerminate: {
         Logger.info("TemplateApp", "App terminating");
         saveAppData();
-    }
-
-    Connections {
-        function onBackPressed() {
-            if (navigationStack.depth > 1)
-                navigationStack.pop();
-        }
-
-        target: templateApp
     }
 
     Component {
@@ -128,6 +121,15 @@ MApp {
                     easing.type: Easing.OutCubic
                 }
             }
+        }
+
+        Connections {
+            function onBackPressed() {
+                if (navigationStack.depth > 1)
+                    navigationStack.pop();
+            }
+
+            target: templateApp
         }
     }
 }
