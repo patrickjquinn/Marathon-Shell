@@ -55,12 +55,12 @@ Rectangle {
     // 1x1 (compact) — icon top-centered, label below
     Column {
         anchors.centerIn: parent
-        spacing: MSpacing.sm
+        spacing: MSpacing.xs
         visible: !tile.isWide
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(44 * (Constants.scaleFactor || 1.0))
+            width: Math.round(34 * (Constants.scaleFactor || 1.0))
             height: width
             radius: width / 2
             color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
@@ -69,7 +69,7 @@ Rectangle {
             Icon {
                 anchors.centerIn: parent
                 name: tile.iconName
-                size: 24
+                size: 20
                 color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                 Behavior on color { ColorAnimation { duration: MMotion.quick } }
             }
