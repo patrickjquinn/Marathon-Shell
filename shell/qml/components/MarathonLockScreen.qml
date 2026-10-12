@@ -27,8 +27,7 @@ Item {
     readonly property int roleBody: roleId("body")
     readonly property int roleTimestamp: roleId("timestamp")
     // Max notification cards shown directly; remainder collapse
-    // into the 'N more notifications · earlier today' card per
-    // the JSX LockScreen design.
+    // into the 'N more notifications' row.
     readonly property int maxNotificationsShown: 2
 
     signal unlockRequested
@@ -246,12 +245,7 @@ Item {
             z: 5
         }
 
-        // ── Call NowBar (screens-modern.jsx:LockNowBar) ─────
-        // Live activity strip pinned 70 px from the top whenever
-        // TelephonyService has an active or ringing call. The card
-        // shows a teal-bright phone avatar, an eyebrow with caller
-        // name + call duration, and a red end-call button.
-        //
+        // Call strip under the status bar while a call is active or ringing.
         // Caller name resolves through ContactsManager, falling back to the raw number.
         Item {
             id: lockNowBar
@@ -259,7 +253,7 @@ Item {
             readonly property bool callActive: TelephonyService.callState === "active" || TelephonyService.callState === "ringing"
             // Wall-clock timestamp of the most recent "active" transition.
             // Reset to 0 whenever the call leaves the active state so the
-            // duration eyebrow flips back to "00:00".
+            // duration flips back to "00:00".
             property double callStartedAt: 0
             property int callElapsed: 0
 
@@ -287,10 +281,10 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: statusBar.bottom
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
-            anchors.topMargin: 42
-            height: 72
+            anchors.leftMargin: Silica.Theme.paddingSmall
+            anchors.rightMargin: Silica.Theme.paddingSmall
+            anchors.topMargin: Silica.Theme.paddingLarge
+            height: Math.max(Silica.Theme.itemSizeMedium, callText.implicitHeight + Silica.Theme.paddingMedium * 2)
             z: 6
 
             Connections {
@@ -317,118 +311,73 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: MRadius.md
-                color: MColors.glassTitlebar
+                radius: Silica.Theme.paddingMedium
+                color: Silica.Theme.rgba("black", 0.85)
                 border.width: 1
-                border.color: MColors.borderGlassStrong
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
 
-                MTopHairline {
-                    radius: parent.radius
-                    color: MColors.whiteOverlay06
-                    lineWidth: 1
+                Rectangle {
+                    id: callAvatar
+
+                    width: Silica.Theme.iconSizeMedium
+                    height: width
+                    radius: width / 2
+                    anchors.left: parent.left
+                    anchors.leftMargin: Silica.Theme.paddingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "transparent"
+                    border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+
+                    GlyphIcon {
+                        anchors.centerIn: parent
+                        name: "phone"
+                        size: Silica.Theme.iconSizeExtraSmall
+                        color: Silica.Theme.highlightColor
+                    }
                 }
 
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    anchors.topMargin: 14
-                    anchors.bottomMargin: 14
-                    spacing: 14
+                Column {
+                    id: callText
 
-                    // 44 × 44 teal-outlined phone avatar.
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 44
-                        height: 44
-                        radius: width / 2
-                        border.width: 1
-                        border.color: MColors.marathonTealBright
-                        gradient: Gradient {
-                            GradientStop {
-                                position: 0
-                                color: "#1a4a3e"
-                            }
-                            GradientStop {
-                                position: 1
-                                color: "#0d2620"
-                            }
-                        }
-                        GlyphIcon {
-                            anchors.centerIn: parent
-                            name: "phone"
-                            size: 20
-                            color: MColors.marathonTealBright
-                        }
-                        // Outer teal halo ring at low alpha.
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: -4
-                            radius: width / 2
-                            color: "transparent"
-                            border.width: 1
-                            border.color: MColors.marathonTealBright
-                            opacity: 0.4
-                        }
+                    anchors.left: callAvatar.right
+                    anchors.leftMargin: Silica.Theme.paddingMedium
+                    anchors.right: endCallButton.left
+                    anchors.rightMargin: Silica.Theme.paddingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Silica.Label {
+                        width: parent.width
+                        text: lockNowBar.callerLabel()
+                        color: Silica.Theme.primaryColor
+                        truncationMode: Silica.TruncationMode.Fade
                     }
-
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 44 - 36 - parent.spacing * 2
-                        spacing: 2
-
-                        Text {
-                            text: "CALL · " + lockNowBar.fmtElapsed()
-                            color: MColors.marathonTealBright
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeEyebrow
-                            font.weight: Font.DemiBold
-                            font.letterSpacing: 0.8
-                            font.features: ({
-                                    "tnum": 1
-                                })
-                        }
-                        Text {
-                            width: parent.width
-                            text: lockNowBar.callerLabel()
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeSubhead
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
+                    Silica.Label {
+                        text: "Call · " + lockNowBar.fmtElapsed()
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        font.features: ({
+                                "tnum": 1
+                            })
                     }
+                }
 
-                    // 36 × 36 red end-call button.
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 36
-                        height: 36
-                        radius: width / 2
-                        color: MColors.error
-                        GlyphIcon {
-                            anchors.centerIn: parent
-                            name: "phone"
-                            size: 14
-                            color: "#FFFFFF"
-                            rotation: 135
-                        }
-                        scale: endCallArea.pressed ? 0.94 : 1.0
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 100
-                                easing.type: Easing.OutBack
-                            }
-                        }
-                        MouseArea {
-                            id: endCallArea
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            onClicked: {
-                                HapticManager.medium();
-                                TelephonyService.hangup();
-                            }
-                        }
+                MCircularIconButton {
+                    id: endCallButton
+
+                    width: Silica.Theme.itemSizeExtraSmall
+                    height: width
+                    anchors.right: parent.right
+                    anchors.rightMargin: Silica.Theme.paddingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "phone"
+                    iconSize: Silica.Theme.iconSizeSmall
+                    iconColor: Silica.Theme.errorColor
+                    variant: "secondary"
+                    a11yName: "End call"
+                    rotation: 135
+                    onClicked: {
+                        TelephonyService.hangup();
                     }
                 }
             }
@@ -610,20 +559,18 @@ Item {
         }
 
         // ── Notification stack ──────────────────────────────
-        // Per screens-shell.jsx:84-147 LockScreen() — at top:420 in the
-        // 844-tall canvas, anchored 18 left/right. 2-3 most-recent
-        // unread cards stacked at 8 px gap. If unread > maxShown, an
-        // 'N more · earlier today' collapse card sits at the bottom.
+        // The most recent unread notifications; the rest collapse into a
+        // 'N more' row beneath.
         Column {
             id: notificationStack
 
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
-            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
-            anchors.top: parent.top
-            anchors.topMargin: Math.round(420 * Constants.scaleFactor)
-            spacing: 8
+            anchors.leftMargin: Silica.Theme.paddingSmall
+            anchors.rightMargin: Silica.Theme.paddingSmall
+            anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : (activityBar.visible ? activityBar.bottom : clockColumn.bottom)
+            anchors.topMargin: Silica.Theme.paddingLarge * 2
+            spacing: Silica.Theme.paddingSmall
             visible: unreadModel.count > 0 || lockScreen.moreCount > 0
             z: 10
 
@@ -642,114 +589,65 @@ Item {
                     required property var timestamp
 
                     width: notificationStack.width
-                    // Natural content height — no 60 px floor. DS lock-screen
-                    // cards are tight glanceable snippets, not list rows; the
-                    // floor was making them feel like full Settings rows.
-                    height: cardContent.implicitHeight + 24
-                    radius: MRadius.md   // 4 — DS default
-                    color: MColors.bb10Elevated   // elev-2 = #161718
-                    // .m-card outer ring is `0 0 0 1px var(--border-dark)`
-                    // (rgba(0,0,0,0.7)) — a DARK border that makes the card
-                    // recede into the wallpaper. Was whiteOverlay08, which
-                    // made the cards pop forward and read as opaque chrome.
+                    height: cardContent.implicitHeight + Silica.Theme.paddingMedium * 2
+                    radius: Silica.Theme.paddingMedium
+                    color: notifArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba("black", 0.85)
                     border.width: 1
-                    border.color: MColors.borderDark
-
-                    // .m-card inset top hairline `inset 0 1px 0 var(--w-06)`.
-                    // Lit edge sits inside the dark outer ring — the
-                    // signature double-edge of every Marathon card.
-                    MTopHairline {
-                        radius: MRadius.md
-                        color: MColors.whiteOverlay06
-                    }
+                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
 
                     Row {
                         id: cardContent
-                        anchors.fill: parent
-                        anchors.leftMargin: 14
-                        anchors.rightMargin: 14
-                        anchors.topMargin: 12
-                        anchors.bottomMargin: 12
-                        spacing: 12
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: Silica.Theme.paddingMedium
+                        anchors.rightMargin: Silica.Theme.paddingMedium
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Silica.Theme.paddingMedium
 
-                        // Icon container — 32 × 32, radius 4. Calendar uses
-                        // a tealBorder variant per the JSX; default is a
-                        // quiet two-stop neutral gradient.
-                        Rectangle {
-                            id: iconBay
-                            width: 32
-                            height: 32
-                            radius: MRadius.md
-                            border.width: 1
-                            border.color: notifCard.appId === "calendar" ? MColors.tealBorder : MColors.whiteOverlay08
+                        GlyphIcon {
+                            id: notifIcon
                             anchors.verticalCenter: parent.verticalCenter
-
-                            gradient: Gradient {
-                                GradientStop {
-                                    position: 0
-                                    color: notifCard.appId === "calendar" ? MColors.bb10Surface : MColors.bb10Elevated
-                                }
-                                GradientStop {
-                                    position: 1
-                                    color: MColors.bb10Card
-                                }
-                            }
-
-                            GlyphIcon {
-                                anchors.centerIn: parent
-                                name: notifCard.icon
-                                size: 16
-                                color: notifCard.appId === "calendar" ? MColors.marathonTealBright : MColors.textPrimary
-                            }
+                            name: notifCard.icon
+                            size: Silica.Theme.iconSizeSmall
+                            color: Silica.Theme.highlightColor
                         }
 
-                        // Content column — title row + body text. Layout
-                        // mirrors the JSX exactly (name 13/600 + time 11
-                        // /secondary on the same row, body 13/primary
-                        // below).
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - iconBay.width - parent.spacing
-                            spacing: 2
+                            width: parent.width - notifIcon.width - parent.spacing
 
                             Item {
                                 width: parent.width
                                 height: nameText.implicitHeight
 
-                                Text {
+                                Silica.Label {
                                     id: nameText
                                     anchors.left: parent.left
                                     anchors.right: timeText.left
-                                    anchors.rightMargin: 8
+                                    anchors.rightMargin: Silica.Theme.paddingSmall
                                     text: notifCard.title
-                                    color: MColors.textPrimary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeFootnote
-                                    font.weight: MTypography.weightDemiBold
-                                    elide: Text.ElideRight
+                                    color: Silica.Theme.primaryColor
+                                    font.pixelSize: Silica.Theme.fontSizeSmall
+                                    truncationMode: Silica.TruncationMode.Fade
                                 }
-                                Text {
+                                Silica.Label {
                                     id: timeText
                                     anchors.right: parent.right
                                     anchors.verticalCenter: nameText.verticalCenter
                                     text: lockScreen.relativeTime(notifCard.timestamp)
-                                    color: MColors.textSecondary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeEyebrow
-                                    font.weight: MTypography.weightMedium
+                                    color: Silica.Theme.secondaryColor
+                                    font.pixelSize: Silica.Theme.fontSizeTiny
                                     font.features: ({
                                             "tnum": 1
                                         })
                                 }
                             }
 
-                            Text {
+                            Silica.Label {
                                 width: parent.width
                                 text: notifCard.body
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeFootnote
-                                font.weight: MTypography.weightRegular
+                                color: Silica.Theme.secondaryColor
+                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
                                 elide: Text.ElideRight
                                 maximumLineCount: 2
                                 wrapMode: Text.WordWrap
@@ -759,6 +657,7 @@ Item {
                     }
 
                     MouseArea {
+                        id: notifArea
                         anchors.fill: parent
                         onClicked: {
                             HapticManager.light();
@@ -768,121 +667,102 @@ Item {
                 }
             }
 
-            // 'N more notifications · earlier today' collapse card —
-            // shown when more unread exist than the stack displays.
             Rectangle {
                 width: notificationStack.width
-                // DS .m-card padding "10px 14px" + 28 px icon row =
-                // 48 px tall. Was 44 px (too cramped) and bordered in
-                // white-08 instead of the DS dark outer ring.
-                height: 48
-                radius: MRadius.md
-                color: MColors.bb10Elevated
+                height: Silica.Theme.itemSizeSmall
+                radius: Silica.Theme.paddingMedium
+                color: Silica.Theme.rgba("black", 0.85)
                 border.width: 1
-                border.color: MColors.borderDark
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                 visible: lockScreen.moreCount > 0
 
-                MTopHairline {
-                    radius: MRadius.md
-                    color: MColors.whiteOverlay06
-                }
-
                 Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    spacing: 12
-
-                    Rectangle {
-                        width: 28
-                        height: 28
-                        radius: MRadius.md
-                        color: MColors.bb10Card
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        GlyphIcon {
-                            anchors.centerIn: parent
-                            name: "bell"
-                            size: 14
-                            color: MColors.textPrimary
-                        }
-                    }
-
-                    Item {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 28 - parent.spacing - 18
-                        height: collapseLabel.implicitHeight
-
-                        Text {
-                            id: collapseLabel
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: MColors.textSecondary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeCaption
-                            textFormat: Text.RichText
-                            text: '<span style="color: ' + MColors.textPrimary + '">' + lockScreen.moreCount + ' more notification' + (lockScreen.moreCount === 1 ? '' : 's') + '</span>' + ' · earlier today'
-                        }
-                    }
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: Silica.Theme.paddingMedium
+                    anchors.rightMargin: Silica.Theme.paddingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Silica.Theme.paddingMedium
 
                     GlyphIcon {
+                        id: moreIcon
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "chevron-down"
-                        size: 14
-                        color: MColors.textTertiary
+                        name: "bell"
+                        size: Silica.Theme.iconSizeSmall
+                        color: Silica.Theme.highlightColor
+                    }
+
+                    Silica.Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - moreIcon.width - parent.spacing
+                        text: lockScreen.moreCount + " more notification" + (lockScreen.moreCount === 1 ? "" : "s") + " · earlier today"
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        truncationMode: Silica.TruncationMode.Fade
                     }
                 }
             }
         }
 
-        // Lock-screen bottom row — phone (teal) + camera (dim) +
-        // center unlock affordance. Matches the JSX LockScreen
-        // chevron + 'Swipe up to unlock' pattern, but keeps the
-        // legacy phone/camera shortcuts (per usability — phone
-        // access from lock is a near-universal pattern). The
-        // shortcuts live in MarathonLockShortcuts (squircle bay
-        // + teal accent on Phone, dim on Camera) instead of the
-        // full MarathonBottomBar chrome (no page-indicator on
-        // lock per the design).
-        MarathonLockShortcuts {
+        // Phone and camera shortcuts in the bottom corners, with the
+        // unlock hint between them.
+        Item {
             id: lockScreenBottomBar
 
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.bottomMargin: Silica.Theme.paddingLarge
+            height: Silica.Theme.itemSizeSmall
             z: 10
-            onPhoneActivated: {
-                HapticManager.medium();
-                Logger.info("LockScreen", "Phone quick action tapped");
-                lockScreen.phoneLaunched();
+
+            MCircularIconButton {
+                width: Silica.Theme.itemSizeSmall
+                height: width
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: "phone"
+                iconSize: Silica.Theme.iconSizeSmall
+                variant: "secondary"
+                a11yName: "Phone"
+                onClicked: {
+                    Logger.info("LockScreen", "Phone quick action tapped");
+                    lockScreen.phoneLaunched();
+                }
             }
-            onCameraActivated: {
-                HapticManager.medium();
-                Logger.info("LockScreen", "Camera quick action tapped");
-                lockScreen.cameraLaunched();
+
+            MCircularIconButton {
+                width: Silica.Theme.itemSizeSmall
+                height: width
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: "camera"
+                iconSize: Silica.Theme.iconSizeSmall
+                variant: "secondary"
+                a11yName: "Camera"
+                onClicked: {
+                    Logger.info("LockScreen", "Camera quick action tapped");
+                    lockScreen.cameraLaunched();
+                }
             }
         }
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: Math.round(24 * Constants.scaleFactor)
-            spacing: Math.round(4 * Constants.scaleFactor)
-            opacity: 0.7
+            anchors.bottomMargin: Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingSmall
             z: 11
 
             GlyphIcon {
                 name: "chevron-up"
-                size: Math.round(24 * Constants.scaleFactor)
-                color: "white"
+                size: Silica.Theme.iconSizeSmall
+                color: Silica.Theme.secondaryColor
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
-                    // Only animate while the lock screen is actually visible.
-                    // Leaving this unconditionally running re-renders the scene
-                    // graph at the animation rate even when the lock screen is
-                    // hidden, which under software rasterization keeps all four
-                    // LLVMpipe threads + QSGRenderThread busy at idle.
                     // A few bobs each time the lock screen appears, then
                     // rest: any running animation makes the scene graph
                     // redraw the whole screen every frame, which cost a
@@ -891,7 +771,7 @@ Item {
                     loops: 3
 
                     NumberAnimation {
-                        to: -6
+                        to: -Silica.Theme.paddingSmall
                         duration: 800
                         easing.type: Easing.InOutQuad
                     }
@@ -904,12 +784,11 @@ Item {
                 }
             }
 
-            Text {
+            Silica.Label {
                 text: "Swipe up to unlock"
-                color: "white"
-                font.pixelSize: MTypography.sizeSmall
+                color: Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.QtRendering
             }
         }
 
