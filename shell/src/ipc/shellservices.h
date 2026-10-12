@@ -528,6 +528,7 @@ class NavigationObject : public QObject, protected QDBusContext {
   signals:
     void AppLaunched(const QString &appId);
     void NavigationFailed(const QString &uri, const QString &error);
+    void DeepLinkRequested(const QString &appId, const QString &route, const QString &paramsJson);
 
   private:
     QString           callerAppIdOrEmpty() const;

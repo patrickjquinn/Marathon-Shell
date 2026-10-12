@@ -1643,6 +1643,8 @@ NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *par
     : QObject(parent)
     , m_launchService(launchService) {
     Q_ASSERT(m_launchService);
+    connect(m_launchService, &AppLaunchService::routeForRunningApp, this,
+            &NavigationObject::DeepLinkRequested);
 }
 
 QString NavigationObject::callerAppIdOrEmpty() const {

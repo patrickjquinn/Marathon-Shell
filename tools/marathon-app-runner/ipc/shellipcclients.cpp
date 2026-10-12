@@ -10,6 +10,8 @@
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
@@ -2458,6 +2460,16 @@ NavigationClient::NavigationClient(QObject *parent)
                                           "/org/marathonos/Shell/Navigation",
                                           "org.marathonos.Shell.Navigation1", "NavigationFailed",
                                           this, SIGNAL(navigationFailed(QString, QString)));
+    QDBusConnection::sessionBus().connect(
+        "org.marathonos.Shell", "/org/marathonos/Shell/Navigation",
+        "org.marathonos.Shell.Navigation1", "DeepLinkRequested", this,
+        SLOT(onDeepLinkRequested(QString, QString, QString)));
+}
+
+void NavigationClient::onDeepLinkRequested(const QString &appId, const QString &route,
+                                           const QString &paramsJson) {
+    const QVariantMap params = QJsonDocument::fromJson(paramsJson.toUtf8()).object().toVariantMap();
+    emit deepLinkRequested(appId, route, params);
 }
 
 SystemStatusStoreClient::SystemStatusStoreClient(PowerClient   *powerClient,

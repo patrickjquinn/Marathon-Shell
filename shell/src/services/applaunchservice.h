@@ -81,6 +81,9 @@ class AppLaunchService : public QObject {
     void appLaunchStarted(const QString &appId, const QString &appName);
     void appLaunchCompleted(const QString &appId, const QString &appName);
     void appLaunchFailed(const QString &appId, const QString &appName, const QString &error);
+    // A route for an app that was already running, so it must handle it live.
+    void routeForRunningApp(const QString &appId, const QString &route,
+                            const QString &paramsJson);
     void appLaunchProgress(const QString &appId, int percent);
     // Tracked app-runner exited. Subscribers receive the appId directly
     // so they don't have to translate PID → appId on their own.

@@ -493,6 +493,10 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
         invokeVoid(win, "show",
                    {appId, name, appObj.value("icon"), heldTask->appType(),
                     QVariant::fromValue(heldTask->waylandSurface()), heldTask->surfaceId()});
+        if (!m_pendingRoute.isEmpty())
+            emit routeForRunningApp(appId, m_pendingRoute, m_pendingRouteParamsJson);
+        m_pendingRoute.clear();
+        m_pendingRouteParamsJson.clear();
         m_launchingApps.remove(appId);
         emit appLaunchCompleted(appId, name);
         return true;

@@ -937,6 +937,10 @@ class NavigationClient : public QObject {
     void settingsNavigationRequested(const QString &page, const QString &subpage,
                                      const QVariantMap &params);
 
+  private slots:
+    void onDeepLinkRequested(const QString &appId, const QString &route,
+                             const QString &paramsJson);
+
   private:
     QDBusInterface m_iface;
 };
