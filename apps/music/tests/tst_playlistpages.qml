@@ -26,6 +26,7 @@ TestCase {
         const app = createTemporaryObject(appComponent, this, {
             library: createTemporaryObject(libraryStub, this),
             playlistStore: createTemporaryObject(storeStub, this, { value: JSON.stringify(playlists) }),
+            sessionStore: createTemporaryObject(storeStub, this, { value: "" }),
             player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
         });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);

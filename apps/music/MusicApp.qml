@@ -30,6 +30,22 @@ ApplicationWindow {
         playlistStore.value = JSON.stringify(next);
     }
 
+    property QtObject sessionStore: ConfigurationValue {
+        key: "/apps/music/session"
+        defaultValue: ""
+    }
+    function saveSession() {
+        if (player.currentTrack)
+            sessionStore.value = JSON.stringify(player.snapshot());
+    }
+    function _savedSession() {
+        try {
+            return JSON.parse(sessionStore.value) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
     property Player player: Player {
         onFailed: track => Notices.show(qsTr("Can't play “%1”. The file may be missing or in an unsupported format.")
                                         .arg(track ? track.title : ""))
@@ -57,9 +73,31 @@ ApplicationWindow {
     }
 
     Connections {
+        target: app.player
+        function onCurrentTrackChanged() {
+            app.saveSession();
+        }
+        function onPlayingChanged() {
+            app.saveSession();
+        }
+    }
+
+    Connections {
+        target: Qt.application
+        function onStateChanged() {
+            if (Qt.application.state !== Qt.ApplicationActive)
+                app.saveSession();
+        }
+    }
+
+    Component.onDestruction: saveSession()
+
+    Connections {
         target: app.library
         function onTracksLoaded(list) {
             app.tracks = list;
+            if (!app.loaded && !app.player.currentTrack)
+                app.player.restore(app._savedSession(), list);
             app.loaded = true;
         }
         function onLibraryChanged() {

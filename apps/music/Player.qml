@@ -18,6 +18,8 @@ QtObject {
     readonly property real position: media.position
     readonly property real duration: media.duration > 0 ? media.duration : (currentTrack ? currentTrack.duration * 1000 : 0)
 
+    property real _resumeAt: 0
+
     signal failed(var track)
 
     function playTracks(tracks, start) {
@@ -50,10 +52,35 @@ QtObject {
         repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
     }
 
+    function snapshot() {
+        return { paths: queue.map(t => t.path), index: index, position: media.position, shuffle: shuffle, repeatMode: repeatMode };
+    }
+
+    // Loads a saved queue paused; returns false when none of it is in the library.
+    function restore(s, tracks) {
+        const byPath = {};
+        for (const t of tracks)
+            byPath[t.path] = t;
+        const paths = Array.isArray(s.paths) ? s.paths : [];
+        const current = paths[s.index];
+        const restored = paths.filter(p => byPath[p] !== undefined).map(p => byPath[p]);
+        if (restored.length === 0)
+            return false;
+        const i = restored.findIndex(t => t.path === current);
+        queue = restored;
+        index = i >= 0 ? i : 0;
+        shuffle = s.shuffle === true;
+        repeatMode = ["off", "all", "one"].indexOf(s.repeatMode) >= 0 ? s.repeatMode : "off";
+        _resumeAt = i >= 0 && s.position > 0 ? s.position : 0;
+        media.source = queue[index].path;
+        return true;
+    }
+
     function _play(i) {
         if (i < 0)
             return;
         index = i;
+        _resumeAt = 0;
         media.source = queue[i].path;
         media.play();
     }
@@ -76,6 +103,10 @@ QtObject {
         function onMediaStatusChanged() {
             if (player.media.mediaStatus === MediaPlayer.EndOfMedia)
                 player._finished();
+            else if (player.media.mediaStatus === MediaPlayer.LoadedMedia && player._resumeAt > 0) {
+                player.media.position = player._resumeAt;
+                player._resumeAt = 0;
+            }
         }
         function onErrorOccurred() {
             player.failed(player.currentTrack);

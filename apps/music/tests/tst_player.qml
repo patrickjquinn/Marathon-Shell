@@ -116,4 +116,35 @@ TestCase {
         compare(failedSpy.count, 1);
         compare(failedSpy.signalArguments[0][0].title, "One");
     }
+
+    function test_snapshotRestoresPaused() {
+        const p = makePlayer();
+        p.playTracks(tracks, 1);
+        p.shuffle = true;
+        p.repeatMode = "one";
+        p.media.position = 42000;
+        const saved = JSON.parse(JSON.stringify(p.snapshot()));
+        compare(saved.paths, ["file:///m/1.mp3", "file:///m/2.mp3", "file:///m/3.mp3"]);
+
+        const r = makePlayer();
+        verify(r.restore(saved, tracks.slice().reverse()));
+        compare(r.queue.map(t => t.title), ["One", "Two", "Three"]);
+        compare(r.currentTrack.title, "Two");
+        compare(r.media.source, "file:///m/2.mp3");
+        verify(!r.playing);
+        compare(r.media.plays, 0);
+        verify(r.shuffle);
+        compare(r.repeatMode, "one");
+        r.media.mediaStatus = MediaPlayer.LoadedMedia;
+        compare(r.media.position, 42000);
+    }
+
+    function test_restoreSkipsMissingTracks() {
+        const p = makePlayer();
+        verify(p.restore({ paths: ["file:///gone.mp3", "file:///m/3.mp3"], index: 1, position: 0 }, tracks));
+        compare(p.queue.length, 1);
+        compare(p.currentTrack.title, "Three");
+        verify(!p.restore({ paths: ["file:///gone.mp3"], index: 0 }, tracks));
+        verify(!makePlayer().restore({}, tracks));
+    }
 }

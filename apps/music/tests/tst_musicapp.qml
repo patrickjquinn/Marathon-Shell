@@ -25,6 +25,7 @@ TestCase {
     function makeApp(library) {
         const props = {
             playlistStore: createTemporaryObject(storeStub, this),
+            sessionStore: createTemporaryObject(storeStub, this, { value: "" }),
             player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
         };
         if (library !== null)
@@ -61,6 +62,7 @@ TestCase {
         const app = createTemporaryObject(appComponent, this, {
             library: library,
             playlistStore: createTemporaryObject(storeStub, this),
+            sessionStore: createTemporaryObject(storeStub, this, { value: "" }),
             player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
         });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);
@@ -241,6 +243,33 @@ TestCase {
         compare(JSON.parse(app.playlistStore.value)[0].name, "Run");
         compare(app.playlists.length, 1);
         compare(findChild(app.pageStack.currentPage, "categories").itemAt(3).modelData.count, 1);
+    }
+
+    function test_queueAndPositionSurviveRestart() {
+        const session = createTemporaryObject(storeStub, this, { value: "" });
+        const first = createTemporaryObject(appComponent, this, {
+            library: createTemporaryObject(libraryStub, this),
+            playlistStore: createTemporaryObject(storeStub, this),
+            sessionStore: session,
+            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+        });
+        tryVerify(() => first.loaded);
+        first.player.playTracks(first.tracks, 2);
+        first.player.media.position = 15000;
+        first.player.toggle();
+        compare(JSON.parse(session.value).index, 2);
+        compare(JSON.parse(session.value).position, 15000);
+
+        const next = createTemporaryObject(appComponent, this, {
+            library: createTemporaryObject(libraryStub, this),
+            playlistStore: createTemporaryObject(storeStub, this),
+            sessionStore: session,
+            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+        });
+        tryVerify(() => next.loaded);
+        compare(next.player.currentTrack.title, "Dawn");
+        verify(!next.player.playing);
+        tryVerify(() => panel(next).open);
     }
 
     function test_corruptPlaylistsStartEmpty() {
