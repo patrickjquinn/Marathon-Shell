@@ -86,6 +86,20 @@ TestCase {
         compare(app.currentTab.url, "https://kde.org/");
     }
 
+    function test_rejectedAddressKeepsTheTypedText() {
+        const app = makeApp();
+        const page = app.pageStack.currentPage;
+        const before = app.currentTab.url;
+        page.startEditing();
+        const field = findChild(page, "addressField");
+        field.text = "javascript:alert(1)";
+        page.open(field.text);
+        verify(app.editingAddress);
+        compare(field.text, "javascript:alert(1)");
+        compare(field.selectedText, "javascript:");
+        compare(app.currentTab.url, before);
+    }
+
     function test_focusedEmptyAddressOffersBookmarksAndRecent() {
         const app = makeApp([{ url: "https://kde.org/", title: "KDE" }], [{ url: "https://qt.io/", title: "Qt", timestamp: 2 }]);
         const page = app.pageStack.currentPage;

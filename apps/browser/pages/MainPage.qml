@@ -31,7 +31,15 @@ Page {
         addressField.focus = false;
     }
 
+    // A rejected address stays in the field with its scheme selected.
     function open(text) {
+        const target = Logic.resolveInput(text, browser.searchEngineUrl);
+        if (target.error) {
+            Notices.show(target.error);
+            addressField.forceActiveFocus();
+            addressField.select(addressField.text.search(/\S/), addressField.text.indexOf(":") + 1);
+            return;
+        }
         stopEditing();
         browser.navigateTo(text);
     }
