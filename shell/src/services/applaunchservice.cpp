@@ -1025,7 +1025,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
                   << appConfig << appConfig << QStringLiteral("--bind") << appData << appData
                   << QStringLiteral("--bind") << appCache << appCache << QStringLiteral("--bind")
-                  << xdgRuntimeDir << xdgRuntimeDir;
+                  << xdgRuntimeDir << xdgRuntimeDir << QStringLiteral("--ro-bind-try")
+                  << xdgConfigHome + QStringLiteral("/dconf")
+                  << xdgConfigHome + QStringLiteral("/dconf");
 
         // Pass HOME as a tmpfs-mounted directory; apps can write to their
         // per-app data/cache paths only.
@@ -1265,7 +1267,11 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
          << configDir << configDir << QStringLiteral("--bind") << dataDir << dataDir
          << QStringLiteral("--bind") << cacheDir << cacheDir << QStringLiteral("--bind")
-         << xdgRuntimeDir << xdgRuntimeDir;
+         << xdgRuntimeDir << xdgRuntimeDir
+         // Nemo.Configuration reads dconf's database file; writes go to the
+         // dconf service over D-Bus.
+         << QStringLiteral("--ro-bind-try") << xdgConfigHome + QStringLiteral("/dconf")
+         << xdgConfigHome + QStringLiteral("/dconf");
 
     args << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
          << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
