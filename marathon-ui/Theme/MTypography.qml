@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Sailfish.Silica 1.0
 import MarathonOS.Shell
 
 QtObject {
@@ -64,7 +65,7 @@ QtObject {
     // font.variableAxes for weight axis instancing (Qt 6.7+). Static
     // cuts (fontFamilyForWeight) remain available for callsites that
     // set font.weight directly without engaging the axis.
-    readonly property string fontFamily: _soraLoader.name !== "" ? _soraLoader.name : "Sora"
+    readonly property string fontFamily: Theme.fontFamily
     readonly property string fontFamilyMono: _monoLoader.name !== "" ? _monoLoader.name : "JetBrains Mono"
     readonly property string fontMonospace: fontFamilyMono
 
@@ -72,14 +73,14 @@ QtObject {
     // (lock-screen clock, OOBE display, etc.) where the weight has to
     // hit exactly. Falls back to fontconfig "Sora <Cut>" string if a
     // FontLoader hasn't returned yet.
-    readonly property string fontFamilyThin: _soraThin.name !== "" ? _soraThin.name : "Sora Thin"
-    readonly property string fontFamilyExtraLight: _soraExtraLight.name !== "" ? _soraExtraLight.name : "Sora ExtraLight"
-    readonly property string fontFamilyLight: _soraLight.name !== "" ? _soraLight.name : "Sora Light"
-    readonly property string fontFamilyRegular: _soraRegular.name !== "" ? _soraRegular.name : "Sora Regular"
-    readonly property string fontFamilyMedium: _soraMedium.name !== "" ? _soraMedium.name : "Sora Medium"
-    readonly property string fontFamilySemiBold: _soraSemiBold.name !== "" ? _soraSemiBold.name : "Sora SemiBold"
-    readonly property string fontFamilyBold: _soraBold.name !== "" ? _soraBold.name : "Sora Bold"
-    readonly property string fontFamilyExtraBold: _soraExtraBold.name !== "" ? _soraExtraBold.name : "Sora ExtraBold"
+    readonly property string fontFamilyThin: Theme.fontFamily
+    readonly property string fontFamilyExtraLight: Theme.fontFamily
+    readonly property string fontFamilyLight: Theme.fontFamily
+    readonly property string fontFamilyRegular: Theme.fontFamily
+    readonly property string fontFamilyMedium: Theme.fontFamily
+    readonly property string fontFamilySemiBold: Theme.fontFamily
+    readonly property string fontFamilyBold: Theme.fontFamily
+    readonly property string fontFamilyExtraBold: Theme.fontFamily
 
     function fontFamilyForWeight(w) {
         if (w <= 100)

@@ -1,7 +1,11 @@
 pragma Singleton
 import QtQuick
+import Sailfish.Silica 1.0
 
 QtObject {
+    // Accent and text follow the Silica ambience (wallpaper-derived);
+    // surfaces stay dark glass over it.
+
     // ── Surface ramp · canonical DS Theme (engineering doc) ─────
     // Six near-blacks. Cards stack one step lighter than their parent;
     // there is no light theme. Match dev.marathon.UI Theme.elev0..5 in
@@ -22,21 +26,21 @@ QtObject {
     readonly property color bb10Elevated: "#161718"
     readonly property color bb10Card: "#1a1b1c"
 
-    readonly property color marathonTealDarkest: "#006b5d"
-    readonly property color marathonTealDark: "#00897b"
-    readonly property color marathonTeal: "#00bfa5"
-    readonly property color marathonTealBright: "#1de9b6"
-    readonly property color marathonTealGlow: "#5dffdc"
+    readonly property color marathonTealDarkest: Qt.darker(Theme.highlightDimmerColor, 1.3)
+    readonly property color marathonTealDark: Theme.highlightDimmerColor
+    readonly property color marathonTeal: Theme.highlightColor
+    readonly property color marathonTealBright: Qt.lighter(Theme.highlightColor, 1.2)
+    readonly property color marathonTealGlow: Qt.lighter(Theme.highlightColor, 1.45)
 
     // Very dark teal — the resting face of an ACTIVE glowing key (QS tile,
     // toggle) that carries its state via a teal radial glow rather than a
     // flat teal fill. Reads as "lit dark glass", not a solid swatch.
-    readonly property color tealTintDark: "#0a1613"
+    readonly property color tealTintDark: Theme.rgba(Theme.highlightDimmerColor, 0.6)
 
     // 35% / 55% teal at 18% halo — used on focus rings, primary glow.
-    readonly property color tealBorder: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
-    readonly property color tealBorderHover: Qt.rgba(0, 191 / 255, 165 / 255, 0.55)
-    readonly property color tealHalo: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
+    readonly property color tealBorder: Theme.rgba(Theme.highlightColor, 0.35)
+    readonly property color tealBorderHover: Theme.rgba(Theme.highlightColor, 0.55)
+    readonly property color tealHalo: Theme.rgba(Theme.highlightColor, 0.18)
 
     // ── Secondary muted palette ─────────────────────────────────
     // Used ONLY where colour carries semantic meaning, never decoration.
@@ -53,10 +57,10 @@ QtObject {
     readonly property color secRose: "#a85968"
     readonly property color secViolet: "#6b5d8f"
 
-    readonly property color textPrimary: "#f5f5f5"
-    readonly property color textSecondary: "#9a9a9a"
-    readonly property color textTertiary: "#8a8a8a"
-    readonly property color textHint: "#5a5a5a"
+    readonly property color textPrimary: Theme.primaryColor
+    readonly property color textSecondary: Theme.secondaryColor
+    readonly property color textTertiary: Theme.secondaryColor
+    readonly property color textHint: Theme.rgba(Theme.primaryColor, Theme.opacityLow)
     // Black on teal — DS rule. The teal-bright accent is intentionally
     // light enough that black gives high-contrast labels on primary
     // buttons. (Previously #ffffff which failed WCAG against
@@ -80,7 +84,7 @@ QtObject {
 
     readonly property color hover: Qt.rgba(1, 1, 1, 0.04)
     readonly property color pressed: Qt.rgba(0, 0, 0, 0.1)
-    readonly property color ripple: Qt.rgba(0, 191 / 255, 165 / 255, 0.12)
+    readonly property color ripple: Theme.rgba(Theme.highlightBackgroundColor, 0.12)
 
     readonly property color overlay: Qt.rgba(0, 0, 0, 0.85)
     readonly property color overlayLight: Qt.rgba(0, 0, 0, 0.7)
@@ -113,13 +117,13 @@ QtObject {
     readonly property color accentDark: marathonTealDark
     readonly property color border: borderGlass
 
-    readonly property color marathonTealHoverGradient: Qt.rgba(0, 191 / 255, 165 / 255, 0.03)
-    readonly property color marathonTealPressGradient: Qt.rgba(0, 191 / 255, 165 / 255, 0.12)
-    readonly property color marathonTealGlowTop: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
-    readonly property color marathonTealGlowMid: Qt.rgba(0, 191 / 255, 165 / 255, 0.10)
-    readonly property color marathonTealGlowBottom: Qt.rgba(0, 191 / 255, 165 / 255, 0.02)
-    readonly property color marathonTealBorder: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
-    readonly property color marathonTealBorderHover: Qt.rgba(0, 191 / 255, 165 / 255, 0.4)
+    readonly property color marathonTealHoverGradient: Theme.rgba(Theme.highlightColor, 0.03)
+    readonly property color marathonTealPressGradient: Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
+    readonly property color marathonTealGlowTop: Theme.rgba(Theme.highlightColor, 0.18)
+    readonly property color marathonTealGlowMid: Theme.rgba(Theme.highlightColor, 0.10)
+    readonly property color marathonTealGlowBottom: Theme.rgba(Theme.highlightColor, 0.02)
+    readonly property color marathonTealBorder: Theme.rgba(Theme.highlightColor, 0.35)
+    readonly property color marathonTealBorderHover: Theme.rgba(Theme.highlightColor, 0.4)
 
     readonly property color shadowDefault: Qt.rgba(0, 0, 0, 0.4)
     readonly property color shadowStrong: Qt.rgba(0, 0, 0, 0.6)

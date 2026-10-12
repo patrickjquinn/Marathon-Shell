@@ -60,6 +60,11 @@ set(MARATHON_QML_IMPORT_PATH
     "${CMAKE_BINARY_DIR}"
     "${CMAKE_BINARY_DIR}/shell/qml"
 )
+# The theme follows Keel's Silica ambience; on a development host Keel's
+# QML comes from a Keel build (KEEL_QML), on devices from keel-silica.
+if(DEFINED ENV{KEEL_QML})
+    list(APPEND MARATHON_QML_IMPORT_PATH "$ENV{KEEL_QML}")
+endif()
 set(MARATHON_UI_QML_TARGETS
     marathon-ui-theme
     marathon-ui-core
