@@ -19,6 +19,11 @@ if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
 fi
 
+# Source Sans 3 stands in for Sail Sans Pro (60-marathon-sail-sans.conf).
+if command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -f /usr/share/fonts/source-sans-3 >/dev/null 2>&1 || true
+fi
+
 if command -v udevadm >/dev/null 2>&1; then
     udevadm control --reload-rules 2>/dev/null || true
     udevadm trigger 2>/dev/null || true
