@@ -733,13 +733,9 @@ QtObject {
 
     function infoRows(app, summary) {
         const rows = [];
-        var add = (label, value, url) => {
+        var add = (label, value) => {
             if (value)
-                rows.push(url ? {
-                    "label": label,
-                    "value": value,
-                    "url": url
-                } : {
+                rows.push({
                     "label": label,
                     "value": value
                 });
@@ -750,10 +746,6 @@ QtObject {
         add("Updated", release ? timeAgo(Number(release.timestamp)) : "");
         add("Installed size", summary ? formatSize(summary.installed_size) : "");
         add("License", app.project_license);
-        if (app.urls) {
-            add("Website", app.urls.homepage ? app.urls.homepage.replace(/^https?:\/\//, "").replace(/\/$/, "") : "", app.urls.homepage);
-            add("Report a problem", app.urls.bugtracker ? "Bug tracker" : "", app.urls.bugtracker);
-        }
         return rows;
     }
 

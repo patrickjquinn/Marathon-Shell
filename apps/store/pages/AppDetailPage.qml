@@ -27,6 +27,10 @@ Page {
     readonly property var permissions: summary && summary.metadata ? store.describePermissions(summary.metadata.permissions) : []
     readonly property bool installed: store.isInstalled(appId)
     readonly property var job: store.jobFor(appId)
+    readonly property string homepage: app.urls && app.urls.homepage ? app.urls.homepage : ""
+    readonly property string bugtracker: app.urls && app.urls.bugtracker ? app.urls.bugtracker : ""
+    readonly property var sensitivePermissions: permissions.filter(p => p.risky)
+    readonly property var otherPermissions: permissions.filter(p => !p.risky)
 
     function uninstall() {
         remorse.execute(qsTr("Uninstalled %1").arg(app.name || appId), function () {
@@ -68,6 +72,49 @@ Page {
         id: remorse
     }
 
+    Component {
+        id: permissionRow
+
+        Item {
+            id: perm
+
+            required property var modelData
+
+            x: Theme.horizontalPageMargin
+            width: root.width - 2 * Theme.horizontalPageMargin
+            height: Math.max(permIcon.height, permText.height)
+            Accessible.role: Accessible.StaticText
+            Accessible.name: modelData.label + ": " + modelData.detail
+
+            Icon {
+                id: permIcon
+                anchors.verticalCenter: parent.verticalCenter
+                source: "image://theme/icon-m-" + perm.modelData.icon
+                color: perm.modelData.risky ? Theme.errorColor : Theme.highlightColor
+            }
+            Column {
+                id: permText
+                anchors.left: permIcon.right
+                anchors.leftMargin: Theme.paddingMedium
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+
+                Label {
+                    width: parent.width
+                    text: perm.modelData.label
+                    color: Theme.highlightColor
+                }
+                Label {
+                    width: parent.width
+                    text: perm.modelData.detail
+                    color: Theme.secondaryHighlightColor
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    wrapMode: Text.Wrap
+                }
+            }
+        }
+    }
+
     SilicaFlickable {
         id: flick
 
@@ -76,7 +123,7 @@ Page {
         contentHeight: body.height + Theme.paddingLarge
 
         PullDownMenu {
-            visible: root.installed || root.detailsFailed
+            visible: root.installed || root.detailsFailed || root.homepage !== "" || root.bugtracker !== ""
             MenuItem {
                 objectName: "uninstallItem"
                 text: qsTr("Uninstall")
@@ -84,9 +131,16 @@ Page {
                 onClicked: root.uninstall()
             }
             MenuItem {
-                text: qsTr("Open")
-                visible: root.installed
-                onClicked: root.store.openApp(root.appId)
+                objectName: "reportItem"
+                text: qsTr("Report a problem")
+                visible: root.bugtracker !== ""
+                onClicked: root.store.openExternally(root.bugtracker)
+            }
+            MenuItem {
+                objectName: "websiteItem"
+                text: qsTr("Visit website")
+                visible: root.homepage !== ""
+                onClicked: root.store.openExternally(root.homepage)
             }
             MenuItem {
                 objectName: "retryItem"
@@ -552,12 +606,27 @@ Page {
             // Flatpak sandbox holes, in plain words: the closest thing
             // Flathub has to a privacy label.
             Column {
+                objectName: "sensitiveSection"
                 width: parent.width
                 spacing: Theme.paddingMedium
-                visible: root.summary !== null
+                visible: root.sensitivePermissions.length > 0
 
                 SectionHeader {
-                    text: qsTr("Permissions")
+                    text: qsTr("Sensitive access")
+                }
+                Repeater {
+                    objectName: "sensitiveRows"
+                    model: root.sensitivePermissions
+                    delegate: permissionRow
+                }
+            }
+            Column {
+                width: parent.width
+                spacing: Theme.paddingMedium
+                visible: root.summary !== null && (root.otherPermissions.length > 0 || root.sensitivePermissions.length === 0)
+
+                SectionHeader {
+                    text: root.sensitivePermissions.length > 0 ? qsTr("Other access") : qsTr("Permissions")
                 }
                 Label {
                     x: Theme.horizontalPageMargin
@@ -569,45 +638,8 @@ Page {
                 }
                 Repeater {
                     objectName: "permissionRows"
-                    model: root.permissions
-                    delegate: Item {
-                        id: perm
-
-                        required property var modelData
-
-                        x: Theme.horizontalPageMargin
-                        width: root.width - 2 * Theme.horizontalPageMargin
-                        height: Math.max(permIcon.height, permText.height)
-                        Accessible.role: Accessible.StaticText
-                        Accessible.name: modelData.label + ": " + modelData.detail
-
-                        Icon {
-                            id: permIcon
-                            anchors.verticalCenter: parent.verticalCenter
-                            source: "image://theme/icon-m-" + perm.modelData.icon
-                            color: perm.modelData.risky ? Theme.errorColor : Theme.highlightColor
-                        }
-                        Column {
-                            id: permText
-                            anchors.left: permIcon.right
-                            anchors.leftMargin: Theme.paddingMedium
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            Label {
-                                width: parent.width
-                                text: perm.modelData.label
-                                color: perm.modelData.risky ? Theme.errorColor : Theme.highlightColor
-                            }
-                            Label {
-                                width: parent.width
-                                text: perm.modelData.detail
-                                color: Theme.secondaryHighlightColor
-                                font.pixelSize: Theme.fontSizeExtraSmall
-                                wrapMode: Text.Wrap
-                            }
-                        }
-                    }
+                    model: root.otherPermissions
+                    delegate: permissionRow
                 }
             }
 
@@ -622,27 +654,10 @@ Page {
                 Repeater {
                     id: infoRows
                     model: root.store.infoRows(root.app, root.summary)
-                    delegate: Item {
-                        id: info
-
+                    delegate: DetailItem {
                         required property var modelData
-                        readonly property bool isLink: modelData.url !== undefined
-
-                        width: root.width
-                        height: detail.height
-
-                        BackgroundItem {
-                            anchors.fill: parent
-                            visible: info.isLink
-                            Accessible.role: Accessible.Link
-                            Accessible.name: info.modelData.label + ": " + info.modelData.value
-                            onClicked: Qt.openUrlExternally(info.modelData.url)
-                        }
-                        DetailItem {
-                            id: detail
-                            label: info.modelData.label
-                            value: info.modelData.value
-                        }
+                        label: modelData.label
+                        value: modelData.value
                     }
                 }
             }

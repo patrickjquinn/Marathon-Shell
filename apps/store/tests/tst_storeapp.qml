@@ -140,7 +140,13 @@ TestCase {
         compare(page.appId, "org.gnome.Maps");
         tryCompare(page, "fullApp", app.store.appstreamCache["org.gnome.Maps"]);
         verify(findChild(page, "desktopWarning").visible);
-        tryCompare(findChild(page, "permissionRows"), "count", 3);
+        tryCompare(findChild(page, "permissionRows"), "count", 2);
+        compare(findChild(page, "sensitiveRows").count, 1);
+        verify(findChild(page, "sensitiveSection").visible);
+        compare(page.homepage, "https://apps.gnome.org/Maps/");
+        compare(page.bugtracker, "");
+        findChild(page, "websiteItem").clicked(null);
+        compare(app.store.opened[app.store.opened.length - 1], "https://apps.gnome.org/Maps/");
         tryCompare(findChild(page, "screenshotStrip"), "count", 2);
         verify(!findChild(page, "uninstallItem").parent.visible);
         const action = findChild(page, "detailAction");

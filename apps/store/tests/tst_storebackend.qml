@@ -224,8 +224,7 @@ TestCase {
         compare(b.categoryLabel(got), "Utilities");
         verify(b.isVerified(got));
         const rows = b.infoRows(got, Fixtures.summary());
-        compare(rows.map(r => r.label), ["Developer", "Version", "Updated", "Installed size", "License", "Website"]);
-        compare(rows[5].url, "https://apps.gnome.org/Maps/");
+        compare(rows.map(r => r.label), ["Developer", "Version", "Updated", "Installed size", "License"]);
     }
 
     function test_offlineCatalogEndsLoading() {
