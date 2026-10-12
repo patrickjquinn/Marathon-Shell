@@ -31,16 +31,6 @@ Item {
     // No publisher field in the manifest yet (see marathon-core/marathonappregistry.cpp).
     // For built-ins ("isProtected") the by-line is the OS itself; otherwise we fall back
     // to a derived name from the appId until manifests gain a publisher field.
-    property bool isInternal: appId.length > 0 && AppStore.isInternalApp(appId)
-    property string byLine: {
-        if (isInternal)
-            return "by Marathon OS";
-
-        if (appData && appData.publisher)
-            return "by " + appData.publisher;
-
-        return "by " + (appName || appId);
-    }
     property string permission: (PermissionManager && PermissionManager.currentPermission) ? PermissionManager.currentPermission : ""
     property var allPermissions: (PermissionManager && PermissionManager.currentPermissions) ? PermissionManager.currentPermissions : []
 
@@ -54,15 +44,15 @@ Item {
     function permissionIconName(p) {
         const m = {
             "network": "wifi",
-            "location": "map_pin",
+            "location": "map-pin",
             "camera": "camera",
-            "microphone": "mic",
-            "contacts": "contacts",
+            "microphone": "microphone",
+            "contacts": "address-book",
             "calendar": "calendar",
             "storage": "archive",
             "notifications": "bell",
             "telephony": "phone",
-            "sms": "message",
+            "sms": "chat-circle",
             "bluetooth": "bluetooth",
             // Phosphor doesn't have "cog"; use "gear". The empty placeholder
             // square in the System permission row was a missing glyph, not
@@ -106,315 +96,160 @@ Item {
     visible: opacity > 0
     opacity: (PermissionManager && PermissionManager.promptActive) ? 1 : 0
 
-    // Scrim — dim the system under the dialog (DS rgba(0,0,0,0.72)). Tap-outside dismisses.
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.72)
+    // A full-screen system dialog on the ambience, as Sailfish asks for app
+    // permissions: Deny and Allow in the header corners, the app, then each
+    // permission requested.
+    KeelAmbienceBackground {
+        width: permissionDialog.width
+        height: permissionDialog.height
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, false)
+    // Swallow touches meant for whatever is underneath.
+    MouseArea {
+        anchors.fill: parent
+    }
+
+    Item {
+        id: header
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Constants.statusBarHeight
+        height: Silica.Theme.itemSizeLarge
+
+        Silica.BackgroundItem {
+            objectName: "denyButton"
+            anchors.left: parent.left
+            width: parent.width / 2
+            height: parent.height
+            onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
+
+            Silica.Label {
+                anchors.left: parent.left
+                anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Deny")
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            }
+        }
+        Silica.BackgroundItem {
+            objectName: "allowButton"
+            anchors.right: parent.right
+            width: parent.width / 2
+            height: parent.height
+            onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
+
+            Silica.Label {
+                anchors.right: parent.right
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Allow")
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: Silica.Theme.highlightColor
+            }
         }
     }
 
-    // Dialog body. Max 340 design-px wide per DS Dialogs spec.
-    Rectangle {
-        id: dialog
+    Column {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: header.bottom
+        anchors.topMargin: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
-        anchors.centerIn: parent
-        width: Math.min(parent.width - Math.round(48 * Constants.scaleFactor), Math.round(340 * Constants.scaleFactor))
-        height: contentColumn.implicitHeight
-        radius: MRadius.md
-        color: MColors.elev2
-        scale: (PermissionManager && PermissionManager.promptActive) ? 1.0 : 0.96
-
-        // Cast-down shadow per DS Dialogs · "0 24px 60px -20px rgba(0,0,0,0.8)".
-        Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: Math.round(8 * Constants.scaleFactor)
-            radius: parent.radius
-            color: Qt.rgba(0, 0, 0, 0.55)
-            z: -1
-            opacity: 0.6
+        MAppIcon {
+            anchors.horizontalCenter: parent.horizontalCenter
+            source: permissionDialog.appIconSource
+            size: Silica.Theme.iconSizeLauncher
+            width: size
+            height: size
         }
 
-        // Double-edge stroke: outer dark hairline + inset top-edge w-08 highlight.
-        // DS Cards · "0 0 0 1px var(--border-dark), inset 0 1px 0 var(--w-08)".
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(0, 0, 0, 1)
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            horizontalAlignment: Text.AlignHCenter
+            text: permissionDialog.appName
+            color: Silica.Theme.highlightColor
+            font.pixelSize: Silica.Theme.fontSizeLarge
+            truncationMode: Silica.TruncationMode.Fade
         }
 
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.leftMargin: 1
-            anchors.rightMargin: 1
-            anchors.topMargin: 1
-            height: 1
-            color: MColors.whiteOverlay08
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            text: permissionDialog.descriptionText()
+            color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
         }
 
-        // Block scrim-tap on the dialog body itself.
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {}
+        Silica.SectionHeader {
+            text: qsTr("Permissions")
         }
 
-        Column {
-            id: contentColumn
+        Repeater {
+            model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
+                   ? permissionDialog.allPermissions
+                   : (permissionDialog.permission ? [permissionDialog.permission] : [])
 
-            width: parent.width
-            spacing: 0
+            delegate: Item {
+                id: permRow
 
-            // 1. Header: 64×64 app icon + name + by-line. Padding 24/22/18 per spec.
-            Item {
+                required property string modelData
+
                 width: parent.width
-                height: Math.max(headerIcon.height, headerText.implicitHeight) + Math.round(42 * Constants.scaleFactor)
+                height: Math.max(Silica.Theme.itemSizeMedium, rowText.height + Silica.Theme.paddingMedium * 2)
 
-                Item {
-                    id: headerIcon
+                GlyphIcon {
+                    id: rowIcon
 
-                    width: Math.round(64 * Constants.scaleFactor)
-                    height: width
-                    anchors.left: parent.left
-                    anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.top: parent.top
-                    anchors.topMargin: Math.round(24 * Constants.scaleFactor)
-
-                    MAppIcon {
-                        anchors.fill: parent
-                        source: permissionDialog.appIconSource
-                        size: parent.width
-                    }
+                    x: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: permissionDialog.permissionIconName(permRow.modelData)
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.primaryColor
                 }
 
                 Column {
-                    id: headerText
+                    id: rowText
 
-                    anchors.left: headerIcon.right
-                    anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
+                    anchors.left: rowIcon.right
+                    anchors.leftMargin: Silica.Theme.paddingLarge
                     anchors.right: parent.right
-                    anchors.rightMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.verticalCenter: headerIcon.verticalCenter
-                    spacing: 2
+                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
 
-                    Text {
-                        text: permissionDialog.appName
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: Math.round(20 * Constants.scaleFactor)
-                        font.weight: MTypography.weightMedium
-                        font.letterSpacing: -0.3
-                        elide: Text.ElideRight
+                    Silica.Label {
                         width: parent.width
+                        text: permissionDialog.permissionTitle(permRow.modelData)
+                        truncationMode: Silica.TruncationMode.Fade
                     }
-
-                    Text {
-                        text: permissionDialog.byLine
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: Math.round(13 * Constants.scaleFactor)
-                        font.weight: MTypography.weightRegular
-                        elide: Text.ElideRight
+                    Silica.Label {
                         width: parent.width
-                    }
-                }
-            }
-
-            // 2. Divider hairline (w-04, full width).
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: MColors.whiteOverlay04
-            }
-
-            // 3. Permission row — 32×32 icon chip + title + subtitle, no chevron.
-            // DS .m-row: padding 14/16, gap 14, min-height 60.
-            // One row per requested permission. This rendered only
-            // `permission` — the single current one — while descriptionText()
-            // below lists every entry in allPermissions. Mail asks for storage
-            // AND network, so the dialog read "requesting access to storage and
-            // network" above a list showing Storage alone: the user was asked
-            // to approve something the UI never showed them.
-            Column {
-                width: parent.width
-
-                Repeater {
-                    model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
-                           ? permissionDialog.allPermissions
-                           : (permissionDialog.permission ? [permissionDialog.permission] : [])
-
-                    delegate: Item {
-                        id: permRow
-
-                        required property string modelData
-                        required property int index
-
-                        width: parent.width
-                        height: Math.max(Math.round(60 * Constants.scaleFactor),
-                                         rowBody.implicitHeight + Math.round(28 * Constants.scaleFactor))
-
-                        // Hairline between stacked rows only — the card already
-                        // draws its own edge above the first one.
-                        Rectangle {
-                            visible: permRow.index > 0
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
-                            height: Math.max(1, Math.round(1 * Constants.scaleFactor))
-                            color: MColors.borderSubtle !== undefined ? MColors.borderSubtle : Qt.rgba(1, 1, 1, 0.06)
-                        }
-
-                        Row {
-                            id: rowBody
-
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
-                            anchors.rightMargin: Math.round(22 * Constants.scaleFactor)
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Math.round(14 * Constants.scaleFactor)
-
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Math.round(32 * Constants.scaleFactor)
-                                height: width
-                                radius: MRadius.md
-                                color: MColors.elev3
-
-                                GlyphIcon {
-                                    anchors.centerIn: parent
-                                    name: permissionDialog.permissionIconName(permRow.modelData)
-                                    size: Math.round(18 * Constants.scaleFactor)
-                                    color: MColors.textPrimary
-                                }
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - Math.round(46 * Constants.scaleFactor)
-                                spacing: 2
-
-                                Text {
-                                    text: permissionDialog.permissionTitle(permRow.modelData)
-                                    color: MColors.textPrimary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: Math.round(15 * Constants.scaleFactor)
-                                    font.weight: MTypography.weightMedium
-                                    font.letterSpacing: -0.1
-                                    elide: Text.ElideRight
-                                    width: parent.width
-                                }
-
-                                // Wrap instead of elide — "Read and write files on
-                                // your devi…" cut off the meaningful half.
-                                Text {
-                                    text: permissionDialog.permissionSubtitle(permRow.modelData)
-                                    color: MColors.textSecondary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: Math.round(13 * Constants.scaleFactor)
-                                    font.weight: MTypography.weightRegular
-                                    wrapMode: Text.WordWrap
-                                    width: parent.width
-                                    visible: text.length > 0
-                                    maximumLineCount: 2
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Bottom hairline above description block (matches Row default border).
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: MColors.whiteOverlay04
-            }
-
-            // 4. Description sentence (14/lineHeight 1.5) + 5. caption (12/secondary).
-            Item {
-                width: parent.width
-                height: descCol.implicitHeight + Math.round(20 * Constants.scaleFactor)
-
-                Column {
-                    id: descCol
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.leftMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.rightMargin: Math.round(22 * Constants.scaleFactor)
-                    anchors.topMargin: Math.round(16 * Constants.scaleFactor)
-                    spacing: Math.round(6 * Constants.scaleFactor)
-
-                    Text {
-                        width: parent.width
-                        text: permissionDialog.descriptionText()
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: Math.round(14 * Constants.scaleFactor)
-                        font.weight: MTypography.weightRegular
-                        lineHeight: 1.5
-                        wrapMode: Text.WordWrap
-                    }
-
-                    Text {
-                        width: parent.width
-                        text: "You can change this anytime in Settings → Apps → " + permissionDialog.appName + "."
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: Math.round(12 * Constants.scaleFactor)
-                        font.weight: MTypography.weightRegular
-                        lineHeight: 1.45
-                        wrapMode: Text.WordWrap
-                    }
-                }
-            }
-
-            // 6. Actions: Deny secondary + Allow primary, side-by-side, flex:1.
-            Item {
-                width: parent.width
-                height: Math.round(45 * Constants.scaleFactor) + Math.round(32 * Constants.scaleFactor)
-
-                Row {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                    anchors.rightMargin: Math.round(16 * Constants.scaleFactor)
-                    anchors.topMargin: Math.round(16 * Constants.scaleFactor)
-                    spacing: Math.round(10 * Constants.scaleFactor)
-
-                    Silica.Button {
-                        width: (parent.width - Math.round(10 * Constants.scaleFactor)) / 2
-                        text: "Deny"
-                        backgroundColor: "transparent"
-                        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
-                        onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
-                    }
-
-                    Silica.Button {
-                        width: (parent.width - Math.round(10 * Constants.scaleFactor)) / 2
-                        text: "Allow"
-                        onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
+                        text: permissionDialog.permissionSubtitle(permRow.modelData)
+                        visible: text.length > 0
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        color: Silica.Theme.secondaryColor
                     }
                 }
             }
         }
 
-        Behavior on scale {
-            SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
-                epsilon: MMotion.epsilon
-            }
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            topPadding: Silica.Theme.paddingLarge
+            wrapMode: Text.Wrap
+            text: qsTr("You can change this anytime in Settings → Apps → %1.").arg(permissionDialog.appName)
+            color: Silica.Theme.secondaryColor
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
         }
     }
 
