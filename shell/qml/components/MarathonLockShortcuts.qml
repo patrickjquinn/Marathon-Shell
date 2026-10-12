@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 // Lock screen bottom chrome — JSX LockScreen (screens-shell.jsx:51) renders
@@ -25,7 +24,7 @@ Item {
         anchors.leftMargin: root.sideInset - width / 2 + root.glyphSize / 2
         anchors.verticalCenter: parent.verticalCenter
 
-        Icon {
+        GlyphIcon {
             id: phoneIcon
             anchors.centerIn: parent
             name: "phone"
@@ -59,7 +58,7 @@ Item {
         anchors.rightMargin: root.sideInset - width / 2 + root.glyphSize / 2
         anchors.verticalCenter: parent.verticalCenter
 
-        Icon {
+        GlyphIcon {
             id: cameraIcon
             anchors.centerIn: parent
             name: "camera"

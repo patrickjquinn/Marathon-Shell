@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -94,7 +93,7 @@ Item {
                     color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.2)
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Icon {
+                    GlyphIcon {
                         name: errorToast.errorIcon
                         size: Constants.iconSizeMedium
                         color: MColors.error
@@ -132,7 +131,7 @@ Item {
                     color: closeMouseArea.pressed ? MColors.elevated : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Icon {
+                    GlyphIcon {
                         name: "x"
                         size: Constants.iconSizeSmall
                         color: MColors.textSecondary

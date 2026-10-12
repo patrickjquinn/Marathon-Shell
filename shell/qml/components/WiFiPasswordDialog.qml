@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 import QtQuick.Controls
 
@@ -115,7 +114,7 @@ Item {
                     color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15)
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Icon {
+                    GlyphIcon {
                         name: wifiDialog.secured ? "lock" : "wifi"
                         size: Constants.iconSizeMedium
                         color: MColors.accent
@@ -221,7 +220,7 @@ Item {
                     anchors.margins: Constants.spacingMedium
                     spacing: Constants.spacingMedium
 
-                    Icon {
+                    GlyphIcon {
                         name: "key"
                         size: Constants.iconSizeMedium
                         color: passwordInput.activeFocus ? MColors.accent : MColors.textSecondary
@@ -266,7 +265,7 @@ Item {
                         color: checked ? Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15) : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Icon {
+                        GlyphIcon {
                             name: showPasswordToggle.checked ? "eye-off" : "eye"
                             size: Constants.iconSizeSmall
                             color: MColors.textSecondary
@@ -304,7 +303,7 @@ Item {
                     anchors.margins: Constants.spacingSmall
                     spacing: Constants.spacingSmall
 
-                    Icon {
+                    GlyphIcon {
                         name: "alert-circle"
                         size: Constants.iconSizeSmall
                         color: MColors.error

@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 
-import MarathonUI.Core
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
@@ -289,7 +288,7 @@ Item {
                                 radius: MRadius.md
                                 color: MColors.elev3
 
-                                Icon {
+                                GlyphIcon {
                                     anchors.centerIn: parent
                                     name: permissionDialog.permissionIconName(permRow.modelData)
                                     size: Math.round(18 * Constants.scaleFactor)

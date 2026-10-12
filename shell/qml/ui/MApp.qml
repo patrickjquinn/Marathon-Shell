@@ -1,0 +1,214 @@
+import QtQuick
+import MarathonOS.Shell
+
+Item {
+    id: root
+
+    property string appId: ""
+    property string appName: ""
+    property string appIcon: ""
+
+    property bool isPreviewMode: false
+    property bool debugLifecycle: false
+
+    property bool isActive: false
+    property bool isPaused: false
+    property bool isMinimized: false
+    property bool isVisible: false
+    property bool isForeground: false
+
+    // Signal to the shell's MarathonAppWindow splash that this app has
+    // rendered its first scene. Without it, the outer "Loading X..."
+    // overlay only dismisses on isLoadingComponent → false, which on a
+    // slow init (Camera waiting on CameraController init that may
+    // never finish on a device with 0 cameras) leaves the splash up
+    // indefinitely. MApp default is true at Component.onCompleted —
+    // apps that legitimately need to gate first-paint on async data
+    // (e.g. Browser waiting for first WebEngine frame) set this false
+    // explicitly during construction and toggle true when ready.
+    property bool revealReady: false
+
+    property int navigationDepth: 0
+    property bool canNavigateBack: navigationDepth > 0
+    property bool canNavigateForward: false
+
+    property alias content: contentLoader.sourceComponent
+
+    signal closed
+    signal minimizeRequested
+    signal backPressed
+    signal forwardPressed
+
+    signal appCreated
+    signal appLaunched
+    signal appStarted
+    signal appResumed
+    signal appPaused
+    signal appStopped
+    signal appMinimized
+    signal appRestored
+    signal appWillTerminate
+    signal appClosed
+
+    signal appBecameVisible
+    signal appBecameHidden
+
+    signal lowMemoryWarning
+
+    function handleBack() {
+        if (canNavigateBack) {
+            backPressed();
+            return true;
+        }
+        if (typeof AppLifecycleManager !== 'undefined') {
+            minimizeRequested();
+            return true;
+        }
+        return false;
+    }
+
+    function handleForward() {
+        if (canNavigateForward) {
+            forwardPressed();
+            return true;
+        }
+
+        return false;
+    }
+
+    function start() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "start()");
+        if (!isVisible) {
+            isVisible = true;
+            appStarted();
+        }
+    }
+
+    function stop() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "stop()");
+        if (isVisible) {
+            isVisible = false;
+            appStopped();
+        }
+    }
+
+    function pause() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "pause()");
+        if (!isPaused) {
+            isPaused = true;
+            isActive = false;
+            isForeground = false;
+            appPaused();
+        }
+    }
+
+    function resume() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "resume()");
+        if (isPaused || !isActive) {
+            isPaused = false;
+            isActive = true;
+            isForeground = true;
+            appResumed();
+        }
+    }
+
+    function minimize() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "minimize()");
+        isMinimized = true;
+        pause();
+        appMinimized();
+    }
+
+    function restore() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "restore()");
+        isMinimized = false;
+        resume();
+        start();
+        appRestored();
+    }
+
+    function close() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "close()");
+        appWillTerminate();
+        stop();
+        appClosed();
+        closed();
+    }
+
+    function handleLowMemory() {
+        if (debugLifecycle)
+            console.log("[MApp Lifecycle]", appId, "handleLowMemory()");
+        lowMemoryWarning();
+    }
+
+    Item {
+        anchors.fill: parent
+
+        Loader {
+            id: contentLoader
+            anchors.fill: parent
+        }
+    }
+
+    signal requestRegister(string appId, var appInstance)
+    signal requestUnregister(string appId)
+
+    Component.onCompleted: {
+        console.log("------- MApp.onCompleted FIRED -------");
+        console.log("  appId:", appId);
+        console.log("  appName:", appName);
+        console.log("  appIcon:", appIcon);
+        console.log("  AppLifecycleManager defined:", typeof AppLifecycleManager !== 'undefined');
+
+        appCreated();
+        isActive = true;
+        isVisible = true;
+        isForeground = true;
+        appLaunched();
+        appStarted();
+        appResumed();
+
+        if (typeof AppLifecycleManager !== 'undefined' && appId) {
+            console.log("   Calling AppLifecycleManager.registerApp() directly");
+            AppLifecycleManager.registerApp(appId, root);
+        } else {
+            console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal");
+            requestRegister(appId, root);
+        }
+        // Flip revealReady on the next event-loop tick so the shell's
+        // splash dismisses after our QML scene has hit at least one
+        // afterRendering pass. callLater nudges past the current
+        // Component.onCompleted chain so children's onCompleted handlers
+        // (which may queue further work) have a chance to flush first.
+        Qt.callLater(function () {
+            root.revealReady = true;
+        });
+        console.log("------- MApp.onCompleted COMPLETE -------");
+    }
+
+    Component.onDestruction: {
+        appWillTerminate();
+        appClosed();
+
+        if (typeof AppLifecycleManager !== 'undefined' && appId) {
+            AppLifecycleManager.unregisterApp(appId);
+        } else {
+            requestUnregister(appId);
+        }
+    }
+
+    onIsVisibleChanged: {
+        if (isVisible) {
+            appBecameVisible();
+        } else {
+            appBecameHidden();
+        }
+    }
+}

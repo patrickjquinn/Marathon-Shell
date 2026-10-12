@@ -1,5 +1,4 @@
 import MarathonOS.Shell
-import MarathonUI.Core
 import QtQuick
 
 // Lock-screen network agent. GNOME 50.1 added a captive-portal /
@@ -82,7 +81,7 @@ Item {
                 width: parent.width
                 spacing: MSpacing.md
 
-                Icon {
+                GlyphIcon {
                     name: "wifi"
                     size: Math.round(28 * Constants.scaleFactor)
                     color: MColors.marathonTealBright

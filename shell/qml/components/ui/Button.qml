@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Rectangle {
@@ -16,7 +15,7 @@ Rectangle {
     signal released
 
     Component.onCompleted: {
-        console.warn("DEPRECATED: components/ui/Button is deprecated. Use MarathonUI.Core.MButton instead.");
+        console.warn("DEPRECATED: components/ui/Button is deprecated. Use Silica Button instead.");
     }
     width: Math.max(Math.round(120 * Constants.scaleFactor), buttonText.width + Math.round(32 * Constants.scaleFactor))
     height: Constants.touchTargetMedium
@@ -37,7 +36,7 @@ Rectangle {
         anchors.centerIn: parent
         spacing: Constants.spacingSmall
 
-        Icon {
+        GlyphIcon {
             name: button.iconName
             size: 24
             anchors.verticalCenter: parent.verticalCenter

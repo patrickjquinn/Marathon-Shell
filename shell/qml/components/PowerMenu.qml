@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -80,7 +79,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: MSpacing.md
 
-            Icon {
+            GlyphIcon {
                 anchors.verticalCenter: parent.verticalCenter
                 name: row.iconName
                 size: Math.round(24 * Constants.scaleFactor)

@@ -1,5 +1,4 @@
 import MarathonOS.Shell
-import MarathonUI.Core
 import QtQuick
 
 // WEA / ETWS / CMAS emergency alert overlay. Fed by CellBroadcastManagerCpp
@@ -116,7 +115,7 @@ Item {
         width: parent.width - Constants.safeAreaLeft - Constants.safeAreaRight - MSpacing.xl * 2
         spacing: MSpacing.xl
 
-        Icon {
+        GlyphIcon {
             anchors.horizontalCenter: parent.horizontalCenter
             name: "warning"
             size: Math.round(80 * Constants.scaleFactor)

@@ -1,4 +1,3 @@
-import MarathonUI.Core
 import MarathonOS.Shell 1.0
 import QtQuick
 
@@ -129,7 +128,7 @@ Rectangle {
             }
         }
 
-        Icon {
+        GlyphIcon {
             name: "search"
             size: Math.round(12 * Constants.scaleFactor)
             color: navBar.searchActive ? MColors.accentBright : MColors.text
@@ -186,7 +185,7 @@ Rectangle {
             }
         }
 
-        Icon {
+        GlyphIcon {
             name: "keyboard"
             size: Math.round(12 * Constants.scaleFactor)
             color: navBar.keyboardVisible ? MColors.accentBright : MColors.text

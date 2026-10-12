@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Feedback
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
@@ -336,7 +334,7 @@ Rectangle {
                 }
             }
 
-            Icon {
+            GlyphIcon {
                 name: "grid-3x3"
                 size: Math.round(128 * Constants.scaleFactor)
                 color: MColors.textTertiary
@@ -378,7 +376,7 @@ Rectangle {
             spacing: 24
             width: parent.width * 0.8
 
-            Icon {
+            GlyphIcon {
                 name: "alert-triangle"
                 size: Math.round(56 * Constants.scaleFactor)
                 color: MColors.textSecondary

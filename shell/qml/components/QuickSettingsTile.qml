@@ -1,6 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
@@ -43,7 +41,7 @@ Item {
                 color: tile.toggleData.active ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                 antialiasing: Constants.enableAntialiasing
 
-                Icon {
+                GlyphIcon {
                     name: {
                         var iconName = tile.toggleData.icon || "grid";
                         if (!tile.toggleData.active && (tile.toggleData.id === "wifi" || tile.toggleData.id === "bluetooth"))
@@ -164,7 +162,7 @@ Item {
                     color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                     antialiasing: Constants.enableAntialiasing
 
-                    Icon {
+                    GlyphIcon {
                         name: tile.toggleData.icon || "grid"
                         color: tile.isAvailable ? MColors.text : MColors.textSecondary
                         size: Constants.iconSizeMedium

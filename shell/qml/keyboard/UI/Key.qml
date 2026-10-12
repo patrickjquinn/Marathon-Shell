@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 import QtQuick.Effects
 
@@ -79,7 +77,7 @@ Rectangle {
         width: parent.width - Math.round(12 * Constants.scaleFactor)
         height: parent.height - Math.round(8 * Constants.scaleFactor)
 
-        Icon {
+        GlyphIcon {
             visible: key.iconName !== ""
             name: key.iconName
             size: Math.round(20 * Constants.scaleFactor)

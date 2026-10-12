@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Row {
@@ -24,7 +23,7 @@ Row {
         radius: Constants.borderRadiusSmall
         color: pageIndicator.currentPage === -2 ? "#FFFFFF" : "#666666"
 
-        Icon {
+        GlyphIcon {
             name: "bell"
             size: Constants.iconSizeSmall
             anchors.centerIn: parent
@@ -44,7 +43,7 @@ Row {
         radius: Constants.borderRadiusSmall
         color: pageIndicator.currentPage === -1 ? "#FFFFFF" : "#666666"
 
-        Icon {
+        GlyphIcon {
             name: "layout-grid"
             size: Constants.iconSizeSmall
             anchors.centerIn: parent

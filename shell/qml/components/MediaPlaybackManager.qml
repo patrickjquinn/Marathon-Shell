@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 // Marathon DS · LockMedia card — per screens-shell.jsx:188-240
@@ -144,7 +143,7 @@ Rectangle {
                         }
                     }
 
-                    Icon {
+                    GlyphIcon {
                         anchors.centerIn: parent
                         name: "music"
                         size: 24

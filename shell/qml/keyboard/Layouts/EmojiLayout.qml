@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import "../UI"
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Navigation
 import QtQuick
 
 Item {
@@ -138,7 +136,7 @@ Item {
                 color: "#333333"
                 radius: 8
 
-                Icon {
+                GlyphIcon {
                     id: searchIcon
 
                     name: "search"
@@ -175,7 +173,7 @@ Item {
                     }
                 }
 
-                Icon {
+                GlyphIcon {
                     name: "x"
                     size: 16
                     color: "white"

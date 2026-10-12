@@ -1,9 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
@@ -81,12 +78,12 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 18
 
-                    Icon {
+                    GlyphIcon {
                         name: "search"
                         size: 20
                         color: MColors.textSecondary
                     }
-                    Icon {
+                    GlyphIcon {
                         name: "filter"
                         size: 19
                         color: MColors.textSecondary

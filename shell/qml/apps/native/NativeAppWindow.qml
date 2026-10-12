@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import "../../components" as ShellComponents
 import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
 import QtQuick
 
 MApp {
@@ -144,7 +142,7 @@ MApp {
                     visible: source !== ""
                 }
 
-                Icon {
+                GlyphIcon {
                     name: "grid-3x3"
                     size: Math.round(128 * Constants.scaleFactor)
                     color: MColors.textTertiary

@@ -36,7 +36,7 @@ QString StatusBarIconServiceCpp::getBatterySemanticColor(int level, bool isCharg
 }
 
 QString StatusBarIconServiceCpp::getSignalIcon(int strength) const {
-    // Phosphor glyph names (matches marathon-ui/Core/PhosphorGlyphs.js). The
+    // Phosphor glyph names (matches shell/qml/ui/PhosphorGlyphs.js). The
     // earlier 'signal-*' / 'signal-zero' names resolved to no glyph at all,
     // so the cellular status-bar icon never rendered even with a registered
     // modem and a known RSSI. PhosphorGlyphs only ships cell-signal-{low,

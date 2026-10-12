@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -41,7 +40,7 @@ Item {
                     anchors.margins: 12
                     spacing: Constants.spacingMedium
 
-                    Icon {
+                    GlyphIcon {
                         name: "bell"
                         size: 28
                         color: MColors.textPrimary

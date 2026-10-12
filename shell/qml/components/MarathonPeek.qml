@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -178,7 +177,7 @@ Item {
                                 border.color: MColors.border
                                 scale: notifMouseArea.pressed ? 0.9 : 1
 
-                                Icon {
+                                GlyphIcon {
                                     name: notifDelegate.model.icon || "bell"
                                     size: 24
                                     color: MColors.textPrimary

@@ -1,5 +1,3 @@
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica

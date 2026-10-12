@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -133,7 +132,7 @@ Item {
                     anchors.margins: MSpacing.sm
                     spacing: MSpacing.sm
 
-                    Icon {
+                    GlyphIcon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "search"
                         size: 24
@@ -179,7 +178,7 @@ Item {
                         height: 20
                         visible: searchInput.text.length > 0
 
-                        Icon {
+                        GlyphIcon {
                             anchors.centerIn: parent
                             name: "x"
                             size: 16
@@ -306,7 +305,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: MSpacing.md
 
-                            Icon {
+                            GlyphIcon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "clock-counter-clockwise"
                                 size: Math.round(18 * Constants.scaleFactor)

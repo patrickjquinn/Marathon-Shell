@@ -1,10 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 
 // Marathon DS · Quick Settings panel (§7.5).
@@ -545,7 +541,7 @@ Item {
                         Column {
                             anchors.centerIn: parent
                             spacing: 6
-                            Icon {
+                            GlyphIcon {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 name: actionChip.modelData.icon
                                 size: 24

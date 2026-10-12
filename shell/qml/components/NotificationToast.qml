@@ -1,6 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Containers
-import MarathonUI.Core
 import QtQuick
 import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
@@ -86,7 +84,7 @@ Item {
                     color: MColors.elevated
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Icon {
+                    GlyphIcon {
                         name: (toastContainer.currentToast && toastContainer.currentToast.icon) ? toastContainer.currentToast.icon : "bell"
                         size: Math.round(24 * toastContainer.scaleFactor)
                         color: MColors.textPrimary

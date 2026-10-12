@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 
 Rectangle {
@@ -145,7 +143,7 @@ Rectangle {
                         color: deleteMouseArea.pressed ? Qt.rgba(230, 57, 70, 0.2) : Qt.rgba(255, 255, 255, 0.05)
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Icon {
+                        GlyphIcon {
                             name: "trash-2"
                             size: Constants.iconSizeSmall
                             color: "#E63946"

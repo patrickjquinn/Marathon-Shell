@@ -1,9 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -221,7 +218,7 @@ Item {
                 anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
                 spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
-                Icon {
+                GlyphIcon {
                     Layout.alignment: Qt.AlignHCenter
                     name: "text-aa"
                     size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
@@ -418,7 +415,7 @@ Item {
                 anchors.bottomMargin: 0
                 spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
-                Icon {
+                GlyphIcon {
                     Layout.alignment: Qt.AlignHCenter
                     name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-slash"
                     size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
@@ -470,7 +467,7 @@ Item {
                         anchors.margins: MSpacing.md
                         spacing: MSpacing.md
 
-                        Icon {
+                        GlyphIcon {
                             name: "wifi"
                             size: Math.round(24 * Constants.scaleFactor)
                             color: MColors.textSecondary
@@ -601,7 +598,7 @@ Item {
                                 spacing: MSpacing.sm
                                 visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length === 0
 
-                                Icon {
+                                GlyphIcon {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     name: "wifi-slash"
                                     size: Math.round(32 * Constants.scaleFactor)
@@ -673,7 +670,7 @@ Item {
                                                 anchors.rightMargin: MSpacing.sm
                                                 spacing: MSpacing.md
 
-                                                Icon {
+                                                GlyphIcon {
                                                     name: {
                                                         const s = networkRow.modelData.strength;
                                                         if (s >= 75)
@@ -718,14 +715,14 @@ Item {
                                                     visible: running
                                                 }
 
-                                                Icon {
+                                                GlyphIcon {
                                                     visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.modelData.connected
                                                     name: "lock"
                                                     size: Math.round(14 * Constants.scaleFactor)
                                                     color: MColors.textTertiary
                                                 }
 
-                                                Icon {
+                                                GlyphIcon {
                                                     visible: networkRow.modelData.connected
                                                     name: "check"
                                                     size: Math.round(16 * Constants.scaleFactor)
@@ -801,7 +798,7 @@ Item {
                 anchors.rightMargin: 0
                 spacing: oobeRoot.compactLayout ? MSpacing.md : MSpacing.lg
 
-                Icon {
+                GlyphIcon {
                     Layout.alignment: Qt.AlignHCenter
                     name: "clock"
                     size: Math.round((oobeRoot.compactLayout ? 36 : 48) * Constants.scaleFactor)
@@ -881,7 +878,7 @@ Item {
                         anchors.leftMargin: MSpacing.md
                         anchors.rightMargin: MSpacing.md
 
-                        Icon {
+                        GlyphIcon {
                             id: formatIcon
 
                             anchors.left: parent.left
@@ -1009,7 +1006,7 @@ Item {
                 anchors.right: parent.right
                 spacing: oobeRoot.compactLayout ? MSpacing.xs : MSpacing.sm
 
-                Icon {
+                GlyphIcon {
                     anchors.horizontalCenter: parent.horizontalCenter
                     name: "hand-pointing"
                     size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
@@ -1074,7 +1071,7 @@ Item {
                                     opacity: 0.5
                                 }
 
-                                Icon {
+                                GlyphIcon {
                                     id: coachmarkIcon
 
                                     anchors.centerIn: parent
@@ -1547,7 +1544,7 @@ Item {
                     elevation: 2
                     anchors.horizontalCenter: parent.horizontalCenter
 
-                    Icon {
+                    GlyphIcon {
                         name: "circle-check"
                         size: Math.round(48 * Constants.scaleFactor)
                         color: MColors.accent

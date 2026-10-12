@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 
 Item {
@@ -83,7 +81,7 @@ Item {
                     radius: Constants.borderRadiusSmall
                     color: Qt.rgba(255, 255, 255, 0.08)
 
-                    Icon {
+                    GlyphIcon {
                         name: "x"
                         size: Constants.iconSizeSmall
                         color: MColors.textPrimary
@@ -147,7 +145,7 @@ Item {
                             border.width: 1
                             border.color: targetMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
 
-                            Icon {
+                            GlyphIcon {
                                 name: shareTarget.modelData.icon
                                 size: Constants.iconSizeMedium
                                 color: MColors.textPrimary

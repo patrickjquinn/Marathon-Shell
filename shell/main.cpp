@@ -1164,72 +1164,9 @@ int main(int argc, char *argv[]) {
     appModel->loadFromRegistry(appRegistry);
 
     engine.addImportPath("qrc:/");
-
-    QString userMarathonUIPath =
-        QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
-    engine.addImportPath(userMarathonUIPath);
-    qDebug() << "[QML Import] User-local MarathonUI:" << userMarathonUIPath;
-
-    QString systemMarathonUIPath = "/usr/lib/qt6/qml";
-    engine.addImportPath(systemMarathonUIPath);
-    qDebug() << "[QML Import] System-wide Qt modules:" << systemMarathonUIPath;
-
-    QString localSystemMarathonUIPath = "/usr/local/lib/qt6/qml";
-    engine.addImportPath(localSystemMarathonUIPath);
-    qDebug() << "[QML Import] Local System-wide Qt modules:" << localSystemMarathonUIPath;
-
-    QString buildMarathonUIPath = QCoreApplication::applicationDirPath() + "/..";
-    engine.addImportPath(buildMarathonUIPath);
-    qDebug() << "[QML Import] Build directory:" << buildMarathonUIPath;
-
-    QDir themeCheck1(userMarathonUIPath + "/MarathonUI/Theme");
-    QDir themeCheck2(systemMarathonUIPath + "/MarathonUI/Theme");
-    QDir themeCheck2b(localSystemMarathonUIPath + "/MarathonUI/Theme");
-    QDir themeCheck3(buildMarathonUIPath + "/MarathonUI/Theme");
-
-    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck2b.exists() ||
-        themeCheck3.exists();
-
-    if (!marathonUIFound) {
-        qCritical() << "";
-        qCritical() << "========================================================================";
-        qCritical() << " FATAL: MarathonUI QML modules not found!";
-        qCritical() << "========================================================================";
-        qCritical() << "";
-        qCritical() << "MarathonUI must be built and installed before running Marathon Shell.";
-        qCritical() << "";
-        qCritical() << "QUICK FIX:";
-        qCritical() << "  cd" << QDir::current().absolutePath();
-        qCritical() << "  ./scripts/build-all.sh";
-        qCritical() << "";
-        qCritical() << "MANUAL BUILD (if build-all.sh fails):";
-        qCritical() << "  cd" << QDir::current().absolutePath();
-        qCritical() << "  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release";
-        qCritical() << "  cmake --build build -j$(nproc)";
-        qCritical() << "  cmake --install build  # Installs to ~/.local/share/marathon-ui";
-        qCritical() << "";
-        qCritical() << "CHECKED PATHS:";
-        qCritical() << "  1." << themeCheck1.absolutePath()
-                    << (themeCheck1.exists() ? " [FOUND]" : " [NOT FOUND]");
-        qCritical() << "  2." << themeCheck2.absolutePath()
-                    << (themeCheck2.exists() ? " [FOUND]" : " [NOT FOUND]");
-        qCritical() << "  3." << themeCheck2b.absolutePath()
-                    << (themeCheck2b.exists() ? " [FOUND]" : " [NOT FOUND]");
-        qCritical() << "  4." << themeCheck3.absolutePath()
-                    << (themeCheck3.exists() ? " [FOUND]" : " [NOT FOUND]");
-        qCritical() << "";
-        qCritical() << "========================================================================";
-        qCritical() << "";
-
-    } else {
-        qInfo() << "[MarathonShell] MarathonUI modules found";
-        if (themeCheck1.exists())
-            qDebug() << "  - Using user-local installation";
-        else if (themeCheck2.exists())
-            qDebug() << "  - Using system-wide installation";
-        else if (themeCheck3.exists())
-            qDebug() << "  - Using build directory (development mode)";
-    }
+    engine.addImportPath(QStringLiteral("/usr/lib/qt6/qml"));
+    engine.addImportPath(QStringLiteral("/usr/local/lib/qt6/qml"));
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/..");
 
     const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
 

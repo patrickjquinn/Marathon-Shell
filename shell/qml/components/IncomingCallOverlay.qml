@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 
-import MarathonUI.Core
 import MarathonOS.Shell 1.0
 import QtQuick
 
@@ -61,7 +60,7 @@ Rectangle {
                 border.color: MColors.accent
                 anchors.horizontalCenter: parent.horizontalCenter
 
-                Icon {
+                GlyphIcon {
                     anchors.centerIn: parent
                     name: "user"
                     size: Constants.iconSizeXLarge * 1.5
@@ -187,7 +186,7 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: "Decline"
 
-                    Icon {
+                    GlyphIcon {
                         anchors.centerIn: parent
                         name: "phone"
                         size: Constants.iconSizeLarge
@@ -242,7 +241,7 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: "Answer"
 
-                    Icon {
+                    GlyphIcon {
                         anchors.centerIn: parent
                         name: "phone"
                         size: Constants.iconSizeLarge

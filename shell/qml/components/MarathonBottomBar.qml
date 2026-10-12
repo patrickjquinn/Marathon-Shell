@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Item {
@@ -57,7 +56,7 @@ Item {
 
         // Shell shortcut, not a docked app: same role and treatment as
         // MarathonLockShortcuts.
-        Icon {
+        GlyphIcon {
             name: "phone"
             size: Constants.iconSizeMedium
             color: MColors.textPrimary
@@ -118,7 +117,7 @@ Item {
             color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
-            Icon {
+            GlyphIcon {
                 name: "inbox"
                 size: hubIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
@@ -163,7 +162,7 @@ Item {
             color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
-            Icon {
+            GlyphIcon {
                 name: "layers"
                 size: framesIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
@@ -332,7 +331,7 @@ Item {
 
         // Shell shortcut, not a docked app: same role and treatment as
         // MarathonLockShortcuts.
-        Icon {
+        GlyphIcon {
             name: "camera"
             size: Constants.iconSizeMedium
             color: MColors.textPrimary

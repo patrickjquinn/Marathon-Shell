@@ -1,6 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 
 Item {
@@ -53,7 +51,7 @@ Item {
             anchors.centerIn: parent
             spacing: Constants.spacingMedium
 
-            Icon {
+            GlyphIcon {
                 name: connectionToast.iconName
                 size: Constants.iconSizeMedium
                 color: MColors.accent

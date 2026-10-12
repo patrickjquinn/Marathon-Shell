@@ -1,7 +1,5 @@
 pragma ComponentBehavior: Bound
 
-import MarathonUI.Core
-import MarathonUI.Effects
 import MarathonOS.Shell 1.0
 import QtQuick
 

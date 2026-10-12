@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 // Marathon DS · status bar (28 px glass).
@@ -57,7 +56,7 @@ Item {
         spacing: 8
         z: 1
 
-        Icon {
+        GlyphIcon {
             name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             size: Math.round(14 * Constants.scaleFactor)
@@ -160,7 +159,7 @@ Item {
             }
         }
 
-        Icon {
+        GlyphIcon {
             id: lockIcon
 
             anchors.centerIn: parent
@@ -221,7 +220,7 @@ Item {
         spacing: 8
         z: 1
 
-        Icon {
+        GlyphIcon {
             name: "plane"
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
@@ -229,7 +228,7 @@ Item {
             visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
         }
 
-        Icon {
+        GlyphIcon {
             name: "bell"
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
@@ -238,7 +237,7 @@ Item {
             opacity: 0.9
         }
 
-        Icon {
+        GlyphIcon {
             // Always show — every Marathon target ships with Bluetooth and
             // Wi-Fi radios, and gating visibility on the C++ manager's
             // `available` flag means the icon disappears entirely on images
@@ -257,7 +256,7 @@ Item {
         // convention). A no-modem "smartphone" silhouette next to the
         // bluetooth glyph reads as visual noise — and at 14 px it's
         // easily mis-parsed as another battery indicator.
-        Icon {
+        GlyphIcon {
             name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
@@ -280,7 +279,7 @@ Item {
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
-        Icon {
+        GlyphIcon {
             name: "cable"
             color: MColors.textPrimary
             size: Math.round(14 * Constants.scaleFactor)
@@ -289,7 +288,7 @@ Item {
             opacity: 1
         }
 
-        Icon {
+        GlyphIcon {
             // Same rationale as the Bluetooth glyph above — always visible,
             // opacity reflects on/off/strength. NetworkManager not being
             // running shouldn't make the Wi-Fi indicator disappear.

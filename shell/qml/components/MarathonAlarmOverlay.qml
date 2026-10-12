@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 
 Rectangle {
@@ -66,7 +65,7 @@ Rectangle {
         width: parent.width * 0.8
         spacing: Constants.spacingLarge * 2
 
-        Icon {
+        GlyphIcon {
             anchors.horizontalCenter: parent.horizontalCenter
             name: "bell"
             size: Constants.iconSizeXLarge * 2
@@ -109,7 +108,7 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: Constants.spacingSmall
 
-                    Icon {
+                    GlyphIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
                         name: "clock"
                         size: Constants.iconSizeMedium
@@ -148,7 +147,7 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: Constants.spacingSmall
 
-                    Icon {
+                    GlyphIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
                         name: "x"
                         size: Constants.iconSizeMedium

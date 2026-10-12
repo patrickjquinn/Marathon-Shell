@@ -290,7 +290,6 @@ set(QML_FILES
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
-    qml/apps/template/TemplateApp.qml
     qml/apps/native/NativeAppWindow.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
@@ -303,6 +302,27 @@ set(QML_FILES
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
     qml/theme/MBlur.qml
+    qml/ui/GlyphIcon.qml
+    qml/ui/MApp.qml
+    qml/ui/MAppIcon.qml
+    qml/ui/MCard.qml
+    qml/ui/MCircularIconButton.qml
+    qml/ui/MEntrance.qml
+    qml/ui/MGlass.qml
+    qml/ui/MHaloedDisplay.qml
+    qml/ui/MHaptics.qml
+    qml/ui/MHubRow.qml
+    qml/ui/MMarathonMark.qml
+    qml/ui/MNowBar.qml
+    qml/ui/MPhoneNumber.qml
+    qml/ui/MQSSlider.qml
+    qml/ui/MQSTile.qml
+    qml/ui/MRipple.qml
+    qml/ui/MTabBar.qml
+    qml/ui/MTextInput.qml
+    qml/ui/MTopHairline.qml
+    qml/ui/WallpaperSlateAurora.qml
+    qml/ui/PhosphorGlyphs.js
 )
 
 set(JSON_FILES
@@ -318,7 +338,7 @@ set(JSON_FILES
     qml/keyboard/Layouts/languages/ja_JP.json
 )
 
-set(THEME_RESOURCES
+set(UI_RESOURCES
     qml/theme/halo-teal.svg
     qml/theme/fonts/Sora.ttf
     qml/theme/fonts/Sora-Thin.ttf
@@ -330,6 +350,8 @@ set(THEME_RESOURCES
     qml/theme/fonts/Sora-Bold.ttf
     qml/theme/fonts/Sora-ExtraBold.ttf
     qml/theme/fonts/JetBrainsMono-Medium.ttf
+    qml/ui/fonts/Phosphor-Light.ttf
+    qml/ui/fonts/Phosphor-Bold.ttf
 )
 
 # Find PAM library for authentication
@@ -355,6 +377,8 @@ set(SINGLETON_FILES
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
     qml/theme/MBlur.qml
+    qml/ui/MHaptics.qml
+    qml/ui/MPhoneNumber.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -456,15 +480,6 @@ qt_add_resources(SHELL_SOUNDS resources.qrc)
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
-    IMPORTS
-        MarathonUI.Core
-        MarathonUI.Controls
-        MarathonUI.Lists
-        MarathonUI.Navigation
-        MarathonUI.Feedback
-        MarathonUI.Modals
-        MarathonUI.Effects
-        MarathonUI.Containers
     QML_FILES ${QML_FILES}
     SOURCES
         src/services/sessionstore.cpp
@@ -539,7 +554,7 @@ qt6_add_qml_module(marathon-shell
         src/controllers/displaypolicycontroller.h
         src/controllers/audiopolicycontroller.cpp
         src/controllers/audiopolicycontroller.h
-    RESOURCES ${JSON_FILES} ${THEME_RESOURCES}
+    RESOURCES ${JSON_FILES} ${UI_RESOURCES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
@@ -609,15 +624,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::WebSockets
     MarathonCore
     MarathonServices
-    marathon-ui-theme
-    marathon-ui-containers
-    marathon-ui-core
-    marathon-ui-controls
-    marathon-ui-lists
-    marathon-ui-navigation
-    marathon-ui-feedback
-    marathon-ui-modals
-    marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
     ${PIPEWIRE_LIBRARIES}
     ${LIBDRM_LIBRARIES}
@@ -687,9 +693,6 @@ install(TARGETS marathon-shell
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Install QML modules (libraries and plugins)
-# MarathonUI modules are installed by marathon-ui/CMakeLists.txt
-
 # Install MarathonOS.Shell module for marathon-app-runner to find it
 if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
     set(SHELL_QML_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/qt6/qml")
@@ -720,8 +723,7 @@ endif()
 # shell binary's qrc copies of the .qml files. That's right for the
 # shell binary itself but breaks marathon-app-runner (the qrc only
 # exists in marathon-shell-bin's address space). The APKBUILD's
-# package() step strips this directive post-install, alongside the
-# equivalent strip it already does for MarathonUI sub-modules.
+# package() step strips this directive post-install.
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)

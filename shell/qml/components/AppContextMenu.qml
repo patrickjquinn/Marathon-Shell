@@ -1,6 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 
 Item {
@@ -73,7 +71,7 @@ Item {
                     anchors.rightMargin: Constants.spacingMedium
                     spacing: Constants.spacingMedium
 
-                    Icon {
+                    GlyphIcon {
                         name: "info"
                         size: Constants.iconSizeSmall
                         color: MColors.textPrimary
@@ -126,7 +124,7 @@ Item {
                     anchors.rightMargin: Constants.spacingMedium
                     spacing: Constants.spacingMedium
 
-                    Icon {
+                    GlyphIcon {
                         name: "trash-2"
                         size: Constants.iconSizeSmall
                         color: "#E63946"

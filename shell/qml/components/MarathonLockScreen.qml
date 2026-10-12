@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
-import MarathonUI.Effects
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
@@ -349,7 +347,7 @@ Item {
                                 color: "#0d2620"
                             }
                         }
-                        Icon {
+                        GlyphIcon {
                             anchors.centerIn: parent
                             name: "phone"
                             size: 20
@@ -401,7 +399,7 @@ Item {
                         height: 36
                         radius: width / 2
                         color: MColors.error
-                        Icon {
+                        GlyphIcon {
                             anchors.centerIn: parent
                             name: "phone"
                             size: 14
@@ -712,7 +710,7 @@ Item {
                                 }
                             }
 
-                            Icon {
+                            GlyphIcon {
                                 anchors.centerIn: parent
                                 name: notifCard.icon
                                 size: 16
@@ -817,7 +815,7 @@ Item {
                         color: MColors.bb10Card
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Icon {
+                        GlyphIcon {
                             anchors.centerIn: parent
                             name: "bell"
                             size: 14
@@ -841,7 +839,7 @@ Item {
                         }
                     }
 
-                    Icon {
+                    GlyphIcon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "chevron-down"
                         size: 14
@@ -888,7 +886,7 @@ Item {
             opacity: 0.7
             z: 11
 
-            Icon {
+            GlyphIcon {
                 name: "chevron-up"
                 size: Math.round(24 * Constants.scaleFactor)
                 color: "white"

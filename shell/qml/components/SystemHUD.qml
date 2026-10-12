@@ -1,5 +1,4 @@
 import MarathonOS.Shell 1.0
-import MarathonUI.Core
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
@@ -74,7 +73,7 @@ Item {
             spacing: MSpacing.lg
             width: parent.width - Math.round(40 * (Constants.scaleFactor || 1))
 
-            Icon {
+            GlyphIcon {
                 name: hudContainer.hudType === "volume" ? "volume-2" : "sun"
                 size: Constants.iconSizeXLarge
                 color: MColors.textPrimary
