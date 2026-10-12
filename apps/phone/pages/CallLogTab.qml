@@ -47,9 +47,9 @@ TabItem {
             Accessible.name: (missed ? qsTr("Missed call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number)
             menu: ContextMenu {
                 MenuItem {
-                    objectName: "callMenuItem"
-                    text: qsTr("Call")
-                    onClicked: root.phone.call(item.number)
+                    objectName: "editMenuItem"
+                    text: qsTr("Edit before calling")
+                    onClicked: root.openInDialer(item.number)
                 }
                 MenuItem {
                     objectName: "messageMenuItem"
@@ -62,7 +62,7 @@ TabItem {
                     onClicked: item.remove()
                 }
             }
-            onClicked: root.openInDialer(number)
+            onClicked: root.phone.call(number)
 
             Icon {
                 id: typeIcon

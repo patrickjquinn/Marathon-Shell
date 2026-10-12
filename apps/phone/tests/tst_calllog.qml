@@ -73,17 +73,18 @@ TestCase {
         compare(app.missedCount, 1);
     }
 
-    function test_tapOpensNumberInDialer() {
+    function test_tapCalls() {
         const t = openLog();
-        itemAt(t.list, 1).clicked(null);
-        compare(t.app.dialedNumber, "0871234567");
-        tryCompare(t.app.pageStack.currentPage.tabs, "currentIndex", 0);
+        itemAt(t.list, 0).clicked(null);
+        compare(Telephony.log, ["dial:+15551234567"]);
     }
 
-    function test_menuCall() {
+    function test_menuEditBeforeCalling() {
         const t = openLog();
-        menuItem(itemAt(t.list, 0), "callMenuItem").clicked();
-        compare(Telephony.log, ["dial:+15551234567"]);
+        menuItem(itemAt(t.list, 1), "editMenuItem").clicked();
+        compare(t.app.dialedNumber, "0871234567");
+        compare(Telephony.log, []);
+        tryCompare(t.app.pageStack.currentPage.tabs, "currentIndex", 0);
     }
 
     function test_menuSendMessage() {
