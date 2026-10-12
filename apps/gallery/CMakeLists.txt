@@ -1,9 +1,13 @@
+
 # Gallery App - Photo and video viewer
 
 set(APP_NAME gallery)
 
-file(GLOB_RECURSE QML_FILES
+file(GLOB QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pages/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cover/*.qml"
 )
 
 set(SOURCES
