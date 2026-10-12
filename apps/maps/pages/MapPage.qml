@@ -317,13 +317,14 @@ Page {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Theme.paddingLarge
 
-                    Button {
+                    SecondaryButton {
+                        objectName: "previewDirections"
                         text: qsTr("Directions")
                         onClicked: root.openRoute()
                     }
                     Button {
                         objectName: "previewStart"
-                        text: qsTr("Start")
+                        text: qsTr("Start navigation")
                         onClicked: root.app.startNavigation()
                     }
                 }

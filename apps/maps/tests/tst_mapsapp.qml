@@ -201,6 +201,15 @@ TestCase {
         verify(app.awaitingStartPoint);
     }
 
+    function test_previewHasOnePrimaryAction() {
+        const app = makeApp();
+        routed(app);
+        const page = findChild(app, "mapPage");
+        verify(Qt.colorEqual(findChild(page, "previewDirections").backgroundColor, "transparent"));
+        verify(!Qt.colorEqual(findChild(page, "previewStart").backgroundColor, "transparent"));
+        compare(findChild(page, "previewStart").text, "Start navigation");
+    }
+
     function test_routePage() {
         const app = makeApp();
         app.map.ready();
