@@ -286,6 +286,17 @@ TestCase {
         compare(app.pendingMoveId, "");
     }
 
+    function test_markUnreadFromMessagePage() {
+        withMessages();
+        const app = makeApp();
+        app.openMessage("2");
+        const msg = pushed(app, 2);
+        findChild(msg, "unreadItem").clicked();
+        pushed(app, 1);
+        const calls = MailService.called("markAsRead");
+        compare(calls[calls.length - 1].args, ["2", false]);
+    }
+
     function test_cancelMoveFromMessagePage() {
         withMessages();
         const app = makeApp();

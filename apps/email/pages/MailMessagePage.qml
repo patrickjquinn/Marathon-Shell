@@ -76,16 +76,6 @@ Page {
 
         PullDownMenu {
             MenuItem {
-                objectName: "deleteItem"
-                text: qsTr("Delete")
-                onClicked: page.app.requestMove(page.messageId, "trash")
-            }
-            MenuItem {
-                objectName: "archiveItem"
-                text: qsTr("Archive")
-                onClicked: page.app.requestMove(page.messageId, "archive")
-            }
-            MenuItem {
                 objectName: "forwardItem"
                 text: qsTr("Forward")
                 onClicked: page.app.compose(Object.assign(Logic.forwardPrefill(page.msg, page.dateText), { draftKey: "forward-" + page.messageId }))
@@ -94,6 +84,26 @@ Page {
                 objectName: "replyItem"
                 text: qsTr("Reply")
                 onClicked: page.app.compose(Object.assign(Logic.replyPrefill(page.msg), { draftKey: "reply-" + page.messageId }))
+            }
+        }
+        PushUpMenu {
+            MenuItem {
+                objectName: "unreadItem"
+                text: qsTr("Mark as unread")
+                onClicked: {
+                    page.app.mail.markAsRead(page.messageId, false);
+                    page.app.showInbox();
+                }
+            }
+            MenuItem {
+                objectName: "archiveItem"
+                text: qsTr("Archive")
+                onClicked: page.app.requestMove(page.messageId, "archive")
+            }
+            MenuItem {
+                objectName: "deleteItem"
+                text: qsTr("Delete")
+                onClicked: page.app.requestMove(page.messageId, "trash")
             }
         }
 
