@@ -10,8 +10,20 @@ SessionStore *SessionStore::create(QQmlEngine *engine, QJSEngine *) {
 #include <QByteArray>
 #include <QDateTime>
 
+#include <time.h>
+
+static qint64 bootClockMs() {
+#ifdef CLOCK_BOOTTIME
+    timespec ts{};
+    if (clock_gettime(CLOCK_BOOTTIME, &ts) == 0)
+        return qint64(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
+#endif
+    return QDateTime::currentMSecsSinceEpoch();
+}
+
 SessionStore::SessionStore(QObject *parent)
-    : QObject(parent) {
+    : QObject(parent)
+    , m_clock(bootClockMs) {
     m_lockTimer.setSingleShot(true);
     connect(&m_lockTimer, &QTimer::timeout, this, [this]() {
         setIsLocked(m_targetLocked);
@@ -25,7 +37,20 @@ void SessionStore::setIsLocked(bool locked) {
     if (m_isLocked == locked)
         return;
     m_isLocked = locked;
+    m_sessionValidUntil = locked && m_lockDelay > 0 ? m_clock() + qint64{m_lockDelay} * 1000 : 0;
     emit isLockedChanged();
+}
+
+void SessionStore::setLockDelay(int seconds) {
+    seconds = qMax(0, seconds);
+    if (m_lockDelay == seconds)
+        return;
+    m_lockDelay = seconds;
+    emit lockDelayChanged();
+}
+
+void SessionStore::setClock(std::function<qint64()> clock) {
+    m_clock = std::move(clock);
 }
 
 void SessionStore::setIsOnLockScreen(bool onLockScreen) {
@@ -100,13 +125,11 @@ void SessionStore::unlock() {
     setLockTransition("unlocking");
     setIsAnimatingLock(true);
     emit lockStateChanging(false);
-    m_sessionValidUntil = QDateTime::currentMSecsSinceEpoch() + qint64{5} * 60 * 1000;
     startLockTimer(false);
 }
 
 bool SessionStore::checkSession() const {
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    return m_sessionValidUntil > now;
+    return m_sessionValidUntil > m_clock();
 }
 
 void SessionStore::showLock() {
@@ -115,7 +138,6 @@ void SessionStore::showLock() {
 
 void SessionStore::reset() {
     m_lockTimer.stop();
-    m_sessionValidUntil = 0;
     setIsAnimatingLock(false);
     setLockTransition(QString());
 
@@ -128,6 +150,7 @@ void SessionStore::reset() {
 
     setShowLockScreen(!skipInitialLock);
     setIsLocked(!skipInitialLock);
+    m_sessionValidUntil = 0;
     setIsOnLockScreen(false);
 }
 

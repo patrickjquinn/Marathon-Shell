@@ -71,7 +71,7 @@ namespace {
     const QHash<QString, Consumer> kConsumers = {
         {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
         {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
-        {"autoLock", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLock"}},
+        {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
         // The setter applies it through timedated.
         {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
         {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},

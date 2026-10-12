@@ -16,6 +16,15 @@ target_include_directories(test_shell_router PRIVATE
 )
 add_test(NAME Shell_Router COMMAND test_shell_router)
 
+# SessionStore: the PIN grace period after locking
+add_executable(test_shell_sessionstore
+    test_sessionstore.cpp
+    ../../shell/src/services/sessionstore.cpp
+)
+target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
+target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
+
 # AppModel tests (data model with validation)
 add_executable(test_shell_appmodel
     test_appmodel.cpp

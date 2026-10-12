@@ -32,7 +32,7 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_wallpaperPath("qrc:/wallpapers/slate-aurora.svg")
     , m_deviceName("Marathon OS")
     , m_autoLock(true)
-    , m_autoLockTimeout(300)
+    , m_autoLockTimeout(0)
     , m_showNotificationPreviews(true)
     , m_timeFormat("12h")
     , m_dateFormat("US")
@@ -241,7 +241,14 @@ void SettingsManager::load() {
 
     m_deviceName               = m_settings.value("system/deviceName", "Marathon OS").toString();
     m_autoLock                 = m_settings.value("system/autoLock", true).toBool();
-    m_autoLockTimeout          = m_settings.value("system/autoLockTimeout", 300).toInt();
+    m_autoLockTimeout          = m_settings.value("system/autoLockTimeout", 0).toInt();
+    // Before the lock delay, autoLockTimeout was unused (stored as 300) and
+    // autoLock off meant "don't lock on idle": give those users the longest delay.
+    if (!m_settings.value("system/autoLockTimeoutMigrated", false).toBool()) {
+        m_autoLockTimeout = m_autoLock ? 0 : 300;
+        m_settings.setValue("system/autoLockTimeout", m_autoLockTimeout);
+        m_settings.setValue("system/autoLockTimeoutMigrated", true);
+    }
     m_showNotificationPreviews = m_settings.value("system/showNotificationPreviews", true).toBool();
     m_timeFormat               = m_settings.value("system/timeFormat", "12h").toString();
     m_dateFormat               = m_settings.value("system/dateFormat", "US").toString();

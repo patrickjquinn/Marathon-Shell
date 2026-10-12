@@ -47,6 +47,17 @@ TestCase {
         return item;
     }
 
+    function pick(combo, index) {
+        let n = 0;
+        let found = null;
+        combo.menu._foreachMenuItem(function (item) {
+            if (n++ === index)
+                found = item;
+            return found === null;
+        });
+        found.clicked();
+    }
+
     function pushed(app, from) {
         tryVerify(() => app.pageStack.currentPage !== from && app.pageStack.currentPage.status === PageStatus.Active, 3000);
         return app.pageStack.currentPage;
@@ -61,11 +72,7 @@ TestCase {
         Security.failedAttempts = 2;
         const s = open("security");
         compare(findChild(s.page, "lockMethod"), null);
-        const autoLock = child(s.page, "autoLockSwitch");
-        verify(autoLock.checked);
-        autoLock.clicked(null);
-        verify(!Settings.autoLock);
-        verify(!autoLock.checked);
+        compare(findChild(s.page, "autoLockSwitch"), null);
         compare(child(s.page, "fingerprint").value, "Enrolled");
         compare(child(s.page, "failedAttempts").value, "2");
         compare(child(s.page, "accountStatus").value, "Active");
@@ -74,6 +81,24 @@ TestCase {
         compare(child(s.page, "accountStatus").value, "Locked (30s remaining)");
         verify(!child(s.page, "removePinItem").visible);
         compare(child(s.page, "pinItem").text, "Set quick PIN");
+    }
+
+    function test_lockDelay() {
+        const s = open("security");
+        const combo = child(s.page, "lockDelayCombo");
+        compare(combo.currentIndex, 0);
+        compare(combo.value, "Immediately");
+        let labels = [];
+        combo.menu._foreachMenuItem(function (item) {
+            labels.push(item.text);
+            return true;
+        });
+        compare(labels, ["Immediately", "5 seconds", "30 seconds", "1 minute", "5 minutes"]);
+        pick(combo, 3);
+        compare(Settings.autoLockTimeout, 60);
+        compare(combo.value, "1 minute");
+        Settings.autoLockTimeout = 300;
+        compare(combo.currentIndex, 4);
     }
 
     function test_setQuickPin() {

@@ -19,7 +19,7 @@ QtObject {
     property bool showNotificationBadges: true
     property var enabledQuickSettingsTiles: ["wifi", "bluetooth"]
     property string deviceName: "Librem 5"
-    property bool autoLock: true
+    property int autoLockTimeout: 0
     property bool automaticTime: true
     property var systemTimes: []
 
@@ -47,7 +47,7 @@ QtObject {
         showNotificationBadges = true;
         enabledQuickSettingsTiles = ["wifi", "bluetooth"];
         deviceName = "Librem 5";
-        autoLock = true;
+        autoLockTimeout = 0;
         automaticTime = true;
         systemTimes = [];
     }

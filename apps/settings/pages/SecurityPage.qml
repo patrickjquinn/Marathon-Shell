@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -91,13 +92,30 @@ Page {
             SectionHeader {
                 text: qsTr("Device lock")
             }
-            TextSwitch {
-                objectName: "autoLockSwitch"
-                text: qsTr("Lock automatically")
-                description: qsTr("Lock the device when the screen turns off")
-                automaticCheck: false
-                checked: Settings.autoLock
-                onClicked: Settings.autoLock = !Settings.autoLock
+            ComboBox {
+                id: lockDelay
+
+                readonly property var options: Logic.lockDelayOptions()
+
+                objectName: "lockDelayCombo"
+                width: parent.width
+                label: qsTr("Lock after screen off")
+                description: qsTr("Until then, a swipe unlocks without the PIN or password")
+                Binding on currentIndex {
+                    value: lockDelay.options.findIndex(option => option.seconds === Settings.autoLockTimeout)
+                }
+                menu: ContextMenu {
+                    Repeater {
+                        model: lockDelay.options
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.label
+                            onClicked: Settings.autoLockTimeout = modelData.seconds
+                        }
+                    }
+                }
             }
             ActionItem {
                 objectName: "pinItem"

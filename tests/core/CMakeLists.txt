@@ -193,6 +193,15 @@ target_include_directories(test_core_settingscontract PRIVATE
 target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
 
+# The old auto-lock switch carried into the lock delay
+add_executable(test_core_lockdelaymigration
+    test_lockdelaymigration.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+)
+target_link_libraries(test_core_lockdelaymigration Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_lockdelaymigration PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_LockDelayMigration COMMAND test_core_lockdelaymigration)
+
 # Music library: scans and track loads run off the GUI thread
 find_package(Qt6 REQUIRED COMPONENTS Sql)
 add_executable(test_core_musiclibrary

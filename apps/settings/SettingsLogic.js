@@ -242,6 +242,17 @@ const permissions = {
     terminal: { title: qsTr("Terminal"), description: qsTr("Full access to the system") }
 };
 
+// Seconds after the screen turns off during which a swipe unlocks without the PIN.
+function lockDelayOptions() {
+    return [
+        { seconds: 0, label: qsTr("Immediately") },
+        { seconds: 5, label: qsTr("5 seconds") },
+        { seconds: 30, label: qsTr("30 seconds") },
+        { seconds: 60, label: qsTr("1 minute") },
+        { seconds: 300, label: qsTr("5 minutes") }
+    ];
+}
+
 function permissionInfo(id) {
     return permissions[id] || { title: id, description: "" };
 }

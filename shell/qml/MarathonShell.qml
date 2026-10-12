@@ -749,11 +749,15 @@ Item {
                 return;
             }
             Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
-            if (SettingsManagerCpp && SettingsManagerCpp.autoLock) {
-                SessionStore.isLocked = true;
-            }
+            SessionStore.isLocked = true;
             DisplayPolicyControllerCpp.turnScreenOff();
         }
+    }
+
+    Binding {
+        target: SessionStore
+        property: "lockDelay"
+        value: SettingsManagerCpp ? SettingsManagerCpp.autoLockTimeout : 0
     }
 
     // ── Idle DIM warning (PWR-5) ────────────────────────────────

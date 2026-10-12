@@ -5,6 +5,8 @@
 #include <QTimer>
 #include <QString>
 
+#include <functional>
+
 #include <qqml.h>
 
 class SessionStore : public QObject {
@@ -28,6 +30,8 @@ class SessionStore : public QObject {
                    isAnimatingLockChanged)
     Q_PROPERTY(QString lockTransition READ lockTransition WRITE setLockTransition NOTIFY
                    lockTransitionChanged)
+    // Seconds after locking during which unlocking skips the PIN.
+    Q_PROPERTY(int lockDelay READ lockDelay WRITE setLockDelay NOTIFY lockDelayChanged)
 
   public:
     explicit SessionStore(QObject *parent = nullptr);
@@ -57,6 +61,14 @@ class SessionStore : public QObject {
     }
     void             setLockTransition(const QString &transition);
 
+    int              lockDelay() const {
+        return m_lockDelay;
+    }
+    void             setLockDelay(int seconds);
+
+    // Milliseconds on a clock that keeps counting through suspend.
+    void             setClock(std::function<qint64()> clock);
+
     Q_INVOKABLE void lock();
     Q_INVOKABLE void unlock();
     Q_INVOKABLE bool checkSession() const;
@@ -69,6 +81,7 @@ class SessionStore : public QObject {
     void showLockScreenChanged();
     void isAnimatingLockChanged();
     void lockTransitionChanged();
+    void lockDelayChanged();
 
     void lockStateChanging(bool toLocked);
     void lockStateChanged(bool isLocked);
@@ -84,6 +97,8 @@ class SessionStore : public QObject {
     bool    m_isAnimatingLock = false;
     QString m_lockTransition;
     qint64  m_sessionValidUntil = 0;
+    int     m_lockDelay         = 0;
+    std::function<qint64()> m_clock;
     QTimer  m_lockTimer;
     bool    m_targetLocked = true;
 };
