@@ -1116,20 +1116,36 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
 
 void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
     QWaylandSurface *surface = xdgSurface->surface();
-    const QString    appId   = toplevel->appId();
     surface->setProperty("isCover", true);
     // The app chooses its cover size; a zero size leaves it to the client.
     toplevel->sendConfigure(QSize(0, 0), QList<QWaylandXdgToplevel::State>());
-    m_covers.insert(appId, surface);
-    qWarning() << "[WaylandCompositor] Cover for" << appId;
-    QPointer<QWaylandSurface> safeSurface(surface);
-    connect(surface, &QWaylandSurface::surfaceDestroyed, this, [this, appId, safeSurface]() {
-        if (m_covers.value(appId) == safeSurface.data() || !m_covers.value(appId)) {
-            m_covers.remove(appId);
-            emit coverChanged(appId);
-        }
+    QPointer<QWaylandSurface>     safeSurface(surface);
+    QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
+    // The app id can follow the title, so the cover is filed under it when it comes.
+    auto file = [this, safeSurface, safeToplevel]() {
+        if (!safeSurface || !safeToplevel || safeToplevel->appId().isEmpty())
+            return;
+        const QString appId = safeToplevel->appId();
+        m_covers.insert(appId, safeSurface);
+        qWarning() << "[WaylandCompositor] Cover for" << appId;
+        emit coverChanged(appId);
+    };
+    connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, file);
+    // The surface is still alive while surfaceDestroyed is emitted.
+    connect(surface, &QWaylandSurface::surfaceDestroyed, this, [this]() {
+        QTimer::singleShot(0, this, [this]() {
+            for (auto it = m_covers.begin(); it != m_covers.end();) {
+                if (!it.value()) {
+                    const QString appId = it.key();
+                    it                  = m_covers.erase(it);
+                    emit coverChanged(appId);
+                } else {
+                    ++it;
+                }
+            }
+        });
     });
-    emit coverChanged(appId);
+    file();
 }
 
 QObject *WaylandCompositor::coverSurface(const QString &appId) const {
