@@ -19,7 +19,7 @@ TabItem {
 
         objectName: "callLog"
         anchors.fill: parent
-        model: root.phone.callHistory
+        model: Phone.groupCalls(root.phone.callHistory)
 
         ViewPlaceholder {
             enabled: list.count === 0
@@ -34,17 +34,19 @@ TabItem {
             readonly property string number: modelData.number || ""
             readonly property string name: modelData.contactName || root.phone.contactName(number)
             readonly property bool missed: modelData.type === "missed"
+            readonly property int count: modelData.ids.length
             readonly property real when: Phone.timestampMs(modelData.timestamp)
 
             function remove() {
+                const ids = item.modelData.ids;
                 item.remorseDelete(function () {
-                    CallHistory.deleteCall(item.modelData.id);
+                    ids.forEach(id => CallHistory.deleteCall(id));
                 });
             }
 
             objectName: "callLogItem"
             contentHeight: Theme.itemSizeMedium
-            Accessible.name: (missed ? qsTr("Missed call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number)
+            Accessible.name: (missed ? qsTr("Missed call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number) + (count > 1 ? ", " + qsTr("%n calls", "", count) : "")
             menu: ContextMenu {
                 MenuItem {
                     objectName: "editMenuItem"
@@ -83,8 +85,12 @@ TabItem {
                 }
 
                 Label {
+                    objectName: "callerLabel"
                     width: parent.width
-                    text: item.name || Phone.format(item.number) || qsTr("Unknown number")
+                    text: {
+                        const who = item.name || Phone.format(item.number) || qsTr("Unknown number");
+                        return item.count > 1 ? qsTr("%1 (%2)").arg(who).arg(item.count) : who;
+                    }
                     truncationMode: TruncationMode.Fade
                     color: item.highlighted ? Theme.highlightColor : item.missed ? Theme.errorColor : Theme.primaryColor
                 }

@@ -106,4 +106,22 @@ TestCase {
         tryCompare(CallHistory, "deleted", [7], 8000);
         tryCompare(t.list, "count", 1);
     }
+
+    function test_repeatedCallsShareOneRow() {
+        CallHistory.history = [
+            { id: 7, number: "+15551234567", type: "missed", timestamp: 1700000200, duration: 0 },
+            { id: 8, number: "5551234567", type: "missed", timestamp: 1700000100, duration: 0 },
+            { id: 9, number: "0871234567", type: "outgoing", timestamp: 1700000000, duration: 5 }
+        ];
+        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        app.pageStack.currentPage.tabs.moveTo(1);
+        let list = null;
+        tryVerify(() => (list = findChild(app.pageStack.currentPage, "callLog")) !== null && list.count === 2);
+        const item = itemAt(list, 0);
+        compare(findChild(item, "callerLabel").text, "+1 555 123 4567 (2)");
+        menuItem(item, "deleteMenuItem").clicked();
+        item.closeMenu();
+        tryCompare(CallHistory, "deleted", [7, 8], 8000);
+        tryCompare(list, "count", 1);
+    }
 }

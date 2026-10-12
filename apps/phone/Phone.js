@@ -77,3 +77,16 @@ function filterContacts(contacts, query) {
 function missedSince(history, sinceMs) {
     return (history || []).filter(c => c && c.type === "missed" && timestampMs(c.timestamp) > sinceMs).length;
 }
+
+// Consecutive calls with one number and type share a row.
+function groupCalls(history) {
+    const out = [];
+    for (const c of history || []) {
+        const last = out[out.length - 1];
+        if (last && last.type === c.type && sameNumber(last.number, c.number))
+            last.ids.push(c.id);
+        else
+            out.push(Object.assign({}, c, { ids: [c.id] }));
+    }
+    return out;
+}

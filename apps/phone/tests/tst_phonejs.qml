@@ -51,4 +51,17 @@ TestCase {
         compare(Phone.missedSince(h, 100000), 1);
         compare(Phone.missedSince(h, 0), 2);
     }
+
+    function test_groupCalls() {
+        const rows = Phone.groupCalls([
+            { id: 1, number: "+353 87 123 4567", type: "missed" },
+            { id: 2, number: "0871234567", type: "missed" },
+            { id: 3, number: "0871234567", type: "incoming" },
+            { id: 4, number: "112", type: "outgoing" },
+            { id: 5, number: "0871234567", type: "incoming" }
+        ]);
+        compare(rows.map(r => r.ids), [[1, 2], [3], [4], [5]]);
+        compare(rows[0].number, "+353 87 123 4567");
+        compare(Phone.groupCalls([]), []);
+    }
 }
