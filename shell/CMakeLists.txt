@@ -231,7 +231,6 @@ set(QML_FILES
     qml/components/MarathonNavBar.qml
     qml/components/MarathonStatusBar.qml
     qml/components/MarathonBottomBar.qml
-    qml/components/MarathonMessagingHub.qml
     qml/components/MarathonQuickSettings.qml
     qml/components/TaskCard.qml
     qml/components/TaskPageIndicator.qml

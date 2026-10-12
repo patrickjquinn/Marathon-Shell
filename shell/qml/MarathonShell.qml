@@ -58,9 +58,6 @@ Item {
         } else if (UIStore.quickSettingsOpen) {
             UIStore.closeQuickSettings();
             overlayClosed = true;
-        } else if (messagingHub.showVertical) {
-            messagingHub.showVertical = false;
-            overlayClosed = true;
         }
         return overlayClosed;
     }
@@ -1064,16 +1061,8 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                height: messagingHub.height + bottomBar.height
+                height: bottomBar.height
                 z: Constants.zIndexBottomSection
-
-                MarathonMessagingHub {
-                    id: messagingHub
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: bottomBar.top
-                }
 
                 MarathonBottomBar {
                     id: bottomBar
