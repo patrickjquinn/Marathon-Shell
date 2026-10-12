@@ -36,8 +36,8 @@ ListItem {
         bottomPadding: Theme.paddingMedium
         horizontalAlignment: Text.AlignHCenter
         text: Format.formatDate(new Date(root.message.timestamp), Formatter.TimepointSectionRelative)
-        font.pixelSize: Theme.fontSizeExtraSmall
-        color: Theme.highlightColor
+        font.pixelSize: Theme.fontSizeSmall
+        color: Theme.secondaryColor
     }
 
     Label {
@@ -50,7 +50,7 @@ ListItem {
         wrapMode: Text.Wrap
         textFormat: Text.PlainText
         horizontalAlignment: root.outgoing ? Text.AlignRight : Text.AlignLeft
-        color: root.outgoing && !root.highlighted ? Theme.primaryColor : Theme.highlightColor
+        color: root.outgoing || root.highlighted ? Theme.highlightColor : Theme.primaryColor
     }
 
     Label {
@@ -60,6 +60,6 @@ ListItem {
         visible: root.message.showTime
         text: Format.formatDate(new Date(root.message.timestamp), Formatter.TimeValue)
         font.pixelSize: Theme.fontSizeTiny
-        color: root.outgoing && !root.highlighted ? Theme.secondaryColor : Theme.secondaryHighlightColor
+        color: root.outgoing || root.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
     }
 }

@@ -225,8 +225,8 @@ TestCase {
         let incoming = null;
         let outgoing = null;
         tryVerify(() => (incoming = view.itemAtIndex(0)) && (outgoing = view.itemAtIndex(1)));
-        compare(findChild(incoming, "messageText").color, Theme.highlightColor);
-        compare(findChild(outgoing, "messageText").color, Theme.primaryColor);
+        compare(findChild(incoming, "messageText").color, Theme.primaryColor);
+        compare(findChild(outgoing, "messageText").color, Theme.highlightColor);
         verify(findChild(outgoing, "messageText").x > findChild(incoming, "messageText").x);
         Clipboard.text = "";
         outgoing.openMenu();
