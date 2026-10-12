@@ -6,6 +6,7 @@
 #include <QImageCapture>
 #include <QMediaRecorder>
 #include <QVideoSink>
+#include <QImage>
 #include <QSize>
 #include <QUrl>
 #include <QVariantList>
@@ -44,7 +45,9 @@ class CameraController : public QObject {
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
     Q_PROPERTY(int recordingDuration READ recordingDuration NOTIFY recordingDurationChanged)
 
-    Q_PROPERTY(QString latestPhotoPath READ latestPhotoPath NOTIFY latestPhotoPathChanged)
+    // The newest photo or video, and an image of it (the photo itself, or a video's poster frame).
+    Q_PROPERTY(QString latestCapture READ latestCapture NOTIFY latestCaptureChanged)
+    Q_PROPERTY(QString latestPreview READ latestPreview NOTIFY latestCaptureChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorOccurred)
 
   public:
@@ -83,7 +86,8 @@ class CameraController : public QObject {
     bool             isRecording() const;
     int              recordingDuration() const;
 
-    QString          latestPhotoPath() const;
+    QString          latestCapture() const;
+    QString          latestPreview() const;
     QString          errorMessage() const;
 
     Q_INVOKABLE void start();
@@ -113,7 +117,7 @@ class CameraController : public QObject {
     void timerActiveChanged();
     void recordingChanged();
     void recordingDurationChanged();
-    void latestPhotoPathChanged();
+    void latestCaptureChanged();
     void errorOccurred(const QString &message);
     void photoSaved(const QString &path);
     void cameraFlipStarted();
@@ -134,7 +138,8 @@ class CameraController : public QObject {
     void                  setupCamera(int index);
     void                  updateZoomRange();
     QString               generateFilePath(const QString &prefix, const QString &extension);
-    void                  scanForLatestPhoto();
+    void                  scanForLatestCapture();
+    void                  setLatestCapture(const QString &file, const QString &preview);
 
     QCamera              *m_camera         = nullptr;
     QMediaCaptureSession *m_captureSession = nullptr;
@@ -163,6 +168,8 @@ class CameraController : public QObject {
     QTimer               *m_recordingTimer    = nullptr;
 
     QString               m_savePath;
-    QString               m_latestPhotoPath;
+    QString               m_latestCapture;
+    QString               m_latestPreview;
+    QImage                m_recordingPoster;
     QString               m_errorMessage;
 };

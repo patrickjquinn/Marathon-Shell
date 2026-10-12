@@ -6,6 +6,7 @@ BackgroundItem {
     id: root
 
     property string source: ""
+    property bool video
 
     width: Theme.itemSizeMedium
     height: width
@@ -18,7 +19,7 @@ BackgroundItem {
 
         Icon {
             anchors.centerIn: parent
-            source: "image://theme/icon-m-image"
+            source: root.video ? "image://theme/icon-m-video" : "image://theme/icon-m-image"
             color: Theme.lightPrimaryColor
         }
     }
@@ -34,6 +35,14 @@ BackgroundItem {
         asynchronous: true
         clip: true
         opacity: root.down ? Theme.opacityHigh : 1
+    }
+
+    Icon {
+        objectName: "thumbnailPlay"
+        anchors.centerIn: parent
+        visible: root.video && root.source !== ""
+        source: "image://theme/icon-m-play"
+        color: Theme.lightPrimaryColor
     }
 
     Rectangle {

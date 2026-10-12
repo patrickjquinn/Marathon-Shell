@@ -113,9 +113,22 @@ TestCase {
         compare(child(app, "videoModeLabel").color, Theme.highlightColor);
     }
 
+    function test_recordedVideoUpdatesTheThumbnail() {
+        const app = makeApp();
+        verify(!child(app, "thumbnailImage").visible);
+        mouseClick(child(app, "videoMode"));
+        mouseClick(child(app, "shutter"));
+        mouseClick(child(app, "shutter"));
+        verify(app.latestIsVideo);
+        verify(child(app, "thumbnailImage").visible);
+        compare(String(child(app, "thumbnailImage").source), app.camera.latestPreview);
+        verify(child(app, "thumbnailPlay").visible);
+    }
+
     function test_thumbnailOpensGallery() {
         const app = makeApp();
-        app.camera.latestPhotoPath = Qt.resolvedUrl("data/photo.png");
+        app.camera.latestCapture = Qt.resolvedUrl("data/photo.png");
+        app.camera.latestPreview = app.camera.latestCapture;
         verify(child(app, "thumbnailImage").visible);
         mouseClick(child(app, "thumbnail"));
         compare(Navigation.launches, ["gallery"]);

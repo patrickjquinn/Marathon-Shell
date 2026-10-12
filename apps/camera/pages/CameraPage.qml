@@ -386,7 +386,8 @@ Page {
             verticalCenter: shutter.verticalCenter
         }
         visible: page.controlsShown
-        source: page.camera.latestPhotoPath
+        source: page.camera.latestPreview
+        video: page.app.latestIsVideo
         onClicked: page.app.openGallery()
     }
 

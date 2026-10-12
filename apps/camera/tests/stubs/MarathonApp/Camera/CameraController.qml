@@ -21,7 +21,8 @@ QtObject {
     property bool timerActive: false
     property bool isRecording: false
     property int recordingDuration: 0
-    property string latestPhotoPath: ""
+    property string latestCapture: ""
+    property string latestPreview: ""
     property var calls: []
 
     signal errorOccurred(string message)
@@ -65,6 +66,8 @@ QtObject {
     function stopRecording() {
         record("stopRecording");
         isRecording = false;
+        latestCapture = "file:///pictures/VID_1.mp4";
+        latestPreview = Qt.resolvedUrl("../../../data/photo.png");
     }
     function focusOnPoint(x, y) { record("focusOnPoint"); }
 }

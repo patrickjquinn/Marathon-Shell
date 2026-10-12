@@ -14,6 +14,7 @@ ApplicationWindow {
     property bool cameraFailed: false
     // Camera start-up blocks the GUI thread, so it waits until the page is on screen.
     property bool firstFrameShown: false
+    readonly property bool latestIsVideo: /\.mp4$/i.test(camera.latestCapture)
     property CameraController camera: CameraController {
         onErrorOccurred: function (message) {
             console.warn("[Camera] Error:", message);
@@ -93,7 +94,7 @@ ApplicationWindow {
 
     cover: Component {
         CameraCover {
-            photo: app.camera.latestPhotoPath
+            photo: app.camera.latestPreview
             onCaptureRequested: app.activate()
         }
     }
