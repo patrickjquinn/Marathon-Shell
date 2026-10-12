@@ -8,7 +8,8 @@ const pages = {
     display: "DisplayPage.qml",
     scale: "DisplayPage.qml",
     screentimeout: "DisplayPage.qml",
-    wallpaper: "WallpaperPage.qml",
+    ambience: "AmbiencePage.qml",
+    wallpaper: "AmbiencePage.qml",
     datetime: "DateTimePage.qml",
     sound: "SoundPage.qml",
     notifications: "NotificationsPage.qml",
@@ -53,7 +54,7 @@ const sections = [
         title: qsTr("Device"),
         entries: [
             { page: "display", title: qsTr("Display"), icon: "image://theme/icon-m-display", keywords: "screen brightness rotation auto-brightness reduce motion animation timeout sleep scale text size" },
-            { page: "wallpaper", title: qsTr("Wallpaper"), icon: "image://theme/icon-m-wallpaper", keywords: "background home screen" },
+            { page: "ambience", title: qsTr("Ambience"), icon: "image://theme/icon-m-ambience", keywords: "wallpaper background home screen theme colour color" },
             { page: "sound", title: qsTr("Sounds"), icon: "image://theme/icon-m-volume", keywords: "volume ringtone alarm audio mute" },
             { page: "notifications", title: qsTr("Notifications"), icon: "image://theme/icon-m-notifications", keywords: "alerts lock screen per-app do not disturb" },
             { page: "datetime", title: qsTr("Date and time"), icon: "image://theme/icon-m-clock", keywords: "time zone timezone clock 24-hour 12-hour format city" },

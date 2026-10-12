@@ -11,6 +11,8 @@ TestCase {
         compare(Logic.pageFile("Bluetooth"), "BluetoothPage.qml");
         compare(Logic.pageFile("display/brightness"), "DisplayPage.qml");
         compare(Logic.pageFile("scale"), "DisplayPage.qml");
+        compare(Logic.pageFile("ambience"), "AmbiencePage.qml");
+        compare(Logic.pageFile("wallpaper"), "AmbiencePage.qml");
         compare(Logic.pageFile("nope"), "");
         compare(Logic.pageFile(""), "");
         compare(Logic.pageFile(undefined), "");

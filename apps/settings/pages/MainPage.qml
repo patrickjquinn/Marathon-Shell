@@ -13,6 +13,8 @@ Page {
     property string query: ""
     readonly property var results: Logic.search(query)
     readonly property bool searching: query.trim() !== ""
+    // Only present once the app runner shares the shell's wallpaper list.
+    readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
 
     function summary(name) {
         switch (name) {
@@ -24,6 +26,10 @@ Page {
             return !Modem.available ? "" : !Modem.simPresent ? qsTr("No SIM card") : Modem.registered && Modem.operatorName !== "" ? Modem.operatorName : qsTr("No service");
         case "display":
             return qsTr("Brightness %1%").arg(Logic.percent(Display.brightness));
+        case "ambience": {
+            const current = page.wallpapers ? page.wallpapers.wallpapers.find(w => w.path === page.wallpapers.currentWallpaper) : undefined;
+            return current ? current.name : "";
+        }
         case "sound":
             return Audio.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(Logic.percent(Audio.volume));
         case "datetime":

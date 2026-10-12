@@ -32,6 +32,7 @@ TestCase {
         Power.reset();
         Audio.reset();
         Navigation.reset();
+        Wallpapers.reset();
     }
 
     function makeApp() {
@@ -52,7 +53,7 @@ TestCase {
 
     function test_listsEveryCategory() {
         const app = makeApp();
-        ["wifi", "bluetooth", "cellular", "display", "wallpaper", "sound", "notifications", "datetime", "battery", "storage", "keyboard", "security", "accounts", "appmanager", "hiddenapps", "appsort", "quicksettings", "updates", "about", "terminal"].forEach(name => entry(app, name));
+        ["wifi", "bluetooth", "cellular", "display", "ambience", "sound", "notifications", "datetime", "battery", "storage", "keyboard", "security", "accounts", "appmanager", "hiddenapps", "appsort", "quicksettings", "updates", "about", "terminal"].forEach(name => entry(app, name));
     }
 
     function test_summariesFollowServices() {
@@ -74,6 +75,9 @@ TestCase {
         compare(valueOf(entry(app, "datetime")), "Date and time, London");
         compare(valueOf(entry(app, "storage")), "Storage, 24.0 GB free");
         compare(valueOf(entry(app, "appsort")), "App grid, Automatic");
+        compare(valueOf(entry(app, "ambience")), "Ambience, Slate Aurora");
+        Wallpapers.setWallpaper("file:///wallpapers/dawn.svg", false);
+        compare(valueOf(entry(app, "ambience")), "Ambience, Dawn");
         Settings.hiddenApps = ["notes", "weather"];
         compare(valueOf(entry(app, "hiddenapps")), "Hidden apps, 2 hidden");
         compare(valueOf(entry(app, "cellular")), "Mobile network, Vodafone");

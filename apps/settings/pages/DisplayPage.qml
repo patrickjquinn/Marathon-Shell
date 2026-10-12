@@ -9,8 +9,6 @@ Page {
     id: page
 
     readonly property var timeouts: Settings.screenTimeoutOptions()
-    readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
-    readonly property var wallpaper: wallpapers ? wallpapers.wallpapers.find(w => w.path === wallpapers.currentWallpaper) : undefined
 
     function setBrightness(percent) {
         Display.brightness = Math.max(0, Math.min(100, percent)) / 100;
@@ -87,12 +85,6 @@ Page {
                 automaticCheck: false
                 checked: Display.rotationLocked
                 onClicked: Display.rotationLocked = !checked
-            }
-            ValueButton {
-                objectName: "wallpaperButton"
-                label: qsTr("Wallpaper")
-                value: page.wallpaper ? page.wallpaper.name : ""
-                onClicked: pageStack.push(Qt.resolvedUrl("WallpaperPage.qml"))
             }
 
             SectionHeader {

@@ -97,17 +97,16 @@ TestCase {
 
         compare(findChild(s.page, "clockCombo"), null);
 
-        compare(child(s.page, "wallpaperButton").value, "Slate Aurora");
+        compare(findChild(s.page, "wallpaperButton"), null);
     }
 
-    function test_wallpaper() {
-        const s = open("display");
-        child(s.page, "wallpaperButton").clicked(null);
-        const page = pushed(s.app, s.page);
-        const grid = child(page, "wallpaperGrid");
+    function test_ambience() {
+        const page = open("ambience").page;
+        const grid = child(page, "ambienceGrid");
         compare(grid.count, 2);
         verify(!child(page, "placeholder").enabled);
-        const dawn = child(page, "wallpaper-Dawn");
+        verify(child(page, "ambience-Slate Aurora").current);
+        const dawn = child(page, "ambience-Dawn");
         verify(!dawn.current);
         dawn.clicked(null);
         compare(Wallpapers.currentWallpaper, "file:///wallpapers/dawn.svg");

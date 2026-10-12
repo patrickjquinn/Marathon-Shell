@@ -13,13 +13,13 @@ Page {
     SilicaGridView {
         id: grid
 
-        objectName: "wallpaperGrid"
+        objectName: "ambienceGrid"
         anchors.fill: parent
         cellWidth: width / 2
         cellHeight: Math.round(cellWidth * 1.6)
         model: page.store ? page.store.wallpapers : []
         header: PageHeader {
-            title: qsTr("Wallpaper")
+            title: qsTr("Ambience")
         }
 
         delegate: GridItem {
@@ -34,7 +34,7 @@ Page {
                 page.store.setWallpaper(modelData.path, modelData.isDark);
             }
 
-            objectName: "wallpaper-" + modelData.name
+            objectName: "ambience-" + modelData.name
             width: grid.cellWidth
             contentHeight: grid.cellHeight
             activeFocusOnTab: true
@@ -108,8 +108,8 @@ Page {
         ViewPlaceholder {
             objectName: "placeholder"
             enabled: grid.count === 0
-            text: qsTr("No wallpapers")
-            hintText: page.store ? "" : qsTr("Settings can't reach the wallpaper list on this device")
+            text: qsTr("No ambiences")
+            hintText: page.store ? "" : qsTr("Settings can't reach the ambience list on this device")
         }
 
         VerticalScrollDecorator {}
