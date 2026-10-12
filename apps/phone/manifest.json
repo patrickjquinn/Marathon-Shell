@@ -3,6 +3,7 @@
   "name": "Phone",
   "version": "1.0.0",
   "entryPoint": "PhoneApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["phone", "contacts"],

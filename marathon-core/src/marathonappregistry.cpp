@@ -72,6 +72,7 @@ QVariantMap MarathonAppRegistry::getApp(const QString &appId) const {
         result["icon"]                   = app->icon;
         result["type"]                   = static_cast<int>(app->type);
         result["absolutePath"]           = app->absolutePath;
+        result["toolkit"]                = app->toolkit;
         result["entryPoint"]             = app->entryPoint;
         result["version"]                = app->version;
         result["isProtected"]            = app->isProtected;

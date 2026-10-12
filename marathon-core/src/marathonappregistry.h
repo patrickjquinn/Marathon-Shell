@@ -53,6 +53,7 @@ class MarathonAppRegistry : public QAbstractListModel {
         QStringList defaultFor;
         QStringList backgroundCapabilities;
         QStringList requiresQtModules;
+        QString     toolkit = QStringLiteral("keel");
 
         AppInfo() = default;
         AppInfo(const QString &id, const QString &name, const QString &icon, AppType type,

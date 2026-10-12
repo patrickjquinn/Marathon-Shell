@@ -241,6 +241,7 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     for (const auto &value : std::as_const(qtModulesArray)) {
         info.requiresQtModules.append(value.toString());
     }
+    info.toolkit = obj.value("toolkit").toString(QStringLiteral("keel"));
 
     qDebug() << "[MarathonAppScanner] Deep links for" << info.id << ":" << info.deepLinksJson;
 

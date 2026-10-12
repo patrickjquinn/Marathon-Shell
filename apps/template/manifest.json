@@ -5,6 +5,7 @@
   "description": "Template for creating new Marathon apps",
   "icon": "assets/icon.svg",
   "entryPoint": "TemplateApp.qml",
+  "toolkit": "marathonui",
   "category": "utilities",
   "author": "Marathon OS",
   "permissions": []

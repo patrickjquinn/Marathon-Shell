@@ -3,6 +3,7 @@
   "name": "Calculator",
   "version": "1.0.0",
   "entryPoint": "CalculatorApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": [],

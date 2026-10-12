@@ -3,6 +3,7 @@
   "name": "App Store",
   "version": "1.0.0",
   "entryPoint": "StoreApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": [

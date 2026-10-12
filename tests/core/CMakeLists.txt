@@ -88,3 +88,15 @@ target_include_directories(test_core_pagetouch PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_PageTouch COMMAND test_core_pagetouch)
+
+# Manifest toolkit field (keel by default, marathonui for legacy apps)
+add_executable(test_core_apptoolkit
+    test_apptoolkit.cpp
+    ../../marathon-core/src/marathonappscanner.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_core_apptoolkit Qt6::Test Qt6::Core)
+target_include_directories(test_core_apptoolkit PRIVATE
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+)
+add_test(NAME Core_AppToolkit COMMAND test_core_apptoolkit)

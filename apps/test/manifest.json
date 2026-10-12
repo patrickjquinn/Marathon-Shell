@@ -5,6 +5,7 @@
   "description": "Comprehensive service testing for Marathon Shell - test calls, SMS, notifications, alarms, media, and all system services",
   "icon": "assets/icon.svg",
   "entryPoint": "TestApp.qml",
+  "toolkit": "marathonui",
   "author": "Marathon OS",
   "category": "development",
   "permissions": [

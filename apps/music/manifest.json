@@ -3,6 +3,7 @@
   "name": "Music",
   "version": "1.0.0",
   "entryPoint": "MusicApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],

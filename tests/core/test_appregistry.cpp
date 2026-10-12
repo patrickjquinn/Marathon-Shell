@@ -113,10 +113,12 @@ class TestAppRegistry : public QObject {
         app.deepLinksJson          = R"({"open":"/open"})";
         app.backgroundCapabilities = {"audio"};
         app.requiresQtModules      = {"QtMultimedia"};
+        app.toolkit                = "marathonui";
         registry.registerAppInfo(app);
 
         QVariantMap result = registry.getApp("com.full");
-        QCOMPARE(result.count(), 16);
+        QCOMPARE(result.count(), 17);
+        QCOMPARE(result["toolkit"].toString(), QString("marathonui"));
         QCOMPARE(result["id"].toString(), QString("com.full"));
         QCOMPARE(result["permissions"].toStringList(), QStringList({"camera", "location"}));
         QCOMPARE(result["searchKeywords"].toStringList(), QStringList({"photo", "snap"}));

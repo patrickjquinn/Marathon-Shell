@@ -3,6 +3,7 @@
   "name": "Clock",
   "version": "1.0.0",
   "entryPoint": "ClockApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["notifications", "storage"],

@@ -3,6 +3,7 @@
   "name": "Maps",
   "version": "1.0.0",
   "entryPoint": "MapsApp.qml",
+  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["location", "network"],
