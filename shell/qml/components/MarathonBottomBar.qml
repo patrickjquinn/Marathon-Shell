@@ -2,7 +2,11 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
+// The home dock: Phone and Camera either side of the page indicator, on the
+// wallpaper fading into the ambience's dim.
 Item {
     id: bottomBar
 
@@ -14,183 +18,133 @@ Item {
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
 
-    height: Constants.bottomBarHeight
-    Component.onCompleted: Logger.info("BottomBar", "Initialized")
+    // A round ambience button that launches an app on a tap, and lets a
+    // vertical drag through to the gestures beneath.
+    component DockButton: Item {
+        id: dockButton
 
-    // ── Glass tabbar background ───────────────────────────────
-    // DS spec (ds-components.jsx Bars · 70 px tab bar): a glass
-    // tint with a hairline top divider. Until backdrop-blur is
-    // wired through MultiEffect, the rgba glassTabbar alone gives
-    // the right composition over the wallpaper aurora.
-    Rectangle {
-        id: background
+        property string iconName
+        property var app
 
-        anchors.fill: parent
-        color: MColors.glassTabbar
-        z: Constants.zIndexBackground
-    }
-
-    // Hairline divider above the tab bar.
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: 1
-        color: MColors.borderGlass
-        z: Constants.zIndexBackground + 1
-    }
-
-    Item {
-        id: phoneShortcut
-
-        anchors.left: parent.left
-        // Edge-hugging shortcut. Earlier tightening (spacingLarge → spacingMedium)
-        // still left the glyph ~26 px inset from the panel edge at scale 1.
-        // spacingXSmall puts the visible icon ~15 px from the screen edge,
-        // matching the iOS Lock-Screen quick-action position.
-        anchors.leftMargin: Constants.spacingXSmall
+        width: Silica.Theme.itemSizeExtraSmall
+        height: width
         anchors.verticalCenter: parent.verticalCenter
-        width: Constants.touchTargetSmall
-        height: Constants.touchTargetSmall
         z: 10
 
-        // Shell shortcut, not a docked app: same role and treatment as
-        // MarathonLockShortcuts.
-        GlyphIcon {
-            name: "phone"
-            size: Constants.iconSizeMedium
-            color: MColors.textPrimary
-            anchors.centerIn: parent
-            opacity: phoneMouseArea.pressed ? 0.6 : 1
+        Accessible.role: Accessible.Button
+        Accessible.name: app.name
+        Accessible.onPressAction: bottomBar.appLaunched(app)
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            scale: mouse.pressed ? 0.92 : 1
+            color: mouse.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+
+            Behavior on scale {
+                NumberAnimation { duration: MMotion.quick }
+            }
+
+            GlyphIcon {
+                anchors.centerIn: parent
+                name: dockButton.iconName
+                size: Silica.Theme.iconSizeSmall
+                color: mouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             }
         }
 
         MouseArea {
-            id: phoneMouseArea
+            id: mouse
 
             property real startY: 0
 
             anchors.fill: parent
             propagateComposedEvents: true
-            preventStealing: false
-            onPressed: mouse => {
-                startY = mouse.y;
-            }
-            onReleased: mouse => {
-                const deltaY = Math.abs(mouse.y - startY);
-                if (deltaY < 10) {
-                    var app = {
-                        "id": "phone",
-                        "name": "Phone",
-                        "icon": "phone"
-                    };
-                    bottomBar.appLaunched(app);
-                } else {
-                    mouse.accepted = false;
-                }
+            onPressed: event => startY = event.y
+            onReleased: event => {
+                if (Math.abs(event.y - startY) < 10)
+                    bottomBar.appLaunched(dockButton.app);
+                else
+                    event.accepted = false;
             }
         }
+    }
+
+    component PageGlyph: Item {
+        id: glyph
+
+        property string iconName
+        property bool active: false
+
+        signal clicked
+
+        width: Silica.Theme.iconSizeSmall
+        height: width
+        anchors.verticalCenter: parent.verticalCenter
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            name: glyph.iconName
+            size: glyph.active ? Silica.Theme.iconSizeSmall : Math.round(Silica.Theme.iconSizeSmall * 0.75)
+            color: glyph.active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: glyph.clicked()
+        }
+    }
+
+    height: Constants.bottomBarHeight
+
+    Rectangle {
+        anchors.fill: parent
+        z: Constants.zIndexBackground
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: "transparent"
+            }
+            GradientStop {
+                position: 1
+                color: Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, Silica.Theme.opacityHigh)
+            }
+        }
+    }
+
+    DockButton {
+        anchors.left: parent.left
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        iconName: "phone"
+        app: ({
+                "id": "phone",
+                "name": "Phone",
+                "icon": "phone"
+            })
     }
 
     Row {
         id: pageIndicatorRow
 
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: 0
-        spacing: Constants.spacingMedium
+        spacing: Silica.Theme.paddingMedium
         z: 1
         visible: bottomBar.showPageIndicators
 
-        Rectangle {
+        PageGlyph {
             id: hubIndicator
 
-            readonly property bool isActive: bottomBar.currentPage === -2
-
-            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999
-            color: isActive ? MColors.textPrimary : "transparent"
-            anchors.verticalCenter: parent.verticalCenter
-
-            GlyphIcon {
-                name: "inbox"
-                size: hubIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                anchors.centerIn: parent
-                color: hubIndicator.isActive ? MColors.elev0 : MColors.textPrimary
-                visible: true
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: bottomBar.pageNavigationRequested(-2)
-            }
-
-            Behavior on width {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-
-            Behavior on height {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 200
-                }
-            }
+            iconName: "inbox"
+            active: bottomBar.currentPage === -2
+            onClicked: bottomBar.pageNavigationRequested(-2)
         }
 
-        // Frames (Active Frames task switcher) page indicator. Lights up
-        // when on the task-switcher page; tap navigates there.
-        Rectangle {
+        PageGlyph {
             id: framesIndicator
 
-            readonly property bool isActive: bottomBar.currentPage === -1
-
-            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999
-            color: isActive ? MColors.textPrimary : "transparent"
-            anchors.verticalCenter: parent.verticalCenter
-
-            GlyphIcon {
-                name: "layers"
-                size: framesIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                anchors.centerIn: parent
-                color: framesIndicator.isActive ? MColors.elev0 : MColors.textPrimary
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: bottomBar.pageNavigationRequested(-1)
-            }
-
-            Behavior on width {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-
-            Behavior on height {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 200
-                }
-            }
+            iconName: "layers"
+            active: bottomBar.currentPage === -1
+            onClicked: bottomBar.pageNavigationRequested(-1)
         }
 
         Repeater {
@@ -202,173 +156,73 @@ Item {
                 id: pageIndicator
 
                 required property int index
-                property int pageIndex: index
+                readonly property bool active: index === bottomBar.currentPage
 
-                width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                radius: 999
-                color: index === bottomBar.currentPage ? MColors.textPrimary : MColors.textTertiary
                 anchors.verticalCenter: parent.verticalCenter
+                width: active ? Silica.Theme.paddingLarge * 2 : Silica.Theme.paddingLarge
+                height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+                radius: height / 2
+                color: active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
 
-                Text {
-                    text: (pageIndicator.pageIndex + 1).toString()
-                    color: MColors.elev0
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeFootnote
-                    font.weight: MTypography.weightDemiBold
-                    font.features: ({
-                            "tnum": 1
-                        })
-                    anchors.centerIn: parent
-                    visible: pageIndicator.pageIndex === bottomBar.currentPage
-                    opacity: visible ? 1 : 0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 200
-                        }
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: bottomBar.pageNavigationRequested(pageIndicator.pageIndex)
-                }
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Page %1").arg(index + 1)
 
                 Behavior on width {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-
-                Behavior on height {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 200
-                    }
+                    NumberAnimation { duration: MMotion.quick }
                 }
             }
         }
     }
 
+    // Drag across the indicator to scrub between pages.
     MouseArea {
         id: scrubGesture
 
-        property bool isDragging: false
         property int lastHoveredPage: -999
 
-        function checkPageUnderMouse(mouseX, mouseY) {
-            var hubPos = mapToItem(hubIndicator, mouseX, mouseY);
-            if (hubPos.x >= 0 && hubPos.x <= hubIndicator.width && hubPos.y >= 0 && hubPos.y <= hubIndicator.height) {
-                if (lastHoveredPage !== -2) {
-                    lastHoveredPage = -2;
-                    bottomBar.pageNavigationRequested(-2);
-                }
-                return;
+        function pageAt(x, y) {
+            for (const [item, page] of [[hubIndicator, -2], [framesIndicator, -1]]) {
+                const p = mapToItem(item, x, y);
+                if (p.x >= 0 && p.x <= item.width && p.y >= 0 && p.y <= item.height)
+                    return page;
             }
-            var framesPos = mapToItem(framesIndicator, mouseX, mouseY);
-            if (framesPos.x >= 0 && framesPos.x <= framesIndicator.width && framesPos.y >= 0 && framesPos.y <= framesIndicator.height) {
-                if (lastHoveredPage !== -1) {
-                    lastHoveredPage = -1;
-                    bottomBar.pageNavigationRequested(-1);
-                }
-                return;
+            for (let i = 0; i < appGridIndicators.count; i++) {
+                const item = appGridIndicators.itemAt(i);
+                const p = mapToItem(item, x, y);
+                if (p.x >= -Silica.Theme.paddingSmall && p.x <= item.width + Silica.Theme.paddingSmall)
+                    return i;
             }
-            for (var i = 0; i < appGridIndicators.count; i++) {
-                var indicator = appGridIndicators.itemAt(i);
-                if (indicator) {
-                    var indicatorPos = mapToItem(indicator, mouseX, mouseY);
-                    if (indicatorPos.x >= 0 && indicatorPos.x <= indicator.width && indicatorPos.y >= 0 && indicatorPos.y <= indicator.height) {
-                        if (lastHoveredPage !== i) {
-                            lastHoveredPage = i;
-                            bottomBar.pageNavigationRequested(i);
-                        }
-                        return;
-                    }
-                }
+            return -999;
+        }
+
+        function scrubTo(x, y) {
+            const page = pageAt(x, y);
+            if (page !== -999 && page !== lastHoveredPage) {
+                lastHoveredPage = page;
+                bottomBar.pageNavigationRequested(page);
             }
         }
 
         anchors.fill: pageIndicatorRow
-        anchors.margins: -Constants.spacingSmall
+        anchors.margins: -Silica.Theme.paddingMedium
         z: 2
-        preventStealing: false
-        propagateComposedEvents: false
-        onPressed: mouse => {
-            isDragging = true;
+        onPressed: event => {
             lastHoveredPage = -999;
-            checkPageUnderMouse(mouse.x, mouse.y);
+            scrubTo(event.x, event.y);
         }
-        onPositionChanged: mouse => {
-            if (isDragging)
-                checkPageUnderMouse(mouse.x, mouse.y);
-        }
-        onReleased: {
-            isDragging = false;
-            lastHoveredPage = -999;
-        }
-        onCanceled: {
-            isDragging = false;
-            lastHoveredPage = -999;
-        }
+        onPositionChanged: event => scrubTo(event.x, event.y)
+        onReleased: lastHoveredPage = -999
+        onCanceled: lastHoveredPage = -999
     }
 
-    Item {
-        id: cameraShortcut
-
+    DockButton {
         anchors.right: parent.right
-        // Symmetric with phoneShortcut.leftMargin — edge-hugging.
-        anchors.rightMargin: Constants.spacingXSmall
-        anchors.verticalCenter: parent.verticalCenter
-        width: Constants.touchTargetSmall
-        height: Constants.touchTargetSmall
-        z: 10
-
-        // Shell shortcut, not a docked app: same role and treatment as
-        // MarathonLockShortcuts.
-        GlyphIcon {
-            name: "camera"
-            size: Constants.iconSizeMedium
-            color: MColors.textPrimary
-            anchors.centerIn: parent
-            opacity: cameraMouseArea.pressed ? 0.6 : 1
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
-        }
-
-        MouseArea {
-            id: cameraMouseArea
-
-            property real startY: 0
-
-            anchors.fill: parent
-            propagateComposedEvents: true
-            preventStealing: false
-            onPressed: mouse => {
-                startY = mouse.y;
-            }
-            onReleased: mouse => {
-                const deltaY = Math.abs(mouse.y - startY);
-                if (deltaY < 10) {
-                    var app = {
-                        "id": "camera",
-                        "name": "Camera",
-                        "icon": "qrc:/images/camera.svg"
-                    };
-                    bottomBar.appLaunched(app);
-                } else {
-                    mouse.accepted = false;
-                }
-            }
-        }
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        iconName: "camera"
+        app: ({
+                "id": "camera",
+                "name": "Camera",
+                "icon": "qrc:/images/camera.svg"
+            })
     }
 }
