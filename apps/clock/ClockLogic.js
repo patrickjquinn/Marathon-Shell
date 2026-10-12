@@ -101,6 +101,15 @@ function parseCities(json, defaults) {
     }
 }
 
+function parseState(json) {
+    try {
+        const v = JSON.parse(json);
+        return v && typeof v === "object" ? v : {};
+    } catch (e) {
+        return {};
+    }
+}
+
 // Cities saved before zones were stored only have a fixed offset.
 function zoneFor(city, known) {
     if (city.tz)

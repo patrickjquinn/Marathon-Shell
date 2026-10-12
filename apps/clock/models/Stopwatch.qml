@@ -12,6 +12,8 @@ QtObject {
     property real startedAt: -1
     property real before: 0
 
+    signal edited
+
     property Timer _tick: Timer {
         interval: 16
         repeat: true
@@ -28,6 +30,7 @@ QtObject {
             return;
         startedAt = now();
         update();
+        edited();
     }
 
     function stop() {
@@ -36,17 +39,31 @@ QtObject {
         before += now() - startedAt;
         startedAt = -1;
         update();
+        edited();
     }
 
     function lap() {
         update();
         laps = laps.concat([elapsed]);
+        edited();
     }
 
     function reset() {
         startedAt = -1;
         before = 0;
         laps = [];
+        update();
+        edited();
+    }
+
+    function snapshot() {
+        return { startedAt: startedAt, before: before, laps: laps };
+    }
+
+    function restore(s) {
+        startedAt = typeof s.startedAt === "number" ? s.startedAt : -1;
+        before = s.before || 0;
+        laps = Array.isArray(s.laps) ? s.laps : [];
         update();
     }
 }

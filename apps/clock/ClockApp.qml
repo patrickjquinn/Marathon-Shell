@@ -14,10 +14,12 @@ ApplicationWindow {
     property var cities: Logic.parseCities(Settings.get("clock/worldCities", ""), Logic.defaultCities)
     property Stopwatch stopwatch: Stopwatch {
         ticking: Qt.application.state === Qt.ApplicationActive
+        onEdited: Settings.set("clock/stopwatch", JSON.stringify(snapshot()))
     }
     property CountdownTimer countdown: CountdownTimer {
         onFinished: Alarms.triggerAlarmNow("Timer")
         onRunningChanged: root._holdBackground(running)
+        onEdited: Settings.set("clock/timer", JSON.stringify(snapshot()))
     }
     // Keeps the app from being frozen while a countdown runs.
     property int _backgroundTask: 0
@@ -29,6 +31,13 @@ ApplicationWindow {
             Lifecycle.endBackgroundTask(_backgroundTask);
             _backgroundTask = 0;
         }
+    }
+
+    Component.onCompleted: {
+        stopwatch.restore(Logic.parseState(Settings.get("clock/stopwatch", "")));
+        const missed = countdown.restore(Logic.parseState(Settings.get("clock/timer", "")));
+        if (missed >= 0)
+            Notices.show(qsTr("Timer finished at %1").arg(Format.formatDate(new Date(missed), Formatter.TimeValue)));
     }
 
     function _check(ok) {

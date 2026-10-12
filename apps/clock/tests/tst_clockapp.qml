@@ -190,6 +190,35 @@ TestCase {
         compare(Lifecycle.held, held);
     }
 
+    function test_stopwatchAndTimerSurviveRestart() {
+        const app = makeApp();
+        app.stopwatch.start();
+        app.stopwatch.lap();
+        app.setTimer(600);
+        app.countdown.start();
+        const startedAt = app.stopwatch.startedAt;
+        const endsAt = app.countdown.endsAt;
+        const next = makeApp();
+        verify(next.stopwatch.running);
+        compare(next.stopwatch.startedAt, startedAt);
+        compare(next.stopwatch.laps.length, 1);
+        verify(next.countdown.running);
+        compare(next.countdown.endsAt, endsAt);
+        compare(next.countdown.total, 600);
+    }
+
+    function test_timerThatEndedWhileClosedIsReported() {
+        clearNotices();
+        Settings.set("clock/timer", JSON.stringify({ endsAt: Date.now() - 60000, total: 300, remaining: 0 }));
+        const app = makeApp();
+        verify(!app.countdown.running);
+        compare(app.countdown.remaining, 0);
+        verify(Notices._current !== null);
+        verify(Notices._current.text.indexOf("Timer finished at ") === 0, Notices._current.text);
+        compare(JSON.parse(Settings.get("clock/timer", "")).endsAt, -1);
+        clearNotices();
+    }
+
     function test_timerTabControls() {
         const app = makeApp();
         const tabs = tabsOf(app);
