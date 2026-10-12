@@ -321,7 +321,6 @@ set(QML_FILES
     qml/ui/MTabBar.qml
     qml/ui/MTextInput.qml
     qml/ui/MTopHairline.qml
-    qml/ui/WallpaperSlateAurora.qml
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
 )

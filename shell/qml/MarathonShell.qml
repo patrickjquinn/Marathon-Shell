@@ -985,7 +985,7 @@ Item {
         }
     }
 
-    // Dither overlay — see WallpaperSlateAurora.qml for rationale.
+    // Dither overlay.
     // 64×64 noise tile @ 4 % opacity adds ~1 LSB jitter per pixel,
     // enough to break the gradient banding on 18 bpp DPI panels
     // (HyperPixel 4.0 Square on the Hackberry CM5). No-op cost on

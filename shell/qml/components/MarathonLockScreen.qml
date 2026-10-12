@@ -208,10 +208,17 @@ Item {
         z: 1
         opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
 
-        // Always drawn, so nothing beneath the lock screen shows through.
-        WallpaperSlateAurora {
+        // The ambience's wallpaper at full strength, as on Sailfish's lock
+        // screen; always drawn, so nothing beneath shows through.
+        Rectangle {
             anchors.fill: parent
-            dither: DeviceProfile.panelDither
+            color: "black"
+        }
+        Image {
+            anchors.fill: parent
+            source: WallpaperStore.path
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
         }
 
         AppBackdropBlur {
@@ -437,6 +444,8 @@ Item {
             id: clockColumn
 
             readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
+            // Re-read when the date string turns over at midnight.
+            readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
 
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingSmall
@@ -457,8 +466,8 @@ Item {
                 }
             }
 
-            // Sailfish's lock clock: large, extra-light, primary colour; the
-            // date beneath in the ambience highlight.
+            // Sailfish's lock clock: large and extra-light, the weekday and
+            // the date beneath on their own lines, all in the primary colour.
             Silica.Label {
                 text: SystemStatusStore.timeString
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -471,10 +480,16 @@ Item {
             }
 
             Silica.Label {
-                text: SystemStatusStore.dateString
+                text: Qt.formatDate(clockColumn.today, "dddd")
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: Silica.Theme.highlightColor
+                color: Silica.Theme.primaryColor
+            }
+            Silica.Label {
+                text: Qt.formatDate(clockColumn.today, "d MMMM")
+                anchors.horizontalCenter: parent.horizontalCenter
+                font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                color: Silica.Theme.primaryColor
             }
         }
 
