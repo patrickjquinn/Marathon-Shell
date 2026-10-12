@@ -130,6 +130,7 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
         }
     }
     record.actions = actionList;
+    const QString replyPlaceholder = hints.value("x-kde-reply-placeholder-text").toString();
 
     uint id = m_database->saveNotification(record);
 
@@ -139,7 +140,8 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
             // share one id space. They were independent counters, which
             // made the replaces_id dismissal below able to evict an
             // unrelated Hub row.
-            m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body, app_icon);
+            m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body, app_icon,
+                                           actionList, replyPlaceholder);
         } else {
             // saveNotification returns 0 on insert failure, and 0 is not a
             // valid id: two failures in a row would have put two rows under
@@ -147,7 +149,7 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
             // the notification still reaches the Hub.
             qWarning() << "[FreedesktopNotifications] Persist failed; "
                           "showing" << summary << "as transient";
-            m_model->addNotification(appId, summary, body, app_icon);
+            m_model->addNotification(appId, summary, body, app_icon, actionList, replyPlaceholder);
         }
     }
 
@@ -185,8 +187,6 @@ QStringList FreedesktopNotifications::GetCapabilities() {
 void FreedesktopNotifications::InvokeReply(uint id, const QString &text) {
     qInfo() << "[FreedesktopNotifications] InvokeReply:" << id << "text:" << text;
     emit NotificationReplied(id, text);
-
-    emit ActionInvoked(id, "inline-reply");
 }
 
 void FreedesktopNotifications::GetServerInformation(QString &name, QString &vendor,

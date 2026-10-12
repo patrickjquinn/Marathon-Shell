@@ -126,3 +126,19 @@ target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)
 target_include_directories(test_shell_statusbaricons PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 target_compile_definitions(test_shell_statusbaricons PRIVATE GLYPHS_JS="${CMAKE_SOURCE_DIR}/shell/qml/ui/PhosphorGlyphs.js")
 add_test(NAME Shell_StatusBarIcons COMMAND test_shell_statusbaricons)
+
+# org.freedesktop.Notifications Notify: actions and reply hints reach the banner map
+add_executable(test_shell_freedesktopnotify
+    test_freedesktopnotify.cpp
+    ../../shell/src/dbus/freedesktopnotifications.cpp
+    ../../shell/src/dbus/notificationdatabase.cpp
+    ../../shell/src/models/notificationmodel.cpp
+)
+target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Sql Qt6::Qml Qt6::DBus)
+target_include_directories(test_shell_freedesktopnotify PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell/src/dbus
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)

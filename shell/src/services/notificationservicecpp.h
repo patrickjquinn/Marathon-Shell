@@ -92,6 +92,7 @@ class NotificationServiceCpp : public QObject {
 
     QVariantList                    m_notifications;
     QHash<int, QVariantMap>         m_notificationMeta;
+    QVariantMap                     m_pendingMeta;
 
     bool                            m_notificationsEnabled = true;
     bool                            m_soundEnabled         = true;

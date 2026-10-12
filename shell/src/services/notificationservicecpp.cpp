@@ -30,7 +30,8 @@ NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, Setting
             map.insert("read", m_model->data(index, NotificationModel::IsReadRole));
             map.insert("category", "message");
             map.insert("priority", "normal");
-            map.insert("actions", QVariantList());
+            if (Notification *n = m_model->getNotification(map.value("id").toInt()))
+                map.insert("actions", n->actions());
             map.insert("persistent", false);
             m_notifications.append(map);
         }
@@ -64,7 +65,6 @@ int NotificationServiceCpp::sendNotification(const QString &appId, const QString
     if (m_settings && !m_settings->isNotificationsEnabledForApp(resolvedAppId))
         return -1;
     const QString icon = options.value("icon").toString();
-    const int     id   = m_model->addNotification(resolvedAppId, title, body, icon);
 
     QVariantMap   meta;
     meta.insert("icon", icon);
@@ -73,7 +73,10 @@ int NotificationServiceCpp::sendNotification(const QString &appId, const QString
     meta.insert("actions", options.value("actions", QVariantList()));
     meta.insert("persistent", options.value("persistent", false));
     meta.insert("replyTarget", options.value("replyTarget", QString()));
-    m_notificationMeta.insert(id, meta);
+    // Read by onNotificationAdded, which runs inside addNotification.
+    m_pendingMeta = meta;
+    const int id  = m_model->addNotification(resolvedAppId, title, body, icon);
+    m_pendingMeta.clear();
 
     return id;
 }
@@ -185,6 +188,8 @@ void NotificationServiceCpp::onNotificationAdded(int id) {
     if (!notif)
         return;
 
+    if (!m_pendingMeta.isEmpty())
+        m_notificationMeta.insert(id, m_pendingMeta);
     QVariantMap map = buildNotificationMapFromModel(notif);
     m_notifications.append(map);
     emit notificationsChanged();
@@ -207,15 +212,7 @@ void NotificationServiceCpp::onDndChanged() {
 
 QVariantMap
 NotificationServiceCpp::buildNotificationMapFromModel(Notification *notification) const {
-    QVariantMap map;
-    map.insert("id", notification->id());
-    map.insert("appId", notification->appId());
-    map.insert("title", notification->title());
-    map.insert("body", notification->body());
-    map.insert("icon", notification->icon());
-    map.insert("timestamp", notification->timestamp());
-    map.insert("read", notification->isRead());
-
+    QVariantMap       map  = notification->toMap();
     const QVariantMap meta = m_notificationMeta.value(notification->id());
     if (!meta.isEmpty()) {
         map.insert("category", meta.value("category"));
@@ -226,7 +223,6 @@ NotificationServiceCpp::buildNotificationMapFromModel(Notification *notification
     } else {
         map.insert("category", "message");
         map.insert("priority", "normal");
-        map.insert("actions", QVariantList());
         map.insert("persistent", false);
         map.insert("replyTarget", QString());
     }

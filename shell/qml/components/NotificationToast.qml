@@ -159,7 +159,7 @@ Item {
                     id: replyField
 
                     width: parent.width - sendButton.width - parent.spacing
-                    placeholderText: qsTr("Reply")
+                    placeholderText: (toastContainer.currentToast && toastContainer.currentToast.replyPlaceholder) || qsTr("Reply")
                     labelVisible: false
                     textLeftMargin: 0
                     Keys.onReturnPressed: toastContainer.sendReply()

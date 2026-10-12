@@ -5,6 +5,8 @@
 #include <QHash>
 #include <QString>
 #include <QDateTime>
+#include <QVariantList>
+#include <QVariantMap>
 #include <qqml.h>
 
 class Notification : public QObject {
@@ -50,6 +52,30 @@ class Notification : public QObject {
     bool isRead() const {
         return m_isRead;
     }
+    QVariantList actions() const {
+        return m_actions;
+    }
+    void setActions(const QVariantList &actions) {
+        m_actions = actions;
+    }
+    QString replyPlaceholder() const {
+        return m_replyPlaceholder;
+    }
+    void setReplyPlaceholder(const QString &text) {
+        m_replyPlaceholder = text;
+    }
+
+    QVariantMap toMap() const {
+        return {{"id", m_id},
+                {"appId", m_appId},
+                {"title", m_title},
+                {"body", m_body},
+                {"icon", m_icon},
+                {"timestamp", m_timestamp},
+                {"read", m_isRead},
+                {"actions", m_actions},
+                {"replyPlaceholder", m_replyPlaceholder}};
+    }
 
     void setIsRead(bool read) {
         if (m_isRead != read) {
@@ -67,8 +93,10 @@ class Notification : public QObject {
     QString m_title;
     QString m_body;
     QString m_icon;
-    qint64  m_timestamp;
-    bool    m_isRead;
+    qint64       m_timestamp;
+    bool         m_isRead;
+    QVariantList m_actions;
+    QString      m_replyPlaceholder;
 };
 
 class NotificationModel : public QAbstractListModel {
@@ -105,14 +133,17 @@ class NotificationModel : public QAbstractListModel {
     }
 
     Q_INVOKABLE int addNotification(const QString &appId, const QString &title, const QString &body,
-                                    const QString &icon);
+                                    const QString &icon, const QVariantList &actions = {},
+                                    const QString &replyPlaceholder = {});
 
     // Same, but adopting an id minted elsewhere -- specifically the row id
     // NotificationDatabase::saveNotification() returns. The two used to be
     // independent counters, so a caller holding a database id could dismiss
     // an unrelated model row. Callers that persist should use this.
     int             addNotificationWithId(int id, const QString &appId, const QString &title,
-                                          const QString &body, const QString &icon);
+                                          const QString &body, const QString &icon,
+                                          const QVariantList &actions          = {},
+                                          const QString      &replyPlaceholder = {});
     Q_INVOKABLE void          dismissNotification(int id);
     Q_INVOKABLE void          markAsRead(int id);
     Q_INVOKABLE void          dismissAllNotifications();
