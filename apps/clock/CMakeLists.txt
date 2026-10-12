@@ -14,17 +14,10 @@ file(GLOB_RECURSE ASSET_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
 )
 
-# C++ sources for native alarm/timer handling (future)
-set(SOURCES
-    # Future: src/alarmmanager.cpp
-    # Future: src/timermanager.cpp
-)
-
 # Pure QML for now
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Clock"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES ${SOURCES}
     RESOURCES ${ASSET_FILES}
 )
