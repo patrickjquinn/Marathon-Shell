@@ -48,6 +48,12 @@ ApplicationWindow {
         defaultValue: ""
     }
     readonly property var savedFix: Logic.parseFix(lastFixStore.value)
+    // The route being driven, so a killed or frozen app can offer it again.
+    property QtObject activeRouteStore: ConfigurationValue {
+        key: "/apps/maps/activeRoute"
+        defaultValue: ""
+    }
+    property var resumable: null
     // "idle", "preview" (route shown, not started) or "active" (navigating).
     property string routingMode: "idle"
     property var currentRoute: null
@@ -264,6 +270,7 @@ ApplicationWindow {
             return;
         requireLocation(() => {
             routingMode = "active";
+            activeRouteStore.value = JSON.stringify({ place: selectedPlace, mode: currentMode });
             currentManeuverIndex = 0;
             nextDistance = -1;
             _cued = false;
@@ -275,6 +282,8 @@ ApplicationWindow {
     }
 
     function endNavigation() {
+        activeRouteStore.value = "";
+        resumable = null;
         routingMode = "idle";
         currentRoute = null;
         _coords = [];
@@ -328,6 +337,19 @@ ApplicationWindow {
         return true;
     }
 
+    function resumeDirections() {
+        const saved = resumable;
+        resumable = null;
+        currentMode = saved.mode || "auto";
+        selectPlace(saved.place);
+        requestDirections();
+    }
+
+    function dismissResume() {
+        resumable = null;
+        activeRouteStore.value = "";
+    }
+
     function openSearch() {
         pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), { app: root });
     }
@@ -344,6 +366,7 @@ ApplicationWindow {
         }
     }
     Component.onCompleted: {
+        resumable = Logic.parseSavedRoute(activeRouteStore.value);
         try {
             voice = Qt.createQmlObject("import MarathonApp.Maps; VoiceClient {}", root, "VoiceClient");
         } catch (e) {

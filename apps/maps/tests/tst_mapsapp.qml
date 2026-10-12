@@ -20,6 +20,7 @@ TestCase {
         { type: 10, beginShapeIndex: 1, instruction: "Turn right onto High Street.", verbalPre: "Turn right onto High Street.", verbalPost: "Continue for 100 meters.", length: 0.111, time: 20, streetNames: ["High Street"] },
         { type: 4, beginShapeIndex: 2, instruction: "You have arrived.", verbalPre: "You have arrived.", verbalPost: "", length: 0, time: 0 }
     ]
+    property string savedRoute: ""
     readonly property string geojson: JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[1, 10], [1, 10.001], [1, 10.002]] } }] })
 
     Component {
@@ -35,10 +36,14 @@ TestCase {
             lastFixStore: QtObject {
                 property var value: ""
             }
+            activeRouteStore: QtObject {
+                property var value: tc.savedRoute
+            }
         }
     }
 
     function init() {
+        savedRoute = "";
         Location.reset();
         Permissions.reset();
         Lifecycle.held = 0;
@@ -188,6 +193,39 @@ TestCase {
         verify(app.searchError.indexOf("didn't answer") > 0);
         late(200, JSON.stringify([{ display_name: "Late", lat: "1", lon: "1" }]));
         compare(app.searchResults, []);
+    }
+
+    function test_resumeInterruptedNavigation() {
+        let app = makeApp();
+        Location.moveTo(10, 1);
+        routed(app);
+        app.setMode("pedestrian");
+        app.router.routing = false;
+        app.startNavigation();
+        settle(app);
+        savedRoute = app.activeRouteStore.value;
+        compare(JSON.parse(savedRoute).place.name, "Tower Bridge");
+        compare(JSON.parse(savedRoute).mode, "pedestrian");
+
+        app = makeApp();
+        compare(app.resumable.place.name, "Tower Bridge");
+        const page = current(app);
+        waitForRendering(page);
+        verify(findChild(page, "resumeItem").visible);
+        mouseClick(findChild(page, "resumeItem"));
+        compare(app.selectedPlace.name, "Tower Bridge");
+        compare(app.currentMode, "pedestrian");
+        compare(app.router.requests[0].mode, "pedestrian");
+        verify(app.resumable === null);
+    }
+
+    function test_endedNavigationIsNotOffered() {
+        savedRoute = JSON.stringify({ place: place, mode: "auto" });
+        const app = makeApp();
+        verify(app.resumable !== null);
+        app.dismissResume();
+        verify(app.resumable === null);
+        compare(app.activeRouteStore.value, "");
     }
 
     function test_searchFailure() {

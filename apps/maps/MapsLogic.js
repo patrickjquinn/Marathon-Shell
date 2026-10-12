@@ -216,3 +216,13 @@ function routeFailure(error, mode) {
         return qsTr("Finding a route took too long. Check your internet connection and try again.");
     return qsTr("Couldn't find a route to this place. Check your internet connection and try again.");
 }
+
+// {place, mode} saved when navigation started, or null.
+function parseSavedRoute(json) {
+    try {
+        const v = JSON.parse(json);
+        return v && v.place && isFinite(v.place.lat) && isFinite(v.place.lon) ? v : null;
+    } catch (e) {
+        return null;
+    }
+}

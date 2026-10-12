@@ -275,12 +275,71 @@ Page {
         height: panel.height
         radius: Theme.paddingSmall
         color: root.panelColor
-        visible: root.mode !== "idle" || root.app.selectedPlace !== null
+        visible: root.mode !== "idle" || root.app.selectedPlace !== null || root.app.resumable !== null
 
         Column {
             id: panel
 
             width: parent.width
+
+            // A route cut short when the app was closed.
+            Item {
+                width: parent.width
+                height: Theme.itemSizeLarge
+                visible: root.mode === "idle" && root.app.selectedPlace === null && root.app.resumable !== null
+
+                BackgroundItem {
+                    objectName: "resumeItem"
+                    width: parent.width - dismissResume.width
+                    height: parent.height
+                    Accessible.name: root.app.resumable ? qsTr("Resume route to %1").arg(root.app.resumable.place.name) : ""
+                    onClicked: root.app.resumeDirections()
+
+                    Icon {
+                        id: resumeIcon
+
+                        x: Theme.paddingLarge
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "image://theme/icon-m-navigate"
+                        color: Theme.highlightColor
+                    }
+                    Column {
+                        anchors {
+                            left: resumeIcon.right
+                            leftMargin: Theme.paddingMedium
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                        }
+
+                        Label {
+                            id: resumeLabel
+
+                            width: parent.width
+                            text: qsTr("Resume route")
+                            color: Theme.highlightColor
+                            truncationMode: TruncationMode.Fade
+                        }
+                        Label {
+                            width: parent.width
+                            text: root.app.resumable ? root.app.resumable.place.name : ""
+                            color: Theme.secondaryHighlightColor
+                            font.pixelSize: Theme.fontSizeSmall
+                            truncationMode: TruncationMode.Fade
+                        }
+                    }
+                }
+                IconButton {
+                    id: dismissResume
+
+                    objectName: "dismissResume"
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.paddingSmall
+                    anchors.verticalCenter: parent.verticalCenter
+                    icon.source: "image://theme/icon-m-clear"
+                    Accessible.name: qsTr("Dismiss")
+                    onClicked: root.app.dismissResume()
+                }
+            }
 
             // The chosen place, with what can be done with it.
             Column {

@@ -133,6 +133,12 @@ TestCase {
         verify(Logic.routeFailure("Host not found", "auto").indexOf("internet") > 0);
     }
 
+    function test_parseSavedRoute() {
+        compare(Logic.parseSavedRoute('{"place":{"name":"A","lat":1,"lon":2},"mode":"auto"}').place.name, "A");
+        compare(Logic.parseSavedRoute(""), null);
+        compare(Logic.parseSavedRoute('{"place":{"name":"A"}}'), null);
+    }
+
     function test_mapFailureIsPermanent() {
         verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
         verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));
