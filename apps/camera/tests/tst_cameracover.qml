@@ -12,7 +12,6 @@ TestCase {
     height: 960
 
     Component { id: cover; CameraCover {} }
-    SignalSpy { id: captureSpy; signalName: "captureRequested" }
 
     function test_placeholderWithoutPhoto() {
         const c = createTemporaryObject(cover, this);
@@ -28,13 +27,8 @@ TestCase {
         compare(String(findChild(c, "coverImage").source), photo);
     }
 
-    function test_captureAction() {
+    function test_noCoverActions() {
         const c = createTemporaryObject(cover, this);
-        captureSpy.target = c;
-        captureSpy.clear();
-        const action = findChild(c, "captureAction");
-        compare(String(action.iconSource), "image://theme/icon-cover-camera");
-        action.triggered();
-        compare(captureSpy.count, 1);
+        compare(findChild(c, "captureAction"), null);
     }
 }

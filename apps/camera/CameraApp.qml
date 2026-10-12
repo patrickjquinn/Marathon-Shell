@@ -106,7 +106,6 @@ ApplicationWindow {
     cover: Component {
         CameraCover {
             photo: app.camera.latestPreview
-            onCaptureRequested: app.activate()
         }
     }
 
