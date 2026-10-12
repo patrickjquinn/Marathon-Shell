@@ -91,7 +91,7 @@ ApplicationWindow {
             alarmId: alarm ? alarm.id : "",
             hour: t.hour,
             minute: t.minute,
-            label: alarm && alarm.label !== "Alarm" ? alarm.label : "",
+            label: alarm && alarm.label !== "Alarm" && alarm.label !== qsTr("Alarm") ? alarm.label : "",
             repeat: alarm && alarm.repeat ? alarm.repeat : []
         });
     }
