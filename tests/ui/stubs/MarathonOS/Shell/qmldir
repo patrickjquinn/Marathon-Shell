@@ -1,2 +1,3 @@
 module MarathonOS.Shell
 ShellStub 1.0 ShellStub.qml
+singleton MTypography 1.0 ../../../../../shell/qml/theme/MTypography.qml

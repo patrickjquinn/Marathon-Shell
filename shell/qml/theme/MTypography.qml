@@ -1,7 +1,6 @@
 pragma Singleton
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
-import MarathonOS.Shell
 
 QtObject {
     // ── Family loaders ───────────────────────────────────────
@@ -100,23 +99,23 @@ QtObject {
         return fontFamilyExtraBold;
     }
 
-    // ── Type scale — design-system roles (Sora) ───────────────
-    // Marathon DS 2026. iOS-aligned, 2-tier hierarchy.
-    // Roles are semantic — use these in new code rather than
-    // the legacy abstract sizes below.
-    readonly property int sizeDisplay: Math.round(96 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeTitleL: Math.round(48 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeTitle1: Math.round(34 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeTitle2: Math.round(28 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeTitle3: Math.round(22 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeHeadline: Math.round(17 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeBody: Math.round(17 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeCallout: Math.round(16 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeSubhead: Math.round(15 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeFootnote: Math.round(13 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeCaption: Math.round(12 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeEyebrow: Math.round(11 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeMono: Math.round(13 * (Constants.scaleFactor || 1.0))
+    // ── Type scale — design-system roles ──────────────────────
+    // Body is Silica's body size; the other roles keep their ratio to it,
+    // so shell text matches app text at every density and user scale.
+    readonly property real unit: Silica.Theme.fontSizeMedium / 17
+    readonly property int sizeDisplay: Math.round(96 * unit)
+    readonly property int sizeTitleL: Math.round(48 * unit)
+    readonly property int sizeTitle1: Math.round(34 * unit)
+    readonly property int sizeTitle2: Math.round(28 * unit)
+    readonly property int sizeTitle3: Math.round(22 * unit)
+    readonly property int sizeHeadline: Math.round(17 * unit)
+    readonly property int sizeBody: Math.round(17 * unit)
+    readonly property int sizeCallout: Math.round(16 * unit)
+    readonly property int sizeSubhead: Math.round(15 * unit)
+    readonly property int sizeFootnote: Math.round(13 * unit)
+    readonly property int sizeCaption: Math.round(12 * unit)
+    readonly property int sizeEyebrow: Math.round(11 * unit)
+    readonly property int sizeMono: Math.round(13 * unit)
 
     // ── Letter-spacing per role ──────────────────────────────
     // Negative on display weights, positive on tracked caps.
