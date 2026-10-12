@@ -67,11 +67,17 @@ function resolveInput(text, searchEngineUrl) {
     return { url: url };
 }
 
+// A bare host: has a dot, or is localhost, or carries a port; no spaces.
+function looksLikeAddress(text) {
+    return /^(localhost|[^\s\/:?#]+\.[^\s\/:?#]+|[^\s\/:?#]+:\d+)(:\d+)?([\/?#]\S*)?$/i.test(String(text || ""));
+}
+
+// "" when the text isn't a web address.
 function homepageFromInput(text) {
     const url = String(text || "").trim();
-    if (!url)
-        return "";
-    return /^(https?|about):/i.test(url) ? url : "https://" + url;
+    if (/^(https?:\/\/\S+|about:\S+)$/i.test(url))
+        return url;
+    return looksLikeAddress(url) ? "https://" + url : "";
 }
 
 const recentLimit = 6;

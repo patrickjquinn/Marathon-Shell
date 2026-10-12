@@ -45,6 +45,10 @@ TestCase {
         compare(Logic.homepageFromInput("http://a.org"), "http://a.org");
         compare(Logic.homepageFromInput("about:blank"), "about:blank");
         compare(Logic.homepageFromInput(""), "");
+        compare(Logic.homepageFromInput("foo bar"), "");
+        compare(Logic.homepageFromInput("foo"), "");
+        compare(Logic.homepageFromInput("localhost:8080/x"), "https://localhost:8080/x");
+        compare(Logic.homepageFromInput("example.com/a?b"), "https://example.com/a?b");
     }
 
     function test_suggestions() {

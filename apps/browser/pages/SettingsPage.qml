@@ -10,22 +10,41 @@ Page {
     property var browser
     readonly property alias homepageField: homepageField
 
+    // false leaves the typed text in place, marked as an error.
     function commitHomepage() {
         if (!homepageField.visible)
-            return;
+            return true;
         const url = Logic.homepageFromInput(homepageField.text);
+        homepageField.errorHighlight = url === "";
         if (url && url !== browser.homepageUrl)
             browser.setHomepage(url);
+        return url !== "";
+    }
+
+    function clearBrowsingData() {
+        const dialog = pageStack.push(Qt.resolvedUrl("ClearDataDialog.qml"));
+        dialog.accepted.connect(function () {
+            const history = dialog.history;
+            const cookies = dialog.cookies;
+            remorse.execute(qsTr("Cleared browsing data"), function () {
+                if (history)
+                    root.browser.clearHistory();
+                if (cookies)
+                    root.browser.clearSiteData();
+            });
+        });
     }
 
     objectName: "settingsPage"
     onStatusChanged: {
-        if (status === PageStatus.Deactivating)
-            commitHomepage();
+        if (status === PageStatus.Deactivating && !commitHomepage())
+            Notices.show(qsTr("Homepage not changed. Enter a web address, like example.com"));
     }
 
     RemorsePopup {
         id: remorse
+
+        objectName: "remorse"
     }
 
     SilicaFlickable {
@@ -41,38 +60,11 @@ Page {
                 title: qsTr("Settings")
             }
 
-            TextSwitch {
-                objectName: "privateSwitch"
-                text: qsTr("Private browsing")
-                description: qsTr("Don't save history or cookies")
-                checked: root.browser.isPrivateMode
-                automaticCheck: false
-                onClicked: root.browser.setPrivateMode(!root.browser.isPrivateMode)
-            }
-
-            ComboBox {
-                objectName: "searchEngineBox"
-                label: qsTr("Search engine")
-                currentIndex: Logic.indexOfName(Logic.searchEngines, root.browser.searchEngineName)
-                menu: ContextMenu {
-                    Repeater {
-                        model: Logic.searchEngines
-
-                        MenuItem {
-                            required property var modelData
-
-                            text: modelData.name
-                            onClicked: root.browser.setSearchEngine(modelData.name, modelData.url)
-                        }
-                    }
-                }
-            }
-
             ComboBox {
                 id: homepageBox
 
                 objectName: "homepageBox"
-                label: qsTr("Homepage")
+                label: qsTr("Home page")
                 currentIndex: {
                     const i = Logic.indexOfUrl(Logic.homepages, root.browser.homepageUrl);
                     return i < 0 ? Logic.homepages.length : i;
@@ -101,14 +93,38 @@ Page {
                 objectName: "homepageField"
                 width: parent.width
                 visible: homepageBox.currentIndex === Logic.homepages.length
-                label: qsTr("Homepage address")
+                label: qsTr("Home page address")
+                description: errorHighlight ? qsTr("Enter a web address, like example.com") : ""
                 placeholderText: qsTr("Enter address")
                 text: root.browser.homepageUrl
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                 EnterKey.iconSource: "image://theme/icon-m-enter-close"
                 EnterKey.onClicked: {
-                    root.commitHomepage();
-                    focus = false;
+                    if (root.commitHomepage())
+                        focus = false;
+                }
+                onTextChanged: errorHighlight = false
+                onActiveFocusChanged: {
+                    if (!activeFocus)
+                        root.commitHomepage();
+                }
+            }
+
+            ComboBox {
+                objectName: "searchEngineBox"
+                label: qsTr("Search on")
+                currentIndex: Logic.indexOfName(Logic.searchEngines, root.browser.searchEngineName)
+                menu: ContextMenu {
+                    Repeater {
+                        model: Logic.searchEngines
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.name
+                            onClicked: root.browser.setSearchEngine(modelData.name, modelData.url)
+                        }
+                    }
                 }
             }
 
@@ -116,33 +132,30 @@ Page {
                 text: qsTr("Privacy")
             }
 
-            Column {
-                width: parent.width
-                spacing: Theme.paddingLarge
+            TextSwitch {
+                objectName: "privateSwitch"
+                text: qsTr("Private browsing")
+                description: qsTr("Don't save history or cookies")
+                checked: root.browser.isPrivateMode
+                automaticCheck: false
+                onClicked: root.browser.setPrivateMode(!root.browser.isPrivateMode)
+            }
 
-                Button {
-                    objectName: "clearHistoryButton"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Clear history")
-                    onClicked: remorse.execute(qsTr("Clearing history"), function () {
-                        root.browser.clearHistory();
-                    })
-                }
-                Button {
-                    objectName: "clearCookiesButton"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Clear cookies and site data")
-                    onClicked: remorse.execute(qsTr("Clearing cookies and site data"), function () {
-                        root.browser.clearSiteData();
-                    })
-                }
+            BackgroundItem {
+                objectName: "clearDataItem"
+                height: Theme.itemSizeSmall
+                Accessible.name: clearLabel.text
+                onClicked: root.clearBrowsingData()
+
                 Label {
+                    id: clearLabel
+
                     x: Theme.horizontalPageMargin
                     width: parent.width - 2 * Theme.horizontalPageMargin
-                    wrapMode: Text.Wrap
-                    text: qsTr("Clearing cookies signs you out of most websites.")
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryColor
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("Clear browsing data")
+                    truncationMode: TruncationMode.Fade
+                    color: parent.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
             }
         }

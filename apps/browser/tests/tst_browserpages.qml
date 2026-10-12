@@ -326,6 +326,46 @@ TestCase {
         compare(app.homepageUrl, "https://other.org");
     }
 
+    function test_settingsRejectsANonAddressHomepage() {
+        const app = makeApp();
+        app.setHomepage("https://mine.org");
+        const page = push(app, "SettingsPage.qml");
+        page.homepageField.text = "foo bar";
+        verify(!page.commitHomepage());
+        verify(page.homepageField.errorHighlight);
+        compare(page.homepageField.text, "foo bar");
+        compare(app.homepageUrl, "https://mine.org");
+        page.homepageField.text = "foo.org";
+        verify(!page.homepageField.errorHighlight);
+    }
+
+    function test_settingsClearBrowsingData() {
+        const app = makeApp(null, [{ url: "https://a.org", title: "A", timestamp: 1 }]);
+        const page = push(app, "SettingsPage.qml");
+        mouseClick(findChild(page, "clearDataItem"));
+        const dialog = settle(app, 3);
+        compare(dialog.objectName, "clearDataDialog");
+        findChild(dialog, "cookiesSwitch").checked = false;
+        dialog.accept();
+        settle(app, 2);
+        compare(app.history.length, 1);
+        const remorse = findChild(page, "remorse");
+        remorse.trigger();
+        tryCompare(app.history, "length", 0);
+        compare(app.webLayer.clears, 0);
+    }
+
+    function test_clearDataDialogNeedsAChoice() {
+        const app = makeApp();
+        const page = push(app, "SettingsPage.qml");
+        page.clearBrowsingData();
+        const dialog = settle(app, 3);
+        verify(dialog.canAccept);
+        findChild(dialog, "historySwitch").checked = false;
+        findChild(dialog, "cookiesSwitch").checked = false;
+        verify(!dialog.canAccept);
+    }
+
     function test_settingsSelectEngine() {
         const app = makeApp();
         const page = push(app, "SettingsPage.qml");
