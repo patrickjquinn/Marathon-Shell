@@ -1,6 +1,7 @@
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls // qmllint disable unused-imports
@@ -13,6 +14,11 @@ MPage {
 
     property var event: ({})
     property var deleteCallback: null
+    readonly property int backLayers: deleteDialog.showing ? 1 : 0
+
+    function handleBack() {
+        deleteDialog.hide();
+    }
 
     title: "Event Details"
     showBackButton: true
@@ -45,7 +51,7 @@ MPage {
 
             Column {
                 Text {
-                    text: root.event.allDay ? Qt.formatDate(new Date(root.event.date), "MMMM d, yyyy") : Qt.formatDate(new Date(root.event.date), "MMMM d, yyyy")
+                    text: Qt.formatDate(Date.fromLocaleString(Qt.locale(), root.event.date, "yyyy-MM-dd"), "MMMM d, yyyy")
                     color: MColors.text
                     font.pixelSize: MTypography.sizeBody
                 }
@@ -54,7 +60,6 @@ MPage {
                     text: root.event.allDay ? "All Day" : root.event.time
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
-                    visible: !root.event.allDay || true
                 }
             }
         }
@@ -64,17 +69,27 @@ MPage {
             Layout.margins: MSpacing.lg
             Layout.topMargin: MSpacing.xl
             text: "Delete Event"
-            variant: "secondary"
-            onClicked: {
-                if (root.deleteCallback)
-                    root.deleteCallback(root.event.id);  // qmllint disable use-proper-function
-
-                root.StackView.view.pop();
-            }
+            variant: "danger"
+            onClicked: deleteDialog.show()
         }
 
         Item {
             Layout.fillHeight: true
+        }
+    }
+
+    MConfirmDialog {
+        id: deleteDialog
+
+        title: "Delete this event?"
+        message: "\"" + (root.event.title || "Untitled Event") + "\" will be removed from your calendar."
+        confirmText: "Delete event"
+        cancelText: "Keep"
+        destructive: true
+        onCancelled: hide()
+        onConfirmed: {
+            root.deleteCallback(root.event.id);  // qmllint disable use-proper-function
+            root.StackView.view.pop();
         }
     }
 }

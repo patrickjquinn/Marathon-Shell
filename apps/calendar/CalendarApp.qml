@@ -1,19 +1,20 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 MApp {
     id: calendarApp
 
     property date currentDate: new Date()
-    property var selectedDate: null
-    property int currentView: 0
-    property StackView navStack: null
+    property var selectedDate: new Date()
+    property int currentView: 1
+    property var navStack: null
 
     signal eventsChanged
 
@@ -25,8 +26,7 @@ MApp {
             "allDay": allDay || false,
             "recurring": recurring || "none"
         };
-        calendarStorage.addEvent(event);
-        return event;
+        return calendarStorage.addEvent(event).id !== undefined;
     }
 
     function getEventsForDate(date) {
@@ -42,13 +42,19 @@ MApp {
     }
 
     function openEventDetail(event) {
-        if (navStack)
-            navStack.push("pages/EventDetailPage.qml", {
-                "event": event,
-                "deleteCallback": eventId => {
-                    calendarApp.deleteEvent(eventId);
-                }
-            });
+        navStack.push("pages/EventDetailPage.qml", {
+            "event": event,
+            "deleteCallback": eventId => {
+                calendarApp.deleteEvent(eventId);
+            }
+        });
+    }
+
+    function openEventCreation(day) {
+        navStack.push("pages/EventCreationPage.qml", {
+            "initialDate": day,
+            "saveCallback": event => calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring)
+        });
     }
 
     appId: "calendar"
@@ -57,22 +63,31 @@ MApp {
     Component.onCompleted: {
         calendarStorage.init();
     }
-    navigationDepth: navStack ? navStack.depth : 0
+    navigationDepth: {
+        if (!navStack)
+            return 0;
+        if (navStack.depth > 1)
+            return navStack.depth - 1 + (navStack.currentItem.backLayers || 0);
+        return selectedDate !== null || currentView !== 1 ? 1 : 0;
+    }
     onBackPressed: {
-        if (navStack && navStack.depth > 1)
-            navStack.pop();
-        else if (calendarApp.selectedDate !== null)
+        if (navStack.depth > 1) {
+            if (navStack.currentItem.backLayers > 0)
+                navStack.currentItem.handleBack();
+            else
+                navStack.pop();
+        } else if (calendarApp.selectedDate !== null) {
             calendarApp.selectedDate = null;
-        else if (calendarApp.currentView === 1)
-            calendarApp.currentView = 0;
-        else
-            navigationDepth = 0;
+        } else {
+            calendarApp.currentView = 1;
+        }
     }
 
     CalendarStorage {
         id: calendarStorage
 
         onDataChanged: calendarApp.eventsChanged()
+        onEventsChanged: calendarApp.eventsChanged()
     }
 
     content: MStackView {
@@ -93,12 +108,37 @@ MApp {
                     height: parent.height - tabBar.height
                     currentIndex: calendarApp.currentView
 
-                    CalendarGridPage {
-                        id: gridPage
-                    }
-
                     EventListPage {
                         id: listPage
+
+                        app: calendarApp
+                    }
+
+                    CalendarGridPage {
+                        id: gridPage
+
+                        app: calendarApp
+                    }
+
+                    Loader {
+                        active: calendarApp.currentView === 2
+
+                        sourceComponent: YearPage {
+                            year: gridPage.currentYear
+                            onMonthChosen: (year, month) => {
+                                gridPage.showMonth(year, month);
+                                calendarApp.currentView = 1;
+                            }
+                        }
+                    }
+
+                    Loader {
+                        active: calendarApp.currentView === 3
+
+                        sourceComponent: EventSearchPage {
+                            events: calendarStorage.events
+                            onEventChosen: event => calendarApp.openEventDetail(event)
+                        }
                     }
                 }
 
@@ -106,10 +146,7 @@ MApp {
                     id: tabBar
 
                     width: parent.width
-                    // Map four UI tabs onto the two pages we ship for now.
-                    // Day → list page (page 1), Month → grid page (page 0),
-                    // Year/Search defer to Month until those panes ship.
-                    activeTab: calendarApp.currentView === 1 ? 0 : 1
+                    activeTab: calendarApp.currentView
                     tabs: [
                         {
                             "label": "Day",
@@ -121,24 +158,29 @@ MApp {
                         },
                         {
                             "label": "Year",
-                            "icon": "archive"
+                            "icon": "squares-four"
                         },
                         {
                             "label": "Search",
-                            "icon": "search"
+                            "icon": "magnifying-glass"
                         }
                     ]
                     onTabSelected: index => {
                         HapticService.light();
-                        // Day=0 → list pane (index 1 in our StackLayout)
-                        // Month=1 → grid pane (index 0)
-                        // Year/Search default to grid until panes land.
-                        calendarApp.currentView = (index === 0) ? 1 : 0;
+                        calendarApp.currentView = index;
                     }
                 }
             }
-            // FAB removed — compose now lives in the page header (JSX
-            // ref-calendar moves the action up to the title bar).
+
+            MFloatingActionButton {
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: MSpacing.lg
+                anchors.bottomMargin: tabBar.height + MSpacing.lg
+                visible: calendarApp.currentView !== 3
+                label: "New event"
+                onClicked: calendarApp.openEventCreation(gridPage.selectedDate)
+            }
         }
     }
 }

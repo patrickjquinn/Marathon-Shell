@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -7,6 +8,9 @@ import QtQuick
 import QtQuick.Controls
 
 Page {
+    id: root
+
+    required property var app
     property int updateTrigger: 0
 
     MScrollView {
@@ -39,7 +43,7 @@ Page {
                 // surface — eyebrow mode is for settings-list headers
                 // where the subtitle would read as noise.
                 eyebrow: false
-                title: calendarApp.selectedDate ? Qt.formatDate(calendarApp.selectedDate, "MMMM d, yyyy") : "Upcoming Events"
+                title: root.app.selectedDate ? Qt.formatDate(root.app.selectedDate, "MMMM d, yyyy") : "Upcoming Events"
                 subtitle: {
                     var count = eventListRepeater.count;
                     if (count === 0)
@@ -50,31 +54,33 @@ Page {
                 width: parent.width - 48
 
                 MButton {
-                    visible: calendarApp.selectedDate !== null
+                    visible: root.app.selectedDate !== null
                     text: "Show All Events"
                     variant: "secondary"
                     width: parent.width
-                    onClicked: calendarApp.selectedDate = null
+                    onClicked: root.app.selectedDate = null
                 }
 
                 Repeater {
                     id: eventListRepeater
 
                     model: {
-                        var _ = updateTrigger;
-                        if (calendarApp.selectedDate)
-                            return calendarApp.getEventsForDate(calendarApp.selectedDate);
+                        var _ = root.updateTrigger;
+                        if (root.app.selectedDate)
+                            return root.app.getEventsForDate(root.app.selectedDate);
 
-                        return calendarApp.getAllEvents();
+                        return root.app.getAllEvents();
                     }
 
                     EventListItem {
+                        required property var modelData
+
                         title: modelData.title
                         time: modelData.time
                         date: modelData.date
                         allDay: modelData.allDay
                         onClicked: {
-                            calendarApp.openEventDetail(modelData);
+                            root.app.openEventDetail(modelData);
                         }
                     }
                 }
@@ -82,10 +88,10 @@ Page {
 
             Connections {
                 function onEventsChanged() {
-                    updateTrigger++;
+                    root.updateTrigger++;
                 }
 
-                target: calendarApp
+                target: root.app
             }
 
             Item {
