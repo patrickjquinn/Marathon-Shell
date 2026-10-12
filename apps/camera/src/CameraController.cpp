@@ -127,7 +127,7 @@ void CameraController::stop() {
     if (m_camera) {
         m_camera->stop();
     }
-    m_countdownTimer->stop();
+    cancelTimer();
     m_recordingTimer->stop();
 }
 
@@ -172,6 +172,15 @@ void CameraController::captureWithTimer() {
     emit timerCountdownChanged();
     emit timerActiveChanged();
     m_countdownTimer->start();
+}
+
+void CameraController::cancelTimer() {
+    if (!m_countdownTimer->isActive())
+        return;
+    m_countdownTimer->stop();
+    m_timerCountdown = 0;
+    emit timerCountdownChanged();
+    emit timerActiveChanged();
 }
 
 void CameraController::startRecording() {

@@ -90,6 +90,7 @@ class CameraController : public QObject {
     Q_INVOKABLE void flipCamera();
     Q_INVOKABLE void capturePhoto();
     Q_INVOKABLE void captureWithTimer();
+    Q_INVOKABLE void cancelTimer();
     Q_INVOKABLE void startRecording();
     Q_INVOKABLE void stopRecording();
     Q_INVOKABLE void focusOnPoint(qreal x, qreal y);

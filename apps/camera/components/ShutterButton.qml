@@ -2,18 +2,20 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
-// White for photos, red for video, a red square while recording.
+// White for photos, red for video; a square stops recording or the self-timer.
 MouseArea {
     id: root
 
     property bool video
     property bool recording
+    property bool timing
+    readonly property bool stopGlyph: recording || timing
 
     width: Theme.itemSizeExtraLarge
     height: width
     activeFocusOnTab: true
     Accessible.role: Accessible.Button
-    Accessible.name: !video ? qsTr("Take photo") : recording ? qsTr("Stop recording") : qsTr("Start recording")
+    Accessible.name: timing ? qsTr("Cancel timer") : !video ? qsTr("Take photo") : recording ? qsTr("Stop recording") : qsTr("Start recording")
     Accessible.onPressAction: root.clicked(null)
     Keys.onPressed: function (event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
@@ -33,9 +35,9 @@ MouseArea {
     Rectangle {
         objectName: "shutterFill"
         anchors.centerIn: parent
-        width: root.recording ? Theme.iconSizeMedium : root.width - 3 * Theme.paddingMedium
+        width: root.stopGlyph ? Theme.iconSizeMedium : root.width - 3 * Theme.paddingMedium
         height: width
-        radius: root.recording ? Theme.paddingSmall : width / 2
+        radius: root.stopGlyph ? Theme.paddingSmall : width / 2
         color: root.video ? Theme.errorColor : Theme.lightPrimaryColor
         opacity: root.pressed ? Theme.opacityHigh : 1
 

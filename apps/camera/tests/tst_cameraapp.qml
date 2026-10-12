@@ -189,6 +189,21 @@ TestCase {
         compare(Permissions.requests, ["camera:camera"]);
     }
 
+    function test_shutterCancelsTheTimer() {
+        const app = makeApp();
+        app.camera.timerDuration = 3;
+        const shutter = child(app, "shutter");
+        mouseClick(shutter);
+        verify(app.camera.timerActive);
+        compare(shutter.Accessible.name, "Cancel timer");
+        verify(shutter.stopGlyph);
+        mouseClick(shutter);
+        compare(app.camera.calls[app.camera.calls.length - 1], "cancelTimer");
+        verify(!app.camera.timerActive);
+        verify(!child(app, "countdown").visible);
+        compare(shutter.Accessible.name, "Take photo");
+    }
+
     function test_countdownShowsWhileTimerRuns() {
         const app = makeApp();
         const countdown = child(app, "countdown");

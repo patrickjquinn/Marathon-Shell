@@ -403,6 +403,7 @@ Page {
         enabled: page.camera.active
         video: page.video
         recording: page.camera.isRecording
+        timing: page.camera.timerActive
         onClicked: page.shoot()
     }
 

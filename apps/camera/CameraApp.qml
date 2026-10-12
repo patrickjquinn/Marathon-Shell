@@ -30,7 +30,9 @@ ApplicationWindow {
     }
 
     function shoot() {
-        if (mode === "photo")
+        if (camera.timerActive)
+            camera.cancelTimer();
+        else if (mode === "photo")
             camera.captureWithTimer();
         else if (camera.isRecording)
             camera.stopRecording();

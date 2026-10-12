@@ -45,7 +45,18 @@ QtObject {
         cameraFlipStarted();
     }
     function capturePhoto() { record("capturePhoto"); }
-    function captureWithTimer() { record("captureWithTimer"); }
+    function captureWithTimer() {
+        record("captureWithTimer");
+        if (timerDuration > 0) {
+            timerCountdown = timerDuration;
+            timerActive = true;
+        }
+    }
+    function cancelTimer() {
+        record("cancelTimer");
+        timerActive = false;
+        timerCountdown = 0;
+    }
     function startRecording() {
         record("startRecording");
         isRecording = true;
