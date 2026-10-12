@@ -3,6 +3,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusVariant>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
@@ -72,6 +73,7 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardLanguage("en_US")
     , m_unifiedPushFallbackEnabled(false) {
     load();
+    watchTimedate();
 
     // Watch the conf file for external changes (Settings app process writes,
     // OOBE writes, etc) and live-reload so the shell reflects them without
@@ -477,6 +479,18 @@ void SettingsManager::setDeviceName(const QString &name) {
     m_deviceName = name;
     save();
     emit deviceNameChanged();
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.hostname1"), QStringLiteral("/org/freedesktop/hostname1"),
+        QStringLiteral("org.freedesktop.hostname1"), QStringLiteral("SetPrettyHostname"));
+    msg << name << false;
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<> reply = *w;
+        if (reply.isError())
+            qWarning() << "[SettingsManager] SetPrettyHostname failed:" << reply.error().message();
+    });
 }
 
 void SettingsManager::setAutoLock(bool enabled) {
@@ -616,12 +630,84 @@ QString SettingsManager::timeZone() const {
     return QString::fromUtf8(QTimeZone::systemTimeZoneId());
 }
 
+static QDBusMessage timedateCall(const QString &method) {
+    return QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("/org/freedesktop/timedate1"),
+        QStringLiteral("org.freedesktop.timedate1"), method);
+}
+
+void SettingsManager::watchTimedate() {
+    QDBusConnection bus = QDBusConnection::systemBus();
+    bus.connect(QStringLiteral("org.freedesktop.timedate1"),
+                QStringLiteral("/org/freedesktop/timedate1"),
+                QStringLiteral("org.freedesktop.DBus.Properties"),
+                QStringLiteral("PropertiesChanged"), this,
+                SLOT(onTimedatePropertiesChanged(QString, QVariantMap, QStringList)));
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("/org/freedesktop/timedate1"),
+        QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("Get"));
+    get << QStringLiteral("org.freedesktop.timedate1") << QStringLiteral("NTP");
+    auto *watcher = new QDBusPendingCallWatcher(bus.asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QDBusVariant> reply = *w;
+        if (!reply.isError())
+            onTimedatePropertiesChanged({}, {{QStringLiteral("NTP"), reply.value().variant()}}, {});
+    });
+}
+
+void SettingsManager::onTimedatePropertiesChanged(const QString &, const QVariantMap &changed,
+                                                  const QStringList &) {
+    const auto ntp = changed.constFind(QStringLiteral("NTP"));
+    if (ntp != changed.constEnd() && ntp->toBool() != m_automaticTime) {
+        m_automaticTime = ntp->toBool();
+        emit automaticTimeChanged();
+    }
+    if (changed.contains(QStringLiteral("Timezone")))
+        emit timeZoneChanged();
+}
+
+void SettingsManager::setAutomaticTime(bool enabled) {
+    QDBusMessage msg = timedateCall(QStringLiteral("SetNTP"));
+    msg << enabled << false;
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, enabled](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                QDBusPendingReply<> reply = *w;
+                if (reply.isError()) {
+                    qWarning() << "[SettingsManager] SetNTP failed:" << reply.error().message();
+                    emit automaticTimeChanged();
+                    emit dateTimeChangeFailed(reply.error().message());
+                    return;
+                }
+                if (m_automaticTime != enabled) {
+                    m_automaticTime = enabled;
+                    emit automaticTimeChanged();
+                }
+            });
+}
+
+void SettingsManager::setSystemTime(qint64 msecsSinceEpoch) {
+    QDBusMessage msg = timedateCall(QStringLiteral("SetTime"));
+    msg << msecsSinceEpoch * 1000 << false << false;
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<> reply = *w;
+        if (reply.isError()) {
+            qWarning() << "[SettingsManager] SetTime failed:" << reply.error().message();
+            emit dateTimeChangeFailed(reply.error().message());
+        }
+    });
+}
+
 void SettingsManager::setTimeZone(const QString &zoneId) {
     if (zoneId.isEmpty() || zoneId == timeZone() || !QTimeZone(zoneId.toUtf8()).isValid())
         return;
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("/org/freedesktop/timedate1"),
-        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("SetTimezone"));
+    QDBusMessage msg = timedateCall(QStringLiteral("SetTimezone"));
     msg << zoneId << false;
     auto *watcher =
         new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
@@ -632,6 +718,8 @@ void SettingsManager::setTimeZone(const QString &zoneId) {
                 if (reply.isError()) {
                     qWarning() << "[SettingsManager] SetTimezone" << zoneId
                                << "failed:" << reply.error().message();
+                    emit timeZoneChanged();
+                    emit dateTimeChangeFailed(reply.error().message());
                     return;
                 }
                 // musl caches the zone until TZ changes; children inherit it too.

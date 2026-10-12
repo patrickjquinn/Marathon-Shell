@@ -195,6 +195,33 @@ TestCase {
         compare(child(s.page, "zoneButton").value, "Berlin (UTC+01:00)");
     }
 
+    function test_automaticAndManualTime() {
+        const s = open("datetime");
+        const auto = child(s.page, "automaticSwitch");
+        verify(auto.checked);
+        verify(!child(s.page, "timeButton").enabled);
+        verify(!child(s.page, "dateButton").enabled);
+        auto.clicked(null);
+        verify(!Settings.automaticTime);
+        verify(child(s.page, "timeButton").enabled);
+        child(s.page, "timeButton").clicked(null);
+        const picker = pushed(s.app, s.page);
+        compare(picker.hour, s.page.now.getHours());
+        picker.reject();
+        tryVerify(() => s.app.pageStack.currentPage === s.page && s.page.status === PageStatus.Active);
+        compare(Settings.systemTimes.length, 0);
+        const wanted = new Date();
+        wanted.setHours(7, 45, 0, 0);
+        s.page.setClock(wanted);
+        compare(Settings.systemTimes.length, 1);
+        const set = new Date(Settings.systemTimes[0]);
+        compare(set.getHours(), 7);
+        compare(set.getMinutes(), 45);
+        compare(child(s.page, "timeButton").value, "07:45");
+        Settings.dateTimeChangeFailed("denied");
+        verify(Math.abs(s.page.now.getTime() - Date.now()) < 5000);
+    }
+
     function test_battery() {
         const s = open("battery");
         compare(child(s.page, "levelLabel").text, "80%");

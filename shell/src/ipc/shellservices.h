@@ -272,9 +272,11 @@ class SettingsObject : public IpcPermissionedService {
     QDBusVariant Get(const QString &key, const QDBusVariant &defaultValue = QDBusVariant());
     void         Set(const QString &key, const QDBusVariant &value);
     void         Sync();
+    void         SetSystemTime(qlonglong msecsSinceEpoch);
 
   signals:
     void PropertyChanged(const QString &name, const QDBusVariant &value);
+    void DateTimeChangeFailed(const QString &reason);
 
   private:
     bool requireSystem() {

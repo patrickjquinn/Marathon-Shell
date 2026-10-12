@@ -228,6 +228,11 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
                      [this, emitProp]() { emitProp("timeZone", m_settings->timeZone()); });
     QObject::connect(m_settings, &SettingsManager::timeFormatChanged, this,
                      [this, emitProp]() { emitProp("timeFormat", m_settings->timeFormat()); });
+    QObject::connect(
+        m_settings, &SettingsManager::automaticTimeChanged, this,
+        [this, emitProp]() { emitProp("automaticTime", m_settings->automaticTime()); });
+    QObject::connect(m_settings, &SettingsManager::dateTimeChangeFailed, this,
+                     &SettingsObject::DateTimeChangeFailed);
     QObject::connect(m_settings, &SettingsManager::dateFormatChanged, this,
                      [this, emitProp]() { emitProp("dateFormat", m_settings->dateFormat()); });
     QObject::connect(m_settings, &SettingsManager::screenTimeoutChanged, this, [this, emitProp]() {
@@ -323,6 +328,7 @@ QVariantMap SettingsObject::GetState() {
         {"vibrationEnabled", m_settings->vibrationEnabled()},
         {"reduceMotion", m_settings->reduceMotion()},
         {"timeZone", m_settings->timeZone()},
+        {"automaticTime", m_settings->automaticTime()},
         {"audioProfile", m_settings->audioProfile()},
         {"screenTimeout", m_settings->screenTimeout()},
         {"autoBrightness", m_settings->autoBrightness()},
@@ -403,6 +409,8 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setReduceMotion(v.toBool());
     else if (name == "timeZone")
         m_settings->setTimeZone(v.toString());
+    else if (name == "automaticTime")
+        m_settings->setAutomaticTime(v.toBool());
     else if (name == "audioProfile")
         m_settings->setAudioProfile(v.toString());
     else if (name == "screenTimeout")
@@ -528,6 +536,12 @@ void SettingsObject::Sync() {
             return;
     }
     m_settings->sync();
+}
+
+void SettingsObject::SetSystemTime(qlonglong msecsSinceEpoch) {
+    if (!requireSystem())
+        return;
+    m_settings->setSystemTime(msecsSinceEpoch);
 }
 
 SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,

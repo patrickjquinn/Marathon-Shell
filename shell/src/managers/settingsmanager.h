@@ -55,6 +55,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY reduceMotionChanged)
     Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
+        bool automaticTime READ automaticTime WRITE setAutomaticTime NOTIFY automaticTimeChanged)
+    Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
     Q_PROPERTY(
@@ -175,6 +177,9 @@ class SettingsManager : public QObject {
         return m_reduceMotion;
     }
     QString timeZone() const;
+    bool    automaticTime() const {
+        return m_automaticTime;
+    }
     QString audioProfile() const {
         return m_audioProfile;
     }
@@ -280,6 +285,8 @@ class SettingsManager : public QObject {
     void                    setVibrationEnabled(bool enabled);
     void                    setReduceMotion(bool enabled);
     void                    setTimeZone(const QString &zoneId);
+    void                    setAutomaticTime(bool enabled);
+    Q_INVOKABLE void        setSystemTime(qint64 msecsSinceEpoch);
     void                    setAudioProfile(const QString &profile);
 
     void                    setScreenTimeout(int ms);
@@ -351,6 +358,9 @@ class SettingsManager : public QObject {
     void vibrationEnabledChanged();
     void reduceMotionChanged();
     void timeZoneChanged();
+    void automaticTimeChanged();
+    // timedated refused a time zone, automatic time or clock change.
+    void dateTimeChangeFailed(const QString &reason);
     void audioProfileChanged();
 
     void screenTimeoutChanged();
@@ -384,7 +394,12 @@ class SettingsManager : public QObject {
 
     void unifiedPushFallbackEnabledChanged();
 
+  private slots:
+    void onTimedatePropertiesChanged(const QString &interface, const QVariantMap &changed,
+                                     const QStringList &invalidated);
+
   private:
+    void                watchTimedate();
     void                load();
     void                save();
     void                onSettingsFileChanged(const QString &path);
@@ -397,6 +412,7 @@ class SettingsManager : public QObject {
     QString             m_wallpaperPath;
 
     QString             m_deviceName;
+    bool                m_automaticTime = true;
     bool                m_autoLock;
     int                 m_autoLockTimeout;
     bool                m_showNotificationPreviews;

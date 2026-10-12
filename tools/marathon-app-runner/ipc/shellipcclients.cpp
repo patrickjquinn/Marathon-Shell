@@ -697,6 +697,9 @@ SettingsClient::SettingsClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Settings",
                                           "org.marathonos.Shell.Settings1", "PropertyChanged", this,
                                           SLOT(onPropertyChanged(QString, QDBusVariant)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Settings",
+                                          "org.marathonos.Shell.Settings1", "DateTimeChangeFailed",
+                                          this, SIGNAL(dateTimeChangeFailed(QString)));
     refresh();
 }
 
@@ -896,6 +899,7 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         {"vibrationEnabled", &SettingsClient::vibrationEnabledChanged},
         {"reduceMotion", &SettingsClient::reduceMotionChanged},
         {"timeZone", &SettingsClient::timeZoneChanged},
+        {"automaticTime", &SettingsClient::automaticTimeChanged},
         {"audioProfile", &SettingsClient::audioProfileChanged},
         {"screenTimeout", &SettingsClient::screenTimeoutChanged},
         {"autoBrightness", &SettingsClient::autoBrightnessChanged},
@@ -985,6 +989,9 @@ bool SettingsClient::reduceMotion() const {
 }
 QString SettingsClient::timeZone() const {
     return prop("timeZone", QStringLiteral("UTC")).toString();
+}
+bool SettingsClient::automaticTime() const {
+    return prop("automaticTime", true).toBool();
 }
 QString SettingsClient::audioProfile() const {
     return prop("audioProfile", "normal").toString();
@@ -1125,6 +1132,16 @@ void SettingsClient::setReduceMotion(bool v) {
 }
 void SettingsClient::setTimeZone(const QString &v) {
     setProp("timeZone", v);
+}
+void SettingsClient::setAutomaticTime(bool v) {
+    setProp("automaticTime", v);
+}
+void SettingsClient::setSystemTime(qint64 msecsSinceEpoch) {
+    if (!ensureSystemPermission())
+        return;
+    auto r = m_iface.call("SetSystemTime", static_cast<qlonglong>(msecsSinceEpoch));
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[SettingsClient] SetSystemTime failed:" << r.errorMessage();
 }
 void SettingsClient::setAudioProfile(const QString &v) {
     setProp("audioProfile", v);

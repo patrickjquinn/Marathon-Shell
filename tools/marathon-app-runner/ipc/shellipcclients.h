@@ -289,6 +289,8 @@ class SettingsClient : public QObject {
     Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY reduceMotionChanged)
     Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
+        bool automaticTime READ automaticTime WRITE setAutomaticTime NOTIFY automaticTimeChanged)
+    Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
     Q_PROPERTY(
@@ -366,6 +368,7 @@ class SettingsClient : public QObject {
     bool                    vibrationEnabled() const;
     bool reduceMotion() const;
     QString timeZone() const;
+    bool    automaticTime() const;
     QString                 audioProfile() const;
 
     int                     screenTimeout() const;
@@ -418,6 +421,8 @@ class SettingsClient : public QObject {
     void                    setVibrationEnabled(bool v);
     void                    setReduceMotion(bool v);
     void                    setTimeZone(const QString &v);
+    void                    setAutomaticTime(bool v);
+    Q_INVOKABLE void        setSystemTime(qint64 msecsSinceEpoch);
     void                    setAudioProfile(const QString &v);
 
     void                    setScreenTimeout(int v);
@@ -482,6 +487,8 @@ class SettingsClient : public QObject {
     void vibrationEnabledChanged();
     void reduceMotionChanged();
     void timeZoneChanged();
+    void automaticTimeChanged();
+    void dateTimeChangeFailed(const QString &reason);
     void audioProfileChanged();
 
     void screenTimeoutChanged();

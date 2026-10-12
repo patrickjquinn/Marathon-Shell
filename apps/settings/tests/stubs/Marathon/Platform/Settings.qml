@@ -20,6 +20,14 @@ QtObject {
     property var enabledQuickSettingsTiles: ["wifi", "bluetooth"]
     property string deviceName: "Librem 5"
     property bool autoLock: true
+    property bool automaticTime: true
+    property var systemTimes: []
+
+    signal dateTimeChangeFailed(string reason)
+
+    function setSystemTime(ms) {
+        systemTimes = systemTimes.concat([ms]);
+    }
 
     function reset() {
         timeZone = "Europe/London";
@@ -40,6 +48,8 @@ QtObject {
         enabledQuickSettingsTiles = ["wifi", "bluetooth"];
         deviceName = "Librem 5";
         autoLock = true;
+        automaticTime = true;
+        systemTimes = [];
     }
     function availableRingtones() {
         return ["/sounds/ring_classic.wav", "/sounds/ring_bright.wav"];
