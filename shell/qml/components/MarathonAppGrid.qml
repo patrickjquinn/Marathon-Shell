@@ -10,29 +10,11 @@ Item {
 
     property var appModel: null
     property int pageIndex: 0
-    // Scale-aware grid density. iOS does exactly this — bump Display Size
-    // in Settings and the Home Screen drops from 4×6 to 3×6 once icons
-    // grow past comfortable density. At Marathon's userScaleFactor ≥ 1.25,
-    // each cell footprint (icon + halo + label) exceeds 1/4 screen and the
-    // Grid wraps to a single column. 3 × 4 = 12/page restores the layout
-    // and keeps thumb-reach proportional to icon size.
-    // Hit SettingsManagerCpp directly (skip Constants) so the binding is
-    // unambiguously tied to the live user-scale signal — and stash it on a
-    // readonly so column/row both bind to the same notifier and re-evaluate
-    // together when the user changes Display Size.
-    readonly property real _userScale: SettingsManagerCpp.userScaleFactor
-    // Bucket the base column/row count by canvas width — phone, small
-    // tablet (HyperPixel CM5 720×720), and wider. Higher userScale grows
-    // every icon's footprint proportionally, so fewer cells fit. Use
-    // floor(base / scale) but clamp the divisor at 1.0 so the grid never
-    // ADDS columns when scale drops below 1.0 — getting 6-wide on a phone
-    // at scale 0.7 would look absurd. Floor at 3 so the bottom row never
-    // collapses to a single icon when scale → 2.0 on a small canvas.
-    readonly property int _baseColumns: Constants.screenWidth < 700 ? 4 : Constants.screenWidth < 900 ? 5 : 6
-    readonly property int _baseRows: Constants.screenWidth < 700 ? 4 : 5
-    readonly property real _scaleDivisor: Math.max(1.0, _userScale)
-    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : Math.max(3, Math.floor(_baseColumns / _scaleDivisor))
-    property int rows: Math.max(4, Math.floor(_baseRows / _scaleDivisor))
+    // Sailfish's launcher grid: as many columns as Silica's launcher icon
+    // fits with room around it (five on a 720 px phone), and rows to match.
+    readonly property real _cellSize: Silica.Theme.iconSizeLauncher * 1.5
+    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : Math.max(3, Math.floor(Constants.screenWidth / _cellSize))
+    property int rows: Math.max(3, Math.floor(Constants.screenHeight * 0.75 / (_cellSize * 1.4)))
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
@@ -142,8 +124,8 @@ Item {
                 id: iconBox
 
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: Constants.appIconSize
-                height: Constants.appIconSize
+                width: Silica.Theme.iconSizeLauncher
+                height: Silica.Theme.iconSizeLauncher
 
                 // Press halo — soft teal glow at 18% beneath the
                 // icon. Per DS Elevation · 'Active card' shadow,
@@ -291,8 +273,8 @@ Item {
                 id: iconArea
 
                 x: overlay.cell ? overlay.cell.iconBox.x : 0
-                width: Constants.appIconSize
-                height: Constants.appIconSize
+                width: Silica.Theme.iconSizeLauncher
+                height: Silica.Theme.iconSizeLauncher
             }
         }
     }
