@@ -3,6 +3,7 @@ import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: tile
@@ -37,8 +38,10 @@ Item {
 
                 width: Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
-                radius: Constants.borderRadiusSharp
-                color: tile.toggleData.active ? MColors.accentBright : MColors.bb10Elevated
+                // Sailfish Top Menu switch: a round icon, filled with the
+                // ambience highlight when on.
+                radius: width / 2
+                color: tile.toggleData.active ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                 antialiasing: Constants.enableAntialiasing
 
                 Icon {
@@ -49,7 +52,7 @@ Item {
 
                         return iconName;
                     }
-                    color: tile.toggleData.active ? MColors.background : MColors.text
+                    color: tile.toggleData.active ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
 
@@ -72,19 +75,12 @@ Item {
                 width: parent.width - Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
-                color: tile.isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
-                border.width: Constants.borderWidthThin
-                border.color: tile.toggleData.active ? MColors.accentBright : MColors.border
+                color: "transparent"
                 antialiasing: Constants.enableAntialiasing
 
                 // DS edge spec: "lit from above" hairline that follows
                 // the squircle path (not a flat horizontal bar past the
                 // corner radius).
-                MTopHairline {
-                    radius: parent.radius
-                    color: MColors.borderSubtle
-                    lineWidth: Constants.borderWidthThin
-                }
 
                 Item {
                     anchors.fill: parent
@@ -96,49 +92,22 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: MSpacing.xs
 
-                        MLabel {
+                        Silica.Label {
                             text: tile.toggleData.label || ""
-                            variant: "body"
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
+                            font.pixelSize: Silica.Theme.fontSizeSmall
+                            color: tile.toggleData.active ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            truncationMode: Silica.TruncationMode.Fade
                             width: parent.width
                         }
 
-                        MLabel {
+                        Silica.Label {
                             visible: tile.toggleData.subtitle !== undefined && tile.toggleData.subtitle !== ""
                             text: tile.toggleData.subtitle || ""
-                            font.pixelSize: MTypography.sizeXSmall
-                            elide: Text.ElideRight
+                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                            truncationMode: Silica.TruncationMode.Fade
                             width: parent.width
-                            color: MColors.text
-                            opacity: 0.6
+                            color: Silica.Theme.secondaryColor
                         }
-                    }
-                }
-
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 1
-                    height: 3
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.accentBright
-                    visible: tile.toggleData.active
-                    antialiasing: Constants.enableAntialiasing
-                    opacity: tile.toggleData.active ? 1 : 0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 200
-                        }
-                    }
-                }
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
                     }
                 }
             }
@@ -174,20 +143,11 @@ Item {
 
         visible: !tile.isToggleable
         anchors.fill: parent
-        radius: Constants.borderRadiusSharp
-        border.width: Constants.borderWidthThin
-        border.color: MColors.border
-        color: tile.isAvailable ? MColors.bb10Card : Qt.rgba(MColors.bb10Card.r, MColors.bb10Card.g, MColors.bb10Card.b, 0.5)
+        color: "transparent"
         antialiasing: Constants.enableAntialiasing
         scale: tile.isPressed ? 0.98 : 1
         opacity: tile.isAvailable ? 1 : 0.5
 
-        // Top-edge inset highlight following the squircle path.
-        MTopHairline {
-            radius: parent.radius
-            color: MColors.borderSubtle
-            lineWidth: Constants.borderWidthThin
-        }
 
         Item {
             anchors.fill: parent
@@ -201,8 +161,8 @@ Item {
                 Rectangle {
                     width: Constants.iconSizeMedium + MSpacing.md
                     height: Constants.iconSizeMedium + MSpacing.md
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.bb10Elevated
+                    radius: width / 2
+                    color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                     antialiasing: Constants.enableAntialiasing
 
                     Icon {
