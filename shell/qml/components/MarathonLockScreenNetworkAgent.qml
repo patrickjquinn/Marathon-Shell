@@ -50,7 +50,7 @@ Item {
     z: Constants.zIndexLockScreen + 50
 
     // A full-screen Silica dialog on the ambience: Cancel and Connect in the
-    // header corners. A tap on empty space dismisses.
+    // header corners. Taps outside them do nothing, so the password survives.
     KeelAmbienceBackground {
         anchors.fill: parent
         wallpaper: AmbienceService.wallpaperUrl
@@ -59,7 +59,6 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: agent.hide()
     }
 
     Item {

@@ -36,10 +36,12 @@ Item {
     }
 
     function hide() {
+        connectTimeout.stop();
         hideAnimation.start();
     }
 
     function showError(message) {
+        connectTimeout.stop();
         errorMessage = message;
         isConnecting = false;
         HapticManager.medium();
@@ -48,14 +50,23 @@ Item {
     function showConnecting() {
         isConnecting = true;
         errorMessage = "";
+        connectTimeout.restart();
     }
 
     anchors.fill: parent
     visible: false
     z: Constants.zIndexModalOverlay + 10
     Keys.onEscapePressed: {
-        if (!isConnecting)
-            wifiDialog.hide();
+        wifiDialog.cancelled();
+        wifiDialog.hide();
+    }
+
+    Timer {
+        id: connectTimeout
+
+        objectName: "connectTimeout"
+        interval: 30000
+        onTriggered: wifiDialog.showError(qsTr("Couldn't connect. Check the password or move closer to the router."))
     }
 
     // A full-screen Silica dialog on the ambience: Cancel and Connect in the
@@ -72,12 +83,9 @@ Item {
             light: AmbienceService.light
         }
 
+        // Full-screen dialog: a stray tap must not throw away the password.
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                if (!wifiDialog.isConnecting)
-                    wifiDialog.hide();
-            }
         }
 
         Item {
@@ -90,11 +98,10 @@ Item {
             height: Silica.Theme.itemSizeLarge
 
             Silica.BackgroundItem {
+                objectName: "cancelButton"
                 anchors.left: parent.left
                 width: parent.width / 2
                 height: parent.height
-                enabled: !wifiDialog.isConnecting
-                opacity: enabled ? 1 : Silica.Theme.opacityLow
                 onClicked: {
                     Logger.info("WiFiDialog", "Cancelled");
                     HapticManager.light();
@@ -203,6 +210,7 @@ Item {
             Silica.PasswordField {
                 id: passwordInput
 
+                objectName: "passwordField"
                 width: parent.width
                 visible: wifiDialog.secured
                 label: "Password"
