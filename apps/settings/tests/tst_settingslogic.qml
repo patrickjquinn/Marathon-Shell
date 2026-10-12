@@ -53,6 +53,12 @@ TestCase {
         compare(Logic.signalQuality(5), "Weak");
     }
 
+    function test_networkSubtitle() {
+        compare(Logic.networkSubtitle({ ssid: "Cafe", strength: 55, security: "Open", secured: false }), "Open · Good signal");
+        compare(Logic.networkSubtitle({ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }), "Saved · Secured · Excellent signal");
+        compare(Logic.networkSubtitle({ ssid: "Lab", strength: 10, security: "WPA3" }), "Secured · Weak signal");
+    }
+
     function test_deviceIcon() {
         compare(Logic.deviceIcon("headphones"), "image://theme/icon-m-headphone");
         compare(Logic.deviceIcon(" Keyboard "), "image://theme/icon-m-keyboard");

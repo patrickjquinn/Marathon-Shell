@@ -118,6 +118,19 @@ function signalQuality(strength) {
     return strength >= 75 ? qsTr("Excellent") : strength >= 50 ? qsTr("Good") : strength >= 25 ? qsTr("Fair") : qsTr("Weak");
 }
 
+function signalText(strength) {
+    return strength >= 75 ? qsTr("Excellent signal") : strength >= 50 ? qsTr("Good signal") : strength >= 25 ? qsTr("Fair signal") : qsTr("Weak signal");
+}
+
+// "Saved · Secured · Good signal".
+function networkSubtitle(network) {
+    const parts = network.known ? [qsTr("Saved")] : [];
+    const secured = network.secured || (network.security || "Open") !== "Open";
+    parts.push(secured ? qsTr("Secured") : qsTr("Open"));
+    parts.push(signalText(network.strength || 0));
+    return parts.join(" · ");
+}
+
 // Bluetooth device icon or type names (as BlueZ and the old pages used them) to theme icons.
 function deviceIcon(kind) {
     const icons = {

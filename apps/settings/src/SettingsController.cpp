@@ -295,38 +295,6 @@ QString SettingsController::batteryStatusText(bool isCharging, bool isPluggedIn,
     return QStringLiteral("%1m remaining").arg(minutes);
 }
 
-QString SettingsController::wifiConnectionStatusText(int strength) const {
-    const int clamped = std::max(0, std::min(100, strength));
-    return QStringLiteral("Connected • %1% signal").arg(clamped);
-}
-
-QString SettingsController::availableNetworkSubtitle(const QString &security, int strength,
-                                                     const QVariant &frequency) const {
-    const QString securityLabel = security.isEmpty() ? QStringLiteral("Open") : security;
-    const int     clamped       = std::max(0, std::min(100, strength));
-    QString       freqLabel;
-    if (frequency.isValid() && !frequency.isNull()) {
-        if (frequency.canConvert<double>()) {
-            const double freq = frequency.toDouble();
-            if (freq > 0.0) {
-                freqLabel = QString::number(freq, 'f', 1);
-            }
-        } else if (frequency.canConvert<QString>()) {
-            const QString raw = frequency.toString().trimmed();
-            if (!raw.isEmpty()) {
-                freqLabel = raw;
-            }
-        }
-    }
-    if (freqLabel.isEmpty()) {
-        return QStringLiteral("%1 • %2% signal").arg(securityLabel).arg(clamped);
-    }
-    return QStringLiteral("%1 • %2% signal • %3 GHz")
-        .arg(securityLabel)
-        .arg(clamped)
-        .arg(freqLabel);
-}
-
 QString SettingsController::lockoutStatusText(bool lockedOut, int secondsRemaining) const {
     if (lockedOut) {
         return QStringLiteral("Locked (%1s remaining)").arg(std::max(0, secondsRemaining));

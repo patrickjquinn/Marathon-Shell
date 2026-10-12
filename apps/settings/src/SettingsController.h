@@ -86,9 +86,6 @@ class SettingsController : public QObject {
                                          const QString &passkey) const;
     Q_INVOKABLE QString batteryStatusText(bool isCharging, bool isPluggedIn,
                                           int estimatedSeconds) const;
-    Q_INVOKABLE QString wifiConnectionStatusText(int strength) const;
-    Q_INVOKABLE QString availableNetworkSubtitle(const QString &security, int strength,
-                                                 const QVariant &frequency) const;
     Q_INVOKABLE QString lockoutStatusText(bool lockedOut, int secondsRemaining) const;
     Q_INVOKABLE QString quickPinValidationError(const QString &pin, const QString &password) const;
     Q_INVOKABLE QString soundTypeLabel(const QString &soundType) const;

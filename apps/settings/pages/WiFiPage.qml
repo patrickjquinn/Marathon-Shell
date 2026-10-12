@@ -170,7 +170,7 @@ Page {
                     }
                     Label {
                         width: parent.width
-                        text: SettingsController.wifiConnectionStatusText(Network.wifiSignalStrength)
+                        text: qsTr("Connected") + " · " + Logic.signalText(Network.wifiSignalStrength)
                         font.pixelSize: Theme.fontSizeExtraSmall
                         color: Theme.secondaryHighlightColor
                     }
@@ -194,7 +194,7 @@ Page {
                     objectName: "network-" + modelData.ssid
                     contentHeight: Theme.itemSizeMedium
                     menu: modelData.known ? forgetMenu : null
-                    Accessible.name: modelData.ssid + ", " + SettingsController.availableNetworkSubtitle(modelData.security || "", modelData.strength, modelData.frequency)
+                    Accessible.name: modelData.ssid + ", " + Logic.networkSubtitle(modelData)
                     onClicked: page.select(modelData)
 
                     Component {
@@ -237,7 +237,7 @@ Page {
                         }
                         Label {
                             width: parent.width
-                            text: (item.modelData.known ? qsTr("Saved") + " · " : "") + SettingsController.availableNetworkSubtitle(item.modelData.security || "", item.modelData.strength, item.modelData.frequency)
+                            text: Logic.networkSubtitle(item.modelData)
                             font.pixelSize: Theme.fontSizeExtraSmall
                             truncationMode: TruncationMode.Fade
                             color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

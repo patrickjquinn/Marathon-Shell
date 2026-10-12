@@ -173,12 +173,6 @@ QtObject {
             return "Plugged In, Not Charging";
         return seconds > 0 ? Math.floor(seconds / 3600) + "h remaining" : "Discharging";
     }
-    function wifiConnectionStatusText(strength) {
-        return "Connected • " + strength + "% signal";
-    }
-    function availableNetworkSubtitle(security, strength, frequency) {
-        return (security === "" ? "Open" : security) + " • " + strength + "% signal";
-    }
     function lockoutStatusText(locked, seconds) {
         return locked ? "Locked (" + seconds + "s remaining)" : "Active";
     }
