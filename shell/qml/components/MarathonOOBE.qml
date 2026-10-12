@@ -196,8 +196,6 @@ Item {
                     Layout.fillHeight: true
                     clip: true
 
-                    // Silica's tokens don't follow userScaleFactor, so the
-                    // preview applies it.
                     Column {
                         x: Silica.Theme.horizontalPageMargin
                         width: parent.width - 2 * x
@@ -208,7 +206,7 @@ Item {
                             width: parent.width
                             text: "Sample"
                             color: Silica.Theme.primaryColor
-                            font.pixelSize: Math.round(Silica.Theme.fontSizeExtraLarge * Constants.userScaleFactor)
+                            font.pixelSize: Silica.Theme.fontSizeExtraLarge
                             truncationMode: Silica.TruncationMode.Fade
                         }
 
@@ -216,7 +214,7 @@ Item {
                             width: parent.width
                             text: "The quick brown fox jumps over the lazy dog."
                             color: Silica.Theme.secondaryColor
-                            font.pixelSize: Math.round(Silica.Theme.fontSizeSmall * Constants.userScaleFactor)
+                            font.pixelSize: Silica.Theme.fontSizeSmall
                             wrapMode: Text.Wrap
                         }
                     }
