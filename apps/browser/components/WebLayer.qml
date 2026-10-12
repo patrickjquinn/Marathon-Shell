@@ -14,10 +14,6 @@ Item {
 
     signal scrolled(real y)
 
-    function tabAt(index) {
-        return repeater.itemAt(index);
-    }
-
     function currentView() {
         const tab = repeater.itemAt(browser.currentTabIndex);
         return tab ? tab.view : null;
