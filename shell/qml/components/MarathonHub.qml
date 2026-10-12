@@ -59,86 +59,11 @@ Rectangle {
         light: AmbienceService.light
     }
 
-    // ── Today: the date, then the calendar's agenda ─────────
-    Column {
-        id: header
-
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight + Silica.Theme.paddingLarge
-        anchors.leftMargin: Silica.Theme.horizontalPageMargin
-        anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingMedium
-        bottomPadding: Silica.Theme.paddingLarge
-
-        Silica.Label {
-            width: parent.width
-            text: Qt.formatDate(new Date(), "dddd, d MMMM")
-            color: Silica.Theme.secondaryHighlightColor
-            font.pixelSize: Silica.Theme.fontSizeSmall
-        }
-
-        Repeater {
-            model: hub.agenda
-
-            Item {
-                id: entry
-
-                required property var modelData
-
-                width: header.width
-                height: entryTitle.height + Silica.Theme.paddingSmall * 2
-
-                Rectangle {
-                    width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
-                    height: parent.height
-                    color: Silica.Theme.highlightColor
-                }
-                Silica.Label {
-                    id: entryTime
-
-                    x: Silica.Theme.paddingMedium
-                    width: Silica.Theme.itemSizeLarge
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: entry.modelData.allDay ? qsTr("All day") : entry.modelData.time
-                    color: Silica.Theme.secondaryColor
-                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                }
-                Silica.Label {
-                    id: entryTitle
-
-                    anchors.left: entryTime.right
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: entry.modelData.title
-                    truncationMode: Silica.TruncationMode.Fade
-                }
-            }
-        }
-    }
-
-    // Only when there is nothing at all: one quiet line.
-    Silica.Label {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: header.bottom
-        anchors.leftMargin: Silica.Theme.horizontalPageMargin
-        anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        visible: hub.agenda.length === 0 && NotificationModel.count === 0
-        text: qsTr("Nothing new")
-        color: Silica.Theme.secondaryColor
-        font.pixelSize: Silica.Theme.fontSizeSmall
-    }
-
-    ListView {
+    Silica.SilicaListView {
         id: list
 
         objectName: "hubList"
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: header.bottom
-        anchors.bottom: parent.bottom
+        anchors.fill: parent
         clip: true
         model: NotificationModel
         spacing: 0
@@ -147,6 +72,81 @@ Rectangle {
         // intermediate that Qt complains about. Clamp to 0.
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
+
+        Silica.PullDownMenu {
+            visible: list.count > 0
+
+            Silica.MenuItem {
+                objectName: "clearNotifications"
+                text: qsTr("Clear notifications")
+                onClicked: NotificationService.dismissAllNotifications()
+            }
+        }
+
+        // ── Today: the date, then the calendar's agenda ─────────
+        header: Column {
+            id: header
+
+            x: Silica.Theme.horizontalPageMargin
+            width: list.width - 2 * x
+            topPadding: Constants.statusBarHeight + Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingMedium
+            bottomPadding: Silica.Theme.paddingLarge
+
+            Silica.Label {
+                width: parent.width
+                text: Qt.formatDate(new Date(), "dddd, d MMMM")
+                color: Silica.Theme.secondaryHighlightColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+            }
+
+            Repeater {
+                model: hub.agenda
+
+                Item {
+                    id: entry
+
+                    required property var modelData
+
+                    width: header.width
+                    height: entryTitle.height + Silica.Theme.paddingSmall * 2
+
+                    Rectangle {
+                        width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
+                        height: parent.height
+                        color: Silica.Theme.highlightColor
+                    }
+                    Silica.Label {
+                        id: entryTime
+
+                        x: Silica.Theme.paddingMedium
+                        width: Silica.Theme.itemSizeLarge
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: entry.modelData.allDay ? qsTr("All day") : entry.modelData.time
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    }
+                    Silica.Label {
+                        id: entryTitle
+
+                        anchors.left: entryTime.right
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: entry.modelData.title
+                        truncationMode: Silica.TruncationMode.Fade
+                    }
+                }
+            }
+
+            // Only when there is nothing at all: one quiet line.
+            Silica.Label {
+                width: parent.width
+                visible: hub.agenda.length === 0 && list.count === 0
+                text: qsTr("Nothing new")
+                color: Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+            }
+        }
 
         delegate: MHubRow {
             required property var model
@@ -174,6 +174,7 @@ Rectangle {
             snippet: body
 
             onActivated: hub.openNotification(model.id, appId)
+            onDismissed: NotificationService.dismissNotification(model.id)
         }
     }
 
@@ -196,35 +197,15 @@ Rectangle {
         return first.charAt(0) + last.charAt(0);
     }
 
-    // Takes the RAW app_name. The switch matches on a folded copy, but the
-    // default branch echoes what the sender actually sent -- only
-    // capitalising a leading lower-case letter -- so "GNOME Software" keeps
-    // its interior capitals while "signal" still reads as "Signal".
+    // The sending app's name from the registry; otherwise the sender's own
+    // app_name, with a leading lower-case letter capitalised.
     function accountFor(rawAppId) {
-        const appId = String(rawAppId || "").toLowerCase();
-        switch (appId) {
-        case "messages":
-        case "imessage":
-            return "iMessage";
-        case "mail":
-            return "Mail";
-        case "linear":
-            return "Linear · Work";
-        case "phone":
-        case "call":
-            return "Phone";
-        case "github":
-            return "GitHub";
-        case "calendar":
-            return "Calendar";
-        case "work":
-            return "Work";
-        default:
-            const raw = String(rawAppId || "");
-            return raw.charAt(0).toUpperCase() + raw.slice(1);
-        }
+        const raw = String(rawAppId || "");
+        const name = AppStore.getAppName(raw);
+        if (name !== raw)
+            return name;
+        return raw.charAt(0).toUpperCase() + raw.slice(1);
     }
-
 
     function relativeTime(ts) {
         if (!ts)

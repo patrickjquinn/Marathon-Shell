@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0 as Silica
 
 // Hub row: unread dot, a glass-ring monogram or icon, then sender and
 // time, account and a one-line snippet, laid out as Sailfish's events.
+// Swiping it to the right dismisses it; leftward stays with the pager.
 Item {
     id: row
 
@@ -14,114 +15,208 @@ Item {
     property string time: ""
     property string account: ""
     property string snippet: ""
-    readonly property bool down: area.pressed && area.containsMouse
+    readonly property bool down: area.pressed && area.containsMouse && !area.swiping
+    property real collapse: 1
+    readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
 
     signal activated
+    signal dismissed
 
-    implicitHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
-
-    Rectangle {
-        anchors.fill: parent
-        color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+    function reset() {
+        dismissAnimation.stop();
+        snapBack.stop();
+        content.x = 0;
+        collapse = 1;
     }
 
-    Rectangle {
-        width: Silica.Theme.paddingSmall
-        height: width
-        radius: width / 2
-        anchors.left: parent.left
-        anchors.leftMargin: Silica.Theme.paddingSmall
-        anchors.verticalCenter: parent.verticalCenter
-        color: Silica.Theme.highlightColor
-        visible: row.unread
-    }
+    implicitHeight: fullHeight * collapse
+    clip: collapse < 1
+    ListView.onReused: reset()
 
-    Rectangle {
-        id: avatar
-        width: Silica.Theme.iconSizeMedium
-        height: width
-        radius: width / 2
-        anchors.left: parent.left
-        anchors.leftMargin: Silica.Theme.horizontalPageMargin
-        anchors.verticalCenter: parent.verticalCenter
-        color: "transparent"
-        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+    SequentialAnimation {
+        id: dismissAnimation
 
-        Text {
-            anchors.centerIn: parent
-            text: row.avatarText
-            color: Silica.Theme.highlightColor
-            font.family: Silica.Theme.fontFamily
-            font.pixelSize: Silica.Theme.fontSizeSmall
-            visible: row.avatarText.length > 0
+        NumberAnimation {
+            target: content
+            property: "x"
+            to: row.width
+            duration: MMotion.quick
+            easing.type: Easing.OutCubic
         }
-        GlyphIcon {
-            anchors.centerIn: parent
-            name: row.avatarIcon
-            size: Silica.Theme.iconSizeExtraSmall
-            color: Silica.Theme.highlightColor
-            visible: row.avatarText.length === 0 && row.avatarIcon.length > 0
+        NumberAnimation {
+            target: row
+            property: "collapse"
+            to: 0
+            duration: MMotion.quick
+            easing.type: Easing.InOutQuad
+        }
+        ScriptAction {
+            script: row.dismissed()
         }
     }
 
-    Column {
-        id: textColumn
-        anchors.left: avatar.right
-        anchors.leftMargin: Silica.Theme.paddingMedium
-        anchors.right: parent.right
-        anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        anchors.verticalCenter: parent.verticalCenter
+    NumberAnimation {
+        id: snapBack
 
-        Item {
-            width: parent.width
-            height: nameText.implicitHeight
+        target: content
+        property: "x"
+        to: 0
+        duration: MMotion.quick
+        easing.type: Easing.OutCubic
+    }
 
-            Silica.Label {
-                id: nameText
-                anchors.left: parent.left
-                anchors.right: timeText.left
-                anchors.rightMargin: Silica.Theme.paddingSmall
-                text: row.name
-                color: row.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+    Item {
+        id: content
+
+        width: row.width
+        height: row.fullHeight
+        opacity: 1 - x / Math.max(1, row.width)
+
+        Rectangle {
+            anchors.fill: parent
+            color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+        }
+
+        Rectangle {
+            width: Silica.Theme.paddingSmall
+            height: width
+            radius: width / 2
+            anchors.left: parent.left
+            anchors.leftMargin: Silica.Theme.paddingSmall
+            anchors.verticalCenter: parent.verticalCenter
+            color: Silica.Theme.highlightColor
+            visible: row.unread
+        }
+
+        Rectangle {
+            id: avatar
+            width: Silica.Theme.iconSizeMedium
+            height: width
+            radius: width / 2
+            anchors.left: parent.left
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
+            color: "transparent"
+            border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+            border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+
+            Text {
+                anchors.centerIn: parent
+                text: row.avatarText
+                color: Silica.Theme.highlightColor
+                font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeSmall
-                truncationMode: Silica.TruncationMode.Fade
+                visible: row.avatarText.length > 0
             }
+            GlyphIcon {
+                anchors.centerIn: parent
+                name: row.avatarIcon
+                size: Silica.Theme.iconSizeExtraSmall
+                color: Silica.Theme.highlightColor
+                visible: row.avatarText.length === 0 && row.avatarIcon.length > 0
+            }
+        }
+
+        Column {
+            id: textColumn
+            anchors.left: avatar.right
+            anchors.leftMargin: Silica.Theme.paddingMedium
+            anchors.right: parent.right
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
+
+            Item {
+                width: parent.width
+                height: nameText.implicitHeight
+
+                Silica.Label {
+                    id: nameText
+                    anchors.left: parent.left
+                    anchors.right: timeText.left
+                    anchors.rightMargin: Silica.Theme.paddingSmall
+                    text: row.name
+                    color: row.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
+                    truncationMode: Silica.TruncationMode.Fade
+                }
+                Silica.Label {
+                    id: timeText
+                    anchors.right: parent.right
+                    anchors.verticalCenter: nameText.verticalCenter
+                    text: row.time
+                    color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    font.features: ({
+                            "tnum": 1
+                        })
+                }
+            }
+
             Silica.Label {
-                id: timeText
-                anchors.right: parent.right
-                anchors.verticalCenter: nameText.verticalCenter
-                text: row.time
-                color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                width: parent.width
+                text: row.snippet
+                color: row.down ? Silica.Theme.highlightColor : (row.unread ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor)
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                font.features: ({
-                        "tnum": 1
-                    })
+                truncationMode: Silica.TruncationMode.Fade
+                visible: text.length > 0
             }
-        }
 
-        Silica.Label {
-            width: parent.width
-            text: row.snippet
-            color: row.down ? Silica.Theme.highlightColor : (row.unread ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor)
-            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-            truncationMode: Silica.TruncationMode.Fade
-            visible: text.length > 0
-        }
-
-        Silica.Label {
-            width: parent.width
-            text: row.account
-            color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
-            font.pixelSize: Silica.Theme.fontSizeTiny
-            truncationMode: Silica.TruncationMode.Fade
-            visible: text.length > 0
+            Silica.Label {
+                width: parent.width
+                text: row.account
+                color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeTiny
+                truncationMode: Silica.TruncationMode.Fade
+                visible: text.length > 0
+            }
         }
     }
 
     MouseArea {
         id: area
+
+        property real pressX: 0
+        property real pressY: 0
+        property bool swiping: false
+        property bool swiped: false
+
         anchors.fill: parent
-        onClicked: row.activated()
+        enabled: !dismissAnimation.running
+        onPressed: mouse => {
+            pressX = mouse.x;
+            pressY = mouse.y;
+            swiping = false;
+            swiped = false;
+        }
+        onPositionChanged: mouse => {
+            const dx = mouse.x - pressX;
+            // Claim the drag before the pager's own threshold so it can't steal it.
+            if (!swiping && dx > Qt.styleHints.startDragDistance / 2 && dx > 2 * Math.abs(mouse.y - pressY)) {
+                swiping = true;
+                preventStealing = true;
+            }
+            if (swiping)
+                content.x = Math.max(0, dx);
+        }
+        onReleased: {
+            if (!swiping)
+                return;
+            swiped = true;
+            swiping = false;
+            preventStealing = false;
+            if (content.x > row.width / 3)
+                dismissAnimation.start();
+            else
+                snapBack.start();
+        }
+        onCanceled: {
+            swiping = false;
+            preventStealing = false;
+            snapBack.start();
+        }
+        onClicked: {
+            if (!swiped)
+                row.activated();
+        }
     }
 }
