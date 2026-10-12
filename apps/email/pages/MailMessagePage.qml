@@ -41,6 +41,7 @@ Page {
     // compose sheet (defaultTo, defaultSubject, defaultBody) so the
     // user lands in a draft that already quotes the original.
     signal replyRequested(var prefill)
+    signal moveRequested(string kind)
 
     // ── Derived ───────────────────────────────────────────────────
     readonly property var mail: typeof MailService !== "undefined" ? MailService : null
@@ -59,50 +60,40 @@ Page {
         color: MColors.background
     }
 
-    // Action bar at top — back arrow, then per-message actions (archive,
-    // trash, reply). Spec-tight: 8-px gap between icon and label per the
-    // DS button spacing rule we already fixed.
-    MActionBar {
+    MTopBar {
         id: actionBar
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-
-        backLabel: "Inbox"
+        showBack: true
         onBackClicked: page.back()
 
         actions: [
-            {
-                icon: "archive",
-                label: "Archive"
+            MIconButton {
+                iconName: "archive"
+                a11yName: "Archive"
+                onClicked: page.moveRequested("archive")
             },
-            {
-                icon: "trash",
-                label: "Trash"
+            MIconButton {
+                iconName: "trash"
+                a11yName: "Move to Trash"
+                onClicked: page.moveRequested("trash")
             },
-            {
-                icon: "arrow-bend-up-left",
-                label: "Reply"
+            MIconButton {
+                iconName: "arrow-bend-up-left"
+                a11yName: "Reply"
+                onClicked: {
+                    const subj = page.subject.trim();
+                    const reSubj = /^re:/i.test(subj) ? subj : ("Re: " + subj);
+                    const quote = page.bodyPlain.split("\n").map(l => "> " + l).join("\n");
+                    page.replyRequested({
+                        "defaultTo": page.fromAddr,
+                        "defaultSubject": reSubj,
+                        "defaultBody": "\n\n" + quote
+                    });
+                }
             }
         ]
-        onActionSelected: index => {
-            if (!page.mail)
-                return;
-            if (index === 0)
-                page.mail.moveToArchive(page.messageId);
-            else if (index === 1)
-                page.mail.moveToTrash(page.messageId);
-            else if (index === 2) {
-                const subj = (page.subject || "").trim();
-                const reSubj = /^re:/i.test(subj) ? subj : ("Re: " + subj);
-                const quote = (page.bodyPlain || "").split("\n").map(l => "> " + l).join("\n");
-                page.replyRequested({
-                    "defaultTo": page.fromAddr || "",
-                    "defaultSubject": reSubj,
-                    "defaultBody": "\n\n" + quote
-                });
-            }
-        }
     }
 
     // Header (subject + from + to + date) — DS Title 3 for subject,
@@ -285,6 +276,10 @@ Page {
             clip: true
             model: page.attachments
             delegate: Rectangle {
+                id: attachment
+
+                required property var modelData
+
                 anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                 width: nameLabel.implicitWidth + 36
                 height: 32
@@ -306,7 +301,7 @@ Page {
                     Text {
                         id: nameLabel
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.name || "attachment"
+                        text: attachment.modelData.name || "attachment"
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeEyebrow

@@ -1,7 +1,11 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonOS.Services
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -41,6 +45,43 @@ MApp {
     // touching the dead backend and crashing.
     readonly property bool serviceAvailable: mail !== null && mail.accounts !== null
 
+    // Archive/Trash are deferred until the Undo snackbar expires.
+    property string pendingMoveId: ""
+    property string pendingMoveKind: ""
+
+    function commitPendingMove() {
+        if (pendingMoveId === "")
+            return;
+        const id = pendingMoveId;
+        const kind = pendingMoveKind;
+        pendingMoveId = "";
+        pendingMoveKind = "";
+        const ok = kind === "archive" ? mail.moveToArchive(id) : mail.moveToTrash(id);
+        if (!ok)
+            snackbar.show(kind === "archive" ? "No Archive folder on this account" : "Couldn't move to Trash. Try again.", "");
+    }
+
+    function notify(message, action) {
+        commitPendingMove();
+        snackbar.show(message, action);
+    }
+
+    function requestMove(messageId, kind) {
+        notify(kind === "archive" ? "Message archived" : "Message moved to Trash", "Undo");
+        pendingMoveId = messageId;
+        pendingMoveKind = kind;
+        navigationStack.pop();
+    }
+
+    function _back(page) {
+        page.back();
+    }
+
+    navigationDepth: navigationStack.depth - 1
+
+    onBackPressed: _back(navigationStack.currentItem)
+    Component.onDestruction: commitPendingMove()
+
     Rectangle {
         anchors.fill: parent
         color: MColors.background
@@ -52,6 +93,19 @@ MApp {
         initialItem: inboxComponent
     }
 
+    MSnackbar {
+        id: snackbar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: MSpacing.md
+        onActionTriggered: {
+            emailApp.pendingMoveId = "";
+            emailApp.pendingMoveKind = "";
+        }
+        onExpired: emailApp.commitPendingMove()
+    }
+
     // ── Inbox page ─────────────────────────────────────────────────
     Component {
         id: inboxComponent
@@ -61,8 +115,17 @@ MApp {
 
             signal messageOpenRequested(string messageId)
 
-            readonly property int accountCount: emailApp.serviceAvailable && emailApp.mail.accounts ? (emailApp.mail.accounts.rowCount ? emailApp.mail.accounts.rowCount() : 0) : 0
-            readonly property int messageCount: emailApp.serviceAvailable && emailApp.mail.messages ? (emailApp.mail.messages.rowCount ? emailApp.mail.messages.rowCount() : 0) : 0
+            // rowCount() is not notifiable; reading currentAccountId re-evaluates
+            // this on currentAccountChanged, which fires on account add/remove.
+            readonly property bool hasAccount: emailApp.serviceAvailable && emailApp.mail.currentAccountId !== "" && emailApp.mail.accounts.rowCount() > 0
+            readonly property int messageCount: messageList.count
+            readonly property string syncState: emailApp.serviceAvailable ? emailApp.mail.syncState : ""
+            readonly property bool loading: messageCount === 0 && syncState !== "idle" && syncState !== "error"
+
+            onHasAccountChanged: if (hasAccount)
+                emailApp.mail.refresh()
+            Component.onCompleted: if (hasAccount)
+                emailApp.mail.refresh()
 
             // OAuth flow status surfaced under the Sign-in buttons.
             // Updated from the Connections block below as the helper
@@ -138,7 +201,7 @@ MApp {
                         }
                         Text {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "Mail service unavailable"
+                            text: "Mail isn't available"
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeHeadline
@@ -147,7 +210,7 @@ MApp {
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             Layout.fillWidth: true
-                            text: "QMF (the mail backend) is not running. Restart the device or check `systemctl --user status marathon-mailserver.service`."
+                            text: "Mail couldn't open your mailbox. Close Mail and open it again. If that doesn't help, restart your phone."
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeFootnote
@@ -160,7 +223,7 @@ MApp {
                 // State 2 — no account configured.
                 Item {
                     anchors.fill: parent
-                    visible: emailApp.serviceAvailable && inboxPage.accountCount === 0
+                    visible: emailApp.serviceAvailable && !inboxPage.hasAccount
 
                     ColumnLayout {
                         anchors.centerIn: parent
@@ -184,7 +247,7 @@ MApp {
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             Layout.fillWidth: true
-                            text: "Sign in with Gmail or Outlook. Your password never touches Marathon — only an OAuth refresh token stored in your keyring."
+                            text: "Sign in with Google or Microsoft, or use IMAP for any other provider."
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeFootnote
@@ -252,59 +315,99 @@ MApp {
                 // State 3 — account configured.
                 Item {
                     anchors.fill: parent
-                    visible: emailApp.serviceAvailable && inboxPage.accountCount > 0
+                    visible: inboxPage.hasAccount
 
-                    RowLayout {
-                        id: captionRow
+                    Text {
+                        id: captionText
                         anchors {
                             top: parent.top
                             left: parent.left
                             right: parent.right
-                            topMargin: 8
+                            topMargin: MSpacing.sm
                             leftMargin: MSpacing.lg
                             rightMargin: MSpacing.lg
                         }
-                        spacing: MSpacing.md
+                        text: {
+                            const unread = emailApp.mail.unreadCount;
+                            const total = inboxPage.messageCount;
+                            if (unread > 0)
+                                return unread + " unread · " + total + " total";
+                            return total + " total";
+                        }
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: MTypography.weightBold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                        font.capitalization: Font.AllUppercase
+                    }
 
-                        Text {
-                            text: {
-                                if (!emailApp.serviceAvailable)
-                                    return "";
-                                const unread = emailApp.mail.unreadCount;
-                                const total = inboxPage.messageCount;
-                                if (unread > 0)
-                                    return unread + " unread · " + total + " total";
-                                return total + " total";
+                    Rectangle {
+                        id: syncErrorBanner
+                        visible: inboxPage.syncState === "error" && inboxPage.messageCount > 0
+                        anchors.top: captionText.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.margins: MSpacing.md
+                        height: visible ? bannerRow.implicitHeight + MSpacing.md : 0
+                        radius: MRadius.md
+                        color: MColors.bb10Elevated
+                        border.width: 1
+                        border.color: MColors.errorDim
+
+                        RowLayout {
+                            id: bannerRow
+                            anchors.fill: parent
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: MSpacing.sm
+                            spacing: MSpacing.sm
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Couldn't check for new mail. Check your connection and try again."
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                wrapMode: Text.WordWrap
                             }
-                            color: MColors.textSecondary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeEyebrow
-                            font.weight: MTypography.weightBold
-                            font.letterSpacing: MTypography.trackingEyebrow
-                            font.capitalization: Font.AllUppercase
-                        }
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 1
-                        }
-                        Text {
-                            text: "Sort: Newest"
-                            color: MColors.marathonTealBright
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeEyebrow
-                            font.weight: MTypography.weightBold
-                            font.letterSpacing: MTypography.trackingEyebrow
-                            font.capitalization: Font.AllUppercase
+                            MButton {
+                                text: "Retry"
+                                size: "compact"
+                                onClicked: emailApp.mail.refresh()
+                            }
                         }
                     }
 
-                    // Inbox-zero.
                     Item {
-                        anchors.fill: parent
-                        anchors.topMargin: captionRow.height + 8
-                        visible: inboxPage.messageCount === 0
+                        id: listArea
+                        anchors {
+                            top: syncErrorBanner.visible ? syncErrorBanner.bottom : captionText.bottom
+                            topMargin: MSpacing.sm
+                            bottom: parent.bottom
+                            left: parent.left
+                            right: parent.right
+                        }
+
                         ColumnLayout {
                             anchors.centerIn: parent
+                            visible: inboxPage.loading
+                            spacing: MSpacing.md
+                            MActivityIndicator {
+                                Layout.alignment: Qt.AlignHCenter
+                                running: parent.visible
+                            }
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Checking for mail…"
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                            }
+                        }
+
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            visible: inboxPage.messageCount === 0 && inboxPage.syncState === "idle"
                             spacing: MSpacing.sm
                             Icon {
                                 Layout.alignment: Qt.AlignHCenter
@@ -322,170 +425,183 @@ MApp {
                             }
                             Text {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: emailApp.mail.syncState === "syncing" ? "Syncing…" : "All caught up."
+                                text: "All caught up."
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
                             }
                         }
-                    }
 
-                    ListView {
-                        id: messageList
-                        visible: inboxPage.messageCount > 0
-                        anchors {
-                            top: captionRow.bottom
-                            topMargin: 8
-                            bottom: parent.bottom
-                            left: parent.left
-                            right: parent.right
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            width: parent.width - MSpacing.xl * 2
+                            visible: inboxPage.messageCount === 0 && inboxPage.syncState === "error"
+                            spacing: MSpacing.md
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Couldn't load your mail"
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeHeadline
+                                font.weight: MTypography.weightDemiBold
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Check your connection, then try again. If it keeps failing, your provider may need you to sign in again."
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                            }
+                            MButton {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Retry"
+                                variant: "primary"
+                                onClicked: emailApp.mail.refresh()
+                            }
                         }
-                        clip: true
-                        model: emailApp.mail ? emailApp.mail.messages : null
-                        delegate: Item {
-                            width: messageList.width
-                            height: rowContent.implicitHeight + 24
 
-                            Rectangle {
-                                anchors.fill: parent
-                                color: model.unread ? Qt.rgba(0, 191 / 255, 165 / 255, 0.025) : "transparent"
-                            }
-                            Rectangle {
-                                visible: model.unread
-                                anchors.left: parent.left
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: 3
-                                color: MColors.marathonTealBright
-                            }
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                height: 1
-                                color: MColors.whiteOverlay04
-                            }
+                        ListView {
+                            id: messageList
+                            anchors.fill: parent
+                            visible: inboxPage.messageCount > 0
+                            clip: true
+                            bottomMargin: composeFab.height + MSpacing.lg * 2
+                            model: emailApp.mail ? emailApp.mail.messages : null
+                            delegate: Item {
+                                id: messageRow
+                                required property var model
+                                readonly property bool pendingMove: String(model.messageId) === emailApp.pendingMoveId
 
-                            Row {
-                                id: rowContent
-                                anchors.fill: parent
-                                anchors.leftMargin: MSpacing.lg
-                                anchors.rightMargin: MSpacing.lg
-                                anchors.topMargin: 12
-                                anchors.bottomMargin: 12
-                                spacing: 14
-
-                                Rectangle {
-                                    width: 36
-                                    height: 36
-                                    radius: MRadius.md
-                                    color: model.tint || MColors.bb10Card
-                                    border.width: 1
-                                    border.color: MColors.whiteOverlay08
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: (model.from || "?").substring(0, 1).toUpperCase()
-                                        color: "#ffffff"
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeFootnote
-                                        font.weight: MTypography.weightDemiBold
-                                    }
-                                }
-
-                                Column {
-                                    width: rowContent.width - 36 - 14
-                                    spacing: 2
-                                    Item {
-                                        width: parent.width
-                                        height: fromText.implicitHeight
-                                        Text {
-                                            id: fromText
-                                            anchors.left: parent.left
-                                            anchors.right: timeText.left
-                                            anchors.rightMargin: 8
-                                            text: model.from || ""
-                                            color: MColors.textPrimary
-                                            font.family: MTypography.fontFamily
-                                            font.pixelSize: MTypography.sizeBody
-                                            font.weight: model.unread ? MTypography.weightBold : MTypography.weightMedium
-                                            elide: Text.ElideRight
-                                        }
-                                        Text {
-                                            id: timeText
-                                            anchors.right: parent.right
-                                            anchors.verticalCenter: fromText.verticalCenter
-                                            text: model.timestamp || ""
-                                            color: MColors.textSecondary
-                                            font.family: MTypography.fontFamily
-                                            font.pixelSize: MTypography.sizeEyebrow
-                                        }
-                                    }
-                                    Text {
-                                        width: parent.width
-                                        text: model.subject || ""
-                                        color: MColors.textPrimary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeFootnote
-                                        font.weight: model.unread ? MTypography.weightDemiBold : MTypography.weightRegular
-                                        elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        width: parent.width
-                                        text: model.snippet || ""
-                                        color: MColors.textSecondary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeCaption
-                                        elide: Text.ElideRight
-                                    }
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
+                                function open() {
                                     if (model.messageId) {
                                         emailApp.mail.markAsRead(model.messageId, true);
                                         inboxPage.messageOpenRequested(String(model.messageId));
                                     }
                                 }
+
+                                width: messageList.width
+                                height: pendingMove ? 0 : rowContent.implicitHeight + 24
+                                visible: !pendingMove
+
+                                Accessible.role: Accessible.Button
+                                Accessible.name: (model.unread ? "Unread. " : "") + (model.from || "") + ", " + (model.subject || "")
+                                Accessible.onPressAction: open()
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: messageRow.model.unread ? MColors.tealTintDark : "transparent"
+                                }
+                                Rectangle {
+                                    visible: messageRow.model.unread
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: 3
+                                    color: MColors.marathonTealBright
+                                }
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    height: 1
+                                    color: MColors.whiteOverlay04
+                                }
+
+                                Row {
+                                    id: rowContent
+                                    anchors.fill: parent
+                                    anchors.leftMargin: MSpacing.lg
+                                    anchors.rightMargin: MSpacing.lg
+                                    anchors.topMargin: 12
+                                    anchors.bottomMargin: 12
+                                    spacing: 14
+
+                                    Rectangle {
+                                        width: 36
+                                        height: 36
+                                        radius: MRadius.md
+                                        color: messageRow.model.tint || MColors.bb10Card
+                                        border.width: 1
+                                        border.color: MColors.whiteOverlay08
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: (messageRow.model.from || "?").substring(0, 1).toUpperCase()
+                                            color: MColors.textPrimary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: MTypography.sizeFootnote
+                                            font.weight: MTypography.weightDemiBold
+                                        }
+                                    }
+
+                                    Column {
+                                        width: rowContent.width - 36 - 14
+                                        spacing: 2
+                                        Item {
+                                            width: parent.width
+                                            height: fromText.implicitHeight
+                                            Text {
+                                                id: fromText
+                                                anchors.left: parent.left
+                                                anchors.right: timeText.left
+                                                anchors.rightMargin: 8
+                                                text: messageRow.model.from || ""
+                                                color: MColors.textPrimary
+                                                font.family: MTypography.fontFamily
+                                                font.pixelSize: MTypography.sizeBody
+                                                font.weight: messageRow.model.unread ? MTypography.weightBold : MTypography.weightMedium
+                                                elide: Text.ElideRight
+                                            }
+                                            Text {
+                                                id: timeText
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: fromText.verticalCenter
+                                                text: messageRow.model.timestamp || ""
+                                                color: MColors.textSecondary
+                                                font.family: MTypography.fontFamily
+                                                font.pixelSize: MTypography.sizeEyebrow
+                                            }
+                                        }
+                                        Text {
+                                            width: parent.width
+                                            text: messageRow.model.subject || ""
+                                            color: MColors.textPrimary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: MTypography.sizeFootnote
+                                            font.weight: messageRow.model.unread ? MTypography.weightDemiBold : MTypography.weightRegular
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            width: parent.width
+                                            text: messageRow.model.snippet || ""
+                                            color: MColors.textSecondary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: MTypography.sizeCaption
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: messageRow.open()
+                                }
                             }
                         }
                     }
-                }
 
-                // Sync error overlay.
-                Rectangle {
-                    visible: emailApp.serviceAvailable && emailApp.mail.syncState === "error"
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: MSpacing.md
-                    height: errorText.implicitHeight + 24
-                    radius: MRadius.md
-                    color: MColors.bb10Elevated
-                    border.width: 1
-                    border.color: Qt.rgba(239 / 255, 68 / 255, 68 / 255, 0.3)
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: 14
-                        anchors.rightMargin: 14
-                        spacing: 12
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "x"
-                            size: 16
-                            color: MColors.error
-                        }
-                        Text {
-                            id: errorText
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - 28
-                            text: emailApp.mail.lastError || "Sync error"
-                            color: MColors.error
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                            wrapMode: Text.WordWrap
-                        }
+                    MFloatingActionButton {
+                        id: composeFab
+                        label: "New message"
+                        iconName: "pencil-simple"
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.rightMargin: MSpacing.lg
+                        anchors.bottomMargin: MSpacing.lg + (snackbar.open ? snackbar.height + MSpacing.md : 0)
+                        onClicked: navigationStack.push(composeComponent, {
+                            "restoreDraft": true
+                        })
                     }
                 }
             }
@@ -504,7 +620,9 @@ MApp {
         id: messageComponent
 
         MailMessagePage {
+            id: messagePage
             onBack: navigationStack.pop()
+            onMoveRequested: kind => emailApp.requestMove(messagePage.messageId, kind)
             onReplyRequested: prefill => {
                 navigationStack.push(composeComponent, prefill || {});
             }
@@ -517,7 +635,11 @@ MApp {
 
         MailComposePage {
             onBack: navigationStack.pop()
-            onSent: navigationStack.pop()
+            onDraftSaved: emailApp.notify("Draft saved", "")
+            onSent: {
+                navigationStack.pop();
+                emailApp.notify("Sending message…", "");
+            }
         }
     }
 

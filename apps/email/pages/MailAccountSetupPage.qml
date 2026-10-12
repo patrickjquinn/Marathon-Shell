@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import MarathonOS.Services
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
@@ -13,9 +14,9 @@ import QtQuick.Controls
 // shipping path for any provider that doesn't speak OAuth (Fastmail,
 // self-hosted IMAP, work mail behind app-passwords).
 //
-// Provider preset hint: tapping Fastmail/iCloud chips below pre-fills the
-// IMAP/SMTP host + port pair for the major password-IMAP providers, so
-// the user only ever enters email + app-password.
+// Known providers fill the server settings from the email domain or a
+// provider chip, so the user only enters email + app password. Server
+// settings stay collapsed unless the provider is unknown.
 Page {
     id: page
 
@@ -24,315 +25,363 @@ Page {
 
     readonly property var mail: typeof MailService !== "undefined" ? MailService : null
 
-    // Form state — bound to TextField text.
-    property string formName: ""
-    property string formEmail: ""
-    property string formImapHost: ""
-    property int formImapPort: 993
-    property int formImapEnc: 1  // 0=none, 1=SSL, 2=STARTTLS
-    property string formSmtpHost: ""
-    property int formSmtpPort: 465
-    property int formSmtpEnc: 1
-    property string formUsername: ""
-    property string formPassword: ""
+    readonly property var presets: ({
+            "fastmail": {
+                "imapHost": "imap.fastmail.com",
+                "imapPort": 993,
+                "imapEnc": 1,
+                "smtpHost": "smtp.fastmail.com",
+                "smtpPort": 465,
+                "smtpEnc": 1
+            },
+            "icloud": {
+                "imapHost": "imap.mail.me.com",
+                "imapPort": 993,
+                "imapEnc": 1,
+                "smtpHost": "smtp.mail.me.com",
+                "smtpPort": 587,
+                "smtpEnc": 2
+            },
+            "yahoo": {
+                "imapHost": "imap.mail.yahoo.com",
+                "imapPort": 993,
+                "imapEnc": 1,
+                "smtpHost": "smtp.mail.yahoo.com",
+                "smtpPort": 465,
+                "smtpEnc": 1
+            }
+        })
+    readonly property var domainPresets: ({
+            "fastmail.com": "fastmail",
+            "fastmail.fm": "fastmail",
+            "icloud.com": "icloud",
+            "me.com": "icloud",
+            "mac.com": "icloud",
+            "yahoo.com": "yahoo",
+            "ymail.com": "yahoo"
+        })
+
+    property string provider: ""
+    property bool showServerSettings: false
+    property int imapEnc: 1  // 0=none, 1=SSL, 2=STARTTLS
+    property int smtpEnc: 1
     property bool busy: false
     property string lastError: ""
+
+    readonly property string email: emailField.text.trim()
+    readonly property bool emailValid: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
+    readonly property bool canSubmit: !busy && emailValid && passwordField.text.length > 0
+
+    function applyPreset(presetId) {
+        provider = presetId;
+        const p = presets[presetId];
+        if (!p) {
+            showServerSettings = true;
+            return;
+        }
+        imapHostField.text = p.imapHost;
+        imapPortField.text = String(p.imapPort);
+        imapEnc = p.imapEnc;
+        smtpHostField.text = p.smtpHost;
+        smtpPortField.text = String(p.smtpPort);
+        smtpEnc = p.smtpEnc;
+    }
+
+    function submit() {
+        lastError = "";
+        if (imapHostField.text.trim() === "" || smtpHostField.text.trim() === "") {
+            showServerSettings = true;
+            lastError = "Enter your provider's incoming and outgoing server names. Their help pages list them.";
+            return;
+        }
+        busy = true;
+        // Defer so the busy state paints before the blocking add call.
+        addTimer.start();
+    }
 
     background: Rectangle {
         color: MColors.background
     }
 
-    function applyPreset(presetId) {
-        if (presetId === "fastmail") {
-            page.formImapHost = "imap.fastmail.com";
-            page.formImapPort = 993;
-            page.formImapEnc = 1;
-            page.formSmtpHost = "smtp.fastmail.com";
-            page.formSmtpPort = 465;
-            page.formSmtpEnc = 1;
-        } else if (presetId === "icloud") {
-            page.formImapHost = "imap.mail.me.com";
-            page.formImapPort = 993;
-            page.formImapEnc = 1;
-            page.formSmtpHost = "smtp.mail.me.com";
-            page.formSmtpPort = 587;
-            page.formSmtpEnc = 2;
-        } else if (presetId === "yahoo") {
-            page.formImapHost = "imap.mail.yahoo.com";
-            page.formImapPort = 993;
-            page.formImapEnc = 1;
-            page.formSmtpHost = "smtp.mail.yahoo.com";
-            page.formSmtpPort = 465;
-            page.formSmtpEnc = 1;
+    Timer {
+        id: addTimer
+        interval: 50
+        onTriggered: {
+            const id = page.mail ? page.mail.addImapAccount(nameField.text.trim() !== "" ? nameField.text.trim() : page.email, page.email, imapHostField.text.trim(), parseInt(imapPortField.text) || 0, page.imapEnc, smtpHostField.text.trim(), parseInt(smtpPortField.text) || 0, page.smtpEnc, usernameField.text.trim() !== "" ? usernameField.text.trim() : page.email, passwordField.text) : "";
+            page.busy = false;
+            if (id !== "") {
+                passwordField.text = "";
+                page.accountCreated(id);
+            } else if (!page.mail) {
+                page.lastError = "Mail isn't available right now. Close Mail and open it again.";
+            } else {
+                page.lastError = "Couldn't sign in. Check your email address and password — many providers need an app password here — and the server settings, then try again.";
+            }
         }
     }
 
-    MActionBar {
-        id: actionBar
+    MTopBar {
+        id: topBar
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        backLabel: "Mail"
+        title: "Add account"
+        showBack: true
         onBackClicked: page.back()
     }
 
     Flickable {
-        anchors.top: actionBar.bottom
+        anchors.top: topBar.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        contentHeight: col.implicitHeight + MSpacing.xl
+        contentHeight: col.implicitHeight + MSpacing.xl * 2
         clip: true
 
         Column {
             id: col
             anchors.left: parent.left
             anchors.right: parent.right
+            anchors.top: parent.top
             anchors.leftMargin: MSpacing.lg
             anchors.rightMargin: MSpacing.lg
             anchors.topMargin: MSpacing.md
             spacing: MSpacing.md
 
             Text {
-                text: "Add mail account"
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeTitle3
-                font.weight: MTypography.weightLight
-                font.letterSpacing: MTypography.trackingTitle3
-            }
-            Text {
                 width: parent.width
-                text: "For Fastmail, iCloud, and other providers that don't use OAuth. Use an app-specific password if your provider requires one."
+                text: "For Fastmail, iCloud, Yahoo and other providers. If your provider uses two-step sign-in, create an app password on their website and use it here."
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
                 wrapMode: Text.WordWrap
             }
 
-            // Preset chips — single tap pre-fills imap/smtp host+port.
-            Row {
+            Flow {
+                width: parent.width
                 spacing: MSpacing.sm
-                MButton {
-                    text: "Fastmail"
-                    onClicked: page.applyPreset("fastmail")
-                }
-                MButton {
-                    text: "iCloud"
-                    onClicked: page.applyPreset("icloud")
-                }
-                MButton {
-                    text: "Yahoo"
-                    onClicked: page.applyPreset("yahoo")
+
+                Repeater {
+                    model: [
+                        {
+                            "id": "fastmail",
+                            "label": "Fastmail"
+                        },
+                        {
+                            "id": "icloud",
+                            "label": "iCloud"
+                        },
+                        {
+                            "id": "yahoo",
+                            "label": "Yahoo"
+                        },
+                        {
+                            "id": "other",
+                            "label": "Other"
+                        }
+                    ]
+
+                    MButton {
+                        required property var modelData
+                        text: modelData.label
+                        size: "compact"
+                        variant: page.provider === modelData.id ? "primary" : "secondary"
+                        onClicked: page.applyPreset(modelData.id)
+                    }
                 }
             }
 
-            // Identity.
-            Label {
-                text: "Your name"
-                color: MColors.textSecondary
-            }
-            TextField {
+            MTextField {
+                id: emailField
                 width: parent.width
-                placeholderText: "Patrick Q."
-                text: page.formName
-                onTextChanged: page.formName = text
-            }
-
-            Label {
-                text: "Email address"
-                color: MColors.textSecondary
-            }
-            TextField {
-                width: parent.width
-                placeholderText: "you@example.com"
-                inputMethodHints: Qt.ImhEmailCharactersOnly
-                text: page.formEmail
+                label: "Email address"
+                placeholder: "you@example.com"
+                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase
+                errorText: page.email !== "" && !page.emailValid && !emailField.focused ? "Enter a full email address, like name@example.com." : ""
                 onTextChanged: {
-                    page.formEmail = text;
-                    // Default username to email if user hasn't customised.
-                    if (page.formUsername === "" || page.formUsername === text.substring(0, text.indexOf("@")))
-                        page.formUsername = text;
+                    const domain = text.split("@")[1] || "";
+                    const preset = page.domainPresets[domain.trim().toLowerCase()];
+                    if (preset && preset !== page.provider)
+                        page.applyPreset(preset);
                 }
             }
 
-            // IMAP.
-            Text {
-                text: "INCOMING (IMAP)"
-                color: MColors.textTertiary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
-                font.weight: MTypography.weightBold
-                font.letterSpacing: MTypography.trackingEyebrow
-                font.capitalization: Font.AllUppercase
-            }
-            Label {
-                text: "Host"
-                color: MColors.textSecondary
-            }
-            TextField {
+            MTextField {
+                id: passwordField
                 width: parent.width
-                placeholderText: "imap.example.com"
-                text: page.formImapHost
-                onTextChanged: page.formImapHost = text
-            }
-            Row {
-                spacing: MSpacing.md
-                Column {
-                    spacing: 2
-                    Label {
-                        text: "Port"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
-                        width: 100
-                        placeholderText: "993"
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        text: page.formImapPort > 0 ? String(page.formImapPort) : ""
-                        onTextChanged: page.formImapPort = parseInt(text) || 0
-                    }
-                }
-                Column {
-                    spacing: 2
-                    Label {
-                        text: "Security"
-                        color: MColors.textSecondary
-                    }
-                    Row {
-                        spacing: MSpacing.xs
-                        MButton {
-                            text: "SSL"
-                            variant: page.formImapEnc === 1 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formImapEnc = 1;
-                                page.formImapPort = 993;
-                            }
-                        }
-                        MButton {
-                            text: "TLS"
-                            variant: page.formImapEnc === 2 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formImapEnc = 2;
-                                page.formImapPort = 143;
-                            }
-                        }
-                        MButton {
-                            text: "None"
-                            variant: page.formImapEnc === 0 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formImapEnc = 0;
-                                page.formImapPort = 143;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // SMTP.
-            Text {
-                text: "OUTGOING (SMTP)"
-                color: MColors.textTertiary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
-                font.weight: MTypography.weightBold
-                font.letterSpacing: MTypography.trackingEyebrow
-                font.capitalization: Font.AllUppercase
-            }
-            Label {
-                text: "Host"
-                color: MColors.textSecondary
-            }
-            TextField {
-                width: parent.width
-                placeholderText: "smtp.example.com"
-                text: page.formSmtpHost
-                onTextChanged: page.formSmtpHost = text
-            }
-            Row {
-                spacing: MSpacing.md
-                Column {
-                    spacing: 2
-                    Label {
-                        text: "Port"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
-                        width: 100
-                        placeholderText: "465"
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        text: page.formSmtpPort > 0 ? String(page.formSmtpPort) : ""
-                        onTextChanged: page.formSmtpPort = parseInt(text) || 0
-                    }
-                }
-                Column {
-                    spacing: 2
-                    Label {
-                        text: "Security"
-                        color: MColors.textSecondary
-                    }
-                    Row {
-                        spacing: MSpacing.xs
-                        MButton {
-                            text: "SSL"
-                            variant: page.formSmtpEnc === 1 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formSmtpEnc = 1;
-                                page.formSmtpPort = 465;
-                            }
-                        }
-                        MButton {
-                            text: "TLS"
-                            variant: page.formSmtpEnc === 2 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formSmtpEnc = 2;
-                                page.formSmtpPort = 587;
-                            }
-                        }
-                        MButton {
-                            text: "None"
-                            variant: page.formSmtpEnc === 0 ? "primary" : "secondary"
-                            onClicked: {
-                                page.formSmtpEnc = 0;
-                                page.formSmtpPort = 25;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Auth.
-            Text {
-                text: "AUTHENTICATION"
-                color: MColors.textTertiary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
-                font.weight: MTypography.weightBold
-                font.letterSpacing: MTypography.trackingEyebrow
-                font.capitalization: Font.AllUppercase
-            }
-            Label {
-                text: "Username"
-                color: MColors.textSecondary
-            }
-            TextField {
-                width: parent.width
-                placeholderText: "Usually your email address"
-                text: page.formUsername
-                onTextChanged: page.formUsername = text
-            }
-            Label {
-                text: "Password / app-password"
-                color: MColors.textSecondary
-            }
-            TextField {
-                width: parent.width
-                placeholderText: "••••••••"
+                label: "Password or app password"
                 echoMode: TextInput.Password
-                text: page.formPassword
-                onTextChanged: page.formPassword = text
             }
 
-            // Error strip.
+            MTextField {
+                id: nameField
+                width: parent.width
+                label: "Your name (shown to recipients)"
+                placeholder: "Optional"
+            }
+
+            Item {
+                width: parent.width
+                height: Math.round(44 * Constants.scaleFactor)
+
+                Accessible.role: Accessible.Button
+                Accessible.name: page.showServerSettings ? "Hide server settings" : "Show server settings"
+                Accessible.onPressAction: page.showServerSettings = !page.showServerSettings
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Server settings"
+                    color: MColors.textPrimary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeBody
+                    font.weight: MTypography.weightMedium
+                }
+                Icon {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: page.showServerSettings ? "caret-up" : "caret-down"
+                    size: 18
+                    color: MColors.textSecondary
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: page.showServerSettings = !page.showServerSettings
+                }
+            }
+
+            Column {
+                width: parent.width
+                spacing: MSpacing.md
+                visible: page.showServerSettings
+
+                Text {
+                    text: "INCOMING (IMAP)"
+                    color: MColors.textTertiary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeEyebrow
+                    font.weight: MTypography.weightBold
+                    font.letterSpacing: MTypography.trackingEyebrow
+                }
+                MTextField {
+                    id: imapHostField
+                    width: parent.width
+                    label: "Server"
+                    placeholder: "imap.example.com"
+                    inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                }
+                Row {
+                    width: parent.width
+                    spacing: MSpacing.sm
+
+                    MTextField {
+                        id: imapPortField
+                        width: Math.round(96 * Constants.scaleFactor)
+                        label: "Port"
+                        text: "993"
+                        inputMethodHints: Qt.ImhDigitsOnly
+                    }
+                    Repeater {
+                        model: [
+                            {
+                                "enc": 1,
+                                "label": "SSL",
+                                "port": 993
+                            },
+                            {
+                                "enc": 2,
+                                "label": "STARTTLS",
+                                "port": 143
+                            },
+                            {
+                                "enc": 0,
+                                "label": "None",
+                                "port": 143
+                            }
+                        ]
+
+                        MButton {
+                            required property var modelData
+                            anchors.bottom: parent.bottom
+                            text: modelData.label
+                            size: "compact"
+                            variant: page.imapEnc === modelData.enc ? "primary" : "secondary"
+                            onClicked: {
+                                page.imapEnc = modelData.enc;
+                                imapPortField.text = String(modelData.port);
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "OUTGOING (SMTP)"
+                    color: MColors.textTertiary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeEyebrow
+                    font.weight: MTypography.weightBold
+                    font.letterSpacing: MTypography.trackingEyebrow
+                }
+                MTextField {
+                    id: smtpHostField
+                    width: parent.width
+                    label: "Server"
+                    placeholder: "smtp.example.com"
+                    inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                }
+                Row {
+                    width: parent.width
+                    spacing: MSpacing.sm
+
+                    MTextField {
+                        id: smtpPortField
+                        width: Math.round(96 * Constants.scaleFactor)
+                        label: "Port"
+                        text: "465"
+                        inputMethodHints: Qt.ImhDigitsOnly
+                    }
+                    Repeater {
+                        model: [
+                            {
+                                "enc": 1,
+                                "label": "SSL",
+                                "port": 465
+                            },
+                            {
+                                "enc": 2,
+                                "label": "STARTTLS",
+                                "port": 587
+                            },
+                            {
+                                "enc": 0,
+                                "label": "None",
+                                "port": 25
+                            }
+                        ]
+
+                        MButton {
+                            required property var modelData
+                            anchors.bottom: parent.bottom
+                            text: modelData.label
+                            size: "compact"
+                            variant: page.smtpEnc === modelData.enc ? "primary" : "secondary"
+                            onClicked: {
+                                page.smtpEnc = modelData.enc;
+                                smtpPortField.text = String(modelData.port);
+                            }
+                        }
+                    }
+                }
+
+                MTextField {
+                    id: usernameField
+                    width: parent.width
+                    label: "Username"
+                    placeholder: "Same as email address"
+                    inputMethodHints: Qt.ImhNoAutoUppercase
+                }
+            }
+
             Text {
                 width: parent.width
                 visible: page.lastError !== ""
@@ -343,40 +392,24 @@ Page {
                 wrapMode: Text.WordWrap
             }
 
-            // Submit / cancel.
-            Row {
-                spacing: MSpacing.md
-                anchors.right: parent.right
-                MButton {
-                    text: "Cancel"
-                    onClicked: page.back()
-                }
-                MButton {
-                    text: page.busy ? "Adding…" : "Add account"
-                    variant: "primary"
-                    disabled: page.busy || page.formEmail.length === 0 || page.formImapHost.length === 0 || page.formSmtpHost.length === 0 || page.formUsername.length === 0 || page.formPassword.length === 0
-                    onClicked: {
-                        if (!page.mail) {
-                            page.lastError = "Mail service unavailable.";
-                            return;
-                        }
-                        page.busy = true;
-                        page.lastError = "";
-                        const id = page.mail.addImapAccount(page.formName.length > 0 ? page.formName : page.formEmail, page.formEmail, page.formImapHost, page.formImapPort, page.formImapEnc, page.formSmtpHost, page.formSmtpPort, page.formSmtpEnc, page.formUsername, page.formPassword);
-                        page.busy = false;
-                        if (id && id.length > 0) {
-                            page.formPassword = "";
-                            page.accountCreated(id);
-                        } else {
-                            page.lastError = "Could not save account. Check fields and try again.";
-                        }
-                    }
-                }
+            MButton {
+                width: parent.width
+                text: page.busy ? "Signing in…" : "Add account"
+                variant: "primary"
+                controlState: page.busy ? "loading" : "default"
+                disabled: !page.canSubmit
+                onClicked: page.submit()
             }
 
-            Item {
-                width: 1
-                height: MSpacing.xl
+            Text {
+                width: parent.width
+                visible: page.busy
+                text: "Checking your account. This can take a few seconds."
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
             }
         }
     }

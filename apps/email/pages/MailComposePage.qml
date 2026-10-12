@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import MarathonOS.Services
 import MarathonUI.Controls
+import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -26,10 +27,8 @@ import QtQuick.Controls
 //   • Attachment list starts empty; attachments are picked via the
 //     XDG-portal file picker (Day 10 wires the portal call).
 //
-// Layout follows the same DS chrome as MailMessagePage: MActionBar at
-// top, header column for the recipient fields, wrap-text body. Send is
-// an MButton in the action bar's right cluster, primary variant so it
-// reads as the affirmative action.
+// Layout: MTopBar with a primary Send button, header column for the
+// recipient fields, wrap-text body. Leaving with edits saves a draft.
 Page {
     id: page
 
@@ -40,51 +39,96 @@ Page {
     property string defaultSubject: ""
     property string defaultBody: ""
 
+    // FAB-opened compose restores the saved draft; replies start from their prefill.
+    property bool restoreDraft: false
+
     // ── Out / signals ─────────────────────────────────────────────
     signal back
     signal sent
+    signal draftSaved
 
     // ── Derived ───────────────────────────────────────────────────
     readonly property var mail: typeof MailService !== "undefined" ? MailService : null
     readonly property bool serviceReady: mail !== null && mail.currentAccountId !== ""
     readonly property bool canSend: serviceReady && toField.text.trim() !== ""
+    readonly property string draftKey: "email/composeDraft"
+    property var initialFields: ({})
+    readonly property var fields: ({
+            "to": toField.text,
+            "cc": ccField.text,
+            "subject": subjectField.text,
+            "body": bodyArea.text
+        })
+    readonly property bool dirty: JSON.stringify(fields) !== JSON.stringify(initialFields)
+    property string sendError: ""
+
+    function persistDraft() {
+        const empty = String(fields.to + fields.cc + fields.subject + fields.body).trim() === "";
+        SettingsManagerCpp.set(draftKey, empty ? "" : JSON.stringify(fields));
+        initialFields = fields;
+        return !empty;
+    }
+
+    function send() {
+        if (!canSend)
+            return;
+        sendError = "";
+        if (mail.send(toField.text.trim(), ccField.text.trim(), subjectField.text, bodyArea.text, [])) {
+            SettingsManagerCpp.set(draftKey, "");
+            sent();
+        } else {
+            sendError = "Your message wasn't sent. Check the email address and your connection, then try again.";
+        }
+    }
 
     background: Rectangle {
         color: MColors.background
     }
 
-    // ── Action bar — back + send ──────────────────────────────────
-    MActionBar {
+    onBack: {
+        autosave.stop();
+        if (dirty && persistDraft())
+            draftSaved();
+    }
+    onFieldsChanged: if (dirty)
+        autosave.restart()
+    Component.onCompleted: {
+        const saved = restoreDraft ? SettingsManagerCpp.get(draftKey, "") : "";
+        if (saved !== "") {
+            const d = JSON.parse(saved);
+            toField.text = d.to;
+            ccField.text = d.cc;
+            subjectField.text = d.subject;
+            bodyArea.text = d.body;
+        }
+        initialFields = fields;
+    }
+
+    Timer {
+        id: autosave
+        interval: 2000
+        onTriggered: page.persistDraft()
+    }
+
+    MTopBar {
         id: actionBar
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-
-        backLabel: "Cancel"
+        title: page.defaultSubject !== "" ? "Reply" : "New message"
+        showBack: true
         onBackClicked: page.back()
 
-        // Right-side primary action; per DS this lives in the trailing
-        // cluster as a label-only chip, not a separate MButton — the bar
-        // already enforces the DS press-spring + spacing.
         actions: [
-            {
-                icon: "send",
-                label: "Send"
+            MButton {
+                text: "Send"
+                variant: "primary"
+                size: "compact"
+                iconName: "paper-plane-right"
+                disabled: !page.canSend
+                onClicked: page.send()
             }
         ]
-        onActionSelected: index => {
-            if (!page.canSend)
-                return;
-            const ok = page.mail.send(toField.text.trim(), ccField.text.trim(), subjectField.text, bodyArea.text,
-            /* attachments */ []);
-            if (ok) {
-                page.sent();
-                page.back();
-            } else {
-                errorBanner.message = "Send failed — see syncState / lastError.";
-                errorBanner.visible = true;
-            }
-        }
     }
 
     // ── Service-unavailable banner ────────────────────────────────
@@ -95,7 +139,7 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: MSpacing.md
-        height: serviceBannerText.implicitHeight + 24
+        height: serviceBannerText.implicitHeight + MSpacing.lg
         radius: MRadius.md
         color: MColors.bb10Elevated
         border.width: 1
@@ -103,8 +147,8 @@ Page {
         Text {
             id: serviceBannerText
             anchors.fill: parent
-            anchors.margins: 12
-            text: page.mail === null ? "Mail backend is not running. Restart the device or check marathon-mailserver.service." : "No account configured. Add a Gmail or Outlook account from the inbox empty state first."
+            anchors.margins: MSpacing.sm
+            text: page.mail === null ? "Mail isn't available right now. Close Mail and open it again." : "Add a mail account before sending. Go back to the inbox to sign in."
             color: MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeFootnote
@@ -214,28 +258,40 @@ Page {
     // ── Error banner (post-send failure) ──────────────────────────
     Rectangle {
         id: errorBanner
-        property string message: ""
-        visible: false
+        visible: page.sendError !== ""
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: MSpacing.md
-        height: errorBannerText.implicitHeight + 24
+        height: errorRow.implicitHeight + MSpacing.md
         radius: MRadius.md
         color: MColors.bb10Elevated
         border.width: 1
-        border.color: Qt.rgba(239 / 255, 68 / 255, 68 / 255, 0.3)
+        border.color: MColors.errorDim
 
-        Text {
-            id: errorBannerText
+        Row {
+            id: errorRow
             anchors.fill: parent
-            anchors.margins: 12
-            text: errorBanner.message
-            color: MColors.error
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-            wrapMode: Text.WordWrap
-            verticalAlignment: Text.AlignVCenter
+            anchors.leftMargin: MSpacing.md
+            anchors.rightMargin: MSpacing.sm
+            spacing: MSpacing.sm
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - retryButton.width - parent.spacing
+                text: page.sendError
+                color: MColors.textPrimary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                wrapMode: Text.WordWrap
+            }
+            MButton {
+                id: retryButton
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Retry"
+                size: "compact"
+                onClicked: page.send()
+            }
         }
     }
 }
