@@ -4,9 +4,7 @@
 #include "displaymanagercpp.h"
 #include "../services/applifecyclemanager.h"
 
-#include <QDateTime>
 #include <QProcess>
-#include <QUuid>
 
 PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
                                              DisplayManagerCpp   *displayManager,
@@ -179,9 +177,6 @@ void PowerPolicyController::performCriticalPowerAction() {
 }
 
 QString PowerPolicyController::wake(const QString &reason) {
-    m_wakeReason = reason;
-    emit wakeReasonChanged();
-
     if (m_displayManager)
         m_displayManager->setScreenState(true);
 
@@ -194,12 +189,9 @@ QString PowerPolicyController::wake(const QString &reason) {
 }
 
 bool PowerPolicyController::sleep() {
-    // Backwards-compatible alias for enterDoze(). The historic semantics
-    // of sleep() (call logind.Suspend → full S3) are preserved as
-    // deepSleep() below for the explicit "max battery" path. Routing
-    // sleep() to Doze matches the iOS / Android user model: the
-    // visible "sleep" state keeps push live; deep suspend is a power
-    // user choice.
+    // Backwards-compatible alias for enterDoze(). Routing sleep() to
+    // Doze matches the iOS / Android user model: the visible "sleep"
+    // state keeps push live.
     return enterDoze();
 }
 
@@ -285,72 +277,4 @@ bool PowerPolicyController::exitDoze() {
     emit dozeExited();
     emit systemWaking(QStringLiteral("doze-exit"));
     return true;
-}
-
-bool PowerPolicyController::deepSleep() {
-    if (!canSleep()) {
-        return false;
-    }
-
-    qInfo() << "[PowerPolicyController] Entering DEEP SLEEP (S3) — tearing down wifi+modem";
-    emit systemSleeping();
-
-    if (m_displayManager)
-        m_displayManager->setScreenState(false);
-
-    if (m_powerManager) {
-        m_powerManager->suspend();
-        return true;
-    }
-    return false;
-}
-
-QString PowerPolicyController::scheduleWakeEpoch(qint64 epochSeconds, const QString &reason) {
-    // Coalesce wake alarms to 60-second windows. Android's AlarmManager
-    // has done this via setInexactRepeating since API 19; iOS BGTaskScheduler
-    // uses opportunistic scheduling with earliestBeginDate as a lower
-    // bound. Marathon rounds each requested wake UP to the next
-    // multiple of kAlarmSnapSeconds so that 5 apps requesting "wake
-    // me at 09:00, 09:00:12, 09:00:37, 09:00:58" all land at the same
-    // RTC alarm slot — one wake instead of four. Compatible with the
-    // existing scheduledWakes surface; QML sees the snapped time in
-    // epochSeconds. Callers needing exact wake latency can opt out by
-    // passing an already-snapped value.
-    constexpr qint64 kAlarmSnapSeconds = 60;
-    if (kAlarmSnapSeconds > 1) {
-        const qint64 remainder = epochSeconds % kAlarmSnapSeconds;
-        if (remainder != 0)
-            epochSeconds += (kAlarmSnapSeconds - remainder);
-    }
-
-    const QString wakeId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-
-    QVariantMap   wake;
-    wake.insert("id", wakeId);
-    wake.insert("epochSeconds", epochSeconds);
-    wake.insert("reason", reason);
-    wake.insert("timestamp", QDateTime::currentSecsSinceEpoch());
-    m_scheduledWakes.push_back(wake);
-    emit scheduledWakesChanged();
-
-    if (m_powerManager)
-        m_powerManager->setRtcAlarm(epochSeconds);
-
-    return wakeId;
-}
-
-bool PowerPolicyController::cancelScheduledWake(const QString &wakeId) {
-    for (qsizetype i = 0; i < m_scheduledWakes.size(); i++) {
-        const auto wake = m_scheduledWakes.at(i).toMap();
-        if (wake.value("id").toString() == wakeId) {
-            m_scheduledWakes.removeAt(i);
-            emit scheduledWakesChanged();
-
-            if (m_scheduledWakes.isEmpty() && m_powerManager)
-                m_powerManager->clearRtcAlarm();
-
-            return true;
-        }
-    }
-    return false;
 }
