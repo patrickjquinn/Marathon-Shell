@@ -1,4 +1,3 @@
-import QtCore
 import QtQuick
 import QtWebChannel
 import QtWebEngine
@@ -58,7 +57,7 @@ Item {
             const root = typeof MARATHON_APP_PATH !== "undefined" && MARATHON_APP_PATH ? String(MARATHON_APP_PATH) : "";
             if (root.length > 0)
                 return "file://" + root + "/web/maps.html";
-            return StandardPaths.writableLocation(StandardPaths.GenericDataLocation) + "/marathon-apps/maps/web/maps.html";
+            return "file://" + StandardPaths.genericData + "/marathon-apps/maps/web/maps.html";
         }
         onJavaScriptConsoleMessage: (level, message, lineNumber, source) => {
             if (level >= WebEngineView.WarningMessageLevel)
