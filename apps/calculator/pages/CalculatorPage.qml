@@ -136,6 +136,8 @@ Page {
         InfoLabel {
             objectName: "historyPlaceholder"
             anchors.centerIn: history
+            width: history.width - 2 * Theme.horizontalPageMargin
+            font.pixelSize: Theme.fontSizeLarge
             visible: page.calc.history.length === 0
             text: qsTr("Calculations appear here")
         }
