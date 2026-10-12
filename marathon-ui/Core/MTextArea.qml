@@ -68,10 +68,10 @@ Rectangle {
         anchors.top: parent.top
         anchors.leftMargin: MSpacing.md
         anchors.topMargin: MSpacing.md
-        color: MColors.textHint
+        color: MColors.textTertiary
         font.pixelSize: MTypography.sizeBody
         font.family: MTypography.fontFamily
-        visible: textArea.text.length === 0 && !textArea.activeFocus
+        visible: textArea.text.length === 0 && textArea.preeditText.length === 0
     }
 
     Flickable {

@@ -99,7 +99,7 @@ Item {
         Icon {
             name: root.iconName
             size: root.scaledIconSize
-            color: root.disabled ? MColors.textHint : (root.variant === "primary" ? "#000000" : root.iconColor)
+            color: root.disabled ? MColors.textHint : (root.variant === "primary" ? MColors.textOnAccent : root.iconColor)
             anchors.centerIn: parent
         }
 

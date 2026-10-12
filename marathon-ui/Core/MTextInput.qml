@@ -83,10 +83,10 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: MSpacing.md
         anchors.verticalCenter: parent.verticalCenter
-        color: MColors.textHint
+        color: MColors.textTertiary
         font.pixelSize: MTypography.sizeBody
         font.family: MTypography.fontFamily
-        visible: textInput.text.length === 0 && !textInput.activeFocus
+        visible: textInput.text.length === 0 && textInput.preeditText.length === 0
     }
 
     TextInput {

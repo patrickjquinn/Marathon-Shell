@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -23,7 +25,7 @@ Rectangle {
     Accessible.role: Accessible.Button
     Accessible.name: label !== "" ? label : (mode === "time" ? qsTr("Select time") : qsTr("Select date"))
     Accessible.description: Qt.formatDateTime(selectedDate, mode === "time" ? "hh:mm" : "yyyy-MM-dd")
-    Accessible.onPressAction: pickerSheet.visible = true
+    Accessible.onPressAction: pickerSheet.showing = true
 
     color: MColors.bb10Surface
     radius: MRadius.md
@@ -38,7 +40,7 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: pickerSheet.visible = true
+        onClicked: pickerSheet.showing = true
     }
 
     Row {
@@ -76,8 +78,8 @@ Rectangle {
     MSheet {
         id: pickerSheet
         title: root.label || (root.mode === "date" ? "Select Date" : "Select Time")
-        anchors.fill: parent
-        visible: false
+        // Reparented to the window so the field's clipping container can't hide it.
+        parent: root.Window.window ? root.Window.window.contentItem : root
 
         content: [
             Column {
@@ -94,12 +96,14 @@ Rectangle {
                         model: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
                         currentIndex: root.selectedDate.getMonth()
                         delegate: Text {
+                            required property var modelData
+
                             text: modelData
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
 
@@ -109,12 +113,14 @@ Rectangle {
                         model: 31
                         currentIndex: root.selectedDate.getDate() - 1
                         delegate: Text {
+                            required property int modelData
+
                             text: modelData + 1
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
 
@@ -124,12 +130,14 @@ Rectangle {
                         model: 100
                         currentIndex: root.selectedDate.getFullYear() - 1950
                         delegate: Text {
+                            required property int modelData
+
                             text: modelData + 1950
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
 
@@ -139,12 +147,14 @@ Rectangle {
                         model: 12
                         currentIndex: root.selectedDate.getHours() % 12
                         delegate: Text {
+                            required property int modelData
+
                             text: modelData === 0 ? 12 : modelData
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
 
@@ -162,12 +172,14 @@ Rectangle {
                         model: 60
                         currentIndex: root.selectedDate.getMinutes()
                         delegate: Text {
+                            required property int modelData
+
                             text: modelData < 10 ? "0" + modelData : modelData
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
 
@@ -177,12 +189,14 @@ Rectangle {
                         model: ["AM", "PM"]
                         currentIndex: root.selectedDate.getHours() >= 12 ? 1 : 0
                         delegate: Text {
+                            required property var modelData
+
                             text: modelData
                             font.pixelSize: MTypography.sizeLarge
                             color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                            opacity: Tumbler.tumbler ? 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2) : 1
                         }
                     }
                 }
@@ -194,7 +208,7 @@ Rectangle {
                     MButton {
                         text: "Cancel"
                         variant: "secondary"
-                        onClicked: pickerSheet.visible = false
+                        onClicked: pickerSheet.showing = false
                     }
 
                     MButton {
@@ -204,27 +218,20 @@ Rectangle {
                             var newDate = new Date(root.selectedDate);
 
                             if (root.mode !== "time") {
-                                newDate.setFullYear(yearTumbler.currentIndex + 1950);
-                                newDate.setMonth(monthTumbler.currentIndex);
-                                newDate.setDate(dayTumbler.currentIndex + 1);
+                                var year = yearTumbler.currentIndex + 1950;
+                                var month = monthTumbler.currentIndex;
+                                var daysInMonth = new Date(year, month + 1, 0).getDate();
+                                newDate.setFullYear(year, month, Math.min(dayTumbler.currentIndex + 1, daysInMonth));
                             }
 
                             if (root.mode !== "date") {
-                                var hour = hourTumbler.currentIndex;
-                                if (ampmTumbler.currentIndex === 1) {
-                                    hour += 12;
-                                }
-                                if (hour === 12)
-                                    hour = 0;
-                                if (hour === 24)
-                                    hour = 12;
-                                newDate.setHours(hour);
+                                newDate.setHours(hourTumbler.currentIndex + (ampmTumbler.currentIndex === 1 ? 12 : 0));
                                 newDate.setMinutes(minuteTumbler.currentIndex);
                             }
 
                             root.selectedDate = newDate;
                             root.dateSelected(newDate);
-                            pickerSheet.visible = false;
+                            pickerSheet.showing = false;
                         }
                     }
                 }

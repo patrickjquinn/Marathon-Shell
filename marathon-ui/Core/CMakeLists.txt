@@ -20,10 +20,11 @@ set(CORE_QML_FILES
     MAppIcon.qml
     MHaloedDisplay.qml
     MMarathonMark.qml
+    MPhoneNumber.qml
 )
 
 # Mark singleton
-set_source_files_properties(MBreakpoints.qml PROPERTIES
+set_source_files_properties(MBreakpoints.qml MPhoneNumber.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 

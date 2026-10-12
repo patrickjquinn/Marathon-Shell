@@ -7,7 +7,7 @@ import MarathonOS.Shell
 
 // Marathon DS · Button (ds-components.jsx:DSButtons · marathon-tokens.css .m-btn).
 //
-// Heights: 45 default · 38 compact · 50 large CTA.
+// Heights: 45 default · 38 compact (44 hit area) · 50 large CTA.
 // Radius 4 px (--r-md). Padding 0 18 px (22+ for large). Font 14/600 Sora.
 // Press: scale(0.96), 160 ms spring (--ease-spring).
 //
@@ -95,7 +95,6 @@ Item {
 
     Accessible.role: Accessible.Button
     Accessible.name: text
-    Accessible.description: variant + " button"
     Accessible.onPressAction: if (!disabled && controlState === "default")
         clicked()
 
@@ -211,6 +210,8 @@ Item {
 
         scale: mouseArea.pressed ? 0.96 : 1.0
         Behavior on scale {
+            enabled: !MMotion.reduceMotion
+
             SpringAnimation {
                 spring: MMotion.springMedium
                 damping: MMotion.dampingMedium
@@ -251,7 +252,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 name: root.iconName
                 size: root.iconSize
-                color: root.isPrimary ? "#000000" : MColors.textPrimary
+                color: root.isPrimary ? MColors.textOnAccent : MColors.textPrimary
             }
 
             Text {
@@ -265,7 +266,7 @@ Item {
                     if (root.textColor.a > 0)
                         return root.textColor;
                     if (root.isPrimary)
-                        return "#000000";
+                        return MColors.textOnAccent;
                     if (root.variant === "danger")
                         return MColors.error;
                     return MColors.textPrimary;
@@ -273,6 +274,22 @@ Item {
                 font.family: MTypography.fontFamily
                 font.pixelSize: root.fontSize
                 font.weight: Font.DemiBold          // 600 per DS
+            }
+        }
+
+        Icon {
+            anchors.centerIn: parent
+            name: "circle-notch"
+            size: root.iconSize
+            color: root.isPrimary ? MColors.textOnAccent : MColors.textPrimary
+            visible: root.controlState === "loading"
+
+            RotationAnimator on rotation {
+                from: 0
+                to: 360
+                duration: 900
+                loops: Animation.Infinite
+                running: root.controlState === "loading" && root.visible
             }
         }
 
@@ -290,7 +307,7 @@ Item {
             // "filled-with-the-action" feel iOS uses for completed
             // buttons (e.g., Add to Cart → ✓).
             size: Math.round(root.iconSize * 1.6)
-            color: root.isPrimary ? "#000000" : MColors.success
+            color: root.isPrimary ? MColors.textOnAccent : MColors.success
             visible: root.controlState === "success"
             scale: root.controlState === "success" ? 1 : 0
             // Stiff spring + critical damping — success should LAND
@@ -313,12 +330,15 @@ Item {
         MouseArea {
             id: mouseArea
             anchors.fill: parent
+            anchors.topMargin: -Math.max(0, Math.round((MSpacing.touchTargetMin - parent.height) / 2))
+            anchors.bottomMargin: -Math.max(0, Math.round((MSpacing.touchTargetMin - parent.height) / 2))
             enabled: !root.disabled && root.controlState === "default"
 
             onPressed: {
                 MHaptics.lightImpact();
                 root.pressed();
             }
+            onCanceled: root.released()
             onReleased: root.released()
             onClicked: root.clicked()
         }

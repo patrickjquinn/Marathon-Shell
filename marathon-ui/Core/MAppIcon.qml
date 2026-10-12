@@ -4,6 +4,7 @@ import QtQuick
 Item {
     id: root
 
+    property bool loadAsync: true
     property string source: ""
     property int size: 24
     property bool isMask: false
@@ -57,7 +58,7 @@ Item {
         sourceSize: Qt.size(root.size, root.size)
         fillMode: Image.PreserveAspectFit
         smooth: true
-        asynchronous: true
+        asynchronous: root.loadAsync
         cache: true
     }
 
