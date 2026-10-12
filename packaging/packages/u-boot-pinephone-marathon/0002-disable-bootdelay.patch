@@ -1,0 +1,24 @@
+From d42ad51a78b783c829b55254db445a691725462b Mon Sep 17 00:00:00 2001
+From: Marius Gripsgard <marius@ubports.com>
+Date: Mon, 4 May 2020 22:28:42 +0200
+Subject: [PATCH 09/10] disable bootdelay
+
+---
+ configs/pinephone_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/pinephone_defconfig b/configs/pinephone_defconfig
+index 9d39204a43..1f0ce680f9 100644
+--- a/configs/pinephone_defconfig
++++ b/configs/pinephone_defconfig
+@@ -11,6 +11,7 @@ CONFIG_MMC_SUNXI_SLOT_EXTRA=2
+ CONFIG_PINEPHONE_DT_SELECTION=y
+ # CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
+ CONFIG_OF_LIST="sun50i-a64-pinephone-1.1 sun50i-a64-pinephone-1.2"
++CONFIG_BOOTDELAY=0
+ CONFIG_LED_STATUS=y
+ CONFIG_LED_STATUS_GPIO=y
+ CONFIG_LED_STATUS0=y
+--
+2.31.1
+
