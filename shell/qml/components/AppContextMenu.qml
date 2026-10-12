@@ -80,6 +80,12 @@ Item {
         property alias text: label.text
         signal activated
 
+        function trigger() {
+            HapticManager.light();
+            contextMenu.hide();
+            entry.activated();
+        }
+
         width: menuColumn.width
         height: Silica.Theme.itemSizeSmall
         color: area.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
@@ -95,11 +101,11 @@ Item {
             id: area
 
             anchors.fill: parent
-            onClicked: {
-                HapticManager.light();
-                contextMenu.hide();
-                entry.activated();
-            }
+            onClicked: entry.trigger()
         }
+
+        Accessible.role: Accessible.MenuItem
+        Accessible.name: label.text
+        Accessible.onPressAction: entry.trigger()
     }
 }

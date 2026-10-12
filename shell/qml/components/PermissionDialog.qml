@@ -122,6 +122,9 @@ Item {
 
         Silica.BackgroundItem {
             objectName: "denyButton"
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Deny")
+            Accessible.onPressAction: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
             anchors.left: parent.left
             width: parent.width / 2
             height: parent.height
@@ -138,6 +141,9 @@ Item {
         }
         Silica.BackgroundItem {
             objectName: "allowButton"
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Allow")
+            Accessible.onPressAction: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
             anchors.right: parent.right
             width: parent.width / 2
             height: parent.height
