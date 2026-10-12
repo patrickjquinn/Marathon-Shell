@@ -53,6 +53,7 @@ Page {
         id: timerTab
         TimerTab {
             app: root.app
+            topMargin: tabs.tabBarHeight
         }
     }
 }

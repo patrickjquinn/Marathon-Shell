@@ -8,8 +8,16 @@ TabItem {
     id: root
 
     property var app
+    property real topMargin
     readonly property var countdown: app.countdown
     readonly property bool idle: !countdown.running && countdown.remaining === 0
+
+    function toggle() {
+        if (countdown.running)
+            countdown.pause();
+        else
+            countdown.start();
+    }
 
     flickable: flick
 
@@ -20,6 +28,12 @@ TabItem {
         contentHeight: column.height
 
         PullDownMenu {
+            MenuItem {
+                objectName: "resetTimer"
+                visible: root.countdown.total > 0
+                text: qsTr("Reset")
+                onClicked: root.countdown.reset()
+            }
             MenuItem {
                 objectName: "setTimer"
                 text: qsTr("Set timer")
@@ -36,42 +50,48 @@ TabItem {
 
             width: parent.width
             spacing: Theme.paddingLarge
-            topPadding: Theme.paddingLarge * 2
+            topPadding: root.topMargin + Theme.paddingLarge * 2
             bottomPadding: Theme.paddingLarge
 
-            ProgressCircle {
+            // Tap the dial to start or pause, as Jolla Clock's timers do.
+            MouseArea {
+                id: dial
+
+                objectName: "timerDial"
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Theme.itemSizeHuge * 2
                 height: width
-                value: root.countdown.total > 0 ? root.countdown.remaining / root.countdown.total : 0
-                progressColor: Theme.highlightColor
-                backgroundColor: Theme.rgba(Theme.primaryColor, 0.1)
+                enabled: root.countdown.remaining > 0
+                Accessible.role: Accessible.Button
+                Accessible.name: root.countdown.running ? qsTr("Pause timer") : qsTr("Start timer")
+                Accessible.onPressAction: root.toggle()
+                onClicked: root.toggle()
 
+                ProgressCircle {
+                    anchors.fill: parent
+                    value: root.countdown.total > 0 ? root.countdown.remaining / root.countdown.total : 0
+                    progressColor: Theme.highlightColor
+                    backgroundColor: Theme.rgba(Theme.primaryColor, Theme.opacityFaint)
+                }
                 Label {
                     objectName: "timerTime"
                     anchors.centerIn: parent
                     text: Logic.formatCountdown(root.countdown.remaining)
                     font.pixelSize: Theme.fontSizeHuge
                     font.features: ({ "tnum": 1 })
-                    color: root.countdown.running ? Theme.highlightColor : Theme.primaryColor
+                    color: dial.pressed || root.countdown.running ? Theme.highlightColor : Theme.primaryColor
                 }
             }
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.paddingLarge
-
-                Button {
-                    objectName: "startPause"
-                    text: root.countdown.running ? qsTr("Pause") : qsTr("Start")
-                    enabled: root.countdown.remaining > 0
-                    onClicked: root.countdown.running ? root.countdown.pause() : root.countdown.start()
-                }
-                Button {
-                    objectName: "reset"
-                    text: qsTr("Reset")
-                    enabled: root.countdown.total > 0
-                    onClicked: root.countdown.reset()
-                }
+            Label {
+                objectName: "timerHint"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: root.countdown.running ? qsTr("Tap to pause")
+                    : root.countdown.remaining > 0 ? qsTr("Tap to start")
+                    : qsTr("Pull down to set a timer")
+                color: Theme.secondaryHighlightColor
             }
             SectionHeader {
                 visible: root.idle
@@ -95,7 +115,10 @@ TabItem {
 
                         width: (presets.width - 2 * presets.spacing) / 3
                         text: qsTr("%n min", "", modelData)
-                        onClicked: root.countdown.set(modelData * 60)
+                        onClicked: {
+                            root.countdown.set(modelData * 60);
+                            root.countdown.start();
+                        }
                     }
                 }
             }

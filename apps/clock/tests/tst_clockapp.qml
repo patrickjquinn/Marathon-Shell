@@ -256,12 +256,20 @@ TestCase {
         tabs.moveTo(3, PagedView.Immediate);
         let presets = null;
         tryVerify(() => (presets = findChild(tabs.currentItem, "presets")) !== null, 3000);
+        const dial = findChild(tabs.currentItem, "timerDial");
+        const hint = findChild(tabs.currentItem, "timerHint");
+        verify(!dial.enabled);
+        compare(hint.text, "Pull down to set a timer");
         presets.itemAt(2).clicked(null);
-        compare(app.countdown.remaining, 300);
-        findChild(tabs.currentItem, "startPause").clicked(null);
-        verify(app.countdown.running);
+        verify(app.countdown.running, "a quick timer starts straight away");
         compare(findChild(tabs.currentItem, "timerTime").text, "5:00");
-        findChild(tabs.currentItem, "reset").clicked(null);
+        compare(hint.text, "Tap to pause");
+        mouseClick(dial);
+        verify(!app.countdown.running);
+        compare(hint.text, "Tap to start");
+        mouseClick(dial);
+        verify(app.countdown.running);
+        findChild(tabs.currentItem, "resetTimer").clicked();
         verify(!app.countdown.running);
         compare(app.countdown.remaining, 0);
     }
@@ -285,7 +293,7 @@ TestCase {
         compare(app.countdown.remaining, 5415);
         compare(app.countdown.total, 5415);
         compare(Settings.get("clock/lastTimer", 0), 5415);
-        findChild(tabs.currentItem, "reset").clicked(null);
+        findChild(tabs.currentItem, "resetTimer").clicked();
         item.clicked();
         tryVerify(() => (dialog = app.pageStack.currentPage).objectName === "timerDialog", 3000);
         compare(dialog.hour, 1);
