@@ -104,7 +104,6 @@ Page {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: day >= 1 && day <= monthCell.days ? day : ""
                                     font.pixelSize: Theme.fontSizeTiny
-                                    font.bold: isToday
                                     color: isToday ? Theme.highlightColor : Theme.secondaryColor
                                 }
                             }

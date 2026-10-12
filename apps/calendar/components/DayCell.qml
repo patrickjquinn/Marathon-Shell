@@ -42,7 +42,6 @@ MouseArea {
     Label {
         anchors.centerIn: parent
         text: cell.day.toLocaleString()
-        font.bold: cell.today
         color: cell.pressed && cell.containsMouse || cell.selected || cell.today ? Theme.highlightColor : cell.inMonth ? Theme.primaryColor : Theme.secondaryColor
     }
 
