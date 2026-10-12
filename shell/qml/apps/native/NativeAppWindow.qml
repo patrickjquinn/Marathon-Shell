@@ -15,6 +15,10 @@ MApp {
     property int surfaceId: -1
     property bool isNative: true
     property var surfaceItemRef: null
+    readonly property bool keelApp: {
+        const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
+        return !!info && info.toolkit !== undefined && info.toolkit !== "marathonui";
+    }
 
     // Both of these are declared and driven by MApp. Redeclaring them here
     // shadowed the base, so MApp.minimize() set a property nobody read and
@@ -37,7 +41,14 @@ MApp {
         id: contentContainer
 
         anchors.fill: parent
-        color: MColors.background
+        color: nativeAppWindow.keelApp ? "transparent" : MColors.background
+
+        ShellComponents.KeelAmbienceBackground {
+            anchors.fill: parent
+            visible: nativeAppWindow.keelApp
+            wallpaper: AmbienceService.wallpaperUrl
+            light: AmbienceService.light
+        }
 
         ShellComponents.WaylandShellSurfaceItem {
             id: surfaceItem
