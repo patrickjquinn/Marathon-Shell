@@ -160,6 +160,19 @@ TestCase {
         verify(findChild(playback, "playButton").visible);
     }
 
+    function test_reviewPlaysAndPausesTheVideo() {
+        const app = makeApp();
+        const page = openReview(app, Qt.resolvedUrl("data/clip.mp4").toString());
+        const playback = findChild(page, "videoPlayback");
+        const play = findChild(playback, "playButton");
+        mouseClick(play);
+        tryVerify(function () { return playback.playing; }, 5000);
+        tryVerify(function () { return findChild(playback, "video").position > 0; }, 5000);
+        compare(play.Accessible.name, "Pause");
+        mouseClick(play);
+        tryVerify(function () { return !playback.playing; });
+    }
+
     function test_reviewOpensGallery() {
         const app = makeApp();
         const page = openReview(app, Qt.resolvedUrl("data/photo.png").toString());
