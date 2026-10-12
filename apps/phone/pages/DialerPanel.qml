@@ -67,11 +67,12 @@ Item {
                 id: numberLabel
 
                 objectName: "numberLabel"
-                x: Theme.horizontalPageMargin + backspaceButton.width
+                // Placeholder may run under the hidden backspace button.
+                x: Theme.horizontalPageMargin + (root.number.length > 0 ? backspaceButton.width : 0)
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 text: root.number.length > 0 ? Phone.format(root.number) : !Telephony.hasModem ? qsTr("No SIM or modem") : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
-                color: root.number.length > 0 ? Theme.primaryColor : Theme.secondaryColor
+                color: root.number.length > 0 ? Theme.primaryColor : Theme.secondaryHighlightColor
                 font.pixelSize: root.number.length > 0 ? Theme.fontSizeHuge : Theme.fontSizeLarge
                 font.weight: Font.ExtraLight
                 fontSizeMode: Text.HorizontalFit
