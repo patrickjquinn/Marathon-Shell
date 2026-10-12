@@ -707,15 +707,3 @@ void DavSyncEngine::syncCollection(const DavAccount &acct, const QString &collec
         emit syncFinished(accId, added, 0, removed);
     });
 }
-
-void DavSyncEngine::setSyncIntervalMs(int ms) {
-    m_syncIntervalMs = ms;
-    if (ms <= 0)
-        m_syncTimer->stop();
-    else
-        m_syncTimer->start(ms);
-}
-
-int DavSyncEngine::syncIntervalMs() const {
-    return m_syncIntervalMs;
-}

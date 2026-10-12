@@ -86,10 +86,6 @@ class DavSyncEngine : public QObject {
     // sync-collection REPORT with stored sync-token.
     Q_INVOKABLE void syncNow();
 
-    // Periodic sync timer -- defaults to 15 minutes. Disable by setting 0.
-    Q_INVOKABLE void setSyncIntervalMs(int ms);
-    Q_INVOKABLE int  syncIntervalMs() const;
-
   signals:
     void accountsChanged();
     void syncingChanged();
