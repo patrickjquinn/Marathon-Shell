@@ -81,7 +81,8 @@ function collections(photos, videos, albums, memories) {
         return [];
     const rows = [{ kind: "all", section: "", count: photos.length, videoCount: videos.length, cover: photos[0] || null }];
     if (videos.length > 0)
-        rows.push({ kind: "videos", section: "", count: 0, videoCount: videos.length, cover: null });
+        rows.push({ kind: "videos", section: "", count: 0, videoCount: videos.length,
+                    cover: videos.find(v => !!v.thumbnailPath) || null });
     memories.forEach(m => rows.push({
         kind: "memory", section: "memories", years: m.years,
         count: m.photos.length, videoCount: m.videoCount, cover: m.photos[0] || null

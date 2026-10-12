@@ -82,8 +82,10 @@ TestCase {
         compare(rows[0].cover.id, 1);
         compare(rows[1].count, 0);
         compare(rows[1].videoCount, 2);
-        compare(rows[1].cover, null);
+        compare(rows[1].cover, null, "a video without a thumbnail is no cover");
         compare(Model.collections([], vs, [], []).map(r => r.kind), ["all", "videos"]);
+        vs[1].thumbnailPath = "file:///thumbs/6.jpg";
+        compare(Model.collections(ps, vs, [], [])[1].cover.id, 6);
     }
 
     function test_countText() {

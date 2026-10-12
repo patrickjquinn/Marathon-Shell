@@ -52,15 +52,28 @@ Page {
 
             required property var modelData
 
-            contentHeight: Theme.itemSizeExtraLarge
+            contentHeight: Theme.itemSizeLarge
             enabled: modelData.count > 0 || modelData.videoCount > 0
             Accessible.name: root.rowTitle(modelData) + ", " + root.rowDetail(modelData)
             onClicked: root.open(modelData)
 
+            // Jolla Gallery: item count, cover, then the name.
+            Label {
+                objectName: "rowCount"
+                x: Theme.horizontalPageMargin
+                width: countMetrics.width
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignRight
+                text: Number(row.modelData.count + (row.modelData.videoCount || 0)).toLocaleString(Qt.locale(), "f", 0)
+                font.pixelSize: Theme.fontSizeLarge
+                color: row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+            }
+
             Image {
                 id: thumb
 
-                width: Theme.itemSizeExtraLarge
+                x: Theme.horizontalPageMargin + countMetrics.width + Theme.paddingLarge
+                width: Theme.itemSizeLarge
                 height: width
                 source: row.modelData.cover ? (row.modelData.cover.thumbnailPath || row.modelData.cover.path) : ""
                 sourceSize.width: width
@@ -69,48 +82,47 @@ Page {
                 asynchronous: true
                 clip: true
 
-                Rectangle {
-                    anchors.fill: parent
-                    visible: thumb.status !== Image.Ready
-                    color: Theme.rgba(Theme.primaryColor, 0.1)
-                }
-
                 Icon {
                     anchors.centerIn: parent
                     visible: !row.modelData.cover
-                    source: "image://theme/icon-l-video"
+                    source: row.modelData.kind === "videos" ? "image://theme/icon-l-video" : "image://theme/icon-l-image"
+                    highlighted: row.highlighted
                 }
             }
 
-            Column {
-                anchors.left: thumb.right
-                anchors.leftMargin: Theme.paddingLarge
-                anchors.right: parent.right
-                anchors.rightMargin: Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-
-                Label {
-                    width: parent.width
-                    text: root.rowTitle(row.modelData)
-                    truncationMode: TruncationMode.Fade
-                    color: row.highlighted ? Theme.highlightColor : Theme.primaryColor
+            Label {
+                anchors {
+                    left: thumb.right
+                    leftMargin: Theme.paddingLarge
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
                 }
-                Label {
-                    width: parent.width
-                    text: root.rowDetail(row.modelData)
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    truncationMode: TruncationMode.Fade
-                    color: row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                }
+                text: root.rowTitle(row.modelData)
+                font.pixelSize: Theme.fontSizeLarge
+                truncationMode: TruncationMode.Fade
+                color: row.highlighted ? Theme.highlightColor : Theme.primaryColor
             }
+        }
+
+        TextMetrics {
+            id: countMetrics
+
+            font.pixelSize: Theme.fontSizeLarge
+            text: "00"
+        }
+
+        BusyLabel {
+            objectName: "busyLabel"
+            running: root.store.scanning && list.count === 0
+            text: qsTr("Looking for photos")
         }
 
         ViewPlaceholder {
             objectName: "placeholder"
-            enabled: list.count === 0
-            text: root.store.scanning ? qsTr("Looking for photos") : qsTr("No photos yet")
-            hintText: root.store.scanning ? qsTr("Scanning your Pictures and DCIM folders")
-                                          : qsTr("Take photos with Camera, or copy images into your Pictures folder")
+            enabled: list.count === 0 && !root.store.scanning
+            text: qsTr("No photos yet")
+            hintText: qsTr("Take photos with Camera, or copy images into your Pictures folder")
         }
 
         VerticalScrollDecorator {}

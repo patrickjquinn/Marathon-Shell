@@ -75,6 +75,25 @@ TestCase {
         verify(findChild(app.pageStack.currentPage, "placeholder").enabled);
     }
 
+    function test_scanningShowsBusyNotEmpty() {
+        MediaLibrary.isScanning = true;
+        const app = makeApp([]);
+        verify(findChild(app.pageStack.currentPage, "busyLabel").running);
+        verify(!findChild(app.pageStack.currentPage, "placeholder").enabled);
+        MediaLibrary.isScanning = false;
+        verify(!findChild(app.pageStack.currentPage, "busyLabel").running);
+        verify(findChild(app.pageStack.currentPage, "placeholder").enabled);
+    }
+
+    function test_rowsLeadWithTheItemCount() {
+        const app = makeApp(threePhotos(), [video(2)]);
+        const list = findChild(app.pageStack.currentPage, "collections");
+        tryCompare(list, "count", 4);
+        tryVerify(() => list.itemAtIndex(1) !== null);
+        compare(findChild(list.itemAtIndex(0), "rowCount").text, "4");
+        compare(findChild(list.itemAtIndex(1), "rowCount").text, "1");
+    }
+
     function test_openingAlbumShowsItsPhotos() {
         const app = makeApp(threePhotos());
         app.pageStack.currentPage.open({ kind: "album", albumId: "Trip", name: "Trip" });
