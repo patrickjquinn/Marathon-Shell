@@ -86,6 +86,11 @@ Item {
         light: AmbienceService.light
     }
 
+    // An emergency alert is modal: nothing underneath takes a tap.
+    MouseArea {
+        anchors.fill: parent
+    }
+
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
