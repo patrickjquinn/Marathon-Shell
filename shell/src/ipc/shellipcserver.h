@@ -30,6 +30,8 @@ class MarathonAppStoreService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
 
+class AmbienceService;
+
 class ShellIpcServer : public QObject {
     Q_OBJECT
 
@@ -49,6 +51,9 @@ class ShellIpcServer : public QObject {
                             AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
                             QObject *parent = nullptr);
 
+    void setAmbienceService(AmbienceService *ambience) {
+        m_ambience = ambience;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -59,6 +64,7 @@ class ShellIpcServer : public QObject {
     SMSService                *m_sms                 = nullptr;
     MediaLibraryManager       *m_mediaLibrary        = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;
+    AmbienceService           *m_ambience            = nullptr;
     BluetoothManager          *m_bluetoothManager    = nullptr;
     DisplayManagerCpp         *m_displayManager      = nullptr;
     PowerManagerCpp           *m_powerManager        = nullptr;

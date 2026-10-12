@@ -1067,6 +1067,7 @@ int main(int argc, char *argv[]) {
             sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
             davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
             &app);
+        ipc->setAmbienceService(ambienceService);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

@@ -26,6 +26,7 @@ class TelephonyService;
 class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
+class AmbienceService;
 class SecurityManager;
 class BluetoothManager;
 class DisplayManagerCpp;
@@ -784,4 +785,22 @@ class AppLifecycleObject : public QObject, protected QDBusContext {
     AppLaunchService          *m_launchService = nullptr;
     quint32                    m_nextHandle    = 1;
     QHash<quint32, ActiveTask> m_handles;
+};
+
+// Public read: the ambience is what every app is drawn with.
+class AmbienceObject : public QObject {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Ambience1")
+
+  public:
+    explicit AmbienceObject(AmbienceService *ambience, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap GetAmbience();
+
+  signals:
+    void AmbienceChanged(const QVariantMap &ambience);
+
+  private:
+    AmbienceService *m_ambience = nullptr;
 };

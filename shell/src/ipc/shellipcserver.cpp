@@ -163,6 +163,11 @@ bool ShellIpcServer::registerOnSessionBus() {
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/AppLifecycle", lifecycleObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    if (m_ambience)
+        ok &= bus.registerObject("/org/marathonos/Shell/Ambience",
+                                 new AmbienceObject(m_ambience, this),
+                                 QDBusConnection::ExportAllSlots |
+                                     QDBusConnection::ExportAllSignals);
 
     if (!ok) {
         qWarning() << "[ShellIpcServer] Failed to register one or more DBus objects:"

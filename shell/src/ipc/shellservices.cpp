@@ -3,6 +3,7 @@
 #include "applaunchservice.h"
 #include "marathonpermissionmanager.h"
 #include "settingsmanager.h"
+#include "ambienceservice.h"
 #include "securitymanager.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
@@ -2205,4 +2206,14 @@ QStringList AppLifecycleObject::GetMyCapabilities() {
     if (appId.isEmpty())
         return {};
     return m_lifecycle->activeCapabilities(appId);
+}
+
+AmbienceObject::AmbienceObject(AmbienceService *ambience, QObject *parent)
+    : QObject(parent)
+    , m_ambience(ambience) {
+    connect(ambience, &AmbienceService::ambienceChanged, this, &AmbienceObject::AmbienceChanged);
+}
+
+QVariantMap AmbienceObject::GetAmbience() {
+    return m_ambience->ambience();
 }
