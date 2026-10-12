@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=41
+pkgrel=42
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -71,8 +71,11 @@ source="
 	marathon-session.target
 	marathon-portals.conf
 	50-marathon-timedate.rules
+	50-marathon-watchdog.conf
 "
 package() {
+	install -Dm644 "$srcdir/50-marathon-watchdog.conf" \
+		"$pkgdir/etc/systemd/system.conf.d/50-marathon-watchdog.conf"
 	install -Dm644 "$srcdir/99-marathon.conf" \
 		"$pkgdir/etc/sysctl.d/99-marathon.conf"
 	install -Dm644 "$srcdir/50-marathon-zram.conf" \
@@ -244,18 +247,17 @@ After=NetworkManager.service
 Wants=NetworkManager.service
 EOF
 
-	# Volatile journald (Android logd-style ring buffer in tmpfs).
-	# Persistent journal on the SD card corrupts on every long-press
-	# power-off ("File system.journal corrupted or uncleanly shut
-	# down" on every cold boot). Marathon's debuggability story is
-	# `journalctl -f` over SSH against the *current* boot, not
-	# multi-boot history. Field debug: drop
-	# /etc/systemd/journald.conf.d/99-debug.conf with
-	# Storage=persistent to override.
+	# Persistent journald. A volatile journal lost every hang's record on
+	# the reboot that followed it. After a long-press power-off journald
+	# reports the last file "uncleanly shut down", sets it aside and
+	# starts a fresh one; at most the last seconds are lost. Synced often
+	# so the lines before a hang reach the disk.
 	install -d "$pkgdir/usr/lib/systemd/journald.conf.d"
 	cat > "$pkgdir/usr/lib/systemd/journald.conf.d/50-marathon.conf" <<'EOF'
 [Journal]
-Storage=volatile
+Storage=persistent
+SystemMaxUse=200M
+SyncIntervalSec=15s
 RuntimeMaxUse=32M
 RuntimeKeepFree=64M
 RuntimeMaxFileSize=8M
@@ -300,4 +302,5 @@ a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb
 c02b29a3a33e11c1d9605ff96f272c5026d7958dd7acf6fff79a3826e5a83960c815707485e93259b8e47a813c91a9c5ac2cbe55e7eeb678c5c0968a1274ad41  marathon-session.target
 3c49d678793a67b2a96313d9ec1d2511ac9349b9f90fa72d4d454271c5b37c91efd98f6cf975f3e51ad1d851a9cdbb5558448ac578cb8eebe50b294c183497a7  marathon-portals.conf
 1e39a3388046f760a23b9722803184e84210b99c97c2a0d42b72fd2e8380e6e85b148f379d8326ee2fb24f4c454a90c606bfb0a32afd5f3fce0828c7d02f0794  50-marathon-timedate.rules
+db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe89a0c33ae3649d72ac553439cc95c4b64c77ef2df59b2445  50-marathon-watchdog.conf
 "
