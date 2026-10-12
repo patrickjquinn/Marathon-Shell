@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: peekComponent
@@ -87,12 +88,9 @@ Item {
         Logger.debug("Peek", "Visibility changed: " + visible);
     }
 
-    // Scrim — darkens the surface behind the sliding hub panel so
-    // the panel reads as elevated. elev0 (deeper than the wallpaper
-    // black) gives a quiet dim without competing with the panel.
     Rectangle {
         anchors.fill: parent
-        color: MColors.elev0
+        color: "black"
         opacity: peekComponent.peekProgress * 0.6
         visible: peekComponent.peekProgress > 0
 
@@ -137,13 +135,13 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: MColors.surface
+                color: Silica.Theme.rgba("black", 0.85)
 
                 Column {
                     anchors.left: parent.left
-                    anchors.leftMargin: MSpacing.lg
+                    anchors.leftMargin: Silica.Theme.horizontalPageMargin
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: MSpacing.md
+                    spacing: Silica.Theme.paddingMedium
 
                     Repeater {
                         model: NotificationModel
@@ -160,8 +158,8 @@ Item {
                             required property int index
                             required property var model
 
-                            width: 48
-                            height: 48
+                            width: Silica.Theme.iconSizeMedium
+                            height: width
                             visible: index < 5
                             Component.onCompleted: {
                                 Logger.info("Peek", "Notification item created, index: " + index + ", icon: " + (model.icon || "bell") + ", title: " + (model.title || "none"));
@@ -171,48 +169,26 @@ Item {
                                 id: notifIcon
 
                                 anchors.fill: parent
-                                radius: 24
-                                color: "transparent"
-                                border.width: 1
-                                border.color: MColors.border
-                                scale: notifMouseArea.pressed ? 0.9 : 1
+                                radius: width / 2
+                                color: notifMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
                                 GlyphIcon {
                                     name: notifDelegate.model.icon || "bell"
-                                    size: 24
-                                    color: MColors.textPrimary
+                                    size: Silica.Theme.iconSizeExtraSmall
+                                    color: notifMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                                     anchors.centerIn: parent
                                 }
 
-                                // DS unread indicator (ds-components.jsx
-                                // Badges · 'unread indicator'): teal-bright
-                                // dot with a teal-glow halo, no number.
                                 Rectangle {
                                     visible: !notifDelegate.model.isRead
                                     anchors.right: parent.right
                                     anchors.top: parent.top
-                                    anchors.rightMargin: -2
-                                    anchors.topMargin: -2
-                                    width: 8
-                                    height: 8
-                                    radius: 4
-                                    color: MColors.marathonTealBright
-
-                                    Rectangle {
-                                        anchors.centerIn: parent
-                                        width: 16
-                                        height: 16
-                                        radius: 8
-                                        color: MColors.marathonTealGlow
-                                        opacity: 0.18
-                                        z: -1
-                                    }
-                                }
-
-                                Behavior on scale {
-                                    NumberAnimation {
-                                        duration: 100
-                                    }
+                                    width: Silica.Theme.paddingSmall
+                                    height: width
+                                    radius: width / 2
+                                    color: Silica.Theme.highlightColor
                                 }
                             }
 
@@ -235,12 +211,11 @@ Item {
                         }
                     }
 
-                    Text {
+                    Silica.Label {
                         visible: NotificationModel.count === 0
                         text: "No notifications"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }

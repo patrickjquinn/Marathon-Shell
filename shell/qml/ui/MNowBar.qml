@@ -2,112 +2,67 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
-// Marathon DS · Now Bar — 36 design-px live-activity strip.
-//
-// Variants (set `variant`):
-//   • "music"  — icon badge + title + artist/duration + 5-bar visualiser
-//   • "call"   — icon badge + caller + "CALL · 02:14" + pulse ring on badge
-//   • "nav"    — icon badge + destination + distance/eta
-//   • "timer"  — icon badge + label + remaining time
-//
-// Always renders glass over its parent. Anchored top: 28 (just under
-// status bar) by callers. Floats above content with blur(20) — heavier
-// than Active Frames (blur 16) so it reads as on-top.
-//
-// One Now Bar per screen. The system aggregates music / call / nav /
-// timer feeds and picks the highest-priority one to surface.
+// Now Bar: live-activity row (music / call / nav / timer) drawn as a
+// Sailfish list item: glass-ring glyph, title and a secondary line.
 Item {
     id: root
 
-    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    implicitHeight: Math.max(Silica.Theme.itemSizeSmall, textColumn.implicitHeight + Silica.Theme.paddingSmall * 2)
 
-    // Layout token — DS spec is 36 design-px. Every type token scales
-    // (MTypography multiplies by Constants.scaleFactor) so a fixed 36
-    // physical-px bar cannot hold two scaled eyebrow lines: at 1.5x the
-    // label + sublabel line-boxes are ~42px and the text clipped.
-    //
-    // Derived from the text rather than scaled blindly, so the bar always
-    // fits its own content and the DS 36 acts as a floor. Height depends
-    // on width here, never the reverse — both labels elide instead of
-    // wrapping, so their line count is fixed and this cannot cycle.
-    implicitHeight: Math.max(Math.round(36 * scaleFactor),
-                             textColumn.implicitHeight + Math.round(6 * scaleFactor) * 2)
-
-    // Variant + content.
     property string variant: "music"          // "music" | "call" | "nav" | "timer"
-    property string iconName: "music"         // glyph in the badge
-    property string label: ""                 // bold line — "Modular Tides"
-    property string sublabel: ""              // dim line — "Avior · 1:48"
-    property color tintColor: MColors.marathonTealBright
+    property string iconName: "music"
+    property string label: ""
+    property string sublabel: ""
+    property color tintColor: Silica.Theme.highlightColor
 
-    // Music-only — animated equaliser bars.
     property bool playing: variant === "music"
-
-    // Call-only — pulse ring around badge.
     property bool pulsing: variant === "call"
 
-    signal activated  // user tapped the bar
+    readonly property bool down: area.pressed && area.containsMouse
 
-    // Glass background.
+    signal activated
+
     Rectangle {
         anchors.fill: parent
-        color: MColors.glassTitlebar
-        radius: MRadius.md
-        border.width: 1
-        border.color: MColors.borderGlass
-    }
-
-    // Subtle outer shadow + inner highlight (per DS §02).
-    // Skipping MultiEffect drop shadow per the perf rule —
-    // the inner highlight + glass tint composes the depth.
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: MRadius.md - 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.whiteOverlay04
+        color: root.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
     }
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Math.round((root.variant === "call" ? 14 : 6) * root.scaleFactor)
-        anchors.rightMargin: Math.round(12 * root.scaleFactor)
-        spacing: MSpacing.sm
+        anchors.leftMargin: Silica.Theme.paddingSmall
+        anchors.rightMargin: Silica.Theme.paddingSmall
+        spacing: Silica.Theme.paddingMedium
 
-        // Icon badge.
         Item {
             id: badgeWrap
-            width: Math.round(26 * root.scaleFactor)
+            width: Silica.Theme.iconSizeMedium
             height: width
             anchors.verticalCenter: parent.verticalCenter
 
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                color: MColors.bb10Elevated
-                border.width: 1
-                border.color: MColors.whiteOverlay08
+                color: "transparent"
+                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
                 GlyphIcon {
                     anchors.centerIn: parent
                     name: root.iconName
-                    size: Math.round(13 * root.scaleFactor)
+                    size: Silica.Theme.iconSizeExtraSmall
                     color: root.tintColor
                 }
             }
 
-            // Pulse ring — call variant. Animates radius/opacity to
-            // signal "active call." Gated on visible per CODING_RULES
-            // C8 so no idle cost when not in call.
+            // Call pulse; gated on visible (C8).
             Rectangle {
                 anchors.fill: parent
-                anchors.margins: -Math.round(2 * root.scaleFactor)
-                radius: (parent.width + Math.round(4 * root.scaleFactor)) / 2
+                radius: width / 2
                 color: "transparent"
-                border.width: 1
-                border.color: MColors.tealBorder
+                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                border.color: Silica.Theme.highlightColor
                 opacity: 0.5
                 visible: root.pulsing
 
@@ -129,64 +84,48 @@ Item {
             }
         }
 
-        // Label / sublabel — flex-1, ellipses.
         Column {
             id: textColumn
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - badgeWrap.width - visualWrap.width - parent.spacing * 2
-            spacing: Math.round(2 * root.scaleFactor)
 
-            Text {
+            Silica.Label {
                 width: parent.width
                 text: root.label
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow   // DS NowBar 11/600
-                font.weight: MTypography.weightDemiBold
-                elide: Text.ElideRight
+                color: root.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+                truncationMode: Silica.TruncationMode.Fade
             }
-            Text {
+            Silica.Label {
                 width: parent.width
                 text: root.sublabel
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                // DS NowBar spec was "11/600 title, 9/400 subtitle" but the
-                // 9-px subtitle was hard-coded and disappeared at 1.5×.
-                // sizeEyebrow (11 scaled) is the smallest typography token
-                // and keeps the title/subtitle hierarchy intact at every
-                // scale.
-                font.pixelSize: MTypography.sizeEyebrow
-                font.weight: MTypography.weightRegular
-                elide: Text.ElideRight
+                color: root.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                truncationMode: Silica.TruncationMode.Fade
                 visible: text.length > 0
             }
         }
 
-        // Right-side variant content. Music = visualiser, others = empty.
         Item {
             id: visualWrap
             anchors.verticalCenter: parent.verticalCenter
             width: root.variant === "music" ? visualiser.implicitWidth : 0
-            height: Math.round(12 * root.scaleFactor)
+            height: Silica.Theme.paddingLarge
 
             Row {
                 id: visualiser
-                // Bar thickness, the gap between bars and a bar's resting
-                // height are all the same 2 design-px. Computed once here
-                // rather than as three bindings per bar across five bars.
-                readonly property real unit: Math.max(2, Math.round(2 * root.scaleFactor))
+                readonly property real unit: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: visualiser.unit
                 visible: root.variant === "music"
 
-                // Five teal bars, heights [6, 10, 4, 8, 5] per DS §02.
                 Repeater {
-                    model: [6, 10, 4, 8, 5]
+                    model: [0.5, 0.85, 0.35, 0.7, 0.45]
                     delegate: Rectangle {
                         id: bar
                         required property int index
-                        required property int modelData
-                        readonly property real fullHeight: Math.round(bar.modelData * root.scaleFactor)
+                        required property real modelData
+                        readonly property real fullHeight: Math.round(bar.modelData * visualWrap.height)
                         width: visualiser.unit
                         height: bar.fullHeight
                         radius: width / 2
@@ -194,8 +133,6 @@ Item {
                         color: root.tintColor
                         opacity: bar.index % 2 ? 1.0 : 0.5
 
-                        // Subtle height bob when playing. Animation only
-                        // runs while the bar is actually visible.
                         SequentialAnimation on height {
                             loops: Animation.Infinite
                             running: root.playing && root.visible && !MMotion.reduceMotion
@@ -219,25 +156,8 @@ Item {
     }
 
     MouseArea {
+        id: area
         anchors.fill: parent
         onClicked: root.activated()
-        onPressed: scaleAnim.start()
-    }
-    SequentialAnimation {
-        id: scaleAnim
-        NumberAnimation {
-            target: root
-            property: "scale"
-            to: 0.98
-            duration: MMotion.micro
-            easing.type: Easing.OutCubic
-        }
-        NumberAnimation {
-            target: root
-            property: "scale"
-            to: 1.0
-            duration: MMotion.quick
-            easing.type: Easing.OutBack
-        }
     }
 }

@@ -138,7 +138,7 @@ Item {
             property real pressTime: 0
 
             anchors.fill: parent
-            anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
+            anchors.bottomMargin: bannerRect.height
             z: 50
             preventStealing: false
             propagateComposedEvents: true
@@ -177,7 +177,7 @@ Item {
             radius: cardRoot.radius - 1
             color: "transparent"
             border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.03)
+            border.color: Theme.rgba(Theme.primaryColor, 0.1)
         }
 
         Item {
@@ -185,8 +185,8 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
-                color: MColors.background
+                anchors.bottomMargin: bannerRect.height
+                color: "transparent"
                 radius: cardRoot.radius
                 clip: true
 
@@ -432,31 +432,29 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     visible: taskCard.type === "native" && !taskCard.haveWayland
-                                    color: MColors.elevated
+                                    color: "transparent"
 
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: Constants.spacingMedium
+                                        spacing: Theme.paddingMedium
 
                                         MAppIcon {
-                                            size: Math.round(80 * Constants.scaleFactor)
+                                            size: Theme.iconSizeLarge
                                             source: taskCard.icon || "layout-grid"
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
-                                        Text {
+                                        Label {
                                             text: taskCard.title || taskCard.appId
-                                            color: MColors.textSecondary
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
+                                            color: Theme.secondaryColor
+                                            font.pixelSize: Theme.fontSizeSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
-                                        Text {
+                                        Label {
                                             text: "Native apps not available on macOS"
-                                            color: MColors.textTertiary
-                                            font.pixelSize: MTypography.sizeXSmall
-                                            font.family: MTypography.fontFamily
+                                            color: Theme.secondaryColor
+                                            font.pixelSize: Theme.fontSizeExtraSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
                                     }
@@ -468,31 +466,29 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
-                                    color: MColors.background
+                                    color: "transparent"
 
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: Constants.spacingMedium
+                                        spacing: Theme.paddingMedium
 
                                         MAppIcon {
-                                            size: Math.round(80 * Constants.scaleFactor)
+                                            size: Theme.iconSizeLarge
                                             source: taskCard.icon || "layout-grid"
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
-                                        Text {
+                                        Label {
                                             text: taskCard.title || taskCard.appId
-                                            color: MColors.textSecondary
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
+                                            color: Theme.secondaryColor
+                                            font.pixelSize: Theme.fontSizeSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
-                                        Text {
+                                        Label {
                                             text: "Preview unavailable"
-                                            color: MColors.textTertiary
-                                            font.pixelSize: MTypography.sizeXSmall
-                                            font.family: MTypography.fontFamily
+                                            color: Theme.secondaryColor
+                                            font.pixelSize: Theme.fontSizeExtraSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
                                     }
@@ -510,9 +506,8 @@ Item {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: Math.round(50 * Constants.scaleFactor)
-            color: MColors.surface
-            radius: 0
+            height: Theme.itemSizeSmall
+            color: "transparent"
 
             MouseArea {
                 id: handleTapArea
@@ -568,20 +563,20 @@ Item {
 
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingSmall
-                anchors.rightMargin: Constants.spacingSmall
-                spacing: Constants.spacingSmall
+                anchors.leftMargin: Theme.paddingSmall
+                anchors.rightMargin: Theme.paddingSmall
+                spacing: Theme.paddingSmall
 
                 MAppIcon {
+                    id: bannerIcon
                     anchors.verticalCenter: parent.verticalCenter
                     source: taskCard.icon
-                    size: Constants.iconSizeMedium
+                    size: Theme.iconSizeMedium
                 }
 
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - Math.round(80 * Constants.scaleFactor)
-                    spacing: Math.round(2 * Constants.scaleFactor)
+                    width: parent.width - bannerIcon.width - closeButtonContainer.width - parent.spacing * 2
 
                     Label {
                         text: taskCard.title
@@ -596,34 +591,19 @@ Item {
                     id: closeButtonContainer
 
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.round(44 * Constants.scaleFactor)
-                    height: Math.round(44 * Constants.scaleFactor)
+                    width: Theme.itemSizeExtraSmall
+                    height: Theme.itemSizeExtraSmall
 
                     Rectangle {
                         id: closeButtonRect
 
                         anchors.centerIn: parent
-                        width: Math.round(44 * Constants.scaleFactor)
-                        height: Math.round(44 * Constants.scaleFactor)
-                        radius: MRadius.sm
+                        width: Theme.itemSizeExtraSmall
+                        height: Theme.itemSizeExtraSmall
                         color: "transparent"
-                        scale: closeButtonArea.pressed ? 0.92 : 1
 
                         Accessible.role: Accessible.Button
                         Accessible.name: "Close " + taskCard.title
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: MMotion.xs
-                            }
-                        }
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 80
-                                easing.type: Easing.OutCubic
-                            }
-                        }
 
                         HighlightImage {
                             anchors.centerIn: parent
