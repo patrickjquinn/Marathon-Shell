@@ -34,6 +34,7 @@ Item {
     signal cameraLaunched
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
+    signal hubRequested
 
     function roleId(name) {
         if (!NotificationModel || !name)
@@ -66,7 +67,7 @@ Item {
     // Rebuilds the visible-notifications model from the global
     // NotificationModel — keeps only the first `maxNotificationsShown`
     // unread items so the lock surface stays calm. The remainder are
-    // surfaced via the 'N more · earlier today' card.
+    // surfaced via the 'N more' card, which opens the Hub.
     function refreshNotifications() {
         unreadModel.clear();
         // Honour the "Show on Lock Screen" privacy setting. Previously this
@@ -671,10 +672,13 @@ Item {
                 width: notificationStack.width
                 height: Silica.Theme.itemSizeSmall
                 radius: Silica.Theme.paddingMedium
-                color: Silica.Theme.rgba("black", 0.85)
+                color: moreArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba("black", 0.85)
                 border.width: 1
                 border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                 visible: lockScreen.moreCount > 0
+                Accessible.role: Accessible.Button
+                Accessible.name: moreLabel.text
+                Accessible.onPressAction: lockScreen.hubRequested()
 
                 Row {
                     anchors.left: parent.left
@@ -693,12 +697,24 @@ Item {
                     }
 
                     Silica.Label {
+                        id: moreLabel
+
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - moreIcon.width - parent.spacing
-                        text: lockScreen.moreCount + " more notification" + (lockScreen.moreCount === 1 ? "" : "s") + " · earlier today"
+                        text: lockScreen.moreCount + " more notification" + (lockScreen.moreCount === 1 ? "" : "s")
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeSmall
                         truncationMode: Silica.TruncationMode.Fade
+                    }
+                }
+
+                MouseArea {
+                    id: moreArea
+
+                    anchors.fill: parent
+                    onClicked: {
+                        HapticManager.light();
+                        lockScreen.hubRequested();
                     }
                 }
             }
