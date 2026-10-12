@@ -48,11 +48,6 @@ class MapsBridge : public QObject {
     // so the QML side can correlate to its searchResults model.
     void onPinTapped(const QString &id);
 
-    // Map view moved (pan or zoom settled). QML uses this to invalidate
-    // a "recentre" pill (showing it whenever the user has drifted off
-    // their live coordinate).
-    void onMapMoved(double centerLat, double centerLon, double zoom);
-
     // MapLibre failed to construct — almost always "Failed to initialize
     // WebGL" on a host with no usable WebGL1 context. That throw is
     // top-level in maps.html, so window.MarathonMaps never gets defined
@@ -64,6 +59,5 @@ class MapsBridge : public QObject {
     void ready();
     void mapClicked(double latitude, double longitude);
     void pinTapped(const QString &id);
-    void mapMoved(double centerLat, double centerLon, double zoom);
     void mapError(const QString &message);
 };
