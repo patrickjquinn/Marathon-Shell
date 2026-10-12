@@ -26,7 +26,7 @@ Page {
                 objectName: "usageBar"
                 width: parent.width
                 minimumValue: 0
-                maximumValue: 100
+                maximumValue: 1
                 value: storage.usedPercentage
                 label: qsTr("%1 used of %2").arg(storage.usedSpaceString).arg(storage.totalSpaceString)
             }

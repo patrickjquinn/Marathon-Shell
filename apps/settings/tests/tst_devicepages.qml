@@ -208,7 +208,7 @@ TestCase {
 
     function test_storage() {
         const s = open("storage");
-        compare(child(s.page, "usageBar").value, 62.5);
+        compare(child(s.page, "usageBar").value, 0.625);
         compare(child(s.page, "usedItem").value, "40.0 GB");
         compare(child(s.page, "availableItem").value, "24.0 GB");
         compare(child(s.page, "totalItem").value, "64.0 GB");
