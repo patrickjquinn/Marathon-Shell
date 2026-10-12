@@ -20,6 +20,12 @@ Item {
         phone.dialedNumber = number + text;
     }
 
+    function paste() {
+        const text = Phone.dialable(Clipboard.text);
+        if (text.length > 0)
+            phone.dialedNumber = number + text;
+    }
+
     function backspace() {
         phone.dialedNumber = number.slice(0, -1);
     }
@@ -64,8 +70,10 @@ Item {
         spacing: Theme.paddingSmall
 
         Item {
+            id: numberRow
+
             width: parent.width
-            height: numberLabel.height
+            height: numberLabel.height + (pasteMenu.parent === numberRow ? pasteMenu.height : 0)
 
             Label {
                 id: numberLabel
@@ -83,6 +91,13 @@ Item {
                 minimumPixelSize: root.number.length > 0 ? Theme.fontSizeLarge : Theme.fontSizeMedium
                 elide: Text.ElideLeft
                 Accessible.name: root.number.length > 0 ? root.number.split("").join(" ") : text
+            }
+
+            MouseArea {
+                objectName: "numberArea"
+                anchors.fill: numberLabel
+                onPressAndHold: if (Clipboard.hasText)
+                    pasteMenu.open(numberRow)
             }
 
             IconButton {
@@ -111,6 +126,16 @@ Item {
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeSmall
             opacity: text.length > 0 ? 1 : 0
+        }
+    }
+
+    ContextMenu {
+        id: pasteMenu
+
+        MenuItem {
+            objectName: "pasteMenuItem"
+            text: qsTr("Paste")
+            onClicked: root.paste()
         }
     }
 

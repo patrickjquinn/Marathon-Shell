@@ -113,6 +113,18 @@ TestCase {
         verify(!findChild(app.pageStack.currentPage, "callButton").enabled);
     }
 
+    function test_holdNumberToPaste() {
+        const app = makeApp();
+        type(app, "00");
+        Clipboard.text = "tel: +353 (87) 123-4567";
+        const page = app.pageStack.currentPage;
+        findChild(page, "numberArea").pressAndHold(null);
+        let item = null;
+        tryVerify(() => (item = findChild(page, "pasteMenuItem")) !== null && item.visible);
+        item.clicked();
+        compare(app.dialedNumber, "00+353871234567");
+    }
+
     function test_emergencyNumberUsesEmergencyDial() {
         const app = makeApp();
         type(app, "112");

@@ -76,4 +76,10 @@ TestCase {
         compare(rows.map(r => r.section), ["*", "#", "A", "G"]);
         compare(Phone.peopleRows([{ id: 1, name: "Ada" }, { id: 2, name: "Bob" }], "bo").map(r => r.id), [2]);
     }
+
+    function test_dialable() {
+        compare(Phone.dialable("Call +1 (555) 123-4567 now"), "+15551234567");
+        compare(Phone.dialable("*21#"), "*21#");
+        compare(Phone.dialable("no digits"), "");
+    }
 }

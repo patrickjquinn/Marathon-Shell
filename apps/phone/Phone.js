@@ -5,6 +5,10 @@ const twoDigitCountryCodes = ["20", "27", "30", "31", "32", "33", "34", "36", "3
 // Short codes networks route to emergency services, with or without a SIM.
 const emergencyNumbers = ["112", "911", "999", "000", "110", "119", "118", "08"];
 
+function dialable(text) {
+    return String(text || "").replace(/[^0-9+*#]/g, "");
+}
+
 function digits(number) {
     return String(number || "").replace(/\D/g, "");
 }
