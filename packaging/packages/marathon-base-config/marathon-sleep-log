@@ -1,0 +1,24 @@
+#!/bin/sh
+# systemd-sleep hook ($1 = pre|post, $2 = suspend|hibernate|hybrid-sleep|...).
+# A sleep that never resumed shows as a "pre" line with no "post" after it.
+# The line also goes to the kernel log and, where pstore is built in, to
+# /dev/pmsg0, which survives a watchdog reset.
+
+case "$1" in
+pre)
+	line="pre $2 mem_sleep=$(tr " " , < /sys/power/mem_sleep 2>/dev/null)"
+	;;
+post)
+	line="post $2 wakeup_irq=$(cat /sys/power/pm_wakeup_irq 2>/dev/null)"
+	line="$line failed_dev=$(cat /sys/power/suspend_stats/last_failed_dev 2>/dev/null)"
+	;;
+*)
+	exit 0
+	;;
+esac
+
+line="$line boot=$(cat /proc/sys/kernel/random/boot_id)"
+echo "$(date -Iseconds) $line" >> /var/log/marathon-sleep.log
+echo "marathon-sleep: $line" > /dev/kmsg
+[ -c /dev/pmsg0 ] && echo "marathon-sleep: $line" > /dev/pmsg0
+exit 0
