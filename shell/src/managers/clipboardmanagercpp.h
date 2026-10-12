@@ -9,7 +9,6 @@ class SettingsManager;
 class ClipboardManagerCpp : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
-    Q_PROPERTY(int maxHistorySize READ maxHistorySize CONSTANT)
 
   public:
     explicit ClipboardManagerCpp(SettingsManager *settings, QObject *parent = nullptr);
@@ -17,18 +16,13 @@ class ClipboardManagerCpp : public QObject {
     QVariantList history() const {
         return m_history;
     }
-    int maxHistorySize() const {
-        return m_maxHistorySize;
-    }
 
-    Q_INVOKABLE QVariantList getHistory() const;
     Q_INVOKABLE void         copyToClipboard(const QString &text, const QString &type = "text");
     Q_INVOKABLE void         deleteItem(int index);
     Q_INVOKABLE void         clearHistory();
 
   signals:
     void historyChanged();
-    void historyCleared();
 
   private:
     void             load();

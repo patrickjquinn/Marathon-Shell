@@ -12,10 +12,6 @@ ClipboardManagerCpp::ClipboardManagerCpp(SettingsManager *settings, QObject *par
     load();
 }
 
-QVariantList ClipboardManagerCpp::getHistory() const {
-    return m_history;
-}
-
 void ClipboardManagerCpp::copyToClipboard(const QString &text, const QString &type) {
     addToHistory(text, type);
 }
@@ -36,7 +32,6 @@ void ClipboardManagerCpp::clearHistory() {
     m_history.clear();
     save();
     emit historyChanged();
-    emit historyCleared();
 }
 
 void ClipboardManagerCpp::load() {
