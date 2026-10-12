@@ -2,7 +2,7 @@
 # Keel's theme image provider looks for them. One SVG per glyph is checked in;
 # this writes a copy per size class and pixel ratio with that pixel size.
 set(_theme_out ${CMAKE_CURRENT_BINARY_DIR}/themes)
-set(_sizes xs:24 s:32 splus:48 m:64 l:96)
+set(_sizes xs:24 s:32 splus:48 m:64 l:96 cover:32)
 set(_ratios 1.0:100 1.25:125 1.5:150 1.75:175 2.0:200)
 
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/icon-map.txt _map REGEX "^[a-z]")

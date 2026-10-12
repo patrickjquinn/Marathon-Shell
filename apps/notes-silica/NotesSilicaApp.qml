@@ -4,6 +4,7 @@ import Marathon.Silica 1.0
 import Nemo.Configuration 1.0
 import "NotesStore.js" as Store
 import "pages"
+import "cover"
 
 ApplicationWindow {
     id: app
@@ -18,6 +19,16 @@ ApplicationWindow {
     function save(next) {
         notes = next;
         store.value = JSON.stringify(next);
+    }
+
+    cover: Component {
+        NotesCover {
+            notes: app.notes
+            onNewNoteRequested: {
+                app.activate();
+                app.pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: -1 });
+            }
+        }
     }
 
     initialPage: Component {
