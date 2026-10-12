@@ -111,6 +111,7 @@ music music-note
 mute speaker-slash
 navigate compass
 new plus
+next-song skip-forward
 note note
 other dots-three-circle
 outgoing-call phone-outgoing
