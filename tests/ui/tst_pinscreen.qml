@@ -20,6 +20,12 @@ TestCase {
         MarathonPinScreen {
             id: pinScreen
         }
+
+        Text {
+            id: sibling
+
+            text: "shell"
+        }
     }
 
     function init() {
@@ -106,5 +112,17 @@ TestCase {
         type("1");
         waitForRendering(pinScreen);
         compare(key.mapToItem(null, 0, 0).y, before);
+    }
+
+    function test_titleFollowsMode() {
+        const title = findChild(pinScreen, "pinTitle");
+        compare(title.text, "Enter PIN");
+        pinScreen.switchToPasswordMode();
+        wait(50);
+        compare(sibling.opacity, 1);
+        tryCompare(title, "text", "Enter password");
+        compare(sibling.text, "shell");
+        pinScreen.switchToPINMode();
+        tryCompare(title, "text", "Enter PIN");
     }
 }

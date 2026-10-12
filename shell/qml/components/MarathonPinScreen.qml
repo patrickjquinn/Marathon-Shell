@@ -287,35 +287,13 @@ Item {
             spacing: Math.round(16 * Constants.scaleFactor)
 
             Text {
+                objectName: "pinTitle"
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: pinScreen.passwordMode ? "Enter password" : "Enter PIN"
                 color: Silica.Theme.highlightColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeLarge
                 renderType: Text.QtRendering
-
-                Behavior on text {
-                    SequentialAnimation {
-                        NumberAnimation {
-                            target: pinScreen.parent.children[1]
-                            property: "opacity"
-                            to: 0
-                            duration: 100
-                        }
-
-                        PropertyAction {
-                            target: pinScreen.parent.children[1]
-                            property: "text"
-                        }
-
-                        NumberAnimation {
-                            target: pinScreen.parent.children[1]
-                            property: "opacity"
-                            to: 1
-                            duration: 100
-                        }
-                    }
-                }
             }
         }
 
