@@ -35,11 +35,6 @@ void UIStore::toggleSearch() {
     }
 }
 
-void UIStore::openShareSheet(const QVariant &content, const QString &contentType) {
-    emit showShareSheet(content, contentType.isEmpty() ? QStringLiteral("text") : contentType);
-    setShareSheetOpen(true);
-}
-
 void UIStore::closeShareSheet() {
     setShareSheetOpen(false);
 }

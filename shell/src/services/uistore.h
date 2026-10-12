@@ -80,7 +80,6 @@ class UIStore : public QObject {
     Q_INVOKABLE void openSearch();
     Q_INVOKABLE void closeSearch();
     Q_INVOKABLE void toggleSearch();
-    Q_INVOKABLE void openShareSheet(const QVariant &content, const QString &contentType);
     Q_INVOKABLE void closeShareSheet();
     Q_INVOKABLE void openClipboardManager();
     Q_INVOKABLE void closeClipboardManager();
@@ -118,7 +117,6 @@ class UIStore : public QObject {
     void showNotificationToast(const QVariant &notification);
     void showSystemHUD(const QString &type, double value);
     void showConfirmDialog(const QString &title, const QString &message, const QVariant &onConfirm);
-    void showShareSheet(const QVariant &content, const QString &contentType);
 
   private:
     void     setQuickSettingsOpen(bool open);
