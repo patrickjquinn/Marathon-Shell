@@ -98,6 +98,15 @@ TestCase {
         compare(Logic.remaining(null, 0, -1), { distance: 0, time: 0 });
     }
 
+    function test_placeKindAndLine() {
+        compare(Logic.placeKind("bridge"), "Bridge");
+        compare(Logic.placeKind("yes"), "");
+        compare(Logic.placeKind(""), "");
+        compare(Logic.placeLine({ name: "Tower Bridge", address: "Tower Bridge, London, UK", type: "bridge" }), "Bridge · London, UK");
+        compare(Logic.placeLine({ name: "Home", address: "Home, 1 Road", type: "yes" }), "1 Road");
+        compare(Logic.placeLine({ name: "X", address: "", type: "cafe" }), "Café");
+    }
+
     function test_mapFailureIsPermanent() {
         verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
         verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));

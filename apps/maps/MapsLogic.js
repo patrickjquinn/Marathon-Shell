@@ -136,3 +136,32 @@ function remaining(maneuvers, index, toNext) {
 function mapFailureIsPermanent(message) {
     return /WebGL|context/i.test(String(message || ""));
 }
+
+// Readable labels for common OSM types; unknown ones ("yes") stay unnamed.
+const placeKinds = {
+    "house": QT_TR_NOOP("Address"), "residential": QT_TR_NOOP("Street"), "primary": QT_TR_NOOP("Road"),
+    "secondary": QT_TR_NOOP("Road"), "tertiary": QT_TR_NOOP("Road"), "unclassified": QT_TR_NOOP("Road"),
+    "city": QT_TR_NOOP("City"), "town": QT_TR_NOOP("Town"), "village": QT_TR_NOOP("Village"),
+    "hamlet": QT_TR_NOOP("Village"), "suburb": QT_TR_NOOP("District"), "neighbourhood": QT_TR_NOOP("Neighbourhood"),
+    "administrative": QT_TR_NOOP("Area"), "postcode": QT_TR_NOOP("Postcode"), "restaurant": QT_TR_NOOP("Restaurant"),
+    "cafe": QT_TR_NOOP("Café"), "pub": QT_TR_NOOP("Pub"), "bar": QT_TR_NOOP("Bar"),
+    "fast food": QT_TR_NOOP("Fast food"), "hotel": QT_TR_NOOP("Hotel"), "museum": QT_TR_NOOP("Museum"),
+    "attraction": QT_TR_NOOP("Attraction"), "park": QT_TR_NOOP("Park"), "station": QT_TR_NOOP("Station"),
+    "bus stop": QT_TR_NOOP("Bus stop"), "supermarket": QT_TR_NOOP("Supermarket"), "school": QT_TR_NOOP("School"),
+    "university": QT_TR_NOOP("University"), "hospital": QT_TR_NOOP("Hospital"), "pharmacy": QT_TR_NOOP("Pharmacy"),
+    "bridge": QT_TR_NOOP("Bridge"), "place of worship": QT_TR_NOOP("Place of worship"), "parking": QT_TR_NOOP("Parking"),
+    "fuel": QT_TR_NOOP("Fuel station"), "aerodrome": QT_TR_NOOP("Airport"), "library": QT_TR_NOOP("Library")
+};
+
+function placeKind(type) {
+    const kind = placeKinds[String(type || "").toLowerCase()];
+    return kind ? qsTr(kind) : "";
+}
+
+// "Bridge · Tower Bridge Road, London": kind, then the address after the name.
+function placeLine(place) {
+    const address = String(place.address || "");
+    const rest = address.indexOf(place.name + ", ") === 0 ? address.slice(place.name.length + 2) : address;
+    const kind = placeKind(place.type);
+    return kind && rest ? kind + " · " + rest : kind || rest;
+}

@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import "../MapsLogic.js" as Logic
 
 Page {
     id: root
@@ -43,7 +44,7 @@ Page {
 
             PageHeader {
                 title: root.place.name
-                description: root.place.type
+                description: Logic.placeKind(root.place.type)
             }
             DetailItem {
                 objectName: "addressItem"
