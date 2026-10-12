@@ -11,10 +11,10 @@ Branch: feat/keel-framework-1a (continue on it).
 | 1c TabBar/TabView, PageIndicator, FilterChip; icon theme | built (marathon-icon-theme subpkg, lint) | icons installed r367; visual check pending |
 | 1d Marathon.Platform; Ngf/Configuration/Notifications backends | committed | Ngf Play/Status on system bus OK; Configuration persists via dconf across restart; remote actions host-tested only |
 | 1e pool pre-compiles framework; notes-silica on framework | committed | first frame 1.28-1.44 s (target <=1.87) |
-| 2 shell redesign | in progress: Keel cost 11.7 MB RSS in shell; covers (r371) built; portal Settings backend built | covers pending |
-| 3 app migration | | |
-| 4 remove MarathonUI | | |
-| 5 Sailfish app support | | |
+| 2 shell redesign | done for covers, switcher cards, lock clock, QS switches, Hub, theme->Silica, Source Sans 3 font, portal Settings | r374-r376 screenshots |
+| 3 app migration | all 17 apps on Keel (agents, merged) | r375/r376: notes, clock, calculator, gallery, phone, messages, music on device; rest in r377 |
+| 4 remove MarathonUI | agent running (theme->shell-private, components->Silica/shell ui, delete marathon-ui) | |
+| 5 Sailfish app support | keel-silica r4 (platform, sailfishapp, qt5compat), marathon-keel-host, Sailjail->bwrap, sailfish-qml, marathon-sailfish-install | host-tested; device pending |
 
 ## Rulings
 - 1b: Escape. The compositor turned every Esc key into system back before apps saw it. Ruling: for Keel apps the compositor passes Esc through (KeyRouting); Silica controls use it (menus, dialogs, remorse) and Page turns an unused Esc into handleBack. MarathonUI apps unchanged. Cost if wrong: a Keel app that swallows Esc can't be backed out of by keyboard (back gesture still works).
