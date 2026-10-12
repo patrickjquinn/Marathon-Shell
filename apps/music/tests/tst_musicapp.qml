@@ -254,11 +254,12 @@ TestCase {
         compare(app.player.repeatMode, "all");
     }
 
-    function test_playbackErrorKeepsTrack() {
+    function test_playbackErrorSkipsTrack() {
         const app = makeApp();
         app.player.playTracks(app.tracks, 0);
         app.player.media.errorOccurred(1, "unsupported");
-        compare(app.player.currentTrack.title, "Blue");
+        compare(app.player.currentTrack.title, "Cold");
+        verify(app.player.playing);
     }
 
     function test_playlistsPersist() {

@@ -32,10 +32,15 @@ QtObject {
     }
 
     property real _resumeAt: 0
+    // Consecutive tracks that failed to play, so a queue of broken files stops.
+    property int _failures: 0
+    // A restored queue loads paused; a broken file there is reported, not skipped.
+    property bool _autoplay: false
 
     signal failed(var track)
 
     function playTracks(tracks, start) {
+        _failures = 0;
         queue = tracks;
         _play(start);
     }
@@ -51,10 +56,12 @@ QtObject {
     function toggle() {
         if (!currentTrack)
             return;
-        if (playing)
+        if (playing) {
             media.pause();
-        else
+        } else {
+            _autoplay = true;
             media.play();
+        }
     }
 
     function next() {
@@ -97,6 +104,7 @@ QtObject {
         shuffle = s.shuffle === true;
         repeatMode = ["off", "all", "one"].indexOf(s.repeatMode) >= 0 ? s.repeatMode : "off";
         _resumeAt = i >= 0 && s.position > 0 ? s.position : 0;
+        _autoplay = false;
         media.source = queue[index].path;
         return true;
     }
@@ -106,6 +114,7 @@ QtObject {
             return;
         index = i;
         _resumeAt = 0;
+        _autoplay = true;
         media.source = queue[i].path;
         media.play();
     }
@@ -128,13 +137,25 @@ QtObject {
         function onMediaStatusChanged() {
             if (player.media.mediaStatus === MediaPlayer.EndOfMedia)
                 player._finished();
-            else if (player.media.mediaStatus === MediaPlayer.LoadedMedia && player._resumeAt > 0) {
-                player.media.position = player._resumeAt;
-                player._resumeAt = 0;
+            else if (player.media.mediaStatus === MediaPlayer.LoadedMedia) {
+                player._failures = 0;
+                if (player._resumeAt > 0) {
+                    player.media.position = player._resumeAt;
+                    player._resumeAt = 0;
+                }
             }
         }
         function onErrorOccurred() {
             player.failed(player.currentTrack);
+            if (!player._autoplay)
+                return;
+            const i = ++player._failures < player.queue.length
+                    ? Queue.next(player.queue.length, player.index, player.shuffle, player.repeatMode === "all", Math.random())
+                    : -1;
+            if (i < 0)
+                player.media.stop();
+            else
+                player._play(i);
         }
     }
 }

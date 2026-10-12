@@ -147,6 +147,40 @@ TestCase {
         compare(failedSpy.signalArguments[0][0].title, "One");
     }
 
+    function test_errorSkipsToTheNextTrack() {
+        const p = makePlayer();
+        p.playTracks(tracks, 0);
+        p.media.errorOccurred(1, "boom");
+        compare(p.currentTrack.title, "Two");
+        verify(p.playing);
+    }
+
+    function test_errorOnTheLastTrackStops() {
+        const p = makePlayer();
+        p.playTracks(tracks, 2);
+        p.media.errorOccurred(1, "boom");
+        compare(p.currentTrack.title, "Three");
+        verify(!p.playing);
+    }
+
+    function test_aQueueOfBrokenFilesStops() {
+        const p = makePlayer();
+        p.repeatMode = "all";
+        p.playTracks(tracks, 0);
+        for (let i = 0; i < 3; ++i)
+            p.media.errorOccurred(1, "boom");
+        verify(!p.playing);
+        compare(p.media.plays, 3, "each track tried once");
+    }
+
+    function test_errorInARestoredQueueStaysPaused() {
+        const p = makePlayer();
+        p.restore({ paths: tracks.map(t => t.path), index: 0, position: 0 }, tracks);
+        p.media.errorOccurred(1, "boom");
+        compare(p.currentTrack.title, "One");
+        verify(!p.playing);
+    }
+
     function test_snapshotRestoresPaused() {
         const p = makePlayer();
         p.playTracks(tracks, 1);
