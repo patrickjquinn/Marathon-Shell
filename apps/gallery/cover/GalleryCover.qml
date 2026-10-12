@@ -28,7 +28,7 @@ CoverBackground {
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
-        enabled: root.shownPhoto === null
+        visible: root.shownPhoto === null
         text: qsTr("No photos")
         icon.source: "image://theme/icon-l-gallery"
     }
