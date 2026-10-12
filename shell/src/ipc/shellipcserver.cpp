@@ -167,6 +167,11 @@ bool ShellIpcServer::registerOnSessionBus() {
         ok &= bus.registerObject("/org/marathonos/Shell/Wallpaper",
                                  new WallpaperObject(m_wallpaperStore, this),
                                  QDBusConnection::ExportAllSlots);
+    if (m_modemManager)
+        ok &= bus.registerObject(
+            "/org/marathonos/Shell/Modem",
+            new ModemObject(m_modemManager, m_permissions, m_appLaunchService, this),
+            QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     if (m_ambience)
         ok &= bus.registerObject("/org/marathonos/Shell/Ambience",
                                  new AmbienceObject(m_ambience, this),

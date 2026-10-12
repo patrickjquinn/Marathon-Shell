@@ -1207,6 +1207,7 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("NetworkManagerCpp", networkClient);
         qmlRegisterSingletonInstance<NetworkClient>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
                                                     networkClient);
+        ctx->setContextProperty("ModemManagerCpp", new ModemClient(&app));
     }
 
     auto *navigationClient = new NavigationClient(&app);

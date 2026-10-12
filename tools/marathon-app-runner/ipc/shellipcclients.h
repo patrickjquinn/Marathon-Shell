@@ -886,6 +886,9 @@ class NetworkClient : public QObject {
     Q_INVOKABLE void toggleWifi();
     Q_INVOKABLE void scanWifi();
     Q_INVOKABLE void connectToNetwork(const QString &ssid, const QString &password);
+    Q_INVOKABLE void connectToHiddenNetwork(const QString &ssid, const QString &security,
+                                            const QString &password);
+    Q_INVOKABLE void forgetNetwork(const QString &ssid);
     Q_INVOKABLE void disconnectWifi();
     Q_INVOKABLE void setAirplaneMode(bool enabled);
     Q_INVOKABLE void createHotspot(const QString &ssid, const QString &password);
@@ -928,6 +931,81 @@ class NetworkClient : public QObject {
     bool           m_loggedFirstFailure  = false;
     bool           m_refreshInFlight     = false;
     bool           m_permissionRequested = false;
+};
+
+class ModemClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool available READ available NOTIFY stateChanged)
+    Q_PROPERTY(bool enabled READ enabled NOTIFY stateChanged)
+    Q_PROPERTY(bool simPresent READ simPresent NOTIFY stateChanged)
+    Q_PROPERTY(bool registered READ registered NOTIFY stateChanged)
+    Q_PROPERTY(QString operatorName READ operatorName NOTIFY stateChanged)
+    Q_PROPERTY(int signalStrength READ signalStrength NOTIFY stateChanged)
+    Q_PROPERTY(QString networkType READ networkType NOTIFY stateChanged)
+    Q_PROPERTY(bool roaming READ roaming NOTIFY stateChanged)
+    Q_PROPERTY(bool dataEnabled READ dataEnabled NOTIFY stateChanged)
+    Q_PROPERTY(bool dataRoamingAllowed READ dataRoamingAllowed NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList supportedModes READ supportedModes NOTIFY stateChanged)
+    Q_PROPERTY(uint allowedModes READ allowedModes NOTIFY stateChanged)
+
+  public:
+    explicit ModemClient(QObject *parent = nullptr);
+
+    bool available() const {
+        return m_state.value("available").toBool();
+    }
+    bool enabled() const {
+        return m_state.value("enabled").toBool();
+    }
+    bool simPresent() const {
+        return m_state.value("simPresent").toBool();
+    }
+    bool registered() const {
+        return m_state.value("registered").toBool();
+    }
+    QString operatorName() const {
+        return m_state.value("operatorName").toString();
+    }
+    int signalStrength() const {
+        return m_state.value("signalStrength").toInt();
+    }
+    QString networkType() const {
+        return m_state.value("networkType").toString();
+    }
+    bool roaming() const {
+        return m_state.value("roaming").toBool();
+    }
+    bool dataEnabled() const {
+        return m_state.value("dataEnabled").toBool();
+    }
+    bool dataRoamingAllowed() const {
+        return m_state.value("dataRoamingAllowed").toBool();
+    }
+    QVariantList supportedModes() const {
+        return m_state.value("supportedModes").toList();
+    }
+    uint allowedModes() const {
+        return m_state.value("allowedModes").toUInt();
+    }
+
+    Q_INVOKABLE void enableData();
+    Q_INVOKABLE void disableData();
+    Q_INVOKABLE void setDataRoamingAllowed(bool allowed);
+    Q_INVOKABLE void setAllowedModes(uint allowed);
+
+  signals:
+    void stateChanged();
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    void           refresh();
+    void           call(const char *method, const QVariant &arg = QVariant());
+
+    QDBusInterface m_iface;
+    QVariantMap    m_state;
+    int            m_retries = 0;
 };
 
 class NavigationClient : public QObject {

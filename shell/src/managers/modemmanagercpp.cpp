@@ -8,6 +8,8 @@
 #include <QDBusPendingReply>
 #include <QDBusPendingCallWatcher>
 #include <QRandomGenerator>
+#include <QSettings>
+#include <algorithm>
 
 ModemManagerCpp::ModemManagerCpp(QObject *parent)
     : QObject(parent)
@@ -27,6 +29,9 @@ ModemManagerCpp::ModemManagerCpp(QObject *parent)
     , m_dataEnabled(false)
     , m_dataConnected(false) {
     qDebug() << "[ModemManagerCpp] Initializing";
+    m_dataRoamingAllowed = QSettings("marathon-os", "Marathon Shell")
+                               .value("cellular/dataRoaming", false)
+                               .toBool();
 
     m_stateMonitor = new QTimer(this);
     // 60s safety-net poll for cosmetic status-bar fields (signal bars,
@@ -368,6 +373,98 @@ void ModemManagerCpp::queryModemState() {
         m_simEmergencyNumbers.clear();
         emit simEmergencyNumbersChanged();
     }
+
+    queryModes();
+}
+
+static QDBusArgument modemProperty(const QString &path, const char *name) {
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        "org.freedesktop.ModemManager1", path, "org.freedesktop.DBus.Properties", "Get");
+    get << QStringLiteral("org.freedesktop.ModemManager1.Modem") << QString::fromLatin1(name);
+    const QDBusMessage reply = QDBusConnection::systemBus().call(get);
+    if (reply.type() == QDBusMessage::ErrorMessage || reply.arguments().isEmpty())
+        return {};
+    return reply.arguments().at(0).value<QDBusVariant>().variant().value<QDBusArgument>();
+}
+
+void ModemManagerCpp::queryModes() {
+    constexpr uint kCircuitSwitched = 1;
+    QHash<uint, QList<uint>> preferences;
+    QList<uint>              order;
+    const QDBusArgument      supported = modemProperty(m_modemPath, "SupportedModes");
+    if (supported.currentType() == QDBusArgument::ArrayType) {
+        supported.beginArray();
+        while (!supported.atEnd()) {
+            uint allowed = 0, preferred = 0;
+            supported.beginStructure();
+            supported >> allowed >> preferred;
+            supported.endStructure();
+            allowed &= ~kCircuitSwitched;
+            if (!preferences.contains(allowed))
+                order.append(allowed);
+            preferences[allowed].append(preferred);
+        }
+        supported.endArray();
+    }
+    std::sort(order.begin(), order.end(), std::greater<uint>());
+
+    QHash<uint, uint> preferredFor;
+    QVariantList      modes;
+    for (uint allowed : std::as_const(order)) {
+        uint fastest = allowed;
+        while (fastest & (fastest - 1))
+            fastest &= fastest - 1;
+        const QList<uint> &choices = preferences.value(allowed);
+        preferredFor[allowed] = choices.contains(fastest) ? fastest : choices.first();
+        modes.append(allowed);
+    }
+
+    uint                current = 0;
+    const QDBusArgument currentArg = modemProperty(m_modemPath, "CurrentModes");
+    if (currentArg.currentType() == QDBusArgument::StructureType) {
+        uint preferred = 0;
+        currentArg.beginStructure();
+        currentArg >> current >> preferred;
+        currentArg.endStructure();
+        current &= ~kCircuitSwitched;
+    }
+
+    if (modes != m_supportedModes || current != m_allowedModes) {
+        m_supportedModes = modes;
+        m_allowedModes   = current;
+        m_preferredFor   = preferredFor;
+        emit modesChanged();
+    }
+}
+
+void ModemManagerCpp::setAllowedModes(uint allowed) {
+    if (!m_hasModemManager || m_modemPath.isEmpty() || !m_preferredFor.contains(allowed))
+        return;
+    QDBusMessage msg = QDBusMessage::createMethodCall("org.freedesktop.ModemManager1", m_modemPath,
+                                                      "org.freedesktop.ModemManager1.Modem",
+                                                      "SetCurrentModes");
+    QDBusArgument modes;
+    modes.beginStructure();
+    modes << allowed << m_preferredFor.value(allowed);
+    modes.endStructure();
+    msg << QVariant::fromValue(modes);
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        if (w->isError())
+            qWarning() << "[ModemManagerCpp] SetCurrentModes failed:" << w->error().message();
+        queryModes();
+    });
+}
+
+void ModemManagerCpp::setDataRoamingAllowed(bool allowed) {
+    if (m_dataRoamingAllowed == allowed)
+        return;
+    m_dataRoamingAllowed = allowed;
+    QSettings("marathon-os", "Marathon Shell").setValue("cellular/dataRoaming", allowed);
+    emit dataRoamingAllowedChanged();
+    if (!allowed && m_roaming && m_dataEnabled)
+        disableData();
 }
 
 QString ModemManagerCpp::networkTypeFromAccessTech(uint accessTech) {
@@ -441,6 +538,7 @@ void ModemManagerCpp::enableData() {
 
     QVariantMap properties;
     properties["apn"] = "";
+    properties["allow-roaming"] = m_dataRoamingAllowed;
 
     // Async — Simple.Connect dials up a data bearer and can block for SECONDS.
     // A blocking QDBusReply here froze the whole compositor (the shell pumps

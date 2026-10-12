@@ -32,6 +32,7 @@ class MarathonAppRegistry;
 
 class AmbienceService;
 class WallpaperStore;
+class ModemManagerCpp;
 
 class ShellIpcServer : public QObject {
     Q_OBJECT
@@ -58,6 +59,9 @@ class ShellIpcServer : public QObject {
     void setWallpaperStore(WallpaperStore *store) {
         m_wallpaperStore = store;
     }
+    void setModemManager(ModemManagerCpp *modem) {
+        m_modemManager = modem;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -70,6 +74,7 @@ class ShellIpcServer : public QObject {
     SettingsManager           *m_settingsManager     = nullptr;
     AmbienceService           *m_ambience            = nullptr;
     WallpaperStore            *m_wallpaperStore      = nullptr;
+    ModemManagerCpp           *m_modemManager        = nullptr;
     BluetoothManager          *m_bluetoothManager    = nullptr;
     DisplayManagerCpp         *m_displayManager      = nullptr;
     PowerManagerCpp           *m_powerManager        = nullptr;

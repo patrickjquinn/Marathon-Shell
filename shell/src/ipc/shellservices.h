@@ -32,6 +32,7 @@ class SecurityManager;
 class BluetoothManager;
 class DisplayManagerCpp;
 class NetworkManagerCpp;
+class ModemManagerCpp;
 class PowerManagerCpp;
 class AudioManagerCpp;
 class AudioPolicyController;
@@ -485,6 +486,9 @@ class NetworkObject : public IpcPermissionedService {
     void        ToggleWifi();
     void        ScanWifi();
     void        ConnectToNetwork(const QString &ssid, const QString &password);
+    void        ConnectToHiddenNetwork(const QString &ssid, const QString &security,
+                                       const QString &password);
+    void        ForgetNetwork(const QString &ssid);
     void        DisconnectWifi();
 
     void        SetAirplaneMode(bool enabled);
@@ -506,6 +510,33 @@ class NetworkObject : public IpcPermissionedService {
     QVariantMap        buildState() const;
 
     NetworkManagerCpp *m_network = nullptr;
+};
+
+class ModemObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Modem1")
+
+  public:
+    ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *permissions,
+                AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap GetState();
+    void        EnableData();
+    void        DisableData();
+    void        SetDataRoamingAllowed(bool allowed);
+    void        SetAllowedModes(uint allowed);
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+
+  private:
+    bool requireNetwork() {
+        return requirePermission("Modem", {"network", "system"});
+    }
+    QVariantMap      buildState() const;
+
+    ModemManagerCpp *m_modem = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {

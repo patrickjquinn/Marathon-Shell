@@ -2352,6 +2352,21 @@ void NetworkClient::scanWifi() {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[NetworkClient] ScanWifi failed:" << r.errorMessage();
 }
+void NetworkClient::connectToHiddenNetwork(const QString &ssid, const QString &security,
+                                           const QString &password) {
+    if (!ensureNetworkPermission())
+        return;
+    auto r = m_iface.call("ConnectToHiddenNetwork", ssid, security, password);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[NetworkClient] ConnectToHiddenNetwork failed:" << r.errorMessage();
+}
+void NetworkClient::forgetNetwork(const QString &ssid) {
+    if (!ensureNetworkPermission())
+        return;
+    auto r = m_iface.call("ForgetNetwork", ssid);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[NetworkClient] ForgetNetwork failed:" << r.errorMessage();
+}
 void NetworkClient::connectToNetwork(const QString &ssid, const QString &password) {
     if (!ensureNetworkPermission())
         return;
@@ -3380,4 +3395,54 @@ void AppLifecycleClient::registerApp(const QString &appId, QObject *root) {
 
 void AppLifecycleClient::unregisterApp(const QString &appId) {
     Q_UNUSED(appId);
+}
+
+ModemClient::ModemClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Modem", "org.marathonos.Shell.Modem1",
+              QDBusConnection::sessionBus()) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Modem",
+                                          "org.marathonos.Shell.Modem1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    refresh();
+}
+
+void ModemClient::refresh() {
+    auto *w = new QDBusPendingCallWatcher(m_iface.asyncCall("GetState"), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() {
+        w->deleteLater();
+        QDBusPendingReply<QVariantMap> r = *w;
+        if (r.isValid()) {
+            onStateChanged(r.value());
+        } else if (m_retries++ < 20) {
+            QTimer::singleShot(500, this, &ModemClient::refresh);
+        } else if (!isAccessDenied(r.error())) {
+            qWarning() << "[ModemClient] GetState failed:" << r.error().message();
+        }
+    });
+}
+
+void ModemClient::onStateChanged(const QVariantMap &state) {
+    m_state = normalizeDbusVariantDeep(state).toMap();
+    emit stateChanged();
+}
+
+void ModemClient::call(const char *method, const QVariant &arg) {
+    const QDBusMessage r = arg.isValid() ? m_iface.call(QString::fromLatin1(method), arg)
+                                         : m_iface.call(QString::fromLatin1(method));
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[ModemClient]" << method << "failed:" << r.errorMessage();
+}
+
+void ModemClient::enableData() {
+    call("EnableData");
+}
+void ModemClient::disableData() {
+    call("DisableData");
+}
+void ModemClient::setDataRoamingAllowed(bool allowed) {
+    call("SetDataRoamingAllowed", allowed);
+}
+void ModemClient::setAllowedModes(uint allowed) {
+    call("SetAllowedModes", allowed);
 }

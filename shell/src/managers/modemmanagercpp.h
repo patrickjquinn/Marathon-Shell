@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QDBusInterface>
 #include <QTimer>
+#include <QHash>
+#include <QVariantList>
 
 class ModemManagerCpp : public QObject {
     Q_OBJECT
@@ -20,6 +22,11 @@ class ModemManagerCpp : public QObject {
     Q_PROPERTY(bool simPresent READ simPresent NOTIFY simPresentChanged)
     Q_PROPERTY(bool dataEnabled READ dataEnabled NOTIFY dataEnabledChanged)
     Q_PROPERTY(bool dataConnected READ dataConnected NOTIFY dataConnectedChanged)
+    Q_PROPERTY(bool dataRoamingAllowed READ dataRoamingAllowed WRITE setDataRoamingAllowed NOTIFY
+                   dataRoamingAllowedChanged)
+    // MMModemMode bit masks (2G = 2, 3G = 4, 4G = 8, 5G = 16) the modem can be limited to.
+    Q_PROPERTY(QVariantList supportedModes READ supportedModes NOTIFY modesChanged)
+    Q_PROPERTY(uint allowedModes READ allowedModes NOTIFY modesChanged)
     // Emergency-call surface: emergencyOnly is true when the modem will only
     // accept emergency dials (no SIM, PIN-locked, limited service).
     // simEmergencyNumbers comes from EF_ECC and is readable while PIN-locked.
@@ -71,6 +78,18 @@ class ModemManagerCpp : public QObject {
     QStringList simEmergencyNumbers() const {
         return m_simEmergencyNumbers;
     }
+    bool dataRoamingAllowed() const {
+        return m_dataRoamingAllowed;
+    }
+    QVariantList supportedModes() const {
+        return m_supportedModes;
+    }
+    uint allowedModes() const {
+        return m_allowedModes;
+    }
+
+    void             setDataRoamingAllowed(bool allowed);
+    Q_INVOKABLE void setAllowedModes(uint allowed);
 
     Q_INVOKABLE void        enable();
     Q_INVOKABLE void        disable();
@@ -91,6 +110,8 @@ class ModemManagerCpp : public QObject {
     void dataConnectedChanged();
     void emergencyOnlyChanged();
     void simEmergencyNumbersChanged();
+    void dataRoamingAllowedChanged();
+    void modesChanged();
 
   private slots:
     void discoverModem();
@@ -107,6 +128,7 @@ class ModemManagerCpp : public QObject {
     void            attachModemPropertySubscriptions();
     void            initializeDBusConnection();
     QString         networkTypeFromAccessTech(uint accessTech);
+    void            queryModes();
 
     QDBusInterface *m_mmInterface;
     QTimer         *m_stateMonitor;
@@ -128,6 +150,11 @@ class ModemManagerCpp : public QObject {
 
     bool            m_emergencyOnly = false;
     QStringList     m_simEmergencyNumbers;
+    bool            m_dataRoamingAllowed = false;
+    QVariantList    m_supportedModes;
+    uint            m_allowedModes = 0;
+    // Preferred mode for each allowed mask, from SupportedModes.
+    QHash<uint, uint> m_preferredFor;
 };
 
 #endif

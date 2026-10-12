@@ -20,6 +20,7 @@ QHash<QString, QString> platformTypeNames() {
         {QStringLiteral("AlarmService"), QStringLiteral("Alarms")},
         {QStringLiteral("SettingsManagerCpp"), QStringLiteral("Settings")},
         {QStringLiteral("NetworkManagerCpp"), QStringLiteral("Network")},
+        {QStringLiteral("ModemManagerCpp"), QStringLiteral("Modem")},
         {QStringLiteral("BluetoothManagerCpp"), QStringLiteral("Bluetooth")},
         {QStringLiteral("DisplayManagerCpp"), QStringLiteral("Display")},
         {QStringLiteral("PowerManagerService"), QStringLiteral("Power")},

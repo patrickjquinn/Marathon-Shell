@@ -9,6 +9,7 @@
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
 #include "networkmanagercpp.h"
+#include "modemmanagercpp.h"
 #include "powermanagercpp.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
@@ -1177,6 +1178,79 @@ void NetworkObject::ConnectToNetwork(const QString &ssid, const QString &passwor
     if (!requireNetwork())
         return;
     m_network->connectToNetwork(ssid, password);
+}
+
+void NetworkObject::ConnectToHiddenNetwork(const QString &ssid, const QString &security,
+                                           const QString &password) {
+    if (!requireNetwork())
+        return;
+    m_network->connectToHiddenNetwork(ssid, security, password);
+}
+
+void NetworkObject::ForgetNetwork(const QString &ssid) {
+    if (!requireNetwork())
+        return;
+    m_network->forgetNetwork(ssid);
+}
+
+ModemObject::ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *permissions,
+                         AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_modem(modem) {
+    Q_ASSERT(m_modem);
+    auto push = [this]() { emit StateChanged(buildState()); };
+    for (auto signal : {&ModemManagerCpp::modemAvailableChanged,
+                        &ModemManagerCpp::modemEnabledChanged, &ModemManagerCpp::simPresentChanged,
+                        &ModemManagerCpp::registeredChanged, &ModemManagerCpp::operatorNameChanged,
+                        &ModemManagerCpp::signalStrengthChanged,
+                        &ModemManagerCpp::networkTypeChanged, &ModemManagerCpp::roamingChanged,
+                        &ModemManagerCpp::dataEnabledChanged,
+                        &ModemManagerCpp::dataRoamingAllowedChanged,
+                        &ModemManagerCpp::modesChanged})
+        QObject::connect(m_modem, signal, this, push);
+}
+
+QVariantMap ModemObject::buildState() const {
+    return {
+        {"available", m_modem->modemAvailable()},
+        {"enabled", m_modem->modemEnabled()},
+        {"simPresent", m_modem->simPresent()},
+        {"registered", m_modem->registered()},
+        {"operatorName", m_modem->operatorName()},
+        {"signalStrength", m_modem->signalStrength()},
+        {"networkType", m_modem->networkType()},
+        {"roaming", m_modem->roaming()},
+        {"dataEnabled", m_modem->dataEnabled()},
+        {"dataRoamingAllowed", m_modem->dataRoamingAllowed()},
+        {"supportedModes", m_modem->supportedModes()},
+        {"allowedModes", m_modem->allowedModes()},
+    };
+}
+
+QVariantMap ModemObject::GetState() {
+    if (!requireNetwork())
+        return {};
+    return buildState();
+}
+
+void ModemObject::EnableData() {
+    if (requireNetwork())
+        m_modem->enableData();
+}
+
+void ModemObject::DisableData() {
+    if (requireNetwork())
+        m_modem->disableData();
+}
+
+void ModemObject::SetDataRoamingAllowed(bool allowed) {
+    if (requireNetwork())
+        m_modem->setDataRoamingAllowed(allowed);
+}
+
+void ModemObject::SetAllowedModes(uint allowed) {
+    if (requireNetwork())
+        m_modem->setAllowedModes(allowed);
 }
 
 void NetworkObject::DisconnectWifi() {
