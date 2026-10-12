@@ -9,10 +9,6 @@ QtObject {
     readonly property int lg: Math.round(6 * (Constants.scaleFactor || 1.0))
     readonly property int xl: Math.round(8 * (Constants.scaleFactor || 1.0))
 
-    readonly property int pill: 999
-    readonly property int circle: 999
-    readonly property int full: pill
-
     // Squircle — app icons ONLY. Scaled with the rest.
     readonly property int squircle: Math.round(14 * (Constants.scaleFactor || 1.0))
 }
