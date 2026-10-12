@@ -637,18 +637,6 @@ bool PowerManagerCpp::setRtcAlarm(qint64 epochTime) {
     return true;
 }
 
-bool PowerManagerCpp::clearRtcAlarm() {
-    if (!m_rtcAlarmSupported) {
-        return false;
-    }
-
-    bool success = writeToRtcWakeAlarm("0");
-    if (success) {
-        qInfo() << "[PowerManagerCpp] RTC alarm cleared";
-    }
-    return success;
-}
-
 bool PowerManagerCpp::writeToRtcWakeAlarm(const QString &value) {
     QFile file("/sys/class/rtc/rtc0/wakealarm");
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
