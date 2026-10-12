@@ -306,23 +306,30 @@ Rectangle {
         }
     }
 
+    // The launch splash: the app's icon on the ambience.
     Rectangle {
         id: loadingSplash
 
         anchors.fill: parent
-        color: MColors.background
+        color: "black"
         visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
         z: 1000
 
+        KeelAmbienceBackground {
+            anchors.fill: parent
+            wallpaper: AmbienceService.wallpaperUrl
+            light: AmbienceService.light
+        }
+
         Column {
             anchors.centerIn: parent
-            spacing: 24
+            spacing: Silica.Theme.paddingLarge
 
             MAppIcon {
                 id: splashIconImage
 
                 loadAsync: false
-                size: Math.round(128 * Constants.scaleFactor)
+                size: Silica.Theme.iconSizeLauncher
                 source: appWindow.appIcon || ""
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: source !== "" && (status === Image.Ready || !isImage)
@@ -336,8 +343,8 @@ Rectangle {
 
             GlyphIcon {
                 name: "grid-3x3"
-                size: Math.round(128 * Constants.scaleFactor)
-                color: MColors.textTertiary
+                size: Silica.Theme.iconSizeLauncher
+                color: Silica.Theme.secondaryColor
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: !splashIconImage.visible
             }
@@ -363,67 +370,54 @@ Rectangle {
         }
     }
 
+    // An app that failed to open: a Silica placeholder on the ambience.
     Rectangle {
         id: errorState
 
         anchors.fill: parent
-        color: MColors.background
+        color: "black"
         visible: appWindow.hasError
         z: 1001
 
+        KeelAmbienceBackground {
+            anchors.fill: parent
+            wallpaper: AmbienceService.wallpaperUrl
+            light: AmbienceService.light
+        }
+
         Column {
             anchors.centerIn: parent
-            spacing: 24
-            width: parent.width * 0.8
+            width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+            spacing: Silica.Theme.paddingLarge
 
-            GlyphIcon {
-                name: "alert-triangle"
-                size: Math.round(56 * Constants.scaleFactor)
-                color: MColors.textSecondary
+            Silica.InfoLabel {
+                width: parent.width
+                text: qsTr("%1 couldn't open").arg(appWindow.appName || qsTr("The app"))
+            }
+
+            Silica.Label {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: (appWindow.loadError ? appWindow.loadError + " " : "") + qsTr("Try again. If it keeps happening, restart your phone.")
+                color: Silica.Theme.secondaryHighlightColor
+            }
+
+            Silica.Button {
                 anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            Text {
-                text: (appWindow.appName || "The app") + " couldn't open"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.DemiBold
-                font.family: MTypography.fontFamily
-                color: MColors.textPrimary
-                wrapMode: Text.WordWrap
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Text {
-                text: (appWindow.loadError ? appWindow.loadError + " " : "") + "Try again. If it keeps happening, restart your phone."
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                color: MColors.textSecondary
-                wrapMode: Text.WordWrap
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Column {
-                width: parent.width
-                spacing: MSpacing.sm
-
-                Silica.Button {
-                    text: "Try again"
-                    width: parent.width
-                    onClicked: {
-                        const id = appWindow.appId;
-                        appWindow.hide();
-                        appWindow.retryRequested(id);
-                    }
+                text: qsTr("Try again")
+                onClicked: {
+                    const id = appWindow.appId;
+                    appWindow.hide();
+                    appWindow.retryRequested(id);
                 }
+            }
 
-                Silica.Button {
-                    text: "Close"
-                    backgroundColor: "transparent"
-                    width: parent.width
-                    onClicked: appWindow.hide()
-                }
+            Silica.Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Close")
+                backgroundColor: "transparent"
+                onClicked: appWindow.hide()
             }
         }
     }
