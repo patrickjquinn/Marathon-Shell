@@ -19,6 +19,7 @@ Rectangle {
     property bool highlighted: false
     property bool showingAlternates: false
     property int selectedAlternate: -1
+    property bool autoRepeat: false
 
     signal clicked
     signal pressAndHold
@@ -173,8 +174,7 @@ Rectangle {
             longPressTriggered = false;
             key.selectedAlternate = -1;
             HapticManager.light();
-            if (key.alternateChars.length > 0)
-                longPressTimer.restart();
+            longPressTimer.restart();
 
             mouse.accepted = true;
         }
@@ -189,13 +189,14 @@ Rectangle {
         }
         onReleased: function (mouse) {
             longPressTimer.stop();
+            repeatTimer.stop();
             key.pressed = false;
             if (key.showingAlternates) {
                 if (key.selectedAlternate >= 0)
                     key.alternateSelected(key.alternateChars[key.selectedAlternate]);
                 else
                     key.clicked();
-            } else if (!longPressTriggered && containsMouse) {
+            } else if (!(longPressTriggered && key.isSpecial) && containsMouse) {
                 key.clicked();
             }
             key.showingAlternates = false;
@@ -205,6 +206,7 @@ Rectangle {
         }
         onCanceled: {
             longPressTimer.stop();
+            repeatTimer.stop();
             key.pressed = false;
             key.showingAlternates = false;
             key.selectedAlternate = -1;
@@ -217,14 +219,26 @@ Rectangle {
         interval: 500
         repeat: false
         onTriggered: {
+            mouseArea.longPressTriggered = true;
             if (key.alternateChars.length > 0) {
                 HapticManager.medium();
                 mouseArea.holdPoint = Qt.point(mouseArea.mouseX, mouseArea.mouseY);
                 key.showingAlternates = true;
-                mouseArea.longPressTriggered = true;
-                key.pressAndHold();
+            }
+            key.pressAndHold();
+            if (key.autoRepeat) {
+                key.clicked();
+                repeatTimer.start();
             }
         }
+    }
+
+    Timer {
+        id: repeatTimer
+
+        interval: 80
+        repeat: true
+        onTriggered: key.clicked()
     }
 
     Behavior on color {

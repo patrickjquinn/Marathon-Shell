@@ -28,6 +28,8 @@ TestCase {
 
     function init() {
         key.alternateChars = ["à", "á", "â"];
+        key.isSpecial = false;
+        key.autoRepeat = false;
         clickedSpy.clear();
         alternateSpy.clear();
         holdSpy.clear();
@@ -87,5 +89,36 @@ TestCase {
         compare(clickedSpy.count, 1);
         compare(alternateSpy.count, 0);
         verify(!key.showingAlternates);
+    }
+
+    function test_holdOnKeyWithoutAlternatesFiresPressAndHold() {
+        key.alternateChars = [];
+        key.isSpecial = true;
+        mousePress(key, key.width / 2, key.height / 2);
+        tryCompare(holdSpy, "count", 1, 1000);
+        mouseRelease(key, key.width / 2, key.height / 2);
+        compare(clickedSpy.count, 0);
+    }
+
+    function test_holdOnPlainKeyStillTypesIt() {
+        key.alternateChars = [];
+        mousePress(key, key.width / 2, key.height / 2);
+        tryCompare(holdSpy, "count", 1, 1000);
+        mouseRelease(key, key.width / 2, key.height / 2);
+        compare(clickedSpy.count, 1);
+    }
+
+    function test_autoRepeatWhileHeld() {
+        key.alternateChars = [];
+        key.isSpecial = true;
+        key.autoRepeat = true;
+        mousePress(key, key.width / 2, key.height / 2);
+        wait(400);
+        compare(clickedSpy.count, 0);
+        tryVerify(() => clickedSpy.count >= 4, 1500);
+        mouseRelease(key, key.width / 2, key.height / 2);
+        const n = clickedSpy.count;
+        wait(250);
+        compare(clickedSpy.count, n);
     }
 }

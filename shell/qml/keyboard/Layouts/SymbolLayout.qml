@@ -115,6 +115,7 @@ Item {
                 width: row3.availableWidth * 0.175
                 text: "backspace"
                 iconName: "delete"
+                autoRepeat: true
                 isSpecial: true
                 onClicked: layout.backspaceClicked()
             }

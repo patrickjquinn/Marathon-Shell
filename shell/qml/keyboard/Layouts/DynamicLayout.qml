@@ -104,26 +104,10 @@ Item {
                         width: keyRow.sideKeyWidth
                         text: "backspace"
                         iconName: "delete"
+                        autoRepeat: true
                         isSpecial: true
                         onClicked: {
-                            if (!backspaceRepeatTimer.running)
-                                dynamicLayout.backspaceClicked();
-                        }
-                        onPressAndHold: {
-                            backspaceRepeatTimer.start();
-                        }
-                        onReleased: {
-                            backspaceRepeatTimer.stop();
-                        }
-
-                        Timer {
-                            id: backspaceRepeatTimer
-
-                            interval: 50
-                            repeat: true
-                            onTriggered: {
-                                dynamicLayout.backspaceClicked();
-                            }
+                            dynamicLayout.backspaceClicked();
                         }
                     }
                 }

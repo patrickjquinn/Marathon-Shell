@@ -290,6 +290,7 @@ Item {
                     width: Math.round(60 * Constants.scaleFactor)
                     height: parent.height
                     iconName: "delete"
+                    autoRepeat: true
                     isSpecial: true
                     onClicked: layout.backspaceClicked()
                 }

@@ -119,6 +119,7 @@ Item {
             Key {
                 width: row3.sideKeyWidth
                 iconName: "delete"
+                autoRepeat: true
                 isSpecial: true
                 onClicked: {
                     layout.backspaceClicked();

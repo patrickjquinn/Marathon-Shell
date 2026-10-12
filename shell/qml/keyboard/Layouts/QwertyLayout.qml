@@ -281,25 +281,9 @@ Item {
                 width: row3.availableWidth * 0.15
                 text: "backspace"
                 iconName: "delete"
+                autoRepeat: true
                 isSpecial: true
                 onClicked: {
-                    if (!backspaceRepeatTimer.running)
-                        layout.backspaceClicked();
-                }
-                onPressAndHold: {
-                    backspaceRepeatTimer.start();
-                }
-                onReleased: {
-                    backspaceRepeatTimer.stop();
-                }
-            }
-
-            Timer {
-                id: backspaceRepeatTimer
-
-                interval: 50
-                repeat: true
-                onTriggered: {
                     layout.backspaceClicked();
                 }
             }

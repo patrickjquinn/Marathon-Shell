@@ -73,6 +73,7 @@ Item {
             Key {
                 width: Math.round(100 * Constants.scaleFactor)
                 iconName: "delete"
+                autoRepeat: true
                 isSpecial: true
                 onClicked: {
                     layout.backspaceClicked();
