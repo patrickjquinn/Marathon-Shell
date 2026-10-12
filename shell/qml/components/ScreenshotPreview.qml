@@ -1,5 +1,6 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: screenshotPreview
@@ -28,34 +29,28 @@ Item {
 
         anchors.bottom: parent.bottom
         anchors.right: parent.right
-        anchors.bottomMargin: Constants.navBarHeight + Constants.bottomBarHeight + 16
-        anchors.rightMargin: Constants.spacingMedium
-        width: Math.round(160 * Constants.scaleFactor)
-        height: Constants.touchTargetLarge
-        radius: Constants.borderRadiusSmall
-        color: Qt.rgba(15, 15, 15, 0.98)
+        anchors.bottomMargin: Constants.navBarHeight + Constants.bottomBarHeight + Silica.Theme.paddingLarge
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        width: Math.round(parent.width / 4) + Silica.Theme.paddingMedium * 2
+        height: thumb.height + caption.height + Silica.Theme.paddingMedium * 2 + Silica.Theme.paddingSmall
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.15)
-        layer.enabled: true
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         visible: screenshotPreview.showing
         opacity: 0
 
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.05)
-            lineWidth: 1
-        }
-
         Column {
             anchors.fill: parent
-            anchors.margins: Math.round(8 * Constants.scaleFactor)
-            spacing: Math.round(6 * Constants.scaleFactor)
+            anchors.margins: Silica.Theme.paddingMedium
+            spacing: Silica.Theme.paddingSmall
 
             Rectangle {
+                id: thumb
                 width: parent.width
-                height: parent.height - Math.round(20 * Constants.scaleFactor)
-                radius: Math.round(2 * Constants.scaleFactor)
-                color: "#000000"
+                height: Math.round(width * screenshotPreview.height / Math.max(1, screenshotPreview.width))
+                radius: Silica.Theme.paddingSmall / 2
+                color: "black"
                 clip: true
 
                 Image {
@@ -69,20 +64,23 @@ Item {
                 }
             }
 
-            Text {
-                text: "Screenshot saved"
-                color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeXSmall
-                font.family: MTypography.fontFamily
+            Silica.Label {
+                id: caption
+                text: qsTr("Screenshot saved")
+                color: Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeTiny
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
 
         MouseArea {
             property real startX: 0
+            property bool swiped: false
 
             anchors.fill: parent
             onClicked: {
+                if (swiped)
+                    return;
                 Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + screenshotPreview.filePath);
                 screenshotPreview.hide();
                 NavigationRouter.navigateToDeepLink("gallery", "/image", {
@@ -91,10 +89,13 @@ Item {
             }
             onPressed: mouse => {
                 startX = mouse.x;
+                swiped = false;
             }
             onPositionChanged: mouse => {
-                if (mouse.x - startX > 50)
+                if (!swiped && mouse.x - startX > Silica.Theme.paddingLarge * 2) {
+                    swiped = true;
                     screenshotPreview.hide();
+                }
             }
         }
     }
