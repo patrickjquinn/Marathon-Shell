@@ -159,3 +159,9 @@ target_include_directories(test_core_wallpaperclient PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_WallpaperClient COMMAND test_core_wallpaperclient)
+
+# Sailjail permissions as a bwrap sandbox for Sailfish apps
+add_executable(test_core_sailjail test_sailjail.cpp ../../tools/marathon-app-runner/sailjail.cpp)
+target_link_libraries(test_core_sailjail Qt6::Test Qt6::Core)
+target_include_directories(test_core_sailjail PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
+add_test(NAME Core_Sailjail COMMAND test_core_sailjail)

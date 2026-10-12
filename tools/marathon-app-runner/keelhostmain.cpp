@@ -1,4 +1,5 @@
-// marathon-keel-host --app-id ID [--dpi N] -- PROGRAM [ARGS...]
+// marathon-keel-host --app-id ID [--dpi N] [--sailjail P1,P2 --org ORG --app APP]
+//                    -- PROGRAM [ARGS...]
 //
 // Runs a native Keel app (a Sailfish app rebuilt on Keel's sailfishapp) under
 // a Keel host, as marathon-app-runner does for QML apps.
@@ -6,6 +7,10 @@
 #include "ambienceclient.h"
 #include "hostedapp.h"
 #include "keelhost.h"
+#include "sailjail.h"
+
+#include <QDir>
+#include <QStandardPaths>
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -58,10 +63,26 @@ int main(int argc, char *argv[]) {
         QDBusConnection::sessionBus().asyncCall(call);
     };
 
-    HostedApp hosted(&host, command.first(), command.mid(1));
+    // A Sailfish app with Sailjail permissions runs in a sandbox built from them.
+    QString     program   = command.first();
+    QStringList arguments = command.mid(1);
+    const QString bwrap   = QStandardPaths::findExecutable(QStringLiteral("bwrap"));
+    if (options.contains(QStringLiteral("--sailjail")) && !bwrap.isEmpty()) {
+        const QString org  = option(QStringLiteral("--org"));
+        const QString name = option(QStringLiteral("--app"));
+        const QString home = QDir::homePath();
+        for (const char *base : {"/.local/share/", "/.cache/", "/.config/"})
+            QDir().mkpath(home + QLatin1String(base) + org + QLatin1Char('/') + name);
+        arguments = Sailjail::bwrapArgs(option(QStringLiteral("--sailjail")).split(QLatin1Char(','), Qt::SkipEmptyParts),
+                                        org, name, home, qEnvironmentVariable("XDG_RUNTIME_DIR"))
+                    << QStringLiteral("--") << program << arguments;
+        program = bwrap;
+    }
+
+    HostedApp hosted(&host, program, arguments);
     QObject::connect(&hosted, &HostedApp::finished, &app, [&app](int code) { app.exit(code); });
     if (!hosted.start()) {
-        qCritical("marathon-keel-host: cannot start %s", qPrintable(command.first()));
+        qCritical("marathon-keel-host: cannot start %s", qPrintable(program));
         return 1;
     }
 

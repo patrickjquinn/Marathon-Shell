@@ -73,6 +73,6 @@ install(TARGETS marathon-app-runner
 )
 
 # Native Keel apps (Sailfish apps rebuilt on Keel's sailfishapp) under a Keel host
-qt6_add_executable(marathon-keel-host keelhostmain.cpp keelhost.cpp hostedapp.cpp ambienceclient.cpp)
+qt6_add_executable(marathon-keel-host keelhostmain.cpp keelhost.cpp hostedapp.cpp ambienceclient.cpp sailjail.cpp)
 target_link_libraries(marathon-keel-host PRIVATE Qt6::Core Qt6::DBus)
 install(TARGETS marathon-keel-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
