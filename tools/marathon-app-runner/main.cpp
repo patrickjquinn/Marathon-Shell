@@ -149,6 +149,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathonappinstaller.h"
 
 #include "ipc/shellipcclients.h"
+#include "pagetouch.h"
 #include "calendarmanagercpp.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
@@ -436,49 +437,6 @@ static bool peekPoolFlag(int argc, char *argv[]) {
     return false;
 }
 
-// Re-touch the spare's whole resident private working set so the kernel
-// keeps it in RAM while the pool idles. The earlier version touched only
-// r-xp code pages, but the pages that actually cost adopt-to-frame are the
-// anonymous ones the driver/engine allocate (Qt heap, warmed GL state):
-// under memory pressure those get pushed to zram and adoption faulted them
-// back (~800 ms). Touch every readable private mapping (code, rodata, and
-// anon heap), skipping device maps (/dev, e.g. GPU BOs) and kernel pseudo
-// regions which must not be read byte-wise. Only used as the fallback when
-// mlockall is unavailable (see pool mode).
-static void touchOwnResidentPages() {
-    QFile maps(QStringLiteral("/proc/self/maps"));
-    if (!maps.open(QIODevice::ReadOnly))
-        return;
-    volatile unsigned char  sink  = 0;
-    const QList<QByteArray> lines = maps.readAll().split('\n');
-    for (const QByteArray &l : lines) {
-        // Fields: address perms offset dev inode pathname
-        const QList<QByteArray> f = l.simplified().split(' ');
-        if (f.size() < 2)
-            continue;
-        const QByteArray &perms = f.at(1);
-        if (perms.size() < 4 || perms.at(0) != 'r' || perms.at(3) != 'p')
-            continue; // need readable + private
-        const QByteArray path = f.size() >= 6 ? f.at(5) : QByteArray();
-        if (path.startsWith("/dev") || path.startsWith("[vsyscall]") || path.startsWith("[vvar]"))
-            continue;
-        // strtoull, not sscanf: sscanf's %lx reports nothing on overflow or
-        // on a malformed line -- it just leaves the variable unset and returns
-        // a count that looks fine. A bad range here would have us dereference
-        // a wild address in the touch loop below.
-        const QList<QByteArray> range = f.at(0).split('-');
-        if (range.size() != 2)
-            continue;
-        bool                startOk = false, endOk = false;
-        const unsigned long start = range.at(0).toULong(&startOk, 16);
-        const unsigned long end   = range.at(1).toULong(&endOk, 16);
-        if (!startOk || !endOk || end <= start)
-            continue;
-        for (unsigned long a = start; a < end; a += 4096)
-            sink += *reinterpret_cast<const volatile unsigned char *>(a);
-    }
-    (void)sink;
-}
 
 // Append one startup milestone to $XDG_RUNTIME_DIR/marathon-startup.log with
 // a raw O_APPEND write (atomic, unbuffered, immediately visible) so launch

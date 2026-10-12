@@ -16,6 +16,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 set(SOURCES
     main.cpp
+    pagetouch.cpp
     ipc/shellipcclients.cpp
     calendarmanagercpp.cpp
 )

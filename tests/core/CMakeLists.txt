@@ -77,3 +77,14 @@ target_include_directories(test_core_desktopfileparser PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/components
 )
 add_test(NAME Core_DesktopFileParser COMMAND test_core_desktopfileparser)
+
+# Pool keepalive page touching (marathon-app-runner)
+add_executable(test_core_pagetouch
+    test_pagetouch.cpp
+    ../../tools/marathon-app-runner/pagetouch.cpp
+)
+target_link_libraries(test_core_pagetouch Qt6::Test Qt6::Core)
+target_include_directories(test_core_pagetouch PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_PageTouch COMMAND test_core_pagetouch)
