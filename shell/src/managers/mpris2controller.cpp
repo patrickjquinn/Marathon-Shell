@@ -521,15 +521,6 @@ void MPRIS2Controller::setPosition(qint64 position) {
     updatePosition();
 }
 
-void MPRIS2Controller::switchToPlayer(const QString &busName) {
-    if (m_availablePlayers.contains(busName)) {
-        qInfo() << "[MPRIS2Controller] Switching to player:" << busName;
-        connectToPlayer(busName);
-    } else {
-        qWarning() << "[MPRIS2Controller] Player not found:" << busName;
-    }
-}
-
 QString MPRIS2Controller::extractMetadataString(const QVariantMap &metadata, const QString &key) {
     if (metadata.contains(key)) {
         return metadata.value(key).toString();

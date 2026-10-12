@@ -109,7 +109,6 @@ class MPRIS2Controller : public QObject {
     void setPosition(qint64 position);
 
     void scanForPlayers();
-    void switchToPlayer(const QString &busName);
 
   signals:
     void activePlayerChanged();
