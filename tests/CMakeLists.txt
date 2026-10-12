@@ -26,6 +26,9 @@ if(_SILICA_QMLDIR)
         add_test(NAME ${name} COMMAND sh ${CMAKE_SOURCE_DIR}/${suite}/run.sh)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "KEEL_QML=${_SILICA_QMLDIR}")
     endforeach()
+    if(TARGET marathon-shell)
+        add_test(NAME Shell_Loads COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/loads.sh $<TARGET_FILE:marathon-shell> "${_SILICA_QMLDIR}:${CMAKE_SOURCE_DIR}/marathon-silica")
+    endif()
 endif()
 
 # Every theme icon name used by Keel's Silica or our QML has a Marathon icon
