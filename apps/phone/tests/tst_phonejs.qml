@@ -1,0 +1,54 @@
+import QtQuick
+import QtTest
+import "../Phone.js" as Phone
+
+TestCase {
+    name: "PhoneJs"
+
+    function test_format() {
+        compare(Phone.format("+15551234567"), "+1 555 123 4567");
+        compare(Phone.format("0871234567"), "087 123 4567");
+        compare(Phone.format("*21#"), "*21#");
+        compare(Phone.format(""), "");
+    }
+
+    function test_sameNumber() {
+        verify(Phone.sameNumber("+1 555 123 4567", "5551234567"));
+        verify(!Phone.sameNumber("112", "911"));
+        verify(!Phone.sameNumber("", ""));
+    }
+
+    function test_emergency() {
+        verify(Phone.isEmergency("112"));
+        verify(Phone.isEmergency(" 911 "));
+        verify(Phone.isEmergency("999"));
+        verify(!Phone.isEmergency("1123"));
+        verify(!Phone.isEmergency("+112"));
+    }
+
+    function test_duration() {
+        compare(Phone.duration(0), "0:00");
+        compare(Phone.duration(65), "1:05");
+        compare(Phone.duration(3725), "1:02:05");
+    }
+
+    function test_timestampSecondsOrMs() {
+        compare(Phone.timestampMs(1700000000), 1700000000000);
+        compare(Phone.timestampMs(1700000000000), 1700000000000);
+        compare(Phone.timestampMs("x"), 0);
+    }
+
+    function test_filterContacts() {
+        const c = [{ name: "Ada Lovelace", phone: "+44 20 7946 0000" }, { name: "Alan Turing", phone: "555 0101" }];
+        compare(Phone.filterContacts(c, "").length, 2);
+        compare(Phone.filterContacts(c, "ada")[0].name, "Ada Lovelace");
+        compare(Phone.filterContacts(c, "0101")[0].name, "Alan Turing");
+        compare(Phone.filterContacts(c, "zzz").length, 0);
+    }
+
+    function test_missedSince() {
+        const h = [{ type: "missed", timestamp: 200 }, { type: "missed", timestamp: 50 }, { type: "incoming", timestamp: 300 }];
+        compare(Phone.missedSince(h, 100000), 1);
+        compare(Phone.missedSince(h, 0), 2);
+    }
+}
