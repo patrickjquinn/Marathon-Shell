@@ -7,6 +7,7 @@ CoverBackground {
 
     property int passed
     property int failed
+    property int triggered
 
     Column {
         x: Theme.paddingLarge
@@ -31,6 +32,12 @@ CoverBackground {
             text: qsTr("%1 failed").arg(cover.failed)
             font.pixelSize: Theme.fontSizeLarge
             color: cover.failed > 0 ? Theme.errorColor : Theme.primaryColor
+        }
+        Label {
+            objectName: "triggeredLabel"
+            text: qsTr("%1 triggered").arg(cover.triggered)
+            font.pixelSize: Theme.fontSizeLarge
+            color: Theme.secondaryColor
         }
     }
 }

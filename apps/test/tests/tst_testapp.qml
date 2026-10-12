@@ -28,15 +28,18 @@ TestCase {
         return app;
     }
 
-    function test_runCountsPassFailAndThrow() {
+    function test_runCountsPassFailTriggeredAndThrow() {
         const app = makeApp();
-        verify(app.run("pass", () => undefined));
-        verify(!app.run("false", () => false));
-        verify(!app.run("throws", () => NoSuchService.call()));
+        compare(app.run("pass", () => true), "passed");
+        compare(app.run("effect only", () => undefined), "triggered");
+        compare(app.run("not a check", () => 3), "triggered");
+        compare(app.run("false", () => false), "failed");
+        compare(app.run("throws", () => NoSuchService.call()), "failed");
         compare(app.passedTests, 1);
+        compare(app.triggeredTests, 2);
         compare(app.failedTests, 2);
-        compare(app.totalTests, 3);
-        compare(app.summary, "1 passed · 2 failed · 3 total");
+        compare(app.totalTests, 5);
+        compare(app.summary, "1 passed · 2 failed · 2 triggered");
     }
 
     function test_mainPageOpensEveryCategory() {
@@ -74,8 +77,9 @@ TestCase {
     }
 
     function test_coverShowsCounts() {
-        const c = createTemporaryObject(coverComponent, testCase, { passed: 4, failed: 1 });
+        const c = createTemporaryObject(coverComponent, testCase, { passed: 4, failed: 1, triggered: 2 });
         compare(findChild(c, "passedLabel").text, "4 passed");
         compare(findChild(c, "failedLabel").text, "1 failed");
+        compare(findChild(c, "triggeredLabel").text, "2 triggered");
     }
 }

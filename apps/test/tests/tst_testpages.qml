@@ -73,7 +73,8 @@ TestCase {
         compare(calls(Sms, "simulateIncomingSMS").length, 4);
         tryVerify(() => calls(Telephony, "simulateCallStateChange").length === 4);
         compare(calls(Telephony, "simulateCallStateChange").map(c => c[0]), ["active", "ringing", "idle", "terminated"]);
-        compare(app.passedTests, 8);
+        compare(app.triggeredTests, 8);
+        compare(app.passedTests, 0);
         compare(app.failedTests, 0);
     }
 
@@ -99,7 +100,7 @@ TestCase {
         tap(page, "clearAll");
         verify(all.every(n => n.closed));
         compare(app.notifications.length, 0);
-        compare(app.passedTests, 6);
+        compare(app.triggeredTests, 6);
     }
 
     function test_alarms() {
@@ -109,7 +110,8 @@ TestCase {
         compare(calls(Alarms, "triggerAlarmNow"), [["Test Alarm"]]);
         compare(calls(Alarms, "createAlarm")[0][1], "Test Alarm (+1 min)");
         tryCompare(findChild(page, "alarmCount"), "value", String(Alarms.alarms.length));
-        compare(app.passedTests, 2);
+        compare(app.passedTests, 1);
+        compare(app.triggeredTests, 1);
         // WakeManager lives only in the shell process.
         tap(page, "wakeAlarm");
         tap(page, "scheduleWake");
@@ -127,7 +129,7 @@ TestCase {
         tap(page, "profileNormal");
         ["hapticLight", "hapticMedium", "hapticHeavy", "hapticPattern"].forEach(n => tap(page, n));
         compare(calls(Audio, "vibratePattern"), [[[100, 50, 100, 50, 200]]]);
-        compare(app.passedTests, 11);
+        compare([app.passedTests, app.triggeredTests], [0, 11]);
         compare(app.failedTests, 0);
     }
 
@@ -171,7 +173,7 @@ TestCase {
         tap(page, "locationStop");
         compare(calls(Location, "start").length, 1);
         compare(calls(Location, "stop").length, 1);
-        compare(app.passedTests, 2);
+        compare([app.passedTests, app.triggeredTests], [0, 2]);
         tap(page, "flashlight");
         compare(app.failedTests, 1);
     }

@@ -46,7 +46,7 @@ Page {
                     onClicked: page.app.run("Trigger alarm", () => {
                         if (typeof page.alarms.triggerAlarmNow === "function") {
                             page.alarms.triggerAlarmNow("Test Alarm");
-                            return true;
+                            return undefined;
                         }
                         page.lastAlarmId = page.alarms.createAlarm(page.app.inMinutes(1), "Test Alarm (auto trigger)", [], {});
                         return page.lastAlarmId !== "";

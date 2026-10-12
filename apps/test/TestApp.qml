@@ -12,8 +12,9 @@ ApplicationWindow {
 
     property int passedTests: 0
     property int failedTests: 0
+    property int triggeredTests: 0
     property int totalTests: 0
-    readonly property string summary: qsTr("%1 passed · %2 failed · %3 total").arg(passedTests).arg(failedTests).arg(totalTests)
+    readonly property string summary: qsTr("%1 passed · %2 failed · %3 triggered").arg(passedTests).arg(failedTests).arg(triggeredTests)
 
     property bool autoRun: typeof MARATHON_DEBUG_ENABLED !== "undefined" && MARATHON_DEBUG_ENABLED === true
     property alias autoRunInterval: autoRunTimer.interval
@@ -22,22 +23,31 @@ ApplicationWindow {
     // Only this app's own notifications can be closed, so they are kept.
     property var notifications: []
 
-    // A test passes unless fn returns false or throws; a missing service or
-    // method throws, so it fails.
+    // true passes, false or a throw fails; anything else only triggered an
+    // effect that can't be checked from here.
     function run(name, fn) {
         totalTests++;
+        let result;
         try {
-            if (fn() !== false) {
-                passedTests++;
-                console.info("[TestApp] PASS:", name);
-                return true;
-            }
-            console.warn("[TestApp] FAIL:", name);
+            result = fn();
         } catch (e) {
             console.warn("[TestApp] FAIL:", name, "-", e);
+            failedTests++;
+            return "failed";
         }
-        failedTests++;
-        return false;
+        if (result === true) {
+            console.info("[TestApp] PASS:", name);
+            passedTests++;
+            return "passed";
+        }
+        if (result === false) {
+            console.warn("[TestApp] FAIL:", name);
+            failedTests++;
+            return "failed";
+        }
+        console.info("[TestApp] TRIGGERED:", name);
+        triggeredTests++;
+        return "triggered";
     }
 
     function inMinutes(minutes) {
@@ -150,6 +160,7 @@ ApplicationWindow {
         TestCover {
             passed: app.passedTests
             failed: app.failedTests
+            triggered: app.triggeredTests
         }
     }
 
