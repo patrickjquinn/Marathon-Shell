@@ -115,6 +115,14 @@ Item {
         backExit.start();
     }
 
+    // A volume key while a call rings silences it, as on every phone.
+    function silenceRinging() {
+        if (!incomingCallOverlay || !incomingCallOverlay.isRinging)
+            return false;
+        incomingCallOverlay.silence();
+        return true;
+    }
+
     function showPowerMenu() {
         Logger.info("Shell", "Showing power menu from quick settings");
         powerMenu.show();
@@ -362,12 +370,20 @@ Item {
                 event.accepted = true;
                 return;
             }
+            if (shell.silenceRinging()) {
+                event.accepted = true;
+                return;
+            }
             SystemControlStore.setVolume(SystemControlStore.volume + 10);
             systemHUD.showVolume(AudioManagerCpp.volume);
             event.accepted = true;
             return;
         }
         if (event.key === Qt.Key_VolumeDown) {
+            if (shell.silenceRinging()) {
+                event.accepted = true;
+                return;
+            }
             SystemControlStore.setVolume(SystemControlStore.volume - 10);
             systemHUD.showVolume(AudioManagerCpp.volume);
             event.accepted = true;
@@ -2429,6 +2445,7 @@ Item {
         active: false
         source: Qt.resolvedUrl("components/IncomingCallOverlay.qml")
         onLoaded: {
+            item.pinShown = Qt.binding(() => shell.showPinScreen);
             shell.incomingCallOverlay = item;
             TelephonyIntegration.incomingCallOverlay = item;
         }
@@ -2449,6 +2466,20 @@ Item {
             TelephonyIntegration.callWasAnswered = false;
         }
 
+        function onInCallChanged() {
+            if (!shell.incomingCallOverlay.inCall && !shell.incomingCallOverlay.isRinging)
+                incomingCallOverlayLoader.active = false;
+        }
+
+        function onUnlockRequested() {
+            if (SessionStore.checkSession()) {
+                SessionStore.unlock();
+            } else {
+                shell.showPinScreen = true;
+                pinScreen.show();
+            }
+        }
+
         target: shell.incomingCallOverlay
         enabled: shell.incomingCallOverlay !== null
     }
@@ -2459,9 +2490,11 @@ Item {
         }
 
         function onCallOverlayDismissRequested() {
-            if (shell.incomingCallOverlay && shell.incomingCallOverlay.visible)
+            if (shell.incomingCallOverlay) {
                 shell.incomingCallOverlay.hide();
-
+                if (shell.incomingCallOverlay.inCall)
+                    return;
+            }
             incomingCallOverlayLoader.active = false;
         }
 

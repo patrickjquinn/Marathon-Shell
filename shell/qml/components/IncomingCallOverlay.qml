@@ -10,30 +10,40 @@ Item {
     property string callerNumber: ""
     property string callerName: ""
     property bool isRinging: false
+    property bool answeredHere: false
+    property bool pinShown: false
+    // Answered while locked: the call stays here and the session stays locked.
+    readonly property bool inCall: answeredHere && SessionStore.isLocked && TelephonyService.callState !== "idle" && TelephonyService.callState !== "terminated"
 
     signal answered
     signal declined
+    signal unlockRequested
 
     function show(number, name) {
         callerNumber = number;
         callerName = name || "";
+        answeredHere = false;
         isRinging = true;
-        visible = true;
         AudioPolicyControllerCpp.playRingtone();
         HapticManager.vibrate(1000);
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
 
+    // Ends the ringing prompt; an answered call stays on screen while locked.
     function hide() {
         isRinging = false;
-        visible = false;
         AudioPolicyControllerCpp.stopRingtone();
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
+    function silence() {
+        AudioPolicyControllerCpp.stopRingtone();
+        HapticManager.stopVibration();
+    }
+
     anchors.fill: parent
     z: Constants.zIndexModalOverlay + 100
-    visible: false
+    visible: isRinging || (inCall && !pinShown)
     opacity: callOverlay.visible ? 1 : 0
 
     // A ring with its label beneath, as the power menu's choices.
@@ -111,7 +121,7 @@ Item {
                 Silica.Label {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
-                    text: "Incoming call"
+                    text: callOverlay.isRinging ? qsTr("Incoming call") : qsTr("Call in progress")
                     font.pixelSize: Silica.Theme.fontSizeSmall
                     color: Silica.Theme.secondaryHighlightColor
                 }
@@ -141,10 +151,11 @@ Item {
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Silica.Theme.itemSizeLarge
+            visible: callOverlay.isRinging
 
             CallAction {
                 iconName: "phone-disconnect"
-                label: "Decline"
+                label: qsTr("Decline")
                 onActivated: {
                     Logger.info("IncomingCallOverlay", "Call declined");
                     HapticManager.medium();
@@ -156,12 +167,13 @@ Item {
 
             CallAction {
                 iconName: "phone"
-                label: "Answer"
+                label: qsTr("Answer")
                 emphasised: true
                 onActivated: {
                     Logger.info("IncomingCallOverlay", "Call answered");
                     HapticManager.heavy();
                     TelephonyService.answer();
+                    callOverlay.answeredHere = true;
                     callOverlay.answered();
                     callOverlay.hide();
                     UIStore.openApp("phone", "Phone", "");
@@ -169,13 +181,24 @@ Item {
             }
         }
 
-        Silica.Label {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: SessionStore.isLocked ? "Answering will unlock your device" : ""
-            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-            color: Silica.Theme.secondaryColor
-            visible: SessionStore.isLocked
+        CallAction {
+            objectName: "endCall"
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: callOverlay.inCall && !callOverlay.isRinging
+            iconName: "phone-disconnect"
+            label: qsTr("End call")
+            onActivated: {
+                HapticManager.medium();
+                TelephonyService.hangup();
+            }
+        }
+
+        Silica.Button {
+            objectName: "unlockForCall"
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: callOverlay.inCall && !callOverlay.isRinging
+            text: qsTr("Unlock for call options")
+            onClicked: callOverlay.unlockRequested()
         }
     }
 

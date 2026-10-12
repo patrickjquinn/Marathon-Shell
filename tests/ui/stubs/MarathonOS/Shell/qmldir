@@ -22,3 +22,10 @@ GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
 singleton Router 1.0 Router.qml
+singleton AlarmManagerCpp 1.0 AlarmManagerCpp.qml
+singleton CellBroadcastManagerCpp 1.0 CellBroadcastManagerCpp.qml
+singleton AudioPolicyControllerCpp 1.0 AudioPolicyControllerCpp.qml
+singleton TelephonyService 1.0 TelephonyService.qml
+singleton UIStore 1.0 UIStore.qml
+singleton SystemStatusStore 1.0 SystemStatusStore.qml
+singleton MPhoneNumber 1.0 ../../../../../shell/qml/ui/MPhoneNumber.qml
