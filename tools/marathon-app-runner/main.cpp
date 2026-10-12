@@ -812,7 +812,8 @@ int main(int argc, char *argv[]) {
                               "import MarathonUI.Modals\n"
                               "import MarathonUI.Navigation\n";
             if (silica)
-                warm += "import Sailfish.Silica 1.0 as Silica\n";
+                warm += "import Sailfish.Silica 1.0 as Silica\n"
+                        "import Marathon.Silica 1.0 as MS\n";
             warm += "QtObject {\n"
                     "    property list<QtObject> fonts: [\n"
                     "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora.ttf\" },\n"
@@ -840,16 +841,17 @@ int main(int argc, char *argv[]) {
                     "    ]\n";
             if (silica)
                 warm += "    property list<Component> silica: [\n"
-                        "        Component { Silica.ApplicationWindow {} }, Component { Silica.Page {} },\n"
-                        "        Component { Silica.SilicaFlickable {} }, Component { Silica.SilicaListView {} },\n"
-                        "        Component { Silica.PullDownMenu {} }, Component { Silica.MenuItem {} },\n"
-                        "        Component { Silica.PageHeader {} }, Component { Silica.ListItem {} },\n"
-                        "        Component { Silica.ContextMenu {} }, Component { Silica.RemorseItem {} },\n"
-                        "        Component { Silica.Label {} }, Component { Silica.Button {} },\n"
-                        "        Component { Silica.TextField {} }, Component { Silica.TextArea {} },\n"
-                        "        Component { Silica.TextSwitch {} }, Component { Silica.Slider {} },\n"
-                        "        Component { Silica.SectionHeader {} }, Component { Silica.ViewPlaceholder {} },\n"
-                        "        Component { Silica.VerticalScrollDecorator {} }, Component { Silica.Dialog {} }\n"
+                        "        Component { MS.ApplicationWindow {} }, Component { MS.Page {} },\n"
+                        "        Component { MS.SilicaFlickable {} }, Component { MS.SilicaListView {} },\n"
+                        "        Component { MS.PullDownMenu {} }, Component { MS.MenuItem {} },\n"
+                        "        Component { MS.PageHeader {} }, Component { MS.ListItem {} },\n"
+                        "        Component { MS.ContextMenu {} }, Component { MS.RemorseItem {} },\n"
+                        "        Component { Silica.Label {} }, Component { MS.Button {} },\n"
+                        "        Component { MS.TextField {} }, Component { MS.TextArea {} },\n"
+                        "        Component { MS.TextSwitch {} }, Component { MS.Slider {} },\n"
+                        "        Component { MS.SectionHeader {} }, Component { Silica.ViewPlaceholder {} },\n"
+                        "        Component { Silica.VerticalScrollDecorator {} }, Component { MS.Dialog {} },\n"
+                        "        Component { MS.TabView {} }, Component { MS.ComboBox {} }\n"
                         "    ]\n";
             warm += "}\n";
             QQmlComponent warmComponent(pooledView->engine());
