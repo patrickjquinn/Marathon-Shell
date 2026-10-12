@@ -1,10 +1,13 @@
+
 # Notes App - Note taking application
 
 set(APP_NAME notes)
 
 file(GLOB_RECURSE QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
 )
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 set(SOURCES
     # Future: src/notesmanager.cpp
