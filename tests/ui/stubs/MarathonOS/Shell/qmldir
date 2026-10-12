@@ -20,3 +20,4 @@ singleton AmbienceService 1.0 AmbienceService.qml
 GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
+singleton Router 1.0 Router.qml

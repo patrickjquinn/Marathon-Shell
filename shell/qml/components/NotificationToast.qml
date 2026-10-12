@@ -6,11 +6,11 @@ import Marathon.Silica 1.0 as Silica
 Item {
     id: toastContainer
 
-    readonly property real scaleFactor: Constants.scaleFactor || 1.0
-
     property var toastQueue: []
     property var currentToast: null
     property bool showInlineReply: false
+    // Only a sender that advertised inline-reply can receive the text.
+    readonly property bool canReply: !!currentToast && Array.isArray(currentToast.actions) && currentToast.actions.some(a => a && (a.key === "inline-reply" || a.id === "inline-reply"))
     // Position follows state, so a late height change can't strand it.
     property bool shown: false
     property real dragOffset: 0
@@ -31,6 +31,13 @@ Item {
         dragOffset = 0;
         shown = true;
         autoHideTimer.restart();
+    }
+
+    function sendReply() {
+        if (!currentToast || replyField.text.trim().length === 0)
+            return;
+        FreedesktopNotifications.InvokeReply(currentToast.id, replyField.text);
+        dismissToast();
     }
 
     function dismissToast() {
@@ -57,7 +64,7 @@ Item {
         // physical px, so at 1.5x the two lines overflowed the card and
         // painted over the status bar and the surface underneath.
         height: toastContainer.showInlineReply
-                ? mainContent.height + replyRow.height + MSpacing.sm + MSpacing.xs * 2
+                ? mainContent.height + replyRow.height + Silica.Theme.paddingSmall + Silica.Theme.paddingMedium * 2
                 : mainContent.height + Silica.Theme.paddingLarge
         radius: Silica.Theme.paddingMedium
         color: Silica.Theme.rgba("black", 0.85)
@@ -71,7 +78,7 @@ Item {
             Row {
                 id: mainContent
 
-                width: parent.width - Silica.Theme.paddingMedium * 2
+                width: parent.width - Silica.Theme.paddingMedium * 2 - (replyAction.visible ? replyAction.width : 0)
                 // Whichever is taller: the icon tile or the two text lines.
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
                 anchors.left: parent.left
@@ -114,31 +121,48 @@ Item {
                 }
             }
 
+            Silica.BackgroundItem {
+                id: replyAction
+
+                anchors.right: parent.right
+                anchors.verticalCenter: mainContent.verticalCenter
+                width: replyLabel.implicitWidth + Silica.Theme.paddingLarge * 2
+                height: Silica.Theme.itemSizeExtraSmall
+                visible: toastContainer.canReply && !toastContainer.showInlineReply
+                onClicked: {
+                    toastContainer.showInlineReply = true;
+                    autoHideTimer.stop();
+                    replyField.forceActiveFocus();
+                }
+
+                Silica.Label {
+                    id: replyLabel
+
+                    anchors.centerIn: parent
+                    text: qsTr("Reply")
+                    color: replyAction.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
+                }
+            }
+
             Row {
                 id: replyRow
-                width: parent.width - MSpacing.xs * 2
-                height: Math.round(48 * toastContainer.scaleFactor)
+
+                width: parent.width - Silica.Theme.paddingMedium * 2
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: mainContent.bottom
-                anchors.topMargin: MSpacing.sm
-                spacing: MSpacing.sm
+                anchors.topMargin: Silica.Theme.paddingSmall
+                spacing: Silica.Theme.paddingSmall
                 visible: toastContainer.showInlineReply
 
-                MTextInput {
+                Silica.TextField {
                     id: replyField
 
-                    width: parent.width - sendButton.width - MSpacing.sm
-                    height: Math.round(40 * toastContainer.scaleFactor)
-                    placeholderText: "Reply..."
-                    onAccepted: {
-                        if (text.trim().length > 0 && toastContainer.currentToast) {
-                            Logger.info("NotificationToast", "Sending inline reply: " + text);
-                            FreedesktopNotifications.InvokeReply(toastContainer.currentToast.id, text);
-                            text = "";
-                            toastContainer.showInlineReply = false;
-                            toastContainer.dismissToast();
-                        }
-                    }
+                    width: parent.width - sendButton.width - parent.spacing
+                    placeholderText: qsTr("Reply")
+                    labelVisible: false
+                    textLeftMargin: 0
+                    Keys.onReturnPressed: toastContainer.sendReply()
                     Keys.onEscapePressed: {
                         toastContainer.showInlineReply = false;
                         text = "";
@@ -148,65 +172,64 @@ Item {
                 Silica.Button {
                     id: sendButton
 
-                    text: "Send"
-                    width: Math.round(80 * toastContainer.scaleFactor)
-                    height: Math.round(40 * toastContainer.scaleFactor)
+                    anchors.verticalCenter: replyField.verticalCenter
+                    text: qsTr("Send")
+                    preferredWidth: Silica.Theme.buttonWidthExtraSmall
                     enabled: replyField.text.trim().length > 0
-                    onClicked: replyField.accepted()
+                    onClicked: toastContainer.sendReply()
                 }
             }
         }
 
         MouseArea {
+            id: bannerArea
+
             property real startY: 0
-            property real dragY: 0
+            property bool dragged: false
 
             anchors.fill: parent
             z: -1
             onPressed: mouse => {
-                startY = mouse.y;
-                dragY = 0;
+                startY = mapToItem(toastContainer, mouse.x, mouse.y).y;
+                dragged = false;
                 autoHideTimer.stop();
             }
             onPositionChanged: mouse => {
-                dragY = mouse.y - startY;
-                toastContainer.dragOffset = Math.max(Math.min(0, dragY * 0.5), -toast.height);
+                const dy = mapToItem(toastContainer, mouse.x, mouse.y).y - startY;
+                if (Math.abs(dy) > Silica.Theme.startDragDistance)
+                    dragged = true;
+                toastContainer.dragOffset = Math.max(Math.min(0, dy), -toast.height);
             }
-            onReleased: mouse => {
-                if (dragY < -30) {
+            onReleased: {
+                if (toastContainer.dragOffset < -Silica.Theme.startDragDistance * 2) {
                     toastContainer.dismissToast();
                 } else {
                     toastContainer.dragOffset = 0;
-                    autoHideTimer.restart();
+                    if (!toastContainer.showInlineReply)
+                        autoHideTimer.restart();
                 }
             }
             onClicked: {
-                var supportsInlineReply = toastContainer.currentToast && (toastContainer.currentToast.appId === "messages" || toastContainer.currentToast.appId === "org.telegram.desktop" || toastContainer.currentToast.appId === "signal-desktop" || (toastContainer.currentToast.category && toastContainer.currentToast.category.includes("message")));
-                if (supportsInlineReply && !toastContainer.showInlineReply) {
-                    Logger.info("NotificationToast", "Showing inline reply for: " + toastContainer.currentToast.id);
-                    toastContainer.showInlineReply = true;
-                    autoHideTimer.stop();
-                    Qt.callLater(function () {
-                        replyField.forceActiveFocus();
+                if (dragged || !toastContainer.currentToast)
+                    return;
+                const n = toastContainer.currentToast;
+                NotificationService.clickNotification(n.id);
+                NotificationModel.markAsRead(n.id);
+                if (n.appId)
+                    NavigationRouter.navigateToDeepLink(n.appId, "", {
+                        "notificationId": n.id,
+                        "action": "view",
+                        "from": "notification"
                     });
-                } else if (!toastContainer.showInlineReply) {
-                    Logger.info("NotificationToast", "Toast tapped: " + toastContainer.currentToast.id);
-                    NotificationService.clickNotification(toastContainer.currentToast.id);
-                    NotificationModel.markAsRead(toastContainer.currentToast.id);
-                    if (toastContainer.currentToast.appId)
-                        NavigationRouter.navigateToDeepLink(toastContainer.currentToast.appId, "", {
-                            "notificationId": toastContainer.currentToast.id,
-                            "action": "view",
-                            "from": "notification"
-                        });
-                    else
-                        Router.goToHub();
-                    toastContainer.dismissToast();
-                }
+                else
+                    Router.goToHub();
+                toastContainer.dismissToast();
             }
         }
 
         Behavior on y {
+            enabled: !bannerArea.pressed
+
             NumberAnimation {
                 duration: MMotion.moderate
                 easing.bezierCurve: MMotion.easingDecelerateCurve
