@@ -121,6 +121,7 @@ pause pause
 people users
 person user
 phone phone
+pin push-pin
 play play
 power power
 print printer
