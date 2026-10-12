@@ -508,99 +508,69 @@ Item {
             visible: serviceUp && anyProgress && !lockScreenMediaPlayer.hasMedia
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.top: clockColumn.bottom
-            anchors.topMargin: Math.round(28 * Constants.scaleFactor)
-            height: 68
-
-            Rectangle {
-                anchors.fill: parent
-                radius: MRadius.md
-                color: MColors.elev2
-                border.width: 1
-                border.color: MColors.whiteOverlay04
-            }
-            // Top inset highlight per DS "lit from above".
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.leftMargin: 1
-                anchors.rightMargin: 1
-                anchors.topMargin: 1
-                height: 1
-                color: Qt.rgba(1, 1, 1, 0.06)
-            }
+            anchors.topMargin: Silica.Theme.paddingLarge * 2
+            height: Math.max(rings.height, activityText.height)
 
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                spacing: 12
+                spacing: Silica.Theme.paddingLarge
 
                 // 44 × 44 squircle with three concentric activity rings.
                 // The arc widths are constants; ring fill is communicated
                 // by the percentages above instead of redrawing arcs each
                 // frame.
                 Rectangle {
+                    id: rings
+
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 44
-                    height: 44
+                    width: Silica.Theme.itemSizeExtraSmall
+                    height: width
                     radius: width / 2
                     color: "transparent"
-                    border.width: 3
+                    border.width: Math.round(Silica.Theme.paddingSmall / 2)
                     border.color: Qt.rgba(255 / 255, 59 / 255, 71 / 255, activityBar.moveP > 0 ? 0.9 : 0.25)
 
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width - 9
+                        width: parent.width - parent.border.width * 6
                         height: width
                         radius: width / 2
                         color: "transparent"
-                        border.width: 3
+                        border.width: parent.border.width
                         border.color: Qt.rgba(165 / 255, 255 / 255, 132 / 255, activityBar.exerciseP > 0 ? 0.9 : 0.25)
                     }
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width - 18
+                        width: parent.width - parent.border.width * 12
                         height: width
                         radius: width / 2
                         color: "transparent"
-                        border.width: 3
+                        border.width: parent.border.width
                         border.color: Qt.rgba(0 / 255, 191 / 255, 255 / 255, activityBar.standP > 0 ? 0.9 : 0.25)
                     }
                 }
 
                 Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 44 - parent.spacing
-                    spacing: 2
+                    id: activityText
 
-                    Text {
-                        text: "ACTIVITY"
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeEyebrow
-                        font.weight: Font.Bold
-                        font.letterSpacing: MTypography.trackingEyebrow
-                    }
-                    Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - rings.width - parent.spacing
+
+                    Silica.Label {
                         width: parent.width
                         text: "Move " + activityBar.moveP + "% · Stand " + activityBar.standP + "%"
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeSubhead
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
+                        color: Silica.Theme.primaryColor
+                        truncationMode: Silica.TruncationMode.Fade
                     }
-                    Text {
+                    Silica.Label {
                         width: parent.width
                         text: activityBar.ringsLeft === 0 ? "All rings closed today" : activityBar.ringsLeft + " ring" + (activityBar.ringsLeft === 1 ? "" : "s") + " left to close before bed"
-                        color: MColors.textTertiary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
-                        elide: Text.ElideRight
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        truncationMode: Silica.TruncationMode.Fade
                     }
                 }
             }
