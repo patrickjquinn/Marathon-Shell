@@ -4,6 +4,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Shell
+import Marathon.Platform 1.0
 import Nemo.Configuration 1.0
 import "Library.js" as Library
 import "Playlists.js" as Playlists
@@ -34,6 +35,17 @@ ApplicationWindow {
         key: "/apps/music/session"
         defaultValue: ""
     }
+    // Keeps playback running while the app is in the background.
+    property int _backgroundTask: 0
+    function _holdBackground(hold) {
+        if (hold && _backgroundTask === 0)
+            _backgroundTask = Lifecycle.beginBackgroundTask("audio-playback", "playing music");
+        else if (!hold && _backgroundTask !== 0) {
+            Lifecycle.endBackgroundTask(_backgroundTask);
+            _backgroundTask = 0;
+        }
+    }
+
     function saveSession() {
         if (player.currentTrack)
             sessionStore.value = JSON.stringify(player.snapshot());
@@ -79,6 +91,7 @@ ApplicationWindow {
         }
         function onPlayingChanged() {
             app.saveSession();
+            app._holdBackground(app.player.playing);
         }
     }
 

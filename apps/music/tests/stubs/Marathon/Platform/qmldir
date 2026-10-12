@@ -1,0 +1,2 @@
+module Marathon.Platform
+singleton Lifecycle 1.0 Lifecycle.qml

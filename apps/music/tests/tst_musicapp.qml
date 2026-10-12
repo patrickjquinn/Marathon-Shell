@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import ".."
 
 TestCase {
@@ -270,6 +271,19 @@ TestCase {
         compare(next.player.currentTrack.title, "Dawn");
         verify(!next.player.playing);
         tryVerify(() => panel(next).open);
+    }
+
+    function test_playbackHoldsABackgroundTask() {
+        const app = makeApp();
+        const held = Lifecycle.held;
+        app.player.playTracks(app.tracks, 0);
+        compare(Lifecycle.held, held + 1);
+        app.player.toggle();
+        compare(Lifecycle.held, held);
+        app.player.toggle();
+        compare(Lifecycle.held, held + 1);
+        app.player.media.stop();
+        compare(Lifecycle.held, held);
     }
 
     function test_corruptPlaylistsStartEmpty() {
