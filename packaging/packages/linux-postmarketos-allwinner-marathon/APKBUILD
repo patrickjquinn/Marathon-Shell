@@ -2,14 +2,17 @@
 # patches; the config adds the A64 watchdog (SUNXI_WATCHDOG, fed by systemd
 # from marathon-base-config) and the soft/hard lockup detectors with panic,
 # so a hung PinePhone reboots by itself instead of staying dark. Hung-task
-# detection logs only. Drop this fork when pmaports enables the same.
+# detection logs only. pstore/ramoops (region reserved by marathon-boot.cmd)
+# keeps the last kernel log across a watchdog or panic reboot, and
+# PM_SLEEP_DEBUG adds pm_test, pm_wakeup_irq and suspend timing for
+# diagnosing failed resumes. Drop this fork when pmaports enables the same.
 # Co-Maintainer: Jan Jasper de Kroon <jajadekroon@gmail.com>
 maintainer="Arnav Singh <me@arnavion.dev>"
 _flavor=postmarketos-allwinner
 _config="config-$_flavor.$CARCH"
 pkgname=linux-$_flavor-marathon
 pkgver=6.18.3_git20260105
-pkgrel=0
+pkgrel=1
 _tag="orange-pi-6.18-20260105-0049"
 pkgdesc="PinePhone kernel — Marathon fork with the A64 watchdog and lockup detection"
 arch="aarch64"
@@ -93,7 +96,7 @@ package() {
 
 sha512sums="
 3f291658f6e9183d4a7c56c96bd6b6c84f16c3ce96c023a78b80695d90e029de53a19126b34cd770d72fc67204d59bb0f16c9a1a87876cdaa4d5d21f18dc6c49  linux-postmarketos-allwinner-orange-pi-6.18-20260105-0049.tar.gz
-d76238bfb3cb0ecc35eb0aada8ae9b9ba2f021a18d0741ed7cffe75ae582517c03a5b7fa1c5f3ff46ee4524f3684c0ad3c6a55c6ddd0cf4ac9ca34231fd386e6  config-postmarketos-allwinner.aarch64
+745e5d0228de0c8f8d1e16ac5272d5a3e4985c7deba56ad5fb78cc0a12e7ca72c3e38e29fc87dabe10e09d6bb37d7726cbb9b6a1c1e084ab74e7a64f985be3bc  config-postmarketos-allwinner.aarch64
 5ee446b124ae551fab659fe51e4bf9a617218f464398ed899bb438c469e93bacc248b1a6d3936ac36ba812971170696765117f2b619fdd37e5ff21b46f01bde9  0001-dts-add-dontbeevil-pinephone-devkit.patch
 ffb0e0b553eeb2a8b0db6302ad524aee80b4c8141d6becb4d614689b5f2fd1a07ba0df6d2ceec73634f3cc66e581013b44deb7c0df79afc1a9e5fa4bf9e56fec  0002-dts-add-pinetab-dev-old-display-panel.patch
 eaff5d1167e2fa1a46619dc15623d1ac979a76f67b385d43cc026150efeb98dd46ab3e824e1bcf2423b644c693b2543186278cb8f74bc68a151e88e27dbc1f8c  0003-dts-pinetab-add-missing-ohci1.patch
