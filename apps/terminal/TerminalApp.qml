@@ -14,7 +14,7 @@ ApplicationWindow {
     property int currentIndex: 0
     readonly property var currentSession: sessions[currentIndex] || null
 
-    readonly property int minFontSize: Math.round(Theme.fontSizeTiny / 2)
+    readonly property int minFontSize: Math.round(Theme.fontSizeTiny * 0.75)
     readonly property int maxFontSize: Theme.fontSizeExtraLarge
     property QtObject fontSize: ConfigurationValue {
         key: "/apps/terminal/fontSize"

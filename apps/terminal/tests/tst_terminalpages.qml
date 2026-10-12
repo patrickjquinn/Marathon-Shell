@@ -150,8 +150,12 @@ TestCase {
         const page = pushed(app, 2);
         const slider = findChild(page, "fontSizeSlider");
         compare(slider.value, 20);
+        verify(/^\d+ columns$/.test(slider.valueText), slider.valueText);
+        const wide = page.columnsAt(20);
         slider.value = 26;
         compare(app.fontSize.value, 26);
+        verify(page.columnsAt(26) < wide, "larger text fits fewer columns");
+        compare(slider.minimumValue, Math.round(Theme.fontSizeTiny * 0.75));
         const box = findChild(page, "colorSchemeBox");
         compare(box.currentIndex, 0);
         box.currentIndex = 2;

@@ -9,6 +9,18 @@ Page {
     property var app
     readonly property var schemes: ["ambience", "dark", "light"]
 
+    // Columns the terminal fits at a text size; monospace advance scales with size.
+    function columnsAt(size) {
+        return Math.floor((width - 2 * Theme.paddingMedium) / (size * metrics.advanceWidth("M") / metrics.font.pixelSize));
+    }
+
+    FontMetrics {
+        id: metrics
+
+        font.family: "monospace"
+        font.pixelSize: 100
+    }
+
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
@@ -34,7 +46,7 @@ Page {
                 maximumValue: page.app.maxFontSize
                 stepSize: 1
                 value: page.app.fontSize.value
-                valueText: qsTr("%1 px").arg(Math.round(value))
+                valueText: qsTr("%n columns", "", page.columnsAt(Math.round(value)))
                 onValueChanged: {
                     if (Math.round(value) !== page.app.fontSize.value)
                         page.app.fontSize.value = Math.round(value);
