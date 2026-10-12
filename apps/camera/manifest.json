@@ -3,7 +3,6 @@
   "name": "Camera",
   "version": "1.0.0",
   "entryPoint": "CameraApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["camera", "storage"],
