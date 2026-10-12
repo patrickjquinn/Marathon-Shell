@@ -44,11 +44,6 @@ class SystemStatusStore : public QObject {
     Q_PROPERTY(QString carrier READ carrier NOTIFY carrierChanged)
     Q_PROPERTY(QString dataType READ dataType NOTIFY dataTypeChanged)
 
-    Q_PROPERTY(int cpuUsage READ cpuUsage NOTIFY cpuUsageChanged)
-    Q_PROPERTY(int memoryUsage READ memoryUsage NOTIFY memoryUsageChanged)
-    Q_PROPERTY(double storageUsed READ storageUsed NOTIFY storageUsedChanged)
-    Q_PROPERTY(double storageTotal READ storageTotal NOTIFY storageTotalChanged)
-
     Q_PROPERTY(QDateTime currentTime READ currentTime NOTIFY currentTimeChanged)
     Q_PROPERTY(QString timeString READ timeString NOTIFY timeStringChanged)
     Q_PROPERTY(QString dateString READ dateString NOTIFY dateStringChanged)
@@ -119,19 +114,6 @@ class SystemStatusStore : public QObject {
         return m_dataType;
     }
 
-    int cpuUsage() const {
-        return m_cpuUsage;
-    }
-    int memoryUsage() const {
-        return m_memoryUsage;
-    }
-    double storageUsed() const {
-        return m_storageUsed;
-    }
-    double storageTotal() const {
-        return m_storageTotal;
-    }
-
     QDateTime currentTime() const {
         return m_currentTime;
     }
@@ -153,7 +135,6 @@ class SystemStatusStore : public QObject {
     void             scheduleNextMinute();
     Q_INVOKABLE void addNotification(const QString &title, const QString &message,
                                      const QString &app);
-    Q_INVOKABLE void updateSystemInfo();
 
   signals:
     void batteryLevelChanged();
@@ -178,11 +159,6 @@ class SystemStatusStore : public QObject {
     void cellularStrengthChanged();
     void carrierChanged();
     void dataTypeChanged();
-
-    void cpuUsageChanged();
-    void memoryUsageChanged();
-    void storageUsedChanged();
-    void storageTotalChanged();
 
     void currentTimeChanged();
     void timeStringChanged();
@@ -213,10 +189,6 @@ class SystemStatusStore : public QObject {
     void                    setCellularStrength(int strength);
     void                    setCarrier(const QString &carrier);
     void                    setDataType(const QString &dataType);
-    void                    setCpuUsage(int usage);
-    void                    setMemoryUsage(int usage);
-    void                    setStorageUsed(double used);
-    void                    setStorageTotal(double total);
     void                    setCurrentTime(const QDateTime &time);
     void                    setTimeString(const QString &timeString);
     void                    setDateString(const QString &dateString);
@@ -251,11 +223,6 @@ class SystemStatusStore : public QObject {
     int                     m_cellularStrength = 0;
     QString                 m_carrier;
     QString                 m_dataType;
-
-    int                     m_cpuUsage     = 23;
-    int                     m_memoryUsage  = 45;
-    double                  m_storageUsed  = 45.2;
-    double                  m_storageTotal = 128;
 
     QDateTime               m_currentTime = QDateTime::currentDateTime();
     QString                 m_timeString;

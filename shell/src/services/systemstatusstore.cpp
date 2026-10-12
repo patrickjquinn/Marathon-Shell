@@ -7,7 +7,6 @@
 #include "src/services/notificationservicecpp.h"
 #include <QDateTime>
 #include <QLocale>
-#include <QRandomGenerator>
 
 SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
                                      NetworkManagerCpp      *networkManager,
@@ -137,11 +136,6 @@ void SystemStatusStore::addNotification(const QString &title, const QString &mes
         payload["priority"] = "normal";
         m_notificationService->sendNotification(app, title, message, payload);
     }
-}
-
-void SystemStatusStore::updateSystemInfo() {
-    setCpuUsage(QRandomGenerator::global()->bounded(10, 41));
-    setMemoryUsage(QRandomGenerator::global()->bounded(35, 56));
 }
 
 void SystemStatusStore::updateChargingType() {
@@ -311,38 +305,6 @@ void SystemStatusStore::setDataType(const QString &dataType) {
     }
     m_dataType = dataType;
     emit dataTypeChanged();
-}
-
-void SystemStatusStore::setCpuUsage(int usage) {
-    if (m_cpuUsage == usage) {
-        return;
-    }
-    m_cpuUsage = usage;
-    emit cpuUsageChanged();
-}
-
-void SystemStatusStore::setMemoryUsage(int usage) {
-    if (m_memoryUsage == usage) {
-        return;
-    }
-    m_memoryUsage = usage;
-    emit memoryUsageChanged();
-}
-
-void SystemStatusStore::setStorageUsed(double used) {
-    if (qFuzzyCompare(m_storageUsed, used)) {
-        return;
-    }
-    m_storageUsed = used;
-    emit storageUsedChanged();
-}
-
-void SystemStatusStore::setStorageTotal(double total) {
-    if (qFuzzyCompare(m_storageTotal, total)) {
-        return;
-    }
-    m_storageTotal = total;
-    emit storageTotalChanged();
 }
 
 void SystemStatusStore::setCurrentTime(const QDateTime &time) {
