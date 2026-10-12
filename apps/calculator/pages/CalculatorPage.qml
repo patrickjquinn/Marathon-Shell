@@ -154,7 +154,7 @@ Page {
                         objectName: "copyItem"
                         text: qsTr("Copy")
                         visible: page.calc.errorText === ""
-                        onClicked: Clipboard.text = page.calc.displayText.replace(/,/g, "")
+                        onClicked: Clipboard.text = page.calc.displayText.split(page.calc.locale.groupSeparator).join("")
                     }
                     MenuItem {
                         objectName: "pasteItem"

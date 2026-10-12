@@ -13,6 +13,7 @@ QtObject {
     property var history: []
     property real lastAnswer: 0
     property var undoStack: []
+    property var locale: Qt.locale()
 
     readonly property bool canUndo: undoStack.length > 0
     readonly property bool isClear: display === "0" && newNumber && lastExpression === "" && errorText === ""
@@ -26,19 +27,26 @@ QtObject {
         "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
         "mod", "π", "e", "√", "x²", "sin", "cos", "tan", "log", "ln", "!", "ans"]
 
+    function group(intPart) {
+        return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, locale.groupSeparator);
+    }
+
+    // About 12 significant digits, in the user's locale; exponent form when extreme.
     function fmt(n) {
-        const fixed = Number(n).toFixed(8);
-        const trimmed = fixed.indexOf(".") >= 0 ? fixed.replace(/\.?0+$/, "") : fixed;
-        const parts = trimmed.split(".");
-        const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        return parts.length > 1 ? intPart + "." + parts[1] : intPart;
+        const a = Math.abs(n);
+        if (a !== 0 && (a >= 1e15 || a < 1e-9))
+            return Number(n).toExponential(8).replace(/\.?0+e/, "e").replace(".", locale.decimalPoint);
+        const decimals = Math.max(0, Math.min(20, 11 - Math.floor(Math.log10(a || 1))));
+        const fixed = Number(Number(n).toPrecision(12)).toFixed(decimals);
+        const parts = (fixed.indexOf(".") >= 0 ? fixed.replace(/\.?0+$/, "") : fixed).split(".");
+        return parts.length > 1 ? group(parts[0]) + locale.decimalPoint + parts[1] : group(parts[0]);
     }
 
     // Formats the number being typed without parsing it, so "0." and "1.50" stay visible.
     function fmtEntry(s) {
         const dot = s.indexOf(".");
-        const intPart = (dot >= 0 ? s.substring(0, dot) : s).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        return dot >= 0 ? intPart + s.substring(dot) : intPart;
+        const intPart = group(dot >= 0 ? s.substring(0, dot) : s);
+        return dot >= 0 ? intPart + locale.decimalPoint + s.substring(dot + 1) : intPart;
     }
 
     // "," or "." is the decimal mark; a lone separator before exactly three digits groups.

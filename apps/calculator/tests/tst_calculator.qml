@@ -63,6 +63,25 @@ TestCase {
         compare(c.lastExpression, "1,248 × 7");
     }
 
+    function test_formatsInTheUsersLocale() {
+        const c = make();
+        c.locale = Qt.locale("de_DE");
+        keys(c, ["1", "2", "3", "4", ".", "5"]);
+        compare(c.displayText, "1.234,5");
+        keys(c, ["×", "1", "0", "0", "0", "="]);
+        compare(c.displayText, "1.234.500");
+    }
+
+    function test_extremeValues() {
+        const c = make();
+        compare(c.fmt(0.1 + 0.2), "0.3");
+        compare(c.fmt(1e-10), "1e-10");
+        compare(c.fmt(0.000000123), "0.000000123");
+        compare(c.fmt(1e21), "1e+21");
+        compare(c.fmt(-2.5e16), "-2.5e+16");
+        compare(c.fmt(123456789012), "123,456,789,012");
+    }
+
     function test_entryKeepsTrailingDecimals() {
         const c = make();
         keys(c, ["1", ".", "5", "0"]);
@@ -136,9 +155,9 @@ TestCase {
     function test_constantsAndAnswer() {
         const c = make();
         c.press("π");
-        compare(c.displayText, "3.14159265");
+        compare(c.displayText, "3.14159265359");
         c.press("e");
-        compare(c.displayText, "2.71828183");
+        compare(c.displayText, "2.71828182846");
         keys(c, ["C", "6", "×", "7", "=", "C", "ans"]);
         compare(c.displayText, "42");
     }
