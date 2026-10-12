@@ -7,11 +7,11 @@ Branch: feat/keel-framework-1a (continue on it).
 | Phase | State | Device-validated |
 | --- | --- | --- |
 | 1a theme pipeline | done (12 commits) | yes (r366) |
-| 1b Marathon.Silica a11y + keys | built (108 qml tests) | partly: keys/menus/Esc/AT-SPI tree OK on r368; r369 pending (Ctrl+M, Tab, focus restore) |
+| 1b Marathon.Silica a11y + keys | committed (109 qml tests) | yes r369/r370: keys, menus, Esc, Tab, typing, AT-SPI tree |
 | 1c TabBar/TabView, PageIndicator, FilterChip; icon theme | built (marathon-icon-theme subpkg, lint) | icons installed r367; visual check pending |
-| 1d Marathon.Platform; Ngf/Configuration/Notifications backends | built: platformtypes.cpp, NgfService (system bus + marathon-ngf.conf), Nemo remote actions, keel-silica r3 w/ mlite+dconf, sandbox dconf bind | pending |
-| 1e pool pre-compiles framework; notes-silica on framework | notes-silica on Marathon.Silica (done), warm list uses MS.* (r370) | pending timing |
-| 2 shell redesign | | |
+| 1d Marathon.Platform; Ngf/Configuration/Notifications backends | committed | Ngf Play/Status on system bus OK; Configuration persists via dconf across restart; remote actions host-tested only |
+| 1e pool pre-compiles framework; notes-silica on framework | committed | first frame 1.28-1.44 s (target <=1.87) |
+| 2 shell redesign | in progress: Keel cost 11.7 MB RSS in shell; covers (r371) built; portal Settings backend built | covers pending |
 | 3 app migration | | |
 | 4 remove MarathonUI | | |
 | 5 Sailfish app support | | |
