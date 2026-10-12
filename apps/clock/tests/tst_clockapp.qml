@@ -176,7 +176,7 @@ TestCase {
         const app = makeApp();
         compare(app.cityTime({ name: "London", tz: "Europe/London" }, new Date()).diff, "Local");
         const legacy = app.cityTime({ name: "Atlantis", offset: -3 }, new Date(Date.UTC(2026, 0, 1, 12, 0)));
-        compare(legacy.time, "9:00 AM");
+        compare(legacy.time, Format.formatDate(new Date(2026, 0, 1, 9, 0), Formatter.TimeValue));
         compare(legacy.diff, "-3h");
     }
 

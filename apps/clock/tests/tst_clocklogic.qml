@@ -87,9 +87,11 @@ TestCase {
         compare(Logic.zoneFor({ name: "Nowhere", offset: 2 }, known), "");
     }
 
-    function test_offsetTime() {
-        compare(Logic.offsetTime(9, new Date(Date.UTC(2026, 0, 1, 3, 4))), "12:04 PM");
-        compare(Logic.offsetTime(-5, new Date(Date.UTC(2026, 0, 1, 3, 4))), "10:04 PM");
+    function test_offsetDate() {
+        const tokyo = Logic.offsetDate(9, new Date(Date.UTC(2026, 0, 1, 3, 4)));
+        compare([tokyo.getHours(), tokyo.getMinutes(), tokyo.getDate()], [12, 4, 1]);
+        const ny = Logic.offsetDate(-5, new Date(Date.UTC(2026, 0, 1, 3, 4)));
+        compare([ny.getHours(), ny.getMinutes(), ny.getDate()], [22, 4, 31]);
     }
 
     function test_moveCity() {

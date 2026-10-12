@@ -156,7 +156,7 @@ ApplicationWindow {
             const r = WorldClock.timeIn(tz);
             return { time: r.time, diff: r.offsetLabel, weekday: r.weekday };
         }
-        return { time: Logic.offsetTime(city.offset, now), diff: (city.offset >= 0 ? "+" : "") + city.offset + "h", weekday: "" };
+        return { time: Format.formatDate(Logic.offsetDate(city.offset, now), Formatter.TimeValue), diff: (city.offset >= 0 ? "+" : "") + city.offset + "h", weekday: "" };
     }
 
     appId: "clock"

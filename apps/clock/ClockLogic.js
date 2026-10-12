@@ -123,10 +123,10 @@ function zoneFor(city, known) {
     return match ? match.tz : "";
 }
 
-function offsetTime(offset, now) {
+// A local Date whose wall-clock fields read as the time at the given UTC offset.
+function offsetDate(offset, now) {
     const d = new Date(now.getTime() + offset * 3600000);
-    const h = d.getUTCHours();
-    return (h % 12 || 12) + ":" + pad2(d.getUTCMinutes()) + (h >= 12 ? " PM" : " AM");
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes());
 }
 
 function moveCity(cities, from, to) {
