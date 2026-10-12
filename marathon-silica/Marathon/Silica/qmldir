@@ -2,6 +2,7 @@ module Marathon.Silica
 ApplicationWindow 1.0 ApplicationWindow.qml
 BackgroundItem 1.0 BackgroundItem.qml
 Button 1.0 Button.qml
+SecondaryButton 1.0 SecondaryButton.qml
 ComboBox 1.0 ComboBox.qml
 ContextMenu 1.0 ContextMenu.qml
 Dialog 1.0 Dialog.qml

@@ -13,6 +13,7 @@ TestCase {
     SignalSpy { id: clickSpy; signalName: "clicked" }
 
     Component { id: button; Button { text: "Save" } }
+    Component { id: secondaryButton; SecondaryButton { text: "Directions" } }
     Component { id: iconButton; IconButton { icon.source: "image://theme/icon-m-delete" } }
     Component { id: namedIconButton; IconButton { icon.source: "image://theme/icon-m-delete"; Accessible.name: "Remove note" } }
     Component { id: valueButton; ValueButton { label: "Ringtone"; value: "Chime" } }
@@ -41,6 +42,12 @@ TestCase {
     }
     function test_buttonKeys_data() { return activationKeys(); }
     function test_buttonKeys(data) { compare(focusedClicks(button, data.key), 1); }
+
+    function test_secondaryButtonKeys_data() { return activationKeys(); }
+    function test_secondaryButtonKeys(data) {
+        compare(focusedClicks(secondaryButton, data.key), 1);
+        compare(createTemporaryObject(secondaryButton, testCase).Accessible.name, "Directions");
+    }
 
     function test_buttonIgnoresOtherKeys() { compare(focusedClicks(button, Qt.Key_A), 0); }
 
