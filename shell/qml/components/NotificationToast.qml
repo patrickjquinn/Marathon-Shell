@@ -11,6 +11,9 @@ Item {
     property var toastQueue: []
     property var currentToast: null
     property bool showInlineReply: false
+    // Position follows state, so a late height change can't strand it.
+    property bool shown: false
+    property real dragOffset: 0
 
     function showToast(notification) {
         toastQueue.push(notification);
@@ -25,8 +28,8 @@ Item {
         }
         currentToast = toastQueue.shift();
         toast.visible = true;
-        toast.y = -toast.height;
-        slideIn.start();
+        dragOffset = 0;
+        shown = true;
         autoHideTimer.restart();
     }
 
@@ -34,7 +37,9 @@ Item {
         autoHideTimer.stop();
         showInlineReply = false;
         replyField.text = "";
-        slideOut.start();
+        shown = false;
+        dragOffset = 0;
+        hideTimer.restart();
     }
 
     anchors.fill: parent
@@ -46,7 +51,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: Silica.Theme.paddingSmall
-        y: -height
+        y: (toastContainer.shown ? Constants.statusBarHeight : -height) + toastContainer.dragOffset
         // Derived from the row it has to hold, not a fixed 72/140. The
         // title and body are scaled type tokens while these heights were
         // physical px, so at 1.5x the two lines overflowed the card and
@@ -165,14 +170,13 @@ Item {
             }
             onPositionChanged: mouse => {
                 dragY = mouse.y - startY;
-                if (dragY < 0)
-                    toast.y = Math.max(toast.y + dragY * 0.5, -toast.height);
+                toastContainer.dragOffset = Math.max(Math.min(0, dragY * 0.5), -toast.height);
             }
             onReleased: mouse => {
                 if (dragY < -30) {
                     toastContainer.dismissToast();
                 } else {
-                    toast.y = Constants.statusBarHeight;
+                    toastContainer.dragOffset = 0;
                     autoHideTimer.restart();
                 }
             }
@@ -217,25 +221,11 @@ Item {
         }
     }
 
-    NumberAnimation {
-        id: slideIn
+    Timer {
+        id: hideTimer
 
-        target: toast
-        property: "y"
-        to: Constants.statusBarHeight
-        duration: MMotion.moderate
-        easing.type: Easing.OutQuad
-    }
-
-    NumberAnimation {
-        id: slideOut
-
-        target: toast
-        property: "y"
-        to: -toast.height
-        duration: MMotion.quick
-        easing.bezierCurve: MMotion.easingAccelerateCurve
-        onFinished: {
+        interval: MMotion.moderate
+        onTriggered: {
             toast.visible = false;
             toastContainer.showNextToast();
         }
