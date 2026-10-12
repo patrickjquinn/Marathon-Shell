@@ -278,7 +278,15 @@ void SettingsManager::load() {
     // Terminal default-hidden so a consumer phone doesn't ship a shell
     // prompt as a first-class launcher entry. Still reachable via
     // Settings → Apps → Hidden Apps.
-    m_hiddenApps     = m_settings.value("apps/hiddenApps", QStringList{"terminal"}).toStringList();
+    m_hiddenApps =
+        m_settings.value("apps/hiddenApps", QStringList{"terminal", "test"}).toStringList();
+    // Once only, so a developer who unhides the Test Suite keeps it.
+    if (!m_settings.value("apps/testHiddenByDefault", false).toBool()) {
+        if (!m_hiddenApps.contains(QStringLiteral("test")))
+            m_hiddenApps.append(QStringLiteral("test"));
+        m_settings.setValue("apps/hiddenApps", m_hiddenApps);
+        m_settings.setValue("apps/testHiddenByDefault", true);
+    }
     m_appSortOrder   = m_settings.value("apps/sortOrder", "alphabetical").toString();
     m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();
     m_searchNativeApps       = m_settings.value("apps/searchNativeApps", true).toBool();
