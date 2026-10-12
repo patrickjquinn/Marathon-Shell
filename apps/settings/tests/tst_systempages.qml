@@ -226,6 +226,20 @@ TestCase {
         compare(DavSync.calls, [["remove", "a1"]]);
     }
 
+    function test_toggleAccountSync() {
+        DavSync.accounts = [{ id: "a1", displayName: "Nextcloud", baseUrl: "https://c", username: "pat", enabled: true }];
+        const s = open("accounts");
+        const item = child(s.page, "account-a1");
+        const menu = item.openMenu();
+        tryVerify(() => menu._open && menu.height > 0);
+        wait(300);
+        const toggle = findChild(menu, "enableItem");
+        compare(toggle.text, "Turn off sync");
+        mouseClick(toggle);
+        compare(DavSync.calls, [["enable", "a1", false]]);
+        tryVerify(() => child(s.page, "account-a1").syncOff);
+    }
+
     function test_updates() {
         const s = open("updates");
         compare(child(s.page, "statusLabel").text, "Update r380 is available");

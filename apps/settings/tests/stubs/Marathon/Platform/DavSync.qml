@@ -30,6 +30,10 @@ QtObject {
         calls = calls.concat([["remove", id]]);
         return true;
     }
+    function enableAccount(id, enabled) {
+        accounts = accounts.map(a => a.id === id ? Object.assign({}, a, { enabled: enabled }) : a);
+        calls = calls.concat([["enable", id, enabled]]);
+    }
     function syncNow() {
         calls = calls.concat([["sync"]]);
     }

@@ -142,11 +142,17 @@ Page {
             id: item
 
             required property var modelData
+            readonly property bool syncOff: modelData.enabled === false
 
             objectName: "account-" + modelData.id
             contentHeight: Theme.itemSizeMedium
             Accessible.name: modelData.displayName + ", " + modelData.username
             menu: ContextMenu {
+                MenuItem {
+                    objectName: "enableItem"
+                    text: item.syncOff ? qsTr("Turn on sync") : qsTr("Turn off sync")
+                    onClicked: page.dav.enableAccount(item.modelData.id, item.syncOff)
+                }
                 MenuItem {
                     objectName: "removeItem"
                     text: qsTr("Remove")
@@ -172,7 +178,7 @@ Page {
                 }
                 Label {
                     width: parent.width
-                    text: item.modelData.id === page.checkingId ? qsTr("Checking account…") : item.modelData.username + " · " + item.modelData.baseUrl
+                    text: item.modelData.id === page.checkingId ? qsTr("Checking account…") : (item.syncOff ? qsTr("Sync off") + " · " : "") + item.modelData.username + " · " + item.modelData.baseUrl
                     font.pixelSize: Theme.fontSizeExtraSmall
                     truncationMode: TruncationMode.Fade
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
