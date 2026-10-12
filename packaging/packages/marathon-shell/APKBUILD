@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=363
+pkgrel=366
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -70,6 +70,7 @@ depends="
 makedepends="
 	cmake
 	samurai
+	keel-silica
 	qt6-qtbase-dev
 	qt6-qtdeclarative-dev
 	qt6-qtwayland-dev
@@ -96,7 +97,7 @@ makedepends="
 	qmf-dev
 	"
 install="$pkgname.post-install"
-subpackages="$pkgname-doc"
+subpackages="$pkgname-doc $pkgname-silica"
 # The shell source is this repo. scripts/qemu/lib/build-marathon-shell-apk.sh
 # stages the working tree into /var/cache/distfiles as
 # marathon-shell-$pkgver.tar.gz and re-runs `abuild -F checksum`, so the URL
@@ -368,6 +369,12 @@ package() {
 }
 
 # sha512sums regenerate with `abuild checksum` on build host.
+silica() {
+	pkgdesc="Marathon apps built with Sailfish Silica (Keel)"
+	depends="$pkgname=$pkgver-r$pkgrel keel-silica"
+	amove usr/share/marathon-apps/notes-silica
+}
+
 sha512sums="
 1c66550c57c95c688fa8a91b41fbdd6ee7c9f085c949c61de9f647f526bd9c36bdb6b24d2cb472509c619f1842a60679b3bb736c99827de9f178623f39e29837  marathon-shell-1.0.0.tar.gz
 34fad6dcde02924afa5579115a9a97d9b83dedda2586e460b55a52ed622e2e81394317fe63c9307bc627e202931ab8f32e8c87426373d7b937e462be0c7cc97e  asyncfuture.tar.gz

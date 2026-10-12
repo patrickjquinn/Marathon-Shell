@@ -105,6 +105,14 @@ else
     echo "WARNING: qmf-*.apk not found under /local-apks — Mail backend will be skipped"
 fi
 
+KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-*.apk 2>/dev/null | tail -1 || true)"
+if [ -z "$KEEL_SILICA_APK" ]; then
+    echo "error: keel-silica-*.apk not found under /local-apks (run build-keel-silica-apk.sh)" >&2
+    exit 1
+fi
+apk add --no-cache --quiet --allow-untrusted "$KEEL_SILICA_APK"
+echo "keel-silica installed from $KEEL_SILICA_APK"
+
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q
 KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
@@ -144,6 +152,9 @@ abuild -d -F
 
 cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
 echo "wrote /out/${TARGET}"
+SILICA_APK="$(echo "$TARGET" | sed "s/^marathon-shell-/marathon-shell-silica-/")"
+cp "/root/packages/aports/aarch64/${SILICA_APK}" "/out/${SILICA_APK}"
+echo "wrote /out/${SILICA_APK}"
 CSCRIPT
 
 echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"

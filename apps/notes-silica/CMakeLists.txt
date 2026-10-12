@@ -1,0 +1,4 @@
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+    DESTINATION ${MARATHON_APPS_DIR}/notes-silica
+    PATTERN "CMakeLists.txt" EXCLUDE
+    PATTERN "tests" EXCLUDE)
