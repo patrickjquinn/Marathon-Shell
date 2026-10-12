@@ -73,7 +73,7 @@ Page {
                 Rectangle {
                     anchors.fill: parent
                     visible: thumb.status !== Image.Ready
-                    color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
+                    color: Theme.rgba(Theme.primaryColor, 0.1)
                 }
             }
 

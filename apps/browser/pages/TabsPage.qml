@@ -84,7 +84,7 @@ Page {
                     margins: Theme.paddingSmall
                 }
                 radius: Theme.paddingSmall
-                color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityHigh)
+                color: Qt.rgba(0, 0, 0, 0.55)
                 border.width: cell.current ? Math.max(2, Math.round(Theme.pixelRatio * 2)) : 0
                 border.color: Theme.highlightColor
                 clip: true

@@ -32,7 +32,7 @@ TabItem {
                 height: width
                 value: root.countdown.total > 0 ? root.countdown.remaining / root.countdown.total : 0
                 progressColor: Theme.highlightColor
-                backgroundColor: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityLow)
+                backgroundColor: Theme.rgba(Theme.primaryColor, 0.1)
 
                 Label {
                     objectName: "timerTime"

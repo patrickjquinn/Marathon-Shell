@@ -71,7 +71,7 @@ Page {
                     bottom: image.bottom
                 }
                 height: name.height + 2 * Theme.paddingSmall
-                color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityHigh)
+                color: Qt.rgba(0, 0, 0, 0.6)
 
                 Label {
                     id: name
