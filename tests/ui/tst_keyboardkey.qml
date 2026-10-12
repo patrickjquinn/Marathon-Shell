@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtTest
+import Sailfish.Silica 1.0 as Silica
 import "../../shell/qml/keyboard/UI"
 
 TestCase {
@@ -19,6 +20,16 @@ TestCase {
             width: 36
             text: "a"
             alternateChars: ["à", "á", "â"]
+        }
+
+        Key {
+            id: shiftKey
+            x: 20
+            y: 400
+            width: 54
+            text: "shift"
+            iconName: "chevron-up"
+            isSpecial: true
         }
     }
 
@@ -132,5 +143,16 @@ TestCase {
         const n = clickedSpy.count;
         wait(250);
         compare(clickedSpy.count, n);
+    }
+
+    // The test theme's highlight and primary colours are both white, so
+    // this checks the bindings rather than a visible difference.
+    function test_highlightedShiftShowsItsState() {
+        const glyph = findChild(shiftKey, "keyGlyph");
+        verify(glyph);
+        shiftKey.highlighted = true;
+        verify(Qt.colorEqual(glyph.color, Silica.Theme.highlightColor));
+        shiftKey.highlighted = false;
+        verify(Qt.colorEqual(glyph.color, Silica.Theme.primaryColor));
     }
 }

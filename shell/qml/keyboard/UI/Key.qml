@@ -49,10 +49,11 @@ Rectangle {
         height: parent.height - Math.round(8 * Constants.scaleFactor)
 
         GlyphIcon {
+            objectName: "keyGlyph"
             visible: key.iconName !== ""
             name: key.iconName
             size: Silica.Theme.iconSizeSmall
-            color: key.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: key.pressed || key.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             anchors.centerIn: parent
         }
 
@@ -61,7 +62,7 @@ Rectangle {
 
             visible: key.iconName === ""
             text: key.displayText
-            color: key.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: key.pressed || key.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             font.family: Silica.Theme.fontFamily
             font.pixelSize: key.isSpecial ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeLarge
             horizontalAlignment: Text.AlignHCenter

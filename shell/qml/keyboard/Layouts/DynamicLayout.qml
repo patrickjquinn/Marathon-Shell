@@ -68,7 +68,7 @@ Item {
                         visible: keyRow.isLastRow
                         width: keyRow.sideKeyWidth
                         text: "shift"
-                        iconName: dynamicLayout.capsLock ? "chevrons-up" : "chevron-up"
+                        iconName: dynamicLayout.capsLock ? "caret-double-up" : "chevron-up"
                         isSpecial: true
                         highlighted: dynamicLayout.shifted || dynamicLayout.capsLock
                         onClicked: {

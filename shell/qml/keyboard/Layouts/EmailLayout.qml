@@ -93,7 +93,7 @@ Item {
 
             Key {
                 width: row3.sideKeyWidth
-                iconName: layout.shifted ? "chevrons-up" : "chevron-up"
+                iconName: "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted
                 onClicked: {

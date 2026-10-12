@@ -248,7 +248,7 @@ Item {
             Key {
                 width: row3.availableWidth * 0.15
                 text: "shift"
-                iconName: layout.capsLock ? "chevrons-up" : "chevron-up"
+                iconName: layout.capsLock ? "caret-double-up" : "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted || layout.capsLock
                 onClicked: {
