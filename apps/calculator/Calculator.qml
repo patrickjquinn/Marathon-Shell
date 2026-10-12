@@ -19,6 +19,8 @@ QtObject {
                                     && currentOperator === "" && history.length === 0
     readonly property string displayText: errorText !== "" ? errorText
                                           : newNumber ? fmt(parseFloat(display)) : fmtEntry(display)
+    readonly property string expressionText: currentOperator !== "" ? fmt(currentValue) + " " + currentOperator
+                                             : lastExpression
 
     readonly property var keys: ["C", "⌫", "%", "÷", "×", "−", "+", "+/−", ".", "=",
         "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
@@ -37,6 +39,39 @@ QtObject {
         const dot = s.indexOf(".");
         const intPart = (dot >= 0 ? s.substring(0, dot) : s).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         return dot >= 0 ? intPart + s.substring(dot) : intPart;
+    }
+
+    // "," or "." is the decimal mark; a lone separator before exactly three digits groups.
+    function parseNumber(text) {
+        const m = /^(-?)([\d.,]+)$/.exec(String(text).trim().replace(/[\s\u00a0\u202f']/g, ""));
+        if (!m)
+            return NaN;
+        const body = m[2];
+        const last = Math.max(body.lastIndexOf("."), body.lastIndexOf(","));
+        const sep = body.charAt(last);
+        const other = sep === "." ? "," : ".";
+        const decimal = last >= 0 && (body.indexOf(other) >= 0
+                                      || (body.indexOf(sep) === last && body.length - last - 1 !== 3));
+        const whole = decimal ? body.substring(0, last) : body;
+        const frac = decimal ? body.substring(last + 1) : "";
+        const group = decimal ? other : sep;
+        if (group !== "" && whole.indexOf(group) >= 0 && !new RegExp("^\\d{1,3}(\\" + group + "\\d{3})+$").test(whole))
+            return NaN;
+        const digits = group === "" ? whole : whole.split(group).join("");
+        if (!/^\d*$/.test(digits) || !/^\d*$/.test(frac) || digits + frac === "")
+            return NaN;
+        return parseFloat(m[1] + (digits || "0") + "." + (frac || "0"));
+    }
+
+    function paste(text) {
+        const n = parseNumber(text);
+        if (!isFinite(n))
+            return false;
+        snapshot();
+        errorText = "";
+        display = String(n);
+        newNumber = true;
+        return true;
     }
 
     function press(k) {

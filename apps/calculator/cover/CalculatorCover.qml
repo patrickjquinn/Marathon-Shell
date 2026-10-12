@@ -18,9 +18,7 @@ CoverBackground {
             width: parent.width
             horizontalAlignment: Text.AlignRight
             truncationMode: TruncationMode.Fade
-            text: cover.calc.currentOperator !== ""
-                  ? cover.calc.fmt(cover.calc.currentValue) + " " + cover.calc.currentOperator
-                  : cover.calc.lastExpression
+            text: cover.calc.expressionText
             font.pixelSize: Theme.fontSizeMedium
             color: Theme.secondaryColor
         }

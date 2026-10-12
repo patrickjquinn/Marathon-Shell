@@ -170,4 +170,49 @@ TestCase {
         verify(!t.page.scientific);
         compare(mode.text, "Scientific mode");
     }
+
+    function test_pendingOperatorShownOnPage() {
+        const t = make();
+        tap(t.page, "7");
+        tap(t.page, "+");
+        const expr = findChild(t.page, "expression");
+        verify(expr.visible);
+        compare(expr.text, "7 +");
+        verify(!findChild(t.page, "result").visible);
+    }
+
+    function openDisplayMenu(t) {
+        const area = findChild(t.page, "displayArea");
+        const menu = area.openMenu();
+        tryVerify(() => menu._open && menu.height > 0);
+        wait(300);
+        return menu;
+    }
+
+    function test_copyResult() {
+        const t = make();
+        t.calc.press("1");
+        t.calc.press("2");
+        t.calc.press("3");
+        t.calc.press("4");
+        Clipboard.text = "";
+        mouseClick(findChild(openDisplayMenu(t), "copyItem"));
+        tryCompare(Clipboard, "text", "1234");
+    }
+
+    function test_pasteNumber() {
+        const t = make();
+        Clipboard.text = "1 234,5";
+        const menu = openDisplayMenu(t);
+        const paste = findChild(menu, "pasteItem");
+        verify(paste.visible);
+        mouseClick(paste);
+        tryCompare(t.calc, "displayText", "1,234.5");
+    }
+
+    function test_pasteHiddenForText() {
+        const t = make();
+        Clipboard.text = "hello";
+        verify(!findChild(openDisplayMenu(t), "pasteItem").visible);
+    }
 }

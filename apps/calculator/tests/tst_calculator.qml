@@ -165,4 +165,48 @@ TestCase {
         compare(c.displayText, "0");
         verify(!c.canUndo);
     }
+
+    function test_pendingOperatorIsShown() {
+        const c = make();
+        keys(c, ["7", "+"]);
+        compare(c.expressionText, "7 +");
+        keys(c, ["8", "="]);
+        compare(c.expressionText, "7 + 8");
+    }
+
+    function test_paste_data() {
+        return [
+            { tag: "plain", text: "42", out: "42" },
+            { tag: "trimmed", text: "  12.5\n", out: "12.5" },
+            { tag: "grouped", text: "1,234,567", out: "1,234,567" },
+            { tag: "spaces", text: "1 234 567", out: "1,234,567" },
+            { tag: "decimal comma", text: "3,5", out: "3.5" },
+            { tag: "european", text: "1.234,5", out: "1,234.5" },
+            { tag: "english", text: "1,234.5", out: "1,234.5" },
+            { tag: "negative", text: "-7", out: "-7" }
+        ];
+    }
+
+    function test_paste(data) {
+        const c = make();
+        verify(c.paste(data.text));
+        compare(c.displayText, data.out);
+    }
+
+    function test_pasteRejectsText() {
+        const c = make();
+        keys(c, ["5"]);
+        verify(!c.paste("hello"));
+        verify(!c.paste(""));
+        verify(!c.paste("1.2.3,4,5"));
+        compare(c.displayText, "5");
+    }
+
+    function test_pastedNumberIsAnOperand() {
+        const c = make();
+        keys(c, ["2", "+"]);
+        c.paste("3");
+        keys(c, ["="]);
+        compare(c.displayText, "5");
+    }
 }

@@ -93,7 +93,7 @@ Page {
             objectName: "history"
             anchors {
                 top: parent.top
-                bottom: display.top
+                bottom: displayArea.top
                 left: parent.left
                 right: parent.right
                 topMargin: Theme.paddingLarge
@@ -142,48 +142,68 @@ Page {
             text: qsTr("Calculations appear here")
         }
 
-        Column {
-            id: display
+        ListItem {
+            id: displayArea
 
-            x: Theme.horizontalPageMargin
-            width: parent.width - 2 * Theme.horizontalPageMargin
-            anchors {
-                bottom: functionKeys.visible ? functionKeys.top : keypad.top
-                bottomMargin: Theme.paddingLarge
+            objectName: "displayArea"
+            anchors.bottom: functionKeys.visible ? functionKeys.top : keypad.top
+            contentHeight: display.height + Theme.paddingLarge
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "copyItem"
+                        text: qsTr("Copy")
+                        visible: page.calc.errorText === ""
+                        onClicked: Clipboard.text = page.calc.displayText.replace(/,/g, "")
+                    }
+                    MenuItem {
+                        objectName: "pasteItem"
+                        text: qsTr("Paste")
+                        visible: isFinite(page.calc.parseNumber(Clipboard.text))
+                        onClicked: page.calc.paste(Clipboard.text)
+                    }
+                }
             }
 
-            Label {
-                objectName: "expression"
-                width: parent.width
-                horizontalAlignment: Text.AlignRight
-                truncationMode: TruncationMode.Fade
-                visible: text !== ""
-                text: page.calc.lastExpression
-                color: Theme.secondaryColor
-            }
-            Label {
-                objectName: "result"
-                width: parent.width
-                horizontalAlignment: Text.AlignRight
-                truncationMode: TruncationMode.Fade
-                visible: text !== ""
-                text: page.calc.lastResult
-                color: Theme.highlightColor
-            }
-            Label {
-                objectName: "display"
-                width: parent.width
-                height: Theme.itemSizeLarge
-                horizontalAlignment: Text.AlignRight
-                verticalAlignment: Text.AlignVCenter
-                fontSizeMode: Text.HorizontalFit
-                minimumPixelSize: Theme.fontSizeLarge
-                text: page.calc.displayText
-                font.pixelSize: page.calc.errorText !== "" ? Theme.fontSizeExtraLarge : Theme.fontSizeHuge
-                font.family: Theme.fontFamilyHeading
-                color: page.calc.errorText !== "" ? Theme.errorColor : Theme.primaryColor
-                Accessible.role: Accessible.StaticText
-                Accessible.name: text
+            Column {
+                id: display
+
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+
+                Label {
+                    objectName: "expression"
+                    width: parent.width
+                    horizontalAlignment: Text.AlignRight
+                    truncationMode: TruncationMode.Fade
+                    visible: text !== ""
+                    text: page.calc.expressionText
+                    color: Theme.secondaryColor
+                }
+                Label {
+                    objectName: "result"
+                    width: parent.width
+                    horizontalAlignment: Text.AlignRight
+                    truncationMode: TruncationMode.Fade
+                    visible: text !== "" && page.calc.currentOperator === ""
+                    text: page.calc.lastResult
+                    color: Theme.highlightColor
+                }
+                Label {
+                    objectName: "display"
+                    width: parent.width
+                    height: Theme.itemSizeLarge
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: Theme.fontSizeLarge
+                    text: page.calc.displayText
+                    font.pixelSize: page.calc.errorText !== "" ? Theme.fontSizeExtraLarge : Theme.fontSizeHuge
+                    font.family: Theme.fontFamilyHeading
+                    color: page.calc.errorText !== "" ? Theme.errorColor : Theme.primaryColor
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
+                }
             }
         }
 
