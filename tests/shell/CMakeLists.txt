@@ -113,3 +113,9 @@ add_executable(test_shell_portalsettings test_portalsettings.cpp ../../shell/src
 target_link_libraries(test_shell_portalsettings Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus)
 target_include_directories(test_shell_portalsettings PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
 add_test(NAME Shell_PortalSettings COMMAND test_shell_portalsettings)
+
+# Sailfish apps launch under marathon-keel-host
+add_executable(test_shell_sailfishlaunch test_sailfishlaunch.cpp)
+target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
+target_include_directories(test_shell_sailfishlaunch PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_SailfishLaunch COMMAND test_shell_sailfishlaunch)

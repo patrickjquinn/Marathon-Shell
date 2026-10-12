@@ -54,6 +54,46 @@ class TestDesktopFileParser : public QObject {
         QVERIFY(cats.contains("Development"));
     }
 
+    // === CONTRACT: a Sailfish app's [X-Sailjail] group is read ===
+
+    void sailjailGroupIsRead() {
+        QTemporaryDir dir;
+        writeFile(dir.path() + "/harbour-foo.desktop",
+                  "[Desktop Entry]\n"
+                  "Type=Application\n"
+                  "Name=Foo\n"
+                  "Exec=sailfish-qml harbour-foo\n"
+                  "Icon=harbour-foo\n"
+                  "\n"
+                  "[X-Sailjail]\n"
+                  "Permissions=Internet;Pictures\n"
+                  "OrganizationName=org.example\n"
+                  "ApplicationName=foo\n");
+        DesktopFileParser parser;
+        const QVariantMap app = parser.parseDesktopFile(dir.path() + "/harbour-foo.desktop");
+        QVERIFY(app.value("sailfish").toBool());
+        QCOMPARE(app.value("sailjailPermissions").toStringList(), QStringList({"Internet", "Pictures"}));
+        QCOMPARE(app.value("sailjailOrganization").toString(), QString("org.example"));
+        QCOMPARE(app.value("sailjailApplication").toString(), QString("foo"));
+        QCOMPARE(app.value("name").toString(), QString("Foo"));
+        QCOMPARE(app.value("exec").toString(),
+                 QString("marathon-keel-host --app-id harbour-foo -- sailfish-qml harbour-foo"));
+    }
+
+    void otherAppsAreNotSailfish() {
+        QTemporaryDir dir;
+        writeFile(dir.path() + "/plain.desktop", basicDesktop("Plain", "plain"));
+        DesktopFileParser parser;
+        QVERIFY(!parser.parseDesktopFile(dir.path() + "/plain.desktop").value("sailfish").toBool());
+    }
+
+    void sailfishQmlAppsAreSailfish() {
+        QTemporaryDir dir;
+        writeFile(dir.path() + "/q.desktop", basicDesktop("Q", "sailfish-qml harbour-q"));
+        DesktopFileParser parser;
+        QVERIFY(parser.parseDesktopFile(dir.path() + "/q.desktop").value("sailfish").toBool());
+    }
+
     // === CONTRACT: NoDisplay=true must be filtered out ===
 
     void noDisplayAppIsFiltered() {

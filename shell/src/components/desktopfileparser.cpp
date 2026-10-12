@@ -1,4 +1,5 @@
 #include "desktopfileparser.h"
+#include "../services/sailfishlaunch.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
@@ -71,6 +72,7 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
     QTextStream in(&file);
     QVariantMap app;
     bool        inDesktopEntry = false;
+    bool        inSailjail     = false;
 
     app["type"]        = "native";
     app["desktopFile"] = filePath;
@@ -88,6 +90,25 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
 
         if (line.startsWith('[') && line.endsWith(']')) {
             inDesktopEntry = false;
+            // A Sailfish app declares its sandbox here (sailjail).
+            inSailjail = line == QLatin1String("[X-Sailjail]");
+            if (inSailjail)
+                app["sailfish"] = true;
+            continue;
+        }
+
+        if (inSailjail) {
+            const int eq = line.indexOf('=');
+            if (eq < 0)
+                continue;
+            const QString key   = line.left(eq).trimmed();
+            const QString value = line.mid(eq + 1).trimmed();
+            if (key == QLatin1String("Permissions"))
+                app["sailjailPermissions"] = value.split(';', Qt::SkipEmptyParts);
+            else if (key == QLatin1String("OrganizationName"))
+                app["sailjailOrganization"] = value;
+            else if (key == QLatin1String("ApplicationName"))
+                app["sailjailApplication"] = value;
             continue;
         }
 
@@ -110,6 +131,8 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
             app["icon"] = resolveIconPath(value);
         } else if (key == "Exec") {
             app["exec"] = cleanExecLine(value);
+            if (value.startsWith(QLatin1String("sailfish-qml ")))
+                app["sailfish"] = true;
         } else if (key == "Terminal") {
             app["terminal"] = (value.toLower() == "true");
         } else if (key == "Categories") {
@@ -160,6 +183,7 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
     QFileInfo fileInfo(filePath);
     QString   id = fileInfo.completeBaseName();
     app["id"]    = id;
+    app["exec"]  = SailfishLaunch::command(app, app["exec"].toString());
 
     if (app.value("exec").toString().startsWith(QStringLiteral("FLATPAK:"))) {
         app["type"] = "flatpak";
