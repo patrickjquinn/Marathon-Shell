@@ -1130,6 +1130,9 @@ Item {
             HapticManager.light();
         }
         onSwipeLeft: {
+            // Left is back: an open overlay closes before the pages move.
+            if (shell.closeOverlay())
+                return;
             if (UIStore.appWindowOpen || UIStore.settingsOpen)
                 return;
 
