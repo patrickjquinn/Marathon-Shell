@@ -35,11 +35,8 @@ Item {
     property bool volumeUpPressed: false
     property bool powerButtonPressed: false
 
-    function handleBackKey() {
-        if (PermissionManager.promptActive) {
-            dismissPermissionPrompt();
-            return;
-        }
+    // Closes the topmost shell overlay; false when none was open.
+    function closeOverlay() {
         var overlayClosed = false;
         if (showPinScreen) {
             showPinScreen = false;
@@ -65,7 +62,15 @@ Item {
             messagingHub.showVertical = false;
             overlayClosed = true;
         }
-        if (overlayClosed) {
+        return overlayClosed;
+    }
+
+    function handleBackKey() {
+        if (PermissionManager.promptActive) {
+            dismissPermissionPrompt();
+            return;
+        }
+        if (closeOverlay()) {
             Logger.info("Shell", "Back Key closed overlay");
             return;
         }
@@ -1162,6 +1167,8 @@ Item {
                 virtualKeyboard.active = false;
                 return;
             }
+            if (shell.closeOverlay())
+                return;
             var handled = AppLifecycleManager.handleSystemBack();
             if (!handled) {
                 Logger.info("NavBar", "App didn't handle back, closing");
@@ -1170,6 +1177,8 @@ Item {
         }
         onShortSwipeUp: {
             shell.dismissPermissionPrompt();
+            if (peekFlow.peekProgress > 0)
+                peekFlow.closePeek();
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
                 HapticManager.light();
@@ -1185,6 +1194,8 @@ Item {
         }
         onLongSwipeUp: {
             shell.dismissPermissionPrompt();
+            if (peekFlow.peekProgress > 0)
+                peekFlow.closePeek();
             Logger.info("NavBar", "------- LONG SWIPE UP RECEIVED -------");
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
