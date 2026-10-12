@@ -156,20 +156,19 @@ Item {
         }
 
         GlyphIcon {
-            name: "bell"
+            name: "bell-slash"
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowDnd(SystemStatusStore.isDndMode)
         }
 
-        // Always shown; opacity carries on/off/connected.
         GlyphIcon {
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
+            visible: SystemStatusStore.isBluetoothOn
         }
 
         GlyphIcon {
@@ -178,7 +177,6 @@ Item {
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: ModemManagerCpp.modemAvailable
-            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
         Text {
@@ -188,7 +186,6 @@ Item {
             font.pixelSize: Silica.Theme.fontSizeTiny
             anchors.verticalCenter: parent.verticalCenter
             visible: ModemManagerCpp.modemAvailable && SystemStatusStore.dataType !== "" && SystemStatusStore.dataType !== "Unknown"
-            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
         GlyphIcon {
@@ -199,13 +196,12 @@ Item {
             visible: SystemStatusStore.ethernetConnected
         }
 
-        // Always shown; opacity carries on/off/strength.
         GlyphIcon {
             name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
+            visible: SystemStatusStore.isWifiOn
         }
     }
 }

@@ -119,3 +119,10 @@ add_executable(test_shell_sailfishlaunch test_sailfishlaunch.cpp)
 target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
 target_include_directories(test_shell_sailfishlaunch PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SailfishLaunch COMMAND test_shell_sailfishlaunch)
+
+# Status bar glyphs: real Phosphor names, state carried by the glyph
+add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
+target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)
+target_include_directories(test_shell_statusbaricons PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+target_compile_definitions(test_shell_statusbaricons PRIVATE GLYPHS_JS="${CMAKE_SOURCE_DIR}/shell/qml/ui/PhosphorGlyphs.js")
+add_test(NAME Shell_StatusBarIcons COMMAND test_shell_statusbaricons)

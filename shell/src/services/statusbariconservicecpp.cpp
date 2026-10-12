@@ -12,71 +12,33 @@ QString StatusBarIconServiceCpp::getBatteryIcon(int level, bool isCharging) cons
     return "battery-full";
 }
 
+// Strength is carried by the glyph, never by opacity: dimmed icons fall
+// below 3:1 on the bar and the steps can't be told apart.
 QString StatusBarIconServiceCpp::getSignalIcon(int strength) const {
-    // Phosphor glyph names (matches shell/qml/ui/PhosphorGlyphs.js). The
-    // earlier 'signal-*' / 'signal-zero' names resolved to no glyph at all,
-    // so the cellular status-bar icon never rendered even with a registered
-    // modem and a known RSSI. PhosphorGlyphs only ships cell-signal-{low,
-    // medium,high} — zero-strength reuses 'low' at reduced opacity (handled
-    // by getSignalOpacity).
     if (strength == 0)
-        return "cell-signal-low";
-    if (strength <= 33)
-        return "cell-signal-low";
-    if (strength <= 66)
-        return "cell-signal-medium";
-    return "cell-signal-high";
-}
-
-qreal StatusBarIconServiceCpp::getSignalOpacity(int strength) const {
-    if (strength == 0)
-        return 0.3;
+        return "cell-signal-none";
     if (strength <= 25)
-        return 0.6;
+        return "cell-signal-low";
     if (strength <= 50)
-        return 0.8;
+        return "cell-signal-medium";
     if (strength <= 75)
-        return 0.9;
-    return 1.0;
+        return "cell-signal-high";
+    return "cell-signal-full";
 }
 
 QString StatusBarIconServiceCpp::getWifiIcon(bool isEnabled, int strength, bool isConnected) const {
     if (!isEnabled || !isConnected)
-        return "wifi-off";
-    if (strength == 0)
-        return "wifi-zero";
+        return "wifi-slash";
     if (strength <= 33)
         return "wifi-low";
     if (strength <= 66)
-        return "wifi";
+        return "wifi-medium";
     return "wifi-high";
-}
-
-qreal StatusBarIconServiceCpp::getWifiOpacity(bool isEnabled, int strength,
-                                              bool isConnected) const {
-    if (!isEnabled || !isConnected)
-        return 0.3;
-    if (strength == 0)
-        return 0.4;
-    if (strength <= 33)
-        return 0.6;
-    if (strength <= 66)
-        return 0.8;
-    return 1.0;
 }
 
 QString StatusBarIconServiceCpp::getBluetoothIcon(bool isEnabled, bool isConnected) const {
     Q_UNUSED(isEnabled);
-    Q_UNUSED(isConnected);
-    return "bluetooth";
-}
-
-qreal StatusBarIconServiceCpp::getBluetoothOpacity(bool isEnabled, bool isConnected) const {
-    if (!isEnabled)
-        return 0.3;
-    if (isConnected)
-        return 1.0;
-    return 0.6;
+    return isConnected ? "bluetooth-connected" : "bluetooth";
 }
 
 bool StatusBarIconServiceCpp::shouldShowAirplaneMode(bool isEnabled) const {

@@ -13,11 +13,8 @@ class StatusBarIconServiceCpp : public QObject {
 
     Q_INVOKABLE QString getBatteryIcon(int level, bool isCharging) const;
     Q_INVOKABLE QString getSignalIcon(int strength) const;
-    Q_INVOKABLE qreal   getSignalOpacity(int strength) const;
     Q_INVOKABLE QString getWifiIcon(bool isEnabled, int strength, bool isConnected) const;
-    Q_INVOKABLE qreal   getWifiOpacity(bool isEnabled, int strength, bool isConnected) const;
     Q_INVOKABLE QString getBluetoothIcon(bool isEnabled, bool isConnected) const;
-    Q_INVOKABLE qreal   getBluetoothOpacity(bool isEnabled, bool isConnected) const;
     Q_INVOKABLE bool    shouldShowAirplaneMode(bool isEnabled) const;
     Q_INVOKABLE bool    shouldShowDnd(bool isEnabled) const;
 };
