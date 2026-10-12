@@ -42,6 +42,11 @@ ApplicationWindow {
         defaultValue: "[]"
     }
     readonly property var recentPlaces: Logic.parseList(recentStore.value)
+    property QtObject lastFixStore: ConfigurationValue {
+        key: "/apps/maps/lastFix"
+        defaultValue: ""
+    }
+    readonly property var savedFix: Logic.parseFix(lastFixStore.value)
     // "idle", "preview" (route shown, not started) or "active" (navigating).
     property string routingMode: "idle"
     property var currentRoute: null
@@ -72,7 +77,8 @@ ApplicationWindow {
 
     readonly property bool geoclueValid: location !== null && location.available === true && location.latitude !== 0 && location.longitude !== 0
     readonly property bool fixValid: geoclueValid || positionSource.position.coordinate.isValid
-    readonly property var fix: geoclueValid ? { lat: location.latitude, lon: location.longitude } : positionSource.position.coordinate.isValid ? { lat: positionSource.position.coordinate.latitude, lon: positionSource.position.coordinate.longitude } : { lat: 37.7749, lon: -122.419 }
+    // Without a fix: where the phone last was, else the whole world.
+    readonly property var fix: geoclueValid ? { lat: location.latitude, lon: location.longitude } : positionSource.position.coordinate.isValid ? { lat: positionSource.position.coordinate.latitude, lon: positionSource.position.coordinate.longitude } : savedFix || { lat: 20, lon: 0 }
 
     property var router: ValhallaRoutingClient {
         onRouteReady: (geojson, maneuvers, durationSec, distanceM, summary) => root._routeReady(geojson, maneuvers, durationSec, distanceM, summary)
@@ -101,7 +107,9 @@ ApplicationWindow {
             if (fixValid)
                 mapCall("setUserLocation", fix.lat, fix.lon);
             if (!selectedPlace)
-                mapCall("setCenter", fix.lat, fix.lon, 14);
+                mapCall("setCenter", fix.lat, fix.lon, fixValid ? 14 : savedFix ? 12 : 2);
+            if (!fixValid && !savedFix)
+                Notices.show(qsTr("Location unknown. Tap the location button to find yourself."));
         });
         item.clicked.connect((lat, lon) => {
             if (awaitingStartPoint && selectedPlace) {
@@ -271,6 +279,8 @@ ApplicationWindow {
     }
 
     function handleFix(lat, lon) {
+        if (!savedFix || Logic.distanceMeters(savedFix.lat, savedFix.lon, lat, lon) > 500)
+            lastFixStore.value = JSON.stringify({ lat: lat, lon: lon });
         mapCall("setUserLocation", lat, lon);
         if (routingMode === "active") {
             mapCall("setCenter", lat, lon, 17);

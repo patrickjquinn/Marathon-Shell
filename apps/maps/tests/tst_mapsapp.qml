@@ -32,6 +32,9 @@ TestCase {
             recentStore: QtObject {
                 property var value: "[]"
             }
+            lastFixStore: QtObject {
+                property var value: ""
+            }
         }
     }
 
@@ -159,6 +162,19 @@ TestCase {
         findChild(current(app), "searchField").text = "nowhere";
         compare(view.count, 0);
         verify(!findChild(current(app), "recentHeader").visible);
+    }
+
+    function test_lastFixCentresTheMap() {
+        const app = makeApp();
+        compare(app.fix.lat, 20);
+        app.map.ready();
+        verify(app.map.calls.some(c => c.indexOf("setCenter(20,0,2)") > 0));
+        Location.moveTo(51.5, -0.1);
+        compare(JSON.parse(app.lastFixStore.value).lat, 51.5);
+        Location.moveTo(51.5001, -0.1);
+        compare(JSON.parse(app.lastFixStore.value).lat, 51.5);
+        Location.available = false;
+        compare(app.fix.lat, 51.5);
     }
 
     function test_searchFailure() {

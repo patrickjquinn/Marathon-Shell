@@ -191,3 +191,13 @@ function searchUrl(query, fix) {
         url += "&viewbox=" + [fix.lon - 0.5, fix.lat + 0.5, fix.lon + 0.5, fix.lat - 0.5].map(v => v.toFixed(4)).join(",");
     return url;
 }
+
+// {lat, lon} from the saved JSON, or null.
+function parseFix(json) {
+    try {
+        const v = JSON.parse(json);
+        return v && isFinite(v.lat) && isFinite(v.lon) ? { lat: Number(v.lat), lon: Number(v.lon) } : null;
+    } catch (e) {
+        return null;
+    }
+}

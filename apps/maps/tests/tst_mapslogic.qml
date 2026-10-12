@@ -120,6 +120,12 @@ TestCase {
         compare(Logic.parseList("nope"), []);
     }
 
+    function test_parseFix() {
+        compare(Logic.parseFix('{"lat":1,"lon":2}'), { lat: 1, lon: 2 });
+        compare(Logic.parseFix(""), null);
+        compare(Logic.parseFix('{"lat":"x"}'), null);
+    }
+
     function test_mapFailureIsPermanent() {
         verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
         verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));
