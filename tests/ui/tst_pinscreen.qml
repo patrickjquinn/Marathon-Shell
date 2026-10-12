@@ -25,6 +25,7 @@ TestCase {
     function init() {
         SecurityManagerCpp.attempts = [];
         SecurityManagerCpp.isLockedOut = false;
+        SecurityManagerCpp.lockoutStateChanged();
         pinScreen.authenticating = false;
         win.requestActivate();
         tryVerify(() => win.active);
@@ -65,5 +66,34 @@ TestCase {
         tryCompare(SecurityManagerCpp, "attempts", ["123456"]);
         keyClick(Qt.Key_Return);
         compare(SecurityManagerCpp.attempts.length, 1);
+    }
+
+    function test_errorStaysUntilNextDigit() {
+        type("123456");
+        tryCompare(SecurityManagerCpp, "attempts", ["123456"]);
+        SecurityManagerCpp.authenticationFailed("Incorrect PIN (3 attempts remaining)");
+        compare(pinScreen.pin, "");
+        wait(1500);
+        compare(pinScreen.error, "Incorrect PIN (3 attempts remaining)");
+        type("1");
+        compare(pinScreen.error, "");
+    }
+
+    function test_lockoutDisablesKeypadAndCountsDown() {
+        SecurityManagerCpp.lockoutSecondsRemaining = 30;
+        SecurityManagerCpp.isLockedOut = true;
+        SecurityManagerCpp.lockoutStateChanged();
+        verify(pinScreen.error.indexOf("30") >= 0);
+        verify(findChild(pinScreen, "key1").disabled);
+        verify(findChild(pinScreen, "key0").disabled);
+        type("1");
+        compare(pinScreen.pin, "");
+        SecurityManagerCpp.lockoutSecondsRemaining = 29;
+        SecurityManagerCpp.lockoutStateChanged();
+        verify(pinScreen.error.indexOf("29") >= 0);
+        SecurityManagerCpp.isLockedOut = false;
+        SecurityManagerCpp.lockoutStateChanged();
+        compare(pinScreen.error, "");
+        verify(!findChild(pinScreen, "key1").disabled);
     }
 }

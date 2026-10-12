@@ -34,7 +34,7 @@ Item {
     signal cancelled
 
     function handleInput(digit) {
-        if (pin.length < 6) {
+        if (pin.length < 6 && !SecurityManagerCpp.isLockedOut) {
             pin += digit;
             error = "";
             if (pin.length === 6)
@@ -192,8 +192,8 @@ Item {
             Logger.warn("PinScreen", " Authentication failed, hiding spinner:", reason);
             pinScreen.authenticating = false;
             HapticManager.heavy();
+            pinScreen.pin = "";
             pinScreen.error = reason;
-            errorTimer.start();
             pinScreen.biometricInProgress = false;
             SessionStore.triggerShakeAnimation();
         }
@@ -208,6 +208,8 @@ Item {
                 var secs = SecurityManagerCpp.lockoutSecondsRemaining;
                 pinScreen.error = "Locked for " + secs + "s";
                 Logger.warn("PinScreen", "Account locked for", secs, "seconds");
+            } else {
+                pinScreen.error = "";
             }
         }
 
@@ -393,7 +395,7 @@ Item {
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(300 * Constants.scaleFactor)
+            width: pinScreen.width - 2 * Silica.Theme.horizontalPageMargin
             height: Math.round(40 * Constants.scaleFactor)
             color: "transparent"
             visible: pinScreen.error !== ""
@@ -401,6 +403,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
                 text: pinScreen.error
                 color: Silica.Theme.errorColor
                 font.family: Silica.Theme.fontFamily
@@ -479,7 +484,9 @@ Item {
                         height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                         MCircularIconButton {
+                            objectName: "key" + pinKey.digit
                             anchors.centerIn: parent
+                            disabled: SecurityManagerCpp.isLockedOut
                             text: pinKey.digit
                             iconSize: pinScreen.compactLayout ? 22 : 28
                             buttonSize: pinScreen.keyButtonSize
@@ -521,7 +528,9 @@ Item {
                     height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
+                        objectName: "key0"
                         anchors.centerIn: parent
+                        disabled: SecurityManagerCpp.isLockedOut
                         text: "0"
                         iconSize: pinScreen.compactLayout ? 22 : 28
                         buttonSize: pinScreen.keyButtonSize
@@ -545,7 +554,7 @@ Item {
                         iconSize: pinScreen.compactLayout ? 20 : 24
                         buttonSize: pinScreen.keyButtonSize
                         variant: disabled ? "secondary" : "primary"
-                        disabled: pinScreen.pin.length < 4 || pinScreen.authenticating
+                        disabled: pinScreen.pin.length < 4 || pinScreen.authenticating || SecurityManagerCpp.isLockedOut
                         a11yName: "Unlock"
                         onClicked: {
                             HapticManager.light();
@@ -708,16 +717,6 @@ Item {
 
         interval: 100
         onTriggered: pinScreen.verifyPin()
-    }
-
-    Timer {
-        id: errorTimer
-
-        interval: 1200
-        onTriggered: {
-            pinScreen.pin = "";
-            pinScreen.error = "";
-        }
     }
 
     Timer {
