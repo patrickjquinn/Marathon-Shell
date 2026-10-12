@@ -8,15 +8,8 @@ file(GLOB_RECURSE QML_FILES
 )
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
-# C++ sources for telephony (future)
-set(SOURCES
-    # Future: src/callmanager.cpp
-    # Future: src/contactsmanager.cpp
-)
-
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Phone"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES ${SOURCES}
 )
