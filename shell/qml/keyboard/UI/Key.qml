@@ -18,6 +18,7 @@ Rectangle {
     property bool pressed: false
     property bool highlighted: false
     property bool showingAlternates: false
+    property int selectedAlternate: -1
 
     signal clicked
     signal pressAndHold
@@ -101,7 +102,8 @@ Rectangle {
     Loader {
         id: alternatePopup
 
-        property real popupWidth: Math.round((60 * key.alternateChars.length + 4 * (key.alternateChars.length - 1)) * Constants.scaleFactor)
+        readonly property real padding: Math.round(Silica.Theme.paddingSmall / 2)
+        property real popupWidth: key.alternateChars.length * key.width + 2 * padding
         property real keyGlobalX: key.mapToItem(null, 0, 0).x
         property real screenWidth: Constants.screenWidth
 
@@ -119,17 +121,16 @@ Rectangle {
                 return centerX;
         }
         anchors.bottom: parent.top
-        anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
+        anchors.bottomMargin: Math.round(Silica.Theme.paddingSmall / 2)
 
         sourceComponent: Rectangle {
             width: alternatePopup.popupWidth
-            height: Math.round(50 * Constants.scaleFactor)
+            height: key.height + 2 * alternatePopup.padding
             radius: Silica.Theme.paddingMedium
             color: Qt.rgba(0, 0, 0, 0.9)
 
             Row {
                 anchors.centerIn: parent
-                spacing: Math.round(4 * Constants.scaleFactor)
 
                 Repeater {
                     model: key.alternateChars
@@ -138,29 +139,21 @@ Rectangle {
                         id: altKey
 
                         required property var modelData
+                        required property int index
+                        readonly property bool selected: index === key.selectedAlternate
 
-                        width: Math.round(50 * Constants.scaleFactor)
-                        height: Math.round(40 * Constants.scaleFactor)
+                        objectName: "alternate_" + index
+                        width: key.width
+                        height: key.height
                         radius: Silica.Theme.paddingSmall
-                        color: altMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                        color: selected ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
 
                         Text {
                             anchors.centerIn: parent
                             text: altKey.modelData
-                            color: altMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            color: altKey.selected ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                             font.family: Silica.Theme.fontFamily
                             font.pixelSize: Silica.Theme.fontSizeLarge
-                        }
-
-                        MouseArea {
-                            id: altMouseArea
-
-                            anchors.fill: parent
-                            onClicked: {
-                                HapticManager.light();
-                                key.alternateSelected(altKey.modelData);
-                                key.showingAlternates = false;
-                            }
                         }
                     }
                 }
@@ -172,25 +165,41 @@ Rectangle {
         id: mouseArea
 
         property bool longPressTriggered: false
+        property point holdPoint
 
         anchors.fill: parent
         onPressed: function (mouse) {
             key.pressed = true;
             longPressTriggered = false;
+            key.selectedAlternate = -1;
             HapticManager.light();
             if (key.alternateChars.length > 0)
                 longPressTimer.restart();
 
             mouse.accepted = true;
         }
+        // This MouseArea keeps the grab, so it drives the popup.
+        onPositionChanged: function (mouse) {
+            if (!key.showingAlternates)
+                return;
+            if (key.selectedAlternate < 0 && Math.hypot(mouse.x - holdPoint.x, mouse.y - holdPoint.y) < Silica.Theme.startDragDistance)
+                return;
+            var i = Math.floor((mouse.x - alternatePopup.x - alternatePopup.padding) / key.width);
+            key.selectedAlternate = Math.max(0, Math.min(key.alternateChars.length - 1, i));
+        }
         onReleased: function (mouse) {
             longPressTimer.stop();
             key.pressed = false;
-            if (!longPressTriggered && containsMouse) {
-                if (!key.showingAlternates)
+            if (key.showingAlternates) {
+                if (key.selectedAlternate >= 0)
+                    key.alternateSelected(key.alternateChars[key.selectedAlternate]);
+                else
                     key.clicked();
+            } else if (!longPressTriggered && containsMouse) {
+                key.clicked();
             }
             key.showingAlternates = false;
+            key.selectedAlternate = -1;
             key.released();
             mouse.accepted = true;
         }
@@ -198,6 +207,7 @@ Rectangle {
             longPressTimer.stop();
             key.pressed = false;
             key.showingAlternates = false;
+            key.selectedAlternate = -1;
         }
     }
 
@@ -209,6 +219,7 @@ Rectangle {
         onTriggered: {
             if (key.alternateChars.length > 0) {
                 HapticManager.medium();
+                mouseArea.holdPoint = Qt.point(mouseArea.mouseX, mouseArea.mouseY);
                 key.showingAlternates = true;
                 mouseArea.longPressTriggered = true;
                 key.pressAndHold();

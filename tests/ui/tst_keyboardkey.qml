@@ -1,0 +1,91 @@
+import QtQuick
+import QtQuick.Window
+import QtTest
+import "../../shell/qml/keyboard/UI"
+
+TestCase {
+    name: "KeyboardKey"
+    when: windowShown
+
+    Window {
+        width: 360
+        height: 720
+        visible: true
+
+        Key {
+            id: key
+            x: 160
+            y: 400
+            width: 36
+            text: "a"
+            alternateChars: ["à", "á", "â"]
+        }
+    }
+
+    SignalSpy { id: clickedSpy; target: key; signalName: "clicked" }
+    SignalSpy { id: alternateSpy; target: key; signalName: "alternateSelected" }
+    SignalSpy { id: holdSpy; target: key; signalName: "pressAndHold" }
+
+    function init() {
+        key.alternateChars = ["à", "á", "â"];
+        clickedSpy.clear();
+        alternateSpy.clear();
+        holdSpy.clear();
+    }
+
+    function cleanup() {
+        if (key.pressed)
+            mouseRelease(key, 0, 0);
+    }
+
+    function alternateCentre(i) {
+        const cell = findChild(key, "alternate_" + i);
+        verify(cell, "alternate cell " + i);
+        return cell.mapToItem(key, cell.width / 2, cell.height / 2);
+    }
+
+    function longPress() {
+        mousePress(key, key.width / 2, key.height / 2);
+        tryCompare(key, "showingAlternates", true, 1000);
+    }
+
+    function test_tapCommitsBaseKey() {
+        mouseClick(key, key.width / 2, key.height / 2);
+        compare(clickedSpy.count, 1);
+        compare(alternateSpy.count, 0);
+    }
+
+    function test_slideToAlternateAndReleaseCommitsIt() {
+        longPress();
+        const p = alternateCentre(2);
+        mouseMove(key, p.x, p.y, -1, Qt.LeftButton);
+        verify(findChild(key, "alternate_2").selected);
+        verify(!findChild(key, "alternate_0").selected);
+        mouseRelease(key, p.x, p.y);
+        compare(alternateSpy.count, 1);
+        compare(alternateSpy.signalArguments[0][0], "â");
+        compare(clickedSpy.count, 0);
+        verify(!key.showingAlternates);
+    }
+
+    function test_slideAcrossMovesHighlight() {
+        longPress();
+        let p = alternateCentre(0);
+        mouseMove(key, p.x, p.y, -1, Qt.LeftButton);
+        verify(findChild(key, "alternate_0").selected);
+        p = alternateCentre(1);
+        mouseMove(key, p.x, p.y, -1, Qt.LeftButton);
+        verify(findChild(key, "alternate_1").selected);
+        verify(!findChild(key, "alternate_0").selected);
+        mouseRelease(key, p.x, p.y);
+        compare(alternateSpy.signalArguments[0][0], "á");
+    }
+
+    function test_releaseWithoutSlidingCommitsBaseKey() {
+        longPress();
+        mouseRelease(key, key.width / 2, key.height / 2);
+        compare(clickedSpy.count, 1);
+        compare(alternateSpy.count, 0);
+        verify(!key.showingAlternates);
+    }
+}
