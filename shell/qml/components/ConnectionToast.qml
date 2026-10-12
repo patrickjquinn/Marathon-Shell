@@ -1,5 +1,6 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: connectionToast
@@ -33,36 +34,31 @@ Item {
 
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
-        width: Math.min(parent.width - 32, 300)
-        height: Constants.touchTargetSmall
-        radius: MRadius.sm
-        color: Qt.rgba(0, 0, 0, 0.95)
+        width: Math.min(toastRow.width + Silica.Theme.paddingLarge * 2, parent.width - Silica.Theme.paddingSmall * 2)
+        height: Silica.Theme.itemSizeSmall
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
-        border.color: MColors.border
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         visible: connectionToast.showing
 
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.03)
-            lineWidth: 1
-        }
-
         Row {
+            id: toastRow
+
             anchors.centerIn: parent
-            spacing: Constants.spacingMedium
+            spacing: Silica.Theme.paddingMedium
 
             GlyphIcon {
                 name: connectionToast.iconName
-                size: Constants.iconSizeMedium
-                color: MColors.accent
+                size: Silica.Theme.iconSizeSmall
+                color: Silica.Theme.highlightColor
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            Text {
+            Silica.Label {
                 text: connectionToast.message
-                color: MColors.text
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
+                color: Silica.Theme.primaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
@@ -73,7 +69,7 @@ Item {
 
         target: toast
         property: "y"
-        to: Constants.statusBarHeight + 16
+        to: Constants.statusBarHeight + Silica.Theme.paddingSmall
         duration: 250
         easing.type: Easing.OutCubic
     }

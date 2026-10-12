@@ -1,5 +1,7 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: errorToast
@@ -47,13 +49,13 @@ Item {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight + Constants.spacingLarge
-        width: Math.min(parent.width - Constants.spacingXLarge, Math.round(400 * Constants.scaleFactor))
-        height: errorContent.height + Constants.spacingLarge
-        radius: Constants.borderRadiusLarge
-        color: MColors.surface
-        border.width: Constants.borderWidthMedium
-        border.color: MColors.error
+        anchors.topMargin: Constants.statusBarHeight + Silica.Theme.paddingSmall
+        width: parent.width - Silica.Theme.paddingSmall * 2
+        height: errorContent.height + Silica.Theme.paddingMedium * 2
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
+        border.width: 1
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         opacity: 0
 
         MouseArea {
@@ -79,85 +81,55 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Constants.spacingMedium
-            spacing: Constants.spacingSmall
+            anchors.margins: Silica.Theme.paddingMedium
+            anchors.rightMargin: 0
 
             Row {
                 width: parent.width
-                spacing: Constants.spacingMedium
+                spacing: Silica.Theme.paddingMedium
 
-                Rectangle {
-                    width: Constants.touchTargetSmall
-                    height: Constants.touchTargetSmall
-                    radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.2)
+                GlyphIcon {
+                    id: errorGlyph
+
+                    name: errorToast.errorIcon
+                    size: Silica.Theme.iconSizeSmallPlus
+                    color: Silica.Theme.errorColor
                     anchors.verticalCenter: parent.verticalCenter
-
-                    GlyphIcon {
-                        name: errorToast.errorIcon
-                        size: Constants.iconSizeMedium
-                        color: MColors.error
-                        anchors.centerIn: parent
-                    }
                 }
 
                 Column {
-                    width: parent.width - Constants.touchTargetSmall - Constants.touchTargetMinimum - Constants.spacingMedium * 2
-                    spacing: Constants.spacingXSmall
+                    width: parent.width - errorGlyph.width - closeButton.width - Silica.Theme.paddingMedium * 2
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Text {
+                    Silica.Label {
                         text: errorToast.errorTitle
-                        color: MColors.text
-                        font.pixelSize: MTypography.sizeLarge
-                        font.weight: Font.DemiBold
-                        font.family: MTypography.fontFamily
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        truncationMode: Silica.TruncationMode.Fade
                         width: parent.width
-                        elide: Text.ElideRight
                     }
 
-                    Text {
-                        text: "Tap to dismiss"
-                        color: MColors.textTertiary
-                        font.pixelSize: MTypography.sizeXSmall
-                        font.family: MTypography.fontFamily
+                    Silica.Label {
+                        text: errorToast.errorMessage
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        width: parent.width
+                        wrapMode: Text.Wrap
+                        visible: errorToast.errorMessage.length > 0
                     }
                 }
 
-                Rectangle {
-                    width: Constants.touchTargetMinimum
-                    height: Constants.touchTargetMinimum
-                    radius: Constants.borderRadiusSmall
-                    color: closeMouseArea.pressed ? MColors.elevated : "transparent"
+                Silica.IconButton {
+                    id: closeButton
+
+                    icon.source: "image://theme/icon-m-close"
+                    Accessible.name: "Close"
                     anchors.verticalCenter: parent.verticalCenter
-
-                    GlyphIcon {
-                        name: "x"
-                        size: Constants.iconSizeSmall
-                        color: MColors.textSecondary
-                        anchors.centerIn: parent
-                    }
-
-                    MouseArea {
-                        id: closeMouseArea
-
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticManager.light();
-                            errorToast.hide();
-                        }
+                    onClicked: {
+                        HapticManager.light();
+                        errorToast.hide();
                     }
                 }
-            }
-
-            Text {
-                text: errorToast.errorMessage
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                width: parent.width
-                wrapMode: Text.WordWrap
-                visible: errorToast.errorMessage.length > 0
             }
         }
     }
@@ -178,7 +150,7 @@ Item {
             target: errorCard
             property: "y"
             from: -errorCard.height
-            to: Constants.statusBarHeight + Constants.spacingLarge
+            to: Constants.statusBarHeight + Silica.Theme.paddingSmall
             duration: 400
             easing.type: Easing.OutCubic
         }
@@ -218,7 +190,7 @@ Item {
 
         target: errorCard
         property: "y"
-        to: Constants.statusBarHeight + Constants.spacingLarge
+        to: Constants.statusBarHeight + Silica.Theme.paddingSmall
         duration: 200
         easing.type: Easing.OutQuad
     }
