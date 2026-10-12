@@ -50,6 +50,12 @@ Page {
                 size: BusyIndicatorSize.Large
                 running: shot.status === Image.Loading
             }
+            InfoLabel {
+                objectName: "shotError"
+                anchors.verticalCenter: parent.verticalCenter
+                visible: shot.status === Image.Error
+                text: qsTr("Couldn't load screenshot")
+            }
             Label {
                 id: caption
                 anchors.bottom: parent.bottom

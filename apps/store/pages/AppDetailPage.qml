@@ -380,12 +380,21 @@ Page {
                     onClicked: root.store.openScreenshots(root.screenshots, index)
 
                     Image {
+                        id: shotImage
                         anchors.fill: parent
                         source: shot.pick ? root.store.safeImageUrl(shot.pick.src) : ""
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         smooth: true
                         mipmap: true
+                    }
+                    Icon {
+                        objectName: "shotPlaceholder"
+                        anchors.centerIn: parent
+                        visible: shotImage.status !== Image.Ready
+                        source: "image://theme/icon-m-image"
+                        color: Theme.secondaryColor
+                        opacity: Theme.opacityLow
                     }
                 }
 

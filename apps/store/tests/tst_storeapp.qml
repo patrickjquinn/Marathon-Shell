@@ -148,6 +148,7 @@ TestCase {
         findChild(page, "websiteItem").clicked(null);
         compare(app.store.opened[app.store.opened.length - 1], "https://apps.gnome.org/Maps/");
         tryCompare(findChild(page, "screenshotStrip"), "count", 2);
+        verify(findChild(page, "shotPlaceholder").visible);
         verify(!findChild(page, "uninstallItem").parent.visible);
         const action = findChild(page, "detailAction");
         compare(action.action, "get");
@@ -237,6 +238,7 @@ TestCase {
         const viewer = pushed(app, 2);
         compare(findChild(viewer, "screenshotPages").count, 2);
         tryCompare(viewer, "currentIndex", 1);
+        tryVerify(() => findChild(viewer, "shotError").visible, 5000);
     }
 
     function test_notices() {
