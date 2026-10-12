@@ -24,6 +24,7 @@ Dialog {
     property string recurring: "none"
     property int reminder: 0
     property alias description: descriptionArea.text
+    property bool showErrors: false
 
     function setEnd(h, m) {
         duration = Logic.duration(Logic.timeString(hour, minute), Logic.timeString(h, m));
@@ -44,6 +45,10 @@ Dialog {
     }
 
     canAccept: title.trim() !== ""
+    onAcceptBlocked: {
+        showErrors = true;
+        Notices.show(qsTr("Add a title first"));
+    }
     onAccepted: app.saveEvent(event())
 
     Component {
@@ -78,6 +83,7 @@ Dialog {
                 label: qsTr("Title")
                 placeholderText: qsTr("Event title")
                 focus: dialog.original === null
+                errorHighlight: dialog.showErrors && text.trim() === ""
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: locationField.focus = true
             }

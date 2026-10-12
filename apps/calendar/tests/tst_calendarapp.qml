@@ -115,6 +115,18 @@ TestCase {
         compare(e.location, "");
     }
 
+    function test_blockedAcceptFlagsTheTitle() {
+        const app = makeApp([]);
+        const dialog = app.newEvent(new Date(2026, 4, 2));
+        tryCompare(dialog, "status", PageStatus.Active);
+        const title = child(dialog, "titleField");
+        verify(!title.errorHighlight);
+        dialog.acceptBlocked();
+        verify(title.errorHighlight);
+        dialog.title = "Dentist";
+        verify(!title.errorHighlight);
+    }
+
     function test_newEventEndsAnHourLater() {
         const app = makeApp([]);
         const dialog = app.newEvent(new Date(2026, 4, 2));
