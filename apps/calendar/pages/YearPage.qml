@@ -12,6 +12,13 @@ Page {
 
     signal monthChosen(int year, int month)
 
+    TextMetrics {
+        id: widestDay
+
+        font.pixelSize: Theme.fontSizeTiny
+        text: "28"
+    }
+
     SilicaFlickable {
         objectName: "yearView"
         anchors.fill: parent
@@ -91,6 +98,7 @@ Page {
                                 margins: Theme.paddingSmall
                             }
                             columns: 7
+                            columnSpacing: Theme.paddingSmall / 2
 
                             Repeater {
                                 model: 42
@@ -100,10 +108,10 @@ Page {
                                     readonly property int day: index - monthCell.offset + 1
                                     readonly property bool isToday: monthCell.current && day === page.today.getDate()
 
-                                    width: miniDays.width / 7
+                                    width: (miniDays.width - 6 * miniDays.columnSpacing) / 7
                                     horizontalAlignment: Text.AlignHCenter
                                     text: day >= 1 && day <= monthCell.days ? day : ""
-                                    font.pixelSize: Theme.fontSizeTiny
+                                    font.pixelSize: Math.min(Theme.fontSizeTiny, Math.floor(Theme.fontSizeTiny * width / widestDay.width))
                                     color: isToday ? Theme.highlightColor : Theme.secondaryColor
                                 }
                             }
