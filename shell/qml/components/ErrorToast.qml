@@ -10,6 +10,8 @@ Item {
     property string errorTitle: ""
     property string errorIcon: "alert-circle"
     property int displayDuration: 5000
+    property bool shown: false
+    property real dragOffset: 0
 
     signal dismissed
 
@@ -17,19 +19,24 @@ Item {
         errorTitle = title || "Error";
         errorMessage = message;
         errorIcon = icon || "alert-circle";
-        visible = true;
-        showAnimation.start();
+        hideTimer.stop();
+        dragOffset = 0;
+        shown = true;
         dismissTimer.restart();
         HapticManager.medium();
         Logger.warn("ErrorToast", title + ": " + message);
     }
 
     function hide() {
-        hideAnimation.start();
+        if (!shown)
+            return;
+        dismissTimer.stop();
+        shown = false;
+        dragOffset = 0;
+        hideTimer.restart();
     }
 
     anchors.fill: parent
-    visible: false
     z: 2500
 
     Timer {
@@ -39,40 +46,56 @@ Item {
         onTriggered: errorToast.hide()
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: errorToast.hide()
+    Timer {
+        id: hideTimer
+
+        interval: MMotion.moderate
+        onTriggered: errorToast.dismissed()
     }
 
     Rectangle {
         id: errorCard
 
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight + Silica.Theme.paddingSmall
+        y: (errorToast.shown ? Constants.statusBarHeight + Silica.Theme.paddingSmall : -height) + errorToast.dragOffset
         width: parent.width - Silica.Theme.paddingSmall * 2
         height: errorContent.height + Silica.Theme.paddingMedium * 2
         radius: Silica.Theme.paddingMedium
         color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
         border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
-        opacity: 0
+        visible: errorToast.shown || hideTimer.running
 
         MouseArea {
             id: swipeArea
 
+            property real startY: 0
+            property bool dragged: false
+
             anchors.fill: parent
-            drag.target: errorCard
-            drag.axis: Drag.YAxis
-            drag.minimumY: -errorCard.height
-            drag.maximumY: 100
-            onReleased: function(mouse) {
-                if (errorCard.y > 50)
-                    errorToast.hide();
-                else
-                    snapBackAnimation.start();
+            onPressed: mouse => {
+                startY = mapToItem(errorToast, mouse.x, mouse.y).y;
+                dragged = false;
+                dismissTimer.stop();
             }
-            onClicked: mouse => mouse.accepted = true
+            onPositionChanged: mouse => {
+                const dy = mapToItem(errorToast, mouse.x, mouse.y).y - startY;
+                if (Math.abs(dy) > Silica.Theme.startDragDistance)
+                    dragged = true;
+                errorToast.dragOffset = Math.max(Math.min(0, dy), -errorCard.height);
+            }
+            onReleased: {
+                if (errorToast.dragOffset < -Silica.Theme.startDragDistance * 2) {
+                    errorToast.hide();
+                } else {
+                    errorToast.dragOffset = 0;
+                    dismissTimer.restart();
+                }
+            }
+            onClicked: {
+                if (!dragged)
+                    errorToast.hide();
+            }
         }
 
         Column {
@@ -132,66 +155,14 @@ Item {
                 }
             }
         }
-    }
 
-    ParallelAnimation {
-        id: showAnimation
-
-        NumberAnimation {
-            target: errorCard
-            property: "opacity"
-            from: 0
-            to: 1
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: errorCard
-            property: "y"
-            from: -errorCard.height
-            to: Constants.statusBarHeight + Silica.Theme.paddingSmall
-            duration: 400
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    SequentialAnimation {
-        id: hideAnimation
-
-        ParallelAnimation {
-            NumberAnimation {
-                target: errorCard
-                property: "opacity"
-                to: 0
-                duration: 250
-                easing.type: Easing.InQuad
-            }
+        Behavior on y {
+            enabled: !swipeArea.pressed
 
             NumberAnimation {
-                target: errorCard
-                property: "y"
-                to: -errorCard.height
-                duration: 300
-                easing.type: Easing.InCubic
+                duration: MMotion.moderate
+                easing.bezierCurve: MMotion.easingDecelerateCurve
             }
         }
-
-        ScriptAction {
-            script: {
-                errorToast.visible = false;
-                errorToast.dismissed();
-            }
-        }
-    }
-
-    NumberAnimation {
-        id: snapBackAnimation
-
-        target: errorCard
-        property: "y"
-        to: Constants.statusBarHeight + Silica.Theme.paddingSmall
-        duration: 200
-        easing.type: Easing.OutQuad
     }
 }

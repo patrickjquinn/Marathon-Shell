@@ -29,6 +29,10 @@ TestCase {
         NotificationToast {
             id: notificationToast
         }
+
+        ErrorToast {
+            id: errorToast
+        }
     }
 
     readonly property real bannerY: Constants.statusBarHeight + 20
@@ -41,6 +45,7 @@ TestCase {
 
     function cleanup() {
         notificationToast.dismissToast();
+        errorToast.hide();
         wait(50);
     }
 
@@ -90,5 +95,26 @@ TestCase {
         swipeUp(40, bannerY);
         verify(!notificationToast.shown);
         compare(NavigationRouter.deepLinks.length, 0);
+    }
+
+    function test_errorToastLetsTapsThrough() {
+        errorToast.show("Battery low", "10% left", "battery-low");
+        wait(50);
+        mouseClick(win.contentItem, win.width / 2, win.height / 2);
+        compare(underneath.taps, 1);
+        verify(errorToast.shown);
+    }
+
+    function test_errorToastSwipesUp() {
+        errorToast.show("Battery low", "10% left", "battery-low");
+        wait(50);
+        mousePress(win.contentItem, 40, bannerY);
+        mouseMove(win.contentItem, 40, bannerY + 40);
+        mouseMove(win.contentItem, 40, bannerY + 80);
+        mouseRelease(win.contentItem, 40, bannerY + 80);
+        verify(errorToast.shown);
+        swipeUp(40, bannerY);
+        verify(!errorToast.shown);
+        compare(underneath.taps, 0);
     }
 }
