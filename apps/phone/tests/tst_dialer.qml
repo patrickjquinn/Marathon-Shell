@@ -142,7 +142,7 @@ TestCase {
         const app = makeApp();
         dialer(app);
         const page = app.pageStack.currentPage;
-        compare(findChild(page, "numberLabel").text, "No SIM or modem found");
+        compare(findChild(page, "numberLabel").text, "No SIM or modem");
         type(app, "5551234");
         verify(!findChild(page, "callButton").enabled);
         compare(findChild(page, "matchLabel").text, "Calls aren't available");

@@ -70,12 +70,12 @@ Item {
                 x: Theme.horizontalPageMargin + backspaceButton.width
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
-                text: root.number.length > 0 ? Phone.format(root.number) : !Telephony.hasModem ? qsTr("No SIM or modem found") : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
+                text: root.number.length > 0 ? Phone.format(root.number) : !Telephony.hasModem ? qsTr("No SIM or modem") : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
                 color: root.number.length > 0 ? Theme.primaryColor : Theme.secondaryColor
                 font.pixelSize: root.number.length > 0 ? Theme.fontSizeHuge : Theme.fontSizeLarge
                 font.weight: Font.ExtraLight
                 fontSizeMode: Text.HorizontalFit
-                minimumPixelSize: Theme.fontSizeLarge
+                minimumPixelSize: root.number.length > 0 ? Theme.fontSizeLarge : Theme.fontSizeMedium
                 elide: Text.ElideLeft
                 Accessible.name: root.number.length > 0 ? root.number.split("").join(" ") : text
             }
