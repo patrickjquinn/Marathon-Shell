@@ -134,6 +134,8 @@ TestCase {
         const c = make();
         c.press("π");
         compare(c.displayText, "3.14159265");
+        c.press("e");
+        compare(c.displayText, "2.71828183");
         keys(c, ["C", "6", "×", "7", "=", "C", "ans"]);
         compare(c.displayText, "42");
     }

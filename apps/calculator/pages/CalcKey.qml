@@ -21,6 +21,7 @@ BackgroundItem {
             "=": qsTr("Equals"),
             "mod": qsTr("Modulo"),
             "π": qsTr("Pi"),
+            "e": qsTr("Euler's number"),
             "√": qsTr("Square root"),
             "x²": qsTr("Square"),
             "sin": qsTr("Sine"),

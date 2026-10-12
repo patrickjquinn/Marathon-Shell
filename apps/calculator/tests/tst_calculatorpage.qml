@@ -67,6 +67,7 @@ TestCase {
         const t = make();
         const row = findChild(t.page, "functionKeys");
         verify(row.visible);
+        compare(row.children.length - 1, 12, "two full rows of six");
         t.page.scientific = false;
         verify(!row.visible);
     }

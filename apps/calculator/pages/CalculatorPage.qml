@@ -222,7 +222,7 @@ Page {
             columns: 6
 
             Repeater {
-                model: ["sin", "cos", "tan", "log", "ln", "!", "π", "√", "x²", "mod", "ans"]
+                model: ["sin", "cos", "tan", "ln", "log", "!", "π", "e", "√", "x²", "mod", "ans"]
 
                 CalcKey {
                     required property string modelData
