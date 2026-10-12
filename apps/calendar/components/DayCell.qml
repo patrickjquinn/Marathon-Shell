@@ -40,7 +40,10 @@ MouseArea {
     onClicked: select()
 
     Label {
+        id: dayLabel
+
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: -Theme.paddingSmall
         text: cell.day.toLocaleString()
         color: cell.pressed && cell.containsMouse || cell.selected || cell.today ? Theme.highlightColor : cell.inMonth ? Theme.primaryColor : Theme.secondaryColor
     }
@@ -49,8 +52,8 @@ MouseArea {
         objectName: "eventDots"
         anchors {
             horizontalCenter: parent.horizontalCenter
-            bottom: parent.bottom
-            bottomMargin: Theme.paddingMedium
+            top: dayLabel.baseline
+            topMargin: Theme.paddingSmall
         }
         spacing: Theme.paddingSmall / 2
         visible: cell.eventCount > 0
