@@ -11,6 +11,7 @@ TestCase {
         property color baseColor: "#1040a0"
         property bool light: false
         property string wallpaperUrl: "file:///usr/share/marathon-shell/wallpapers/dawn.svg"
+        property real pixelRatio: 1.25
         property var published: null
         signal seedChanged
         function publish(map) { published = map; }
@@ -35,5 +36,14 @@ TestCase {
         fakeService.seedChanged();
         compare(fakeService.published["/desktop/jolla/theme/color_scheme"], "darkonlight");
         fakeService.light = false;
+    }
+
+    function test_appliesPixelRatioToTheShell() {
+        fakeService.seedChanged();
+        compare(fakeService.published["/desktop/sailfish/silica/theme_pixel_ratio"], 1.25);
+        compare(Ambience.pixelRatio, 1.25);
+        fakeService.pixelRatio = 1.5;
+        compare(Ambience.pixelRatio, 1.5);
+        fakeService.pixelRatio = 1.25;
     }
 }

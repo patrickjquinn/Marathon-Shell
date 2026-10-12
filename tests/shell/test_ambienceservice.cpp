@@ -83,6 +83,15 @@ class TestAmbienceService : public QObject {
         QCOMPARE(svc.ambience().value("/desktop/sailfish/silica/theme_pixel_ratio").toReal(), 1.5);
         QCOMPARE(svc.ambience().value("/desktop/jolla/theme/color_scheme").toString(), QString("lightondark"));
     }
+
+    void pixelRatioNotifiesTheShell() {
+        AmbienceService svc;
+        QSignalSpy      spy(&svc, &AmbienceService::pixelRatioChanged);
+        svc.setPixelRatio(1.25);
+        svc.setPixelRatio(1.25);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(svc.pixelRatio(), 1.25);
+    }
 };
 
 QTEST_MAIN(TestAmbienceService)

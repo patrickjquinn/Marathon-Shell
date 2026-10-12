@@ -13,16 +13,23 @@ QtObject {
             root.apply();
         }
 
+        function onPixelRatioChanged() {
+            root.apply();
+        }
+
         target: root.service
     }
 
     function buildMap() {
         const scheme = service.light ? 1 : 0;
-        return {
+        const map = {
             "/desktop/jolla/theme/color/highlight": Ambience.highlightFromColor(service.baseColor, scheme),
             "/desktop/jolla/theme/color_scheme": service.light ? "darkonlight" : "lightondark",
             "/desktop/jolla/theme/wallpaper": service.wallpaperUrl
         };
+        if (service.pixelRatio > 0)
+            map["/desktop/sailfish/silica/theme_pixel_ratio"] = service.pixelRatio;
+        return map;
     }
 
     function apply() {

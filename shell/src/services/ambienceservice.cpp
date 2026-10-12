@@ -42,6 +42,7 @@ void AmbienceService::setPixelRatio(qreal ratio) {
     if (qFuzzyCompare(ratio, m_pixelRatio))
         return;
     m_pixelRatio = ratio;
+    emit pixelRatioChanged();
     publish(m_pending.isEmpty() ? m_ambience : m_pending);
 }
 
