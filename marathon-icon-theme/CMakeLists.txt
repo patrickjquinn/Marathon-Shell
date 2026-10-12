@@ -1,0 +1,32 @@
+# Marathon icon theme: Phosphor Light glyphs under Sailfish icon names, where
+# Keel's theme image provider looks for them. One SVG per glyph is checked in;
+# this writes a copy per size class and pixel ratio with that pixel size.
+set(_theme_out ${CMAKE_CURRENT_BINARY_DIR}/themes)
+set(_sizes xs:24 s:32 splus:48 m:64 l:96)
+set(_ratios 1.0:100 1.25:125 1.5:150 1.75:175 2.0:200)
+
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/icon-map.txt _map REGEX "^[a-z]")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/icon-map.txt)
+foreach(_entry ${_map})
+    string(REGEX REPLACE " +" ";" _pair "${_entry}")
+    list(GET _pair 0 _name)
+    list(GET _pair 1 _glyph)
+    set(_svg ${CMAKE_CURRENT_SOURCE_DIR}/svg/${_glyph}.svg)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_svg})
+    file(READ ${_svg} _content)
+    foreach(_r ${_ratios})
+        string(REPLACE ":" ";" _r "${_r}")
+        list(GET _r 0 _ratio)
+        list(GET _r 1 _percent)
+        foreach(_size ${_sizes})
+            string(REPLACE ":" ";" _s "${_size}")
+            list(GET _s 0 _class)
+            list(GET _s 1 _px)
+            math(EXPR _scaled "(${_px} * ${_percent} + 50) / 100")
+            string(REPLACE "@SIZE@" "${_scaled}" _sized "${_content}")
+            file(WRITE ${_theme_out}/z${_ratio}/icons-monochrome/icon-${_class}-${_name}.svg "${_sized}")
+        endforeach()
+    endforeach()
+endforeach()
+
+install(DIRECTORY ${_theme_out}/ DESTINATION ${CMAKE_INSTALL_PREFIX}/share/themes/sailfish-default/silica)

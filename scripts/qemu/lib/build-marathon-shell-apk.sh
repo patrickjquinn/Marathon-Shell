@@ -155,6 +155,9 @@ echo "wrote /out/${TARGET}"
 SILICA_APK="$(echo "$TARGET" | sed "s/^marathon-shell-/marathon-shell-silica-/")"
 cp "/root/packages/aports/aarch64/${SILICA_APK}" "/out/${SILICA_APK}"
 echo "wrote /out/${SILICA_APK}"
+ICON_APK="$(echo "$TARGET" | sed "s/^marathon-shell-/marathon-icon-theme-/")"
+cp "/root/packages/aports/aarch64/${ICON_APK}" "/out/${ICON_APK}"
+echo "wrote /out/${ICON_APK}"
 CSCRIPT
 
 echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"

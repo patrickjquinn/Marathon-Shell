@@ -28,3 +28,5 @@ if(_SILICA_QMLDIR)
     endforeach()
 endif()
 
+# Every theme icon name used by Keel's Silica or our QML has a Marathon icon
+add_test(NAME Lint_IconMap COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-icon-map.sh ${CMAKE_SOURCE_DIR} ${_SILICA_QMLDIR}/Sailfish/Silica)
