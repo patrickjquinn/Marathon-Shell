@@ -126,10 +126,9 @@ TestCase {
         findChild(t.page, "detailsAction").clicked();
         tryCompare(t.app.pageStack, "busy", false);
         const details = t.app.pageStack.currentPage;
-        compare(findChild(details, "nameDetail").value, "photo1.png");
+        verify(findChild(details, "pathDetail").value.endsWith("/tests/data/photo1.png"));
         compare(findChild(details, "resolutionDetail").value, "48 × 36");
         verify(findChild(details, "dateDetail").visible);
-        verify(findChild(details, "locationDetail").value.indexOf("/tests/data") > 0);
         compare(t.app.viewerPhoto.id, 1);
     }
 }
