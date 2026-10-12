@@ -1,5 +1,7 @@
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 
@@ -11,22 +13,24 @@ Rectangle {
     property string contactPhone: ""
     property string contactEmail: ""
     property bool isNewContact: contactId === -1
+    readonly property bool canSave: nameInput.text.trim().length > 0 && MPhoneNumber.digits(phoneInput.text).length > 0
+    readonly property bool dirty: nameInput.text !== contactName || MPhoneNumber.format(phoneInput.text) !== MPhoneNumber.format(contactPhone) || emailInput.text !== contactEmail
 
     signal contactSaved
     signal cancelled
 
     function saveContact() {
-        if (nameInput.text.length === 0 || phoneInput.text.length === 0)
+        if (!canSave)
             return;
 
         if (isNewContact) {
-            ContactsManager.addContact(nameInput.text, phoneInput.text, emailInput.text);
+            ContactsManager.addContact(nameInput.text.trim(), phoneInput.text, emailInput.text.trim());
             Logger.info("ContactEditor", "Created contact: " + nameInput.text);
         } else {
             ContactsManager.updateContact(contactId, {
-                "name": nameInput.text,
+                "name": nameInput.text.trim(),
                 "phone": phoneInput.text,
-                "email": emailInput.text
+                "email": emailInput.text.trim()
             });
             Logger.info("ContactEditor", "Updated contact: " + nameInput.text);
         }
@@ -35,12 +39,21 @@ Rectangle {
     }
 
     function deleteContact() {
-        if (contactId !== -1) {
-            ContactsManager.deleteContact(contactId);
-            Logger.info("ContactEditor", "Deleted contact ID: " + contactId);
-        }
+        ContactsManager.deleteContact(contactId);
+        Logger.info("ContactEditor", "Deleted contact ID: " + contactId);
         HapticService.medium();
         contactSaved();
+    }
+
+    function goBack() {
+        if (deleteConfirm.showing)
+            deleteConfirm.hide();
+        else if (discardConfirm.showing)
+            discardConfirm.hide();
+        else if (dirty)
+            discardConfirm.show();
+        else
+            cancelled();
     }
 
     color: MColors.background
@@ -50,6 +63,8 @@ Rectangle {
         spacing: 0
 
         Rectangle {
+            id: header
+
             width: parent.width
             height: Constants.actionBarHeight
             color: MColors.surface
@@ -67,38 +82,33 @@ Rectangle {
                 spacing: MSpacing.md
 
                 MIconButton {
+                    id: closeButton
+
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "x"
                     iconSize: 20
-                    onClicked: {
-                        cancelled();
-                    }
+                    a11yName: qsTr("Close")
+                    onClicked: contactEditorPage.goBack()
                 }
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
-                    text: contactEditorPage.isNewContact ? "New Contact" : "Edit Contact"
+                    width: parent.width - closeButton.width - parent.spacing
+                    text: contactEditorPage.isNewContact ? qsTr("New Contact") : qsTr("Edit Contact")
+                    font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.text
-                }
-
-                MIconButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    iconName: "check"
-                    iconSize: 20
-                    enabled: nameInput.text.length > 0 && phoneInput.text.length > 0
-                    onClicked: {
-                        saveContact();
-                    }
+                    elide: Text.ElideRight
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: text
                 }
             }
         }
 
         Flickable {
             width: parent.width
-            height: parent.height - parent.children[0].height
+            height: parent.height - header.height
             contentHeight: contentColumn.height
             clip: true
 
@@ -118,115 +128,102 @@ Rectangle {
                     border.color: MColors.border
                     anchors.horizontalCenter: parent.horizontalCenter
 
+                    Icon {
+                        anchors.centerIn: parent
+                        visible: nameInput.text.trim().length === 0
+                        name: "user"
+                        size: Constants.iconSizeXLarge
+                        color: MColors.textSecondary
+                    }
+
                     Text {
                         anchors.centerIn: parent
-                        text: nameInput.text.length > 0 ? nameInput.text.charAt(0).toUpperCase() : "?"
+                        visible: nameInput.text.trim().length > 0
+                        text: nameInput.text.trim().charAt(0).toUpperCase()
+                        font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeXLarge * 2
                         font.weight: Font.Bold
                         color: MColors.accent
                     }
                 }
 
-                Column {
+                MTextField {
+                    id: nameInput
+
                     width: parent.width - parent.padding * 2
-                    spacing: MSpacing.sm
+                    label: qsTr("Name (required)")
+                    placeholder: qsTr("Enter name")
+                    text: contactEditorPage.contactName
+                }
 
-                    Text {
-                        text: "Name *"
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.DemiBold
-                        color: MColors.textSecondary
-                    }
+                MTextField {
+                    id: phoneInput
 
-                    MTextInput {
-                        id: nameInput
-
-                        width: parent.width
-                        placeholderText: "Enter name"
-                        text: contactEditorPage.contactName
+                    width: parent.width - parent.padding * 2
+                    label: qsTr("Phone (required)")
+                    placeholder: qsTr("Phone number")
+                    text: contactEditorPage.contactPhone
+                    inputMethodHints: Qt.ImhDialableCharactersOnly
+                    onFocusedChanged: {
+                        if (!focused)
+                            text = MPhoneNumber.format(text);
                     }
                 }
 
-                Column {
+                MTextField {
+                    id: emailInput
+
                     width: parent.width - parent.padding * 2
-                    spacing: MSpacing.sm
-
-                    Text {
-                        text: "Phone *"
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.DemiBold
-                        color: MColors.textSecondary
-                    }
-
-                    MTextInput {
-                        id: phoneInput
-
-                        width: parent.width
-                        placeholderText: "+1 (555) 123-4567"
-                        text: contactEditorPage.contactPhone
-                        Component.onCompleted: {
-                            textInput.inputMethodHints = Qt.ImhDialableCharactersOnly;
-                        }
-                    }
-                }
-
-                Column {
-                    width: parent.width - parent.padding * 2
-                    spacing: MSpacing.sm
-
-                    Text {
-                        text: "Email"
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.DemiBold
-                        color: MColors.textSecondary
-                    }
-
-                    MTextInput {
-                        id: emailInput
-
-                        width: parent.width
-                        placeholderText: "email@example.com"
-                        text: contactEditorPage.contactEmail
-                        Component.onCompleted: {
-                            textInput.inputMethodHints = Qt.ImhEmailCharactersOnly;
-                        }
-                    }
+                    label: qsTr("Email")
+                    placeholder: "email@example.com"
+                    text: contactEditorPage.contactEmail
+                    inputMethodHints: Qt.ImhEmailCharactersOnly
                 }
 
                 Item {
+                    width: 1
                     height: MSpacing.lg
                 }
 
                 MButton {
                     width: parent.width - parent.padding * 2
-                    text: contactEditorPage.isNewContact ? "Create Contact" : "Save Changes"
+                    text: contactEditorPage.isNewContact ? qsTr("Create Contact") : qsTr("Save Changes")
                     variant: "primary"
-                    enabled: nameInput.text.length > 0 && phoneInput.text.length > 0
-                    onClicked: {
-                        saveContact();
-                    }
+                    enabled: contactEditorPage.canSave
+                    onClicked: contactEditorPage.saveContact()
                 }
 
                 MButton {
                     width: parent.width - parent.padding * 2
-                    text: "Cancel"
-                    variant: "secondary"
+                    text: qsTr("Delete Contact")
+                    variant: "danger"
                     visible: !contactEditorPage.isNewContact
-                    onClicked: {
-                        cancelled();
-                    }
-                }
-
-                MButton {
-                    width: parent.width - parent.padding * 2
-                    text: "Delete Contact"
-                    variant: "secondary"
-                    visible: !contactEditorPage.isNewContact
-                    onClicked: {
-                        deleteContact();
-                    }
+                    onClicked: deleteConfirm.show()
                 }
             }
         }
+    }
+
+    MConfirmDialog {
+        id: deleteConfirm
+
+        title: qsTr("Delete contact?")
+        message: qsTr("%1 will be removed from your contacts. This can't be undone.").arg(contactEditorPage.contactName)
+        confirmText: qsTr("Delete contact")
+        destructive: true
+        onConfirmed: contactEditorPage.deleteContact()
+        onCancelled: hide()
+    }
+
+    MConfirmDialog {
+        id: discardConfirm
+
+        title: qsTr("Discard changes?")
+        message: qsTr("Your changes to this contact haven't been saved.")
+        confirmText: qsTr("Discard")
+        cancelText: qsTr("Keep editing")
+        destructive: true
+        onConfirmed: contactEditorPage.cancelled()
+        onCancelled: hide()
     }
 }

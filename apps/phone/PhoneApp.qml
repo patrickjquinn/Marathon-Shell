@@ -1,7 +1,10 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
@@ -10,7 +13,12 @@ import QtQuick.Layouts
 MApp {
     id: phoneApp
 
+    property var contactEditorLoaderRef: null
+
+    property var callErrorSnackbarRef: null
+
     property bool hasContactsPermission: false
+    property string contactsQuery: ""
     property var contacts: hasContactsPermission ? ContactsManager.contacts : []
     property var callHistory: CallHistoryManager.history
     property string dialedNumber: ""
@@ -28,7 +36,7 @@ MApp {
 
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
-            if (contacts[i].phone === number)
+            if (MPhoneNumber.sameNumber(contacts[i].phone, number))
                 return contacts[i].name;
         }
         return "Unknown";
@@ -115,6 +123,13 @@ MApp {
     appId: "phone"
     appName: "Phone"
     appIcon: "assets/icon.svg"
+    navigationDepth: activeCallPageRef && activeCallPageRef.visible ? (activeCallPageRef.keypadOpen ? 1 : 0) : (contactEditorLoaderRef && contactEditorLoaderRef.active ? 1 : 0)
+    onBackPressed: {
+        if (activeCallPageRef && activeCallPageRef.visible)
+            activeCallPageRef.keypadOpen = false;
+        else if (contactEditorLoaderRef && contactEditorLoaderRef.item)
+            contactEditorLoaderRef.item.goBack();
+    }
 
     // First-use gate: prompt the moment the user opens a contacts-backed
     // tab (Contacts / Favorites) or the contacts shortcut, not on app
@@ -173,7 +188,7 @@ MApp {
     Connections {
         function onIncomingCall(number) {
             Logger.info("Phone", "Incoming call from: " + number);
-            var contactName = resolveContactName(number);
+            var contactName = phoneApp.resolveContactName(number);
             if (phoneApp.incomingCallScreenRef)
                 phoneApp.incomingCallScreenRef.show(number, contactName);
         }
@@ -195,10 +210,18 @@ MApp {
 
                 if (phoneApp.activeCallPageRef && !phoneApp.activeCallPageRef.visible) {
                     var number = TelephonyService.activeNumber;
-                    var contactName = resolveContactName(number);
+                    var contactName = phoneApp.resolveContactName(number);
                     phoneApp.activeCallPageRef.show(number, contactName);
                 }
             }
+        }
+
+        function onCallFailed(reason) {
+            Logger.warn("Phone", "Call failed: " + reason);
+            if (phoneApp.activeCallPageRef && phoneApp.activeCallPageRef.visible)
+                phoneApp.activeCallPageRef.hide();
+            if (phoneApp.callErrorSnackbarRef)
+                phoneApp.callErrorSnackbarRef.show(reason === "No modem available" ? qsTr("Calls aren't available: no SIM or modem was found.") : qsTr("The call couldn't be connected. Check your signal and try again."));
         }
 
         target: TelephonyService
@@ -275,7 +298,7 @@ MApp {
                         // entry, this should use the matched number's label.
                         return c.name + " · Mobile";
                     }
-                    readonly property string contactMatch: lookupContact(dialedNumber)
+                    readonly property string contactMatch: lookupContact(phoneApp.dialedNumber)
 
                     // Action row is anchored as a sibling of this ColumnLayout
                     // (below) — anchored directly to dialerPane.bottom with
@@ -314,12 +337,16 @@ MApp {
                                     // their digits will land. A dimmed
                                     // placeholder keeps the visual rhythm and
                                     // hints at the input affordance.
-                                    text: dialedNumber.length > 0 ? dialedNumber : qsTr("Enter number")
-                                    color: dialedNumber.length > 0 ? MColors.textPrimary : MColors.textTertiary
+                                    width: Math.min(implicitWidth, dialerPane.width - MSpacing.lg * 2)
+                                    text: phoneApp.dialedNumber.length > 0 ? MPhoneNumber.format(phoneApp.dialedNumber) : qsTr("Enter number")
+                                    color: phoneApp.dialedNumber.length > 0 ? MColors.textPrimary : MColors.textTertiary
                                     font.family: MTypography.fontFamily
-                                    font.pixelSize: dialedNumber.length > 0 ? 36 : 24
+                                    font.pixelSize: phoneApp.dialedNumber.length > 0 ? 36 : 24
                                     font.weight: MTypography.weightExtraLight   // 200 per JSX
                                     font.letterSpacing: 1
+                                    elide: Text.ElideLeft
+                                    Accessible.role: Accessible.StaticText
+                                    Accessible.name: phoneApp.dialedNumber.length > 0 ? phoneApp.dialedNumber.split("").join(" ") : text
                                 }
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -410,6 +437,8 @@ MApp {
                                 ]
 
                                 Rectangle {
+                                    id: dialKey
+
                                     required property var modelData
 
                                     width: dialPadGrid.cellSize
@@ -423,6 +452,10 @@ MApp {
                                     color: keyArea.pressed ? MColors.bb10Card : MColors.elev2
                                     border.width: 1
                                     border.color: MColors.whiteOverlay08
+
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData.digit === "0" ? qsTr("0, hold for plus") : modelData.digit
+                                    Accessible.onPressAction: phoneApp.addDigit(modelData.digit)
 
                                     // The original "lit from above" highlight
                                     // was a 1 px straight horizontal Rectangle
@@ -441,7 +474,7 @@ MApp {
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            text: modelData.digit
+                                            text: dialKey.modelData.digit
                                             color: MColors.textPrimary
                                             font.family: MTypography.fontFamily
                                             font.pixelSize: Math.round(dialPadGrid.cellSize * 0.32)
@@ -449,7 +482,7 @@ MApp {
                                         }
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            text: modelData.letters
+                                            text: dialKey.modelData.letters
                                             color: MColors.textSecondary
                                             font.family: MTypography.fontFamily
                                             font.pixelSize: Math.round(dialPadGrid.cellSize * 0.11)
@@ -468,9 +501,12 @@ MApp {
                                     MouseArea {
                                         id: keyArea
                                         anchors.fill: parent
-                                        onClicked: {
-                                            HapticService.light();
-                                            addDigit(modelData.digit);
+                                        onClicked: phoneApp.addDigit(dialKey.modelData.digit)
+                                        onPressAndHold: {
+                                            if (dialKey.modelData.digit === "0")
+                                                phoneApp.addDigit("+");
+                                            else
+                                                phoneApp.addDigit(dialKey.modelData.digit);
                                         }
                                     }
                                 }
@@ -524,6 +560,7 @@ MApp {
                                     width: 56
                                     height: 56
                                     radius: width / 2
+                                    visible: !phoneApp.emergencyOnly
                                     color: contactsArea.pressed ? MColors.surface : "transparent"
                                     border.width: 1
                                     border.color: MColors.borderGlass
@@ -538,6 +575,10 @@ MApp {
                                 MouseArea {
                                     id: contactsArea
                                     anchors.fill: parent
+                                    visible: !phoneApp.emergencyOnly
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: qsTr("Contacts")
+                                    Accessible.onPressAction: clicked(null)
                                     onClicked: dialerPane.parent.parent.currentIndex = 2
                                 }
                             }
@@ -577,7 +618,7 @@ MApp {
                                         anchors.centerIn: parent
                                         name: "phone"
                                         size: 36
-                                        color: "#000000"
+                                        color: MColors.textOnAccent
                                     }
 
                                     scale: callArea.pressed ? 0.94 : 1.0
@@ -591,10 +632,13 @@ MApp {
                                     MouseArea {
                                         id: callArea
                                         anchors.fill: parent
-                                        enabled: dialedNumber.length > 0
+                                        enabled: phoneApp.dialedNumber.length > 0
+                                        Accessible.role: Accessible.Button
+                                        Accessible.name: qsTr("Call")
+                                        Accessible.onPressAction: phoneApp.makeCall()
                                         onClicked: {
                                             HapticService.medium();
-                                            makeCall();
+                                            phoneApp.makeCall();
                                         }
                                     }
                                 }
@@ -610,8 +654,8 @@ MApp {
                                     radius: width / 2
                                     color: backspaceArea.pressed ? MColors.surface : "transparent"
                                     border.width: 1
-                                    border.color: dialedNumber.length > 0 ? MColors.borderGlass : "transparent"
-                                    opacity: dialedNumber.length > 0 ? 1 : 0.35
+                                    border.color: phoneApp.dialedNumber.length > 0 ? MColors.borderGlass : "transparent"
+                                    opacity: phoneApp.dialedNumber.length > 0 ? 1 : 0.35
 
                                     Icon {
                                         anchors.centerIn: parent
@@ -623,14 +667,17 @@ MApp {
                                 MouseArea {
                                     id: backspaceArea
                                     anchors.fill: parent
-                                    enabled: dialedNumber.length > 0
+                                    enabled: phoneApp.dialedNumber.length > 0
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: qsTr("Delete digit")
+                                    Accessible.onPressAction: phoneApp.deleteDigit()
                                     onClicked: {
                                         HapticService.light();
-                                        deleteDigit();
+                                        phoneApp.deleteDigit();
                                     }
                                     onPressAndHold: {
                                         HapticService.medium();
-                                        dialedNumber = "";
+                                        phoneApp.dialedNumber = "";
                                     }
                                 }
                             }
@@ -644,7 +691,7 @@ MApp {
                     MEmptyState {
                         anchors.centerIn: parent
                         width: parent.width - MSpacing.xl * 2
-                        visible: !callHistory || callHistory.length === 0
+                        visible: !phoneApp.callHistory || phoneApp.callHistory.length === 0
                         iconName: "clock"
                         title: "No recent calls"
                         message: "Calls you make or receive will appear here."
@@ -654,10 +701,14 @@ MApp {
                         anchors.fill: parent
                         clip: true
                         topMargin: MSpacing.md
-                        visible: callHistory && callHistory.length > 0
-                        model: callHistory
+                        visible: phoneApp.callHistory && phoneApp.callHistory.length > 0
+                        model: phoneApp.callHistory
 
                         delegate: Item {
+                            id: historyDelegate
+
+                            required property var modelData
+
                             width: ListView.view.width
                             height: card.height + MSpacing.md
 
@@ -671,7 +722,7 @@ MApp {
                                 elevation: 1
                                 interactive: true
                                 onClicked: {
-                                    dialedNumber = historyField(modelData, "number", "");
+                                    phoneApp.dialedNumber = phoneApp.historyField(historyDelegate.modelData, "number", "");
                                     parent.parent.parent.parent.currentIndex = 0;
                                 }
 
@@ -688,9 +739,9 @@ MApp {
 
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
+                                        name: phoneApp.historyField(historyDelegate.modelData, "type", "") === "outgoing" ? "phone-outgoing" : phoneApp.historyField(historyDelegate.modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
                                         size: 20
-                                        color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
+                                        color: phoneApp.historyField(historyDelegate.modelData, "type", "") === "missed" ? MColors.error : MColors.accent
                                     }
 
                                     Column {
@@ -700,7 +751,7 @@ MApp {
 
                                         Text {
                                             width: parent.width
-                                            text: historyField(modelData, "contactName", "Unknown")
+                                            text: phoneApp.historyField(historyDelegate.modelData, "contactName", "Unknown")
                                             font.pixelSize: MTypography.sizeBody
                                             font.weight: MTypography.weightDemiBold
                                             font.family: MTypography.fontFamily
@@ -712,7 +763,7 @@ MApp {
                                             spacing: MSpacing.sm
 
                                             Text {
-                                                text: historyField(modelData, "number", "")
+                                                text: MPhoneNumber.format(phoneApp.historyField(historyDelegate.modelData, "number", ""))
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
@@ -723,11 +774,11 @@ MApp {
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
-                                                visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
+                                                visible: phoneApp.formatDuration(phoneApp.historyField(historyDelegate.modelData, "duration", 0)) !== ""
                                             }
 
                                             Text {
-                                                text: formatDuration(historyField(modelData, "duration", 0))
+                                                text: phoneApp.formatDuration(phoneApp.historyField(historyDelegate.modelData, "duration", 0))
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
@@ -738,7 +789,7 @@ MApp {
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: formatTimestamp(historyField(modelData, "timestamp", 0))
+                                        text: phoneApp.formatTimestamp(phoneApp.historyField(historyDelegate.modelData, "timestamp", 0))
                                         font.pixelSize: MTypography.sizeSmall
                                         font.family: MTypography.fontFamily
                                         color: MColors.textTertiary
@@ -751,27 +802,77 @@ MApp {
 
                 Rectangle {
                     id: contactsPane
+
+                    readonly property var filteredContacts: {
+                        const q = phoneApp.contactsQuery.trim().toLowerCase();
+                        if (q.length === 0)
+                            return phoneApp.contacts;
+                        const qDigits = MPhoneNumber.digits(q);
+                        return phoneApp.contacts.filter(c => c && ((c.name || "").toLowerCase().indexOf(q) !== -1 || (qDigits.length > 0 && MPhoneNumber.digits(c.phone).indexOf(qDigits) !== -1)));
+                    }
+
                     color: MColors.background
 
                     MEmptyState {
                         anchors.centerIn: parent
                         width: parent.width - MSpacing.xl * 2
-                        visible: !contacts || contacts.length === 0
+                        visible: !phoneApp.hasContactsPermission
+                        iconName: "lock"
+                        title: qsTr("Contacts access is off")
+                        message: qsTr("Allow Phone to use your contacts to show them here and put names to incoming calls.")
+                        actionText: qsTr("Allow access")
+                        onActionClicked: PermissionManager.requestPermission(phoneApp.appId, "contacts")
+                    }
+
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: phoneApp.hasContactsPermission && phoneApp.contacts.length === 0
                         iconName: "user"
-                        title: "No contacts yet"
-                        message: "Tap the + button below to add your first contact. You can also import from a SIM or vCard."
+                        title: qsTr("No contacts yet")
+                        message: qsTr("Tap New contact to add your first one.")
+                    }
+
+                    MSearchField {
+                        id: contactsSearch
+
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.margins: MSpacing.md
+                        visible: phoneApp.hasContactsPermission && phoneApp.contacts.length > 0
+                        placeholder: qsTr("Search contacts")
+                        onTextChanged: phoneApp.contactsQuery = text
+                    }
+
+                    MEmptyState {
+                        anchors.top: contactsSearch.bottom
+                        anchors.topMargin: MSpacing.xl
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width - MSpacing.xl * 2
+                        visible: contactsSearch.visible && contactsPane.filteredContacts.length === 0
+                        iconName: "magnifying-glass"
+                        title: qsTr("No matches")
+                        message: qsTr("No contact matches \"%1\".").arg(phoneApp.contactsQuery)
                     }
 
                     ListView {
                         id: contactsList
 
-                        anchors.fill: parent
+                        anchors.top: contactsSearch.bottom
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         clip: true
                         topMargin: MSpacing.md
-                        visible: contacts && contacts.length > 0
-                        model: contacts
+                        visible: contactsSearch.visible
+                        model: contactsPane.filteredContacts
 
                         delegate: Item {
+                            id: contactDelegate
+
+                            required property var modelData
+
                             width: contactsList.width
                             height: contactCard.height + MSpacing.md
 
@@ -785,19 +886,16 @@ MApp {
                                 elevation: 1
                                 interactive: true
                                 onClicked: {
-                                    editingContactId = modelData.id || -1;
-                                    editingContactName = modelData.name || "";
-                                    editingContactPhone = modelData.phone || "";
-                                    editingContactEmail = modelData.email || "";
+                                    phoneApp.editingContactId = contactDelegate.modelData.id || -1;
+                                    phoneApp.editingContactName = contactDelegate.modelData.name || "";
+                                    phoneApp.editingContactPhone = contactDelegate.modelData.phone || "";
+                                    phoneApp.editingContactEmail = contactDelegate.modelData.email || "";
                                     contactEditorLoader.active = true;
                                 }
 
                                 Row {
-                                    // Same bug as the Recents card row -- the
-                                    // undefined MSpacing.touchTargetLarge
-                                    // collapsed each contact tile to height 0,
-                                    // so contacts rendered as ghosts even when
-                                    // the model had entries.
+                                    id: contactRow
+
                                     width: parent.parent.width - MSpacing.md * 2
                                     height: Constants.touchTargetLarge
                                     spacing: MSpacing.md
@@ -811,12 +909,12 @@ MApp {
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - parent.spacing * 2 - 20 * 2
+                                        width: contactRow.width - contactRow.spacing * 2 - 20 - starButton.width
                                         spacing: MSpacing.xs
 
                                         Text {
                                             width: parent.width
-                                            text: modelData ? modelData.name || "" : ""
+                                            text: contactDelegate.modelData.name || ""
                                             font.pixelSize: MTypography.sizeBody
                                             font.weight: MTypography.weightDemiBold
                                             font.family: MTypography.fontFamily
@@ -825,7 +923,7 @@ MApp {
                                         }
 
                                         Text {
-                                            text: modelData ? modelData.phone || "" : ""
+                                            text: MPhoneNumber.format(contactDelegate.modelData.phone)
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
@@ -833,30 +931,33 @@ MApp {
                                     }
 
                                     Item {
+                                        id: starButton
+
+                                        width: MSpacing.touchTargetMin
+                                        height: MSpacing.touchTargetMin
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 36
-                                        height: 36
+                                        Accessible.role: Accessible.CheckBox
+                                        Accessible.name: qsTr("Favorite")
+                                        Accessible.checkable: true
+                                        Accessible.checked: contactDelegate.modelData.favorite === true
+                                        Accessible.onPressAction: starArea.clicked(null)
 
                                         Icon {
                                             anchors.centerIn: parent
                                             name: "star"
                                             size: 20
-                                            color: modelData.favorite ? MColors.marathonTealBright : MColors.textTertiary
+                                            color: contactDelegate.modelData.favorite ? MColors.marathonTealBright : MColors.textTertiary
                                         }
 
                                         MouseArea {
+                                            id: starArea
+
                                             anchors.fill: parent
                                             onClicked: {
-                                                // Tap doesn't bubble to the card's onClicked (we'd
-                                                // open the editor instead of toggling). Persist via
-                                                // ContactsManager so the favorite carries across
-                                                // sessions; ContactsManager emits contactsChanged
-                                                // and the `contacts` alias refreshes the GridView.
                                                 HapticService.light();
-                                                if (modelData && typeof ContactsManager !== "undefined")
-                                                    ContactsManager.updateContact(modelData.id, {
-                                                        "favorite": !modelData.favorite
-                                                    });
+                                                ContactsManager.updateContact(contactDelegate.modelData.id, {
+                                                    "favorite": !contactDelegate.modelData.favorite
+                                                });
                                             }
                                         }
                                     }
@@ -865,129 +966,135 @@ MApp {
                         }
                     }
 
-                    MIconButton {
+                    MFloatingActionButton {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         anchors.margins: MSpacing.lg
-                        iconName: "plus"
-                        iconSize: 28
-                        variant: "primary"
-                        shape: "circular"
+                        visible: phoneApp.hasContactsPermission
+                        label: qsTr("New contact")
                         onClicked: {
-                            Logger.info("Phone", "Add new contact");
-                            editingContactId = -1;
-                            editingContactName = "";
-                            editingContactPhone = "";
-                            editingContactEmail = "";
+                            phoneApp.editingContactId = -1;
+                            phoneApp.editingContactName = "";
+                            phoneApp.editingContactPhone = "";
+                            phoneApp.editingContactEmail = "";
                             contactEditorLoader.active = true;
                         }
                     }
                 }
-            }
 
-            // Favorites — 3-col grid of starred contacts. Tap-to-call.
-            // The empty state holds the line until at least one contact
-            // is starred via the Contacts list star toggle.
-            Rectangle {
-                id: favoritesPane
-                color: MColors.background
+                // Favorites — 3-col grid of starred contacts. Tap-to-call.
+                // The empty state holds the line until at least one contact
+                // is starred via the Contacts list star toggle.
+                Rectangle {
+                    id: favoritesPane
+                    color: MColors.background
 
-                readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
+                    readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
 
-                MEmptyState {
-                    anchors.centerIn: parent
-                    width: parent.width - MSpacing.xl * 2
-                    visible: favoritesPane.favoriteContacts.length === 0
-                    iconName: "star"
-                    title: "No favorites yet"
-                    message: "Star a contact in Contacts to pin it here. Favorites give you one-tap calling."
-                }
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width - MSpacing.xl * 2
+                        visible: favoritesPane.favoriteContacts.length === 0
+                        iconName: phoneApp.hasContactsPermission ? "star" : "lock"
+                        title: phoneApp.hasContactsPermission ? qsTr("No favorites yet") : qsTr("Contacts access is off")
+                        message: phoneApp.hasContactsPermission ? qsTr("Star a contact in Contacts to pin it here. Favorites give you one-tap calling.") : qsTr("Allow Phone to use your contacts to pin favorites here.")
+                        actionText: phoneApp.hasContactsPermission ? "" : qsTr("Allow access")
+                        onActionClicked: PermissionManager.requestPermission(phoneApp.appId, "contacts")
+                    }
 
-                GridView {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    anchors.topMargin: 16
-                    visible: favoritesPane.favoriteContacts.length > 0
-                    clip: true
-                    cellWidth: width / 3
-                    cellHeight: cellWidth + 18
-                    model: favoritesPane.favoriteContacts
+                    GridView {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        anchors.topMargin: 16
+                        visible: favoritesPane.favoriteContacts.length > 0
+                        clip: true
+                        cellWidth: width / 3
+                        cellHeight: cellWidth + 18
+                        model: favoritesPane.favoriteContacts
 
-                    delegate: Item {
-                        width: GridView.view.cellWidth
-                        height: GridView.view.cellHeight
+                        delegate: Item {
+                            id: favoriteDelegate
 
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 6
+                            required property var modelData
 
-                            Rectangle {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: parent.parent.width * 0.78
-                                height: width
-                                radius: width / 2
-                                color: MColors.elev3
-                                border.width: 1
-                                border.color: MColors.tealBorder
+                            width: GridView.view.cellWidth
+                            height: GridView.view.cellHeight
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: {
-                                        const n = modelData.name || "?";
-                                        const parts = n.split(/\s+/).filter(p => p.length > 0);
-                                        if (parts.length === 0)
-                                            return "·";
-                                        if (parts.length === 1)
-                                            return parts[0].substring(0, 2).toUpperCase();
-                                        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-                                    }
-                                    color: MColors.textPrimary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: 20
-                                    font.weight: Font.DemiBold
-                                }
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 6
 
                                 Rectangle {
-                                    anchors.top: parent.top
-                                    anchors.right: parent.right
-                                    anchors.topMargin: 2
-                                    anchors.rightMargin: 2
-                                    width: 18
-                                    height: 18
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: parent.parent.width * 0.78
+                                    height: width
                                     radius: width / 2
-                                    color: MColors.marathonTealBright
-                                    Icon {
+                                    color: MColors.elev3
+                                    border.width: 1
+                                    border.color: MColors.tealBorder
+
+                                    Text {
                                         anchors.centerIn: parent
-                                        name: "star"
-                                        size: 10
-                                        color: "#000000"
+                                        text: {
+                                            const n = favoriteDelegate.modelData.name || "?";
+                                            const parts = n.split(/\s+/).filter(p => p.length > 0);
+                                            if (parts.length === 0)
+                                                return "·";
+                                            if (parts.length === 1)
+                                                return parts[0].substring(0, 2).toUpperCase();
+                                            return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                                        }
+                                        color: MColors.textPrimary
+                                        font.family: MTypography.fontFamily
+                                        font.pixelSize: 20
+                                        font.weight: Font.DemiBold
                                     }
+
+                                    Rectangle {
+                                        anchors.top: parent.top
+                                        anchors.right: parent.right
+                                        anchors.topMargin: 2
+                                        anchors.rightMargin: 2
+                                        width: 18
+                                        height: 18
+                                        radius: width / 2
+                                        color: MColors.marathonTealBright
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: "star"
+                                            size: 10
+                                            color: MColors.textOnAccent
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: favoriteDelegate.modelData.name || ""
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                    width: parent.parent.width - 8
+                                    horizontalAlignment: Text.AlignHCenter
                                 }
                             }
 
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: modelData.name || ""
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeFootnote
-                                font.weight: Font.Medium
-                                elide: Text.ElideRight
-                                width: parent.parent.width - 8
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                HapticService.medium();
-                                if (modelData.phone) {
-                                    dialedNumber = modelData.phone;
-                                    TelephonyService.dial(modelData.phone);
-                                    if (activeCallPageRef)
-                                        activeCallPageRef.show(modelData.phone, modelData.name);
+                            MouseArea {
+                                anchors.fill: parent
+                                Accessible.role: Accessible.Button
+                                Accessible.name: qsTr("Call %1").arg(favoriteDelegate.modelData.name || "")
+                                Accessible.onPressAction: clicked(null)
+                                onClicked: {
+                                    HapticService.medium();
+                                    if (favoriteDelegate.modelData.phone) {
+                                        phoneApp.dialedNumber = favoriteDelegate.modelData.phone;
+                                        TelephonyService.dial(favoriteDelegate.modelData.phone);
+                                        if (phoneApp.activeCallPageRef)
+                                            phoneApp.activeCallPageRef.show(favoriteDelegate.modelData.phone, favoriteDelegate.modelData.name);
+                                    }
                                 }
                             }
                         }
@@ -1040,6 +1147,7 @@ MApp {
 
         Loader {
             id: contactEditorLoader
+            Component.onCompleted: phoneApp.contactEditorLoaderRef = contactEditorLoader
 
             anchors.fill: parent
             active: false
@@ -1081,6 +1189,18 @@ MApp {
                 if (phoneApp.activeCallPageRef === activeCallPage)
                     phoneApp.activeCallPageRef = null;
             }
+        }
+
+        MSnackbar {
+            id: callErrorSnackbar
+            Component.onCompleted: phoneApp.callErrorSnackbarRef = callErrorSnackbar
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: MSpacing.md
+            anchors.bottomMargin: tabBar.height + MSpacing.md
+            z: 1001
         }
     }
 }

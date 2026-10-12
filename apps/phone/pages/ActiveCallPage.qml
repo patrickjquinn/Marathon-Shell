@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -11,6 +12,8 @@ Rectangle {
     property int callDuration: 0
     property bool isMuted: false
     property bool isSpeakerOn: false
+    property bool keypadOpen: false
+    property string dtmfDigits: ""
 
     function show(number, name) {
         callNumber = number;
@@ -18,12 +21,21 @@ Rectangle {
         callDuration = 0;
         isMuted = false;
         isSpeakerOn = false;
+        keypadOpen = false;
+        dtmfDigits = "";
         visible = true;
     }
 
     function hide() {
         visible = false;
+        keypadOpen = false;
         callDuration = 0;
+    }
+
+    function sendTone(digit) {
+        HapticService.light();
+        TelephonyService.sendDTMF(digit);
+        dtmfDigits += digit;
     }
 
     function formatDuration(seconds) {
@@ -98,8 +110,11 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: activeCallPage.callNumber
+            width: Math.min(implicitWidth, parent.width)
+            text: activeCallPage.keypadOpen && activeCallPage.dtmfDigits.length > 0 ? activeCallPage.dtmfDigits : activeCallPage.callNumber
+            font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeLarge
+            elide: Text.ElideLeft
             color: MColors.textSecondary
             Accessible.role: Accessible.StaticText
             Accessible.name: text
@@ -107,7 +122,7 @@ Rectangle {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: formatDuration(activeCallPage.callDuration)
+            text: activeCallPage.formatDuration(activeCallPage.callDuration)
             font.pixelSize: MTypography.sizeBody
             color: MColors.accent
             Accessible.role: Accessible.StaticText
@@ -126,68 +141,57 @@ Rectangle {
             anchors.centerIn: parent
             columns: 3
             spacing: MSpacing.lg
+            visible: !activeCallPage.keypadOpen
 
             Repeater {
                 model: [
                     {
-                        "icon": activeCallPage.isMuted ? "volume-x" : "volume-2",
-                        "label": "Mute",
+                        "icon": activeCallPage.isMuted ? "microphone-slash" : "microphone",
+                        "label": qsTr("Mute"),
                         "action": "mute"
                     },
                     {
-                        "icon": "user-plus",
-                        "label": "Add",
-                        "action": "add"
-                    },
-                    {
-                        "icon": activeCallPage.isSpeakerOn ? "volume-2" : "smartphone",
-                        "label": "Speaker",
-                        "action": "speaker"
-                    },
-                    {
-                        "icon": "grid",
-                        "label": "Keypad",
+                        "icon": "dots-nine",
+                        "label": qsTr("Keypad"),
                         "action": "keypad"
                     },
                     {
-                        "icon": "pause",
-                        "label": "Hold",
-                        "action": "hold"
-                    },
-                    {
-                        "icon": "arrow-left",
-                        "label": "Transfer",
-                        "action": "transfer"
+                        "icon": activeCallPage.isSpeakerOn ? "volume-2" : "smartphone",
+                        "label": qsTr("Speaker"),
+                        "action": "speaker"
                     }
                 ]
 
                 Column {
+                    id: callAction
+
+                    required property var modelData
+
                     spacing: MSpacing.sm
                     width: Constants.touchTargetLarge * 1.2
 
                     Rectangle {
-                        id: callActionTile
+                        readonly property bool toggleActive: (callAction.modelData.action === "mute" && activeCallPage.isMuted) || (callAction.modelData.action === "speaker" && activeCallPage.isSpeakerOn)
+
                         width: Constants.touchTargetLarge
                         height: Constants.touchTargetLarge
                         radius: Constants.borderRadiusSharp
-                        color: (modelData.action === "mute" && isMuted) || (modelData.action === "speaker" && isSpeakerOn) ? MColors.accent : MColors.surface
+                        color: toggleActive ? MColors.accent : MColors.surface
                         border.width: Constants.borderWidthMedium
                         border.color: MColors.border
                         anchors.horizontalCenter: parent.horizontalCenter
 
-                        readonly property bool toggleActive: (modelData.action === "mute" && isMuted) || (modelData.action === "speaker" && isSpeakerOn)
-
                         Accessible.role: Accessible.Button
-                        Accessible.name: modelData.label
-                        Accessible.checkable: modelData.action === "mute" || modelData.action === "speaker"
+                        Accessible.name: callAction.modelData.label
+                        Accessible.checkable: callAction.modelData.action !== "keypad"
                         Accessible.checked: toggleActive
                         Accessible.onPressAction: callActionMouse.clicked(null)
 
                         Icon {
                             anchors.centerIn: parent
-                            name: modelData.icon === "user-plus" ? "user" : (modelData.icon === "grid" ? "grid" : (modelData.icon === "arrow-left" ? "phone" : modelData.icon))
+                            name: callAction.modelData.icon
                             size: Constants.iconSizeLarge
-                            color: (modelData.action === "mute" && isMuted) || (modelData.action === "speaker" && isSpeakerOn) ? MColors.text : MColors.textSecondary
+                            color: parent.toggleActive ? MColors.text : MColors.textSecondary
                         }
 
                         MouseArea {
@@ -204,16 +208,14 @@ Rectangle {
                                 parent.scale = 1;
                             }
                             onClicked: {
-                                if (modelData.action === "mute") {
-                                    isMuted = !isMuted;
-                                    TelephonyService.setCallMuted(isMuted);
-                                    Logger.info("Phone", "Mute toggled: " + isMuted);
-                                } else if (modelData.action === "speaker") {
-                                    isSpeakerOn = !isSpeakerOn;
-                                    TelephonyService.setSpeakerphone(isSpeakerOn);
-                                    Logger.info("Phone", "Speaker toggled: " + isSpeakerOn);
+                                if (callAction.modelData.action === "mute") {
+                                    activeCallPage.isMuted = !activeCallPage.isMuted;
+                                    TelephonyService.setCallMuted(activeCallPage.isMuted);
+                                } else if (callAction.modelData.action === "speaker") {
+                                    activeCallPage.isSpeakerOn = !activeCallPage.isSpeakerOn;
+                                    TelephonyService.setSpeakerphone(activeCallPage.isSpeakerOn);
                                 } else {
-                                    Logger.info("Phone", "Action: " + modelData.action);
+                                    activeCallPage.keypadOpen = true;
                                 }
                             }
                         }
@@ -226,7 +228,8 @@ Rectangle {
                     }
 
                     Text {
-                        text: modelData.label
+                        text: callAction.modelData.label
+                        font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeSmall
                         color: MColors.textSecondary
                         horizontalAlignment: Text.AlignHCenter
@@ -234,6 +237,66 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
+            }
+        }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: MSpacing.md
+            visible: activeCallPage.keypadOpen
+
+            Grid {
+                id: dtmfGrid
+
+                readonly property real cellSize: Math.max(MSpacing.touchTargetMin, Math.min((actionGridRegion.width * 0.8 - columnSpacing * 2) / 3, (actionGridRegion.height - hideKeypadButton.height - MSpacing.md - MSpacing.lg * 2 - rowSpacing * 3) / 4, Constants.touchTargetLarge * 1.4))
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                columns: 3
+                rowSpacing: MSpacing.sm
+                columnSpacing: MSpacing.lg
+
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+
+                    Rectangle {
+                        required property string modelData
+
+                        width: dtmfGrid.cellSize
+                        height: dtmfGrid.cellSize
+                        radius: width / 2
+                        color: dtmfArea.pressed ? MColors.bb10Card : MColors.elev2
+                        border.width: 1
+                        border.color: MColors.whiteOverlay08
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData
+                        Accessible.onPressAction: activeCallPage.sendTone(modelData)
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: parent.modelData
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: Math.round(dtmfGrid.cellSize * 0.36)
+                            font.weight: MTypography.weightLight
+                        }
+
+                        MouseArea {
+                            id: dtmfArea
+                            anchors.fill: parent
+                            onClicked: activeCallPage.sendTone(parent.modelData)
+                        }
+                    }
+                }
+            }
+
+            MButton {
+                id: hideKeypadButton
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Hide keypad")
+                variant: "secondary"
+                onClicked: activeCallPage.keypadOpen = false
             }
         }
     }
@@ -249,22 +312,22 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            color: "#E74C3C"
+            color: MColors.error
             border.width: Constants.borderWidthThick
-            border.color: "#C0392B"
+            border.color: MColors.errorDim
 
             Accessible.role: Accessible.Button
             Accessible.name: qsTr("End call")
             Accessible.onPressAction: {
                 TelephonyService.hangup();
-                hide();
+                activeCallPage.hide();
             }
 
             Icon {
                 anchors.centerIn: parent
                 name: "phone"
                 size: Constants.iconSizeLarge
-                color: "white"
+                color: MColors.textPrimary
                 rotation: 135
             }
 
@@ -282,7 +345,7 @@ Rectangle {
                 }
                 onClicked: {
                     TelephonyService.hangup();
-                    hide();
+                    activeCallPage.hide();
                 }
             }
 

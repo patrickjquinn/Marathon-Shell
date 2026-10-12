@@ -113,22 +113,22 @@ Rectangle {
                 width: Constants.touchTargetLarge * 1.5
                 height: Constants.touchTargetLarge * 1.5
                 radius: width / 2
-                color: "#E74C3C"
+                color: MColors.error
                 border.width: Constants.borderWidthThick
-                border.color: "#C0392B"
+                border.color: MColors.errorDim
 
                 Accessible.role: Accessible.Button
                 Accessible.name: qsTr("Decline call from %1").arg(incomingCallScreen.callerName)
                 Accessible.onPressAction: {
                     TelephonyService.hangup();
-                    hide();
+                    incomingCallScreen.hide();
                 }
 
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
                     size: Constants.iconSizeLarge
-                    color: "white"
+                    color: MColors.textPrimary
                     rotation: 135
                 }
 
@@ -136,7 +136,7 @@ Rectangle {
                     anchors.fill: parent
                     onClicked: {
                         TelephonyService.hangup();
-                        hide();
+                        incomingCallScreen.hide();
                     }
                 }
             }
@@ -145,29 +145,29 @@ Rectangle {
                 width: Constants.touchTargetLarge * 1.5
                 height: Constants.touchTargetLarge * 1.5
                 radius: width / 2
-                color: "#27AE60"
+                color: MColors.success
                 border.width: Constants.borderWidthThick
-                border.color: "#229954"
+                border.color: MColors.successDim
 
                 Accessible.role: Accessible.Button
                 Accessible.name: qsTr("Answer call from %1").arg(incomingCallScreen.callerName)
                 Accessible.onPressAction: {
                     TelephonyService.answer();
-                    hide();
+                    incomingCallScreen.hide();
                 }
 
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
                     size: Constants.iconSizeLarge
-                    color: "white"
+                    color: MColors.textPrimary
                 }
 
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
                         TelephonyService.answer();
-                        hide();
+                        incomingCallScreen.hide();
                     }
                 }
             }
