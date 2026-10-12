@@ -1,134 +1,61 @@
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Effects
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
-// Marathon DS · Thread bubble (screens-apps-1.jsx:ThreadBubble).
-//
-// Incoming: elev-2 fill, w-04 hairline border, 16 px radius.
-// Outgoing: teal-bright gradient fill, black text, inset white highlight.
-// Status (✓ / ✓✓ READ / ✓✓ DELIVERED) sits on a row beneath the last
-// outgoing bubble — eyebrow size, secondary tint, tabular nums.
 Item {
     id: root
 
     property var message
-    property bool isOutgoing: (message && message.isOutgoing) || false
-    property bool showTimestamp: true
-    property bool isFirstInGroup: false
-    property bool isLastInGroup: false
+    readonly property bool outgoing: message.isOutgoing
+    readonly property real dayHeight: day.visible ? day.implicitHeight : 0
 
-    function statusText() {
-        if (!message)
-            return "";
-        if (message.isFailed)
-            return "Not sent";
-        if (message.isRead)
-            return "READ";
-        if (message.isDelivered)
-            return "DELIVERED";
-        return "SENT";
+    implicitHeight: dayHeight + bubble.height + (time.visible ? time.height : 0) + Theme.paddingSmall
+    Accessible.role: Accessible.StaticText
+    Accessible.name: message.text
+    Accessible.description: outgoing ? qsTr("Sent") : qsTr("Received")
+
+    Label {
+        id: day
+        width: parent.width
+        visible: root.message.showDay
+        topPadding: Theme.paddingLarge
+        bottomPadding: Theme.paddingMedium
+        horizontalAlignment: Text.AlignHCenter
+        text: Format.formatDate(new Date(root.message.timestamp), Formatter.TimepointSectionRelative)
+        font.pixelSize: Theme.fontSizeExtraSmall
+        color: Theme.highlightColor
     }
 
-    function statusGlyph() {
-        if (!message)
-            return "check";
-        if (message.isFailed)
-            return "x";
-        if (message.isRead || message.isDelivered)
-            return "check-check";
-        return "check";
-    }
+    Rectangle {
+        id: bubble
+        x: root.outgoing ? parent.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
+        y: root.dayHeight
+        width: Math.min(text.implicitWidth, root.width * 0.75) + 2 * Theme.paddingMedium
+        height: text.height + 2 * Theme.paddingMedium
+        radius: Theme.paddingMedium
+        color: root.outgoing ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
+                             : Theme.rgba(Theme.primaryColor, 0.1)
 
-    width: parent ? parent.width : 0
-    height: bubbleContainer.height + (statusRow.visible ? statusRow.height + 4 : 0) + 4
-
-    Item {
-        id: bubbleContainer
-        anchors.left: root.isOutgoing ? undefined : parent.left
-        anchors.right: root.isOutgoing ? parent.right : undefined
-        anchors.leftMargin: 14
-        anchors.rightMargin: 14
-        width: bubble.width
-        height: bubble.height
-
-        Rectangle {
-            id: bubble
-
-            width: Math.min(bubbleText.contentWidth + 28, root.width * 0.78)
-            height: bubbleText.contentHeight + 24
-            radius: 16
-            color: "transparent"
-            border.width: root.isOutgoing ? 0 : 1
-            border.color: MColors.whiteOverlay04
-
-            // Outgoing: teal-bright gradient. Incoming: elev-2 fill.
-            gradient: root.isOutgoing ? outgoingGradient : null
-            Gradient {
-                id: outgoingGradient
-                GradientStop {
-                    position: 0
-                    color: MColors.marathonTealBright
-                }
-                GradientStop {
-                    position: 1
-                    color: MColors.marathonTealDark
-                }
-            }
-            // Use plain color for incoming rather than gradient.
-            Component.onCompleted: if (!root.isOutgoing)
-                color = MColors.elev2
-
-            // Inner inset highlight — top arc only, follows bubble radius.
-            MTopHairline {
-                visible: root.isOutgoing
-                radius: parent.radius
-                color: Qt.rgba(1, 1, 1, 0.2)
-                lineWidth: 1
-            }
-
-            Text {
-                id: bubbleText
-                anchors.fill: parent
-                anchors.margins: 14
-                anchors.topMargin: 12
-                anchors.bottomMargin: 12
-                text: (root.message && root.message.text) || ""
-                color: root.isOutgoing ? "#000000" : MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeBody
-                font.weight: Font.Normal
-                wrapMode: Text.Wrap
-            }
+        Label {
+            id: text
+            x: Theme.paddingMedium
+            y: Theme.paddingMedium
+            width: Math.min(implicitWidth, root.width * 0.75)
+            text: root.message.text
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+            color: root.outgoing ? Theme.highlightColor : Theme.primaryColor
         }
     }
 
-    // Status row — only under last outgoing bubble.
-    Row {
-        id: statusRow
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.top: bubbleContainer.bottom
-        anchors.topMargin: 4
-        spacing: 4
-        visible: root.isOutgoing && root.isLastInGroup && root.showTimestamp
-
-        Icon {
-            anchors.verticalCenter: parent.verticalCenter
-            name: root.statusGlyph()
-            size: 10
-            color: MColors.textSecondary
-        }
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.statusText()
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeEyebrow
-            font.weight: Font.Medium
-            font.letterSpacing: MTypography.trackingEyebrow
-            font.capitalization: Font.AllUppercase
-        }
+    Label {
+        id: time
+        anchors.top: bubble.bottom
+        anchors.topMargin: Theme.paddingSmall / 2
+        x: root.outgoing ? parent.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
+        visible: root.message.showTime
+        text: Format.formatDate(new Date(root.message.timestamp), Formatter.TimeValue)
+        font.pixelSize: Theme.fontSizeTiny
+        color: Theme.secondaryColor
     }
 }

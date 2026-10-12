@@ -3,7 +3,6 @@
   "name": "Messages",
   "version": "1.0.0",
   "entryPoint": "MessagesApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["sms", "phone", "contacts", "notifications", "storage"],

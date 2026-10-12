@@ -1,0 +1,174 @@
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "../MessagesLogic.js" as Logic
+import "../components"
+
+Page {
+    id: root
+
+    property var app
+    property var conversation
+    property var messages: []
+    readonly property string recipientNumber: conversation.contactNumber
+    readonly property bool canSend: pendingText === "" && input.text.trim() !== ""
+    property string pendingText: ""
+    property string sendError: ""
+
+    function load() {
+        messages = Logic.messageRows(Sms.getMessages(conversation.id));
+        view.positionViewAtEnd();
+    }
+
+    function send() {
+        if (!canSend)
+            return;
+        pendingText = input.text.trim();
+        sendError = "";
+        sendTimeout.restart();
+        Sms.sendMessage(recipientNumber, pendingText);
+    }
+
+    function failureText(reason) {
+        if (/modem/i.test(reason))
+            return qsTr("Not sent. No mobile network is available; check the SIM card and signal.");
+        return qsTr("Not sent. Check your mobile signal and try again.");
+    }
+
+    Component.onCompleted: {
+        load();
+        if (conversation.unreadCount > 0)
+            Sms.markAsRead(conversation.id);
+        input.text = app.drafts[conversation.id] || "";
+    }
+
+    Timer {
+        id: sendTimeout
+        interval: 30000
+        onTriggered: {
+            root.pendingText = "";
+            root.sendError = qsTr("Couldn't confirm the message was sent. Check the conversation before sending again.");
+        }
+    }
+
+    Connections {
+        target: Sms
+
+        function onMessageSent(recipient, timestamp) {
+            if (root.pendingText !== "" && Logic.sameNumber(recipient, root.recipientNumber)) {
+                sendTimeout.stop();
+                if (input.text.trim() === root.pendingText)
+                    input.text = "";
+                root.pendingText = "";
+            }
+            root.load();
+        }
+
+        function onSendFailed(recipient, reason) {
+            if (root.pendingText === "" || (recipient !== "" && !Logic.sameNumber(recipient, root.recipientNumber)))
+                return;
+            console.warn("Messages: send failed:", reason);
+            sendTimeout.stop();
+            root.pendingText = "";
+            root.sendError = root.failureText(reason);
+        }
+
+        function onMessageReceived(sender, text, timestamp) {
+            if (Logic.sameNumber(sender, root.recipientNumber)) {
+                root.load();
+                Sms.markAsRead(root.conversation.id);
+            }
+        }
+    }
+
+    SilicaListView {
+        id: view
+        objectName: "messageList"
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+            bottom: composer.top
+        }
+        clip: true
+        model: root.messages
+
+        header: PageHeader {
+            title: Logic.displayName(root.conversation)
+            description: root.conversation.contactName ? Logic.formatNumber(root.conversation.contactNumber) : ""
+        }
+
+        ViewPlaceholder {
+            enabled: view.count === 0
+            text: qsTr("No messages yet")
+            hintText: qsTr("Write a message below")
+        }
+
+        delegate: MessageBubble {
+            required property var modelData
+
+            width: view.width
+            height: implicitHeight
+            message: modelData
+        }
+
+        VerticalScrollDecorator {}
+    }
+
+    Column {
+        id: composer
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
+
+        Label {
+            objectName: "sendStatus"
+            x: Theme.horizontalPageMargin
+            width: parent.width - 2 * Theme.horizontalPageMargin
+            visible: text !== ""
+            text: root.sendError !== "" ? root.sendError : root.pendingText !== "" ? qsTr("Sending…") : ""
+            wrapMode: Text.Wrap
+            font.pixelSize: Theme.fontSizeExtraSmall
+            color: root.sendError !== "" ? Theme.errorColor : Theme.secondaryHighlightColor
+        }
+
+        Item {
+            width: parent.width
+            height: Math.max(input.height, sendButton.height)
+
+            TextField {
+                id: input
+                objectName: "messageField"
+                anchors {
+                    left: parent.left
+                    right: sendButton.left
+                    verticalCenter: parent.verticalCenter
+                }
+                placeholderText: qsTr("Message")
+                EnterKey.enabled: root.canSend
+                EnterKey.iconSource: "image://theme/icon-m-send"
+                EnterKey.onClicked: root.send()
+                onTextChanged: root.app.setDraft(root.conversation.id, text)
+            }
+
+            IconButton {
+                id: sendButton
+                objectName: "sendButton"
+                anchors {
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
+                    verticalCenter: parent.verticalCenter
+                }
+                enabled: root.canSend
+                icon.source: "image://theme/icon-m-send"
+                Accessible.name: root.sendError !== "" ? qsTr("Retry") : qsTr("Send")
+                onClicked: root.send()
+            }
+        }
+    }
+}

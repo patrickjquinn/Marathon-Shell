@@ -1,0 +1,3 @@
+module Marathon.Platform
+singleton Sms 1.0 Sms.qml
+singleton Contacts 1.0 Contacts.qml
