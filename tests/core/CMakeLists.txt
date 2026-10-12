@@ -135,3 +135,16 @@ target_include_directories(test_core_platformtypes PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_PlatformTypes COMMAND test_core_platformtypes)
+
+# A native Keel app (rebuilt SailfishApp) run under a Keel host
+add_executable(test_core_hostedapp
+    test_hostedapp.cpp
+    ../../tools/marathon-app-runner/hostedapp.cpp
+    ../../tools/marathon-app-runner/keelhost.cpp
+)
+target_link_libraries(test_core_hostedapp Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
+target_include_directories(test_core_hostedapp PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_HostedApp COMMAND test_core_hostedapp)
+set_tests_properties(Core_HostedApp PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
