@@ -33,14 +33,6 @@ QString AppStore::getAppIcon(const QString &appId) const {
     return app.value("icon").toString();
 }
 
-bool AppStore::isInternalApp(const QString &appId) const {
-    const QVariantMap app = getApp(appId);
-    if (app.isEmpty()) {
-        return true;
-    }
-    return app.value("type").toInt() == static_cast<int>(MarathonAppRegistry::Marathon);
-}
-
 bool AppStore::isNativeApp(const QString &appId) const {
     const QVariantMap app = getApp(appId);
     return app.value("type").toInt() == static_cast<int>(MarathonAppRegistry::Native);

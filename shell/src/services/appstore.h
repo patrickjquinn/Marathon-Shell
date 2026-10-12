@@ -24,7 +24,6 @@ class AppStore : public QObject {
     Q_INVOKABLE QVariantMap getApp(const QString &appId) const;
     Q_INVOKABLE QString     getAppName(const QString &appId) const;
     Q_INVOKABLE QString     getAppIcon(const QString &appId) const;
-    Q_INVOKABLE bool        isInternalApp(const QString &appId) const;
     Q_INVOKABLE bool        isNativeApp(const QString &appId) const;
 
   signals:
