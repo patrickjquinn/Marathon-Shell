@@ -282,8 +282,8 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: statusBar.bottom
-            anchors.leftMargin: Silica.Theme.paddingSmall
-            anchors.rightMargin: Silica.Theme.paddingSmall
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.topMargin: Silica.Theme.paddingLarge
             height: Math.max(Silica.Theme.itemSizeMedium, callText.implicitHeight + Silica.Theme.paddingMedium * 2)
             z: 6
@@ -567,8 +567,8 @@ Item {
 
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: Silica.Theme.paddingSmall
-            anchors.rightMargin: Silica.Theme.paddingSmall
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : (activityBar.visible ? activityBar.bottom : clockColumn.bottom)
             anchors.topMargin: Silica.Theme.paddingLarge * 2
             spacing: Silica.Theme.paddingSmall
@@ -637,7 +637,7 @@ Item {
                                     anchors.verticalCenter: nameText.verticalCenter
                                     text: lockScreen.relativeTime(notifCard.timestamp)
                                     color: Silica.Theme.secondaryColor
-                                    font.pixelSize: Silica.Theme.fontSizeTiny
+                                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
                                     font.features: ({
                                             "tnum": 1
                                         })
