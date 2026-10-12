@@ -111,11 +111,6 @@ Item {
                 }
             }
 
-            // 10 px between the squircle and the label per the
-            // home-grid reference (screens-shell.jsx HomePage1).
-            // 4 px (the previous value) packed labels visually
-            // into the icon's drop shadow and made the row read
-            // as a single block instead of icon + caption.
             spacing: Math.round(10 * (Constants.scaleFactor || 1.0))
 
             Item {
@@ -125,36 +120,14 @@ Item {
                 width: Silica.Theme.iconSizeLauncher
                 height: Silica.Theme.iconSizeLauncher
 
-                // Press halo — soft teal glow at 18% beneath the
-                // icon. Per DS Elevation · 'Active card' shadow,
-                // the system uses a subtle bloom rather than a
-                // hard fill on press. Squircle-radius matches
-                // the app-icon shape rather than a full circle.
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 1.15
-                    height: parent.height * 1.15
-                    radius: MRadius.squircle
-                    color: MColors.tealHalo
-                    opacity: iconMouseArea.pressed ? 1 : 0
-                    visible: iconMouseArea.pressed
-                    z: 0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: MMotion.quick
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                }
-
+                // Pressed: the icon itself dims, as on Sailfish's launcher.
                 MAppIcon {
                     id: appIcon
 
                     source: iconCell.appData ? iconCell.appData.icon : ""
                     size: parent.width
                     anchors.centerIn: parent
-                    z: 1
+                    opacity: iconMouseArea.pressed ? Silica.Theme.opacityHigh : 1
                 }
             }
 
@@ -278,30 +251,6 @@ Item {
         }
     }
 
-    // Drop shadow — DS app-icon frame spec
-    // (app-icons.jsx AppIconFrame boxShadow):
-    //   0 8px 16px -8px rgba(0,0,0,0.7)
-    // Rendered as a translated, opacity-0.7 black squircle sitting 8 px
-    // below the icon. Cheaper than a real blur and visually equivalent at
-    // 64–80 px icon sizes against dark wallpapers.
-    Item {
-        anchors.fill: iconGrid
-
-        Repeater {
-            model: appGrid.pageItemCount
-
-            IconOverlay {
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.topMargin: 8
-                    radius: MRadius.squircle
-                    color: Qt.rgba(0, 0, 0, 0.7)
-                    opacity: 0.35
-                }
-            }
-        }
-    }
-
     Grid {
         id: iconGrid
 
@@ -321,47 +270,6 @@ Item {
             model: appGrid.pageItemCount
 
             IconCell {}
-        }
-    }
-
-    // Outer 1 px black-60 ring — DS app-icon frame boxShadow:
-    // `0 0 0 1px rgba(0,0,0,0.6)`. Gives each tile a hard edge against the
-    // wallpaper without a heavy ring around the whole tile.
-    Item {
-        anchors.fill: iconGrid
-
-        Repeater {
-            model: appGrid.pageItemCount
-
-            IconOverlay {
-                Rectangle {
-                    anchors.fill: parent
-                    radius: MRadius.squircle
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Qt.rgba(0, 0, 0, 0.6)
-                }
-            }
-        }
-    }
-
-    // Inner 1 px white-15 TOP-only highlight — DS app-icon frame
-    // `inset 0 1px 0 rgba(255,255,255,0.15)`. MTopHairline traces the top
-    // arc of the squircle (PathArc → PathLine → PathArc) so the highlight
-    // follows the corner radius instead of extending past it as a flat
-    // horizontal bar.
-    Item {
-        anchors.fill: iconGrid
-
-        Repeater {
-            model: appGrid.pageItemCount
-
-            IconOverlay {
-                MTopHairline {
-                    radius: MRadius.squircle
-                    color: Qt.rgba(1, 1, 1, 0.15)
-                }
-            }
         }
     }
 
