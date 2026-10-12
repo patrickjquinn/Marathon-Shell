@@ -108,7 +108,7 @@ ApplicationWindow {
     }
 
     function sendMessage(number) {
-        Navigation.launchAppWithRoute("messages", "conversation", JSON.stringify({ number: number }));
+        Navigation.launchAppWithRoute("messages", "conversation", JSON.stringify({ number: number, name: contactName(number) }));
     }
 
     appId: "phone"

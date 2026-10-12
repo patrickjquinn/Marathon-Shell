@@ -87,11 +87,13 @@ TestCase {
     }
 
     function test_menuSendMessage() {
+        Contacts.contacts = [{ id: 1, name: "Bob Byrne", phone: "087 123 4567" }];
         const t = openLog();
         menuItem(itemAt(t.list, 1), "messageMenuItem").clicked();
         compare(Navigation.launches.length, 1);
         compare(Navigation.launches[0].appId, "messages");
-        compare(JSON.parse(Navigation.launches[0].params).number, "0871234567");
+        compare(Navigation.launches[0].route, "conversation");
+        compare(JSON.parse(Navigation.launches[0].params), { number: "0871234567", name: "Bob Byrne" });
     }
 
     function test_menuDeleteAfterRemorse() {
