@@ -293,7 +293,15 @@ Item {
                 spacing: Silica.Theme.paddingSmall
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
+                snapMode: ListView.SnapToItem
                 model: WallpaperStore.wallpapers
+                // Opens on whole thumbnails with the current ambience in view.
+                onVisibleChanged: {
+                    if (!visible)
+                        return;
+                    const current = WallpaperStore.wallpapers.findIndex(w => w.path === WallpaperStore.path);
+                    positionViewAtIndex(Math.max(0, current - 1), ListView.Beginning);
+                }
 
                 delegate: Item {
                     id: ambience
