@@ -68,7 +68,7 @@ Item {
                     const id = contextMenu.appId;
                     UIStore.showConfirmDialog(qsTr("Uninstall %1?").arg(contextMenu.appData.name), qsTr("This app will be removed from your device."), function () {
                         MarathonAppInstaller.uninstallApp(id);
-                    });
+                    }, qsTr("Uninstall"));
                 }
             }
         }
