@@ -10,6 +10,8 @@ S.SilicaFlickable {
     property bool _hasTabStops
 
     function _findTabStops(item) {
+        if (!item)
+            return false; // contentItem is gone while the flickable is destroyed
         for (let i = 0; i < item.children.length; ++i) {
             const child = item.children[i];
             if ((child.activeFocusOnTab && child.visible) || root._findTabStops(child))
