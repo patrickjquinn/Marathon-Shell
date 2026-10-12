@@ -86,7 +86,7 @@ Item {
         blurMultiplier: 1.4
         saturation: 0.5
         brightness: -0.1
-        tint: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.55)
+        tint: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.82)
         // QS shade is pulled over a snapshot — the underlying app is
         // either frozen or the wallpaper. Either way, no per-frame work.
         live: false
