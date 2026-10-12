@@ -91,6 +91,7 @@ class TerminalScreen : public QObject {
     void cursorChanged();
 
   private:
+    void clearLineLocked(int mode);
     void                           scrollUp();
     TerminalCell                  &cellAt(int x, int y);
 

@@ -155,7 +155,13 @@ void TerminalScreen::setCursorY(int y) {
 
 void TerminalScreen::clearLine(int mode) {
     QMutexLocker locker(&m_mutex);
-    int          start = 0;
+    clearLineLocked(mode);
+    emit screenChanged();
+}
+
+// Caller holds m_mutex.
+void TerminalScreen::clearLineLocked(int mode) {
+    int start = 0;
     int          end   = m_cols;
 
     if (mode == 0) {
@@ -169,7 +175,6 @@ void TerminalScreen::clearLine(int mode) {
         cell               = TerminalCell();
         cell.bgColor       = m_currentBg;
     }
-    emit screenChanged();
 }
 
 void TerminalScreen::clearScreen(int mode) {
@@ -178,10 +183,10 @@ void TerminalScreen::clearScreen(int mode) {
     int          endRow   = m_rows;
 
     if (mode == 0) {
-        clearLine(0);
+        clearLineLocked(0);
         startRow = m_cursorY + 1;
     } else if (mode == 1) {
-        clearLine(1);
+        clearLineLocked(1);
         endRow = m_cursorY;
     } else if (mode == 2) {
         startRow  = 0;
