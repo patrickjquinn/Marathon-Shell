@@ -17,6 +17,8 @@ ApplicationWindow {
         key: "/apps/messages/state"
         defaultValue: "{}"
     }
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
+    property string routeParams: typeof MARATHON_APP_ROUTE_PARAMS !== "undefined" ? MARATHON_APP_ROUTE_PARAMS : ""
     readonly property var conversations: Sms.conversations
     property var pinnedIds: []
     property var archivedIds: []
@@ -74,9 +76,8 @@ ApplicationWindow {
         pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root });
     }
 
-    // Replaces the recipient picker with the thread, existing or new.
-    function startConversation(number, name) {
-        const conversation = conversations.find(c => Logic.sameNumber(c.contactNumber, number)) || {
+    function conversationFor(number, name) {
+        return conversations.find(c => Logic.sameNumber(c.contactNumber, number)) || {
             id: Sms.generateConversationId(number),
             contactName: name,
             contactNumber: number,
@@ -84,7 +85,22 @@ ApplicationWindow {
             lastTimestamp: 0,
             unreadCount: 0
         };
-        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversation });
+    }
+
+    // Replaces the recipient picker with the thread, existing or new.
+    function startConversation(number, name) {
+        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name) });
+    }
+
+    function openRoute(name, paramsJson, operation) {
+        const number = name === "conversation" ? Logic.routeNumber(paramsJson) : "";
+        if (number === "")
+            return;
+        const contact = (Contacts.contacts || []).find(c => Logic.sameNumber(c.phone, number));
+        const list = pageStack.find(p => !pageStack.previousPage(p));
+        if (pageStack.currentPage !== list)
+            pageStack.pop(list, PageStackAction.Immediate);
+        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, contact ? contact.name : "") }, operation);
     }
 
     appId: "messages"
@@ -110,6 +126,7 @@ ApplicationWindow {
         pinnedIds = state.pinned;
         archivedIds = state.archived;
         drafts = state.drafts;
+        openRoute(route, routeParams, PageStackAction.Immediate);
     }
     Component.onDestruction: if (draftTimer.running)
         save()
@@ -118,6 +135,18 @@ ApplicationWindow {
         id: draftTimer
         interval: 1000
         onTriggered: root.save()
+    }
+
+    Connections {
+        target: typeof NavigationRouter !== "undefined" ? NavigationRouter : null
+        ignoreUnknownSignals: true
+
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === root.appId) {
+                root.activate();
+                root.openRoute(route, JSON.stringify(params || {}));
+            }
+        }
     }
 
     Connections {

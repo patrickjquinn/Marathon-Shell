@@ -88,6 +88,16 @@ function parseState(json) {
     };
 }
 
+// Phone hands over {"number": …} as a JSON string.
+function routeNumber(paramsJson) {
+    try {
+        const p = JSON.parse(paramsJson || "{}");
+        return p && p.number ? String(p.number).trim() : "";
+    } catch (e) {
+        return "";
+    }
+}
+
 function unreadTotal(conversations) {
     return conversations.reduce((n, c) => n + (c.unreadCount || 0), 0);
 }

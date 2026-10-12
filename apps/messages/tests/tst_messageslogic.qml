@@ -59,6 +59,13 @@ TestCase {
         compare(Logic.unreadTotal([]), 0);
     }
 
+    function test_routeNumber() {
+        compare(Logic.routeNumber('{"number":" +15551234567 "}'), "+15551234567");
+        compare(Logic.routeNumber("{}"), "");
+        compare(Logic.routeNumber(""), "");
+        compare(Logic.routeNumber("{bad"), "");
+    }
+
     function test_recipient() {
         verify(Logic.isPhoneNumber("+44 (0) 7700-900"));
         verify(!Logic.isPhoneNumber("12"));
