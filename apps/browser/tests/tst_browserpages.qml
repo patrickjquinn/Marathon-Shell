@@ -52,6 +52,7 @@ TestCase {
         app.tabs.setProperty(0, "canGoForward", true);
         verify(back.enabled && forward.enabled);
         mouseClick(back);
+        page.menuPanel.show(true);
         mouseClick(forward);
         compare(app.webLayer.backs, 1);
         compare(app.webLayer.forwards, 1);
@@ -149,6 +150,24 @@ TestCase {
         verify(page.toolbarOpen);
     }
 
+    function test_toolbarFollowsSailfishBrowser() {
+        const app = makeApp();
+        const page = app.pageStack.currentPage;
+        const order = ["tabsButton", "backButton", "addressButton", "menuButton"].map(n => findChild(page, n).mapToItem(page, 0, 0).x);
+        compare(order.slice().sort((a, b) => a - b), order);
+        verify(findChild(page.menuPanel, "forwardButton") !== null);
+    }
+
+    function test_privateModeDisablesBookmarking() {
+        const app = makeApp();
+        const page = app.pageStack.currentPage;
+        app.navigateTo("https://kde.org");
+        verify(findChild(page, "bookmarkButton").enabled);
+        app.setPrivateMode(true);
+        app.navigateTo("https://kde.org");
+        verify(!findChild(page, "bookmarkButton").enabled);
+    }
+
     function test_tabsButtonOpensTheTabs() {
         const app = makeApp();
         const page = app.pageStack.currentPage;
@@ -181,7 +200,7 @@ TestCase {
         const app = makeApp();
         const page = app.pageStack.currentPage;
         page.menuPanel.show(true);
-        mouseClick(findChild(page.menuPanel, "newTabButton"));
+        mouseClick(findChild(page.menuPanel, "newTabRow"));
         compare(app.tabs.count, 2);
         verify(app.editingAddress);
         page.stopEditing();

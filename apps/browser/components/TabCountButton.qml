@@ -23,7 +23,6 @@ BackgroundItem {
             anchors.centerIn: parent
             text: root.count > 99 ? ":D" : root.count
             font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
             color: root.highlighted ? Theme.highlightColor : Theme.primaryColor
         }
     }

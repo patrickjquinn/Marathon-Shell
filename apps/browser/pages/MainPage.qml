@@ -229,6 +229,13 @@ Page {
             width: parent.width
             visible: !root.browser.editingAddress
 
+            TabCountButton {
+                objectName: "tabsButton"
+                width: Theme.itemSizeSmall
+                height: Theme.itemSizeSmall
+                count: root.browser.tabs.count
+                onClicked: root.showTabs()
+            }
             IconButton {
                 id: backButton
 
@@ -239,14 +246,6 @@ Page {
                 Accessible.name: qsTr("Back")
                 onClicked: root.browser.goBack()
             }
-            IconButton {
-                objectName: "forwardButton"
-                width: Theme.itemSizeSmall
-                icon.source: "image://theme/icon-m-forward"
-                enabled: root.tab !== null && root.tab.canGoForward === true
-                Accessible.name: qsTr("Forward")
-                onClicked: root.browser.goForward()
-            }
             BackgroundItem {
                 id: addressButton
 
@@ -254,7 +253,7 @@ Page {
                 readonly property string host: root.tab && !root.tab.isNewTab ? Logic.displayHost(root.tab.url) : ""
 
                 objectName: "addressButton"
-                width: parent.width - 4 * Theme.itemSizeSmall
+                width: parent.width - 3 * Theme.itemSizeSmall
                 height: Theme.itemSizeSmall
                 Accessible.name: qsTr("Address: %1").arg(host || placeholder.text)
                 onClicked: root.startEditing()
@@ -282,13 +281,6 @@ Page {
                         truncationMode: TruncationMode.Fade
                     }
                 }
-            }
-            TabCountButton {
-                objectName: "tabsButton"
-                width: Theme.itemSizeSmall
-                height: Theme.itemSizeSmall
-                count: root.browser.tabs.count
-                onClicked: root.showTabs()
             }
             IconButton {
                 objectName: "menuButton"
@@ -346,12 +338,71 @@ Page {
                 id: menuColumn
 
                 width: parent.width
-                bottomPadding: Theme.paddingMedium
+                topPadding: Theme.paddingMedium
 
+                MenuRow {
+                    objectName: "newTabRow"
+                    iconSource: "image://theme/icon-m-add"
+                    text: qsTr("New tab")
+                    onClicked: {
+                        menuPanel.hide();
+                        root.browser.createNewTab();
+                    }
+                }
+                MenuRow {
+                    objectName: "privateRow"
+                    iconSource: "image://theme/icon-m-privacy"
+                    text: root.browser.isPrivateMode ? qsTr("Leave private browsing") : qsTr("Private browsing")
+                    onClicked: {
+                        menuPanel.hide();
+                        root.browser.setPrivateMode(!root.browser.isPrivateMode);
+                    }
+                }
+                MenuRow {
+                    objectName: "bookmarksRow"
+                    iconSource: "image://theme/icon-m-favorite-selected"
+                    text: qsTr("Bookmarks")
+                    onClicked: root.showPage("BookmarksPage.qml")
+                }
+                MenuRow {
+                    objectName: "historyRow"
+                    iconSource: "image://theme/icon-m-history"
+                    text: qsTr("History")
+                    onClicked: root.showPage("HistoryPage.qml")
+                }
+                MenuRow {
+                    objectName: "settingsRow"
+                    iconSource: "image://theme/icon-m-settings"
+                    text: qsTr("Settings")
+                    onClicked: root.showPage("SettingsPage.qml")
+                }
+
+                // Page tools sit nearest the toolbar, as in Sailfish Browser.
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
                     height: Theme.itemSizeMedium
 
+                    IconButton {
+                        objectName: "forwardButton"
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.itemSizeLarge
+                        icon.source: "image://theme/icon-m-forward"
+                        enabled: root.tab !== null && root.tab.canGoForward === true
+                        Accessible.name: qsTr("Forward")
+                        onClicked: {
+                            menuPanel.hide();
+                            root.browser.goForward();
+                        }
+                    }
+                    IconButton {
+                        objectName: "bookmarkButton"
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.itemSizeLarge
+                        enabled: !root.browser.isPrivateMode && root.tab !== null && Logic.schemeBadge(root.tab.url) !== "none"
+                        icon.source: root.bookmarked ? "image://theme/icon-m-favorite-selected" : "image://theme/icon-m-favorite"
+                        Accessible.name: root.bookmarked ? qsTr("Remove bookmark") : qsTr("Bookmark this page")
+                        onClicked: root.browser.toggleBookmark()
+                    }
                     IconButton {
                         objectName: "reloadButton"
                         anchors.verticalCenter: parent.verticalCenter
@@ -363,51 +414,6 @@ Page {
                             root.browser.reloadOrStop();
                         }
                     }
-                    IconButton {
-                        objectName: "bookmarkButton"
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.itemSizeLarge
-                        opacity: root.browser.isPrivateMode ? Theme.opacityLow : 1
-                        enabled: root.tab !== null && Logic.schemeBadge(root.tab.url) !== "none"
-                        icon.source: root.bookmarked ? "image://theme/icon-m-favorite-selected" : "image://theme/icon-m-favorite"
-                        Accessible.name: root.bookmarked ? qsTr("Remove bookmark") : qsTr("Bookmark this page")
-                        onClicked: root.browser.toggleBookmark()
-                    }
-                    IconButton {
-                        objectName: "newTabButton"
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.itemSizeLarge
-                        icon.source: "image://theme/icon-m-add"
-                        Accessible.name: qsTr("New tab")
-                        onClicked: {
-                            menuPanel.hide();
-                            root.browser.createNewTab();
-                        }
-                    }
-                }
-
-                MenuRow {
-                    objectName: "bookmarksRow"
-                    text: qsTr("Bookmarks")
-                    onClicked: root.showPage("BookmarksPage.qml")
-                }
-                MenuRow {
-                    objectName: "historyRow"
-                    text: qsTr("History")
-                    onClicked: root.showPage("HistoryPage.qml")
-                }
-                MenuRow {
-                    objectName: "privateRow"
-                    text: root.browser.isPrivateMode ? qsTr("Leave private browsing") : qsTr("Private browsing")
-                    onClicked: {
-                        menuPanel.hide();
-                        root.browser.setPrivateMode(!root.browser.isPrivateMode);
-                    }
-                }
-                MenuRow {
-                    objectName: "settingsRow"
-                    text: qsTr("Settings")
-                    onClicked: root.showPage("SettingsPage.qml")
                 }
             }
         }
