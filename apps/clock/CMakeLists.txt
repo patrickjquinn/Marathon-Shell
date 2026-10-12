@@ -2,10 +2,11 @@
 
 set(APP_NAME clock)
 
-# Collect all QML files
 file(GLOB_RECURSE QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
 )
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 # Include SVG assets in the QML module's QRC so `Qt.resolvedUrl("../assets/...")` works
 # even when the app is loaded from `qrc:/qt/qml/MarathonApp/Clock/...`.
