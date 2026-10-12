@@ -112,25 +112,6 @@ void NotificationServiceCpp::markAsRead(int id) {
     }
 }
 
-void NotificationServiceCpp::markAllAsRead() {
-    if (!m_model)
-        return;
-
-    for (const QVariant &item : std::as_const(m_notifications)) {
-        const QVariantMap map = item.toMap();
-        if (!map.value("read").toBool())
-            m_model->markAsRead(map.value("id").toInt());
-    }
-
-    for (int i = 0; i < m_notifications.size(); ++i) {
-        QVariantMap map    = m_notifications[i].toMap();
-        map["read"]        = true;
-        m_notifications[i] = map;
-    }
-    emit notificationsChanged();
-    emit unreadCountChanged();
-}
-
 void NotificationServiceCpp::clearAll() {
     QList<int> ids;
     ids.reserve(m_notifications.size());
@@ -146,10 +127,6 @@ void NotificationServiceCpp::clickNotification(int id) {
     emit notificationClicked(id);
 }
 
-void NotificationServiceCpp::triggerAction(int id, const QString &action) {
-    emit notificationActionTriggered(id, action);
-}
-
 QVariantMap NotificationServiceCpp::getNotification(int id) const {
     for (const QVariant &item : m_notifications) {
         const QVariantMap map = item.toMap();
@@ -157,16 +134,6 @@ QVariantMap NotificationServiceCpp::getNotification(int id) const {
             return map;
     }
     return {};
-}
-
-QVariantList NotificationServiceCpp::getNotificationsByApp(const QString &appId) const {
-    QVariantList out;
-    for (const QVariant &item : m_notifications) {
-        const QVariantMap map = item.toMap();
-        if (map.value("appId").toString() == appId)
-            out.append(map);
-    }
-    return out;
 }
 
 QVariantList NotificationServiceCpp::getUnreadNotifications() const {
