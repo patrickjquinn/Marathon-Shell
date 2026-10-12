@@ -35,9 +35,6 @@ class MarathonInputMethodEngine : public QObject {
     Q_INVOKABLE void    commitText(const QString &text);
     Q_INVOKABLE void    sendBackspace();
     Q_INVOKABLE void    sendEnter();
-    Q_INVOKABLE void    replacePreedit(const QString &word);
-    Q_INVOKABLE QString getTextBeforeCursor(int length = 100);
-    Q_INVOKABLE QString getTextAfterCursor(int length = 100);
     Q_INVOKABLE QString getCurrentWord();
     // Qt::InputMethodHints of the focused field (an app's text-input hints arrive through its surface item).
     Q_INVOKABLE int     focusHints() const;

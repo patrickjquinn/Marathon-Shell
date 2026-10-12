@@ -118,43 +118,6 @@ void MarathonInputMethodEngine::sendEnter() {
     sendKey(Qt::Key_Return, 28 + 8, 0xff0d /* XKB_KEY_Return */, QString());
 }
 
-void MarathonInputMethodEngine::replacePreedit(const QString &word) {
-    if (!m_preeditText.isEmpty()) {
-        for (int i = 0; i < m_preeditText.length(); ++i) {
-            sendBackspace();
-        }
-    }
-    commitText(word);
-}
-
-QString MarathonInputMethodEngine::getTextBeforeCursor(int length) {
-    QObject *focusObject = QGuiApplication::focusObject();
-    if (!focusObject)
-        return QString();
-
-    QInputMethodQueryEvent query(Qt::ImSurroundingText | Qt::ImCursorPosition);
-    QGuiApplication::sendEvent(focusObject, &query);
-
-    QString text   = query.value(Qt::ImSurroundingText).toString();
-    int     cursor = query.value(Qt::ImCursorPosition).toInt();
-
-    return text.left(cursor).right(length);
-}
-
-QString MarathonInputMethodEngine::getTextAfterCursor(int length) {
-    QObject *focusObject = QGuiApplication::focusObject();
-    if (!focusObject)
-        return QString();
-
-    QInputMethodQueryEvent query(Qt::ImSurroundingText | Qt::ImCursorPosition);
-    QGuiApplication::sendEvent(focusObject, &query);
-
-    QString text   = query.value(Qt::ImSurroundingText).toString();
-    int     cursor = query.value(Qt::ImCursorPosition).toInt();
-
-    return text.mid(cursor, length);
-}
-
 QString MarathonInputMethodEngine::getCurrentWord() {
     return m_preeditText;
 }
