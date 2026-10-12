@@ -127,6 +127,7 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleAutoBrightness();
     Q_INVOKABLE void toggleLocation();
     Q_INVOKABLE void toggleHotspot();
+    Q_INVOKABLE void ensureHotspotCredentials();
     Q_INVOKABLE void toggleVibration();
     Q_INVOKABLE void toggleNightLight();
     Q_INVOKABLE void captureScreenshot();
@@ -179,7 +180,6 @@ class SystemControlStore : public QObject {
     void                   setVolumeValue(int value);
     void                   setIsLowPowerMode(bool enabled);
     void                   refreshAlarmState();
-    void                   ensureHotspotCredentials();
     void                   markPending(const QString &id);
     void                   clearPending(const QString &id);
 

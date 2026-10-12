@@ -842,16 +842,16 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
         return;
     }
 
-    // Use the registered NMConnectionSettings typedef so QtDBus marshals this
-    // as a{sa{sv}} (what AddAndActivateConnection requires). The old code
-    // rebuilt it into a QVariantMap of QVariants → a{sv}, which NM rejected
-    // with InvalidArgs, so the hotspot was never actually created.
-    NMConnectionSettings    connectionSettings;
+    // The registered NMConnectionSettings typedef marshals as a{sa{sv}}.
+    // One saved profile under a fixed UUID: it is updated and reactivated on
+    // every start rather than a new one added each time.
+    static const QString kHotspotUuid = QStringLiteral("5f7c2a3e-8d1b-4c6e-9a0f-3b2d1e4c5a60");
+    NMConnectionSettings connectionSettings;
 
     QMap<QString, QVariant> connection;
     connection["type"]               = "802-11-wireless";
-    connection["uuid"]               = QUuid::createUuid().toString().remove('{').remove('}');
-    connection["id"]                 = ssid + " Hotspot";
+    connection["uuid"]               = kHotspotUuid;
+    connection["id"]                 = QStringLiteral("Marathon hotspot");
     connection["autoconnect"]        = false;
     connectionSettings["connection"] = connection;
 
@@ -876,40 +876,78 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
     ipv6["method"]             = "ignore";
     connectionSettings["ipv6"] = ipv6;
 
-    qDebug() << "[NetworkManagerCpp] Activating hotspot connection...";
+    QDBusConnection bus     = QDBusConnection::systemBus();
+    const QString   nm      = QStringLiteral("org.freedesktop.NetworkManager");
+    const auto      device  = QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
+    const auto      noAp    = QVariant::fromValue(QDBusObjectPath("/"));
 
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
-        "org.freedesktop.NetworkManager", "AddAndActivateConnection");
+    // The reply only means activation started; the AP is up once the active
+    // connection reaches ACTIVATED.
+    auto onActivating = [this, ssid](const QDBusError &error, const QString &activePath) {
+        if (error.isValid()) {
+            qWarning() << "[NetworkManagerCpp] Hotspot activation failed:" << error.message();
+            emit hotspotFailed(error.message());
+            return;
+        }
+        watchHotspot(false);
+        m_hotspotConnectionPath = activePath;
+        watchHotspot(true);
+        QDBusInterface active("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
+                              "org.freedesktop.NetworkManager.Connection.Active",
+                              QDBusConnection::systemBus());
+        onHotspotStateChanged(active.property("State").toUInt(), 0);
+        qInfo() << "[NetworkManagerCpp] Hotspot activating:" << ssid;
+    };
 
-    msg << QVariant::fromValue(connectionSettings);
-    msg << QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
-    msg << QVariant::fromValue(QDBusObjectPath("/"));
-
-    QDBusPendingCall         call    = QDBusConnection::systemBus().asyncCall(msg);
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-
-    connect(watcher, &QDBusPendingCallWatcher::finished, this,
-            [this, ssid](QDBusPendingCallWatcher *watcher) {
-                watcher->deleteLater();
-                QDBusPendingReply<QDBusObjectPath, QDBusObjectPath> reply = *watcher;
-
-                if (reply.isError()) {
-                    QString error = reply.error().message();
-                    qWarning() << "[NetworkManagerCpp] Hotspot creation failed:" << error;
-                    emit hotspotFailed(error);
+    QDBusMessage lookup = QDBusMessage::createMethodCall(
+        nm, "/org/freedesktop/NetworkManager/Settings", "org.freedesktop.NetworkManager.Settings",
+        "GetConnectionByUuid");
+    lookup << kHotspotUuid;
+    auto *lookupWatcher = new QDBusPendingCallWatcher(bus.asyncCall(lookup), this);
+    connect(lookupWatcher, &QDBusPendingCallWatcher::finished, this,
+            [=, this](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                QDBusPendingReply<QDBusObjectPath> saved = *w;
+                if (saved.isError()) {
+                    QDBusMessage add = QDBusMessage::createMethodCall(
+                        nm, "/org/freedesktop/NetworkManager", nm, "AddAndActivateConnection");
+                    add << QVariant::fromValue(connectionSettings) << device << noAp;
+                    auto *addWatcher = new QDBusPendingCallWatcher(bus.asyncCall(add), this);
+                    connect(addWatcher, &QDBusPendingCallWatcher::finished, this,
+                            [onActivating](QDBusPendingCallWatcher *aw) {
+                                aw->deleteLater();
+                                QDBusPendingReply<QDBusObjectPath, QDBusObjectPath> r = *aw;
+                                onActivating(r.error(), r.isError() ? QString()
+                                                                    : r.argumentAt<1>().path());
+                            });
                     return;
                 }
-                // The reply only means activation started; the AP is up once
-                // the active connection reaches ACTIVATED.
-                watchHotspot(false);
-                m_hotspotConnectionPath = reply.argumentAt<1>().path();
-                watchHotspot(true);
-                QDBusInterface active("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
-                                      "org.freedesktop.NetworkManager.Connection.Active",
-                                      QDBusConnection::systemBus());
-                onHotspotStateChanged(active.property("State").toUInt(), 0);
-                qInfo() << "[NetworkManagerCpp] Hotspot activating:" << ssid;
+                const QString profile = saved.value().path();
+                QDBusMessage  update  = QDBusMessage::createMethodCall(
+                    nm, profile, "org.freedesktop.NetworkManager.Settings.Connection", "Update");
+                update << QVariant::fromValue(connectionSettings);
+                auto *updateWatcher = new QDBusPendingCallWatcher(bus.asyncCall(update), this);
+                connect(updateWatcher, &QDBusPendingCallWatcher::finished, this,
+                        [=, this](QDBusPendingCallWatcher *uw) {
+                            uw->deleteLater();
+                            if (uw->isError()) {
+                                onActivating(uw->error(), QString());
+                                return;
+                            }
+                            QDBusMessage activate = QDBusMessage::createMethodCall(
+                                nm, "/org/freedesktop/NetworkManager", nm, "ActivateConnection");
+                            activate << QVariant::fromValue(QDBusObjectPath(profile)) << device
+                                     << noAp;
+                            auto *activateWatcher =
+                                new QDBusPendingCallWatcher(bus.asyncCall(activate), this);
+                            connect(activateWatcher, &QDBusPendingCallWatcher::finished, this,
+                                    [onActivating](QDBusPendingCallWatcher *cw) {
+                                        cw->deleteLater();
+                                        QDBusPendingReply<QDBusObjectPath> r = *cw;
+                                        onActivating(r.error(),
+                                                     r.isError() ? QString() : r.value().path());
+                                    });
+                        });
             });
 }
 

@@ -32,6 +32,10 @@ Item {
     // content reveal so the chrome MATERIALISES as the shade pulls down and
     // fades back out as it's dragged closed — motion coupled to the gesture,
     // not a canned one-shot. +140 keeps it ~1 before the last pixels arrive.
+    // Long-press on Hotspot shows what a client needs to join.
+    property bool hotspotDetailsShown: false
+    onVisibleChanged: if (!visible) hotspotDetailsShown = false
+
     readonly property real openProgress: Math.min(1, height / Math.max(1, content.implicitHeight + 140))
 
     // Backdrop: the ambience's wallpaper, lightly frosted, over any app or
@@ -383,7 +387,26 @@ Item {
                         on: modelData.on === true
                         busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
                         onToggled: quickSettings.toggle(modelData.id)
+                        onHeld: quickSettings.hold(modelData.id)
                     }
+                }
+            }
+
+            Column {
+                width: parent.width
+                visible: quickSettings.hotspotDetailsShown
+
+                Silica.DetailItem {
+                    leftMargin: 0
+                    rightMargin: 0
+                    label: qsTr("Hotspot network")
+                    value: SystemControlStore.hotspotSsid
+                }
+                Silica.DetailItem {
+                    leftMargin: 0
+                    rightMargin: 0
+                    label: qsTr("Password")
+                    value: SystemControlStore.hotspotPassword
                 }
             }
 
@@ -511,6 +534,14 @@ Item {
             quickSettings.launchApp({ "appId": "settings", "name": "Settings" });
             break;
         }
+    }
+
+    function hold(id) {
+        if (id !== "hotspot")
+            return;
+        MHaptics.light();
+        SystemControlStore.ensureHotspotCredentials();
+        hotspotDetailsShown = !hotspotDetailsShown;
     }
 
     function doAction(id) {
