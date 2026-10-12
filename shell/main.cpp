@@ -693,6 +693,14 @@ int main(int argc, char *argv[]) {
     auto *sensorManager = new SensorManagerCpp(&app);
     displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
+    // The device name is what other Bluetooth devices see.
+    auto applyDeviceName = [bluetoothManager, settingsManager]() {
+        bluetoothManager->setAdapterAlias(settingsManager->deviceName());
+    };
+    QObject::connect(settingsManager, &SettingsManager::deviceNameChanged, bluetoothManager,
+                     applyDeviceName);
+    QObject::connect(bluetoothManager, &BluetoothManager::availableChanged, bluetoothManager,
+                     applyDeviceName);
     auto *locationManager  = new LocationManager(&app);
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",

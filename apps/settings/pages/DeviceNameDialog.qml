@@ -23,7 +23,8 @@ Dialog {
             width: parent.width
             label: qsTr("Name for this device")
             placeholderText: qsTr("Name for this device")
-            description: dialog.canAccept ? "" : qsTr("Enter a name")
+            description: dialog.canAccept ? qsTr("Shown to Bluetooth devices nearby") : qsTr("Enter a name")
+            maximumLength: 63
             focus: true
             EnterKey.enabled: dialog.canAccept
             EnterKey.iconSource: "image://theme/icon-m-enter-accept"

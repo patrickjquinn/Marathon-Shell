@@ -121,6 +121,7 @@ class BluetoothManager : public QObject {
         return m_available;
     }
 
+    void             setAdapterAlias(const QString &alias);
     Q_INVOKABLE void startScan();
     Q_INVOKABLE void stopScan();
     Q_INVOKABLE void pairDevice(const QString &address, const QString &pin = "");

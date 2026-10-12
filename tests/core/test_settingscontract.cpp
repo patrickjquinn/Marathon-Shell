@@ -72,6 +72,9 @@ namespace {
         {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
         {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
         {"autoLock", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLock"}},
+        // The setter applies it through timedated.
+        {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
+        {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
         {"appNotificationSettings",
          {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
         {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "dndEnabled"}},
@@ -117,9 +120,7 @@ namespace {
     };
 
     // Written but not yet acted on; each is an open audit finding.
-    const QHash<QString, QString> kKnownGaps = {
-        {"deviceName", "ST-47"},
-    };
+    const QHash<QString, QString> kKnownGaps = {};
 
     bool hasWritableProperty(const QMetaObject &meta, const QString &name) {
         const int i = meta.indexOfProperty(name.toUtf8().constData());

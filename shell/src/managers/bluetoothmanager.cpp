@@ -370,6 +370,13 @@ void BluetoothManager::setDiscoverable(bool discoverable) {
     qDebug() << "[BluetoothManager] Setting discoverable to" << discoverable;
 }
 
+void BluetoothManager::setAdapterAlias(const QString &alias) {
+    if (!m_adapter || alias.isEmpty() || alias == m_adapterName)
+        return;
+    QDBusInterface props("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", m_bus);
+    props.asyncCall("Set", "org.bluez.Adapter1", "Alias", QVariant::fromValue(QDBusVariant(alias)));
+}
+
 void BluetoothManager::startScan() {
     if (!m_adapter)
         return;
