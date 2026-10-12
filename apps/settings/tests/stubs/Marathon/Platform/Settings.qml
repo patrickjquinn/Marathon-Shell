@@ -62,12 +62,6 @@ QtObject {
     function availableAlarmSounds() {
         return ["/sounds/alarm_dawn.wav", "/sounds/alarm_bell.wav"];
     }
-    function screenTimeoutOptions() {
-        return ["30 seconds", "1 minute", "2 minutes", "5 minutes", "Never"];
-    }
-    function screenTimeoutValue(option) {
-        return { "30 seconds": 30000, "1 minute": 60000, "2 minutes": 120000, "5 minutes": 300000, "Never": 0 }[option];
-    }
     function formatSoundName(path) {
         const base = String(path).split("/").pop().replace(/\.[a-z0-9]+$/, "").replace("alarm_", "").replace("ring_", "");
         return base.charAt(0).toUpperCase() + base.slice(1);

@@ -216,6 +216,15 @@ const scales = [
     { factor: 1.5, title: qsTr("150%"), description: qsTr("Huge") }
 ];
 
+// The shell's screenTimeout is in milliseconds; 0 keeps the screen on.
+const screenTimeouts = [
+    { ms: 30000, title: qsTr("30 seconds") },
+    { ms: 60000, title: qsTr("1 minute") },
+    { ms: 120000, title: qsTr("2 minutes") },
+    { ms: 300000, title: qsTr("5 minutes") },
+    { ms: 0, title: qsTr("Never") }
+];
+
 // Index of the option closest to value, so a stored 1.0999 still selects 110%.
 function nearestIndex(values, value) {
     let best = 0;

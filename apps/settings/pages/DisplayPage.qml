@@ -8,8 +8,6 @@ import "../SettingsLogic.js" as Logic
 Page {
     id: page
 
-    readonly property var timeouts: Settings.screenTimeoutOptions()
-
     function setBrightness(percent) {
         Display.brightness = Math.max(0, Math.min(100, percent)) / 100;
     }
@@ -63,17 +61,17 @@ Page {
                 width: parent.width
                 label: qsTr("Turn screen off after")
                 Binding on currentIndex {
-                    value: page.timeouts.findIndex(option => Settings.screenTimeoutValue(option) === Settings.screenTimeout)
+                    value: Logic.screenTimeouts.findIndex(option => option.ms === Settings.screenTimeout)
                 }
                 menu: ContextMenu {
                     Repeater {
-                        model: page.timeouts
+                        model: Logic.screenTimeouts
 
                         MenuItem {
-                            required property string modelData
+                            required property var modelData
 
-                            text: modelData
-                            onClicked: Settings.screenTimeout = Settings.screenTimeoutValue(modelData)
+                            text: modelData.title
+                            onClicked: Settings.screenTimeout = modelData.ms
                         }
                     }
                 }
