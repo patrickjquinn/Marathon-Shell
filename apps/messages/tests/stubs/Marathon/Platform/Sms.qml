@@ -6,6 +6,7 @@ QtObject {
     property var messages: ({})
     property var sent: []
     property var deleted: []
+    property var deletedMessages: []
     property var read: []
 
     signal messageReceived(string sender, string text, real timestamp)
@@ -17,6 +18,7 @@ QtObject {
         messages = msgs || {};
         sent = [];
         deleted = [];
+        deletedMessages = [];
         read = [];
     }
     function getMessages(id) {
@@ -28,6 +30,12 @@ QtObject {
     function deleteConversation(id) {
         deleted = deleted.concat([id]);
         conversations = conversations.filter(c => c.id !== id);
+    }
+    function deleteMessage(id) {
+        deletedMessages = deletedMessages.concat([id]);
+        for (const conv in messages)
+            messages[conv] = messages[conv].filter(m => m.id !== id);
+        return true;
     }
     function markAsRead(id) {
         read = read.concat([id]);

@@ -236,6 +236,24 @@ TestCase {
         tryCompare(Clipboard, "text", "Hello");
     }
 
+    function test_deleteMessageWithRemorse() {
+        const app = makeApp();
+        app.openConversation(sample()[0]);
+        const conv = waitForPage(app, "conversation");
+        const view = findChild(conv, "messageList");
+        let first = null;
+        tryVerify(() => (first = view.itemAtIndex(0)));
+        first.openMenu();
+        tryVerify(() => first.menuOpen && first._menuItem._expanded && !first._menuItem._displayHeightAnimating);
+        const del = findChild(first._menuItem, "deleteItem");
+        tryVerify(() => del.visible && del.height > 0);
+        mouseClick(del);
+        compare(Sms.deletedMessages, []);
+        tryCompare(Sms, "deletedMessages", [1], 8000);
+        tryCompare(view, "count", 1);
+        compare(conv.messages[0].text, "Lunch?");
+    }
+
     function test_newMessageWithContact() {
         const app = makeApp();
         app.newMessage();

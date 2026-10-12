@@ -131,6 +131,10 @@ Page {
 
             width: view.width
             message: modelData
+            onDeleteRequested: {
+                Sms.deleteMessage(modelData.id);
+                root.load();
+            }
         }
 
         VerticalScrollDecorator {}

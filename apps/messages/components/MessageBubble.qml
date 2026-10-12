@@ -10,6 +10,8 @@ ListItem {
     readonly property real dayHeight: day.visible ? day.implicitHeight : 0
     readonly property real textWidth: width * 0.8 - Theme.horizontalPageMargin
 
+    signal deleteRequested
+
     contentHeight: dayHeight + body.height + (time.visible ? time.height : 0) + Theme.paddingMedium
     Accessible.name: message.text
     Accessible.description: outgoing ? qsTr("Sent") : qsTr("Received")
@@ -18,6 +20,11 @@ ListItem {
             objectName: "copyItem"
             text: qsTr("Copy")
             onClicked: Clipboard.text = root.message.text
+        }
+        MenuItem {
+            objectName: "deleteItem"
+            text: qsTr("Delete")
+            onClicked: root.remorseDelete(() => root.deleteRequested())
         }
     }
 
