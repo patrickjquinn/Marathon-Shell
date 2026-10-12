@@ -2,6 +2,9 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QDateTime>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "alarmmanagercpp.h"
 #include "settingsmanager.h"
 
@@ -82,6 +85,29 @@ class TestAlarmManager : public QObject {
         QTest::qWait(200);
         QCOMPARE(triggered.count(), 1);
         QCOMPARE(triggered.first().at(1).toString(), QString("Timer"));
+        alarms.stopAll();
+    }
+
+    void snoozeRingsAgainAfterItsDuration() {
+        AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
+        QTest::qWait(10);
+        QSignalSpy triggered(&alarms, &AlarmManagerCpp::alarmTriggered);
+        alarms.triggerAlarmNow("Wake");
+        QCOMPARE(triggered.count(), 1);
+        const QString id     = triggered.first().at(0).toString();
+        const qint64  before = QDateTime::currentMSecsSinceEpoch();
+        QVERIFY(alarms.snoozeAlarm(id));
+        QVERIFY(!alarms.hasActiveAlarm());
+        QVERIFY(alarms.alarms().isEmpty());
+
+        const QJsonArray saved =
+            QJsonDocument::fromJson(m_settings->get("alarms/data").toString().toUtf8()).array();
+        QCOMPARE(saved.size(), 1);
+        const QJsonObject again = saved.first().toObject();
+        QCOMPARE(again["label"].toString(), QString("Wake"));
+        QVERIFY(again["oneShot"].toBool());
+        const qint64 at = again["at"].toInteger();
+        QVERIFY(at >= before + 10 * 60000 && at <= before + 10 * 60000 + 1000);
         alarms.stopAll();
     }
 

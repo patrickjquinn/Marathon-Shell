@@ -78,8 +78,7 @@ AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *pow
     // The monotonic timer stands still while suspended; after an RTC wake it
     // would ring late by the time spent asleep.
     if (m_power)
-        connect(m_power, &PowerManagerCpp::resumedFromSuspend, this,
-                &AlarmManagerCpp::checkAlarms);
+        connect(m_power, &PowerManagerCpp::resumedFromSuspend, this, &AlarmManagerCpp::checkAlarms);
 
     QTimer::singleShot(0, this, [this]() {
         loadAlarms();
@@ -213,6 +212,18 @@ bool AlarmManagerCpp::snoozeAlarm(const QString &id) {
 
             if (m_activeAlarms.isEmpty())
                 stopAll();
+
+            Alarm again   = a;
+            again.id      = makeId(a.label);
+            again.oneShot = true;
+            again.hidden  = true;
+            again.enabled = true;
+            again.repeat  = {};
+            again.at      = QDateTime::currentMSecsSinceEpoch() + qint64(a.snoozeDuration) * 60000;
+            again.time    = QDateTime::fromMSecsSinceEpoch(again.at).toString("HH:mm");
+            m_alarms.append(again);
+            saveAlarms();
+            scheduleNextAlarm();
 
             qInfo() << "[AlarmManagerCpp] Snoozed alarm:" << id;
             emit alarmSnoozed(id, a.snoozeDuration);
