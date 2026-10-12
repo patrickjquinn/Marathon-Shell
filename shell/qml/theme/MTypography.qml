@@ -1,6 +1,6 @@
 pragma Singleton
 import QtQuick
-import Sailfish.Silica 1.0
+import Sailfish.Silica 1.0 as Silica
 import MarathonOS.Shell
 
 QtObject {
@@ -65,7 +65,7 @@ QtObject {
     // font.variableAxes for weight axis instancing (Qt 6.7+). Static
     // cuts (fontFamilyForWeight) remain available for callsites that
     // set font.weight directly without engaging the axis.
-    readonly property string fontFamily: Theme.fontFamily
+    readonly property string fontFamily: Silica.Theme.fontFamily
     readonly property string fontFamilyMono: _monoLoader.name !== "" ? _monoLoader.name : "JetBrains Mono"
     readonly property string fontMonospace: fontFamilyMono
 
@@ -73,14 +73,14 @@ QtObject {
     // (lock-screen clock, OOBE display, etc.) where the weight has to
     // hit exactly. Falls back to fontconfig "Sora <Cut>" string if a
     // FontLoader hasn't returned yet.
-    readonly property string fontFamilyThin: Theme.fontFamily
-    readonly property string fontFamilyExtraLight: Theme.fontFamily
-    readonly property string fontFamilyLight: Theme.fontFamily
-    readonly property string fontFamilyRegular: Theme.fontFamily
-    readonly property string fontFamilyMedium: Theme.fontFamily
-    readonly property string fontFamilySemiBold: Theme.fontFamily
-    readonly property string fontFamilyBold: Theme.fontFamily
-    readonly property string fontFamilyExtraBold: Theme.fontFamily
+    readonly property string fontFamilyThin: Silica.Theme.fontFamily
+    readonly property string fontFamilyExtraLight: Silica.Theme.fontFamily
+    readonly property string fontFamilyLight: Silica.Theme.fontFamily
+    readonly property string fontFamilyRegular: Silica.Theme.fontFamily
+    readonly property string fontFamilyMedium: Silica.Theme.fontFamily
+    readonly property string fontFamilySemiBold: Silica.Theme.fontFamily
+    readonly property string fontFamilyBold: Silica.Theme.fontFamily
+    readonly property string fontFamilyExtraBold: Silica.Theme.fontFamily
 
     function fontFamilyForWeight(w) {
         if (w <= 100)
