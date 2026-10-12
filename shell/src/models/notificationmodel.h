@@ -49,6 +49,9 @@ class Notification : public QObject {
     qint64 timestamp() const {
         return m_timestamp;
     }
+    void setTimestamp(qint64 msecs) {
+        m_timestamp = msecs;
+    }
     bool isRead() const {
         return m_isRead;
     }
@@ -157,6 +160,7 @@ class NotificationModel : public QAbstractListModel {
     void countChanged();
     void notificationAdded(int id);
     void notificationDismissed(int id);
+    void notificationRead(int id);
 
   private:
     void                       updateUnreadCount();

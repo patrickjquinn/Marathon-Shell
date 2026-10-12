@@ -118,6 +118,29 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(closed.first().at(1).toUInt(), 3u);
     }
 
+    void reloadKeepsTimeAndReadState() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        NotificationDatabase::NotificationRecord r{};
+        r.appId                 = "chat";
+        r.title                 = "Ada";
+        r.body                  = "Yesterday";
+        r.timestamp             = QDateTime::currentDateTime().addDays(-1);
+        const uint old          = db.saveNotification(r);
+        const uint fresh        = fdn.Notify("chat", 0, "", "Ada", "Now", {}, {}, -1);
+        model.markAsRead(int(fresh));
+
+        NotificationModel reloaded;
+        reloaded.loadFromDatabase(&db);
+        QVERIFY(reloaded.getNotification(int(old)));
+        QCOMPARE(reloaded.getNotification(int(old))->timestamp() / 1000,
+                 r.timestamp.toSecsSinceEpoch());
+        QVERIFY(reloaded.getNotification(int(fresh))->isRead());
+    }
+
     void replacingDoesNotSignalClosed() {
         NotificationDatabase db;
         db.initialize();

@@ -157,6 +157,7 @@ void NotificationModel::markAsRead(int id) {
             emit        dataChanged(modelIndex, modelIndex, {IsReadRole});
         }
         updateUnreadCount();
+        emit notificationRead(id);
         qDebug() << "[NotificationModel] Marked as read:" << id;
     }
 }
@@ -222,6 +223,7 @@ void NotificationModel::loadFromDatabase(NotificationDatabase *database) {
         Notification *notification = new Notification(record.id, record.appId, record.title,
                                                       record.body, record.iconPath, this);
         notification->setIsRead(record.read);
+        notification->setTimestamp(record.timestamp.toMSecsSinceEpoch());
         notification->setActions(record.actions);
         notification->setReplyPlaceholder(
             record.metadata.value("x-kde-reply-placeholder-text").toString());

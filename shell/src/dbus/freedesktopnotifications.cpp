@@ -23,6 +23,10 @@ FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *databas
             if (id > 0 && m_database->dismiss(uint(id)))
                 emit NotificationClosed(uint(id), 2);
         });
+        connect(m_model, &NotificationModel::notificationRead, this, [this](int id) {
+            if (id > 0)
+                m_database->markAsRead(uint(id));
+        });
     }
 }
 
