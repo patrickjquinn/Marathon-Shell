@@ -1,0 +1,61 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+pkgname=keel-silica
+pkgver=0.1.0
+pkgrel=2
+_commit=55e956d7e87ffc32ae617c3ec6deb2c0550717bc
+_qtver=6.11.1
+pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
+url="https://github.com/patrickjquinn/shipwright-open"
+arch="aarch64"
+license="MIT AND BSD-3-Clause AND LGPL-2.1-only"
+depends="qt6-qtdeclarative~$_qtver"
+makedepends="
+	cargo
+	cmake
+	samurai
+	qt6-qtbase-dev
+	qt6-qtbase-private-dev
+	qt6-qtdeclarative-dev
+	qt6-qtdeclarative-private-dev
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz"
+# Keel's tests need a session bus and qmltestrunner; they run in Shipwright's CI.
+options="net !check"
+builddir="$srcdir/shipwright-open-$_commit/keel"
+
+prepare() {
+	default_prepare
+	cargo fetch --manifest-path silica/plugin/Cargo.toml --locked
+}
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DKEEL_QML_INSTALL_DIR=/usr/lib/qt6/qml \
+		-DKEEL_BUILD_NEMO_COMPAT=ON \
+		-DKEEL_BUILD_SAILFISHAPP=OFF \
+		-DKEEL_BUILD_PLATFORM=OFF \
+		-DKEEL_BUILD_ACTIONS=OFF \
+		-DKEEL_BUILD_BOOSTER=OFF \
+		-DBUILD_TESTING=OFF
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	rm -rf "$pkgdir"/usr/lib/keel \
+		"$pkgdir"/usr/lib/qt6/qml/Nemo/Policy \
+		"$pkgdir"/usr/lib/qt6/qml/org/nemomobile/policy
+	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+	install -Dm644 silica/upstream/sailfishsilica-qt5-1.2.156/LICENSE.BSD \
+		"$pkgdir"/usr/share/licenses/$pkgname/LICENSE.BSD
+	install -Dm644 silica/upstream/sailfishsilica-qt5-1.2.156/LICENSE \
+		"$pkgdir"/usr/share/licenses/$pkgname/sailfishsilica.LICENSE
+	install -Dm644 nemo-compat/upstream-licenses/* \
+		-t "$pkgdir"/usr/share/licenses/$pkgname/
+}
+
+sha512sums="
+0c1002424be2a84a1ed5e237eb5287526ac5518e245277bf12eb46742a8c9982f8c5e2e41ba9906034b11914610c25af9b0595e12ed6c254f222a613df19a85f  keel-silica-55e956d7e87ffc32ae617c3ec6deb2c0550717bc.tar.gz
+"

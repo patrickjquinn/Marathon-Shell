@@ -161,6 +161,7 @@ build_if_missing "qmf"                       'qmf-libs-*.apk'                 "$
 build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'     "$LIB/build-marathon-base-config-apk.sh"      "$APORTS_DIR/marathon-base-config/APKBUILD"
 build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'      "$LIB/build-marathon-mail-oauth-apk.sh"       "$APORTS_DIR/marathon-mail-oauth/APKBUILD"
 build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$LIB/build-marathon-plymouth-theme-apk.sh"   "$APORTS_DIR/marathon-plymouth-theme/APKBUILD"
+build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
