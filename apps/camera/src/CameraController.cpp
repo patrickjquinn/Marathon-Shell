@@ -1,5 +1,6 @@
 #include "CameraController.h"
 #include <QDateTime>
+#include <algorithm>
 #include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
@@ -7,8 +8,8 @@
 namespace {
     QtMessageHandler originalHandler = nullptr;
 
-    void                    cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                                                 const QString &msg) {
+    void             cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                          const QString &msg) {
         if (msg.contains("V4L2_MEMORY_USERPTR") || msg.contains("memorytransfer")) {
             return;
         }
@@ -90,6 +91,18 @@ void CameraController::setupCamera(int index) {
     emit currentCameraIndexChanged();
 
     updateZoomRange();
+
+    m_photoResolutions = m_cameras.at(index).photoResolutions();
+    std::sort(m_photoResolutions.begin(), m_photoResolutions.end(),
+              [](const QSize &a, const QSize &b) {
+                  return a.width() * a.height() > b.width() * b.height();
+              });
+    emit photoResolutionsChanged();
+    if (!m_photoResolutions.contains(m_photoResolution)) {
+        m_photoResolution = QSize();
+        emit photoResolutionChanged();
+    }
+    m_imageCapture->setResolution(m_photoResolution);
 
     qWarning() << "[CameraController] Using camera:" << m_cameras.at(index).description();
 }
@@ -285,6 +298,27 @@ void CameraController::setFlashEnabled(bool enabled) {
 
 bool CameraController::flashAvailable() const {
     return m_camera && m_camera->isFlashModeSupported(QCamera::FlashOn);
+}
+
+QVariantList CameraController::photoResolutions() const {
+    QVariantList list;
+    for (const QSize &size : m_photoResolutions)
+        list.append(size);
+    return list;
+}
+
+QSize CameraController::photoResolution() const {
+    return m_photoResolution;
+}
+
+// An empty size leaves the choice to the camera backend.
+void CameraController::setPhotoResolution(const QSize &size) {
+    if (m_photoResolution == size || (size.isValid() && !m_photoResolutions.contains(size)))
+        return;
+
+    m_photoResolution = size;
+    m_imageCapture->setResolution(m_photoResolution);
+    emit photoResolutionChanged();
 }
 
 int CameraController::timerDuration() const {

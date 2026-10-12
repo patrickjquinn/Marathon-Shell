@@ -7,7 +7,9 @@
 #include <QImageCapture>
 #include <QMediaRecorder>
 #include <QVideoSink>
+#include <QSize>
 #include <QUrl>
+#include <QVariantList>
 #include <QTimer>
 #include <QtQmlIntegration>
 
@@ -29,6 +31,10 @@ class CameraController : public QObject {
 
     Q_PROPERTY(bool flashEnabled READ flashEnabled WRITE setFlashEnabled NOTIFY flashEnabledChanged)
     Q_PROPERTY(bool flashAvailable READ flashAvailable NOTIFY flashAvailableChanged)
+
+    Q_PROPERTY(QVariantList photoResolutions READ photoResolutions NOTIFY photoResolutionsChanged)
+    Q_PROPERTY(QSize photoResolution READ photoResolution WRITE setPhotoResolution NOTIFY
+                   photoResolutionChanged)
 
     Q_PROPERTY(
         int timerDuration READ timerDuration WRITE setTimerDuration NOTIFY timerDurationChanged)
@@ -65,6 +71,10 @@ class CameraController : public QObject {
     void             setFlashEnabled(bool enabled);
     bool             flashAvailable() const;
 
+    QVariantList     photoResolutions() const;
+    QSize            photoResolution() const;
+    void             setPhotoResolution(const QSize &size);
+
     int              timerDuration() const;
     void             setTimerDuration(int seconds);
     int              timerCountdown() const;
@@ -97,6 +107,8 @@ class CameraController : public QObject {
     void zoomRangeChanged();
     void flashEnabledChanged();
     void flashAvailableChanged();
+    void photoResolutionsChanged();
+    void photoResolutionChanged();
     void timerDurationChanged();
     void timerCountdownChanged();
     void timerActiveChanged();
@@ -142,6 +154,9 @@ class CameraController : public QObject {
     qreal                 m_maxZoom   = 1.0;
 
     bool                  m_flashEnabled = false;
+
+    QList<QSize>          m_photoResolutions;
+    QSize                 m_photoResolution;
 
     int                   m_timerDuration  = 0;
     int                   m_timerCountdown = 0;
