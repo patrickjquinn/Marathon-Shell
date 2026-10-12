@@ -42,6 +42,7 @@ void ValhallaRoutingClient::requestRoute(double startLat, double startLon, doubl
     QNetworkRequest  req((QUrl(kValhallaUrl)));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("User-Agent", "MarathonOS/1.0 (Maps app routing)");
+    req.setTransferTimeout(15000);
 
     QNetworkReply *reply = m_nam.post(req, payload);
     connect(reply, &QNetworkReply::finished, this, &ValhallaRoutingClient::onReply);
@@ -64,7 +65,17 @@ void ValhallaRoutingClient::onReply() {
     emit routingChanged();
 
     if (!reply || reply->error() != QNetworkReply::NoError) {
-        m_lastError = reply ? reply->errorString() : QStringLiteral("Unknown network error");
+        // Valhalla answers "no route" as an HTTP error with a JSON reason.
+        const QJsonObject reason =
+            reply ? QJsonDocument::fromJson(reply->readAll()).object() : QJsonObject();
+        if (!reply)
+            m_lastError = QStringLiteral("Unknown network error");
+        else if (reply->error() == QNetworkReply::OperationCanceledError)
+            m_lastError = QStringLiteral("Timed out");
+        else if (reason.contains(QStringLiteral("error")))
+            m_lastError = reason.value(QStringLiteral("error")).toString();
+        else
+            m_lastError = reply->errorString();
         emit lastErrorChanged();
         emit routeFailed(m_lastError);
         return;

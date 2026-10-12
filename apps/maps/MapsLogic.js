@@ -201,3 +201,18 @@ function parseFix(json) {
         return null;
     }
 }
+
+// What to tell the user when Valhalla gives no route.
+function routeFailure(error, mode) {
+    const e = String(error || "");
+    if (/no (path|route)|unable to find|cannot reach|no suitable edges/i.test(e)) {
+        if (mode === "pedestrian")
+            return qsTr("There's no walking route to this place.");
+        if (mode === "bicycle")
+            return qsTr("There's no cycling route to this place.");
+        return qsTr("There's no driving route to this place.");
+    }
+    if (/timed out/i.test(e))
+        return qsTr("Finding a route took too long. Check your internet connection and try again.");
+    return qsTr("Couldn't find a route to this place. Check your internet connection and try again.");
+}

@@ -126,6 +126,13 @@ TestCase {
         compare(Logic.parseFix('{"lat":"x"}'), null);
     }
 
+    function test_routeFailure() {
+        compare(Logic.routeFailure("No path could be found for input", "pedestrian"), "There's no walking route to this place.");
+        compare(Logic.routeFailure("No path could be found for input", "auto"), "There's no driving route to this place.");
+        verify(Logic.routeFailure("Timed out", "auto").indexOf("too long") > 0);
+        verify(Logic.routeFailure("Host not found", "auto").indexOf("internet") > 0);
+    }
+
     function test_mapFailureIsPermanent() {
         verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
         verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));

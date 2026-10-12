@@ -25,6 +25,7 @@ ApplicationWindow {
     property bool searching: false
     property string searchError: ""
     property string lastQuery: ""
+    property int _searchGeneration: 0
     property var fetch: function (url, done) {
         const xhr = new XMLHttpRequest();
         xhr.open("GET", url);
@@ -74,6 +75,7 @@ ApplicationWindow {
     property int _navTask: 0
     // How long a finished route stays up before navigation ends itself.
     property int arrivalLinger: 60000
+    property int searchTimeoutMs: 15000
 
     readonly property bool geoclueValid: location !== null && location.available === true && location.latitude !== 0 && location.longitude !== 0
     readonly property bool fixValid: geoclueValid || positionSource.position.coordinate.isValid
@@ -82,7 +84,7 @@ ApplicationWindow {
 
     property var router: ValhallaRoutingClient {
         onRouteReady: (geojson, maneuvers, durationSec, distanceM, summary) => root._routeReady(geojson, maneuvers, durationSec, distanceM, summary)
-        onRouteFailed: () => Notices.show(qsTr("Couldn't find a route to this place. Check your internet connection and try again."))
+        onRouteFailed: error => Notices.show(Logic.routeFailure(error, root.currentMode))
     }
     // VoiceClient only exists when the build found Qt TextToSpeech.
     property var voice: null
@@ -135,14 +137,19 @@ ApplicationWindow {
         lastQuery = query;
         searchError = "";
         if (query.length === 0) {
+            _searchGeneration++;
+            searchTimeout.stop();
             searchResults = [];
             searching = false;
             return;
         }
         searching = true;
+        const generation = ++_searchGeneration;
+        searchTimeout.restart();
         fetch(Logic.searchUrl(query, fixValid ? fix : null), (status, text) => {
-            if (query !== lastQuery)
+            if (generation !== _searchGeneration)
                 return;
+            searchTimeout.stop();
             searching = false;
             const places = status === 200 ? Logic.parseResults(text) : null;
             searchResults = places || [];
@@ -380,6 +387,17 @@ ApplicationWindow {
         }
 
         target: root.location
+    }
+
+    Timer {
+        id: searchTimeout
+
+        interval: root.searchTimeoutMs
+        onTriggered: {
+            root._searchGeneration++;
+            root.searching = false;
+            root.searchError = qsTr("The search service didn't answer. Check your internet connection and try again.");
+        }
     }
 
     Timer {

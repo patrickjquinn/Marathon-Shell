@@ -177,6 +177,19 @@ TestCase {
         compare(app.fix.lat, 51.5);
     }
 
+    function test_searchTimesOut() {
+        const app = makeApp();
+        app.searchTimeoutMs = 50;
+        let late = null;
+        app.fetch = (url, done) => late = done;
+        app.search("tower");
+        verify(app.searching);
+        tryCompare(app, "searching", false, 2000);
+        verify(app.searchError.indexOf("didn't answer") > 0);
+        late(200, JSON.stringify([{ display_name: "Late", lat: "1", lon: "1" }]));
+        compare(app.searchResults, []);
+    }
+
     function test_searchFailure() {
         const app = makeApp();
         app.fetch = (url, done) => done(0, "");
