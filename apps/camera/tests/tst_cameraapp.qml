@@ -269,6 +269,19 @@ TestCase {
         verify(!flip.enabled);
     }
 
+    function test_shutterWaitsForAFlip() {
+        const app = makeApp();
+        const shutter = child(app, "shutter");
+        app.camera.cameraFlipStarted();
+        verify(!shutter.enabled);
+        app.pageStack.currentPage.shoot();
+        compare(app.camera.calls.indexOf("captureWithTimer"), -1);
+        app.camera.cameraFlipCompleted();
+        verify(shutter.enabled);
+        app.pageStack.currentPage.shoot();
+        verify(app.camera.calls.indexOf("captureWithTimer") >= 0);
+    }
+
     function test_failureShowsPlaceholderAndRetries() {
         const app = makeApp();
         app.camera.stop();

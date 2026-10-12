@@ -15,6 +15,9 @@ Page {
     readonly property bool video: app.mode === "video"
     readonly property bool settingsOpen: settings.open
     readonly property bool controlsShown: camera.ready && !app.cameraFailed
+    // The camera restarts during a flip; a capture then fails with "not ready".
+    property bool flipping: false
+    readonly property bool canShoot: camera.active && !flipping
 
     function openSettings() {
         settings.show();
@@ -25,6 +28,8 @@ Page {
     }
 
     function shoot() {
+        if (!canShoot)
+            return;
         feedback.play();
         app.shoot();
     }
@@ -68,7 +73,11 @@ Page {
             flashFade.restart();
         }
         function onCameraFlipStarted() {
+            page.flipping = true;
             flipAnimation.restart();
+        }
+        function onCameraFlipCompleted() {
+            page.flipping = false;
         }
     }
 
@@ -383,7 +392,7 @@ Page {
             horizontalCenter: parent.horizontalCenter
         }
         visible: page.controlsShown
-        enabled: page.camera.active
+        enabled: page.canShoot
         video: page.video
         recording: page.camera.isRecording
         timing: page.camera.timerActive
