@@ -181,7 +181,7 @@ Item {
                 }
 
                 StepBody {
-                    text: "Make text and icons easier to read. You can change this anytime."
+                    text: "Make text and icons easier to read. 100% is the default, and you can change this anytime."
                 }
 
                 Silica.SectionHeader {
@@ -243,11 +243,33 @@ Item {
                                 SettingsManagerCpp.userScaleFactor = scaleChoice.modelData;
                             }
 
-                            Silica.Label {
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: scaleLabel.text
+                            Accessible.checked: scaleChoice.selected
+
+                            Column {
                                 anchors.centerIn: parent
-                                text: Math.round(scaleChoice.modelData * 100)
-                                font.pixelSize: Silica.Theme.fontSizeSmall
-                                color: scaleChoice.selected || scaleChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                                width: parent.width
+
+                                Silica.Label {
+                                    id: scaleLabel
+
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: Math.round(scaleChoice.modelData * 100) + "%"
+                                    font.pixelSize: Silica.Theme.fontSizeSmall
+                                    fontSizeMode: Text.HorizontalFit
+                                    minimumPixelSize: Silica.Theme.fontSizeTiny
+                                    color: scaleChoice.selected || scaleChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                                }
+
+                                GlyphIcon {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    name: "check"
+                                    size: Silica.Theme.iconSizeExtraSmall
+                                    color: Silica.Theme.highlightColor
+                                    opacity: scaleChoice.selected ? 1 : 0
+                                }
                             }
                         }
                     }
@@ -595,6 +617,16 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: formatChoice.modelData.label
                                 color: formatChoice.selected || formatChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            }
+
+                            GlyphIcon {
+                                anchors.right: parent.right
+                                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: formatChoice.selected
+                                name: "check"
+                                size: Silica.Theme.iconSizeExtraSmall
+                                color: Silica.Theme.highlightColor
                             }
                         }
                     }
