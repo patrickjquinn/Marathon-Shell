@@ -246,7 +246,9 @@ TestCase {
         compare(app.player.currentTrack.title, "Cold");
         findChild(page, "previousButton").clicked(null);
         compare(app.player.currentTrack.title, "Blue");
-        findChild(page, "playPauseButton").clicked(null);
+        const playPause = findChild(page, "playPauseButton");
+        verify(playPause.width >= Theme.iconSizeLarge && playPause.height >= Theme.iconSizeLarge, "the hit area covers the icon-l glyph");
+        playPause.clicked(null);
         verify(!app.player.playing);
         findChild(page, "shuffleButton").clicked(null);
         verify(app.player.shuffle);

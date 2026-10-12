@@ -99,6 +99,8 @@ Page {
                 }
                 IconButton {
                     objectName: "playPauseButton"
+                    width: Theme.itemSizeLarge
+                    height: Theme.itemSizeLarge
                     anchors.verticalCenter: parent.verticalCenter
                     icon.source: page.player.playing ? "image://theme/icon-l-pause" : "image://theme/icon-l-play"
                     enabled: page.track !== null
