@@ -142,3 +142,17 @@ target_include_directories(test_shell_freedesktopnotify PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
 )
 add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
+
+# AlarmManager: one-shot, hidden, exactly-timed alarms (countdown timers)
+find_package(Qt6 REQUIRED COMPONENTS Multimedia)
+add_executable(test_shell_alarmmanager
+    test_alarmmanager.cpp
+    ../../shell/src/managers/alarmmanagercpp.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/hapticmanager.cpp
+)
+target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
+target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_AlarmManager COMMAND test_shell_alarmmanager)
+set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

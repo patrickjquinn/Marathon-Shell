@@ -25,6 +25,10 @@ struct Alarm {
     bool              vibrate;
     bool              snoozeEnabled;
     int               snoozeDuration;
+    // One-shot alarms ring once at an exact epoch-ms instant and are then removed.
+    qint64            at      = 0;
+    bool              oneShot = false;
+    bool              hidden  = false;
 
     static Alarm      fromJson(const QJsonObject &json);
     QJsonObject       toJson() const;
@@ -76,6 +80,7 @@ class AlarmManagerCpp : public QObject {
     void             scheduleNextAlarm();
     void             triggerAlarm(const Alarm &alarm);
     QDateTime        calculateNextOccurrence(const Alarm &alarm, const QDateTime &from);
+    QString          makeId(const QString &seed) const;
 
     SettingsManager *m_settings;
     PowerManagerCpp *m_power;
@@ -85,6 +90,8 @@ class AlarmManagerCpp : public QObject {
     QList<Alarm>     m_alarms;
     QList<Alarm>     m_activeAlarms;
     QTimer          *m_checkTimer;
+    QDateTime        m_scheduledFrom;
+    QDateTime        m_lastFired;
     QSoundEffect    *m_soundEffect;
 };
 

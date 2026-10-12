@@ -21,6 +21,9 @@ Alarm Alarm::fromJson(const QJsonObject &json) {
     a.vibrate        = json["vibrate"].toBool();
     a.snoozeEnabled  = json["snoozeEnabled"].toBool();
     a.snoozeDuration = json["snoozeDuration"].toInt(10);
+    a.at             = json["at"].toInteger();
+    a.oneShot        = json["oneShot"].toBool();
+    a.hidden         = json["hidden"].toBool();
 
     QJsonArray repeatArr = json["repeat"].toArray();
     for (const auto &v : std::as_const(repeatArr)) {
@@ -39,6 +42,12 @@ QJsonObject Alarm::toJson() const {
     json["vibrate"]        = vibrate;
     json["snoozeEnabled"]  = snoozeEnabled;
     json["snoozeDuration"] = snoozeDuration;
+    if (oneShot) {
+        json["at"]      = at;
+        json["oneShot"] = true;
+    }
+    if (hidden)
+        json["hidden"] = true;
 
     QJsonArray repeatArr;
     for (int day : repeat)
@@ -64,7 +73,13 @@ AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *pow
 
     m_soundEffect->setLoopCount(QSoundEffect::Infinite);
     m_checkTimer->setSingleShot(true);
+    m_checkTimer->setTimerType(Qt::PreciseTimer);
     connect(m_checkTimer, &QTimer::timeout, this, &AlarmManagerCpp::checkAlarms);
+    // The monotonic timer stands still while suspended; after an RTC wake it
+    // would ring late by the time spent asleep.
+    if (m_power)
+        connect(m_power, &PowerManagerCpp::resumedFromSuspend, this,
+                &AlarmManagerCpp::checkAlarms);
 
     QTimer::singleShot(0, this, [this]() {
         loadAlarms();
@@ -75,7 +90,8 @@ AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *pow
 QVariantList AlarmManagerCpp::alarms() const {
     QVariantList list;
     for (const auto &a : m_alarms)
-        list.append(a.toVariantMap());
+        if (!a.hidden)
+            list.append(a.toVariantMap());
     return list;
 }
 
@@ -88,7 +104,7 @@ QVariantList AlarmManagerCpp::activeAlarms() const {
 
 bool AlarmManagerCpp::hasEnabledAlarm() const {
     for (const auto &a : m_alarms) {
-        if (a.enabled)
+        if (a.enabled && !a.hidden)
             return true;
     }
     return false;
@@ -109,12 +125,21 @@ QString AlarmManagerCpp::createAlarm(const QString &time, const QString &label,
     a.vibrate        = options.value("vibrate", true).toBool();
     a.snoozeEnabled  = options.value("snoozeEnabled", true).toBool();
     a.snoozeDuration = options.value("snoozeDuration", 10).toInt();
+    a.oneShot        = options.value("oneShot", false).toBool();
+    a.hidden         = options.value("hidden", false).toBool();
+    if (a.oneShot) {
+        a.at = options.value("at").toLongLong();
+        if (a.at <= 0)
+            return {};
+        a.time   = QDateTime::fromMSecsSinceEpoch(a.at).toString("HH:mm");
+        a.repeat = {};
+    }
 
-    QString input = QString::number(QDateTime::currentMSecsSinceEpoch()) + time + label;
-    a.id = QString(QCryptographicHash::hash(input.toUtf8(), QCryptographicHash::Md5).toHex());
+    a.id = makeId(time + label);
 
     m_alarms.append(a);
-    emit alarmsChanged();
+    if (!a.hidden)
+        emit alarmsChanged();
     saveAlarms();
     scheduleNextAlarm();
     qInfo() << "[AlarmManagerCpp] Created alarm:" << a.id << "at" << time;
@@ -158,8 +183,10 @@ bool AlarmManagerCpp::updateAlarm(const QString &id, const QVariantMap &updates)
 bool AlarmManagerCpp::deleteAlarm(const QString &id) {
     for (int i = 0; i < m_alarms.size(); ++i) {
         if (m_alarms[i].id == id) {
+            const bool hidden = m_alarms[i].hidden;
             m_alarms.removeAt(i);
-            emit alarmsChanged();
+            if (!hidden)
+                emit alarmsChanged();
             saveAlarms();
             scheduleNextAlarm();
             qInfo() << "[AlarmManagerCpp] Deleted alarm:" << id;
@@ -233,9 +260,15 @@ void AlarmManagerCpp::triggerAlarmNow(const QString &label) {
     a.snoozeEnabled  = true;
     a.snoozeDuration = 10;
 
-    const QString input = QString::number(QDateTime::currentMSecsSinceEpoch()) + a.time + a.label;
-    a.id = QString(QCryptographicHash::hash(input.toUtf8(), QCryptographicHash::Md5).toHex());
+    a.id = makeId(a.time + a.label);
     triggerAlarm(a);
+}
+
+QString AlarmManagerCpp::makeId(const QString &seed) const {
+    static int    counter = 0;
+    const QString input =
+        QString::number(QDateTime::currentMSecsSinceEpoch()) + QString::number(++counter) + seed;
+    return QString(QCryptographicHash::hash(input.toUtf8(), QCryptographicHash::Md5).toHex());
 }
 
 void AlarmManagerCpp::loadAlarms() {
@@ -261,14 +294,17 @@ void AlarmManagerCpp::saveAlarms() {
 }
 
 void AlarmManagerCpp::scheduleNextAlarm() {
-    QDateTime now = QDateTime::currentDateTime();
-    QDateTime nextTime;
-    bool      found = false;
+    const QDateTime now = QDateTime::currentDateTime();
+    QDateTime       nextTime;
+    bool            found = false;
+
+    // From the last ring if the timer fired a little early, so it can't ring twice.
+    m_scheduledFrom = m_lastFired.isValid() && m_lastFired > now ? m_lastFired : now;
 
     for (const auto &a : std::as_const(m_alarms)) {
         if (!a.enabled)
             continue;
-        QDateTime t = calculateNextOccurrence(a, now);
+        QDateTime t = calculateNextOccurrence(a, m_scheduledFrom);
         if (!found || t < nextTime) {
             nextTime = t;
             found    = true;
@@ -285,11 +321,14 @@ void AlarmManagerCpp::scheduleNextAlarm() {
             m_power->setRtcAlarm(nextTime.toSecsSinceEpoch());
 
         m_checkTimer->start(ms);
-        qInfo() << "[AlarmManagerCpp] Next alarm in" << ms / 60000 << "minutes";
+        qInfo() << "[AlarmManagerCpp] Next alarm in" << ms / 1000 << "seconds";
     }
 }
 
 QDateTime AlarmManagerCpp::calculateNextOccurrence(const Alarm &alarm, const QDateTime &from) {
+    if (alarm.oneShot)
+        return QDateTime::fromMSecsSinceEpoch(alarm.at);
+
     QStringList parts = alarm.time.split(":");
     if (parts.size() != 2)
         return from.addYears(1);
@@ -318,21 +357,40 @@ QDateTime AlarmManagerCpp::calculateNextOccurrence(const Alarm &alarm, const QDa
 }
 
 void AlarmManagerCpp::checkAlarms() {
-    QDateTime now     = QDateTime::currentDateTime();
-    QString   timeStr = now.time().toString("HH:mm");
-    int       day     = now.date().dayOfWeek() % 7;
+    if (!m_scheduledFrom.isValid())
+        return;
+    // Timers may fire marginally early.
+    const QDateTime horizon = QDateTime::currentDateTime().addMSecs(50);
+    QList<Alarm>    due;
+    bool            removedAny   = false;
+    bool            removedShown = false;
 
-    for (const auto &a : std::as_const(m_alarms)) {
-        if (!a.enabled)
-            continue;
-        if (a.time != timeStr)
-            continue;
-
-        if (!a.repeat.isEmpty() && !a.repeat.contains(day))
-            continue;
-
-        triggerAlarm(a);
+    for (int i = 0; i < m_alarms.size();) {
+        const Alarm &a = m_alarms[i];
+        if (a.enabled) {
+            const QDateTime t = calculateNextOccurrence(a, m_scheduledFrom);
+            if (t <= horizon) {
+                due.append(a);
+                if (!m_lastFired.isValid() || t > m_lastFired)
+                    m_lastFired = t;
+                if (a.oneShot) {
+                    removedAny = true;
+                    removedShown |= !a.hidden;
+                    m_alarms.removeAt(i);
+                    continue;
+                }
+            }
+        }
+        ++i;
     }
+
+    if (removedShown)
+        emit alarmsChanged();
+    if (removedAny)
+        saveAlarms();
+
+    for (const Alarm &a : std::as_const(due))
+        triggerAlarm(a);
     scheduleNextAlarm();
 }
 
