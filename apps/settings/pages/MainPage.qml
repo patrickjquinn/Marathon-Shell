@@ -142,20 +142,18 @@ Page {
                 width: parent.width
                 visible: !page.searching
 
-                IconTextSwitch {
+                TextSwitch {
                     objectName: "airplaneSwitch"
                     text: qsTr("Airplane mode")
                     description: qsTr("Turns off Wi-Fi, Bluetooth and mobile network")
-                    icon.source: "image://theme/icon-m-airplane-mode"
                     automaticCheck: false
                     checked: Network.airplaneModeEnabled
                     onClicked: Network.setAirplaneMode(!checked)
                 }
-                IconTextSwitch {
+                TextSwitch {
                     objectName: "dndSwitch"
                     text: qsTr("Do not disturb")
                     description: qsTr("Silences notifications and calls")
-                    icon.source: "image://theme/icon-m-do-not-disturb"
                     automaticCheck: false
                     checked: Settings.dndEnabled
                     onClicked: page.setDoNotDisturb(!checked)
