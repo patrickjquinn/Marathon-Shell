@@ -35,8 +35,9 @@ class AmbienceService : public QObject {
         return m_pixelRatio;
     }
 
-    // Silica's pixel ratio for a screen's density, in quarter steps, times
-    // Marathon's interface scale. Sailfish runs the Jolla C (294 dpi) at 1.25.
+    // Silica's pixel ratio: the screen's density in Sailfish's quarter steps
+    // (about 261 dpi per unit: Xperia 10 1.75, Jolla C 1.25), times
+    // Marathon's interface scale, in steps of 0.05.
     static qreal sailfishPixelRatio(qreal dpi, qreal userScale);
 
     void             setWallpaper(const QString &path);
