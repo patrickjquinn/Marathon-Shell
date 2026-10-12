@@ -1088,6 +1088,7 @@ int main(int argc, char *argv[]) {
             davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
+        ipc->setWallpaperStore(wallpaperStore);
         auto *portalSettings = new PortalSettings(&app);
         portalSettings->setAmbience(ambienceService->ambience());
         QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,

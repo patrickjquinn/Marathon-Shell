@@ -4,6 +4,7 @@
 #include "marathonpermissionmanager.h"
 #include "settingsmanager.h"
 #include "ambienceservice.h"
+#include "wallpaperstore.h"
 #include "securitymanager.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
@@ -2226,4 +2227,12 @@ AmbienceObject::AmbienceObject(AmbienceService *ambience, QObject *parent)
 
 QVariantMap AmbienceObject::GetAmbience() {
     return m_ambience->ambience();
+}
+
+WallpaperObject::WallpaperObject(WallpaperStore *store, QObject *parent)
+    : QObject(parent)
+    , m_store(store) {}
+
+QVariantList WallpaperObject::GetWallpapers() {
+    return m_store->wallpapers();
 }

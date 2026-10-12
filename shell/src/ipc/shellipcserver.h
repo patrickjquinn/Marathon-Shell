@@ -31,6 +31,7 @@ class AppLifecycleManager;
 class MarathonAppRegistry;
 
 class AmbienceService;
+class WallpaperStore;
 
 class ShellIpcServer : public QObject {
     Q_OBJECT
@@ -54,6 +55,9 @@ class ShellIpcServer : public QObject {
     void setAmbienceService(AmbienceService *ambience) {
         m_ambience = ambience;
     }
+    void setWallpaperStore(WallpaperStore *store) {
+        m_wallpaperStore = store;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -65,6 +69,7 @@ class ShellIpcServer : public QObject {
     MediaLibraryManager       *m_mediaLibrary        = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;
     AmbienceService           *m_ambience            = nullptr;
+    WallpaperStore            *m_wallpaperStore      = nullptr;
     BluetoothManager          *m_bluetoothManager    = nullptr;
     DisplayManagerCpp         *m_displayManager      = nullptr;
     PowerManagerCpp           *m_powerManager        = nullptr;

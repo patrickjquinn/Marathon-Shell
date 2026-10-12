@@ -21,6 +21,7 @@ set(SOURCES
     keelhost.cpp
     ambienceclient.cpp
     platformtypes.cpp
+    wallpaperclient.cpp
     ipc/shellipcclients.cpp
     calendarmanagercpp.cpp
     ../../marathon-services/src/musiclibrarymanager.cpp

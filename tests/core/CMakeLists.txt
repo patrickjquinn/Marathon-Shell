@@ -148,3 +148,14 @@ target_include_directories(test_core_hostedapp PRIVATE
 )
 add_test(NAME Core_HostedApp COMMAND test_core_hostedapp)
 set_tests_properties(Core_HostedApp PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Wallpapers for the Settings app (Marathon.Platform Wallpapers)
+add_executable(test_core_wallpaperclient
+    test_wallpaperclient.cpp
+    ../../tools/marathon-app-runner/wallpaperclient.cpp
+)
+target_link_libraries(test_core_wallpaperclient Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_core_wallpaperclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_WallpaperClient COMMAND test_core_wallpaperclient)

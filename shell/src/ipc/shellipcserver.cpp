@@ -163,6 +163,10 @@ bool ShellIpcServer::registerOnSessionBus() {
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/AppLifecycle", lifecycleObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    if (m_wallpaperStore)
+        ok &= bus.registerObject("/org/marathonos/Shell/Wallpaper",
+                                 new WallpaperObject(m_wallpaperStore, this),
+                                 QDBusConnection::ExportAllSlots);
     if (m_ambience)
         ok &= bus.registerObject("/org/marathonos/Shell/Ambience",
                                  new AmbienceObject(m_ambience, this),

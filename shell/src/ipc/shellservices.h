@@ -27,6 +27,7 @@ class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
 class AmbienceService;
+class WallpaperStore;
 class SecurityManager;
 class BluetoothManager;
 class DisplayManagerCpp;
@@ -803,4 +804,19 @@ class AmbienceObject : public QObject {
 
   private:
     AmbienceService *m_ambience = nullptr;
+};
+
+// Public read: the built-in wallpapers, for the Settings app's picker.
+class WallpaperObject : public QObject {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Wallpaper1")
+
+  public:
+    explicit WallpaperObject(WallpaperStore *store, QObject *parent = nullptr);
+
+  public slots:
+    QVariantList GetWallpapers();
+
+  private:
+    WallpaperStore *m_store = nullptr;
 };
