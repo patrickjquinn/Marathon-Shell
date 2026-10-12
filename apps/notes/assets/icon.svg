@@ -3,19 +3,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86">
   <defs>
     <linearGradient id="gF" gradientUnits="userSpaceOnUse" x1="0.717" y1="85.283" x2="73.194" y2="12.806">
-      <stop offset="0" stop-color="#CE4C32"/>
-      <stop offset="1" stop-color="#F0A815"/>
+      <stop offset="0" stop-color="#CA7A05"/>
+      <stop offset="1" stop-color="#E7C319"/>
     </linearGradient>
     <linearGradient id="gPaper" gradientUnits="userSpaceOnUse" x1="0.717" y1="85.283" x2="73.194" y2="12.806">
       <stop offset="0" stop-color="#EFE8CF"/>
       <stop offset="1" stop-color="#FBF8EA"/>
     </linearGradient>
     <linearGradient id="gBand" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="86" y2="0">
-      <stop offset="0" stop-color="#CE4C32"/>
-      <stop offset="1" stop-color="#F0A815"/>
+      <stop offset="0" stop-color="#CA7A05"/>
+      <stop offset="1" stop-color="#E7C319"/>
     </linearGradient>
   </defs>
   <path d="M43.000,0.300 H43.000 A42.700,42.700 0 0 1 85.700,43.000 V43.000 A42.700,42.700 0 0 1 43.000,85.700 H17.3L0.3 68.7 V43.000 A42.700,42.700 0 0 1 43.000,0.300 Z" fill="url(#gPaper)"/>
-  <clipPath id="c1"><path d="M43.000,0.300 H43.000 A42.700,42.700 0 0 1 85.700,43.000 V43.000 A42.700,42.700 0 0 1 43.000,85.700 H17.3L0.3 68.7 V43.000 A42.700,42.700 0 0 1 43.000,0.300 Z"/></clipPath><g clip-path="url(#c1)"><path d="M0.0 0H86.0A0.0 0.0 0 0 1 86.0 0.0V15.0A0.0 0.0 0 0 1 86.0 15H0.0A0.0 0.0 0 0 1 0 15.0V0.0A0.0 0.0 0 0 1 0.0 0Z" fill="url(#gBand)"/><path d="M0 27H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 36H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 45H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 54H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 63H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 72H86.0" fill="none" stroke="#ECCEB2" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M19 52c4-10 10-19 13-15s-6 21-2 20 10-16 13-14-3 14 1 14 8-7 11-9" fill="none" stroke="#08628B" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <path d="M0.3 68.7L17.3 85.7V68.7Z" fill="#FEC48A" stroke="#FEC48A" stroke-width="1.4" stroke-linejoin="round"/>
+  <clipPath id="c1"><path d="M43.000,0.300 H43.000 A42.700,42.700 0 0 1 85.700,43.000 V43.000 A42.700,42.700 0 0 1 43.000,85.700 H17.3L0.3 68.7 V43.000 A42.700,42.700 0 0 1 43.000,0.300 Z"/></clipPath><g clip-path="url(#c1)"><path d="M0.0 0H86.0A0.0 0.0 0 0 1 86.0 0.0V15.0A0.0 0.0 0 0 1 86.0 15H0.0A0.0 0.0 0 0 1 0 15.0V0.0A0.0 0.0 0 0 1 0.0 0Z" fill="url(#gBand)"/><path d="M0 27H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 36H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 45H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 54H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 63H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M0 72H86.0" fill="none" stroke="#DDD5B0" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/><path d="M19 52c4-10 10-19 13-15s-6 21-2 20 10-16 13-14-3 14 1 14 8-7 11-9" fill="none" stroke="#08628B" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <path d="M0.3 68.7L17.3 85.7V68.7Z" fill="#ECD14D" stroke="#ECD14D" stroke-width="1.4" stroke-linejoin="round"/>
 </svg>

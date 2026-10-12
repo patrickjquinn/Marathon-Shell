@@ -76,7 +76,9 @@ def palette(h, accent):
     elif not isinstance(accent, tuple):
         accent = (0.78, 0.16, accent)
     w = h + s / 2
-    return {"F": (oklch(0.57 + 0.09 * y, 0.17, h - s), oklch(0.77 + 0.06 * y, 0.17, h + s)),
+    dk = LIGHT - 30 if abs(t) < 15 else h - s  # a yellow turns up from amber, not olive
+    lt = 140.0 if h >= 140 > h + s else h + s  # a green's light end stays green, not lime
+    return {"F": (oklch(0.57 + 0.09 * y, 0.17, dk), oklch(0.77 + 0.06 * y, 0.17, lt)),
             "P": oklch(0.96, 0.045, w),
             "M": oklch(0.87, 0.05, w),
             "Q": oklch(0.86, 0.15, w),
@@ -130,17 +132,29 @@ def fill(d, colour, extra=""):
     return f'<path d="{d}" fill="{{{colour}}}"{extra}/>'
 
 
-def gear(c, teeth, ro, ri, hole, tw=0.42):
-    """A gear about c: `teeth` teeth from radius ri to ro, each tw of its
-    pitch wide at the tip, with a hole cut out (even-odd)."""
-    pitch = 360 / teeth
-    pts = []
+def rounded(pts, radii):
+    """A closed polygon with each corner filleted to its radius in `radii`."""
+    n, d = len(pts), ""
+    for i, ((x, y), r) in enumerate(zip(pts, radii)):
+        (px, py), (nx, ny) = pts[i - 1], pts[(i + 1) % n]
+        lp, ln = math.hypot(px - x, py - y), math.hypot(nx - x, ny - y)
+        r1, r2 = min(r, lp / 2) / lp, min(r, ln / 2) / ln
+        d += (f"{'L' if d else 'M'}{x + (px - x) * r1:.2f} {y + (py - y) * r1:.2f}"
+              f"Q{x:.2f} {y:.2f} {x + (nx - x) * r2:.2f} {y + (ny - y) * r2:.2f}")
+    return d + "Z"
+
+
+def gear(c, teeth, ro, ri, hole, w, rt, rv):
+    """A gear about c: `teeth` teeth w wide from radius ri to ro, their tips
+    rounded rt and the valleys rv, with a hole cut out (even-odd)."""
+    pts, radii = [], []
     for i in range(teeth):
-        m = i * pitch - 90
-        for r, da in ((ri, -pitch * 0.34), (ro, -pitch * tw / 2), (ro, pitch * tw / 2), (ri, pitch * 0.34)):
-            pts.append(pt(r, m + da, c))
-    d = "M" + "L".join(f"{x:.2f} {y:.2f}" for x, y in pts) + "Z"
-    return d + f"M{c[0] + hole} {c[1]}A{hole} {hole} 0 1 0 {c[0] - hole} {c[1]}A{hole} {hole} 0 1 0 {c[0] + hole} {c[1]}Z"
+        m = i * 360 / teeth - 90
+        for r, side, rad in ((ri, -1, rv), (ro, -1, rt), (ro, 1, rt), (ri, 1, rv)):
+            pts.append(pt(r, m + side * math.degrees(math.asin(w / 2 / r)), c))
+            radii.append(rad)
+    return (rounded(pts, radii) + f"M{c[0] + hole} {c[1]}A{hole} {hole} 0 1 0 {c[0] - hole} {c[1]}"
+            f"A{hole} {hole} 0 1 0 {c[0] + hole} {c[1]}Z")
 
 
 class Art:
@@ -189,18 +203,25 @@ def render(title, hue, accent, draw):
 
 
 def phone(a):
-    # A handset bowed into the square corner, its ear and mouth pieces
-    # facing the top right: the grip Q, the pieces P.
-    c, ro, ri, rp, a1, a2, sp = (63.0, 23.0), 43.0, 34.5, 26.0, 81.0, 189.0, 23.0
+    # One handset bowed into the square corner: a band about c whose inner
+    # edge swells smoothly into the ear and mouth pieces at its rounded ends.
+    k, ro, ri, rp, a1, a2, sp, tw, rr = 26.0, 58.0, 49.0, 40.0, 95.0, 175.0, 24.0, 12.0, 6.5
+    c = (C0 + k, C0 - k)
 
-    def ring(r1, r2, b1, b2):
-        (x1, y1), (x2, y2), (x3, y3), (x4, y4) = pt(r2, b1, c), pt(r2, b2, c), pt(r1, b2, c), pt(r1, b1, c)
-        return (f"M{x1:.2f} {y1:.2f}A{r2} {r2} 0 0 1 {x2:.2f} {y2:.2f}L{x3:.2f} {y3:.2f}"
-                f"A{r1} {r1} 0 0 0 {x4:.2f} {y4:.2f}Z")
-    j = ' stroke-linejoin="round" stroke-width="6" stroke="{%s}"'
-    a.pale(fill(ring(ri, ro, a1 + sp - 2, a2 - sp + 2), "Q", j % "Q"),
-           fill(ring(rp, ro, a1, a1 + sp), "P", j % "P"),
-           fill(ring(rp, ro, a2 - sp, a2), "P", j % "P"))
+    def r_in(t):
+        e = min(t - a1, a2 - t)
+        u = max(0.0, min(1.0, (e - sp) / tw))
+        return rp + (ri - rp) * u * u * (3 - 2 * u)
+
+    def p(r, t):
+        x, y = pt(r, t, c)
+        return f"{x:.2f} {y:.2f}"
+    do, di = math.degrees(rr / ro), math.degrees(rr / rp)
+    inner = [a2 - di - i * (a2 - a1 - 2 * di) / 90 for i in range(91)]
+    a.pale(fill(f"M{p(ro, a1 + do)}A{ro} {ro} 0 0 1 {p(ro, a2 - do)}Q{p(ro, a2)} {p(ro - rr, a2)}"
+                f"L{p(rp + rr, a2)}Q{p(rp, a2)} {p(rp, a2 - di)}"
+                + "".join(f"L{p(r_in(t), t)}" for t in inner)
+                + f"Q{p(rp, a1)} {p(rp + rr, a1)}L{p(ro - rr, a1)}Q{p(ro, a1)} {p(ro, a1 + do)}Z", "P"))
 
 
 def messages(a):
@@ -267,15 +288,12 @@ def camera(a):
 
 
 def gallery(a):
-    # Four petals, each the family shape with its square corner at the
-    # centre: the pinwheel of a photo library.
-    k, o = 0.47, 6.0
-    w = (S - 2 * IN) * k
-    hues = (95, 165, 235, 345)
-    for i, hh in enumerate(hues):
-        x, y = C0 - o, C0 + o - w  # square corner at the centre
-        a.add(f'<g transform="rotate({i * 90} {C0} {C0}) translate({x - IN * k:.2f} {y - IN * k:.2f}) scale({k})">'
-              f'<path d="{SHAPE}" fill="{oklch(0.82, 0.17, hh)}" opacity="0.82"/></g>')
+    # Two leaves from one stem, each the family shape drawn out along its
+    # diagonal with the square corner at the stem; translucent where they
+    # overlap.
+    for rot, kx, ky, hh, op in ((-45, 0.76, 0.42, 88, 1), (-12, 0.6, 0.34, 150, 0.8)):
+        a.add(f'<path d="{SHAPE}" fill="{oklch(0.82, 0.17, hh)}" opacity="{op}" transform="translate(15 73) '
+              f'rotate({rot}) scale({kx} {ky}) rotate(45) translate({-IN} {IN - S})"/>')
 
 
 def maps(a):
@@ -342,10 +360,8 @@ def notes(a):
 
 def settings(a):
     # A gear on the guide; a small one turning in the square corner.
-    a.clip(SHAPE, f'<path d="{gear((12.5, 73.5), 8, 13, 9.5, 3.4)}" fill="{{Q}}" fill-rule="evenodd" '
-           'stroke="{Q}" stroke-width="2" stroke-linejoin="round"/>')
-    a.pale(f'<path d="{gear((C0 + 1, C0 - 1), 8, 30, 23.5, 9.5)}" fill="{{P}}" fill-rule="evenodd" '
-           'stroke="{P}" stroke-width="3" stroke-linejoin="round"/>')
+    a.clip(SHAPE, f'<path d="{gear((12.5, 73.5), 8, 14, 10.5, 2.4, 5, 1.6, 0.8)}" fill="{{Q}}" fill-rule="evenodd"/>')
+    a.pale(f'<path d="{gear((C0 + 1, C0 - 1), 8, 31.5, 25, 8, 11.5, 4.2, 1.6)}" fill="{{P}}" fill-rule="evenodd"/>')
 
 
 def terminal(a):
@@ -372,13 +388,13 @@ ICONS = {
     "store": ("Store: a bag", 190.0, None, store),
     "music": ("Music: two quavers", 325.0, None, music),
     "camera": ("Camera: a lens", 32.5, 320.0, camera),
-    "gallery": ("Gallery: a pinwheel of petals", 302.5, None, gallery),
-    "maps": ("Maps: a map and pin", 100.0, (0.66, 0.19, 30.0), maps),
+    "gallery": ("Gallery: two leaves", 302.5, None, gallery),
+    "maps": ("Maps: a map and pin", 257.5, (0.66, 0.19, 30.0), maps),
     "calendar": ("Calendar: a month", 10.0, None, calendar),
     "clock": ("Clock: a dial", 77.5, None, clock),
-    "calculator": ("Calculator: four keys", 257.5, 70.0, calculator),
-    "notes": ("Notes: a ruled page", 55.0, None, notes),
-    "settings": ("Settings: gears", 167.5, None, settings),
+    "calculator": ("Calculator: four keys", 167.5, 70.0, calculator),
+    "notes": ("Notes: a ruled page", 100.0, None, notes),
+    "settings": ("Settings: gears", 55.0, None, settings),
     "terminal": ("Terminal: a prompt", 122.5, (0.88, 0.2, 140.0), terminal),
     "test": ("Test: a flask", 347.5, 165.0, test),
 }

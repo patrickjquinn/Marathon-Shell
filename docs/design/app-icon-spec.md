@@ -22,7 +22,7 @@ Jolla's icon story gives each app the base shape that suits its metaphor.
 Marathon keeps one shape so its apps read as one set next to Shipwright's
 (Reef the leaf, Shoal bottom right, Pilot top right), and takes the square
 corner as a cue where the metaphor has one: the bubble's tail, the handset
-bowed into it, the hour hand, the = key, the folded page, the small gear.
+bowed into it, the leaves' stem, the hour hand, the = key, the folded page, the small gear.
 
 ## Field
 
@@ -43,7 +43,9 @@ light end toward yellow (Phone 183° → 141°, Clock 44° → 72°, Settings 47
 
 where s is the turn from h toward the warm light (95°), at most 22°.
 Yellows (within 50° of 95°) sit up to 0.09 lighter so they stay ochre, not
-brown. The stock icons have no inner shadows or edge shading; the light is
+brown. A field within 15° of 95° has its deep stop at 65° (amber), as
+Clock's is, so it never goes olive; a green's light stop stays at 140° or
+more so it reads green, not lime (stock Phone's is 141°). The stock icons have no inner shadows or edge shading; the light is
 the gradient alone, so Marathon's is too.
 
 Objects that are paper (Calendar, Notes) take the whole shape as the page
@@ -65,25 +67,28 @@ Real-world paper (the envelope) is cream whatever the field.
 
 Hues are steps of 22.5° round the OKLCH wheel, no two grid neighbours
 (4 columns, home grid order) closer than 45°, conventional hues kept (Phone
-green, Calendar red, Notes and Clock yellow, Browser blue). Store takes 190°,
+green, Calendar red, Notes and Clock yellow, Browser blue). Maps is blue,
+the sea under the map; the move from 100° to 257.5° sent Calculator to
+167.5° and Settings to 55°, both the stock icons' own colours, and Notes
+to 100°, whose field is paper and only its band takes the hue. Store takes 190°,
 whose light stop (168°) is Marathon teal (`--teal-bright` ≈ 172°).
 
 | App | Hue | Field | P | K | Accent |
 |---|---|---|---|---|---|
-| Phone | 145 | `#098C69` → `#A0C534` | `#E6F9DB` | `#08628B` | — |
+| Phone | 145 | `#098C69` → `#74CE60` | `#E6F9DB` | `#08628B` | — |
 | Messages | 212.5 | `#0081B3` → `#18CEC7` | `#D0FCFF` | `#0A5763` | — |
 | Mail | 280 | `#2D74D9` → `#C59EFE` | `#F1F0FF` | `#413E96` | — |
 | Browser | 235 | `#2975D9` → `#00CAE7` | `#E1F6FE` | `#005477` | — |
 | Store | 190 | `#158698` → `#08D3A1` | `#D3FCF2` | `#085955` | — |
 | Music | 325 | `#8C58C8` → `#FE85C8` | `#FDECF8` | `#08628B` | — |
 | Camera | 32.5 | `#C6405F` → `#FF9648` | `#FEEEE7` | `#08628B` | `#E493F6` glint |
-| Gallery | 302.5 | `#6866D8` → `#E98BF0` | `#F8EDFE` | `#08628B` | petals 95°, 165°, 235°, 345° |
-| Maps | 100 | `#9C930E` → `#E7C319` | `#FAF3D1` | `#08628B` | `#F05846` pin |
+| Gallery | 302.5 | `#6866D8` → `#E98BF0` | `#F8EDFE` | `#08628B` | leaves 88°, 150° |
+| Maps | 257.5 | `#6666D8` → `#4DC1FE` | `#E7F3FF` | `#0E4A97` | `#F05846` pin |
 | Calendar | 10 | `#BB4389` → `#FE927D` | `#FCEEED` | `#08628B` | — |
 | Clock | 77.5 | `#C67009` → `#E2BE08` | `#FEF1D4` | `#08628B` | — |
-| Calculator | 257.5 | `#6666D8` → `#4DC1FE` | `#E7F3FF` | `#0E4A97` | `#F7A224` = key |
-| Notes | 55 | `#CE4C32` → `#F0A815` | `#FEEFE1` | `#08628B` | — |
-| Settings | 167.5 | `#138983` → `#63D06D` | `#DAFCE6` | `#08628B` | — |
+| Calculator | 167.5 | `#138983` → `#63D06D` | `#DAFCE6` | `#08628B` | `#F7A224` = key |
+| Notes | 100 | `#CA7A05` → `#E7C319` | `#FAF3D1` | `#08628B` | — |
+| Settings | 55 | `#CE4C32` → `#F0A815` | `#FEEFE1` | `#08628B` | — |
 | Terminal | 122.5 | `#2E9C38` → `#D5BE07` | `#F2F5D3` | `#08628B` | `#89F670` prompt |
 | Test | 347.5 | `#A84CAD` → `#FF8CA1` | `#FEEDF1` | `#08628B` | `#1BD79E` liquid |
 
@@ -96,20 +101,20 @@ text elements (lunasvg can't match fonts), no filters.
 
 | App | Object |
 |---|---|
-| Phone | a handset bowed into the square corner, ear and mouth pieces (P) turned toward the top right, grip Q |
+| Phone | one handset in P bowed into the square corner: a band whose inner edge swells smoothly into the ear and mouth pieces, ends rounded |
 | Messages | the guide shape as the bubble, its tail the square corner; three ink dots |
 | Mail | a cream envelope across the guide, the flap and lower fold lighter |
 | Browser | the guide circle as the globe; meridian, equator and two curved parallels in ink |
 | Store | a shopping bag, a Q hem, the handle above, two ink rivets |
 | Music | two beamed quavers in P |
 | Camera | a lens: the barrel (N) fills the guide, deep blue glass, a highlight arc, an accent glint |
-| Gallery | four petals, each the family shape at 0.47 with its square corner at the centre, overlapping at 0.82 opacity |
+| Gallery | two leaves from one stem, each the family shape drawn out along its diagonal with the square corner at the stem; the front leaf at 0.8 opacity over the back one |
 | Maps | a map folded in three (middle panel Q), an ink route, a red pin: the family shape turned so its square corner points down |
 | Calendar | the page; the hue a band across the top; a 4 × 3 month in Q, today in ink |
 | Clock | the guide circle as the dial; ink hands, the hour hand pointing into the square corner |
 | Calculator | + ÷ × in P on the field; the square corner's quarter is the = key in the accent |
 | Notes | the page; the hue a band across the top, ruled in M, an ink scribble, the square corner folded over (Q) |
-| Settings | a gear on the guide in P; a small Q gear turning in the square corner |
+| Settings | a gear on the guide in P, its tooth tips and valleys filleted as the stock gear's; a small Q gear turning in the square corner |
 | Terminal | a dark screen (N) across the guide, the prompt in the accent |
 | Test | a flask in P, the liquid below its shoulder in the accent, two bubbles |
 
