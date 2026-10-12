@@ -22,7 +22,7 @@ Page {
 
     function remove() {
         const id = eventId;
-        remorse.execute(qsTr("Deleting event"), function () {
+        remorse.execute(qsTr("Deleted"), function () {
             if (page.app.deleteEvent(id))
                 pageStack.pop();
         });
