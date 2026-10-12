@@ -274,5 +274,8 @@ TestCase {
         verify(!KeyboardSettingsStore.autoCapitalizeEnabled);
         verify(!KeyboardSettingsStore.predictionsEnabled);
         verify(!KeyboardSettingsStore.hapticFeedbackEnabled);
+        Settings.vibrationEnabled = false;
+        verify(!child(s.page, "hapticSwitch").enabled);
+        compare(child(s.page, "hapticSwitch").description, "Turn on Vibration in Sounds first");
     }
 }

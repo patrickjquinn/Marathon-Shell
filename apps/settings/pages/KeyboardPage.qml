@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import MarathonApp.Settings
 
 Page {
@@ -70,6 +71,8 @@ Page {
             TextSwitch {
                 objectName: "hapticSwitch"
                 text: qsTr("Vibrate on key press")
+                description: Settings.vibrationEnabled ? qsTr("A short buzz for each key") : qsTr("Turn on Vibration in Sounds first")
+                enabled: Settings.vibrationEnabled
                 automaticCheck: false
                 checked: KeyboardSettingsStore.hapticFeedbackEnabled
                 onClicked: KeyboardSettingsStore.hapticFeedbackEnabled = !checked
