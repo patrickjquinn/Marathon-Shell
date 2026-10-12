@@ -3,29 +3,20 @@ import MarathonOS.Shell
 import QtQuick
 
 QtObject {
-
-    readonly property int instant: 0
     readonly property int fast: 150
     readonly property int normal: 200
     readonly property int slow: 300
-    readonly property int slower: 400
 
     readonly property int xs: fast
     readonly property int sm: normal
-    readonly property int md: slow
-    readonly property int lg: slower
 
     readonly property int micro: 80
     readonly property int quick: 160
     readonly property int moderate: 240
 
-    readonly property real springLight: 1.5
     readonly property real springMedium: 2.0
-    readonly property real springHeavy: 3.0
 
-    readonly property real dampingLight: 0.15
     readonly property real dampingMedium: 0.25
-    readonly property real dampingHeavy: 0.4
 
     // ── Spring convergence thresholds · PROPERTY-TYPE-AWARE ───────
     // Qt's SpringAnimation `epsilon` is an ABSOLUTE threshold in the
@@ -104,7 +95,6 @@ QtObject {
     readonly property real backEdgeClampDp: 8
 
     readonly property var predictiveBackCurve: [0.1, 0.1, 0.0, 1.0]
-    readonly property var pathDecelerateCurve: [0.0, 0.0, 0.0, 1.0]
 
     // Shared-element shift helpers — return px offset for the
     // entering surface during the gesture's commit phase. The
@@ -121,33 +111,20 @@ QtObject {
     readonly property int easingStandard: Easing.Bezier
     readonly property var easingStandardCurve: [0.2, 0, 0.2, 1]
 
-    readonly property int easingDecelerate: Easing.Bezier
     readonly property var easingDecelerateCurve: [0, 0, 0.2, 1]
-
-    readonly property int easingAccelerate: Easing.Bezier
-    readonly property var easingAccelerateCurve: [0.4, 0, 1, 1]
-
-    readonly property int easingSpring: Easing.Bezier
-    readonly property var easingSpringCurve: [0.34, 1.56, 0.64, 1]
 
     readonly property int staggerMicro: 20
     readonly property int staggerShort: 50
-    readonly property int staggerMedium: 80
-    readonly property int staggerLong: 120
-
-    readonly property real pageParallaxOffset: 0.3
-    readonly property real pageScaleOut: 0.92
 
     readonly property int rippleDuration: slow
     readonly property real rippleMaxRadius: 2.5
     readonly property real rippleOpacity: 0.12
 
     readonly property int flickDecelerationFast: 8000
-    readonly property int flickVelocityMax: 5000
     readonly property int touchFlickDeceleration: 25000
     readonly property int touchFlickVelocity: 8000
 
-    // Settings → Accessibility → Reduce motion. Components go through dur()/ease().
+    // Settings → Accessibility → Reduce motion. Components go through dur().
     property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
 
     // ── Reduce blur (translucency) ────────────────────────────
@@ -159,21 +136,10 @@ QtObject {
     // gsettings org.gnome.desktop.a11y reduce-transparency at
     // shell startup; for now the property is writable from
     // SettingsManager.
-    //
-    // translucencyLevel is the soft knob (0.0..1.0) Apple exposes
-    // as iOS 27's translucency slider. Multiplies blur radius and
-    // tint opacity proportionally. At 0.0 it collapses to reduceBlur
-    // behaviour. At 1.0 every chrome surface gets its full effect.
     property bool reduceBlur: false
-    property real translucencyLevel: 1.0
 
     function dur(token) {
         return reduceMotion ? micro : token;
-    }
-    function ease(token) {
-        // OutBack (Easing.Bezier-spring) overshoots — feels jarring
-        // when motion is reduced. Fall back to a gentle OutQuad.
-        return reduceMotion ? Easing.OutQuad : token;
     }
 
     // ── Role-based motion API ─────────────────────────────────
@@ -196,10 +162,9 @@ QtObject {
     //
     // For every role the table carries: duration, easing token,
     // easing bezier curve (for Easing.Bezier), spring stiffness,
-    // and damping. Use durationFor()/easingFor()/easingCurveFor()/
-    // springFor()/dampingFor() to read them. dur() and ease() are
-    // legacy helpers preserved for compatibility — prefer the role
-    // accessors in new code.
+    // and damping. Use durationFor()/easingFor()/easingCurveFor() and
+    // the spatial/effects accessors below to read them. dur() is a
+    // legacy helper — prefer the role accessors in new code.
     readonly property var roles: ({
             "microPress": {
                 duration: 80,
@@ -413,17 +378,10 @@ QtObject {
     function easingCurveFor(role) {
         return _role(role).curve;
     }
-    function springFor(role) {
-        return _role(role).spring;
-    }
-    function dampingFor(role) {
-        return _role(role).damping;
-    }
 
     // ── Spatial / effects family accessors (M3 Expressive) ────
-    // New call sites should use these in preference to springFor /
-    // dampingFor. They split spring physics across the two M3E
-    // families so colour/opacity don't ring while position/size do.
+    // They split spring physics across the two M3E families so
+    // colour/opacity don't ring while position/size do.
     //
     //   SpringAnimation { spring: MMotion.stiffnessSpatialFor("nav")
     //                     damping: MMotion.dampingSpatialFor("nav")
