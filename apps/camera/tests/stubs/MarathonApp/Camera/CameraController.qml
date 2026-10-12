@@ -2,7 +2,8 @@ import QtQml
 
 QtObject {
     property QtObject videoSink: null
-    property bool ready: cameraCount > 0
+    property bool discovered: true
+    property bool ready: discovered && cameraCount > 0
     property bool active: false
     property int cameraCount: 2
     property int currentCameraIndex: 0

@@ -23,4 +23,5 @@ add_marathon_app(${APP_NAME}
 )
 
 
-target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia)
+find_package(Qt6 REQUIRED COMPONENTS Concurrent)
+target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia Qt6::Concurrent)

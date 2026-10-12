@@ -42,6 +42,25 @@ TestCase {
         return panel;
     }
 
+    function test_startsTheCameraAfterTheFirstFrame() {
+        Navigation.reset();
+        const app = createTemporaryObject(appComponent, testCase);
+        compare(app.camera.calls.indexOf("start"), -1);
+        tryVerify(function () { return app.camera.calls.indexOf("start") >= 0; });
+    }
+
+    function test_showsStartingUntilCamerasAreFound() {
+        const app = makeApp();
+        app.camera.stop();
+        app.camera.discovered = false;
+        app.camera.cameraCount = 0;
+        verify(child(app, "startingLabel").running);
+        verify(!child(app, "problem").visible);
+        app.camera.discovered = true;
+        verify(child(app, "problem").visible);
+        verify(!child(app, "startingLabel").running);
+    }
+
     function test_hooksTheViewfinderUp() {
         const app = makeApp();
         compare(app.camera.videoSink, child(app, "viewfinder").videoSink);

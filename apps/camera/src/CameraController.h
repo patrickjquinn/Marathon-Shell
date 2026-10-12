@@ -3,7 +3,6 @@
 #include <QObject>
 #include <QCamera>
 #include <QMediaCaptureSession>
-#include <QMediaDevices>
 #include <QImageCapture>
 #include <QMediaRecorder>
 #include <QVideoSink>
@@ -18,6 +17,7 @@ class CameraController : public QObject {
     QML_ELEMENT
 
     Q_PROPERTY(QObject *videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
+    Q_PROPERTY(bool discovered READ isDiscovered NOTIFY readyChanged)
     Q_PROPERTY(bool ready READ isReady NOTIFY readyChanged)
     Q_PROPERTY(bool active READ isActive NOTIFY activeChanged)
     Q_PROPERTY(int cameraCount READ cameraCount NOTIFY cameraCountChanged)
@@ -54,6 +54,7 @@ class CameraController : public QObject {
     QObject         *videoSink() const;
     void             setVideoSink(QObject *sink);
 
+    bool             isDiscovered() const;
     bool             isReady() const;
     bool             isActive() const;
     int              cameraCount() const;
@@ -129,13 +130,12 @@ class CameraController : public QObject {
     void onRecordingTick();
 
   private:
-    void                  initializeCameras();
+    void                  initialize();
     void                  setupCamera(int index);
     void                  updateZoomRange();
     QString               generateFilePath(const QString &prefix, const QString &extension);
     void                  scanForLatestPhoto();
 
-    QMediaDevices        *m_mediaDevices   = nullptr;
     QCamera              *m_camera         = nullptr;
     QMediaCaptureSession *m_captureSession = nullptr;
     QImageCapture        *m_imageCapture   = nullptr;
@@ -144,7 +144,7 @@ class CameraController : public QObject {
 
     QList<QCameraDevice>  m_cameras;
     int                   m_currentCameraIndex = 0;
-    bool                  m_ready              = false;
+    bool                  m_discovered         = false;
 
     qreal                 m_zoomLevel = 1.0;
     qreal                 m_minZoom   = 1.0;

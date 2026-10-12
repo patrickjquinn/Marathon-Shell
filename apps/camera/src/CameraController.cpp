@@ -3,6 +3,11 @@
 #include <algorithm>
 #include <QDebug>
 #include <QDir>
+#include <QDirIterator>
+#include <QElapsedTimer>
+#include <QFutureWatcher>
+#include <QMediaDevices>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QStandardPaths>
 
 namespace {
@@ -21,10 +26,6 @@ namespace {
 
 CameraController::CameraController(QObject *parent)
     : QObject(parent)
-    , m_mediaDevices(new QMediaDevices(this))
-    , m_captureSession(new QMediaCaptureSession(this))
-    , m_imageCapture(new QImageCapture(this))
-    , m_mediaRecorder(new QMediaRecorder(this))
     , m_countdownTimer(new QTimer(this))
     , m_recordingTimer(new QTimer(this)) {
 
@@ -33,10 +34,32 @@ CameraController::CameraController(QObject *parent)
     }
 
     m_savePath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) + "/Marathon";
-    QDir().mkpath(m_savePath);
 
+    m_countdownTimer->setInterval(1000);
+    connect(m_countdownTimer, &QTimer::timeout, this, &CameraController::onTimerTick);
+
+    m_recordingTimer->setInterval(1000);
+    connect(m_recordingTimer, &QTimer::timeout, this, &CameraController::onRecordingTick);
+}
+
+CameraController::~CameraController() {
+    stop();
+}
+
+// Loading the multimedia backend and enumerating cameras are slow, so they wait for start().
+void CameraController::initialize() {
+    if (m_discovered)
+        return;
+
+    QElapsedTimer clock;
+    clock.start();
+
+    m_captureSession = new QMediaCaptureSession(this);
+    m_imageCapture   = new QImageCapture(this);
+    m_mediaRecorder  = new QMediaRecorder(this);
     m_captureSession->setImageCapture(m_imageCapture);
     m_captureSession->setRecorder(m_mediaRecorder);
+    m_captureSession->setVideoOutput(m_videoSink);
 
     connect(m_imageCapture, &QImageCapture::imageSaved, this, &CameraController::onImageSaved);
     connect(m_imageCapture, &QImageCapture::errorOccurred, this, &CameraController::onImageError);
@@ -45,30 +68,17 @@ CameraController::CameraController(QObject *parent)
     connect(m_mediaRecorder, &QMediaRecorder::errorOccurred, this,
             &CameraController::onRecorderError);
 
-    m_countdownTimer->setInterval(1000);
-    connect(m_countdownTimer, &QTimer::timeout, this, &CameraController::onTimerTick);
-
-    m_recordingTimer->setInterval(1000);
-    connect(m_recordingTimer, &QTimer::timeout, this, &CameraController::onRecordingTick);
-
-    initializeCameras();
-    scanForLatestPhoto();
-}
-
-CameraController::~CameraController() {
-    stop();
-}
-
-void CameraController::initializeCameras() {
-    m_cameras = QMediaDevices::videoInputs();
-    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras";
+    QDir().mkpath(m_savePath);
+    m_cameras    = QMediaDevices::videoInputs();
+    m_discovered = true;
+    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in"
+               << clock.elapsed() << "ms";
 
     emit cameraCountChanged();
+    emit currentCameraIndexChanged();
+    emit readyChanged();
 
-    if (!m_cameras.isEmpty()) {
-        m_ready = true;
-        emit readyChanged();
-    }
+    scanForLatestPhoto();
 }
 
 void CameraController::setupCamera(int index) {
@@ -108,6 +118,7 @@ void CameraController::setupCamera(int index) {
 }
 
 void CameraController::start() {
+    initialize();
     if (m_cameras.isEmpty()) {
         m_errorMessage = "No cameras available";
         emit errorOccurred(m_errorMessage);
@@ -222,12 +233,17 @@ void CameraController::setVideoSink(QObject *sink) {
         return;
 
     m_videoSink = videoSink;
-    m_captureSession->setVideoOutput(m_videoSink);
+    if (m_captureSession)
+        m_captureSession->setVideoOutput(m_videoSink);
     emit videoSinkChanged();
 }
 
+bool CameraController::isDiscovered() const {
+    return m_discovered;
+}
+
 bool CameraController::isReady() const {
-    return m_ready;
+    return !m_cameras.isEmpty();
 }
 
 bool CameraController::isActive() const {
@@ -326,7 +342,8 @@ void CameraController::setPhotoResolution(const QSize &size) {
         return;
 
     m_photoResolution = size;
-    m_imageCapture->setResolution(m_photoResolution);
+    if (m_imageCapture)
+        m_imageCapture->setResolution(m_photoResolution);
     emit photoResolutionChanged();
 }
 
@@ -441,15 +458,28 @@ QString CameraController::generateFilePath(const QString &prefix, const QString 
     return m_savePath + "/" + prefix + "_" + timestamp + "." + extension;
 }
 
+// Runs off the GUI thread and keeps only the newest file instead of sorting the folder.
 void CameraController::scanForLatestPhoto() {
-    QDir        dir(m_savePath);
-    QStringList filters;
-    filters << "*.jpg" << "*.jpeg" << "*.png";
-
-    QFileInfoList files = dir.entryInfoList(filters, QDir::Files, QDir::Time);
-
-    if (!files.isEmpty()) {
-        m_latestPhotoPath = "file://" + files.first().absoluteFilePath();
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher]() {
+        const QString path = watcher->result();
+        watcher->deleteLater();
+        if (path.isEmpty() || !m_latestPhotoPath.isEmpty())
+            return;
+        m_latestPhotoPath = QUrl::fromLocalFile(path).toString();
         emit latestPhotoPathChanged();
-    }
+    });
+    watcher->setFuture(QtConcurrent::run([dir = m_savePath]() {
+        QDirIterator it(dir, {"*.jpg", "*.jpeg", "*.png"}, QDir::Files);
+        QString      newest;
+        QDateTime    newestTime;
+        while (it.hasNext()) {
+            const QFileInfo info = it.nextFileInfo();
+            if (newest.isEmpty() || info.lastModified() > newestTime) {
+                newest     = info.absoluteFilePath();
+                newestTime = info.lastModified();
+            }
+        }
+        return newest;
+    }));
 }

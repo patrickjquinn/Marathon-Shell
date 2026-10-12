@@ -430,7 +430,7 @@ Page {
     Rectangle {
         anchors.fill: parent
         color: Theme.darkPrimaryColor
-        visible: page.camera.ready && !page.camera.active && !page.app.cameraFailed
+        visible: (page.camera.ready || !page.camera.discovered) && !page.camera.active && !page.app.cameraFailed
 
         BusyLabel {
             objectName: "startingLabel"
@@ -442,7 +442,7 @@ Page {
     SilicaFlickable {
         objectName: "problem"
         anchors.fill: parent
-        visible: page.camera.cameraCount === 0 || (page.app.cameraFailed && !page.camera.active)
+        visible: page.camera.discovered && (page.camera.cameraCount === 0 || (page.app.cameraFailed && !page.camera.active))
         contentHeight: height
 
         PullDownMenu {

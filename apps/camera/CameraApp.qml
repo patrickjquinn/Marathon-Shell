@@ -12,6 +12,8 @@ ApplicationWindow {
 
     property string mode: "photo"
     property bool cameraFailed: false
+    // Camera start-up blocks the GUI thread, so it waits until the page is on screen.
+    property bool firstFrameShown: false
     property CameraController camera: CameraController {
         onErrorOccurred: function (message) {
             console.warn("[Camera] Error:", message);
@@ -69,11 +71,24 @@ ApplicationWindow {
         return true;
     }
 
-    appId: "camera"
-    onApplicationActiveChanged: applicationActive ? camera.start() : camera.stop()
-    Component.onCompleted: {
-        if (applicationActive)
+    function updateCamera() {
+        if (firstFrameShown && applicationActive)
             camera.start();
+        else
+            camera.stop();
+    }
+
+    appId: "camera"
+    onApplicationActiveChanged: updateCamera()
+
+    Connections {
+        target: app.Window.window
+        enabled: !app.firstFrameShown
+
+        function onFrameSwapped() {
+            app.firstFrameShown = true;
+            app.updateCamera();
+        }
     }
 
     cover: Component {
