@@ -37,10 +37,10 @@ SettingsPageTemplate {
                 Rectangle {
                     width: parent.width
                     height: Constants.bottomBarHeight
-                    radius: 4
-                    color: Qt.rgba(255, 255, 255, 0.04)
+                    radius: MRadius.sm
+                    color: MColors.whiteOverlay04
                     border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    border.color: MColors.whiteOverlay08
 
                     Column {
                         anchors.centerIn: parent
@@ -59,7 +59,7 @@ SettingsPageTemplate {
                             width: 200
                             height: 8
                             radius: 4
-                            color: Qt.rgba(255, 255, 255, 0.1)
+                            color: MColors.whiteOverlay10
                             anchors.horizontalCenter: parent.horizontalCenter
 
                             Rectangle {

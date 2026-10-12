@@ -9,6 +9,8 @@ file(GLOB_RECURSE QML_FILES CONFIGURE_DEPENDS
 set(SOURCES
     src/StorageInfo.cpp
     src/StorageInfo.h
+    src/TimeZoneList.cpp
+    src/TimeZoneList.h
     src/KeyboardSettingsStore.cpp
     src/KeyboardSettingsStore.h
     src/SettingsController.cpp

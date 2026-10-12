@@ -3,30 +3,23 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
-Page {
+SettingsPageTemplate {
     id: keyboardPage
 
     property string pageName: "keyboard"
-    signal navigateBack
 
+    pageTitle: "Keyboard"
     Component.onCompleted: {
         Logger.info("KeyboardPage", "Initialized");
     }
 
-    Flickable {
-        id: scrollView
-
-        anchors.fill: parent
-        contentHeight: keyboardContent.height + 40
+    content: Flickable {
+        contentHeight: keyboardContent.height + MSpacing.xxl
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
-        flickDeceleration: 1500
-        maximumFlickVelocity: 2500
 
         Column {
             id: keyboardContent
@@ -37,26 +30,6 @@ Page {
             rightPadding: 24
             topPadding: 24
             bottomPadding: 24
-
-            Row {
-                spacing: MSpacing.md
-                width: parent.width - 48
-
-                MIconButton {
-                    iconName: "chevron-left"
-                    iconSize: 24
-                    onClicked: keyboardPage.navigateBack()
-                }
-
-                Text {
-                    text: "Keyboard"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeXLarge
-                    font.weight: Font.Bold
-                    font.family: MTypography.fontFamily
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
 
             MSection {
                 title: "Language"
@@ -70,29 +43,9 @@ Page {
                         required property var modelData
                         title: KeyboardSettingsStore.getLanguageName(modelData)
                         subtitle: modelData
-                        iconName: KeyboardSettingsStore.currentLanguage === modelData ? "check" : ""
-                        showChevron: false
+                        value: KeyboardSettingsStore.currentLanguage === modelData ? "selected" : ""
                         onSettingClicked: {
                             KeyboardSettingsStore.currentLanguage = modelData;
-                        }
-
-                        Rectangle {
-                            anchors.right: parent.right
-                            anchors.rightMargin: 16
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 32
-                            radius: 16
-                            color: KeyboardSettingsStore.currentLanguage === modelData ? MColors.accentBright : "transparent"
-                            visible: KeyboardSettingsStore.currentLanguage === modelData
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "selected"
-                                color: MColors.bb10Black
-                                font.pixelSize: 16
-                                font.weight: Font.Bold
-                            }
                         }
                     }
                 }
@@ -149,12 +102,8 @@ Page {
             }
 
             Item {
-                height: 40
+                height: Constants.navBarHeight
             }
         }
-    }
-
-    background: Rectangle {
-        color: MColors.background
     }
 }

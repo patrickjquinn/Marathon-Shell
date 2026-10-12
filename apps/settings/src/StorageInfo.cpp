@@ -1,8 +1,25 @@
 #include "StorageInfo.h"
 
+#include <QStandardPaths>
+
+namespace {
+    // Apps run in a sandbox whose / and $HOME are tmpfs; report the disk their data lives on.
+    QStorageInfo deviceStorage() {
+        const QStringList candidates{
+            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation),
+            QStringLiteral("/usr"), QStringLiteral("/")};
+        for (const QString &path : candidates) {
+            QStorageInfo info(path);
+            if (info.isValid() && info.fileSystemType() != "tmpfs")
+                return info;
+        }
+        return QStorageInfo::root();
+    }
+}
+
 StorageInfo::StorageInfo(QObject *parent)
     : QObject(parent)
-    , m_storage(QStorageInfo::root()) {
+    , m_storage(deviceStorage()) {
     refresh();
 }
 

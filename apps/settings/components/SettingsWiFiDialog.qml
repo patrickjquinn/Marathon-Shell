@@ -43,7 +43,7 @@ Item {
         id: overlay
 
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.6)
+        color: MColors.overlayLight
         opacity: 0
 
         MouseArea {
@@ -85,7 +85,7 @@ Item {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15)
+                    color: MColors.tealHalo
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
@@ -179,8 +179,8 @@ Item {
                         selectByMouse: true
                         clip: true
                         Keys.onReturnPressed: {
-                            if (passwordInput.text.length >= 8)
-                                connectButton.clicked();
+                            if (connectMouseArea.enabled)
+                                SettingsController.submitWifiPassword(passwordInput.text);
                         }
 
                         Text {
@@ -202,7 +202,7 @@ Item {
                         width: Constants.touchTargetSmall
                         height: Constants.touchTargetSmall
                         radius: Constants.borderRadiusSmall
-                        color: checked ? Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15) : "transparent"
+                        color: checked ? MColors.tealHalo : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
                         Icon {
@@ -211,6 +211,11 @@ Item {
                             color: MColors.textSecondary
                             anchors.centerIn: parent
                         }
+
+                        Accessible.role: Accessible.CheckBox
+                        Accessible.name: "Show password"
+                        Accessible.checked: checked
+                        Accessible.onPressAction: checked = !checked
 
                         MouseArea {
                             anchors.fill: parent
@@ -227,6 +232,16 @@ Item {
                         duration: 150
                     }
                 }
+            }
+
+            Text {
+                width: parent.width
+                text: passwordInput.text.length > 0 && passwordInput.text.length < 8 ? "Password must be at least 8 characters (" + (8 - passwordInput.text.length) + " more)" : "Password must be at least 8 characters"
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
+                color: MColors.textSecondary
+                wrapMode: Text.WordWrap
+                visible: wifiDialog.secured && !wifiDialog.isConnecting && passwordInput.text.length < 8
             }
 
             Rectangle {
@@ -303,6 +318,12 @@ Item {
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
                     opacity: wifiDialog.isConnecting ? 0.5 : 1
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Cancel"
+                    Accessible.onPressAction: {
+                        if (!wifiDialog.isConnecting)
+                            SettingsController.dismissWifiDialog();
+                    }
 
                     Text {
                         text: "Cancel"
@@ -324,15 +345,17 @@ Item {
                 }
 
                 Rectangle {
-                    id: connectButton
-
-                    signal clicked
-
                     width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: (wifiDialog.secured && passwordInput.text.length < 8) || wifiDialog.isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal
                     opacity: (wifiDialog.secured && passwordInput.text.length < 8) || wifiDialog.isConnecting ? 0.5 : 1
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Connect"
+                    Accessible.onPressAction: {
+                        if (connectMouseArea.enabled)
+                            SettingsController.submitWifiPassword(passwordInput.text);
+                    }
 
                     Text {
                         text: "Connect"
@@ -344,6 +367,8 @@ Item {
                     }
 
                     MouseArea {
+                        id: connectMouseArea
+
                         anchors.fill: parent
                         enabled: !wifiDialog.isConnecting && (!wifiDialog.secured || passwordInput.text.length >= 8)
                         onClicked: {
@@ -356,14 +381,14 @@ Item {
             }
 
             Text {
-                text: wifiDialog.secured ? "Password must be at least 8 characters" : "This network is not secured"
-                font.pixelSize: MTypography.sizeXSmall
+                text: "This network is not secured. Others nearby may see what you send."
+                font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
-                color: MColors.textTertiary
+                color: MColors.textSecondary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width
                 wrapMode: Text.WordWrap
-                visible: !wifiDialog.isConnecting
+                visible: !wifiDialog.secured && !wifiDialog.isConnecting
             }
         }
 

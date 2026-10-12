@@ -12,8 +12,10 @@ Page {
     property string pageTitle: "Settings"
     property alias content: contentLoader.sourceComponent
     property bool showBackButton: true
+    property bool overlayOpen: false
 
     signal navigateBack
+    signal closeOverlayRequested
 
     Rectangle {
         id: header
@@ -44,7 +46,7 @@ Page {
                 text: pageTemplate.pageTitle
                 color: MColors.textPrimary
                 font.pixelSize: MTypography.sizeBody
-                font.weight: Font.DemiBold
+                font.weight: MTypography.weightDemiBold
                 font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -52,6 +54,9 @@ Page {
 
         MouseArea {
             anchors.fill: parent
+            Accessible.role: Accessible.Button
+            Accessible.name: "Back"
+            Accessible.onPressAction: pageTemplate.navigateBack()
             onClicked: {
                 HapticService.light();
                 pageTemplate.navigateBack();
@@ -64,7 +69,7 @@ Page {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 150
+                        duration: MMotion.fast
                     }
                 }
             }
@@ -75,7 +80,7 @@ Page {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 1
-            color: Qt.rgba(255, 255, 255, 0.08)
+            color: MColors.whiteOverlay08
         }
     }
 

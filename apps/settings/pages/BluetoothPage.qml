@@ -13,11 +13,13 @@ SettingsPageTemplate {
 
     property string pageName: "bluetooth"
     pageTitle: "Bluetooth"
+    overlayOpen: SettingsController.bluetoothDialogVisible
+    onCloseOverlayRequested: pairDialog.cancel()
     Component.onCompleted: {
         Logger.info("BluetoothPage", "Initialized");
     }
 
-    BluetoothPairDialog {
+    SettingsPairDialog {
         id: pairDialog
         anchors.fill: parent
     }
@@ -40,9 +42,9 @@ SettingsPageTemplate {
                 width: parent.width - MSpacing.lg * 2
                 height: Constants.appIconSize
                 radius: Constants.borderRadiusMedium
-                color: Qt.rgba(255, 255, 255, 0.04)
+                color: MColors.whiteOverlay04
                 border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(255, 255, 255, 0.08)
+                border.color: MColors.whiteOverlay08
 
                 Icon {
                     id: bluetoothIcon
@@ -105,16 +107,21 @@ SettingsPageTemplate {
                         model: BluetoothManagerCpp.pairedDevices
 
                         Rectangle {
+                            id: pairedDeviceDelegate
+
                             required property var modelData
                             width: parent.width
                             height: Constants.hubHeaderHeight
                             color: "transparent"
+                            Accessible.role: Accessible.Button
+                            Accessible.name: (modelData.alias || modelData.name || modelData.address) + (modelData.connected ? ", connected. Tap to disconnect" : ", not connected. Tap to connect")
+                            Accessible.onPressAction: deviceMouseArea.clicked(null)
 
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: deviceMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : "transparent"
+                                color: deviceMouseArea.pressed ? MColors.ripple : "transparent"
 
                                 Behavior on color {
                                     ColorAnimation {
@@ -131,9 +138,9 @@ SettingsPageTemplate {
 
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: modelData.icon || "bluetooth"
+                                    name: pairedDeviceDelegate.modelData.icon || "bluetooth"
                                     size: Constants.iconSizeMedium
-                                    color: modelData.connected ? MColors.marathonTeal : MColors.textSecondary
+                                    color: pairedDeviceDelegate.modelData.connected ? MColors.marathonTeal : MColors.textSecondary
                                 }
 
                                 Column {
@@ -144,7 +151,7 @@ SettingsPageTemplate {
 
                                     Text {
                                         width: parent.width
-                                        text: modelData.alias || modelData.name || modelData.address
+                                        text: pairedDeviceDelegate.modelData.alias || pairedDeviceDelegate.modelData.name || pairedDeviceDelegate.modelData.address
                                         color: MColors.textPrimary
                                         font.pixelSize: MTypography.sizeBody
                                         font.family: MTypography.fontFamily
@@ -153,8 +160,8 @@ SettingsPageTemplate {
 
                                     Text {
                                         width: parent.width
-                                        text: modelData.connected ? "Connected" : "Not connected"
-                                        color: modelData.connected ? MColors.marathonTeal : MColors.textSecondary
+                                        text: pairedDeviceDelegate.modelData.connected ? "Connected" : "Not connected"
+                                        color: pairedDeviceDelegate.modelData.connected ? MColors.marathonTeal : MColors.textSecondary
                                         font.pixelSize: MTypography.sizeSmall
                                         font.family: MTypography.fontFamily
                                     }
@@ -176,10 +183,10 @@ SettingsPageTemplate {
 
                                 anchors.fill: parent
                                 onClicked: {
-                                    if (modelData.connected)
-                                        BluetoothManagerCpp.disconnectDevice(modelData.address);
+                                    if (pairedDeviceDelegate.modelData.connected)
+                                        BluetoothManagerCpp.disconnectDevice(pairedDeviceDelegate.modelData.address);
                                     else
-                                        BluetoothManagerCpp.connectDevice(modelData.address);
+                                        BluetoothManagerCpp.connectDevice(pairedDeviceDelegate.modelData.address);
                                 }
                             }
                         }
@@ -218,17 +225,22 @@ SettingsPageTemplate {
                             model: BluetoothManagerCpp.devices
 
                             Rectangle {
+                                id: availableDeviceDelegate
+
                                 required property var modelData
                                 width: parent.width
                                 height: Constants.hubHeaderHeight
                                 color: "transparent"
                                 visible: !modelData.paired
+                                Accessible.role: Accessible.Button
+                                Accessible.name: "Pair with " + (modelData.alias || modelData.name || modelData.address)
+                                Accessible.onPressAction: availableDeviceMouseArea.clicked(null)
 
                                 Rectangle {
                                     anchors.fill: parent
                                     anchors.margins: 1
                                     radius: Constants.borderRadiusSmall
-                                    color: availableDeviceMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : "transparent"
+                                    color: availableDeviceMouseArea.pressed ? MColors.ripple : "transparent"
 
                                     Behavior on color {
                                         ColorAnimation {
@@ -245,7 +257,7 @@ SettingsPageTemplate {
 
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        name: modelData.icon || "bluetooth"
+                                        name: availableDeviceDelegate.modelData.icon || "bluetooth"
                                         size: Constants.iconSizeMedium
                                         color: MColors.textSecondary
                                     }
@@ -256,7 +268,7 @@ SettingsPageTemplate {
 
                                         Text {
                                             width: parent.width
-                                            text: modelData.alias || modelData.name || modelData.address
+                                            text: availableDeviceDelegate.modelData.alias || availableDeviceDelegate.modelData.name || availableDeviceDelegate.modelData.address
                                             color: MColors.textPrimary
                                             font.pixelSize: MTypography.sizeBody
                                             font.family: MTypography.fontFamily
@@ -265,7 +277,7 @@ SettingsPageTemplate {
 
                                         Text {
                                             width: parent.width
-                                            text: modelData.rssi ? "Signal: " + modelData.rssi + " dBm" : "Available"
+                                            text: availableDeviceDelegate.modelData.rssi ? "Signal: " + availableDeviceDelegate.modelData.rssi + " dBm" : "Available"
                                             color: MColors.textSecondary
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
@@ -278,9 +290,9 @@ SettingsPageTemplate {
 
                                     anchors.fill: parent
                                     onClicked: {
-                                        Logger.info("BluetoothPage", "Selected device for pairing: " + modelData.name);
+                                        Logger.info("BluetoothPage", "Selected device for pairing: " + availableDeviceDelegate.modelData.name);
                                         HapticService.light();
-                                        SettingsController.showBluetoothDialog(modelData.name, modelData.address, modelData.type || "device", "justworks");
+                                        SettingsController.showBluetoothDialog(availableDeviceDelegate.modelData.name, availableDeviceDelegate.modelData.address, availableDeviceDelegate.modelData.type || "device", "justworks");
                                     }
                                 }
                             }

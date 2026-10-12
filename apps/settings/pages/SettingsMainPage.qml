@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
@@ -29,16 +31,108 @@ import QtQuick.Controls
 //   SystemStatusStore  wifiNetwork · bluetoothDevices · storageUsed/Total
 //   SystemControlStore isBluetoothOn · isAirplaneModeOn · isDndMode · brightness · volume
 //   SecurityManagerCpp hasQuickPIN · fingerprintAvailable
-//   SettingsManagerCpp hiddenApps · appSortOrder · filterMobileFriendlyApps ·
+//   SettingsManagerCpp hiddenApps · appGridColumns · filterMobileFriendlyApps ·
 //                      searchNativeApps · showNotificationBadges · showFrequentApps
 //   NotificationServiceCpp / SystemStatusStore notificationCount
 Page {
     id: mainPage
 
     property string pageName: "main"
+    readonly property string searchQuery: searchField.text.trim().toLowerCase()
+    readonly property bool overlayOpen: searchQuery !== ""
+    readonly property var searchEntries: [
+        { title: "Wi-Fi", section: "Connectivity", icon: "wifi", page: "wifi", keywords: "wireless network internet wlan password" },
+        { title: "Bluetooth", section: "Connectivity", icon: "bluetooth", page: "bluetooth", keywords: "pair devices headphones speaker wireless" },
+        { title: "Mobile Network", section: "Connectivity", icon: "signal", page: "cellular", keywords: "cellular data roaming sim carrier operator 4g 5g lte" },
+        { title: "Airplane Mode", section: "Connectivity", icon: "plane", toggle: "airplane", keywords: "flight radios offline" },
+        { title: "Display & Brightness", section: "Device", icon: "sun", page: "display", keywords: "screen brightness rotation auto-brightness clock status bar reduce motion animation accessibility" },
+        { title: "Screen Timeout", section: "Display & Brightness", icon: "clock", page: "screentimeout", keywords: "sleep screen off lock" },
+        { title: "UI Scale", section: "Display & Brightness", icon: "sun", page: "scale", keywords: "text size font zoom bigger smaller" },
+        { title: "Wallpaper", section: "Display & Brightness", icon: "image", page: "wallpaper", keywords: "background home screen" },
+        { title: "Date & Time", section: "Device", icon: "clock", page: "datetime", keywords: "time zone timezone clock 24-hour 12-hour format city" },
+        { title: "Sound", section: "Device", icon: "volume-2", page: "sound", keywords: "volume ringtone alarm audio mute" },
+        { title: "Notifications", section: "Device", icon: "bell", page: "notifications", keywords: "alerts lock screen per-app" },
+        { title: "Do Not Disturb", section: "Device", icon: "moon", toggle: "dnd", keywords: "dnd silence quiet focus" },
+        { title: "Storage", section: "Device", icon: "hard-drive", page: "storage", keywords: "disk space memory usage free" },
+        { title: "Battery", section: "Device", icon: "battery", page: "battery", keywords: "power saver profile charging" },
+        { title: "Security", section: "Security & Privacy", icon: "shield", page: "security", keywords: "pin password lock fingerprint biometric" },
+        { title: "About", section: "System", icon: "info", page: "about", keywords: "device name version model kernel build" },
+        { title: "Open Source Licenses", section: "About", icon: "info", page: "licenses", keywords: "legal license" },
+        { title: "Terms of Service", section: "About", icon: "info", page: "tos", keywords: "legal terms" },
+        { title: "Privacy Policy", section: "About", icon: "shield", page: "privacy", keywords: "legal privacy data" },
+        { title: "Software Updates", section: "System", icon: "download", page: "updates", keywords: "upgrade version release channel" },
+        { title: "Keyboard", section: "System", icon: "keyboard", page: "keyboard", keywords: "language autocorrect predictions typing capitalize" },
+        { title: "App Manager", section: "System", icon: "package", page: "appmanager", keywords: "apps uninstall installed remove" },
+        { title: "Accounts", section: "System", icon: "users", page: "accounts", keywords: "carddav caldav sync nextcloud contacts calendar" },
+        { title: "Terminal", section: "System", icon: "terminal-window", app: "terminal", keywords: "shell command console" },
+        { title: "Quick Settings", section: "Apps & Layout", icon: "settings-2", page: "quicksettings", keywords: "tiles shade toggles" },
+        { title: "Hidden Apps", section: "Apps & Layout", icon: "eye-off", page: "hiddenapps", keywords: "hide drawer" },
+        { title: "Default Apps", section: "Apps & Layout", icon: "star", page: "defaultapps", keywords: "browser phone email handler open with" },
+        { title: "App Layout", section: "Apps & Layout", icon: "layout-grid", page: "appsort", keywords: "grid columns icons" },
+        { title: "Filter Non-Mobile Apps", section: "Apps & Layout", icon: "smartphone", toggle: "filterMobile", keywords: "desktop apps" },
+        { title: "Search Native Apps", section: "Apps & Layout", icon: "search", toggle: "searchNative", keywords: "desktop linux apps" },
+        { title: "Show Notification Badges", section: "Apps & Layout", icon: "bell-ring", toggle: "badges", keywords: "counts dots" }
+    ]
+    readonly property var searchResults: {
+        const words = searchQuery.split(/\s+/).filter(w => w.length > 0);
+        if (words.length === 0)
+            return [];
+        return searchEntries.filter(e => {
+            var hay = (e.title + " " + e.section + " " + e.keywords).toLowerCase();
+            return words.every(w => hay.indexOf(w) >= 0);
+        });
+    }
 
     signal navigateToPage(string page)
     signal requestClose
+    signal closeOverlayRequested
+
+    function toggleState(key) {
+        switch (key) {
+        case "airplane":
+            return SystemControlStore.isAirplaneModeOn;
+        case "dnd":
+            return SystemControlStore.isDndMode;
+        case "filterMobile":
+            return SettingsManagerCpp.filterMobileFriendlyApps;
+        case "searchNative":
+            return SettingsManagerCpp.searchNativeApps;
+        case "badges":
+            return SettingsManagerCpp.showNotificationBadges;
+        }
+        return false;
+    }
+
+    function setToggle(key, value) {
+        if (toggleState(key) === value)
+            return;
+        switch (key) {
+        case "airplane":
+            SystemControlStore.toggleAirplaneMode();
+            break;
+        case "dnd":
+            SystemControlStore.toggleDndMode();
+            break;
+        case "filterMobile":
+            SettingsManagerCpp.filterMobileFriendlyApps = value;
+            break;
+        case "searchNative":
+            SettingsManagerCpp.searchNativeApps = value;
+            break;
+        case "badges":
+            SettingsManagerCpp.showNotificationBadges = value;
+            break;
+        }
+    }
+
+    function openEntry(entry) {
+        if (entry.app)
+            AppLifecycleManager.launchAppWithRoute(entry.app, "", "{}");
+        else if (entry.page)
+            navigateToPage(entry.page);
+    }
+
+    onCloseOverlayRequested: searchField.clear()
 
     // Derived summaries are property bindings, not functions — Qt's
     // binding analyzer cannot see through function calls to track
@@ -126,11 +220,57 @@ Page {
                 }
             }
 
+            MSearchField {
+                id: searchField
+
+
+                width: parent.width - 48
+                placeholder: "Search settings"
+                onAccepted: {
+                    if (mainPage.searchResults.length > 0)
+                        mainPage.openEntry(mainPage.searchResults[0]);
+                }
+            }
+
+            MSection {
+                title: "Results"
+                eyebrow: true
+                width: parent.width - 48
+                visible: mainPage.searchResults.length > 0
+
+                Repeater {
+                    model: mainPage.searchResults
+
+                    MSettingsListItem {
+                        required property var modelData
+
+                        title: modelData.title
+                        subtitle: modelData.section
+                        iconName: modelData.icon
+                        showChevron: !modelData.toggle
+                        showToggle: !!modelData.toggle
+                        toggleValue: !!modelData.toggle && mainPage.toggleState(modelData.toggle)
+                        onToggleChanged: value => mainPage.setToggle(modelData.toggle, value)
+                        onSettingClicked: mainPage.openEntry(modelData)
+                    }
+                }
+            }
+
+            MEmptyState {
+                width: parent.width - 48
+                visible: mainPage.searchQuery !== "" && mainPage.searchResults.length === 0
+                iconName: "magnifying-glass"
+                iconSize: 48
+                title: "No matching settings"
+                message: "Try another word, like “Wi-Fi”, “volume” or “PIN”."
+            }
+
             // ── CONNECTIVITY ───────────────────────────────────────
             MSection {
                 title: "Connectivity"
                 eyebrow: true
                 width: parent.width - 48
+                visible: mainPage.searchQuery === ""
 
                 MSettingsListItem {
                     title: "Wi-Fi"
@@ -167,12 +307,20 @@ Page {
                 title: "Device"
                 eyebrow: true
                 width: parent.width - 48
+                visible: mainPage.searchQuery === ""
 
                 MSettingsListItem {
                     title: "Display & Brightness"
                     iconName: "sun"
                     value: SystemControlStore.brightness + "%"
                     onSettingClicked: mainPage.navigateToPage("display")
+                }
+
+                MSettingsListItem {
+                    title: "Date & Time"
+                    iconName: "clock"
+                    value: (SettingsManagerCpp.timeZone || "UTC").split("/").pop().replace(/_/g, " ")
+                    onSettingClicked: mainPage.navigateToPage("datetime")
                 }
 
                 MSettingsListItem {
@@ -217,6 +365,7 @@ Page {
                 title: "Security & Privacy"
                 eyebrow: true
                 width: parent.width - 48
+                visible: mainPage.searchQuery === ""
 
                 MSettingsListItem {
                     title: "Security"
@@ -232,6 +381,7 @@ Page {
                 title: "System"
                 eyebrow: true
                 width: parent.width - 48
+                visible: mainPage.searchQuery === ""
 
                 MSettingsListItem {
                     title: "About"
@@ -281,6 +431,7 @@ Page {
                 title: "Apps & Layout"
                 eyebrow: true
                 width: parent.width - 48
+                visible: mainPage.searchQuery === ""
 
                 MSettingsListItem {
                     title: "Quick Settings"
@@ -304,12 +455,9 @@ Page {
                 }
 
                 MSettingsListItem {
-                    title: "App Sorting & Layout"
+                    title: "App Layout"
                     iconName: "layout-grid"
-                    value: {
-                        const o = SettingsManagerCpp.appSortOrder;
-                        return o === "alphabetical" ? "A–Z" : o === "frequent" ? "Most Used" : o === "recent" ? "Recent" : "Custom";
-                    }
+                    value: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns + " columns" : "Auto"
                     onSettingClicked: mainPage.navigateToPage("appsort")
                 }
 

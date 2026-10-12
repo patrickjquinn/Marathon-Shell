@@ -3,11 +3,11 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 SettingsPageTemplate {
     id: accountsPage
@@ -20,6 +20,15 @@ SettingsPageTemplate {
     property string formSecret: ""
 
     pageTitle: "Accounts"
+    overlayOpen: removeDialog.showing || addFormVisible
+    onCloseOverlayRequested: {
+        if (removeDialog.showing) {
+            removeDialog.showing = false;
+        } else {
+            addFormVisible = false;
+            resetForm();
+        }
+    }
 
     function resetForm() {
         formDisplayName = "";
@@ -99,46 +108,34 @@ SettingsPageTemplate {
                     width: parent.width
                     spacing: MSpacing.sm
 
-                    Label {
-                        text: "Display name"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
+                    MTextField {
                         width: parent.width
-                        placeholderText: "My Nextcloud"
+                        label: "Display name"
+                        placeholder: "My Nextcloud"
                         text: accountsPage.formDisplayName
                         onTextChanged: accountsPage.formDisplayName = text
                     }
 
-                    Label {
-                        text: "Server URL"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
+                    MTextField {
                         width: parent.width
-                        placeholderText: "https://cloud.example.com"
+                        label: "Server URL"
+                        placeholder: "https://cloud.example.com"
                         text: accountsPage.formBaseUrl
                         onTextChanged: accountsPage.formBaseUrl = text
                     }
 
-                    Label {
-                        text: "Username"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
+                    MTextField {
                         width: parent.width
-                        placeholderText: "you@example.com"
+                        label: "Username"
+                        placeholder: "you@example.com"
                         text: accountsPage.formUsername
                         onTextChanged: accountsPage.formUsername = text
                     }
 
-                    Label {
-                        text: "Password / app-password"
-                        color: MColors.textSecondary
-                    }
-                    TextField {
+                    MTextField {
                         width: parent.width
-                        placeholderText: "••••••••"
+                        label: "Password / app-password"
+                        placeholder: "••••••••"
                         echoMode: TextInput.Password
                         text: accountsPage.formSecret
                         onTextChanged: accountsPage.formSecret = text
@@ -199,7 +196,8 @@ SettingsPageTemplate {
 
         title: "Remove account?"
         message: removeDialog.targetName + " will be removed; locally synced contacts are kept."
-        confirmText: "Remove"
+        confirmText: "Remove account"
+        destructive: true
         onConfirmed: {
             DavSyncEngine.removeAccount(removeDialog.targetId);
             removeDialog.showing = false;

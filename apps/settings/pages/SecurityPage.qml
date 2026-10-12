@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
@@ -14,8 +15,23 @@ SettingsPageTemplate {
     property string pageName: "security"
     property bool showQuickPINDialog: false
     property bool showRemovePINDialog: false
+    property string pinError: ""
+    property string pendingPINAction: ""
+
+    function closePINDialogs() {
+        showQuickPINDialog = false;
+        showRemovePINDialog = false;
+        pendingPINAction = "";
+        pinError = "";
+        newPINField.text = "";
+        confirmPINField.text = "";
+        systemPasswordField.text = "";
+        removePasswordField.text = "";
+    }
 
     pageTitle: "Security"
+    overlayOpen: showQuickPINDialog || showRemovePINDialog
+    onCloseOverlayRequested: closePINDialogs()
     Component.onCompleted: {
         Logger.info("SecurityPage", "Initialized");
     }
@@ -25,9 +41,7 @@ SettingsPageTemplate {
 
         showing: securityPage.showQuickPINDialog
         title: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN ? "Change Quick PIN" : "Set Quick PIN"
-        onClosed: {
-            securityPage.showQuickPINDialog = false;
-        }
+        onClosed: securityPage.closePINDialogs()
 
         content: Column {
             width: parent.width
@@ -42,74 +56,46 @@ SettingsPageTemplate {
                 wrapMode: Text.WordWrap
             }
 
-            Rectangle {
+            MTextField {
+                id: newPINField
+
                 width: parent.width
-                height: 48
-                color: MColors.bb10Surface
-                radius: MRadius.md
-                border.width: 1
-                border.color: newPINField.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
-
-                TextInput {
-                    id: newPINField
-
-                    anchors.fill: parent
-                    anchors.leftMargin: MSpacing.md
-                    anchors.rightMargin: MSpacing.md
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    color: MColors.textPrimary
-                    echoMode: TextInput.Password
-                    maximumLength: 6
-                    inputMethodHints: Qt.ImhDigitsOnly
-
-                    Text {
-                        text: "Enter 4-6 digit PIN"
-                        font: newPINField.font
-                        color: MColors.textSecondary
-                        visible: newPINField.text.length === 0 && !newPINField.activeFocus
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                label: "New PIN"
+                placeholder: "4-6 digits"
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator {
+                    regularExpression: /[0-9]{0,6}/
                 }
             }
 
-            Rectangle {
+            MTextField {
+                id: confirmPINField
+
                 width: parent.width
-                height: 48
-                color: MColors.bb10Surface
-                radius: MRadius.md
-                border.width: 1
-                border.color: systemPasswordField.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
-
-                TextInput {
-                    id: systemPasswordField
-
-                    anchors.fill: parent
-                    anchors.leftMargin: MSpacing.md
-                    anchors.rightMargin: MSpacing.md
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    color: MColors.textPrimary
-                    echoMode: TextInput.Password
-                    inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
-
-                    Text {
-                        text: "System password (required)"
-                        font: systemPasswordField.font
-                        color: MColors.textSecondary
-                        visible: systemPasswordField.text.length === 0 && !systemPasswordField.activeFocus
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                label: "Confirm PIN"
+                placeholder: "Enter the PIN again"
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator {
+                    regularExpression: /[0-9]{0,6}/
                 }
+                errorText: text.length > 0 && text.length >= newPINField.text.length && text !== newPINField.text ? "PINs don't match" : ""
+            }
+
+            MTextField {
+                id: systemPasswordField
+
+                width: parent.width
+                label: "System password"
+                placeholder: "Required to change the PIN"
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
             }
 
             Text {
-                id: pinErrorText
-
                 width: parent.width
-                text: ""
+                text: securityPage.pinError
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 color: MColors.error
@@ -124,61 +110,113 @@ SettingsPageTemplate {
                 MButton {
                     text: "Cancel"
                     variant: "text"
-                    onClicked: {
-                        securityPage.showQuickPINDialog = false;
-                        newPINField.text = "";
-                        systemPasswordField.text = "";
-                        pinErrorText.text = "";
-                    }
+                    onClicked: securityPage.closePINDialogs()
                 }
 
                 MButton {
                     text: "Set PIN"
+                    variant: "primary"
+                    controlState: securityPage.pendingPINAction === "set" ? "loading" : "default"
                     onClicked: {
-                        pinErrorText.text = SettingsController.quickPinValidationError(newPINField.text, systemPasswordField.text);
-                        if (pinErrorText.text.length > 0)
+                        securityPage.pinError = SettingsController.quickPinValidationError(newPINField.text, systemPasswordField.text);
+                        if (securityPage.pinError.length === 0 && confirmPINField.text !== newPINField.text)
+                            securityPage.pinError = "The PINs don't match. Enter the same PIN in both fields.";
+                        if (securityPage.pinError.length > 0)
                             return;
+                        securityPage.pendingPINAction = "set";
                         SecurityManagerCpp.setQuickPIN(newPINField.text, systemPasswordField.text);
-                        securityPage.showQuickPINDialog = false;
-                        newPINField.text = "";
-                        systemPasswordField.text = "";
-                        pinErrorText.text = "";
                     }
                 }
             }
         }
     }
 
-    MConfirmDialog {
-        id: removePINDialog
+    MModal {
+        id: removePINModal
 
         showing: securityPage.showRemovePINDialog
         title: "Remove Quick PIN?"
-        message: "You will need to enter your system password to unlock. This action requires your system password."
-        confirmText: "Remove"
-        cancelText: "Cancel"
-        onConfirmed: {
-            securityPage.showRemovePINDialog = false;
-        }
-        onCancelled: {
-            securityPage.showRemovePINDialog = false;
+        onClosed: securityPage.closePINDialogs()
+
+        content: Column {
+            width: parent.width
+            spacing: MSpacing.md
+
+            Text {
+                width: parent.width
+                text: "After removing the Quick PIN you'll unlock with your system password. Enter it to confirm."
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                color: MColors.textSecondary
+                wrapMode: Text.WordWrap
+            }
+
+            MTextField {
+                id: removePasswordField
+
+                width: parent.width
+                label: "System password"
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
+            }
+
+            Text {
+                width: parent.width
+                text: securityPage.pinError
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
+                color: MColors.error
+                wrapMode: Text.WordWrap
+                visible: text !== ""
+            }
+
+            Row {
+                anchors.right: parent.right
+                spacing: MSpacing.sm
+
+                MButton {
+                    text: "Cancel"
+                    variant: "text"
+                    onClicked: securityPage.closePINDialogs()
+                }
+
+                MButton {
+                    text: "Remove PIN"
+                    variant: "danger"
+                    controlState: securityPage.pendingPINAction === "remove" ? "loading" : "default"
+                    onClicked: {
+                        if (removePasswordField.text.trim().length === 0) {
+                            securityPage.pinError = "Enter your system password to remove the PIN.";
+                            return;
+                        }
+                        securityPage.pinError = "";
+                        securityPage.pendingPINAction = "remove";
+                        SecurityManagerCpp.removeQuickPIN(removePasswordField.text);
+                    }
+                }
+            }
         }
     }
 
     Connections {
         function onQuickPINChanged() {
             Logger.info("SecurityPage", "Quick PIN changed");
+            if (securityPage.pendingPINAction !== "")
+                securityPage.closePINDialogs();
         }
 
         function onAuthenticationFailed(reason) {
-            pinErrorText.text = reason;
+            if (securityPage.pendingPINAction === "")
+                return;
+            securityPage.pendingPINAction = "";
+            securityPage.pinError = reason;
         }
 
         target: SecurityManagerCpp
     }
 
     content: Flickable {
-        contentHeight: securityContent.height + 40
+        contentHeight: securityContent.height + MSpacing.xxl
         clip: true
 
         Column {
@@ -227,9 +265,6 @@ SettingsPageTemplate {
                     title: "Fingerprint"
                     subtitle: SecurityManagerCpp && SecurityManagerCpp.fingerprintAvailable ? "Enrolled and ready" : "Not enrolled"
                     iconName: "fingerprint"
-                    onSettingClicked: {
-                        Qt.openUrlExternally("fprintd://enroll");
-                    }
                 }
             }
 

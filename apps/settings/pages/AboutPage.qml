@@ -3,6 +3,9 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 
@@ -12,7 +15,49 @@ SettingsPageTemplate {
     property string pageName: "about"
 
     pageTitle: "About Device"
+    overlayOpen: renameModal.showing
+    onCloseOverlayRequested: renameModal.showing = false
     signal openSourceLicensesRequested
+
+    MModal {
+        id: renameModal
+
+        title: "Device name"
+        onClosed: renameModal.showing = false
+
+        content: Column {
+            width: parent.width
+            spacing: MSpacing.md
+
+            MTextField {
+                id: deviceNameField
+
+                width: parent.width
+                label: "Name for this device"
+                errorText: text.trim().length === 0 ? "Enter a name" : ""
+            }
+
+            Row {
+                anchors.right: parent.right
+                spacing: MSpacing.sm
+
+                MButton {
+                    text: "Cancel"
+                    onClicked: renameModal.showing = false
+                }
+
+                MButton {
+                    text: "Save"
+                    variant: "primary"
+                    disabled: deviceNameField.text.trim().length === 0
+                    onClicked: {
+                        SettingsManagerCpp.deviceName = deviceNameField.text.trim();
+                        renameModal.showing = false;
+                    }
+                }
+            }
+        }
+    }
 
     StorageInfo {
         id: storageInfo
@@ -39,6 +84,10 @@ SettingsPageTemplate {
                     title: "Device Name"
                     value: SettingsManagerCpp.deviceName
                     showChevron: true
+                    onSettingClicked: {
+                        deviceNameField.text = SettingsManagerCpp.deviceName;
+                        renameModal.showing = true;
+                    }
                 }
 
                 MSettingsListItem {

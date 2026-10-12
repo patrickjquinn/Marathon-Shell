@@ -38,6 +38,8 @@ SettingsPageTemplate {
                 model: SettingsController.openSourceLicenses
 
                 MSection {
+                    id: licenseSection
+
                     required property var modelData
                     title: modelData.title
                     width: parent.width - MSpacing.lg * 2
@@ -47,7 +49,7 @@ SettingsPageTemplate {
                         spacing: 0
 
                         Repeater {
-                            model: modelData.items
+                            model: licenseSection.modelData.items
 
                             MSettingsListItem {
                                 required property var modelData

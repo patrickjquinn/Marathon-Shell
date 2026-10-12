@@ -19,13 +19,37 @@ Item {
     property string errorMessage: SettingsController.bluetoothDialogError
     property bool dialogVisible: SettingsController.bluetoothDialogVisible
     property bool internalVisible: false
+    readonly property bool canPair: SettingsController.bluetoothCanPair(pairingMode, pinInput.text, passkeyInput.text)
+
+    function submit() {
+        if (!canPair)
+            return;
+        Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
+        HapticService.medium();
+        if (pairingMode === "confirm")
+            SettingsController.confirmBluetoothPairing(true);
+        else if (pairingMode === "pin")
+            SettingsController.submitBluetoothPin(pinInput.text);
+        else if (pairingMode === "passkey")
+            SettingsController.submitBluetoothPasskey(passkeyInput.text);
+        else
+            SettingsController.submitBluetoothPin("");
+    }
+
+    function cancel() {
+        Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected");
+        if (pairingMode === "confirm")
+            SettingsController.confirmBluetoothPairing(false);
+        else
+            SettingsController.cancelBluetoothPairing();
+    }
 
     anchors.fill: parent
     visible: internalVisible
     z: Constants.zIndexModalOverlay + 10
     Keys.onEscapePressed: {
         if (!bluetoothPairDialog.isPairing)
-            SettingsController.cancelBluetoothPairing();
+            bluetoothPairDialog.cancel();
     }
     onDialogVisibleChanged: {
         if (bluetoothPairDialog.dialogVisible) {
@@ -51,14 +75,14 @@ Item {
         id: overlay
 
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.6)
+        color: MColors.overlayLight
         opacity: 0
 
         MouseArea {
             anchors.fill: parent
             onClicked: {
                 if (!bluetoothPairDialog.isPairing)
-                    SettingsController.cancelBluetoothPairing();
+                    bluetoothPairDialog.cancel();
             }
         }
     }
@@ -93,7 +117,7 @@ Item {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15)
+                    color: MColors.tealHalo
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
@@ -163,10 +187,7 @@ Item {
                         maximumLength: 6
                         enabled: !bluetoothPairDialog.isPairing
                         selectByMouse: true
-                        Keys.onReturnPressed: {
-                            if (pinInput.text.length >= 4)
-                                pairButton.clicked();
-                        }
+                        Keys.onReturnPressed: bluetoothPairDialog.submit()
 
                         Text {
                             text: "Enter PIN (4-6 digits)"
@@ -190,10 +211,7 @@ Item {
                         maximumLength: 6
                         enabled: !bluetoothPairDialog.isPairing
                         selectByMouse: true
-                        Keys.onReturnPressed: {
-                            if (passkeyInput.text.length === 6)
-                                pairButton.clicked();
-                        }
+                        Keys.onReturnPressed: bluetoothPairDialog.submit()
 
                         Text {
                             text: "Enter 6-digit passkey"
@@ -216,7 +234,7 @@ Item {
                 width: parent.width
                 height: Math.round(100 * Constants.scaleFactor)
                 radius: Constants.borderRadiusLarge
-                color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.1)
+                color: MColors.marathonTealGlowMid
                 border.width: Constants.borderWidthMedium
                 border.color: MColors.marathonTeal
                 visible: bluetoothPairDialog.pairingMode === "confirm"
@@ -319,6 +337,9 @@ Item {
                     color: "transparent"
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
+                    Accessible.role: Accessible.Button
+                    Accessible.name: bluetoothPairDialog.pairingMode === "confirm" ? "Reject" : "Cancel"
+                    Accessible.onPressAction: bluetoothPairDialog.cancel()
 
                     Text {
                         text: bluetoothPairDialog.pairingMode === "confirm" ? "Reject" : "Cancel"
@@ -331,26 +352,21 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected");
                             HapticService.light();
-                            if (bluetoothPairDialog.pairingMode === "confirm")
-                                SettingsController.confirmBluetoothPairing(false);
-                            else
-                                SettingsController.cancelBluetoothPairing();
+                            bluetoothPairDialog.cancel();
                         }
                     }
                 }
 
                 Rectangle {
-                    id: pairButton
-
-                    signal clicked
-
                     width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: SettingsController.bluetoothCanPair(bluetoothPairDialog.pairingMode, pinInput.text, passkeyInput.text) ? MColors.marathonTeal : Qt.darker(MColors.marathonTeal, 1.5)
-                    opacity: SettingsController.bluetoothCanPair(bluetoothPairDialog.pairingMode, pinInput.text, passkeyInput.text) ? 1 : 0.5
+                    color: bluetoothPairDialog.canPair ? MColors.marathonTeal : MColors.marathonTealDarkest
+                    opacity: bluetoothPairDialog.canPair ? 1 : 0.5
+                    Accessible.role: Accessible.Button
+                    Accessible.name: bluetoothPairDialog.pairingMode === "confirm" ? "Accept" : "Pair"
+                    Accessible.onPressAction: bluetoothPairDialog.submit()
 
                     Text {
                         text: bluetoothPairDialog.pairingMode === "confirm" ? "Accept" : "Pair"
@@ -363,19 +379,8 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
-                        enabled: SettingsController.bluetoothCanPair(bluetoothPairDialog.pairingMode, pinInput.text, passkeyInput.text)
-                        onClicked: {
-                            Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
-                            HapticService.medium();
-                            if (bluetoothPairDialog.pairingMode === "confirm")
-                                SettingsController.confirmBluetoothPairing(true);
-                            else if (bluetoothPairDialog.pairingMode === "pin")
-                                SettingsController.submitBluetoothPin(pinInput.text);
-                            else if (bluetoothPairDialog.pairingMode === "passkey")
-                                SettingsController.submitBluetoothPasskey(passkeyInput.text);
-                            else
-                                SettingsController.submitBluetoothPin("");
-                        }
+                        enabled: bluetoothPairDialog.canPair
+                        onClicked: bluetoothPairDialog.submit()
                     }
                 }
             }

@@ -64,7 +64,7 @@ class SettingsController : public QObject {
     Q_INVOKABLE QVariantList appsForHandler(const QString &handler, int revision = 0);
     Q_INVOKABLE QString      defaultAppName(const QString &handler, int revision = 0);
     Q_INVOKABLE void         setDefaultApp(const QString &handler, const QString &appId);
-    Q_INVOKABLE QVariantList notificationAppsForRevision(int revision = 0);
+    Q_INVOKABLE QVariantList notificationAppsForRevision(int revision = 0) const;
     Q_INVOKABLE void         setNotificationEnabled(const QString &appId, bool enabled);
     Q_INVOKABLE void         requestPage(const QString &pageName, const QVariantMap &params = {});
     Q_INVOKABLE bool         requestBack();

@@ -85,12 +85,21 @@ SettingsPageTemplate {
                         model: scalePage.scaleOptions
 
                         Rectangle {
+                            id: scaleOption
+
+                            required property var modelData
+
                             width: parent.width
                             height: Constants.touchTargetMedium
                             radius: Constants.borderRadiusSmall
-                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent"
+                            color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTealGlowMid : "transparent"
                             border.width: Constants.userScaleFactor === modelData.factor ? 1 : 0
-                            border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
+                            border.color: MColors.tealBorder
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: modelData.title
+                            Accessible.description: modelData.description
+                            Accessible.checked: Constants.userScaleFactor === modelData.factor
+                            Accessible.onPressAction: SettingsManagerCpp.userScaleFactor = modelData.factor
 
                             Row {
                                 anchors.fill: parent
@@ -101,13 +110,13 @@ SettingsPageTemplate {
                                     width: Math.round(28 * Constants.userScaleFactor)
                                     height: Math.round(28 * Constants.userScaleFactor)
                                     radius: Math.round(14 * Constants.userScaleFactor)
-                                    color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : "transparent"
+                                    color: Constants.userScaleFactor === scaleOption.modelData.factor ? MColors.marathonTeal : "transparent"
                                     border.width: Math.round(2 * Constants.userScaleFactor)
-                                    border.color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : MColors.textSecondary
+                                    border.color: Constants.userScaleFactor === scaleOption.modelData.factor ? MColors.marathonTeal : MColors.textSecondary
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Rectangle {
-                                        visible: Constants.userScaleFactor === modelData.factor
+                                        visible: Constants.userScaleFactor === scaleOption.modelData.factor
                                         width: Math.round(12 * Constants.userScaleFactor)
                                         height: Math.round(12 * Constants.userScaleFactor)
                                         radius: Math.round(6 * Constants.userScaleFactor)
@@ -121,7 +130,7 @@ SettingsPageTemplate {
                                     spacing: 4
 
                                     Text {
-                                        text: modelData.title
+                                        text: scaleOption.modelData.title
                                         color: MColors.textPrimary
                                         font.pixelSize: MTypography.sizeBody
                                         font.weight: Font.DemiBold
@@ -129,7 +138,7 @@ SettingsPageTemplate {
                                     }
 
                                     Text {
-                                        text: modelData.description
+                                        text: scaleOption.modelData.description
                                         color: MColors.textSecondary
                                         font.pixelSize: MTypography.sizeSmall
                                         font.family: MTypography.fontFamily
@@ -142,7 +151,7 @@ SettingsPageTemplate {
                                 // Write only to SettingsManagerCpp — the
                                 // Constants.userScaleFactor Binding listens
                                 // for changes and propagates back.
-                                onClicked: SettingsManagerCpp.userScaleFactor = modelData.factor
+                                onClicked: SettingsManagerCpp.userScaleFactor = scaleOption.modelData.factor
                             }
                         }
                     }

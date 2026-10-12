@@ -11,7 +11,7 @@ SettingsPageTemplate {
 
     property string pageName: "appsort"
 
-    pageTitle: "App Sorting & Layout"
+    pageTitle: "App Layout"
 
     content: Flickable {
         contentHeight: contentColumn.height + 40
@@ -25,56 +25,6 @@ SettingsPageTemplate {
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
-
-            MSection {
-                title: "Sort Order"
-                subtitle: "Choose how apps are organized"
-                width: parent.width - 48
-
-                MSettingsListItem {
-                    title: "Alphabetical"
-                    subtitle: "Sort by name A-Z"
-                    value: (SettingsManagerCpp.appSortOrder === "alphabetical") ? "selected" : ""
-                    iconName: "arrow-down-up"
-                    onSettingClicked: {
-                        SettingsManagerCpp.appSortOrder = "alphabetical";
-                        Logger.info("AppSort", "Sort order: alphabetical");
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Most Used"
-                    subtitle: "Frequently opened apps first"
-                    value: (SettingsManagerCpp.appSortOrder === "frequent") ? "selected" : ""
-                    iconName: "star"
-                    onSettingClicked: {
-                        SettingsManagerCpp.appSortOrder = "frequent";
-                        Logger.info("AppSort", "Sort order: frequent");
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Recently Added"
-                    subtitle: "Newest apps first"
-                    value: (SettingsManagerCpp.appSortOrder === "recent") ? "selected" : ""
-                    iconName: "clock"
-                    onSettingClicked: {
-                        SettingsManagerCpp.appSortOrder = "recent";
-                        Logger.info("AppSort", "Sort order: recent");
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Custom"
-                    subtitle: "Manual arrangement"
-                    value: (SettingsManagerCpp.appSortOrder === "custom") ? "selected" : ""
-                    iconName: "move"
-                    onSettingClicked: {
-                        SettingsManagerCpp.appSortOrder = "custom";
-                        Logger.info("AppSort", "Sort order: custom");
-                    }
-                }
-            }
 
             MSection {
                 title: "Grid Layout"

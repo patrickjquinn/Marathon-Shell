@@ -4,20 +4,52 @@ import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 SettingsPageTemplate {
     id: wifiPage
 
     property string pageName: "wifi"
-    pageTitle: "WiFi"
+    property bool scanning: false
+
+    function scan() {
+        scanning = true;
+        scanTimeout.restart();
+        NetworkManagerCpp.scanWifi();
+    }
+
+    pageTitle: "Wi-Fi"
+    overlayOpen: disconnectSheet.showing || SettingsController.wifiDialogVisible
+    onCloseOverlayRequested: {
+        if (SettingsController.wifiDialogVisible) {
+            if (!SettingsController.wifiDialogConnecting)
+                SettingsController.dismissWifiDialog();
+        } else {
+            disconnectSheet.hide();
+        }
+    }
     Component.onCompleted: {
         Logger.info("WiFiPage", "Initialized");
         if (NetworkManagerCpp.wifiEnabled)
-            NetworkManagerCpp.scanWifi();
+            scan();
+    }
+
+    Timer {
+        id: scanTimeout
+
+        interval: 15000
+        onTriggered: wifiPage.scanning = false
+    }
+
+    Connections {
+        target: NetworkManagerCpp
+
+        function onAvailableNetworksChanged() {
+            wifiPage.scanning = false;
+        }
     }
 
     MSheet {
@@ -56,7 +88,7 @@ SettingsPageTemplate {
 
                 MButton {
                     text: "Disconnect"
-                    variant: "primary"
+                    variant: "danger"
                     width: 140
                     onClicked: {
                         NetworkManagerCpp.disconnectWifi();
@@ -67,7 +99,7 @@ SettingsPageTemplate {
         }
     }
 
-    WiFiPasswordDialog {
+    SettingsWiFiDialog {
         id: passwordDialog
         anchors.fill: parent
     }
@@ -88,7 +120,7 @@ SettingsPageTemplate {
 
             MSettingsListItem {
                 width: parent.width - 48
-                title: "WiFi"
+                title: "Wi-Fi"
                 subtitle: NetworkManagerCpp.wifiEnabled ? "Enabled" : "Disabled"
                 iconName: "wifi"
                 showToggle: true
@@ -97,9 +129,7 @@ SettingsPageTemplate {
                     NetworkManagerCpp.toggleWifi();
 
                     if (NetworkManagerCpp.wifiEnabled)
-                        Qt.callLater(() => {
-                            NetworkManagerCpp.scanWifi();
-                        });
+                        Qt.callLater(wifiPage.scan);
                 }
             }
 
@@ -111,10 +141,13 @@ SettingsPageTemplate {
                 Rectangle {
                     width: parent.width
                     height: Constants.hubHeaderHeight
-                    radius: 4
-                    color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08)
+                    radius: MRadius.sm
+                    color: MColors.marathonTealGlowMid
                     border.width: 1
-                    border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
+                    border.color: MColors.tealBorder
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Connected to " + (NetworkManagerCpp.wifiSsid || "Wi-Fi") + ". Tap to disconnect"
+                    Accessible.onPressAction: disconnectSheet.show()
 
                     Row {
                         anchors.fill: parent
@@ -124,7 +157,7 @@ SettingsPageTemplate {
                         Icon {
                             name: SettingsController.wifiSignalIcon(NetworkManagerCpp.wifiSignalStrength)
                             size: 28
-                            color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 1)
+                            color: MColors.marathonTeal
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
@@ -182,14 +215,14 @@ SettingsPageTemplate {
 
                 Row {
                     width: parent.width
-                    height: 48
+                    height: MSpacing.touchTargetMin
+                    leftPadding: MSpacing.md
                     spacing: MSpacing.md
-                    visible: false
+                    visible: wifiPage.scanning && NetworkManagerCpp.availableNetworks.length === 0
 
-                    BusyIndicator {
+                    MActivityIndicator {
                         running: parent.visible
-                        width: 32
-                        height: 32
+                        size: 24
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -233,25 +266,26 @@ SettingsPageTemplate {
 
                 Text {
                     width: parent.width
-                    text: "No networks found"
+                    text: "No networks found. Move closer to a router or scan again."
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     horizontalAlignment: Text.AlignHCenter
-                    topPadding: 24
-                    bottomPadding: 24
-                    visible: NetworkManagerCpp.availableNetworks.length === 0
+                    wrapMode: Text.WordWrap
+                    topPadding: MSpacing.lg
+                    bottomPadding: MSpacing.lg
+                    visible: !wifiPage.scanning && NetworkManagerCpp.availableNetworks.length === 0
                 }
 
                 MButton {
                     width: parent.width
+                    visible: !wifiPage.scanning
                     text: "Scan for networks"
                     iconName: "rotate-cw"
                     variant: "primary"
-                    visible: true
                     onClicked: {
                         HapticService.medium();
-                        NetworkManagerCpp.scanWifi();
+                        wifiPage.scan();
                     }
                 }
             }

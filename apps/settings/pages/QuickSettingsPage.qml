@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 
@@ -12,6 +13,26 @@ SettingsPageTemplate {
     property string pageName: "quicksettings"
 
     pageTitle: "Quick Settings"
+    overlayOpen: resetDialog.showing
+    onCloseOverlayRequested: resetDialog.showing = false
+
+    MConfirmDialog {
+        id: resetDialog
+
+        title: "Reset Quick Settings?"
+        message: "Your tile choices and order will be replaced with the defaults."
+        confirmText: "Reset tiles"
+        destructive: true
+        onConfirmed: {
+            var defaultTiles = ["wifi", "bluetooth", "flight", "cellular", "rotation", "autobrightness", "location", "hotspot", "vibration", "nightlight", "torch", "notifications", "battery", "screenshot", "settings", "lock"];
+            SettingsManagerCpp.enabledQuickSettingsTiles = defaultTiles;
+            SettingsManagerCpp.quickSettingsTileOrder = defaultTiles;
+            Logger.info("QuickSettings", "Reset to defaults");
+            HapticService.light();
+            resetDialog.showing = false;
+        }
+        onCancelled: resetDialog.showing = false
+    }
 
     content: Flickable {
         contentHeight: quickSettingsContent.height + 40
@@ -176,13 +197,7 @@ SettingsPageTemplate {
                     subtitle: "Restore all tiles in default order"
                     iconName: "refresh-cw"
                     showChevron: false
-                    onSettingClicked: {
-                        var defaultTiles = ["wifi", "bluetooth", "flight", "cellular", "rotation", "autobrightness", "location", "hotspot", "vibration", "nightlight", "torch", "notifications", "battery", "screenshot", "settings", "lock"];
-                        SettingsManagerCpp.enabledQuickSettingsTiles = defaultTiles;
-                        SettingsManagerCpp.quickSettingsTileOrder = defaultTiles;
-                        Logger.info("QuickSettings", "Reset to defaults");
-                        HapticService.light();
-                    }
+                    onSettingClicked: resetDialog.showing = true
                 }
             }
 

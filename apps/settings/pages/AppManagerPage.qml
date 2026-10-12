@@ -3,6 +3,8 @@ pragma ComponentBehavior: Bound
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Feedback
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Layouts
@@ -14,84 +16,46 @@ SettingsPageTemplate {
 
     pageTitle: "App Manager"
 
-    Rectangle {
+    overlayOpen: uninstallDialog.showing
+    onCloseOverlayRequested: uninstallDialog.showing = false
+
+    MConfirmDialog {
         id: uninstallDialog
 
         property string appId: ""
         property string appName: ""
 
-        anchors.centerIn: parent
-        width: Math.min(Constants.screenWidth * 0.85, parent.width - MSpacing.xl * 2)
-        height: dialogContent.height + MSpacing.xl * 2
-        color: MColors.surface
-        radius: Constants.borderRadiusLarge
-        visible: false
-        z: 1000
-
-        ColumnLayout {
-            id: dialogContent
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.margins: MSpacing.xl
-            spacing: MSpacing.lg
-
-            Text {
-                Layout.fillWidth: true
-                text: "Uninstall " + uninstallDialog.appName + "?"
-                color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: "This app will be permanently removed from your device."
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: MSpacing.md
-
-                MButton {
-                    Layout.fillWidth: true
-                    text: "Cancel"
-                    variant: "secondary"
-                    onClicked: uninstallDialog.visible = false
-                }
-
-                MButton {
-                    Layout.fillWidth: true
-                    text: "Uninstall"
-                    variant: "danger"
-                    onClicked: {
-                        Logger.info("AppManagerPage", "Uninstalling: " + uninstallDialog.appId);
-                        MarathonAppInstaller.uninstallApp(uninstallDialog.appId);
-                        uninstallDialog.visible = false;
-                    }
-                }
-            }
+        title: "Uninstall " + uninstallDialog.appName + "?"
+        message: "This app and its data will be permanently removed from your device."
+        confirmText: "Uninstall"
+        destructive: true
+        onConfirmed: {
+            Logger.info("AppManagerPage", "Uninstalling: " + uninstallDialog.appId);
+            MarathonAppInstaller.uninstallApp(uninstallDialog.appId);
+            uninstallDialog.showing = false;
         }
+        onCancelled: uninstallDialog.showing = false
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.7)
-        visible: uninstallDialog.visible
-        z: 999
+    MSnackbar {
+        id: snackbar
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                uninstallDialog.visible = false;
-            }
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: MSpacing.md
+        anchors.bottomMargin: Constants.navBarHeight + MSpacing.md
+    }
+
+    Connections {
+        target: MarathonAppInstaller
+
+        function onUninstallComplete(appId) {
+            snackbar.show(uninstallDialog.appName + " uninstalled");
+        }
+
+        function onUninstallFailed(appId, error) {
+            snackbar.show("Couldn't uninstall " + uninstallDialog.appName + ": " + error);
         }
     }
 
@@ -129,6 +93,10 @@ SettingsPageTemplate {
                 model: MarathonAppRegistry
 
                 delegate: Item {
+                    id: appDelegate
+
+                    required property var model
+
                     width: contentColumn.width
                     height: Constants.touchTargetLarge + MSpacing.lg
 
@@ -146,7 +114,7 @@ SettingsPageTemplate {
                                 Layout.preferredWidth: Constants.iconSizeLarge + MSpacing.sm
                                 Layout.preferredHeight: Constants.iconSizeLarge + MSpacing.sm
                                 Layout.alignment: Qt.AlignVCenter
-                                source: model.icon || "qrc:/images/app-icon-placeholder.svg"
+                                source: appDelegate.model.icon || "qrc:/images/app-icon-placeholder.svg"
                                 sourceSize.width: Constants.iconSizeLarge + MSpacing.sm
                                 sourceSize.height: Constants.iconSizeLarge + MSpacing.sm
                                 fillMode: Image.PreserveAspectFit
@@ -167,14 +135,14 @@ SettingsPageTemplate {
                                     spacing: MSpacing.sm
 
                                     Text {
-                                        text: model.name
+                                        text: appDelegate.model.name
                                         color: MColors.textPrimary
                                         font.pixelSize: MTypography.sizeBody
                                         font.weight: Font.DemiBold
                                     }
 
                                     Rectangle {
-                                        visible: model.isProtected
+                                        visible: appDelegate.model.isProtected
                                         Layout.preferredWidth: systemBadgeText.width + MSpacing.md
                                         Layout.preferredHeight: MSpacing.lg
                                         radius: Constants.borderRadiusSmall
@@ -195,7 +163,7 @@ SettingsPageTemplate {
                                 }
 
                                 Text {
-                                    text: "v" + (model.version || "1.0.0")
+                                    text: "v" + (appDelegate.model.version || "1.0.0")
                                     color: MColors.textSecondary
                                     font.pixelSize: MTypography.sizeSmall
                                     Layout.fillWidth: true
@@ -206,11 +174,11 @@ SettingsPageTemplate {
                                 Layout.preferredWidth: Constants.touchTargetLarge + MSpacing.lg
                                 text: "Uninstall"
                                 variant: "danger"
-                                disabled: model.isProtected
+                                disabled: appDelegate.model.isProtected
                                 onClicked: {
-                                    uninstallDialog.appId = model.id;
-                                    uninstallDialog.appName = model.name;
-                                    uninstallDialog.visible = true;
+                                    uninstallDialog.appId = appDelegate.model.id;
+                                    uninstallDialog.appName = appDelegate.model.name;
+                                    uninstallDialog.showing = true;
                                 }
                             }
                         }

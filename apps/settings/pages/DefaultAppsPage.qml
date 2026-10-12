@@ -13,6 +13,18 @@ SettingsPageTemplate {
     property string pageName: "defaultapps"
 
     pageTitle: "Default Apps"
+    overlayOpen: browserSheet.showing || dialerSheet.showing || messagingSheet.showing || emailSheet.showing || cameraSheet.showing || gallerySheet.showing || musicSheet.showing || videoSheet.showing || filesSheet.showing
+    onCloseOverlayRequested: {
+        browserSheet.hide();
+        dialerSheet.hide();
+        messagingSheet.hide();
+        emailSheet.hide();
+        cameraSheet.hide();
+        gallerySheet.hide();
+        musicSheet.hide();
+        videoSheet.hide();
+        filesSheet.hide();
+    }
 
     MSheet {
         id: browserSheet

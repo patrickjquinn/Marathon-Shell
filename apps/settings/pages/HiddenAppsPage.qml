@@ -45,6 +45,8 @@ SettingsPageTemplate {
                     model: AppModel
 
                     MSettingsListItem {
+                        required property var model
+
                         title: model.name
                         subtitle: model.id
                         iconName: ""

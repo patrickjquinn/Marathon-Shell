@@ -56,6 +56,7 @@ SettingsPageTemplate {
                     subtitle: "Use cellular network for data"
                     showToggle: true
                     toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
+                    enabled: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
                     onToggleChanged: value => {
                         if (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp) {
                             if (ModemManagerCpp.dataEnabled)
@@ -67,11 +68,8 @@ SettingsPageTemplate {
                 }
 
                 MSettingsListItem {
-                    title: "Data Roaming"
-                    subtitle: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.roaming) ? "Currently roaming" : "Use data when traveling"
-                    showToggle: true
-                    toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.roaming : false
-                    enabled: false
+                    title: "Roaming"
+                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.roaming) ? "Roaming" : "Home network"
                     visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
                 }
             }
@@ -85,16 +83,11 @@ SettingsPageTemplate {
                     title: "SIM Operator"
                     value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "Unknown"
                 }
-
-                MSettingsListItem {
-                    title: "Phone Number"
-                    value: "Not available"
-                }
             }
 
             Text {
                 width: parent.width - 48
-                text: (typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available) ? "Mobile network features require Linux with ModemManager" : ""
+                text: (typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available) ? "No modem found. Check that a SIM card is inserted and the modem is switched on." : ""
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily

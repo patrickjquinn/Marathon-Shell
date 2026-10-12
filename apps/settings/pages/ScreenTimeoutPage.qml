@@ -48,16 +48,24 @@ SettingsPageTemplate {
                         model: SettingsManagerCpp.screenTimeoutOptions()
 
                         Rectangle {
+                            id: timeoutOption
+
+                            required property var modelData
+
                             width: parent.width
                             height: Constants.hubHeaderHeight
                             color: "transparent"
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: modelData
+                            Accessible.checked: DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
+                            Accessible.onPressAction: DisplayManagerCpp.screenTimeout = SettingsManagerCpp.screenTimeoutValue(modelData)
 
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: timeoutMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : ((DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent")
-                                border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Constants.borderWidthMedium : 0
+                                color: timeoutMouseArea.pressed ? MColors.ripple : ((DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)) ? MColors.marathonTealGlowMid : "transparent")
+                                border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)) ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 
                                 Behavior on color {
@@ -79,8 +87,8 @@ SettingsPageTemplate {
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
                                     color: "transparent"
-                                    border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
-                                    border.color: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? MColors.marathonTeal : MColors.border
+                                    border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
+                                    border.color: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)) ? MColors.marathonTeal : MColors.border
 
                                     Rectangle {
                                         anchors.centerIn: parent
@@ -88,17 +96,17 @@ SettingsPageTemplate {
                                         height: Constants.iconSizeSmall
                                         radius: Constants.iconSizeSmall / 2
                                         color: MColors.marathonTeal
-                                        visible: DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
+                                        visible: DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)
                                     }
                                 }
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData
+                                    text: timeoutOption.modelData
                                     color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
-                                    font.weight: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Font.DemiBold : Font.Normal
+                                    font.weight: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData)) ? Font.DemiBold : Font.Normal
                                 }
                             }
 
@@ -107,10 +115,10 @@ SettingsPageTemplate {
 
                                 anchors.fill: parent
                                 onClicked: {
-                                    var value = SettingsManagerCpp.screenTimeoutValue(modelData);
+                                    var value = SettingsManagerCpp.screenTimeoutValue(timeoutOption.modelData);
                                     DisplayManagerCpp.screenTimeout = value;
 
-                                    Logger.info("ScreenTimeoutPage", "Screen timeout changed to: " + modelData);
+                                    Logger.info("ScreenTimeoutPage", "Screen timeout changed to: " + timeoutOption.modelData);
                                 }
                             }
                         }

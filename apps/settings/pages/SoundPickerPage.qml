@@ -53,16 +53,24 @@ SettingsPageTemplate {
                         model: soundPickerPage.availableSounds
 
                         Rectangle {
+                            id: soundOption
+
+                            required property var modelData
+
                             width: parent.width
                             height: Constants.hubHeaderHeight
                             color: "transparent"
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: SettingsManagerCpp.formatSoundName(modelData)
+                            Accessible.checked: soundPickerPage.currentSound === modelData
+                            Accessible.onPressAction: soundMouseArea.clicked(null)
 
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: soundMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : (soundPickerPage.currentSound === modelData ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent")
-                                border.width: soundPickerPage.currentSound === modelData ? Constants.borderWidthMedium : 0
+                                color: soundMouseArea.pressed ? MColors.ripple : (soundPickerPage.currentSound === soundOption.modelData ? MColors.marathonTealGlowMid : "transparent")
+                                border.width: soundPickerPage.currentSound === soundOption.modelData ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 
                                 Behavior on color {
@@ -82,9 +90,9 @@ SettingsPageTemplate {
                                     anchors.left: parent.left
                                     anchors.leftMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: soundPickerPage.currentSound === modelData ? "volume-2" : "music"
+                                    name: soundPickerPage.currentSound === soundOption.modelData ? "volume-2" : "music"
                                     size: Constants.iconSizeMedium
-                                    color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : MColors.textSecondary
+                                    color: soundPickerPage.currentSound === soundOption.modelData ? MColors.marathonTeal : MColors.textSecondary
                                     z: 2
                                 }
 
@@ -94,11 +102,11 @@ SettingsPageTemplate {
                                     anchors.right: checkBox.left
                                     anchors.rightMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: SettingsManagerCpp.formatSoundName(modelData)
+                                    text: SettingsManagerCpp.formatSoundName(soundOption.modelData)
                                     color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
-                                    font.weight: soundPickerPage.currentSound === modelData ? Font.DemiBold : Font.Normal
+                                    font.weight: soundPickerPage.currentSound === soundOption.modelData ? Font.DemiBold : Font.Normal
                                     elide: Text.ElideRight
                                     z: 1
                                 }
@@ -112,9 +120,9 @@ SettingsPageTemplate {
                                     width: Constants.iconSizeMedium
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
-                                    color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : "transparent"
+                                    color: soundPickerPage.currentSound === soundOption.modelData ? MColors.marathonTeal : "transparent"
                                     border.width: Constants.borderWidthMedium
-                                    border.color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : MColors.border
+                                    border.color: soundPickerPage.currentSound === soundOption.modelData ? MColors.marathonTeal : MColors.border
                                     z: 2
 
                                     Icon {
@@ -122,7 +130,7 @@ SettingsPageTemplate {
                                         name: "check"
                                         size: Constants.iconSizeSmall
                                         color: MColors.background
-                                        visible: soundPickerPage.currentSound === modelData
+                                        visible: soundPickerPage.currentSound === soundOption.modelData
                                     }
 
                                     Behavior on color {
@@ -138,15 +146,15 @@ SettingsPageTemplate {
 
                                 anchors.fill: parent
                                 onClicked: {
-                                    Logger.info("SoundPickerPage", "Selected sound: " + modelData);
-                                    soundPickerPage.currentSound = modelData;
-                                    soundPickerPage.soundSelected(modelData);
+                                    Logger.info("SoundPickerPage", "Selected sound: " + soundOption.modelData);
+                                    soundPickerPage.currentSound = soundOption.modelData;
+                                    soundPickerPage.soundSelected(soundOption.modelData);
                                     // AudioManagerCpp is an AudioClient inside the
                                     // marathon-app-runner host process (see
                                     // tools/marathon-app-runner/main.cpp), which exposes
                                     // previewSound; the shell-side singleton with the
                                     // same name does not.
-                                    AudioManagerCpp.previewSound(modelData);  // qmllint disable missing-property
+                                    AudioManagerCpp.previewSound(soundOption.modelData);  // qmllint disable missing-property
                                 }
                             }
                         }

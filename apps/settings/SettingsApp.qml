@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -19,6 +21,8 @@ MApp {
         MStackView {
             id: navigationStack
 
+            readonly property var currentPage: currentItem
+
             anchors.fill: parent
             initialItem: settingsMainPage
             onDepthChanged: {
@@ -28,12 +32,29 @@ MApp {
             }
         }
 
+        Binding {
+            target: settingsApp
+            property: "navigationDepth"
+            value: navigationStack.depth - 1 + (navigationStack.currentPage?.overlayOpen ? 1 : 0)
+        }
+
+        Connections {
+            target: settingsApp
+
+            function onBackPressed() {
+                const page = navigationStack.currentPage;
+                if (page?.overlayOpen)
+                    page.closeOverlayRequested();
+                else
+                    appRouter.popRoute();
+            }
+        }
+
         MAppRouter {
             id: appRouter
 
             appId: settingsApp.appId
             stackView: navigationStack
-            navigationTarget: settingsApp
             navigationDepthTarget: SettingsController
             pageRequestedTarget: SettingsController
             backRequestedTarget: SettingsController
@@ -45,6 +66,7 @@ MApp {
                     scale: scalePageComponent,
                     wallpaper: wallpaperPageComponent,
                     screentimeout: screenTimeoutPageComponent,
+                    datetime: dateTimePageComponent,
                     sound: soundPageComponent,
                     notifications: notificationsPageComponent,
                     storage: storagePageComponent,
@@ -130,6 +152,14 @@ MApp {
             id: screenTimeoutPageComponent
 
             ScreenTimeoutPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: dateTimePageComponent
+
+            DateTimePage {
                 onNavigateBack: appRouter.popRoute()
             }
         }

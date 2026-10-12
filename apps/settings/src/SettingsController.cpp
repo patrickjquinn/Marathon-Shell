@@ -97,7 +97,7 @@ void SettingsController::setDefaultApp(const QString &handler, const QString &ap
     updateDefaultApps(defaults);
 }
 
-QVariantList SettingsController::notificationAppsForRevision(int) {
+QVariantList SettingsController::notificationAppsForRevision(int) const {
     return notificationApps();
 }
 

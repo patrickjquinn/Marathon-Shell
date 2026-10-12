@@ -69,8 +69,6 @@ SettingsPageTemplate {
                         required property var modelData
 
                         title: modelData.name
-                        subtitle: modelData.id
-                        iconName: "app-window"
                         showToggle: true
                         toggleValue: modelData.enabled
                         onToggleChanged: value => {

@@ -32,7 +32,7 @@ SettingsPageTemplate {
 
                 Text {
                     text: PowerManagerService.batteryLevel + "%"
-                    font.pixelSize: 48
+                    font.pixelSize: MTypography.sizeTitleL
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: PowerManagerService.isPowerSaveMode ? MColors.warning : MColors.textPrimary

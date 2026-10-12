@@ -50,6 +50,10 @@ SettingsPageTemplate {
                         model: WallpaperStore.wallpapers
 
                         Rectangle {
+                            id: wallpaperOption
+
+                            required property var modelData
+
                             width: (parent.width - MSpacing.lg) / 2
                             height: width * 1.4
                             radius: Constants.borderRadiusMedium
@@ -57,16 +61,20 @@ SettingsPageTemplate {
                             border.width: WallpaperStore.currentWallpaper === modelData.path ? Math.round(4 * Constants.scaleFactor) : Constants.borderWidthThin
                             border.color: WallpaperStore.currentWallpaper === modelData.path ? MColors.marathonTeal : MColors.border
                             clip: true
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: modelData.name
+                            Accessible.checked: WallpaperStore.currentWallpaper === modelData.path
+                            Accessible.onPressAction: WallpaperStore.setWallpaper(modelData.path, modelData.isDark)
 
                             Rectangle {
                                 anchors.fill: parent
-                                anchors.margins: WallpaperStore.currentWallpaper === modelData.path ? Math.round(4 * Constants.scaleFactor) : Constants.borderWidthThin
+                                anchors.margins: WallpaperStore.currentWallpaper === wallpaperOption.modelData.path ? Math.round(4 * Constants.scaleFactor) : Constants.borderWidthThin
                                 radius: Constants.borderRadiusMedium
                                 clip: true
 
                                 Image {
                                     anchors.fill: parent
-                                    source: modelData.path
+                                    source: wallpaperOption.modelData.path
                                     sourceSize: Qt.size(width, height)
                                     fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
@@ -93,7 +101,7 @@ SettingsPageTemplate {
                             }
 
                             Rectangle {
-                                visible: WallpaperStore.currentWallpaper === modelData.path
+                                visible: WallpaperStore.currentWallpaper === wallpaperOption.modelData.path
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.margins: MSpacing.md
@@ -101,8 +109,8 @@ SettingsPageTemplate {
                                 height: Math.round(Constants.iconSizeLarge * 1.2)
                                 radius: width / 2
                                 color: MColors.textPrimary
-                                scale: WallpaperStore.currentWallpaper === modelData.path ? 1 : 0
-                                opacity: WallpaperStore.currentWallpaper === modelData.path ? 1 : 0
+                                scale: WallpaperStore.currentWallpaper === wallpaperOption.modelData.path ? 1 : 0
+                                opacity: WallpaperStore.currentWallpaper === wallpaperOption.modelData.path ? 1 : 0
 
                                 Icon {
                                     anchors.centerIn: parent
@@ -130,11 +138,11 @@ SettingsPageTemplate {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.margins: MSpacing.sm
-                                text: modelData.name
+                                text: wallpaperOption.modelData.name
                                 color: MColors.textPrimary
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.family: MTypography.fontFamily
-                                font.weight: WallpaperStore.currentWallpaper === modelData.path ? Font.Bold : Font.Normal
+                                font.weight: WallpaperStore.currentWallpaper === wallpaperOption.modelData.path ? Font.Bold : Font.Normal
                                 horizontalAlignment: Text.AlignHCenter
 
                                 Rectangle {
@@ -152,8 +160,8 @@ SettingsPageTemplate {
 
                                 anchors.fill: parent
                                 onClicked: {
-                                    Logger.info("WallpaperPage", "Selected wallpaper: " + modelData.path);
-                                    WallpaperStore.setWallpaper(modelData.path, modelData.isDark);
+                                    Logger.info("WallpaperPage", "Selected wallpaper: " + wallpaperOption.modelData.path);
+                                    WallpaperStore.setWallpaper(wallpaperOption.modelData.path, wallpaperOption.modelData.isDark);
                                 }
                             }
 

@@ -6,6 +6,7 @@ import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Theme
 import QtQuick
+import QtQuick.Controls
 
 SettingsPageTemplate {
     id: displayPage
@@ -158,6 +159,16 @@ SettingsPageTemplate {
                 }
 
                 MSettingsListItem {
+                    title: "Reduce Motion"
+                    subtitle: "Replace slides and springs with fades"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.reduceMotion
+                    onToggleChanged: value => {
+                        SettingsManagerCpp.reduceMotion = value;
+                    }
+                }
+
+                MSettingsListItem {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
@@ -188,7 +199,7 @@ SettingsPageTemplate {
                     }
                     showChevron: true
                     onSettingClicked: {
-                        StackView.view.push(clockPositionPageComponent);
+                        displayPage.StackView.view.push(clockPositionPageComponent);
                     }
                 }
             }

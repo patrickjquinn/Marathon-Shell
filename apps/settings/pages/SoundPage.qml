@@ -7,6 +7,7 @@ import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
+import QtQuick.Controls
 
 SettingsPageTemplate {
     id: soundPage
@@ -105,39 +106,47 @@ SettingsPageTemplate {
                     // resolve the type. Runtime is correct.
                     model: AudioManagerCpp.streams  // qmllint disable unresolved-type
 
-                    MSettingsListItem {
-                        title: model.appName
-                        subtitle: Math.round(model.volume * 100) + "%" + (model.muted ? " (Muted)" : "")
-                        showToggle: false
+                    Column {
+                        id: streamDelegate
 
-                        Column {
-                            width: parent.width
+                        required property var model
+
+                        width: parent.width
+                        spacing: MSpacing.sm
+                        padding: MSpacing.md
+
+                        Text {
+                            width: parent.width - parent.padding * 2
+                            text: streamDelegate.model.appName + " · " + Math.round(streamDelegate.model.volume * 100) + "%" + (streamDelegate.model.muted ? " (Muted)" : "")
+                            color: MColors.textPrimary
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.family: MTypography.fontFamily
+                            elide: Text.ElideRight
+                        }
+
+                        Row {
+                            width: parent.width - parent.padding * 2
                             spacing: MSpacing.sm
-                            leftPadding: MSpacing.md
-                            rightPadding: MSpacing.md
 
                             MSlider {
-                                width: parent.width - parent.leftPadding - parent.rightPadding
+                                width: parent.width - muteButton.width - MSpacing.sm
+                                anchors.verticalCenter: parent.verticalCenter
                                 from: 0
                                 to: 1
-                                value: model.volume
-                                disabled: model.muted
+                                value: streamDelegate.model.volume
+                                disabled: streamDelegate.model.muted
                                 onMoved: {
-                                    AudioManagerCpp.setStreamVolume(model.streamId, value);
+                                    AudioManagerCpp.setStreamVolume(streamDelegate.model.streamId, value);
                                 }
                             }
 
-                            Row {
-                                width: parent.width
-                                spacing: MSpacing.sm
+                            MButton {
+                                id: muteButton
 
-                                MButton {
-                                    text: model.muted ? "Unmute" : "Mute"
-                                    width: 100
-                                    height: 32
-                                    onClicked: {
-                                        AudioManagerCpp.setStreamMuted(model.streamId, !model.muted);
-                                    }
+                                text: streamDelegate.model.muted ? "Unmute" : "Mute"
+                                anchors.verticalCenter: parent.verticalCenter
+                                onClicked: {
+                                    AudioManagerCpp.setStreamMuted(streamDelegate.model.streamId, !streamDelegate.model.muted);
                                 }
                             }
                         }
@@ -148,6 +157,7 @@ SettingsPageTemplate {
                     text: "No audio streams playing"
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                     visible: AudioManagerCpp.streams.rowCount() === 0  // qmllint disable unresolved-type
                     anchors.horizontalCenter: parent.horizontalCenter
                     topPadding: MSpacing.md
@@ -164,7 +174,7 @@ SettingsPageTemplate {
                     value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.ringtone)
                     showChevron: true
                     onSettingClicked: {
-                        StackView.view.push(ringtonePickerComponent);
+                        soundPage.StackView.view.push(ringtonePickerComponent);
                     }
                 }
 
@@ -173,7 +183,7 @@ SettingsPageTemplate {
                     value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.notificationSound)
                     showChevron: true
                     onSettingClicked: {
-                        StackView.view.push(notificationSoundPickerComponent);
+                        soundPage.StackView.view.push(notificationSoundPickerComponent);
                     }
                 }
 
@@ -182,7 +192,7 @@ SettingsPageTemplate {
                     value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.alarmSound)
                     showChevron: true
                     onSettingClicked: {
-                        StackView.view.push(alarmSoundPickerComponent);
+                        soundPage.StackView.view.push(alarmSoundPickerComponent);
                     }
                 }
             }
