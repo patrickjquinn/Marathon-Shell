@@ -1,306 +1,66 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Settings
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "SettingsLogic.js" as Logic
+import "pages"
+import "cover"
 
-MApp {
-    id: settingsApp
+ApplicationWindow {
+    id: app
+
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
+
+    // Opens the page for a route name ("wifi", "/about"); false if there is none.
+    function openPage(name, operation) {
+        const file = Logic.pageFile(name);
+        if (file === "")
+            return false;
+        pageStack.push(Qt.resolvedUrl("pages/" + file), {}, operation);
+        return true;
+    }
+
+    function toggleWifi() {
+        Network.toggleWifi();
+    }
+
+    function toggleBluetooth() {
+        Bluetooth.enabled = !Bluetooth.enabled;
+    }
 
     appId: "settings"
-    appName: "Settings"
-    appIcon: "assets/icon.svg"
+    Component.onCompleted: {
+        if (route !== "")
+            openPage(route, PageStackAction.Immediate);
+    }
 
-    content: Rectangle {
-        anchors.fill: parent
-        color: MColors.background
+    Connections {
+        target: typeof NavigationRouter !== "undefined" ? NavigationRouter : null
+        ignoreUnknownSignals: true
 
-        MStackView {
-            id: navigationStack
-
-            readonly property var currentPage: currentItem
-
-            anchors.fill: parent
-            initialItem: settingsMainPage
-            onDepthChanged: {
-                var newDepth = navigationStack.depth - 1;
-                Logger.info("SettingsApp", "StackView depth changed: " + navigationStack.depth + " → navigationDepth: " + newDepth);
-                appRouter.updateNavigationDepth();
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === app.appId) {
+                app.activate();
+                app.openPage(route);
             }
         }
-
-        Binding {
-            target: settingsApp
-            property: "navigationDepth"
-            value: navigationStack.depth - 1 + (navigationStack.currentPage?.overlayOpen ? 1 : 0)
+        function onSettingsNavigationRequested(page, subpage, params) {
+            app.activate();
+            app.openPage(page);
         }
+    }
 
-        Connections {
-            target: settingsApp
-
-            function onBackPressed() {
-                const page = navigationStack.currentPage;
-                if (page?.overlayOpen)
-                    page.closeOverlayRequested();
-                else
-                    appRouter.popRoute();
-            }
+    cover: Component {
+        SettingsCover {
+            onWifiToggled: app.toggleWifi()
+            onBluetoothToggled: app.toggleBluetooth()
         }
+    }
 
-        MAppRouter {
-            id: appRouter
-
-            appId: settingsApp.appId
-            stackView: navigationStack
-            navigationDepthTarget: SettingsController
-            pageRequestedTarget: SettingsController
-            backRequestedTarget: SettingsController
-            routeMap: ({
-                    wifi: wifiPageComponent,
-                    bluetooth: bluetoothPageComponent,
-                    cellular: cellularPageComponent,
-                    display: displayPageComponent,
-                    scale: scalePageComponent,
-                    wallpaper: wallpaperPageComponent,
-                    screentimeout: screenTimeoutPageComponent,
-                    datetime: dateTimePageComponent,
-                    sound: soundPageComponent,
-                    notifications: notificationsPageComponent,
-                    storage: storagePageComponent,
-                    battery: batteryPageComponent,
-                    about: aboutPageComponent,
-                    tos: termsPageComponent,
-                    privacy: privacyPageComponent,
-                    licenses: openSourceLicensesPageComponent,
-                    appmanager: appManagerPageComponent,
-                    hiddenapps: hiddenAppsPageComponent,
-                    defaultapps: defaultAppsPageComponent,
-                    appsort: appSortPageComponent,
-                    quicksettings: quickSettingsPageComponent,
-                    security: securityPageComponent,
-                    keyboard: keyboardPageComponent,
-                    updates: updatesPageComponent,
-                    accounts: accountsPageComponent
-                })
-        }
-
-        Component {
-            id: settingsMainPage
-
-            SettingsMainPage {
-                onNavigateToPage: page => {
-                    SettingsController.requestPage(page);
-                }
-                onRequestClose: {
-                    settingsApp.closed();
-                }
-            }
-        }
-
-        Component {
-            id: wifiPageComponent
-
-            WiFiPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: bluetoothPageComponent
-
-            BluetoothPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: cellularPageComponent
-
-            CellularPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: displayPageComponent
-
-            DisplayPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: scalePageComponent
-
-            ScalePage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: wallpaperPageComponent
-
-            WallpaperPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: screenTimeoutPageComponent
-
-            ScreenTimeoutPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: dateTimePageComponent
-
-            DateTimePage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: soundPageComponent
-
-            SoundPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: notificationsPageComponent
-
-            NotificationsPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: storagePageComponent
-
-            StoragePage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: batteryPageComponent
-
-            BatteryPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: aboutPageComponent
-
-            AboutPage {
-                onNavigateBack: appRouter.popRoute()
-                onOpenSourceLicensesRequested: {
-                    SettingsController.requestPage("licenses");
-                }
-            }
-        }
-
-        Component {
-            id: termsPageComponent
-
-            TermsOfServicePage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: privacyPageComponent
-
-            PrivacyPolicyPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: openSourceLicensesPageComponent
-
-            OpenSourceLicensesPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: appManagerPageComponent
-
-            AppManagerPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: hiddenAppsPageComponent
-
-            HiddenAppsPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: defaultAppsPageComponent
-
-            DefaultAppsPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: appSortPageComponent
-
-            AppSortPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: quickSettingsPageComponent
-
-            QuickSettingsPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: securityPageComponent
-
-            SecurityPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: keyboardPageComponent
-
-            KeyboardPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: updatesPageComponent
-
-            UpdatesPage {
-                onNavigateBack: appRouter.popRoute()
-            }
-        }
-
-        Component {
-            id: accountsPageComponent
-
-            AccountsPage {
-                onNavigateBack: appRouter.popRoute()
-            }
+    initialPage: Component {
+        MainPage {
+            app: app
         }
     }
 }

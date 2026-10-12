@@ -1,0 +1,14 @@
+module Marathon.Platform
+singleton Apps 1.0 Apps.qml
+singleton AppInstaller 1.0 AppInstaller.qml
+singleton Audio 1.0 Audio.qml
+singleton Bluetooth 1.0 Bluetooth.qml
+singleton DavSync 1.0 DavSync.qml
+singleton Display 1.0 Display.qml
+singleton Navigation 1.0 Navigation.qml
+singleton Network 1.0 Network.qml
+singleton Power 1.0 Power.qml
+singleton Security 1.0 Security.qml
+singleton Settings 1.0 Settings.qml
+singleton Updates 1.0 Updates.qml
+singleton Wallpapers 1.0 Wallpapers.qml

@@ -1,0 +1,196 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
+
+Page {
+    id: page
+
+    property var app
+    property string query: ""
+    readonly property var results: Logic.search(query)
+    readonly property bool searching: query.trim() !== ""
+
+    function summary(name) {
+        switch (name) {
+        case "wifi":
+            return Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid);
+        case "bluetooth":
+            return Logic.bluetoothSummary(Bluetooth.enabled, Bluetooth.pairedDevices);
+        case "display":
+            return qsTr("Brightness %1%").arg(Logic.percent(Display.brightness));
+        case "sound":
+            return Audio.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(Logic.percent(Audio.volume));
+        case "datetime":
+            return Logic.zoneCity(Settings.timeZone);
+        case "battery":
+            return Logic.batterySummary(Power.batteryLevel, Power.isCharging);
+        case "storage":
+            return storage.totalSpace > 0 ? qsTr("%1 free").arg(storage.availableSpaceString) : "";
+        case "security":
+            return (Security.hasQuickPIN ? qsTr("PIN set") : qsTr("No PIN")) + (Security.fingerprintAvailable ? " · " + qsTr("Fingerprint") : "");
+        case "hiddenapps":
+            return Settings.hiddenApps.length > 0 ? qsTr("%n hidden", "", Settings.hiddenApps.length) : "";
+        case "appsort":
+            return Settings.appGridColumns > 0 ? qsTr("%n columns", "", Settings.appGridColumns) : qsTr("Automatic");
+        case "updates":
+            return Updates.updateAvailable ? qsTr("Update available") : "";
+        }
+        return "";
+    }
+
+    function open(entry) {
+        if (entry.app)
+            Navigation.launchApp(entry.app);
+        else
+            page.app.openPage(entry.page);
+    }
+
+    function setDoNotDisturb(on) {
+        Settings.dndEnabled = on;
+        Audio.setDoNotDisturb(on);
+    }
+
+    StorageInfo {
+        id: storage
+    }
+
+    component EntryItem: ListItem {
+        id: item
+
+        required property var modelData
+        readonly property string value: page.summary(modelData.page)
+
+        objectName: "entry-" + (modelData.page || modelData.app)
+        contentHeight: Theme.itemSizeMedium
+        Accessible.name: value !== "" ? modelData.title + ", " + value : modelData.title
+        onClicked: page.open(modelData)
+
+        Icon {
+            id: icon
+
+            x: Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
+            source: item.modelData.icon
+            color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+        }
+        Column {
+            anchors {
+                left: icon.right
+                leftMargin: Theme.paddingLarge
+                right: parent.right
+                rightMargin: Theme.horizontalPageMargin
+                verticalCenter: parent.verticalCenter
+            }
+
+            Label {
+                width: parent.width
+                text: item.modelData.title
+                truncationMode: TruncationMode.Fade
+                color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+            }
+            Label {
+                width: parent.width
+                visible: text !== ""
+                text: item.modelData.section !== undefined ? item.modelData.section : item.value
+                font.pixelSize: Theme.fontSizeExtraSmall
+                truncationMode: TruncationMode.Fade
+                color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+            }
+        }
+    }
+
+    SilicaFlickable {
+        id: flickable
+
+        objectName: "mainFlickable"
+        anchors.fill: parent
+        contentHeight: column.height + Theme.paddingLarge
+
+        Column {
+            id: column
+
+            width: parent.width
+
+            PageHeader {
+                title: qsTr("Settings")
+            }
+            SearchField {
+                objectName: "searchField"
+                width: parent.width
+                placeholderText: qsTr("Search settings")
+                onTextChanged: page.query = text
+                EnterKey.iconSource: "image://theme/icon-m-enter-accept"
+                EnterKey.onClicked: {
+                    if (page.results.length > 0)
+                        page.open(page.results[0]);
+                    focus = false;
+                }
+            }
+
+            Repeater {
+                objectName: "results"
+                model: page.results
+
+                EntryItem {}
+            }
+
+            Column {
+                width: parent.width
+                visible: !page.searching
+
+                IconTextSwitch {
+                    objectName: "airplaneSwitch"
+                    text: qsTr("Airplane mode")
+                    description: qsTr("Turns off Wi-Fi, Bluetooth and mobile network")
+                    icon.source: "image://theme/icon-m-airplane-mode"
+                    automaticCheck: false
+                    checked: Network.airplaneModeEnabled
+                    onClicked: Network.setAirplaneMode(!checked)
+                }
+                IconTextSwitch {
+                    objectName: "dndSwitch"
+                    text: qsTr("Do not disturb")
+                    description: qsTr("Silences notifications and calls")
+                    icon.source: "image://theme/icon-m-do-not-disturb"
+                    automaticCheck: false
+                    checked: Settings.dndEnabled
+                    onClicked: page.setDoNotDisturb(!checked)
+                }
+
+                Repeater {
+                    model: Logic.sections
+
+                    Column {
+                        id: section
+
+                        required property var modelData
+
+                        width: parent.width
+
+                        SectionHeader {
+                            text: section.modelData.title
+                        }
+                        Repeater {
+                            model: section.modelData.entries
+
+                            EntryItem {}
+                        }
+                    }
+                }
+            }
+        }
+
+        ViewPlaceholder {
+            objectName: "noResults"
+            enabled: page.searching && page.results.length === 0
+            text: qsTr("No matching settings")
+            hintText: qsTr("Try another word, like Wi-Fi, volume or PIN")
+        }
+
+        VerticalScrollDecorator {}
+    }
+}

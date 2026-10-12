@@ -3,7 +3,6 @@
   "name": "Settings",
   "version": "1.0.0",
   "entryPoint": "SettingsApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["system", "network"],

@@ -4,7 +4,9 @@ set(APP_NAME settings)
 
 file(GLOB_RECURSE QML_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
 )
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 set(SOURCES
     src/StorageInfo.cpp
