@@ -6,6 +6,7 @@ import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 // Marathon DS · Hub (§09) — unified inbox.
 //
@@ -26,23 +27,8 @@ Rectangle {
     signal closed
     signal notificationTapped(int id, string appId, string title)
 
-    color: MColors.bb10Black
-
-    // Background — Carbon-style minimal teal streak.
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.bb10Black
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            x: -40
-            y: -40
-            width: parent.width + 80
-            height: 1
-            rotation: -36
-            color: MColors.tealHalo
-            opacity: 0.15
-        }
-    }
+    // Sailfish's Events view: the ambience shows through, dimmed.
+    color: Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, Silica.Theme.opacityHigh)
 
     // ── Header (glass) ──────────────────────────────────────
     // JSX HubScreen() positions the header at top: 28 so the status bar
@@ -56,17 +42,6 @@ Rectangle {
         anchors.topMargin: Constants.statusBarHeight
         height: 132
 
-        Rectangle {
-            anchors.fill: parent
-            color: MColors.glassActionbar
-        }
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: 1
-            color: MColors.borderGlass
-        }
 
         Column {
             anchors.fill: parent
@@ -80,34 +55,29 @@ Rectangle {
                 width: parent.width
                 height: titleText.implicitHeight
 
-                Row {
-                    anchors.left: parent.left
+                // A Silica page header: title right-aligned in the highlight,
+                // the unread count beneath it.
+                Column {
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 10
 
-                    Text {
+                    Silica.Label {
                         id: titleText
-                        text: "Hub"
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: 32
-                        font.weight: MTypography.weightExtraLight   // 200 per DS
-                        font.letterSpacing: -0.6
+                        anchors.right: parent.right
+                        text: qsTr("Events")
+                        color: Silica.Theme.highlightColor
+                        font.pixelSize: Silica.Theme.fontSizeLarge
                     }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: NotificationModel.unreadCount + " unread"
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
-                        font.features: ({
-                                "tnum": 1
-                            })
+                    Silica.Label {
+                        anchors.right: parent.right
+                        text: qsTr("%n unread", "", NotificationModel.unreadCount)
+                        color: Silica.Theme.secondaryHighlightColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
                     }
                 }
 
                 Row {
-                    anchors.right: parent.right
+                    anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 18
 
@@ -195,7 +165,7 @@ Rectangle {
         visible: hub.countForCategory(hub.selectedCategory) === 0
         iconName: "inbox"
         title: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
-        message: hub.selectedCategory === "all" ? "Notifications from your apps land here. New ones get a teal dot." : "Switch a category above to see other notifications."
+        message: hub.selectedCategory === "all" ? "Notifications from your apps appear here." : "Switch a category above to see other notifications."
     }
 
     ListView {
