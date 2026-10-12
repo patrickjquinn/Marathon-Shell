@@ -131,3 +131,8 @@ function remaining(maneuvers, index, toNext) {
     }
     return { distance: distance, time: time };
 }
+
+// No WebGL context can't be fixed by retrying; a lost renderer can.
+function mapFailureIsPermanent(message) {
+    return /WebGL|context/i.test(String(message || ""));
+}

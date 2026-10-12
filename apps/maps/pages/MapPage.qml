@@ -33,7 +33,7 @@ Page {
     Rectangle {
         objectName: "mapError"
         anchors.fill: parent
-        visible: root.app.mapError !== ""
+        visible: root.app.mapError !== "" && !root.app.mapUnavailable
         color: Theme.overlayBackgroundColor
 
         Column {
@@ -59,6 +59,37 @@ Page {
                 text: qsTr("Try again")
                 onClicked: root.app.retryMap()
             }
+        }
+    }
+
+    // Without WebGL the map can never draw, but search and spoken directions
+    // still work.
+    Column {
+        objectName: "mapUnavailable"
+        anchors.bottom: bottomPanel.top
+        anchors.bottomMargin: Theme.paddingLarge
+        width: parent.width
+        spacing: Theme.paddingLarge
+        visible: root.app.mapUnavailable
+
+        InfoLabel {
+            text: qsTr("This phone can't draw the map yet")
+        }
+        Label {
+            x: Theme.horizontalPageMargin
+            width: parent.width - 2 * Theme.horizontalPageMargin
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            color: Theme.secondaryHighlightColor
+            font.pixelSize: Theme.fontSizeMedium
+            text: qsTr("You can still search for places and get spoken directions.")
+        }
+        Button {
+            objectName: "unavailableSearch"
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: root.mode === "idle" && root.app.selectedPlace === null
+            text: qsTr("Search places")
+            onClicked: root.app.openSearch()
         }
     }
 
@@ -154,6 +185,8 @@ Page {
     }
 
     Rectangle {
+        id: bottomPanel
+
         objectName: "bottomPanel"
         anchors.bottom: parent.bottom
         width: parent.width

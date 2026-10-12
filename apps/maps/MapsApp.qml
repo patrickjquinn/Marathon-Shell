@@ -17,6 +17,7 @@ ApplicationWindow {
     property Item map: null
     property bool mapReady: false
     property string mapError: ""
+    readonly property bool mapUnavailable: mapError !== "" && Logic.mapFailureIsPermanent(mapError)
     property var _pending: []
 
     property var searchResults: []

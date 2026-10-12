@@ -77,11 +77,24 @@ TestCase {
         const app = makeApp();
         const error = findChild(current(app), "mapError");
         verify(!error.visible);
-        app.map.failed("Failed to initialize WebGL");
+        app.map.failed("Style failed to load");
         verify(error.visible);
+        verify(!findChild(current(app), "mapUnavailable").visible);
         mouseClick(findChild(current(app), "retryMap"));
         compare(app.map.reloads, 1);
         verify(!error.visible);
+    }
+
+    function test_mapWithoutWebGLPointsAtSearch() {
+        const app = makeApp();
+        app.map.failed("Failed to initialize WebGL");
+        verify(!findChild(current(app), "mapError").visible);
+        const note = findChild(current(app), "mapUnavailable");
+        verify(note.visible);
+        verify(note.y + note.height <= findChild(current(app), "bottomPanel").y);
+        mouseClick(findChild(current(app), "unavailableSearch"));
+        tryCompare(app.pageStack, "depth", 2);
+        compare(app.map.reloads, 0);
     }
 
     function test_search() {

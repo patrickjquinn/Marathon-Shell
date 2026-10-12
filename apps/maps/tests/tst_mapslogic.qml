@@ -97,4 +97,10 @@ TestCase {
         compare(Logic.remaining(ms, 2, -1), { distance: 0, time: 0 });
         compare(Logic.remaining(null, 0, -1), { distance: 0, time: 0 });
     }
+
+    function test_mapFailureIsPermanent() {
+        verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
+        verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));
+        verify(!Logic.mapFailureIsPermanent("Style failed to load"));
+    }
 }
