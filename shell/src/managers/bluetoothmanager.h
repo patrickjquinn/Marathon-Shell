@@ -127,7 +127,6 @@ class BluetoothManager : public QObject {
     Q_INVOKABLE void unpairDevice(const QString &address);
     Q_INVOKABLE void connectDevice(const QString &address);
     Q_INVOKABLE void disconnectDevice(const QString &address);
-    Q_INVOKABLE void trustDevice(const QString &address, bool trusted);
     Q_INVOKABLE void removeDevice(const QString &address);
     Q_INVOKABLE void cancelPairing(const QString &address);
     Q_INVOKABLE void confirmPairing(const QString &address, bool confirmed);

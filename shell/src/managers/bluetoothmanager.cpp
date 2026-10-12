@@ -450,17 +450,6 @@ void BluetoothManager::disconnectDevice(const QString &address) {
     deviceIface.asyncCall("Disconnect");
 }
 
-void BluetoothManager::trustDevice(const QString &address, bool trusted) {
-    BluetoothDevice *device = findDeviceByAddress(address);
-    if (!device)
-        return;
-
-    QDBusInterface props("org.bluez", device->path(), "org.freedesktop.DBus.Properties", m_bus);
-    props.call("Set", "org.bluez.Device1", "Trusted", QVariant::fromValue(QDBusVariant(trusted)));
-
-    qDebug() << "[BluetoothManager] Setting trusted to" << trusted << "for" << address;
-}
-
 void BluetoothManager::removeDevice(const QString &address) {
     BluetoothDevice *device = findDeviceByAddress(address);
     if (!device || !m_adapter)
