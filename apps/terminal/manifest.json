@@ -3,7 +3,6 @@
   "name": "Terminal",
   "version": "1.0.0",
   "entryPoint": "TerminalApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["system", "storage", "terminal"],

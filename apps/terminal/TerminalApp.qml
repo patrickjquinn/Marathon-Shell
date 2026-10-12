@@ -1,188 +1,90 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Terminal
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Nemo.Configuration 1.0
+import MarathonApp.Terminal
+import "pages"
+import "cover"
 
-MApp {
-    id: terminalApp
+ApplicationWindow {
+    id: app
 
-    property int currentTabIndex: 0
-    property var tabs: []
-    property int nextTabId: 1
+    property var sessions: []
+    property int currentIndex: 0
+    readonly property var currentSession: sessions[currentIndex] || null
 
-    function createNewTab() {
-        var tabId = nextTabId++;
-        var tab = {
-            "id": tabId,
-            "title": "Terminal " + tabId,
-            "session": null
-        };
-        tabs.push(tab);
-        currentTabIndex = tabs.length - 1;
-        tabsChanged();
-        Logger.info("Terminal", "Created new tab: " + currentTabIndex);
+    readonly property int minFontSize: Math.round(Theme.fontSizeTiny / 2)
+    readonly property int maxFontSize: Theme.fontSizeExtraLarge
+    property QtObject fontSize: ConfigurationValue {
+        key: "/apps/terminal/fontSize"
+        defaultValue: Theme.fontSizeTiny
+    }
+    // "ambience", "dark" or "light"
+    property QtObject colorScheme: ConfigurationValue {
+        key: "/apps/terminal/colorScheme"
+        defaultValue: "ambience"
+    }
+    property QtObject extraKeys: ConfigurationValue {
+        key: "/apps/terminal/extraKeys"
+        defaultValue: true
     }
 
-    function closeTab(index) {
-        if (tabs.length === 1) {
-            Logger.info("Terminal", "Cannot close last tab");
-            return;
-        }
-        if (index >= 0 && index < tabs.length) {
-            var tab = tabs[index];
-            tabs.splice(index, 1);
-            if (currentTabIndex >= tabs.length)
-                currentTabIndex = tabs.length - 1;
+    function newSession() {
+        const session = engineComponent.createObject(app);
+        sessions = sessions.concat([session]);
+        currentIndex = sessions.length - 1;
+        session.start();
+    }
 
-            tabsChanged();
-            Logger.info("Terminal", "Closed tab: " + index);
-        }
+    function closeSession(index) {
+        if (sessions.length < 2 || index < 0 || index >= sessions.length)
+            return;
+        const session = sessions[index];
+        const next = sessions.slice();
+        next.splice(index, 1);
+        if (currentIndex >= index && currentIndex > 0)
+            currentIndex--;
+        sessions = next;
+        session.destroy();
+    }
+
+    function _finished(session) {
+        const index = sessions.indexOf(session);
+        if (index < 0)
+            return;
+        if (sessions.length > 1)
+            closeSession(index);
+        else
+            session.start();
     }
 
     appId: "terminal"
-    appName: "Terminal"
-    appIcon: "assets/icon.svg"
-    onCurrentTabIndexChanged: {
-        Qt.callLater(() => {
-            var tab = tabs[currentTabIndex];
-            var appWindow = terminalApp.Window.window;
-            if (tab && tab.session && appWindow && appWindow.active)
-                tab.session.forceFocus();
-        });
-    }
-    Component.onCompleted: {
-        createNewTab();
+    Component.onCompleted: newSession()
+
+    Component {
+        id: engineComponent
+
+        TerminalEngine {
+            id: engine
+
+            onFinished: app._finished(engine)
+        }
     }
 
-    content: Rectangle {
-        id: contentRoot
-
-        anchors.fill: parent
-        color: MColors.background
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
-
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                Repeater {
-                    model: terminalApp.tabs.length
-
-                    TerminalSession {
-                        required property int index
-
-                        anchors.fill: parent
-                        visible: index === terminalApp.currentTabIndex
-                        Component.onCompleted: {
-                            var tab = terminalApp.tabs[index];
-                            if (tab)
-                                tab.session = this;
-
-                            start();
-                        }
-                        onSessionFinished: {
-                            Logger.info("Terminal", "Session finished for tab " + index);
-                            if (terminalApp.tabs.length > 1)
-                                terminalApp.closeTab(index);
-                            else
-                                start();
-                        }
-                    }
-                }
+    cover: Component {
+        TerminalCover {
+            session: app.currentSession
+            onNewSessionRequested: {
+                app.activate();
+                app.newSession();
             }
+        }
+    }
 
-            Rectangle {
-                Layout.fillWidth: true
-                // Hide the tab strip entirely when there's only one
-                // session. A solo half-rendered "Te..." tab pill above
-                // the modifier-key row is pure visual noise — the user
-                // can still open additional tabs via the "+" button when
-                // it's needed, which switches the bar back on.
-                visible: terminalApp.tabs.length > 1
-                Layout.preferredHeight: visible ? 56 : 0
-                color: MColors.surface
-
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: 1
-                    color: MColors.border
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: MSpacing.sm
-                    spacing: MSpacing.sm
-
-                    ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
-
-                        Row {
-                            height: parent.height
-                            spacing: MSpacing.sm
-
-                            Repeater {
-                                model: terminalApp.tabs.length
-
-                                TerminalTabButton {
-                                    required property int index
-
-                                    height: 36
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    title: {
-                                        var tab = terminalApp.tabs[index];
-                                        if (tab && tab.session)
-                                            return tab.session.title || tab.title;
-
-                                        return tab ? tab.title : "";
-                                    }
-                                    active: index === terminalApp.currentTabIndex
-                                    canClose: terminalApp.tabs.length > 1
-                                    onClicked: terminalApp.currentTabIndex = index
-                                    onCloseClicked: terminalApp.closeTab(index)
-                                }
-                            }
-                        }
-                    }
-
-                    Item {
-                        Layout.preferredWidth: 48
-                        Layout.fillHeight: true
-
-                        MCircularIconButton {
-                            anchors.centerIn: parent
-                            iconName: "plus"
-                            variant: "secondary"
-                            buttonSize: 36
-                            iconSize: 20
-                            onClicked: terminalApp.createNewTab()
-                        }
-                    }
-                }
-            }
-
-            VirtualKeyRow {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.round(48 * Constants.scaleFactor)
-                onKeyTriggered: (key, modifiers) => {
-                    var tab = terminalApp.tabs[terminalApp.currentTabIndex];
-                    if (tab && tab.session)
-                        tab.session.sendKey(key, "", modifiers);
-                }
-            }
+    initialPage: Component {
+        TerminalPage {
+            app: app
         }
     }
 }
