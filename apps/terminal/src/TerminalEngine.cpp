@@ -335,7 +335,3 @@ QStringList TerminalEngine::recentLines(int count) const {
         lines.removeLast();
     return lines.mid(qMax(0, lines.size() - count));
 }
-
-void TerminalEngine::sendMousePress(int x, int y, int button) {}
-void TerminalEngine::sendMouseRelease(int x, int y, int button) {}
-void TerminalEngine::sendMouseMove(int x, int y, int buttons) {}
