@@ -10,7 +10,7 @@ SoftwareVideoOutput::SoftwareVideoOutput(QQuickItem *parent)
     setFlag(ItemHasContents, true);
 }
 
-SoftwareVideoOutput::~SoftwareVideoOutput() {}
+SoftwareVideoOutput::~SoftwareVideoOutput() = default;
 
 QObject *SoftwareVideoOutput::videoSink() const {
     return m_videoSink;

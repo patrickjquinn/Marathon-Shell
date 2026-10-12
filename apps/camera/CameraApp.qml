@@ -1,7 +1,10 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Camera 1.0
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Modals
 import MarathonUI.Theme
 import Qt5Compat.GraphicalEffects
@@ -12,6 +15,18 @@ MApp {
 
     property string currentMode: "photo"
     property bool flipRequested: false
+    property bool cameraFailed: false
+
+    signal captureFailed
+
+    function shoot() {
+        if (currentMode === "photo")
+            cameraController.captureWithTimer();
+        else if (cameraController.isRecording)
+            cameraController.stopRecording();
+        else
+            cameraController.startRecording();
+    }
 
     function triggerFlash() {
         flashOverlay.opacity = 1;
@@ -31,11 +46,21 @@ MApp {
 
         onPhotoSaved: path => {
             HapticService.heavy();
-            triggerFlash();
+            cameraApp.triggerFlash();
         }
         onCameraFlipStarted: cameraApp.flipRequested = !cameraApp.flipRequested
         onErrorOccurred: message => {
-            return console.warn("[Camera] Error:", message);
+            console.warn("[Camera] Error:", message);
+            if (cameraController.cameraCount === 0)
+                return;
+            if (cameraController.active)
+                cameraApp.captureFailed();
+            else
+                cameraApp.cameraFailed = true;
+        }
+        onActiveChanged: {
+            if (cameraController.active)
+                cameraApp.cameraFailed = false;
         }
     }
 
@@ -44,7 +69,7 @@ MApp {
 
         parent: cameraApp
         anchors.fill: parent
-        color: "white"
+        color: MColors.textPrimary
         opacity: 0
         visible: opacity > 0
         z: 100
@@ -67,7 +92,7 @@ MApp {
         id: contentRoot
 
         anchors.fill: parent
-        color: "black"
+        color: MColors.background
         Component.onCompleted: {
             cameraController.videoSink = viewfinder.videoSink;
             cameraController.start();
@@ -78,7 +103,21 @@ MApp {
                 flipAnimation.start();
             }
 
+            function onBackPressed() {
+                settingsSheet.hide();
+            }
+
+            function onCaptureFailed() {
+                captureSnackbar.show(cameraApp.currentMode === "video" ? "Couldn't record video. Check free storage and try again." : "Couldn't take the photo. Check free storage and try again.", "Try again");
+            }
+
             target: cameraApp
+        }
+
+        Binding {
+            target: cameraApp
+            property: "navigationDepth"
+            value: settingsSheet.showing ? 1 : 0
         }
 
         SequentialAnimation {
@@ -135,7 +174,7 @@ MApp {
                 radius: 32
                 color: "transparent"
                 border.width: 2
-                border.color: "#fbbf24"
+                border.color: MColors.warning
                 opacity: 0
                 visible: opacity > 0
 
@@ -184,15 +223,16 @@ MApp {
                 width: 60
                 height: 30
                 radius: 15
-                color: "#80000000"
+                color: MColors.blackOverlay40
                 visible: cameraController.zoomLevel > 1
 
                 Text {
                     anchors.centerIn: parent
                     text: cameraController.zoomLevel.toFixed(1) + "x"
-                    color: "white"
+                    color: MColors.textPrimary
+                    font.family: MTypography.fontFamily
                     font.weight: Font.Bold
-                    font.pixelSize: 14
+                    font.pixelSize: MTypography.sizeCaption
                 }
             }
 
@@ -213,37 +253,59 @@ MApp {
 
         Text {
             anchors.centerIn: parent
-            font.pixelSize: 120
+            font.family: MTypography.fontFamily
+            font.pixelSize: MTypography.sizeDisplay
             font.weight: Font.Bold
-            color: "white"
+            color: MColors.textPrimary
             style: Text.Outline
-            styleColor: "black"
+            styleColor: MColors.background
             text: cameraController.timerCountdown
             visible: cameraController.timerActive && cameraController.timerCountdown > 0
         }
 
         Rectangle {
+            id: startingOverlay
+
             anchors.fill: parent
-            visible: !cameraController.active && cameraController.ready
-            color: "#0f0f23"
+            visible: !cameraController.active && cameraController.ready && !cameraApp.cameraFailed
+            color: MColors.background
 
             Column {
                 anchors.centerIn: parent
-                spacing: 8
+                spacing: MSpacing.sm
 
-                Text {
+                MActivityIndicator {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: cameraController.currentCameraName || "Camera"
-                    font.pixelSize: 14
-                    font.weight: Font.Medium
-                    color: "#80ffffff"
+                    running: startingOverlay.visible
                 }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "○ Initializing..."
-                    font.pixelSize: 12
-                    color: "#fbbf24"
+                    text: "Starting camera…"
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeSubhead
+                    color: MColors.textSecondary
+                }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: cameraApp.cameraFailed && !cameraController.active
+            color: MColors.background
+            z: 20
+
+            MEmptyState {
+                anchors.centerIn: parent
+                width: parent.width - MSpacing.xl * 2
+                iconName: "warning-circle"
+                title: "Camera stopped working"
+                message: "The camera couldn't start. Another app may be using it."
+                actionText: "Try again"
+                onActionClicked: {
+                    cameraApp.cameraFailed = false;
+                    cameraController.stop();
+                    cameraController.start();
                 }
             }
         }
@@ -278,7 +340,7 @@ MApp {
             gradient: Gradient {
                 GradientStop {
                     position: 0
-                    color: "#40000000"
+                    color: MColors.blackOverlay15
                 }
 
                 GradientStop {
@@ -293,7 +355,7 @@ MApp {
 
                 GradientStop {
                     position: 1
-                    color: "#60000000"
+                    color: MColors.blackOverlay40
                 }
             }
         }
@@ -305,7 +367,7 @@ MApp {
             width: 120
             height: 40
             radius: 20
-            color: "#c0000000"
+            color: MColors.shadowHeavy
             visible: cameraController.isRecording
             z: 10
 
@@ -317,7 +379,7 @@ MApp {
                     width: 12
                     height: 12
                     radius: 6
-                    color: "#ff4444"
+                    color: MColors.error
                     anchors.verticalCenter: parent.verticalCenter
 
                     SequentialAnimation on opacity {
@@ -349,9 +411,10 @@ MApp {
                         var secs = cameraController.recordingDuration % 60;
                         return mins + ":" + (secs < 10 ? "0" : "") + secs;
                     }
-                    font.pixelSize: 18
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeHeadline
                     font.bold: true
-                    color: "white"
+                    color: MColors.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -376,13 +439,17 @@ MApp {
             Rectangle {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                width: 40
-                height: 40
+                width: 44
+                height: 44
                 radius: width / 2
-                color: Qt.rgba(0, 0, 0, 0.55)
+                color: MColors.shadowStrong
                 border.width: 1
                 border.color: cameraController.flashEnabled ? MColors.tealBorder : MColors.whiteOverlay08
                 visible: cameraController.flashAvailable
+
+                Accessible.role: Accessible.Button
+                Accessible.name: cameraController.flashEnabled ? "Turn flash off" : "Turn flash on"
+                Accessible.onPressAction: cameraController.flashEnabled = !cameraController.flashEnabled
 
                 // Flash glyph morph — crossfade between lightning (on) and
                 // lightning-slash (off) Icons. Direct name binding caused a
@@ -428,12 +495,16 @@ MApp {
             Rectangle {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: 40
-                height: 40
+                width: 44
+                height: 44
                 radius: width / 2
-                color: Qt.rgba(0, 0, 0, 0.55)
+                color: MColors.shadowStrong
                 border.width: 1
                 border.color: MColors.whiteOverlay08
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "Camera settings"
+                Accessible.onPressAction: settingsSheet.show()
 
                 Icon {
                     anchors.centerIn: parent
@@ -466,33 +537,29 @@ MApp {
                 width: 1
                 height: parent.height
                 x: parent.width / 3
-                color: Qt.rgba(1, 1, 1, 0.18)
+                color: MColors.whiteOverlay16
             }
             Rectangle {
                 width: 1
                 height: parent.height
                 x: parent.width * 2 / 3
-                color: Qt.rgba(1, 1, 1, 0.18)
+                color: MColors.whiteOverlay16
             }
             Rectangle {
                 height: 1
                 width: parent.width
                 y: parent.height / 3
-                color: Qt.rgba(1, 1, 1, 0.18)
+                color: MColors.whiteOverlay16
             }
             Rectangle {
                 height: 1
                 width: parent.width
                 y: parent.height * 2 / 3
-                color: Qt.rgba(1, 1, 1, 0.18)
+                color: MColors.whiteOverlay16
             }
         }
 
         // ── Mode strip (JSX ref-camera) ─────────────────────
-        // 5 modes in a horizontal strip; active mode gets teal-bright
-        // colour + a 2 px teal underline. SLO-MO / PORTRAIT / PANO are
-        // surfaced visually but degrade to the closest cameraController
-        // mode (photo/video) on tap until the engine supports them.
         Row {
             id: modeStrip
             anchors.bottom: bottomControls.top
@@ -505,33 +572,34 @@ MApp {
             Repeater {
                 model: [
                     {
-                        label: "SLO-MO",
-                        mode: "video"
-                    },
-                    {
                         label: "VIDEO",
                         mode: "video"
                     },
                     {
                         label: "PHOTO",
                         mode: "photo"
-                    },
-                    {
-                        label: "PORTRAIT",
-                        mode: "photo"
-                    },
-                    {
-                        label: "PANO",
-                        mode: "photo"
                     }
                 ]
                 delegate: Item {
+                    id: modeDelegate
+
+                    required property var modelData
+
                     // Wrapping Item so MouseArea can use anchors.fill (a
                     // Column's children must not specify anchors, per Qt).
-                    width: modeLabel.implicitWidth + 12
-                    height: 28
+                    width: Math.max(modeLabel.implicitWidth + 12, 44)
+                    height: 44
 
-                    readonly property bool isActive: (modelData.label === "PHOTO" && currentMode === "photo") || (modelData.label === "VIDEO" && currentMode === "video")
+                    readonly property bool isActive: cameraApp.currentMode === modeDelegate.modelData.mode
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: modeDelegate.modelData.label === "PHOTO" ? "Photo mode" : "Video mode"
+                    Accessible.checkable: true
+                    Accessible.checked: isActive
+                    Accessible.onPressAction: {
+                        if (!cameraController.isRecording)
+                            cameraApp.currentMode = modeDelegate.modelData.mode;
+                    }
 
                     Column {
                         anchors.centerIn: parent
@@ -540,8 +608,8 @@ MApp {
                         Text {
                             id: modeLabel
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.label
-                            color: isActive ? MColors.marathonTealBright : MColors.textSecondary
+                            text: modeDelegate.modelData.label
+                            color: modeDelegate.isActive ? MColors.marathonTealBright : MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeFootnote
                             font.weight: Font.DemiBold
@@ -553,16 +621,16 @@ MApp {
                             height: 2
                             radius: 1
                             color: MColors.marathonTealBright
-                            visible: isActive
+                            visible: modeDelegate.isActive
                         }
                     }
 
                     MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -6
+                        enabled: !cameraController.isRecording
                         onClicked: {
                             HapticService.light();
-                            currentMode = modelData.mode;
+                            cameraApp.currentMode = modeDelegate.modelData.mode;
                         }
                     }
                 }
@@ -584,6 +652,10 @@ MApp {
                 height: 60
                 anchors.verticalCenter: parent.verticalCenter
 
+                Accessible.role: Accessible.Button
+                Accessible.name: "Open Gallery"
+                Accessible.onPressAction: NavigationService.launchApp("gallery")
+
                 Rectangle {
                     id: galleryThumbnailBorder
 
@@ -591,7 +663,7 @@ MApp {
                     radius: width / 2
                     color: "transparent"
                     border.width: 2
-                    border.color: "white"
+                    border.color: MColors.textPrimary
                 }
 
                 Item {
@@ -611,7 +683,7 @@ MApp {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: "#2a2a3a"
+                        color: MColors.elev3
                         visible: cameraController.latestPhotoPath === ""
 
                         Icon {
@@ -653,7 +725,11 @@ MApp {
                 radius: 40
                 color: "transparent"
                 border.width: 4
-                border.color: cameraController.isRecording ? "#ff4444" : "white"
+                border.color: cameraController.isRecording ? MColors.error : MColors.textPrimary
+
+                Accessible.role: Accessible.Button
+                Accessible.name: cameraApp.currentMode === "photo" ? "Take photo" : (cameraController.isRecording ? "Stop recording" : "Start recording")
+                Accessible.onPressAction: cameraApp.shoot()
 
                 // Teal-halo glow per JSX shutter — outer 3 px ring at low
                 // alpha, only when not recording (red-record state owns the
@@ -675,7 +751,7 @@ MApp {
                     width: cameraController.isRecording ? 28 : parent.width - 12
                     height: cameraController.isRecording ? 28 : parent.height - 12
                     radius: cameraController.isRecording ? 6 : width / 2
-                    color: cameraController.isRecording ? "#ff4444" : "white"
+                    color: cameraController.isRecording ? MColors.error : MColors.textPrimary
 
                     Behavior on width {
                         NumberAnimation {
@@ -704,16 +780,7 @@ MApp {
                     }
                     onReleased: parent.scale = 1
                     onCanceled: parent.scale = 1
-                    onClicked: {
-                        if (currentMode === "photo") {
-                            cameraController.captureWithTimer();
-                        } else {
-                            if (cameraController.isRecording)
-                                cameraController.stopRecording();
-                            else
-                                cameraController.startRecording();
-                        }
-                    }
+                    onClicked: cameraApp.shoot()
                 }
 
                 Behavior on scale {
@@ -730,6 +797,8 @@ MApp {
                 width: 56
                 height: 56
                 variant: "secondary"
+                a11yName: "Switch camera"
+                disabled: cameraController.cameraCount < 2
                 rotation: cameraController.isFrontCamera ? 180 : 0
                 onClicked: cameraController.flipCamera()
 
@@ -744,6 +813,17 @@ MApp {
                     }
                 }
             }
+        }
+
+        MSnackbar {
+            id: captureSnackbar
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: modeStrip.top
+            anchors.margins: MSpacing.md
+            z: 30
+            onActionTriggered: cameraApp.shoot()
         }
 
         MSheet {

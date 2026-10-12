@@ -5,7 +5,7 @@
 #include <QStandardPaths>
 
 namespace {
-    static QtMessageHandler originalHandler = nullptr;
+    QtMessageHandler originalHandler = nullptr;
 
     void                    cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                                  const QString &msg) {
