@@ -4,6 +4,8 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 Item {
     id: taskCard
@@ -88,14 +90,10 @@ Item {
         property bool closing: false
 
         anchors.fill: parent
-        anchors.margins: 8
-        color: MColors.glassTitlebar
-        // DS card chrome — 4 px corners. Previously Constants.borderRadiusSharp
-        // (=0) made every Active Frames tile a flat box, breaking continuity
-        // with the rest of the shell's rounded language.
-        radius: MRadius.md
-        border.width: 1
-        border.color: MColors.borderSubtle
+        anchors.margins: Theme.paddingSmall
+        // A cover on Home: ambience glass, Silica's rounded corners.
+        color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityHigh)
+        radius: Theme.paddingMedium
         antialiasing: true
         // Clip children to the rounded corners. Without this, the banner
         // (sharp-cornered Rectangle anchored to the bottom edge) renders
@@ -587,22 +585,12 @@ Item {
                     width: parent.width - Math.round(80 * Constants.scaleFactor)
                     spacing: Math.round(2 * Constants.scaleFactor)
 
-                    Text {
+                    Label {
                         text: taskCard.title
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.DemiBold
-                        font.family: MTypography.fontFamily
-                        elide: Text.ElideRight
+                        color: Theme.secondaryColor
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        truncationMode: TruncationMode.Fade
                         width: parent.width
-                    }
-
-                    Text {
-                        text: "Running"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeXSmall
-                        font.family: MTypography.fontFamily
-                        opacity: 0.7
                     }
                 }
 
@@ -620,7 +608,7 @@ Item {
                         width: Math.round(44 * Constants.scaleFactor)
                         height: Math.round(44 * Constants.scaleFactor)
                         radius: MRadius.sm
-                        color: closeButtonArea.pressed ? MColors.elevated : MColors.surface
+                        color: "transparent"
                         scale: closeButtonArea.pressed ? 0.92 : 1
 
                         Accessible.role: Accessible.Button
@@ -639,12 +627,10 @@ Item {
                             }
                         }
 
-                        Text {
+                        HighlightImage {
                             anchors.centerIn: parent
-                            text: "×"
-                            color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeXLarge
-                            font.weight: Font.Bold
+                            source: "image://theme/icon-m-close"
+                            highlighted: closeButtonArea.pressed
                         }
 
                         MouseArea {
