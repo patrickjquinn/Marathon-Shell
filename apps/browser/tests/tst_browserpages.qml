@@ -269,10 +269,10 @@ TestCase {
         app.navigateTo("https://kde.org");
         const page = push(app, "BookmarksPage.qml");
         verify(!findChild(page, "pulley").visible);
+        compare(findChild(page, "placeholder").hintText, "Bookmarks are off in private browsing");
         app.setPrivateMode(false);
         app.navigateTo("https://kde.org");
         verify(findChild(page, "pulley").visible);
-        compare(findChild(page, "placeholder").hintText, "Bookmarks are off in private browsing");
     }
 
     function test_bookmarkDeleteUsesRemorse() {
