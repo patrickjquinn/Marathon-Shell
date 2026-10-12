@@ -227,8 +227,10 @@ class TestSettingsContract : public QObject {
     void quickSettingsTileIds() {
         const QSet<QString> settingsIds =
             matches(read("apps/settings/SettingsLogic.js"), R"re(\{ id: "(\w+)", label:)re");
-        const QSet<QString> shellIds = matches(
-            read("shell/qml/components/MarathonQuickSettings.qml"), R"re(\{ id: "(\w+)",)re");
+        const QString       qs       = read("shell/qml/components/MarathonQuickSettings.qml");
+        // Tiles are listed as { id: ... }; Power is a header button gated by its id.
+        const QSet<QString> shellIds = matches(qs, R"re(\{ id: "(\w+)",)re")
+            + matches(qs, R"re(enabledQuickSettingsTiles\.indexOf\("(\w+)"\))re");
         QVERIFY(!settingsIds.isEmpty());
         for (const QString &id : settingsIds)
             QVERIFY2(shellIds.contains(id),
