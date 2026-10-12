@@ -837,6 +837,8 @@ void SettingsClient::refresh() {
         emit keyboardWordFlingChanged();
         emit keyboardPredictiveSpacingChanged();
         emit keyboardHapticStrengthChanged();
+        emit keyboardLanguageChanged();
+        emit keyboardAutoCapitalizeChanged();
     });
 }
 
@@ -914,6 +916,8 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         {"keyboardWordFling", &SettingsClient::keyboardWordFlingChanged},
         {"keyboardPredictiveSpacing", &SettingsClient::keyboardPredictiveSpacingChanged},
         {"keyboardHapticStrength", &SettingsClient::keyboardHapticStrengthChanged},
+        {"keyboardLanguage", &SettingsClient::keyboardLanguageChanged},
+        {"keyboardAutoCapitalize", &SettingsClient::keyboardAutoCapitalizeChanged},
     };
     if (auto it = kSignalForProperty.constFind(name); it != kSignalForProperty.constEnd())
         (this->**it)();
@@ -1052,6 +1056,12 @@ bool SettingsClient::keyboardPredictiveSpacing() const {
 QString SettingsClient::keyboardHapticStrength() const {
     return prop("keyboardHapticStrength", "medium").toString();
 }
+QString SettingsClient::keyboardLanguage() const {
+    return prop("keyboardLanguage", "en_US").toString();
+}
+bool SettingsClient::keyboardAutoCapitalize() const {
+    return prop("keyboardAutoCapitalize", true).toBool();
+}
 
 void SettingsClient::setUserScaleFactor(qreal v) {
     setProp("userScaleFactor", v);
@@ -1185,6 +1195,12 @@ void SettingsClient::setKeyboardPredictiveSpacing(bool v) {
 }
 void SettingsClient::setKeyboardHapticStrength(const QString &v) {
     setProp("keyboardHapticStrength", v);
+}
+void SettingsClient::setKeyboardLanguage(const QString &v) {
+    setProp("keyboardLanguage", v);
+}
+void SettingsClient::setKeyboardAutoCapitalize(bool v) {
+    setProp("keyboardAutoCapitalize", v);
 }
 
 QStringList SettingsClient::availableRingtones() {

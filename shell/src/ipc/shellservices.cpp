@@ -272,6 +272,13 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
                      [this, emitProp]() {
                          emitProp("quickSettingsTileOrder", m_settings->quickSettingsTileOrder());
                      });
+    QObject::connect(
+        m_settings, &SettingsManager::keyboardLanguageChanged, this,
+        [this, emitProp]() { emitProp("keyboardLanguage", m_settings->keyboardLanguage()); });
+    QObject::connect(m_settings, &SettingsManager::keyboardAutoCapitalizeChanged, this,
+                     [this, emitProp]() {
+                         emitProp("keyboardAutoCapitalize", m_settings->keyboardAutoCapitalize());
+                     });
 }
 
 bool SettingsObject::isAppScopedKey(const QString &key) const {
@@ -338,6 +345,8 @@ QVariantMap SettingsObject::GetState() {
         {"keyboardWordFling", m_settings->keyboardWordFling()},
         {"keyboardPredictiveSpacing", m_settings->keyboardPredictiveSpacing()},
         {"keyboardHapticStrength", m_settings->keyboardHapticStrength()},
+        {"keyboardLanguage", m_settings->keyboardLanguage()},
+        {"keyboardAutoCapitalize", m_settings->keyboardAutoCapitalize()},
     };
 }
 
@@ -438,6 +447,10 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setKeyboardPredictiveSpacing(v.toBool());
     else if (name == "keyboardHapticStrength")
         m_settings->setKeyboardHapticStrength(v.toString());
+    else if (name == "keyboardLanguage")
+        m_settings->setKeyboardLanguage(v.toString());
+    else if (name == "keyboardAutoCapitalize")
+        m_settings->setKeyboardAutoCapitalize(v.toBool());
     else
         sendErrorReply(QDBusError::InvalidArgs, "Unknown settings property: " + name);
 }

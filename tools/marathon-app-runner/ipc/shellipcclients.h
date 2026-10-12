@@ -337,6 +337,10 @@ class SettingsClient : public QObject {
                    setKeyboardPredictiveSpacing NOTIFY keyboardPredictiveSpacingChanged)
     Q_PROPERTY(QString keyboardHapticStrength READ keyboardHapticStrength WRITE
                    setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
+    Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
+                   keyboardLanguageChanged)
+    Q_PROPERTY(bool keyboardAutoCapitalize READ keyboardAutoCapitalize WRITE
+                   setKeyboardAutoCapitalize NOTIFY keyboardAutoCapitalizeChanged)
 
   public:
     explicit SettingsClient(const QString &appId, QObject *parent = nullptr);
@@ -390,6 +394,8 @@ class SettingsClient : public QObject {
     bool                    keyboardWordFling() const;
     bool                    keyboardPredictiveSpacing() const;
     QString                 keyboardHapticStrength() const;
+    QString                 keyboardLanguage() const;
+    bool                    keyboardAutoCapitalize() const;
 
     void                    setUserScaleFactor(qreal v);
     void                    setWallpaperPath(const QString &v);
@@ -440,6 +446,8 @@ class SettingsClient : public QObject {
     void                    setKeyboardWordFling(bool v);
     void                    setKeyboardPredictiveSpacing(bool v);
     void                    setKeyboardHapticStrength(const QString &v);
+    void                    setKeyboardLanguage(const QString &v);
+    void                    setKeyboardAutoCapitalize(bool v);
 
     Q_INVOKABLE QStringList availableRingtones();
     Q_INVOKABLE QStringList availableNotificationSounds();
@@ -502,6 +510,8 @@ class SettingsClient : public QObject {
     void keyboardWordFlingChanged();
     void keyboardPredictiveSpacingChanged();
     void keyboardHapticStrengthChanged();
+    void keyboardLanguageChanged();
+    void keyboardAutoCapitalizeChanged();
 
   private slots:
     void onPropertyChanged(const QString &name, const QDBusVariant &value);
