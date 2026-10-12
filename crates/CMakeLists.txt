@@ -42,6 +42,20 @@ target_include_directories(marathon_core_native INTERFACE "${MARATHON_CARGO_TARG
 target_link_libraries(marathon_core_native INTERFACE
     "${MARATHON_CORE_NATIVE_LIB}" Threads::Threads ${CMAKE_DL_LIBS} m)
 
+# marathon-store:// URL handler (xdg-open target and the store refresh timer).
+include(GNUInstallDirs)
+set(MARATHON_STORE_HANDLER_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-store-handler")
+add_custom_target(marathon_store_handler_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-store-handler
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_STORE_HANDLER_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-store-handler (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_STORE_HANDLER_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}

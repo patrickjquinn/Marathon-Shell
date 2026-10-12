@@ -1,0 +1,337 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 12 Oct 2026 23:35:32 +0100
+Subject: [PATCH] fix(store): drop the bash store handler
+
+Marathon-Shell replaced scripts/store/marathon-store-handler and
+marathon-store-refresh-state (bash, python3 for JSON escaping) with
+crates/marathon-store-handler, a Rust binary the marathon-shell package
+installs at /usr/bin/marathon-store-handler. Installing the old copies
+from marathon-extras here would overwrite it, so they go.
+
+The refresh timer's service now runs the refresh-state verb directly;
+MARATHON_STORE_UNIT=1 tells the handler it is already inside a unit, so
+it doesn't wrap itself in another transient one.
+---
+ marathon-extras/marathon-store-handler        | 203 ------------------
+ marathon-extras/marathon-store-refresh-state  |  58 -----
+ .../marathon-store-refresh.service.template   |   3 +-
+ mkosi.images/base/mkosi.postinst              |  16 +-
+ 4 files changed, 4 insertions(+), 276 deletions(-)
+ delete mode 100755 marathon-extras/marathon-store-handler
+ delete mode 100755 marathon-extras/marathon-store-refresh-state
+
+diff --git a/marathon-extras/marathon-store-handler b/marathon-extras/marathon-store-handler
+deleted file mode 100755
+index 6ce3d26..0000000
+--- a/marathon-extras/marathon-store-handler
++++ /dev/null
+@@ -1,203 +0,0 @@
+-#!/bin/bash
+-# Marathon App Store URL-scheme handler.
+-#
+-# Invoked via xdg-open marathon-store://<verb>/<arg>. The verb-arg pairs are
+-# strictly enumerated; anything else is rejected before we touch flatpak.
+-#
+-# Security:
+-#   - Refs match a strict RDN regex (Flathub appstream-id shape) and reject any
+-#     '..' substring to defeat path-traversal in the state file name.
+-#   - The only remote we talk to is 'flathub'.
+-#   - flatpak is invoked via exec with a fixed argv — no user input ever reaches
+-#     a shell. State files are written atomically (write-then-rename).
+-#   - Per-appid state files prevent concurrent installs from racing each other.
+-set -euo pipefail
+-
+-REF_RE='^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$'
+-REMOTE=flathub
+-RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+-STATE_DIR="$RUNTIME_DIR/marathon-store-state"
+-mkdir -p "$STATE_DIR"
+-
+-job_unit() {
+-    printf 'marathon-store-job-%s.service' "$1"
+-}
+-
+-url=${1:-}
+-verb=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://\([^/]*\)/.*|\1|p')
+-arg=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://[^/]*/\(.*\)$|\1|p')
+-
+-if [ -z "$verb" ]; then
+-    printf 'marathon-store-handler: bad url: %s\n' "$url" >&2
+-    exit 2
+-fi
+-
+-case "$verb" in
+-    install|update|uninstall|cancel|open|refresh-state|update-all) ;;
+-    *)
+-        printf 'marathon-store-handler: unknown verb: %s\n' "$verb" >&2
+-        exit 2
+-        ;;
+-esac
+-
+-if [ "$verb" != "refresh-state" ] && [ "$verb" != "update-all" ]; then
+-    case "$arg" in
+-        *..*)
+-            printf 'marathon-store-handler: rejecting traversal: %s\n' "$arg" >&2
+-            exit 3
+-            ;;
+-    esac
+-    if ! printf '%s' "$arg" | grep -qE "$REF_RE"; then
+-        printf 'marathon-store-handler: rejecting ref: %s\n' "$arg" >&2
+-        exit 3
+-    fi
+-fi
+-
+-# xdg-open runs this inside the calling app's sandbox, where /home/user is a
+-# private tmpfs (flatpak --user would install into a throwaway home) and
+-# systemd won't take requests from the sandbox's PID namespace. There, PID 1
+-# is bwrap: hand the URL to the shell, which checks the caller holds the
+-# "system" permission and runs this handler from outside. In the session,
+-# re-run as a transient unit so the work outlives xdg-open and stays out of
+-# the shell's process tree. Validation above has already run.
+-if [ -z "${MARATHON_STORE_UNIT:-}" ]; then
+-    if [ "$(cat /proc/1/comm 2>/dev/null)" != systemd ]; then
+-        exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/AppStore \
+-            org.marathonos.Shell.AppStore1 RunStoreUrl s "$url"
+-    fi
+-    # One named unit per app, so cancel can stop it and a second install of
+-    # the same app is refused while the first runs.
+-    unit=()
+-    case "$verb" in
+-        install|update|uninstall) unit=(--unit="$(job_unit "$arg")") ;;
+-    esac
+-    exec systemd-run --user --quiet --collect "${unit[@]}" --setenv=MARATHON_STORE_UNIT=1 \
+-        "$(readlink -f "$0")" "$url"
+-fi
+-
+-write_state() {
+-    local op=$1 appid=$2 state=$3 pct=$4 msg=${5:-}
+-    local target="$STATE_DIR/install-progress-${appid}.json"
+-    local tmp
+-    # The message is flatpak's own error text: keep it printable and free of
+-    # the two characters that could break out of the JSON string.
+-    msg=$(printf '%s' "$msg" | tr -d '"\\' | tr -c '[:print:]' ' ' | cut -c1-400)
+-    tmp=$(mktemp "${target}.XXXXXX")
+-    printf '{"appId":"%s","verb":"%s","state":"%s","percent":%s,"error":"%s","ts":%s}\n' \
+-        "$appid" "$op" "$state" "$pct" "$msg" "$(date +%s)" > "$tmp"
+-    mv "$tmp" "$target"
+-}
+-
+-# User installs need a user remote; the image only registers Flathub for the
+-# system installation.
+-ensure_remote() {
+-    local repo=/etc/flatpak/remotes.d/flathub.flatpakrepo
+-    [ -f "$repo" ] || repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+-    flatpak --user remote-add --if-not-exists "$REMOTE" "$repo"
+-}
+-
+-# install / update / uninstall one app, reporting progress through the state
+-# file the QML polls. Runs with errexit off: under -e a failing flatpak ended
+-# the script before it could record the failure, so the UI waited on
+-# "pending" forever.
+-run_op() {
+-    local op=$1 appid=$2 log rc=0 busy done_state="done" cmd
+-    case "$op" in
+-        install)   cmd="flatpak --user install -y $REMOTE $appid"; busy=installing ;;
+-        update)    cmd="flatpak --user update -y $appid"; busy=installing ;;
+-        uninstall) cmd="flatpak --user uninstall -y $appid"; busy=removing; done_state=removed ;;
+-    esac
+-    log=$(mktemp "$STATE_DIR/log.XXXXXX")
+-    set +e
+-    write_state "$op" "$appid" pending -1
+-    [ "$op" = install ] && ensure_remote >>"$log" 2>&1
+-    # flatpak only draws progress ("Installing 2/3… 45%") on a terminal, so
+-    # it runs under script(1) for a pty; -e passes its exit status through.
+-    # Each redraw ends in a carriage return, so read on those: a tr/sed pipe
+-    # would block-buffer and deliver every percentage at once at the end.
+-    # Each step's percentage folds into one figure across all the steps.
+-    script -q -e -c "$cmd" /dev/null 2>&1 | while IFS= read -r -d $'\r' chunk || [ -n "$chunk" ]; do
+-        printf '%s\n' "$chunk" >> "$log"
+-        if [[ $chunk =~ ([0-9]+)/([0-9]+)….*[^0-9]([0-9]{1,3})% ]]; then
+-            write_state "$op" "$appid" "$busy" \
+-                $(( ((BASH_REMATCH[1] - 1) * 100 + BASH_REMATCH[3]) / BASH_REMATCH[2] ))
+-        fi
+-    done
+-    rc=${PIPESTATUS[0]}
+-    if [ "$rc" = 0 ]; then
+-        write_state "$op" "$appid" "$done_state" 100
+-    else
+-        # flatpak's own reason, without the terminal escapes and progress
+-        # redraws that share its line.
+-        write_state "$op" "$appid" failed -1 "$(sed -e 's/\x1b\][^\x1b]*\x1b\\//g' -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$log" \
+-            | grep -o 'error: .*' | tail -1 | sed 's/^error: //')"
+-    fi
+-    rm -f "$log"
+-    /usr/libexec/marathon-store-refresh-state
+-    set -e
+-}
+-
+-# Every queued app reports "pending" up front, so the Store doesn't give up
+-# on the ones still waiting their turn. Each update runs in its own job unit,
+-# which lets one be cancelled without stopping the rest; a cancelled record
+-# skips an app that hasn't started yet.
+-update_all() {
+-    local apps app
+-    apps=$(flatpak --user remote-ls --updates --columns=application 2>/dev/null \
+-        | grep -vE '\.(Locale|Sources|Debug)$' | grep -E "$REF_RE" || true)
+-    for app in $apps; do write_state update "$app" pending -1; done
+-    for app in $apps; do
+-        grep -q '"state":"cancelled"' "$STATE_DIR/install-progress-${app}.json" 2>/dev/null && continue
+-        systemd-run --user --quiet --collect --wait --unit="$(job_unit "$app")" \
+-            --setenv=MARATHON_STORE_UNIT=1 "$(readlink -f "$0")" "marathon-store://update/$app" || true
+-    done
+-}
+-
+-# Stopping the unit kills flatpak mid-transaction; ostree leaves the
+-# installed version untouched until a deploy completes. A job that finished
+-# before the stop keeps its result.
+-cancel_op() {
+-    local appid=$1 target="$STATE_DIR/install-progress-$1.json" record="" op
+-    systemctl --user stop "$(job_unit "$appid")" 2>/dev/null || true
+-    [ -f "$target" ] && record=$(cat "$target")
+-    case "$record" in
+-        *'"state":"done"'*|*'"state":"removed"'*|*'"state":"failed"'*) return ;;
+-    esac
+-    op=$(printf '%s' "$record" | sed -n 's/.*"verb":"\([a-z]*\)".*/\1/p')
+-    write_state "${op:-install}" "$appid" cancelled -1
+-    /usr/libexec/marathon-store-refresh-state
+-}
+-
+-# arg has already been validated against REF_RE, so nothing shell-meaningful
+-# survives into flatpak's argv. The QML polls the per-app state files. Inside
+-# the transient unit the work runs in the foreground: systemd kills a unit's
+-# leftover processes once its main process exits. Without systemd, detach so
+-# xdg-open returns at once.
+-case "$verb" in
+-    install|update|uninstall)
+-        if [ -n "${MARATHON_STORE_UNIT:-}" ]; then
+-            run_op "$verb" "$arg"
+-        else
+-            (run_op "$verb" "$arg" </dev/null >/dev/null 2>&1 &)
+-        fi
+-        ;;
+-    update-all)
+-        if [ -n "${MARATHON_STORE_UNIT:-}" ]; then
+-            update_all
+-        else
+-            (update_all </dev/null >/dev/null 2>&1 &)
+-        fi
+-        ;;
+-    cancel)
+-        cancel_op "$arg"
+-        ;;
+-    refresh-state)
+-        exec /usr/libexec/marathon-store-refresh-state
+-        ;;
+-    # Launch through the shell like a home-screen tap, so the app gets the
+-    # compositor's socket and a place in the task switcher.
+-    open)
+-        exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+-            org.marathonos.Shell.Navigation1 LaunchApp s "$arg"
+-        ;;
+-esac
+diff --git a/marathon-extras/marathon-store-refresh-state b/marathon-extras/marathon-store-refresh-state
+deleted file mode 100755
+index b6d1928..0000000
+--- a/marathon-extras/marathon-store-refresh-state
++++ /dev/null
+@@ -1,58 +0,0 @@
+-#!/bin/bash
+-# Marathon App Store state dumper. Emits two JSON files into XDG_RUNTIME_DIR
+-# that StoreApp.qml reads. We never expose CLI output to QML directly — the
+-# JSON is the contract. Strings are escaped via python3 because flatpak app
+-# names can legitimately contain quotes, backslashes, and unicode.
+-set -euo pipefail
+-RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+-STATE_DIR="$RUNTIME_DIR/marathon-store-state"
+-mkdir -p "$STATE_DIR"
+-
+-json_string() {
+-    python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.argv[1]))' "$1"
+-}
+-
+-emit_installed() {
+-    printf '{"installed":['
+-    local first=1
+-    while IFS=$'\t' read -r app_id version name; do
+-        [ -z "$app_id" ] && continue
+-        local icons="$HOME/.local/share/flatpak/exports/share/icons/hicolor" icon=""
+-        for candidate in 128x128/apps/$app_id.png 256x256/apps/$app_id.png \
+-                         512x512/apps/$app_id.png scalable/apps/$app_id.svg \
+-                         64x64/apps/$app_id.png; do
+-            [ -f "$icons/$candidate" ] && { icon="$icons/$candidate"; break; }
+-        done
+-        [ "$first" = 1 ] || printf ','
+-        first=0
+-        printf '{"app_id":%s,"name":%s,"version":%s,"icon":%s}' \
+-            "$(json_string "$app_id")" \
+-            "$(json_string "$name")" \
+-            "$(json_string "$version")" \
+-            "$(json_string "${icon:+file://$icon}")"
+-    done < <(flatpak --user list --app --columns=application,version,name 2>/dev/null || true)
+-    printf '],"ts":%s}\n' "$(date +%s)"
+-}
+-
+-emit_updates() {
+-    printf '{"updates":['
+-    local first=1
+-    # timeout — flatpak remote-ls can hang on flaky networks. 20s is generous
+-    # for an updates-only query against flathub.
+-    while read -r app_id; do
+-        [ -z "$app_id" ] && continue
+-        case "$app_id" in *.Locale|*.Sources|*.Debug) continue ;; esac
+-        [ "$first" = 1 ] || printf ','
+-        first=0
+-        printf '{"app_id":%s}' "$(json_string "$app_id")"
+-    done < <(timeout 20 flatpak --user remote-ls --updates --columns=application 2>/dev/null || true)
+-    printf '],"ts":%s}\n' "$(date +%s)"
+-}
+-
+-tmp_inst=$(mktemp "$STATE_DIR/installed.json.XXXXXX")
+-emit_installed > "$tmp_inst"
+-mv "$tmp_inst" "$STATE_DIR/installed.json"
+-
+-tmp_upd=$(mktemp "$STATE_DIR/updates.json.XXXXXX")
+-emit_updates > "$tmp_upd"
+-mv "$tmp_upd" "$STATE_DIR/updates.json"
+diff --git a/marathon-extras/marathon-store-refresh.service.template b/marathon-extras/marathon-store-refresh.service.template
+index 22b02f9..d9ff189 100644
+--- a/marathon-extras/marathon-store-refresh.service.template
++++ b/marathon-extras/marathon-store-refresh.service.template
+@@ -4,4 +4,5 @@ ConditionPathExists=/usr/bin/flatpak
+ 
+ [Service]
+ Type=oneshot
+-ExecStart=/usr/libexec/marathon-store-refresh-state
++Environment=MARATHON_STORE_UNIT=1
++ExecStart=/usr/bin/marathon-store-handler marathon-store://refresh-state/all
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 82a0ac9..99b7ca2 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -449,20 +449,8 @@ fi
+ unset __cmd __SENT
+ EOF
+ 
+-# Install handler + state-refresh helper. The handler is invoked via
+-# Qt.openUrlExternally("marathon-store://<verb>/<arg>") from the Store QML;
+-# xdg-open routes the URL scheme through .desktop MimeType. Verbs accepted:
+-#   install / update / uninstall / open / refresh-state / update-all
+-# Every flatpak invocation passes through libflatpak via the CLI with a
+-# fixed argv (no shell concat). The ref is validated against a strict
+-# regex (matches flatpak's own internal validators) and the remote is
+-# hard-pinned to flathub. Install progress is written atomically to a
+-# state file in XDG_RUNTIME_DIR for the QML to poll.
+-install -Dm755 /work/src/marathon-extras/marathon-store-handler \
+-    "$BUILDROOT/usr/bin/marathon-store-handler"
+-install -Dm755 /work/src/marathon-extras/marathon-store-refresh-state \
+-    "$BUILDROOT/usr/libexec/marathon-store-refresh-state"
+-
++# Route marathon-store:// URLs from the Store QML to the handler, which
++# ships in the marathon-shell package.
+ install -Dm644 /dev/stdin \
+     "$BUILDROOT/usr/share/applications/marathon-store-handler.desktop" <<'EOF'
+ [Desktop Entry]
+-- 
+2.55.0
+

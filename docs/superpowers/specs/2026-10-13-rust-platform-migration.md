@@ -33,7 +33,7 @@ The table rates each candidate on five things:
 |---|---|---|---|---|---|---|---|
 | Package signature verification | `marathon-core/src/marathonappverifier.cpp` | High: shells out to `gpg`, which isn't in the image, so every signed package fails with `GPGNotAvailable` on the phone | High: the trust gate for sideloaded apps | High | Narrow: three paths in, one verdict out | – | **Wave 1** |
 | Package archive create/extract | `marathon-core/src/marathonapppackager.cpp` | High: shells out to `zip`, `unzip` and `zipinfo`, none of which is in the image. The symlink check parses `zipinfo` text and is skipped whenever `zipinfo` is missing | High: untrusted archives get written to disk | High | Narrow: two paths in, an error out | Small | **Wave 1** |
-| Store URL handler | `scripts/store/marathon-store-handler` (bash, plus `marathon-store-refresh-state`, which calls python3 to escape JSON) | Medium: progress comes from scraping flatpak's TTY output through `script(1)`, and the JSON is assembled with `printf` | Medium: the arguments are URLs from an app sandbox | High: URL and ref validation, progress parsing, error extraction, state JSON | CLI boundary | – | **Wave 2.** The image installs these scripts from the duranium pipeline (`marathon-extras`, patches 0003, 0021 and 0024), so moving them into the shell APK needs a coordinated pipeline patch. `libflatpak` bindings would remove the TTY scraping, but the dev host has no `flatpak-devel`, so that path can't be tested here yet |
+| Store URL handler | `scripts/store/marathon-store-handler` (bash, plus `marathon-store-refresh-state`, which calls python3 to escape JSON) | Medium: progress comes from scraping flatpak's TTY output through `script(1)`, and the JSON is assembled with `printf` | Medium: the arguments are URLs from an app sandbox | High: URL and ref validation, progress parsing, error extraction, state JSON | CLI boundary | – | **Wave 1.** The image installed these scripts from the duranium pipeline (`marathon-extras`), so the move includes pipeline patch 0025, which drops those copies |
 | Desktop-file parsing and icon lookup | `shell/src/components/desktopfileparser.cpp` | Medium: a hand-rolled INI parser with no locale keys, escapes or field codes beyond a regex | Low | High (`freedesktop-desktop-entry`, `freedesktop-icons`) | Medium: returns `QVariantMap` to QML, so it needs a CXX-Qt or value bridge into the shell binary | Medium: it scans every launch | Wave 2 |
 | Notification store | `shell/src/dbus/notificationdatabase.cpp` | Low | Low | Medium | Narrow | – | Later. QtSql works, and the gain is small |
 | Alarm scheduling | `shell/src/managers/alarmmanagercpp.cpp` | Medium: time arithmetic across DST and repeats | Low | High: pure next-fire computation | Narrow if only the scheduling maths moves | – | Wave 2: move just the next-fire computation, using `chrono` / `jiff` |
@@ -44,7 +44,7 @@ The table rates each candidate on five things:
 
 ## Wave 1
 
-Both components go in `crates/marathon-core-native`, which is linked into `libMarathonCore.so`, and each is its own commit.
+The first two components go in `crates/marathon-core-native`, which is linked into `libMarathonCore.so`. The third is its own binary crate. Each is its own commit.
 
 **1. Signature verification**
 
@@ -64,6 +64,22 @@ Two behaviour changes:
 
 That replaces `zip`, `unzip` and the `zipinfo` parsing. The post-extraction symlink scan goes too, because nothing can create a symlink any more. The C++ `MarathonAppPackager` keeps manifest validation, progress signals and the move into place.
 
+**3. Store handler**
+
+`crates/marathon-store-handler` replaces both bash scripts. It is installed by CMake at `/usr/bin/marathon-store-handler`, and its `refresh-state` verb replaces `/usr/libexec/marathon-store-refresh-state`.
+
+What carries over unchanged:
+- the verbs, ref validation, exit codes and the systemd job units;
+- the shell hand-off from inside a sandbox, which now uses zbus instead of `busctl`;
+- the state-file JSON the Store reads.
+
+What changes underneath:
+- flatpak still runs as a CLI, but on a pty from `nix` instead of `script(1)`;
+- `serde_json` and `tempfile` write the state files, so python3 is no longer needed for escaping;
+- `strip-ansi-escapes` cleans up flatpak's error line.
+
+`libflatpak` transactions are a possible follow-up. The dev host has no `flatpak-devel` to test them against.
+
 **Verification**
 
 - `cargo test` and `cargo clippy -- -D warnings` pass in `crates/`.
@@ -75,6 +91,6 @@ That replaces `zip`, `unzip` and the `zipinfo` parsing. The post-extraction syml
 
 These get a short design note each, in this directory, when they start.
 
-- **Store handler as a Rust CLI.** Use `libflatpak` transactions once there's a host with `flatpak-devel` to test on. Add a pipeline patch that drops the bash copies from `marathon-extras`.
+- **Store handler on `libflatpak`.** Use transactions in place of the CLI on a pty, once there's a host with `flatpak-devel` to test on.
 - **Desktop-file parsing**, through `freedesktop-desktop-entry` and `freedesktop-icons`, bridged with CXX-Qt into the shell.
 - **The alarm next-fire computation.**
