@@ -957,7 +957,8 @@ int main(int argc, char *argv[]) {
     }
 
     qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
-    QDBusConnection bus = QDBusConnection::sessionBus();
+    QDBusConnection           bus              = QDBusConnection::sessionBus();
+    FreedesktopNotifications *freedesktopNotif = nullptr;
     if (!bus.isConnected()) {
         qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
     } else {
@@ -970,7 +971,7 @@ int main(int argc, char *argv[]) {
 
         notificationModel->loadFromDatabase(notifDb);
 
-        auto *freedesktopNotif = createObject<FreedesktopNotifications>(
+        freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
@@ -1041,10 +1042,13 @@ int main(int argc, char *argv[]) {
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
                                          navigationRouter, telephonyService, &app);
-    createObject<TelephonyIntegrationCpp>(
+    auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,
         telephonyService, smsService, sensorManager, &app);
+    if (freedesktopNotif)
+        QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
+                         telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
 
     callHistoryManager->setContactsManager(contactsManager);
     smsService->setContactsManager(contactsManager);

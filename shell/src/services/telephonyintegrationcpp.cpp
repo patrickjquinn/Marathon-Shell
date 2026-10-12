@@ -137,6 +137,17 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
     setLastCallState(state);
 }
 
+void TelephonyIntegrationCpp::replyToMessageNotification(uint id, const QString &text) {
+    if (!m_notificationService || !m_smsService || text.trimmed().isEmpty())
+        return;
+    const QVariantMap notification = m_notificationService->getNotification(int(id));
+    const QString     recipient    = notification.value("replyTarget").toString();
+    if (notification.value("appId").toString() != QLatin1String("messages") || recipient.isEmpty())
+        return;
+    m_smsService->sendMessage(recipient, text);
+    m_notificationService->markAsRead(int(id));
+}
+
 void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const QString &text,
                                                     qint64) {
     if (m_powerPolicy)
@@ -147,7 +158,7 @@ void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const
     const QString contactName = resolveContactName(sender);
     if (m_notificationService) {
         QVariantList actions;
-        actions.append(QVariantMap{{"id", "reply"}, {"label", "Reply"}});
+        actions.append(QVariantMap{{"id", "inline-reply"}, {"label", "Reply"}});
         actions.append(QVariantMap{{"id", "mark_read"}, {"label", "Mark Read"}});
         QVariantMap options;
         options["icon"]        = "message-circle";

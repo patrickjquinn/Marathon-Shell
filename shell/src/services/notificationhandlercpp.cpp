@@ -45,7 +45,7 @@ void NotificationHandlerCpp::handleNotificationAction(int id, const QString &act
     }
 
     if (appId == "messages") {
-        if (action == "reply") {
+        if (action == "inline-reply") {
             if (m_router)
                 m_router->navigateToDeepLink("messages", "", {});
         } else if (action == "mark_read") {

@@ -72,6 +72,10 @@ class TelephonyIntegrationCpp : public QObject {
     void callOverlayDismissRequested();
     void unlockRequested();
 
+  public slots:
+    // Sends the text typed into a message notification's Reply.
+    void replyToMessageNotification(uint id, const QString &text);
+
   private slots:
     void handleIncomingCall(const QString &number);
     void handleCallStateChanged(const QString &state);
