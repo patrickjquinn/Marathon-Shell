@@ -19,7 +19,12 @@ TestCase {
         }
     }
 
+    SignalSpy { id: heldSpy; target: tile; signalName: "held" }
+    SignalSpy { id: toggledSpy; target: tile; signalName: "toggled" }
+
     function init() {
+        heldSpy.clear();
+        toggledSpy.clear();
         tile.on = false;
         tile.busy = false;
     }
@@ -45,5 +50,12 @@ TestCase {
         const idleFill = ring.color.toString();
         tile.busy = true;
         compare(ring.color.toString(), idleFill);
+    }
+
+    function test_longPressHoldsWithoutToggling() {
+        mousePress(tile, tile.width / 2, tile.height / 2);
+        tryCompare(heldSpy, "count", 1, 2000);
+        mouseRelease(tile, tile.width / 2, tile.height / 2);
+        compare(toggledSpy.count, 0);
     }
 }

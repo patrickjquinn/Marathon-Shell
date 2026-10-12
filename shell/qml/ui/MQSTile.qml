@@ -17,6 +17,7 @@ Item {
     property bool busy: false
 
     signal toggled
+    signal held
 
     implicitWidth: Silica.Theme.itemSizeExtraLarge
     implicitHeight: circle.height + Silica.Theme.paddingSmall + labelText.height
@@ -97,5 +98,6 @@ Item {
 
         anchors.fill: parent
         onClicked: tile.toggled()
+        onPressAndHold: tile.held()
     }
 }
