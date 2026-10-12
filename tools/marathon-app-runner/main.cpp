@@ -679,10 +679,12 @@ int main(int argc, char *argv[]) {
         // Keep the warmed pages resident while the pool idles. Reclaim to
         // zram during idle is what made the v1 pool lose to cold launch:
         // adoption faulted the Qt heap + warmed GL state back in (~800 ms).
-        // mlockall pins the whole address space so nothing is reclaimed; if
-        // the memlock rlimit is too low (bwrap drops CAP_IPC_LOCK) we fall
-        // back to periodically touching the full resident set instead.
-        const bool poolLocked = (::mlockall(MCL_CURRENT | MCL_FUTURE) == 0);
+        // MCL_ONFAULT pins only pages already touched (the warm-up's), not
+        // every page of every linked library: without it the spare locked
+        // ~600 MB, mostly untouched WebEngine, LLVM and codec text. If the
+        // memlock rlimit is too low (bwrap drops CAP_IPC_LOCK) we fall back
+        // to periodically touching the full resident set instead.
+        const bool poolLocked = (::mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) == 0);
         if (!poolLocked)
             qWarning() << "[marathon-app-runner] pool: mlockall failed ("
                        << ::strerror(errno) << ") - using page-touch keepalive";
