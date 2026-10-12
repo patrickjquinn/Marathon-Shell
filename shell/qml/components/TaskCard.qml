@@ -186,16 +186,32 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
-                // A cover sits on the ambience, as in Sailfish's switcher.
-                color: coverView.available ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) : MColors.background
+                color: MColors.background
                 radius: cardRoot.radius
+                clip: true
+
+                // The app's cover over the bottom half of its live preview,
+                // on the ambience so it reads over any app content.
+                Rectangle {
+                    anchors.fill: coverView
+                    z: 1
+                    visible: coverView.available
+                    color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityOverlay)
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
+                    }
+                }
 
                 KeelCoverView {
                     id: coverView
 
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    z: 1
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: parent.height / 2
+                    z: 2
                     appId: taskCard.appId
                     compositor: taskCard.compositor
                     shown: taskCard.taskSwitcherVisible
@@ -205,8 +221,6 @@ Item {
                     id: appPreview
 
                     anchors.fill: parent
-                    anchors.margins: 2
-                    visible: !coverView.available
                     active: true
                     asynchronous: true
 
@@ -305,19 +319,13 @@ Item {
                                 ShaderEffectSource {
                                     id: liveSnapshot
 
-                                    // App is rendered at full device aspect (W:H = screenWidth:screenHeight).
-                                    // The card preview area has its own aspect — fit the app preview INTO it
-                                    // letterbox-style, preserving the app's true proportions. The prior
-                                    // `width: parent.width; height: (sH/sW)*width` formula always made the
-                                    // preview as TALL as the device, which on a 1:2 portrait screen meant
-                                    // the rendered texture overflowed the (shorter) card preview area and
-                                    // visually clipped the bottom — making the preview look squished + cropped.
+                                    // Fill the card at the app's aspect; the card clips the overflow.
                                     property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
                                     property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
-                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
+                                    width: parentAspect >= appAspect ? parent.height / appAspect : parent.width
+                                    height: parentAspect >= appAspect ? parent.height : parent.width * appAspect
                                     sourceItem: previewContainer.liveApp
                                     live: false
                                     recursive: true
@@ -347,14 +355,13 @@ Item {
                                 Loader {
                                     id: nativeSurfaceLoader
 
-                                    // Same aspect-preserving fit as liveSnapshot above — without it
-                                    // the native (Wayland) surface preview gets stretched/cropped.
+                                    // Fills the card like liveSnapshot above.
                                     property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
                                     property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
-                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
+                                    width: parentAspect >= appAspect ? parent.height / appAspect : parent.width
+                                    height: parentAspect >= appAspect ? parent.height : parent.width * appAspect
                                     visible: taskCard.hasWaylandSurface
                                     active: taskCard.nativeSurfaceActive
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
@@ -407,10 +414,7 @@ Item {
                                 ShaderEffectSource {
                                     id: registeredSurfacePreview
 
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.fill: nativeSurfaceLoader
                                     sourceItem: taskCard.registeredSurfaceItem
                                     // Mirror only when the card is on screen and has
                                     // no view of its own. Declared after the loader, so
