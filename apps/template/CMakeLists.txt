@@ -1,22 +1,16 @@
-# ============================================================
-# TEMPLATE APP - DO NOT BUILD OR INSTALL
-# ============================================================
-#
-# This is a reference template for creating new Marathon apps.
-# It should NOT be built or installed to the system.
-#
-# To use this template:
-#   1. Copy this directory to apps/yourapp/
-#   2. Update manifest.json, CMakeLists.txt, and QML files
-#   3. Add add_subdirectory(yourapp) to apps/CMakeLists.txt
-#
-# ============================================================
+# Template App - the starting point for new Marathon apps.
+# Not listed in apps/CMakeLists.txt so it never ships; a copy is added there.
 
-message(WARNING "Template app should not be built. This is a reference template only.")
-message(WARNING "If you need to build an app based on this template:")
-message(WARNING "  1. Copy apps/template/ to apps/yourapp/")
-message(WARNING "  2. Customize manifest.json and QML files")
-message(WARNING "  3. Add add_subdirectory(yourapp) to apps/CMakeLists.txt")
+set(APP_NAME template)
 
-# Intentionally empty - no build or install rules
+file(GLOB_RECURSE QML_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
+)
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Template"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+)

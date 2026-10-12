@@ -1,105 +1,63 @@
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
-// The scaffold app developers copy. It hand-rolled a title bar and a scroll
-// view that MPage already provides, and set `content:` on MActionBar -- a
-// property MActionBar does not have, so the title never rendered. Nothing
-// caught it because `template` is deliberately absent from apps/CMakeLists.txt
-// (it must not ship on the home grid), so it is never built.
-//
-// MPage gives you the title bar, the scrolling content area and the safe-area
-// insets. Put your content in `content:` and let it do that work.
-MPage {
-    id: mainPage
+Page {
+    id: page
 
-    title: "Template App"
+    property var app
 
-    content: [
-        Column {
-            width: mainPage.width
-            padding: MSpacing.lg
-            spacing: MSpacing.lg
+    SilicaListView {
+        id: view
 
-                    MEmptyState {
-                        width: parent.width - parent.padding * 2
-                        height: 400
-                        iconName: "package"
-                        iconSize: 96
-                        title: "Template App"
-                        message: "Replace this with your app content. See docs/MAPP_GUIDE.md for best practices."
-                    }
+        objectName: "itemsView"
+        anchors.fill: parent
+        model: page.app.items
+        header: PageHeader {
+            title: qsTr("Template")
+        }
 
-                    MCard {
-                        width: parent.width - parent.padding * 2
-                        elevation: 1
-                        interactive: true
-                        onClicked: {
-                            HapticService.light();
-                            Logger.info("TemplateApp", "Card clicked");
-                        }
-
-                        Column {
-                            width: parent.parent.width - MSpacing.md * 2
-                            padding: MSpacing.md
-                            spacing: MSpacing.sm
-
-                            Row {
-                                width: parent.width - parent.padding * 2
-                                spacing: MSpacing.md
-
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: "info"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.accent
-                                }
-
-                                Column {
-                                    width: parent.width - parent.spacing - Constants.iconSizeMedium
-                                    spacing: MSpacing.xs
-
-                                    MLabel {
-                                        text: "Example Card"
-                                        variant: "primary"
-                                        font.weight: Font.DemiBold
-                                    }
-
-                                    MLabel {
-                                        text: "This is an example of a Marathon UI card component. Tap to interact."
-                                        variant: "secondary"
-                                        wrapMode: Text.WordWrap
-                                        width: parent.width
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Row {
-                        width: parent.width - parent.padding * 2
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Primary"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.medium();
-                                Logger.info("TemplateApp", "Primary button clicked");
-                            }
-                        }
-
-                        MButton {
-                            text: "Secondary"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TemplateApp", "Secondary button clicked");
-                            }
-                        }
+        PullDownMenu {
+            MenuItem {
+                objectName: "addItem"
+                text: qsTr("Add item")
+                onClicked: page.app.addItem()
             }
         }
-    ]
+
+        ViewPlaceholder {
+            objectName: "placeholder"
+            enabled: view.count === 0
+            text: qsTr("No items")
+            hintText: qsTr("Pull down to add one")
+        }
+
+        delegate: ListItem {
+            id: item
+
+            required property string modelData
+            required property int index
+
+            Accessible.name: modelData
+            menu: ContextMenu {
+                MenuItem {
+                    objectName: "deleteItem"
+                    text: qsTr("Delete")
+                    onClicked: item.remorseDelete(() => page.app.removeItem(item.index))
+                }
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: item.modelData
+                truncationMode: TruncationMode.Fade
+                color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+            }
+        }
+
+        VerticalScrollDecorator {}
+    }
 }
