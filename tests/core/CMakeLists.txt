@@ -221,3 +221,11 @@ add_executable(test_core_musicartwork
 target_link_libraries(test_core_musicartwork Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml)
 target_include_directories(test_core_musicartwork PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
 add_test(NAME Core_MusicArtwork COMMAND test_core_musicartwork)
+
+# SMS storage: deleting one message from a thread
+if(TARGET MarathonServices)
+    add_executable(test_core_smsservice test_smsservice.cpp)
+    target_link_libraries(test_core_smsservice Qt6::Test Qt6::Core Qt6::DBus Qt6::Sql MarathonServices)
+    target_include_directories(test_core_smsservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
+    add_test(NAME Core_SmsService COMMAND test_core_smsservice)
+endif()

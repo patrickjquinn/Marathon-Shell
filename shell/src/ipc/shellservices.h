@@ -191,6 +191,7 @@ class SmsObject : public IpcPermissionedService {
     QVariantList GetMessages(const QString &conversationId);
     void         SendMessage(const QString &recipient, const QString &text);
     void         DeleteConversation(const QString &conversationId);
+    bool         DeleteMessage(int id);
     void         MarkAsRead(const QString &conversationId);
     QString      GenerateConversationId(const QString &number);
 

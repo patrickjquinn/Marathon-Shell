@@ -276,6 +276,22 @@ void SMSService::deleteConversation(const QString &conversationId) {
     qInfo() << "[SMSService] Conversation deleted:" << conversationId;
 }
 
+bool SMSService::deleteMessage(int id) {
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM messages WHERE id = ?");
+    query.addBindValue(id);
+
+    if (!query.exec()) {
+        qWarning() << "[SMSService] Failed to delete message:" << query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() < 1)
+        return false;
+
+    loadConversations();
+    return true;
+}
+
 void SMSService::markAsRead(const QString &conversationId) {
     QSqlQuery query(m_database);
     query.prepare("UPDATE messages SET isRead = 1 WHERE conversationId = ?");

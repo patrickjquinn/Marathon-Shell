@@ -2441,6 +2441,17 @@ void SmsClient::deleteConversation(const QString &conversationId) {
         qWarning() << "[SmsClient] DeleteConversation failed:" << r.errorMessage();
 }
 
+bool SmsClient::deleteMessage(int id) {
+    if (!ensurePermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("DeleteMessage", id);
+    if (!r.isValid()) {
+        qWarning() << "[SmsClient] DeleteMessage failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}
+
 void SmsClient::markAsRead(const QString &conversationId) {
     if (!ensurePermission())
         return;

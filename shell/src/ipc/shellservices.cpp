@@ -1635,6 +1635,12 @@ void SmsObject::DeleteConversation(const QString &conversationId) {
     m_sms->deleteConversation(conversationId);
 }
 
+bool SmsObject::DeleteMessage(int id) {
+    if (!requireSms())
+        return false;
+    return m_sms->deleteMessage(id);
+}
+
 void SmsObject::MarkAsRead(const QString &conversationId) {
     if (!requireSms())
         return;

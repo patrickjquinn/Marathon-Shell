@@ -51,6 +51,7 @@ class SMSService : public QObject {
                                                 const QVariantList &attachments = {});
     Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
     Q_INVOKABLE void         deleteConversation(const QString &conversationId);
+    Q_INVOKABLE bool         deleteMessage(int id);
     Q_INVOKABLE void         markAsRead(const QString &conversationId);
     Q_INVOKABLE QString      generateConversationId(const QString &number);
 

@@ -171,6 +171,7 @@ class SmsClient : public QObject {
     Q_INVOKABLE void         sendMessage(const QString &recipient, const QString &text);
     Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
     Q_INVOKABLE void         deleteConversation(const QString &conversationId);
+    Q_INVOKABLE bool         deleteMessage(int id);
     Q_INVOKABLE void         markAsRead(const QString &conversationId);
     Q_INVOKABLE QString      generateConversationId(const QString &number);
 
