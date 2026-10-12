@@ -10,6 +10,7 @@ QtObject {
     property bool reduceMotion: false
     property string statusBarClockPosition: "center"
     property real userScaleFactor: 1
+    property int screenTimeout: 60000
     property string ringtone: "/sounds/ring_classic.wav"
     property string notificationSound: "/sounds/chime.wav"
     property string alarmSound: "/sounds/alarm_dawn.wav"
@@ -30,6 +31,7 @@ QtObject {
         reduceMotion = false;
         statusBarClockPosition = "center";
         userScaleFactor = 1;
+        screenTimeout = 60000;
         ringtone = "/sounds/ring_classic.wav";
         notificationSound = "/sounds/chime.wav";
         alarmSound = "/sounds/alarm_dawn.wav";

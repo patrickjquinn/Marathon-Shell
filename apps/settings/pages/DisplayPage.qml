@@ -70,7 +70,7 @@ Page {
                 width: parent.width
                 label: qsTr("Turn screen off after")
                 Binding on currentIndex {
-                    value: page.timeouts.findIndex(option => Settings.screenTimeoutValue(option) / 1000 === Display.screenTimeout)
+                    value: page.timeouts.findIndex(option => Settings.screenTimeoutValue(option) === Settings.screenTimeout)
                 }
                 menu: ContextMenu {
                     Repeater {
@@ -80,8 +80,7 @@ Page {
                             required property string modelData
 
                             text: modelData
-                            // screenTimeoutValue is in milliseconds; the display keeps seconds.
-                            onClicked: Display.screenTimeout = Settings.screenTimeoutValue(modelData) / 1000
+                            onClicked: Settings.screenTimeout = Settings.screenTimeoutValue(modelData)
                         }
                     }
                 }

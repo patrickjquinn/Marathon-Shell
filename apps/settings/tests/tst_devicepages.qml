@@ -86,8 +86,8 @@ TestCase {
         const timeout = child(s.page, "timeoutCombo");
         compare(timeout.currentIndex, 1);
         pick(timeout, 3);
-        compare(Display.screenTimeout, 300);
-        Display.screenTimeout = 30;
+        compare(Settings.screenTimeout, 300000);
+        Settings.screenTimeout = 30000;
         compare(timeout.currentIndex, 0);
 
         const scale = child(s.page, "scaleCombo");
