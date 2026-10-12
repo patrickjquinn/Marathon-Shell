@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
+import Sailfish.Silica 1.0 as Silica
 
 Rectangle {
     id: key
@@ -28,48 +28,17 @@ Rectangle {
 
     width: Math.round(60 * Constants.scaleFactor)
     height: Math.round(45 * Constants.scaleFactor)
-    radius: Constants.borderRadiusSharp
-    color: {
-        if (pressed)
-            return MColors.accentBright;
-
-        if (isSpecial)
-            return "#1a1a1a";
-
-        return "#000000";
-    }
-    border.width: 0
-    antialiasing: Constants.enableAntialiasing
-    layer.enabled: true
-    layer.smooth: true
-    scale: pressed ? 0.95 : 1
-
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a"
-        radius: 0
-    }
-
-    Rectangle {
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a"
-        radius: 0
-    }
+    // Sailfish's keyboard: letters without boxes, function keys on a faint
+    // rounded backdrop, the ambience highlight under a pressed key.
+    color: "transparent"
 
     Rectangle {
         anchors.fill: parent
-        anchors.margins: Math.round(2 * Constants.scaleFactor)
-        radius: parent.radius > 0 ? parent.radius - 2 : 0
-        color: "transparent"
-        border.width: Math.round(1 * Constants.scaleFactor)
-        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555"
-        antialiasing: parent.antialiasing
+        anchors.margins: Math.round(Silica.Theme.paddingSmall / 2)
+        radius: Silica.Theme.paddingSmall
+        visible: key.pressed || key.isSpecial
+        color: key.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
+                           : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
     }
 
     Item {
@@ -80,10 +49,9 @@ Rectangle {
         GlyphIcon {
             visible: key.iconName !== ""
             name: key.iconName
-            size: Math.round(20 * Constants.scaleFactor)
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary
+            size: Silica.Theme.iconSizeSmall
+            color: key.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             anchors.centerIn: parent
-            opacity: key.pressed ? 1 : 0.9
         }
 
         Text {
@@ -91,24 +59,23 @@ Rectangle {
 
             visible: key.iconName === ""
             text: key.displayText
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary
-            font.pixelSize: key.isSpecial ? Math.round(14 * Constants.scaleFactor) : Math.round(18 * Constants.scaleFactor)
-            font.weight: key.isSpecial ? Font.Medium : Font.Normal
+            color: key.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: key.isSpecial ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeLarge
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             anchors.centerIn: parent
-            opacity: key.pressed ? 1 : 0.9
         }
 
         Text {
             visible: key.alternateText !== "" && !key.pressed
             text: key.alternateText
-            color: MColors.textSecondary
-            font.pixelSize: Math.round(10 * Constants.scaleFactor)
+            color: Silica.Theme.secondaryColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeTiny
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Math.round(2 * Constants.scaleFactor)
-            opacity: 0.6
         }
     }
 
@@ -121,32 +88,15 @@ Rectangle {
         x: (parent.width - width) / 2
         y: -height - Math.round(10 * Constants.scaleFactor)
         z: 1000
-        radius: Constants.borderRadiusMedium
-        color: MColors.elevated
-        border.width: Constants.borderWidthMedium
-        border.color: MColors.border
-        antialiasing: true
-        layer.enabled: true
-
-        MTopHairline {
-            radius: parent.radius
-            color: MColors.highlightMedium
-            lineWidth: Constants.borderWidthThin
-        }
+        radius: Silica.Theme.paddingMedium
+        color: Qt.rgba(0, 0, 0, 0.9)
 
         Text {
             text: key.displayText
-            color: MColors.textPrimary
-            font.pixelSize: Math.round(32 * Constants.scaleFactor)
-            font.weight: Font.Normal
+            color: Silica.Theme.highlightColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeHuge
             anchors.centerIn: parent
-        }
-
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#000000"
-            shadowBlur: 0.4
-            shadowOpacity: 0.6
         }
     }
 
@@ -176,12 +126,8 @@ Rectangle {
         sourceComponent: Rectangle {
             width: alternatePopup.popupWidth
             height: Math.round(50 * Constants.scaleFactor)
-            radius: Constants.borderRadiusMedium
-            color: MColors.elevated
-            border.width: Constants.borderWidthMedium
-            border.color: MColors.accentBright
-            antialiasing: true
-            layer.enabled: true
+            radius: Silica.Theme.paddingMedium
+            color: Qt.rgba(0, 0, 0, 0.9)
 
             Row {
                 anchors.centerIn: parent
@@ -197,14 +143,15 @@ Rectangle {
 
                         width: Math.round(50 * Constants.scaleFactor)
                         height: Math.round(40 * Constants.scaleFactor)
-                        radius: Constants.borderRadiusSmall
-                        color: altMouseArea.pressed ? MColors.accentBright : "transparent"
+                        radius: Silica.Theme.paddingSmall
+                        color: altMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
 
                         Text {
                             anchors.centerIn: parent
                             text: altKey.modelData
-                            color: MColors.textPrimary
-                            font.pixelSize: Math.round(20 * Constants.scaleFactor)
+                            color: altMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            font.family: Silica.Theme.fontFamily
+                            font.pixelSize: Silica.Theme.fontSizeLarge
                         }
 
                         MouseArea {
@@ -219,13 +166,6 @@ Rectangle {
                         }
                     }
                 }
-            }
-
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#000000"
-                shadowBlur: 0.4
-                shadowOpacity: 0.6
             }
         }
     }
@@ -279,13 +219,6 @@ Rectangle {
     }
 
     Behavior on color {
-        ColorAnimation {
-            duration: 50
-            easing.type: Easing.Linear
-        }
-    }
-
-    Behavior on border.color {
         ColorAnimation {
             duration: 50
             easing.type: Easing.Linear

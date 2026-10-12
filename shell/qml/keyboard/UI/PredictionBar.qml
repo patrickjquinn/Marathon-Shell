@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Rectangle {
     id: predictionBar
@@ -14,9 +15,8 @@ Rectangle {
     implicitHeight: Math.round(48 * Constants.scaleFactor)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
-    color: typeof MColors !== 'undefined' ? MColors.surface : "#0d0d0e"
-    border.width: 0
-    border.color: "transparent"
+    // Plain words, the best guess in the highlight, as Sailfish shows them.
+    color: "transparent"
 
     Row {
         id: chipRow
@@ -41,20 +41,8 @@ Rectangle {
                 width: (chipRow.width - chipRow.spacing * (chipRow.shown.length - 1)) / chipRow.shown.length
                 height: Math.round(40 * Constants.scaleFactor)
                 anchors.verticalCenter: parent.verticalCenter
-                radius: Constants.borderRadiusSmall
-                color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.accent : "#00bfa5") : (typeof MColors !== 'undefined' ? MColors.elevated : "#161718")
-                border.width: Constants.borderWidthMedium
-                border.color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.accentBright : "#1de9b6") : (typeof MColors !== 'undefined' ? MColors.border : "rgba(1, 1, 1, 0.08)")
-                antialiasing: Constants.enableAntialiasing
-                layer.enabled: true
-                layer.smooth: true
-                scale: predictionMouseArea.pressed ? 0.95 : 1
-
-                MTopHairline {
-                    radius: parent.radius
-                    color: predictionChip.index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
-                    lineWidth: Constants.borderWidthThin
-                }
+                radius: Silica.Theme.paddingSmall
+                color: predictionMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
 
                 Text {
                     anchors.centerIn: parent
@@ -62,9 +50,9 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     text: predictionChip.modelData
-                    color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.textOnAccent : "#ffffff") : (typeof MColors !== 'undefined' ? MColors.text : "#f5f5f5")
-                    font.pixelSize: Math.round(15 * Constants.scaleFactor)
-                    font.weight: predictionChip.index === 0 ? Font.DemiBold : Font.Normal
+                    color: predictionChip.index === 0 || predictionMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    font.family: Silica.Theme.fontFamily
+                    font.pixelSize: Silica.Theme.fontSizeMedium
                 }
 
                 MouseArea {
@@ -84,12 +72,6 @@ Rectangle {
                     }
                 }
 
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 80
-                        easing.type: Easing.OutCubic
-                    }
-                }
             }
         }
     }
@@ -97,8 +79,8 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         text: predictionBar.currentWord ? "..." : ""
-        color: typeof MColors !== 'undefined' ? MColors.textSecondary : "#6a6a6a"
-        font.pixelSize: Math.round(14 * Constants.scaleFactor)
+        color: Silica.Theme.secondaryColor
+        font.pixelSize: Silica.Theme.fontSizeSmall
         visible: predictionBar.predictions.length === 0
         opacity: 0.5
     }
