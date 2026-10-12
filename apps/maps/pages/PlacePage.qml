@@ -30,11 +30,6 @@ Page {
                     pageStack.pop();
                 }
             }
-            MenuItem {
-                text: qsTr("Navigate")
-                enabled: !root.routing
-                onClicked: root.app.requestDirections()
-            }
         }
 
         Column {
@@ -62,7 +57,7 @@ Page {
             Button {
                 objectName: "navigateButton"
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.routing ? qsTr("Finding a route") : qsTr("Navigate")
+                text: root.routing ? qsTr("Finding a route") : qsTr("Directions")
                 enabled: !root.routing
                 onClicked: root.app.requestDirections()
             }

@@ -157,6 +157,7 @@ TestCase {
         app.pageStack.push(Qt.resolvedUrl("../pages/PlacePage.qml"), { app: app });
         settle(app);
         compare(findChild(current(app), "addressItem").value, place.address);
+        compare(findChild(current(app), "navigateButton").text, "Directions");
         mouseClick(findChild(current(app), "navigateButton"));
         compare(app.router.requests.length, 1);
         compare(app.router.requests[0].to, [10.002, 1]);
@@ -240,6 +241,9 @@ TestCase {
         compare(modes.value, "Walk");
         compare(app.router.requests.length, 2);
         compare(app.router.requests[1].mode, "pedestrian");
+        const header = findChild(current(app), "pageHeader");
+        compare(header.description, "Finding a route…");
+        compare(findChild(current(app), "maneuverView").itemAtIndex(0).opacity, Theme.opacityLow);
         app.router.routing = false;
         app.router.routeReady(geojson, maneuvers, 80, 222, null);
         settle(app);

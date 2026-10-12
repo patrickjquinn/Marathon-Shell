@@ -29,7 +29,14 @@ Page {
 
             PageHeader {
                 title: root.active ? qsTr("Directions") : qsTr("Route")
-                description: root.app.selectedPlace ? root.app.selectedPlace.name : ""
+                description: root.app.router.routing ? qsTr("Finding a route…") : root.app.selectedPlace ? root.app.selectedPlace.name : ""
+
+                BusyIndicator {
+                    parent: parent.extraContent
+                    anchors.verticalCenter: parent.verticalCenter
+                    size: BusyIndicatorSize.Small
+                    running: root.app.router.routing
+                }
             }
             DetailItem {
                 objectName: "durationItem"
@@ -103,11 +110,6 @@ Page {
                 text: qsTr("Show on map")
                 onClicked: pageStack.pop(pageStack.find(p => p.objectName === "mapPage"))
             }
-            MenuItem {
-                visible: !root.active
-                text: qsTr("Start navigation")
-                onClicked: root.app.startNavigation()
-            }
         }
 
         delegate: ListItem {
@@ -119,7 +121,7 @@ Page {
             readonly property bool done: root.active && index <= root.app.currentManeuverIndex
 
             contentHeight: Math.max(Theme.itemSizeMedium, text.height + 2 * Theme.paddingMedium)
-            opacity: done ? Theme.opacityHigh : 1
+            opacity: root.app.router.routing ? Theme.opacityLow : done ? Theme.opacityHigh : 1
             Accessible.name: modelData.instruction + (modelData.length > 0 ? ", " + Logic.formatDistance(modelData.length * 1000) : "")
 
             Icon {
