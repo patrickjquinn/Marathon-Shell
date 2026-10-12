@@ -159,6 +159,7 @@ Item {
                     text: qsTr("Search apps and settings")
                     color: Silica.Theme.secondaryColor
                     font: parent.font
+                    elide: Text.ElideRight
                     visible: !searchInput.text && !searchInput.preeditText
                 }
             }
