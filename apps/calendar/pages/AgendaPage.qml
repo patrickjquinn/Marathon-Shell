@@ -20,6 +20,12 @@ Page {
         header: PageHeader {
             title: qsTr("All events")
         }
+        // Past events stay above; open where today's begin.
+        Component.onCompleted: {
+            const i = Logic.firstFrom(page.shown, Logic.dateKey(new Date()));
+            if (i > 0)
+                positionViewAtIndex(i, ListView.Beginning);
+        }
 
         PullDownMenu {
             MenuItem {

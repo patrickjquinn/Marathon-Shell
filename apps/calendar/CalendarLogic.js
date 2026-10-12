@@ -85,6 +85,12 @@ function sorted(events) {
     return (events || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || byTime(a, b));
 }
 
+// Index of the first event on or after the day `key`; the last one if all are earlier.
+function firstFrom(list, key) {
+    const i = list.findIndex(e => String(e.date) >= key);
+    return i < 0 ? list.length - 1 : i;
+}
+
 function search(events, query) {
     const q = String(query || "").trim().toLowerCase();
     if (q === "")

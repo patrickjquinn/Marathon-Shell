@@ -293,6 +293,19 @@ TestCase {
         verify(child(page, "placeholder").enabled);
     }
 
+    function test_agendaOpensAtToday() {
+        const past = [];
+        for (let i = 1; i <= 15; i++)
+            past.push(ev(i, { date: Logic.dateKey(new Date(2001, 0, i)) }));
+        const app = makeApp(past.concat([ev(99)]));
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
+        const view = child(page, "agendaView");
+        tryVerify(() => view.itemAtIndex(15) !== null);
+        const today = view.itemAtIndex(15);
+        tryVerify(() => view.contentY > view.originY + view.headerItem.height);
+        verify(today.y >= view.contentY && today.y + today.height <= view.contentY + view.height);
+    }
+
     function test_monthPulleyHasAtMostFourItems() {
         const app = makeApp([]);
         const page = app.pageStack.currentPage;

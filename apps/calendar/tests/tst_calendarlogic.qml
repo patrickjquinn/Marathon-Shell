@@ -90,6 +90,15 @@ TestCase {
         compare(Logic.upcoming(events, new Date(2026, 9, 12, 12, 0)).map(e => e.id), [1, 3]);
     }
 
+    function test_firstFrom() {
+        const list = [{ date: "2026-01-01" }, { date: "2026-03-01" }, { date: "2026-03-01" }, { date: "2026-05-01" }];
+        compare(Logic.firstFrom(list, "2025-12-01"), 0);
+        compare(Logic.firstFrom(list, "2026-03-01"), 1);
+        compare(Logic.firstFrom(list, "2026-04-01"), 3);
+        compare(Logic.firstFrom(list, "2027-01-01"), 3);
+        compare(Logic.firstFrom([], "2027-01-01"), -1);
+    }
+
     function test_searchMatchesLocation() {
         const events = [{ id: 1, date: "2026-10-01", time: "10:00", title: "Lunch", location: "Café Nero" }];
         compare(Logic.search(events, "nero").map(e => e.id), [1]);
