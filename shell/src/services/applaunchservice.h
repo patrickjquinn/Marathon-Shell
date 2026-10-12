@@ -167,6 +167,8 @@ class AppLaunchService : public QObject {
     // Fire-and-forget: the outcome of Back arrives as runnerBackUnhandled.
     void sendBackToRunner(const QString &appId);
     void sendForwardToRunner(const QString &appId);
+    // Tells a Keel app whether its cover is on screen (Cover.Active).
+    Q_INVOKABLE void setCoverVisible(const QString &appId, bool visible);
 
   private:
     QHash<qint64, QString> m_pidToAppId;

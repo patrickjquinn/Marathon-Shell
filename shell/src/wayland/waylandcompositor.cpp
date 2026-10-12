@@ -1,5 +1,6 @@
 #include "src/wayland/waylandcompositor.h"
 #include "src/wayland/keyrouting.h"
+#include "src/wayland/keelcover.h"
 #include "marathonappregistry.h"
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
@@ -1013,6 +1014,40 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
             << toplevel->title();
 
+    // A Keel app's cover is a second top-level window of the same client,
+    // known only by its title, which arrives after the toplevel is created;
+    // by the client's first commit it is set.
+    {
+        // A Keel app's cover is a top-level window known only by its title,
+        // which arrives just after the toplevel; Keel may create it before
+        // the app's main window.
+        QPointer<QWaylandXdgToplevel> pendingToplevel(toplevel);
+        QPointer<QWaylandXdgSurface>  pendingXdg(xdgSurface);
+        auto                          decided = std::make_shared<bool>(false);
+        // Decide once: on the title (sent before the first commit), the first
+        // commit, or after a short wait for a client that sets neither.
+        auto decide = [this, decided, pendingToplevel, pendingXdg](bool final) {
+            if (*decided || !pendingToplevel || !pendingXdg)
+                return;
+            const bool cover = KeelCover::isCoverTitle(pendingToplevel->title());
+            if (!cover && !final)
+                return;
+            *decided = true;
+            if (cover)
+                adoptCover(pendingToplevel, pendingXdg);
+            else
+                mapToplevel(pendingToplevel, pendingXdg);
+        };
+        connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [decide]() { decide(false); });
+        connect(surface, &QWaylandSurface::redraw, this, [decide]() { decide(true); });
+        QTimer::singleShot(300, this, [decide]() { decide(true); });
+    }
+}
+
+void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
+    QWaylandSurface *surface   = xdgSurface->surface();
+    const int        surfaceId = surface->property("surfaceId").toInt();
+
     // Send an initial xdg_toplevel.configure as soon as the toplevel is created
     // so the client can ack + commit its first content buffer. The QML side
     // (WaylandShellSurfaceItem.sendSizeToApp) only fires after the surface item
@@ -1077,6 +1112,28 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                 }
             });
     }
+}
+
+void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
+    QWaylandSurface *surface = xdgSurface->surface();
+    const QString    appId   = toplevel->appId();
+    surface->setProperty("isCover", true);
+    // The app chooses its cover size; a zero size leaves it to the client.
+    toplevel->sendConfigure(QSize(0, 0), QList<QWaylandXdgToplevel::State>());
+    m_covers.insert(appId, surface);
+    qWarning() << "[WaylandCompositor] Cover for" << appId;
+    QPointer<QWaylandSurface> safeSurface(surface);
+    connect(surface, &QWaylandSurface::surfaceDestroyed, this, [this, appId, safeSurface]() {
+        if (m_covers.value(appId) == safeSurface.data() || !m_covers.value(appId)) {
+            m_covers.remove(appId);
+            emit coverChanged(appId);
+        }
+    });
+    emit coverChanged(appId);
+}
+
+QObject *WaylandCompositor::coverSurface(const QString &appId) const {
+    return m_covers.value(appId).data();
 }
 
 void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,

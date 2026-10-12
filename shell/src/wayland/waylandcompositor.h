@@ -107,8 +107,17 @@ class WaylandCompositor : public QWaylandCompositor {
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+  public:
+    // The surface of a Keel app's cover window, or null.
+    Q_INVOKABLE QObject *coverSurface(const QString &appId) const;
+
+  signals:
+    void coverChanged(const QString &appId);
+
   private:
     QString focusedToolkit() const;
+    void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);
@@ -189,6 +198,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QAtomicInt                              m_frameSwapCount{0};
     QAtomicInt                              m_clientCommitCount{0};
     MarathonAppRegistry *m_appRegistry = nullptr;
+    QHash<QString, QPointer<QWaylandSurface>> m_covers;
 };
 
 #endif

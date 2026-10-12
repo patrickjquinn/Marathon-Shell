@@ -1651,10 +1651,12 @@ static QString runnerServiceNameForAppId(const QString &appId) {
 
 // Must not block: this runs on the compositor thread, and the runner can be
 // waiting on a frame callback that only this thread sends.
-static QDBusPendingCall callRunnerLifecycle(const QString &appId, const char *method) {
-    const QDBusMessage msg = QDBusMessage::createMethodCall(
+static QDBusPendingCall callRunnerLifecycle(const QString &appId, const char *method,
+                                            const QVariantList &args = {}) {
+    QDBusMessage msg = QDBusMessage::createMethodCall(
         runnerServiceNameForAppId(appId), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
         QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QString::fromLatin1(method));
+    msg.setArguments(args);
     return QDBusConnection::sessionBus().asyncCall(msg);
 }
 
@@ -1673,6 +1675,11 @@ void AppLaunchService::sendBackToRunner(const QString &appId) {
 void AppLaunchService::sendForwardToRunner(const QString &appId) {
     if (!appId.isEmpty())
         callRunnerLifecycle(appId, "Forward");
+}
+
+void AppLaunchService::setCoverVisible(const QString &appId, bool visible) {
+    if (!appId.isEmpty())
+        callRunnerLifecycle(appId, "SetCoverStatus", {visible ? 1 : 0});
 }
 
 #ifdef Q_OS_LINUX

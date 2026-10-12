@@ -191,11 +191,23 @@ Item {
                 color: MColors.background
                 radius: cardRoot.radius
 
+                KeelCoverView {
+                    id: coverView
+
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    z: 1
+                    appId: taskCard.appId
+                    compositor: taskCard.compositor
+                    shown: taskCard.taskSwitcherVisible
+                }
+
                 Loader {
                     id: appPreview
 
                     anchors.fill: parent
                     anchors.margins: 2
+                    visible: !coverView.available
                     active: true
                     asynchronous: true
 
