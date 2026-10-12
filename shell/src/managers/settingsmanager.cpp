@@ -320,11 +320,12 @@ void SettingsManager::load() {
 
     m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
 
-    QStringList defaultTiles = {"wifi",       "bluetooth", "flight",     "cellular", "rotation",
-                                "hotspot",    "vibration", "nightlight", "torch",    "battery",
-                                "screenshot", "alarm",     "settings",   "lock",     "power"};
+    // MarathonQuickSettings.qml tile IDs; the old "enabledTiles" key used other IDs.
+    QStringList defaultTiles = {"wifi",           "cellular", "bluetooth", "airplane",   "dnd",
+                                "torch",          "location", "hotspot",   "nightlight", "rotation",
+                                "autobrightness", "lowpower", "vibration", "power"};
     m_enabledQuickSettingsTiles =
-        m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
+        m_settings.value("quicksettings/tiles", defaultTiles).toStringList();
     m_quickSettingsTileOrder =
         m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
 
@@ -410,7 +411,7 @@ void SettingsManager::save() {
 
     m_settings.setValue("system/firstRunComplete", m_firstRunComplete);
 
-    m_settings.setValue("quicksettings/enabledTiles", m_enabledQuickSettingsTiles);
+    m_settings.setValue("quicksettings/tiles", m_enabledQuickSettingsTiles);
     m_settings.setValue("quicksettings/tileOrder", m_quickSettingsTileOrder);
 
     m_settings.setValue("keyboard/autoCorrection", m_keyboardAutoCorrection);

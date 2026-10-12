@@ -18,7 +18,6 @@ QtObject {
     property bool searchNativeApps: false
     property bool showNotificationBadges: true
     property var enabledQuickSettingsTiles: ["wifi", "bluetooth"]
-    property var quickSettingsTileOrder: ["wifi", "bluetooth"]
     property string deviceName: "Librem 5"
 
     function reset() {
@@ -38,7 +37,6 @@ QtObject {
         searchNativeApps = false;
         showNotificationBadges = true;
         enabledQuickSettingsTiles = ["wifi", "bluetooth"];
-        quickSettingsTileOrder = ["wifi", "bluetooth"];
         deviceName = "Librem 5";
     }
     function availableRingtones() {

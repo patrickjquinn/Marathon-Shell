@@ -141,6 +141,8 @@ TestCase {
         compare(Settings.enabledQuickSettingsTiles, ["bluetooth", "torch"]);
         s.page.resetTiles();
         compare(Settings.enabledQuickSettingsTiles, Logic.defaultTiles);
-        compare(Settings.quickSettingsTileOrder, Logic.defaultTiles);
+        // The shell's top menu IDs, not Settings' own names.
+        compare(Logic.tiles.map(t => t.id), ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "vibration", "power"]);
+        compare(Logic.defaultTiles, Logic.tiles.map(t => t.id));
     }
 }

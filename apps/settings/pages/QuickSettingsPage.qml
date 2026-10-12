@@ -10,7 +10,6 @@ Page {
 
     function resetTiles() {
         Settings.enabledQuickSettingsTiles = Logic.defaultTiles;
-        Settings.quickSettingsTileOrder = Logic.defaultTiles;
     }
 
     RemorsePopup {

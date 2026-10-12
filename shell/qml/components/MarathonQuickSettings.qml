@@ -111,6 +111,12 @@ Item {
     }
 
     // ── The switch grid, five across as in Sailfish's top menu ─
+    // Settings › Quick settings switches tiles off by these IDs.
+    function enabledOnly(list) {
+        const enabled = SettingsManagerCpp.enabledQuickSettingsTiles;
+        return list.filter(tile => enabled.indexOf(tile.id) >= 0);
+    }
+
     // Rotation lock only when an orientation sensor exists: without one it
     // would control nothing.
     readonly property var tiles: {
@@ -129,7 +135,7 @@ Item {
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
         else
             t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
-        return t;
+        return enabledOnly(t);
     }
 
     // Below the fold: the rest of Marathon's controls.
@@ -141,7 +147,7 @@ Item {
         if (RotationManager.available)
             t.push({ id: "autobrightness", icon: "sun", label: "Auto", on: SystemControlStore.isAutoBrightnessOn });
         t.push({ id: "power", icon: "power", label: "Power", on: false, action: true });
-        return t;
+        return enabledOnly(t);
     }
 
     // ── Shortcuts row: one-shot actions and apps ──────────────

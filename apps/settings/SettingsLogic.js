@@ -169,27 +169,24 @@ function setMember(list, id, member) {
     return member ? rest.concat([id]) : rest;
 }
 
-const defaultTiles = ["wifi", "bluetooth", "flight", "cellular", "rotation", "autobrightness", "location", "hotspot", "vibration", "nightlight", "torch", "notifications", "battery", "screenshot", "settings", "lock"];
-
 const tiles = [
     { id: "wifi", label: qsTr("Wi-Fi"), desc: qsTr("Toggle wireless network") },
+    { id: "cellular", label: qsTr("Mobile data"), desc: qsTr("Toggle cellular data") },
     { id: "bluetooth", label: qsTr("Bluetooth"), desc: qsTr("Connect to devices") },
-    { id: "flight", label: qsTr("Flight mode"), desc: qsTr("Disable all radios") },
-    { id: "cellular", label: qsTr("Mobile network"), desc: qsTr("Toggle cellular data") },
-    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation") },
-    { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment") },
+    { id: "airplane", label: qsTr("Flight mode"), desc: qsTr("Disable all radios") },
+    { id: "dnd", label: qsTr("Do not disturb"), desc: qsTr("Silence notifications and calls") },
+    { id: "torch", label: qsTr("Torch"), desc: qsTr("Toggle flashlight") },
     { id: "location", label: qsTr("Location"), desc: qsTr("GPS and location services") },
     { id: "hotspot", label: qsTr("Hotspot"), desc: qsTr("Share internet connection") },
-    { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback") },
     { id: "nightlight", label: qsTr("Night light"), desc: qsTr("Reduce blue light") },
-    { id: "torch", label: qsTr("Torch"), desc: qsTr("Toggle flashlight") },
-    { id: "notifications", label: qsTr("Do not disturb"), desc: qsTr("Silence notifications and calls") },
-    { id: "battery", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
-    { id: "screenshot", label: qsTr("Screenshot"), desc: qsTr("Capture screen") },
-    { id: "settings", label: qsTr("Settings"), desc: qsTr("Open Settings") },
-    { id: "lock", label: qsTr("Lock device"), desc: qsTr("Lock the screen") },
+    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation") },
+    { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment") },
+    { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
+    { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback") },
     { id: "power", label: qsTr("Power menu"), desc: qsTr("Show power options") }
 ];
+
+const defaultTiles = tiles.map(t => t.id);
 
 const scales = [
     { factor: 0.75, title: qsTr("75%"), description: qsTr("Compact") },
