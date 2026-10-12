@@ -5,6 +5,7 @@ import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: lockScreen
@@ -459,42 +460,24 @@ Item {
                 }
             }
 
-            MHaloedDisplay {
+            // Sailfish's lock clock: large, extra-light, primary colour; the
+            // date beneath in the ambience highlight.
+            Silica.Label {
                 text: SystemStatusStore.timeString
-                // Design size is (76|84) × scaleFactor, but HorizontalFit
-                // inside MHaloedDisplay has been unreliable on Qt 6.10
-                // QtRendering — at scaleFactor 2 the clock clipped past
-                // both edges instead of shrinking. Clamp pixelSize so
-                // the natural width never exceeds the canvas:
-                //   "HH:MM AM/PM" → 8 chars · ~0.55 advance width ratio
-                //   → max pixelSize ≈ (parent.width - 32) / (8 · 0.55)
-                // which gives the design value at scaleFactor 1 and
-                // a sub-canvas value when DPI scaling would blow it up.
-                pixelSize: Math.min(Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor), Math.floor((parent.width - 32) / 4.4))
-                weight: MTypography.weightThin
-                letterSpacing: clockColumn.mediaActive ? -1.5 : -2
-                color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width
-                maxWidth: parent.width - 32
-
-                // Behavior on pixelSize removed: NativeRendering caches
-                // each rasterised pixelSize separately, so animating the
-                // size produces a ghosted overlay of the old size while
-                // the new one fades in. pixelSize only changes when
-                // mediaActive flips (rare) — a hard jump there is
-                // acceptable and keeps the static state crisp.
+                horizontalAlignment: Text.AlignHCenter
+                fontSizeMode: Text.HorizontalFit
+                font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+                font.weight: Font.ExtraLight
+                color: Silica.Theme.primaryColor
             }
 
-            Text {
+            Silica.Label {
                 text: SystemStatusStore.dateString
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamilyMedium
-                font.pixelSize: clockColumn.mediaActive ? Math.round(14 * Constants.scaleFactor) : MTypography.sizeSubhead
-                font.weight: MTypography.weightMedium
-                font.letterSpacing: 0.3
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.QtRendering
+                font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                color: Silica.Theme.highlightColor
             }
         }
 
