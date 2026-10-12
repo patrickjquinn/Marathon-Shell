@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=3
+pkgrel=4
 _commit=55e956d7e87ffc32ae617c3ec6deb2c0550717bc
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
@@ -38,8 +38,12 @@ build() {
 		-DKEEL_QML_INSTALL_DIR=/usr/lib/qt6/qml \
 		-DKEEL_BUILD_NEMO_COMPAT=ON \
 		-DKEEL_REQUIRE_MLITE=ON \
-		-DKEEL_BUILD_SAILFISHAPP=OFF \
-		-DKEEL_BUILD_PLATFORM=OFF \
+		-DKEEL_BUILD_SAILFISHAPP=ON \
+		-DKEEL_BUILD_PLATFORM=ON \
+		-DKEEL_PLATFORM_WEBVIEW=OFF \
+		-DKEEL_PLATFORM_SECRETS=OFF \
+		-DKEEL_PLATFORM_ACCOUNTS=OFF \
+		-DKEEL_PLATFORM_SAILFISH_ACCOUNTS=OFF \
 		-DKEEL_BUILD_ACTIONS=OFF \
 		-DKEEL_BUILD_BOOSTER=OFF \
 		-DBUILD_TESTING=OFF
@@ -48,8 +52,8 @@ build() {
 
 package() {
 	DESTDIR="$pkgdir" cmake --install build
-	rm -rf "$pkgdir"/usr/lib/keel \
-		"$pkgdir"/usr/lib/qt6/qml/Nemo/Policy \
+	# /usr/lib/keel holds qt5compat, which Sailfish apps' QML imports first.
+	rm -rf "$pkgdir"/usr/lib/qt6/qml/Nemo/Policy \
 		"$pkgdir"/usr/lib/qt6/qml/org/nemomobile/policy
 	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 	install -Dm644 silica/upstream/sailfishsilica-qt5-1.2.156/LICENSE.BSD \
