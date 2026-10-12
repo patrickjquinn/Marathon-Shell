@@ -9,6 +9,8 @@ Item {
     id: root
 
     property var browser
+    property alias normalProfile: normalProfile
+    property alias privateProfile: privateProfile
 
     signal scrolled(real y)
 
@@ -63,37 +65,27 @@ Item {
         return BrowserData.clearCookiesAndCache(normalProfile) && BrowserData.clearCookiesAndCache(privateProfile);
     }
 
-    // Profiles come from prototypes: storage and off-the-record are fixed
-    // when the profile is created. Set on a live profile from onCompleted,
-    // after a tab had already loaded with it, Chromium hit a CHECK and the
-    // browser died on its first page.
-    readonly property string userAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+    WebEngineProfile {
+        id: normalProfile
 
-    WebEngineProfilePrototype {
-        id: normalPrototype
-
-        storageName: "normal"
-        httpCacheType: WebEngineProfile.DiskHttpCache
-        persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
+        httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        Component.onCompleted: {
+            storageName = "normal";
+            offTheRecord = false;
+            httpCacheType = WebEngineProfile.DiskHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.AllowPersistentCookies;
+        }
     }
 
-    // No storage name: off the record.
-    WebEngineProfilePrototype {
-        id: privatePrototype
+    WebEngineProfile {
+        id: privateProfile
 
-        httpCacheType: WebEngineProfile.MemoryHttpCache
-        persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
-    }
-
-    readonly property WebEngineProfile normalProfile: {
-        const profile = normalPrototype.instance();
-        profile.httpUserAgent = userAgent;
-        return profile;
-    }
-    readonly property WebEngineProfile privateProfile: {
-        const profile = privatePrototype.instance();
-        profile.httpUserAgent = userAgent;
-        return profile;
+        httpUserAgent: normalProfile.httpUserAgent
+        Component.onCompleted: {
+            offTheRecord = true;
+            httpCacheType = WebEngineProfile.MemoryHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.NoPersistentCookies;
+        }
     }
 
     Repeater {
