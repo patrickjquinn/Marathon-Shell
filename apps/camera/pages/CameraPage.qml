@@ -288,56 +288,47 @@ Page {
         onClicked: page.openSettings()
     }
 
-    Rectangle {
+    Row {
         objectName: "recordingIndicator"
         anchors {
             top: parent.top
             topMargin: Theme.paddingLarge
             horizontalCenter: parent.horizontalCenter
         }
+        height: settingsButton.height
         visible: page.camera.isRecording
-        width: recordingRow.width + 2 * Theme.paddingLarge
-        height: Theme.itemSizeExtraSmall
-        radius: height / 2
-        color: Theme.rgba(Theme.darkPrimaryColor, Theme.opacityHigh)
+        spacing: Theme.paddingMedium
 
-        Row {
-            id: recordingRow
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Theme.paddingLarge
+            height: width
+            radius: width / 2
+            color: Theme.errorColor
 
-            anchors.centerIn: parent
-            spacing: Theme.paddingMedium
+            SequentialAnimation on opacity {
+                running: page.camera.isRecording
+                loops: Animation.Infinite
 
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: Theme.paddingLarge
-                height: width
-                radius: width / 2
-                color: Theme.errorColor
-
-                SequentialAnimation on opacity {
-                    running: page.camera.isRecording
-                    loops: Animation.Infinite
-
-                    NumberAnimation { from: 1; to: 0.2; duration: 500 }
-                    NumberAnimation { from: 0.2; to: 1; duration: 500 }
-                }
+                NumberAnimation { from: 1; to: 0.2; duration: 500 }
+                NumberAnimation { from: 0.2; to: 1; duration: 500 }
             }
+        }
 
-            Label {
-                objectName: "recordingTime"
-                anchors.verticalCenter: parent.verticalCenter
-                text: {
-                    const d = page.camera.recordingDuration;
-                    const secs = d % 60;
-                    return Math.floor(d / 60) + ":" + (secs < 10 ? "0" : "") + secs;
-                }
-                color: Theme.lightPrimaryColor
-                font.pixelSize: Theme.fontSizeLarge
+        Label {
+            objectName: "recordingTime"
+            anchors.verticalCenter: parent.verticalCenter
+            text: {
+                const d = page.camera.recordingDuration;
+                const secs = d % 60;
+                return Math.floor(d / 60) + ":" + (secs < 10 ? "0" : "") + secs;
             }
+            color: Theme.lightPrimaryColor
+            font.pixelSize: Theme.fontSizeLarge
         }
     }
 
-    Rectangle {
+    Label {
         objectName: "zoomIndicator"
         anchors {
             bottom: modeSwitch.top
@@ -345,19 +336,8 @@ Page {
             horizontalCenter: parent.horizontalCenter
         }
         visible: page.camera.active && page.camera.zoomLevel > 1
-        width: zoomLabel.width + 2 * Theme.paddingMedium
-        height: zoomLabel.height + Theme.paddingSmall
-        radius: height / 2
-        color: Theme.rgba(Theme.darkPrimaryColor, Theme.opacityLow)
-
-        Label {
-            id: zoomLabel
-
-            anchors.centerIn: parent
-            text: qsTr("%1×").arg(page.camera.zoomLevel.toFixed(1))
-            color: Theme.lightPrimaryColor
-            font.pixelSize: Theme.fontSizeSmall
-        }
+        text: qsTr("%1×").arg(page.camera.zoomLevel.toFixed(1))
+        color: Theme.lightPrimaryColor
     }
 
     ModeSwitch {
