@@ -287,7 +287,6 @@ set(QML_FILES
     qml/keyboard/Layouts/PhoneLayout.qml
     qml/keyboard/Layouts/TerminalLayout.qml
     qml/components/PowerMenu.qml
-    qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
     qml/apps/native/NativeAppWindow.qml
     qml/core/Constants.qml
