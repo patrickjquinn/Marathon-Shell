@@ -2262,6 +2262,8 @@ void NetworkClient::onStateChanged(const QVariantMap &state) {
         emit bluetoothAvailableChanged();
     if (changed("hotspotSupported"))
         emit hotspotSupportedChanged();
+    if (changed("hotspotActive"))
+        emit hotspotActiveChanged();
     if (changed("airplaneModeEnabled"))
         emit airplaneModeEnabledChanged();
     if (changed("availableNetworks"))
@@ -2294,6 +2296,9 @@ bool NetworkClient::bluetoothAvailable() const {
 }
 bool NetworkClient::hotspotSupported() const {
     return v("hotspotSupported", false).toBool();
+}
+bool NetworkClient::hotspotActive() const {
+    return v("hotspotActive", false).toBool();
 }
 bool NetworkClient::airplaneModeEnabled() const {
     return v("airplaneModeEnabled", false).toBool();
