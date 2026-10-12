@@ -104,40 +104,34 @@ Page {
 
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Theme.paddingLarge * 2
+            spacing: Theme.paddingLarge
 
-            IconButton {
-                objectName: "muteButton"
-                icon.source: root.muted ? "image://theme/icon-l-mic-mute" : "image://theme/icon-l-mic"
-                highlighted: down || root.muted
-                Accessible.role: Accessible.CheckBox
-                Accessible.name: qsTr("Mute")
-                Accessible.checkable: true
-                Accessible.checked: root.muted
-                onClicked: {
+            CallToggle {
+                name: "mute"
+                checked: root.muted
+                icon: root.muted ? "image://theme/icon-l-mic-mute" : "image://theme/icon-l-mic"
+                text: root.muted ? qsTr("Muted") : qsTr("Mute")
+                accessibleName: qsTr("Mute")
+                onToggled: {
                     root.muted = !root.muted;
                     Telephony.setCallMuted(root.muted);
                 }
             }
-            IconButton {
-                objectName: "keypadButton"
-                icon.source: "image://theme/icon-l-dialpad"
-                highlighted: down || root.keypadOpen
-                Accessible.role: Accessible.CheckBox
-                Accessible.name: qsTr("Keypad")
-                Accessible.checkable: true
-                Accessible.checked: root.keypadOpen
-                onClicked: root.keypadOpen = !root.keypadOpen
+            CallToggle {
+                name: "keypad"
+                checked: root.keypadOpen
+                icon: "image://theme/icon-l-dialpad"
+                text: qsTr("Keypad")
+                accessibleName: qsTr("Keypad")
+                onToggled: root.keypadOpen = !root.keypadOpen
             }
-            IconButton {
-                objectName: "speakerButton"
-                icon.source: "image://theme/icon-l-speaker"
-                highlighted: down || root.speaker
-                Accessible.role: Accessible.CheckBox
-                Accessible.name: qsTr("Speaker")
-                Accessible.checkable: true
-                Accessible.checked: root.speaker
-                onClicked: {
+            CallToggle {
+                name: "speaker"
+                checked: root.speaker
+                icon: "image://theme/icon-l-speaker"
+                text: root.speaker ? qsTr("Speaker on") : qsTr("Speaker")
+                accessibleName: qsTr("Speaker")
+                onToggled: {
                     root.speaker = !root.speaker;
                     Telephony.setSpeakerphone(root.speaker);
                 }
@@ -155,6 +149,45 @@ Page {
                 Telephony.hangup();
                 root.phone.closeCallPages();
             }
+        }
+    }
+
+    component CallToggle: Column {
+        id: toggle
+
+        property string name
+        property bool checked
+        property string icon
+        property string text
+        property string accessibleName
+
+        signal toggled
+
+        width: Theme.itemSizeExtraLarge
+        spacing: Theme.paddingSmall
+
+        IconButton {
+            id: button
+
+            objectName: toggle.name + "Button"
+            anchors.horizontalCenter: parent.horizontalCenter
+            icon.source: toggle.icon
+            highlighted: down || toggle.checked
+            Accessible.role: Accessible.CheckBox
+            Accessible.name: toggle.accessibleName
+            Accessible.checkable: true
+            Accessible.checked: toggle.checked
+            onClicked: toggle.toggled()
+        }
+        Label {
+            objectName: toggle.name + "Label"
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: toggle.text
+            color: button.highlighted ? Theme.highlightColor : Theme.primaryColor
+            font.pixelSize: Theme.fontSizeExtraSmall
+            wrapMode: Text.Wrap
+            Accessible.ignored: true
         }
     }
 }
