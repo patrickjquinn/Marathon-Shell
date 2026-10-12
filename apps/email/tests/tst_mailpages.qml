@@ -95,6 +95,24 @@ TestCase {
         verify(!findChild(msg, "plainBody").visible);
     }
 
+    function test_showImagesForThisMessage() {
+        const app = makeApp();
+        const msg = openMessage(app, { subject: "News", from: "Ann", bodyHtml: "<p>Hi</p>", bodyPlain: "Hi" });
+        const body = findChild(msg, "htmlBody");
+        tryVerify(() => body.item !== null);
+        verify(!body.item.loadImages);
+        verify(msg.canShowImages);
+        findChild(msg, "showImagesItem").clicked(null);
+        verify(body.item.loadImages);
+        verify(!msg.canShowImages);
+    }
+
+    function test_plainMessageHasNoShowImages() {
+        const app = makeApp();
+        const msg = openMessage(app, { subject: "Plan", from: "Ann", bodyPlain: "Hello" });
+        verify(!msg.canShowImages);
+    }
+
     function test_reply() {
         const app = makeApp();
         const msg = openMessage(app, { subject: "Plan", from: "ann@x.org", bodyPlain: "a\nb" });

@@ -21,6 +21,9 @@ Page {
     // Location of the attachment being fetched, and whether to open it after.
     property string fetching: ""
     property bool openWhenSaved: false
+    // Remote images load for this message only, once asked.
+    property bool showImages: false
+    readonly property bool canShowImages: bodyHtml !== "" && !showImages
 
     function openAttachment(location) {
         if (savedPaths[location]) {
@@ -75,6 +78,12 @@ Page {
         contentHeight: column.height + (page.bodyHtml !== "" ? Math.max(0, page.height - column.height) : Theme.paddingLarge)
 
         PullDownMenu {
+            MenuItem {
+                objectName: "showImagesItem"
+                text: qsTr("Show images")
+                visible: page.canShowImages
+                onClicked: page.showImages = true
+            }
             MenuItem {
                 objectName: "forwardItem"
                 text: qsTr("Forward")
@@ -257,7 +266,10 @@ Page {
             height: Math.max(0, page.height - column.height)
             active: page.bodyHtml !== ""
             source: "MailHtmlBody.qml"
-            onLoaded: item.html = Qt.binding(() => page.bodyHtml)
+            onLoaded: {
+                item.html = Qt.binding(() => page.bodyHtml);
+                item.loadImages = Qt.binding(() => page.showImages);
+            }
         }
 
         VerticalScrollDecorator {}
