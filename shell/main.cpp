@@ -920,8 +920,7 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
-    auto *platform = createObject<PlatformCpp>(ctx, "Platform", &app);
-    ctx->setContextProperty("PlatformCpp", platform);
+    createObject<PlatformCpp>(ctx, "Platform", &app);
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
