@@ -61,7 +61,13 @@ set(MARATHON_QML_IMPORT_PATH
   "${REPO_ROOT}/build/qmllint"
   "${REPO_ROOT}/build"
   "${REPO_ROOT}/build/shell/qml"
+  # Keel apps: Marathon.Silica from source; Sailfish.Silica from keel-silica
+  # (or a Keel build named by KEEL_QML on a development host).
+  "${REPO_ROOT}/marathon-silica"
 )
+if(DEFINED ENV{KEEL_QML})
+  list(APPEND MARATHON_QML_IMPORT_PATH "$ENV{KEEL_QML}")
+endif()
 
 
 function(add_marathon_app APP_NAME)
