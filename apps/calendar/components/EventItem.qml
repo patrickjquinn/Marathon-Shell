@@ -1,6 +1,7 @@
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import "../CalendarLogic.js" as Logic
 
 ListItem {
     id: item
@@ -12,7 +13,9 @@ ListItem {
     objectName: "eventItem"
     width: parent ? parent.width : 0
     contentHeight: Theme.itemSizeMedium
-    Accessible.name: (modelData.title || qsTr("Untitled event")) + ", " + (showDate ? app.dateText(modelData) + ", " : "") + app.timeText(modelData)
+    readonly property string details: [showDate ? app.dateText(modelData) : modelData.recurring && modelData.recurring !== "none" ? app.repeatText(modelData.recurring) : "", modelData.location || ""].filter(s => s !== "").join(" · ")
+
+    Accessible.name: [modelData.title || qsTr("Untitled event"), showDate ? app.dateText(modelData) : "", app.timeRangeText(modelData), modelData.location || ""].filter(s => s !== "").join(", ")
     onClicked: app.openEvent(modelData)
     menu: ContextMenu {
         MenuItem {
@@ -32,24 +35,43 @@ ListItem {
         }
     }
 
-    Label {
-        id: timeLabel
+    Column {
+        id: timeColumn
 
         x: Theme.horizontalPageMargin
         width: Theme.itemSizeExtraLarge
         anchors.verticalCenter: parent.verticalCenter
-        text: item.app.timeText(item.modelData)
-        font.pixelSize: Theme.fontSizeSmall
-        font.features: ({ "tnum": 1 })
-        truncationMode: TruncationMode.Fade
-        color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+
+        Label {
+            width: parent.width
+            text: item.app.timeText(item.modelData)
+            font.pixelSize: Theme.fontSizeSmall
+            font.features: ({ "tnum": 1 })
+            truncationMode: TruncationMode.Fade
+            color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+        }
+        Label {
+            objectName: "endTimeLabel"
+            width: parent.width
+            visible: text !== ""
+            text: {
+                if (item.modelData.allDay || !item.modelData.endTime)
+                    return "";
+                const t = Logic.parseTime(item.modelData.endTime);
+                return Format.formatDate(new Date(2000, 0, 1, t.hour, t.minute), Formatter.TimeValue);
+            }
+            font.pixelSize: Theme.fontSizeExtraSmall
+            font.features: ({ "tnum": 1 })
+            truncationMode: TruncationMode.Fade
+            color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+        }
     }
 
     Rectangle {
         id: bar
 
         anchors {
-            left: timeLabel.right
+            left: timeColumn.right
             leftMargin: Theme.paddingMedium
             verticalCenter: parent.verticalCenter
         }
@@ -77,7 +99,7 @@ ListItem {
         Label {
             width: parent.width
             visible: text !== ""
-            text: item.showDate ? item.app.dateText(item.modelData) : item.modelData.recurring && item.modelData.recurring !== "none" ? item.app.repeatText(item.modelData.recurring) : ""
+            text: item.details
             font.pixelSize: Theme.fontSizeExtraSmall
             truncationMode: TruncationMode.Fade
             color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

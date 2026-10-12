@@ -68,4 +68,30 @@ TestCase {
         ];
         compare(Logic.upcoming(events, new Date(2026, 9, 12, 12, 0)).map(e => e.id), [3, 2]);
     }
+
+    function test_endTimes() {
+        compare(Logic.addMinutes("09:30", 60), "10:30");
+        compare(Logic.addMinutes("23:30", 60), "00:30");
+        compare(Logic.addMinutes("00:15", -30), "23:45");
+        compare(Logic.duration("09:00", "10:30"), 90);
+        compare(Logic.duration("23:00", "01:00"), 120);
+        verify(Logic.endsNextDay({ time: "23:00", endTime: "01:00" }));
+        verify(!Logic.endsNextDay({ time: "09:00", endTime: "10:00" }));
+        verify(!Logic.endsNextDay({ time: "09:00" }));
+    }
+
+    function test_upcomingKeepsEventsInProgress() {
+        const events = [
+            { id: 1, date: "2026-10-12", time: "11:00", endTime: "13:00" },
+            { id: 2, date: "2026-10-12", time: "09:00", endTime: "10:00" },
+            { id: 3, date: "2026-10-12", time: "23:00", endTime: "01:00" },
+            { id: 4, date: "2026-10-12", time: "11:00" }
+        ];
+        compare(Logic.upcoming(events, new Date(2026, 9, 12, 12, 0)).map(e => e.id), [1, 3]);
+    }
+
+    function test_searchMatchesLocation() {
+        const events = [{ id: 1, date: "2026-10-01", time: "10:00", title: "Lunch", location: "Café Nero" }];
+        compare(Logic.search(events, "nero").map(e => e.id), [1]);
+    }
 }

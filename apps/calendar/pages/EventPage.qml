@@ -72,7 +72,13 @@ Page {
             DetailItem {
                 objectName: "timeDetail"
                 label: qsTr("Time")
-                value: page.shown.date ? page.app.timeText(page.shown) : ""
+                value: page.shown.date ? page.app.timeRangeText(page.shown) : ""
+            }
+            DetailItem {
+                objectName: "locationDetail"
+                label: qsTr("Location")
+                visible: !!page.shown.location
+                value: page.shown.location || ""
             }
             DetailItem {
                 objectName: "repeatDetail"

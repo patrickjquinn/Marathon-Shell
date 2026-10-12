@@ -14,16 +14,28 @@ Dialog {
     property date date: new Date()
     property int hour: 12
     property int minute: 0
+    // Minutes; the end moves with the start.
+    property int duration: 60
+    readonly property string endTime: Logic.addMinutes(Logic.timeString(hour, minute), duration)
+    readonly property int endHour: Logic.parseTime(endTime).hour
+    readonly property int endMinute: Logic.parseTime(endTime).minute
+    property alias location: locationField.text
     property alias allDay: allDaySwitch.checked
     property string recurring: "none"
     property int reminder: 0
     property alias description: descriptionArea.text
+
+    function setEnd(h, m) {
+        duration = Logic.duration(Logic.timeString(hour, minute), Logic.timeString(h, m));
+    }
 
     function event() {
         return Object.assign({}, original || {}, {
             title: title.trim(),
             date: Logic.dateKey(date),
             time: Logic.timeString(hour, minute),
+            endTime: endTime,
+            location: location.trim(),
             allDay: allDay,
             recurring: recurring,
             reminder: reminder,
@@ -67,6 +79,16 @@ Dialog {
                 placeholderText: qsTr("Event title")
                 focus: dialog.original === null
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: locationField.focus = true
+            }
+            TextField {
+                id: locationField
+
+                objectName: "locationField"
+                width: parent.width
+                label: qsTr("Location")
+                placeholderText: qsTr("Location")
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: descriptionArea.focus = true
             }
             ValueButton {
@@ -88,7 +110,7 @@ Dialog {
             }
             ValueButton {
                 objectName: "timeButton"
-                label: qsTr("Time")
+                label: qsTr("Starts")
                 visible: !dialog.allDay
                 value: Format.formatDate(new Date(2000, 0, 1, dialog.hour, dialog.minute), Formatter.TimeValue)
                 onClicked: {
@@ -96,6 +118,21 @@ Dialog {
                     picker.accepted.connect(function () {
                         dialog.hour = picker.hour;
                         dialog.minute = picker.minute;
+                    });
+                }
+            }
+            ValueButton {
+                objectName: "endTimeButton"
+                label: qsTr("Ends")
+                visible: !dialog.allDay
+                value: {
+                    const time = Format.formatDate(new Date(2000, 0, 1, dialog.endHour, dialog.endMinute), Formatter.TimeValue);
+                    return Logic.endsNextDay({ time: Logic.timeString(dialog.hour, dialog.minute), endTime: dialog.endTime }) ? qsTr("%1, next day").arg(time) : time;
+                }
+                onClicked: {
+                    const picker = pageStack.push(timePickerComponent, { hour: dialog.endHour, minute: dialog.endMinute });
+                    picker.accepted.connect(function () {
+                        dialog.setEnd(picker.hour, picker.minute);
                     });
                 }
             }

@@ -51,6 +51,14 @@ ApplicationWindow {
         return Format.formatDate(new Date(2000, 0, 1, t.hour, t.minute), Formatter.TimeValue);
     }
 
+    function timeRangeText(event) {
+        if (event.allDay || !event.endTime)
+            return timeText(event);
+        const t = Logic.parseTime(event.endTime);
+        const end = Format.formatDate(new Date(2000, 0, 1, t.hour, t.minute), Formatter.TimeValue);
+        return Logic.endsNextDay(event) ? qsTr("%1 – %2 next day").arg(timeText(event)).arg(end) : qsTr("%1 – %2").arg(timeText(event)).arg(end);
+    }
+
     function dateText(event) {
         return Format.formatDate(Logic.parseDate(event.date), Formatter.DateLong);
     }
@@ -77,9 +85,10 @@ ApplicationWindow {
     function newEvent(date) {
         const start = new Date();
         start.setHours(start.getHours() + 1, 0, 0, 0);
+        const onToday = !date || Logic.dateKey(date) === Logic.dateKey(new Date());
         return pageStack.push(Qt.resolvedUrl("pages/EventEditorDialog.qml"), {
             app: root,
-            date: date || new Date(),
+            date: onToday ? start : date,
             hour: start.getHours(),
             minute: 0
         });
@@ -94,6 +103,8 @@ ApplicationWindow {
             date: Logic.parseDate(event.date),
             hour: t.hour,
             minute: t.minute,
+            duration: event.endTime ? Logic.duration(event.time, event.endTime) : 60,
+            location: event.location || "",
             allDay: !!event.allDay,
             recurring: event.recurring || "none",
             reminder: event.reminder === undefined ? 0 : event.reminder,

@@ -111,6 +111,75 @@ TestCase {
         compare(e.reminder, 30);
         compare(e.recurring, "weekly");
         compare(e.allDay, false);
+        compare(e.endTime, "10:15");
+        compare(e.location, "");
+    }
+
+    function test_newEventEndsAnHourLater() {
+        const app = makeApp([]);
+        const dialog = app.newEvent(new Date(2026, 4, 2));
+        tryCompare(dialog, "status", PageStatus.Active);
+        compare(Logic.duration(Logic.timeString(dialog.hour, dialog.minute), Logic.timeString(dialog.endHour, dialog.endMinute)), 60);
+        verify(child(dialog, "endTimeButton").visible);
+        child(dialog, "allDaySwitch").checked = true;
+        verify(!child(dialog, "endTimeButton").visible);
+    }
+
+    function test_movingStartMovesEnd() {
+        const app = makeApp([]);
+        const dialog = app.newEvent(new Date(2026, 4, 2));
+        tryCompare(dialog, "status", PageStatus.Active);
+        dialog.hour = 9;
+        dialog.minute = 0;
+        dialog.setEnd(10, 30);
+        dialog.hour = 14;
+        dialog.minute = 15;
+        compare(dialog.endHour, 15);
+        compare(dialog.endMinute, 45);
+        dialog.hour = 23;
+        compare(child(dialog, "endTimeButton").value.indexOf("next day") !== -1, true);
+    }
+
+    function test_locationAndEndAreSavedAndShown() {
+        const app = makeApp([]);
+        const dialog = app.newEvent(new Date(2026, 4, 2));
+        tryCompare(dialog, "status", PageStatus.Active);
+        dialog.title = "Dentist";
+        dialog.location = " 12 High St ";
+        dialog.hour = 9;
+        dialog.minute = 0;
+        dialog.setEnd(9, 45);
+        dialog.accept();
+        tryCompare(Calendar.events, "length", 1);
+        const e = Calendar.events[0];
+        compare(e.time, "09:00");
+        compare(e.endTime, "09:45");
+        compare(e.location, "12 High St");
+        pushed(app, 1);
+        const page = app.openEvent(e);
+        pushed(app, 2);
+        compare(child(page, "timeDetail").value, app.timeRangeText(e));
+        verify(child(page, "timeDetail").value.indexOf(app.timeText(e)) === 0);
+        verify(child(page, "locationDetail").visible);
+        compare(child(page, "locationDetail").value, "12 High St");
+    }
+
+    function test_editEventLoadsEndAndLocation() {
+        const app = makeApp([ev(7, { time: "07:30", endTime: "08:15", location: "Gym" })]);
+        const dialog = app.editEvent(Calendar.events[0]);
+        tryCompare(dialog, "status", PageStatus.Active);
+        compare(dialog.endHour, 8);
+        compare(dialog.endMinute, 15);
+        compare(dialog.location, "Gym");
+    }
+
+    function test_legacyEventWithoutEndShowsStartOnly() {
+        const app = makeApp([ev(4)]);
+        compare(app.timeRangeText(Calendar.events[0]), app.timeText(Calendar.events[0]));
+        const dialog = app.editEvent(Calendar.events[0]);
+        tryCompare(dialog, "status", PageStatus.Active);
+        compare(dialog.endHour, 11);
+        compare(dialog.endMinute, 0);
     }
 
     function test_editEventKeepsIdAndFields() {
@@ -162,7 +231,8 @@ TestCase {
         const page = app.openEvent(Calendar.events[0]);
         pushed(app, 2);
         compare(child(page, "eventHeader").title, "Review");
-        compare(child(page, "timeDetail").value, app.timeText(Calendar.events[0]));
+        compare(child(page, "timeDetail").value, app.timeRangeText(Calendar.events[0]));
+        verify(!child(page, "locationDetail").visible);
         verify(child(page, "repeatDetail").visible);
         compare(child(page, "repeatDetail").value, "Every day");
         compare(child(page, "reminderDetail").value, "1 hour before");
@@ -234,6 +304,15 @@ TestCase {
         page.query = "zzz";
         compare(view.count, 0);
         compare(child(page, "placeholder").text, "No matching events");
+    }
+
+    function test_eventItemShowsEndAndLocation() {
+        const app = makeApp([ev(1, { endTime: "11:30", location: "Room 4", recurring: "weekly" })]);
+        const item = child(app.pageStack.currentPage, "eventItem");
+        compare(item.details, "Every week · Room 4");
+        verify(child(item, "endTimeLabel").visible);
+        verify(item.Accessible.name.indexOf("Room 4") !== -1);
+        verify(item.Accessible.name.indexOf(app.timeRangeText(Calendar.events[0])) !== -1);
     }
 
     function test_eventItemOpensAndDeletes() {
