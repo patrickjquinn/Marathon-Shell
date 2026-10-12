@@ -141,13 +141,4 @@ Item {
             }
         }
     }
-
-    Connections {
-        function onShowShareSheet(content, type) {
-            shareSheet.content = content;
-            shareSheet.contentType = type;
-        }
-
-        target: UIStore
-    }
 }
