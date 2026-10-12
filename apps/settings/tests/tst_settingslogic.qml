@@ -32,6 +32,8 @@ TestCase {
         compare(Logic.search("PIN").map(e => e.page), ["security"]);
         compare(Logic.search("volume")[0].page, "sound");
         compare(Logic.search("volume")[0].section, "Device");
+        compare(Logic.search("tiles")[0].section, "Device");
+        compare(Logic.search("accounts")[0].section, "Security and accounts");
         compare(Logic.search("time zone").map(e => e.page), ["datetime"]);
         compare(Logic.search("terminal")[0].app, "terminal");
         compare(Logic.search("zzz"), []);

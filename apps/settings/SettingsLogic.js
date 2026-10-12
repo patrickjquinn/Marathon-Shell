@@ -57,6 +57,7 @@ const sections = [
             { page: "ambience", title: qsTr("Ambience"), icon: "image://theme/icon-m-ambience", keywords: "wallpaper background home screen theme colour color" },
             { page: "sound", title: qsTr("Sounds"), icon: "image://theme/icon-m-volume", keywords: "volume ringtone alarm audio mute" },
             { page: "notifications", title: qsTr("Notifications"), icon: "image://theme/icon-m-notifications", keywords: "alerts lock screen per-app do not disturb" },
+            { page: "quicksettings", title: qsTr("Quick settings"), icon: "image://theme/icon-m-toggle", keywords: "tiles shade toggles" },
             { page: "datetime", title: qsTr("Date and time"), icon: "image://theme/icon-m-clock", keywords: "time zone timezone clock 24-hour 12-hour format city" },
             { page: "battery", title: qsTr("Battery"), icon: "image://theme/icon-m-battery", keywords: "power saver profile charging" },
             { page: "storage", title: qsTr("Storage"), icon: "image://theme/icon-m-storage", keywords: "disk space memory usage free" },
@@ -64,7 +65,7 @@ const sections = [
         ]
     },
     {
-        title: qsTr("Privacy"),
+        title: qsTr("Security and accounts"),
         entries: [
             { page: "security", title: qsTr("Security"), icon: "image://theme/icon-m-device-lock", keywords: "pin password lock fingerprint biometric" },
             { page: "accounts", title: qsTr("Accounts"), icon: "image://theme/icon-m-people", keywords: "carddav caldav sync nextcloud contacts calendar" }
@@ -75,8 +76,7 @@ const sections = [
         entries: [
             { page: "appmanager", title: qsTr("Installed apps"), icon: "image://theme/icon-m-apps", keywords: "apps uninstall installed remove manager" },
             { page: "hiddenapps", title: qsTr("Hidden apps"), icon: "image://theme/icon-m-hidden", keywords: "hide drawer" },
-            { page: "appsort", title: qsTr("App grid"), icon: "image://theme/icon-m-app-grid", keywords: "grid columns icons layout filter desktop native search badges" },
-            { page: "quicksettings", title: qsTr("Quick settings"), icon: "image://theme/icon-m-toggle", keywords: "tiles shade toggles" }
+            { page: "appsort", title: qsTr("App grid"), icon: "image://theme/icon-m-app-grid", keywords: "grid columns icons layout filter desktop native search badges" }
         ]
     },
     {
