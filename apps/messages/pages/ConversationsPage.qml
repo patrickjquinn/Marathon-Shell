@@ -54,7 +54,15 @@ Page {
             bottom: parent.bottom
         }
         clip: root.searching
-        model: root.visibleConversations
+        model: Logic.withSections(root.visibleConversations, root.app.pinnedIds, Date.now())
+        section.property: "section"
+        section.delegate: SectionHeader {
+            required property string section
+
+            visible: section !== "today"
+            height: visible ? implicitHeight : 0
+            text: section === "pinned" ? qsTr("Pinned") : section === "today" ? "" : Format.formatDate(new Date(Number(section)), Formatter.TimepointSectionRelative)
+        }
 
         header: root.searching ? null : pageHeader
 
@@ -152,7 +160,7 @@ Page {
                     rightMargin: Theme.horizontalPageMargin
                     baseline: name.baseline
                 }
-                text: item.modelData.lastTimestamp ? Format.formatDate(new Date(item.modelData.lastTimestamp), Formatter.TimepointRelative) : ""
+                text: item.modelData.lastTimestamp ? Format.formatDate(new Date(item.modelData.lastTimestamp), isNaN(Number(item.modelData.section)) ? Formatter.TimepointRelative : Formatter.TimeValue) : ""
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: item.unread > 0 ? Theme.highlightColor : Theme.secondaryColor
             }

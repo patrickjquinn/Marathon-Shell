@@ -74,6 +74,22 @@ function visibleConversations(conversations, pinnedIds, archivedIds, archive, qu
     return list.filter(pinned).concat(list.filter(c => !pinned(c)));
 }
 
+function dayStart(ms) {
+    const d = new Date(ms);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// List sections: "pinned", "today" (headerless unless pinned rows precede it), else the day's midnight in ms.
+function withSections(list, pinnedIds, nowMs) {
+    const anyPinned = list.some(c => pinnedIds.indexOf(c.id) !== -1);
+    const today = dayStart(nowMs);
+    return list.map(c => {
+        const day = dayStart(c.lastTimestamp || 0);
+        const section = pinnedIds.indexOf(c.id) !== -1 ? "pinned" : day === today && !anyPinned ? "today" : String(day);
+        return Object.assign({ section: section }, c);
+    });
+}
+
 function parseState(json) {
     let v = {};
     try {

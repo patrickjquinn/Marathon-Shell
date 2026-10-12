@@ -85,4 +85,17 @@ TestCase {
         compare(rows.map(r => r.showDay), [true, false, false, true]);
         compare(rows.map(r => r.showTime), [false, true, true, true]);
     }
+
+    function test_withSections() {
+        const now = new Date(2026, 9, 12, 15, 0).getTime();
+        const yesterday = new Date(2026, 9, 11, 9, 0).getTime();
+        const list = [
+            { id: "p", lastTimestamp: new Date(2026, 9, 1).getTime() },
+            { id: "t", lastTimestamp: new Date(2026, 9, 12, 8, 0).getTime() },
+            { id: "y", lastTimestamp: yesterday }
+        ];
+        compare(Logic.withSections(list.slice(1), [], now).map(c => c.section), ["today", String(new Date(2026, 9, 11).getTime())]);
+        compare(Logic.withSections(list, ["p"], now).map(c => c.section), ["pinned", String(new Date(2026, 9, 12).getTime()), String(new Date(2026, 9, 11).getTime())]);
+        compare(Logic.withSections(list, ["p"], now)[1].id, "t");
+    }
 }
