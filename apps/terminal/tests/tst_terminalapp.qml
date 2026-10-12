@@ -93,6 +93,19 @@ TestCase {
         compare(only.starts, 2);
     }
 
+    function test_shellThatCantStartIsNotRespawned() {
+        const app = makeApp();
+        const only = app.sessions[0];
+        only.failed = true;
+        only.finished(-1);
+        compare(only.starts, 1);
+        compare(app.sessions.length, 1);
+        app.newSession();
+        app.sessions[1].failed = true;
+        app.sessions[1].finished(-1);
+        compare(app.sessions.length, 2);
+    }
+
     function test_terminalHasFocus() {
         const app = makeApp();
         page(app);

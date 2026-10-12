@@ -3,6 +3,7 @@ import QtQuick
 // Records what the QML sends instead of running a shell.
 QtObject {
     property bool running: false
+    property bool failed: false
     property string title: "Terminal"
     property int starts: 0
     property var sent: []

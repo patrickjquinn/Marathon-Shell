@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QProcess>
 #include <QString>
@@ -14,6 +15,9 @@ class TerminalEngine : public QObject {
     QML_ELEMENT
 
     Q_PROPERTY(bool running READ running NOTIFY runningChanged)
+    // The shell couldn't start, or died within moments of starting; a
+    // restart would only fail again, so the session waits for the user.
+    Q_PROPERTY(bool failed READ failed NOTIFY runningChanged)
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
     Q_PROPERTY(TerminalScreen *screen READ screen CONSTANT)
 
@@ -23,6 +27,9 @@ class TerminalEngine : public QObject {
 
     bool running() const {
         return m_pid > 0;
+    }
+    bool failed() const {
+        return m_failed;
     }
     QString title() const {
         return m_title;
@@ -51,9 +58,13 @@ class TerminalEngine : public QObject {
     void             parseEscapeSequence(char ch);
     void             handleCSI(const QString &seq);
     void             handleOSC(const QString &seq);
+    void             writeNotice(const QString &text);
 
     int              m_masterFd;
     pid_t            m_pid;
+    bool             m_failed;
+    QString          m_shell;
+    QElapsedTimer    m_started;
     QSocketNotifier *m_notifier;
     QString          m_title;
     TerminalScreen  *m_screen;

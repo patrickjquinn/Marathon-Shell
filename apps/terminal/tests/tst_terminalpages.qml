@@ -59,6 +59,16 @@ TestCase {
         verify(item(app, "newSessionItem").visible);
     }
 
+    function test_restartAfterAFailedStart() {
+        const app = makeApp();
+        openMenu(app);
+        verify(!item(app, "restartItem").visible);
+        app.currentSession.failed = true;
+        verify(item(app, "restartItem").visible);
+        item(app, "restartItem").clicked();
+        compare(app.currentSession.starts, 2);
+    }
+
     function test_newSessionFromMenu() {
         const app = makeApp();
         openMenu(app);

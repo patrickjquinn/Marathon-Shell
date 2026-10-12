@@ -67,6 +67,12 @@ Page {
             }
 
             MenuItem {
+                objectName: "restartItem"
+                visible: !!page.app.currentSession && page.app.currentSession.failed
+                text: qsTr("Restart session")
+                onClicked: page.app.currentSession.start()
+            }
+            MenuItem {
                 objectName: "settingsItem"
                 text: qsTr("Settings")
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"), { app: page.app })

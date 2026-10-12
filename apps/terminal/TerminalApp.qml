@@ -51,7 +51,7 @@ ApplicationWindow {
 
     function _finished(session) {
         const index = sessions.indexOf(session);
-        if (index < 0)
+        if (index < 0 || session.failed)
             return;
         if (sessions.length > 1)
             closeSession(index);

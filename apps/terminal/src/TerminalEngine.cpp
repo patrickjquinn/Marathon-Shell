@@ -24,6 +24,7 @@ TerminalEngine::TerminalEngine(QObject *parent)
     : QObject(parent)
     , m_masterFd(-1)
     , m_pid(-1)
+    , m_failed(false)
     , m_notifier(nullptr)
     , m_title("Terminal")
     , m_screen(new TerminalScreen(this))
@@ -45,6 +46,8 @@ void TerminalEngine::start(const QString &shell) {
         if (shellProgram.isEmpty())
             shellProgram = "/bin/bash";
     }
+    m_shell  = shellProgram;
+    m_failed = false;
 
     struct winsize winp;
     winp.ws_col    = m_screen->cols();
@@ -56,6 +59,9 @@ void TerminalEngine::start(const QString &shell) {
 
     if (pid < 0) {
         qCritical() << "[TerminalEngine] forkpty failed";
+        m_failed = true;
+        writeNotice(tr("[Couldn't start %1]").arg(m_shell));
+        emit runningChanged();
         return;
     }
 
@@ -65,9 +71,11 @@ void TerminalEngine::start(const QString &shell) {
         QByteArray  shellPath = shellProgram.toUtf8();
         const char *argv[]    = {shellPath.constData(), "-i", nullptr};
         execvp(argv[0], const_cast<char *const *>(argv));
-        _exit(1);
+        execl("/bin/sh", "sh", "-i", static_cast<char *>(nullptr));
+        _exit(127);
     } else {
         m_pid     = pid;
+        m_started.start();
         int flags = fcntl(m_masterFd, F_GETFL);
         fcntl(m_masterFd, F_SETFL, flags | O_NONBLOCK);
 
@@ -85,6 +93,10 @@ void TerminalEngine::onReadActivated() {
     if (bytesRead > 0) {
         processOutput(QByteArray(buffer, bytesRead));
     } else if (bytesRead <= 0 && errno != EAGAIN) {
+        if (m_started.elapsed() < 2000) {
+            m_failed = true;
+            writeNotice(tr("[Couldn't start %1]").arg(m_shell));
+        }
         terminate();
     }
 }
@@ -306,6 +318,16 @@ void TerminalEngine::terminate() {
         emit runningChanged();
         emit finished(-1);
     }
+}
+
+void TerminalEngine::writeNotice(const QString &text) {
+    if (m_screen->cursorX() > 0)
+        m_screen->newLine();
+    m_screen->setCursorX(0);
+    for (const QChar ch : text)
+        m_screen->putChar(ch.unicode());
+    m_screen->newLine();
+    m_screen->setCursorX(0);
 }
 
 void TerminalEngine::resize(int cols, int rows) {
