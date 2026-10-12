@@ -106,4 +106,25 @@ TestCase {
         compare(Logic.filterCities(all, "pa").map(x => x.name), ["Paris", "São Paulo"]);
         compare(Logic.filterCities(all, "zz").length, 0);
     }
+
+    function test_filterCitiesByCountryAfterName() {
+        const all = [{ name: "Cork", country: "Ireland" }, { name: "Irkutsk", country: "Russia" }, { name: "Paris", country: "France" }];
+        compare(Logic.filterCities(all, "ir").map(x => x.name), ["Irkutsk", "Cork"]);
+        compare(Logic.filterCities(all, "  ireland ").map(x => x.name), ["Cork"]);
+    }
+
+    function test_knownCitiesComeFromTzdata_data() {
+        return ["Dublin", "Lisbon", "Cairo", "Lagos", "Jakarta", "New York", "Beijing", "Mumbai"].map(n => ({ tag: n, name: n }));
+    }
+
+    function test_knownCitiesComeFromTzdata(data) {
+        const city = Logic.knownCities.find(c => c.name === data.name);
+        verify(city, data.name);
+        verify(city.tz.indexOf("/") > 0);
+        verify(city.country !== "");
+    }
+
+    function test_defaultCitiesAreKnown() {
+        compare(Logic.defaultCities.map(c => c.tz), ["America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney"]);
+    }
 }

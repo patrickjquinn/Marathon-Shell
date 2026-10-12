@@ -139,12 +139,15 @@ TestCase {
         tryVerify(() => (list = findChild(page, "addCityList")) !== null);
         const all = list.count;
         verify(all > 20);
-        page.query = "par";
+        page.query = "ireland";
+        verify(list.count >= 1);
+        page.query = "dublin";
         compare(list.count, 1);
         let item = null;
         tryVerify(() => (item = findChild(list, "addCityItem")) !== null);
         item.clicked(null);
-        compare(app.cities[app.cities.length - 1].name, "Paris");
+        compare(app.cities[app.cities.length - 1].name, "Dublin");
+        compare(app.cities[app.cities.length - 1].tz, "Europe/Dublin");
         tryVerify(() => app.pageStack.depth === 1);
     }
 

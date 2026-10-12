@@ -33,6 +33,7 @@ Page {
         ViewPlaceholder {
             enabled: list.count === 0
             text: qsTr("No cities found")
+            hintText: qsTr("Try the country or a nearby city")
         }
 
         delegate: ListItem {
@@ -41,20 +42,33 @@ Page {
             required property var modelData
 
             objectName: "addCityItem"
+            contentHeight: Theme.itemSizeMedium
             Accessible.name: qsTr("Add %1").arg(modelData.name)
             onClicked: {
                 root.app.addCity(modelData);
                 pageStack.pop();
             }
 
-            Label {
+            Column {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: Theme.highlightText(item.modelData.name, root.query, Theme.highlightColor)
-                textFormat: Text.StyledText
-                truncationMode: TruncationMode.Fade
-                color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+
+                Label {
+                    width: parent.width
+                    text: Theme.highlightText(item.modelData.name, root.query.trim(), Theme.highlightColor)
+                    textFormat: Text.StyledText
+                    truncationMode: TruncationMode.Fade
+                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+                }
+                Label {
+                    width: parent.width
+                    text: item.modelData.country || ""
+                    visible: text !== ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    truncationMode: TruncationMode.Fade
+                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                }
             }
         }
 
