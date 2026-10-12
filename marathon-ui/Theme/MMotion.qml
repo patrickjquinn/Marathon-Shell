@@ -1,4 +1,5 @@
 pragma Singleton
+import MarathonOS.Shell
 import QtQuick
 
 QtObject {
@@ -146,15 +147,8 @@ QtObject {
     readonly property int touchFlickDeceleration: 25000
     readonly property int touchFlickVelocity: 8000
 
-    // ── Reduce motion ─────────────────────────────────────────
-    // Bound at app startup from a platform signal:
-    //   GNOME Mobile:  gsettings get org.gnome.desktop.interface enable-animations
-    //   Plasma Mobile: kdeglobals.KAccessibilityCommon.skipFancyEffects
-    // Components MUST go through dur()/ease() so the preference
-    // is honoured uniformly. Per CODING_RULES C8 spirit:
-    // motion is functional, not decorative — if the user turned
-    // it off, the system stays still.
-    property bool reduceMotion: false
+    // Settings → Accessibility → Reduce motion. Components go through dur()/ease().
+    property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
 
     // ── Reduce blur (translucency) ────────────────────────────
     // Companion to reduceMotion. When true, MGlass short-circuits

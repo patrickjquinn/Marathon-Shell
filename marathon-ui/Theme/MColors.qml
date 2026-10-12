@@ -54,9 +54,9 @@ QtObject {
     readonly property color secViolet: "#6b5d8f"
 
     readonly property color textPrimary: "#f5f5f5"
-    readonly property color textSecondary: "#6a6a6a"
-    readonly property color textTertiary: "#4a4a4a"
-    readonly property color textHint: "#2a2a2a"
+    readonly property color textSecondary: "#9a9a9a"
+    readonly property color textTertiary: "#8a8a8a"
+    readonly property color textHint: "#5a5a5a"
     // Black on teal — DS rule. The teal-bright accent is intentionally
     // light enough that black gives high-contrast labels on primary
     // buttons. (Previously #ffffff which failed WCAG against
