@@ -40,6 +40,14 @@ QtObject {
         _play(start);
     }
 
+    // Appends to the queue, or starts playing when nothing is loaded.
+    function enqueue(track) {
+        if (!currentTrack)
+            playTracks([track], 0);
+        else
+            queue = queue.concat([track]);
+    }
+
     function toggle() {
         if (!currentTrack)
             return;

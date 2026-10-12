@@ -24,6 +24,14 @@ ListItem {
             onClicked: pageStack.push(Qt.resolvedUrl("AddToPlaylistPage.qml"), { music: item.music, track: item.track })
         }
         MenuItem {
+            objectName: "enqueueAction"
+            text: qsTr("Add to play queue")
+            onClicked: {
+                item.music.player.enqueue(item.track);
+                Notices.show(qsTr("Added to play queue"));
+            }
+        }
+        MenuItem {
             visible: item.playlistId >= 0
             text: qsTr("Remove from playlist")
             onClicked: item.music.savePlaylists(Playlists.removeTrack(item.music.playlists, item.playlistId, item.track.path))

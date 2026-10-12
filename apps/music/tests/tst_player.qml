@@ -98,6 +98,24 @@ TestCase {
         compare(p.repeatMode, "off");
     }
 
+    function test_enqueueAppends() {
+        const p = makePlayer();
+        p.playTracks(tracks.slice(0, 2), 1);
+        p.enqueue(tracks[2]);
+        compare(p.queue.length, 3);
+        compare(p.queue[2].title, "Three");
+        compare(p.currentTrack.title, "Two", "the current track keeps playing");
+        p.next();
+        compare(p.currentTrack.title, "Three");
+    }
+
+    function test_enqueueStartsAnIdlePlayer() {
+        const p = makePlayer();
+        p.enqueue(tracks[1]);
+        compare(p.currentTrack.title, "Two");
+        verify(p.playing);
+    }
+
     function test_seekAndDuration() {
         const p = makePlayer();
         p.playTracks(tracks, 0);
