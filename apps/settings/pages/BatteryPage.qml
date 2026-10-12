@@ -59,7 +59,9 @@ Page {
                 visible: Power.powerProfilesSupported
                 label: qsTr("Power profile")
                 description: currentIndex >= 0 ? page.profiles[currentIndex].description : ""
-                currentIndex: page.profiles.findIndex(p => p.value === Power.powerProfile)
+                Binding on currentIndex {
+                    value: page.profiles.findIndex(p => p.value === Power.powerProfile)
+                }
                 menu: ContextMenu {
                     Repeater {
                         model: page.profiles

@@ -23,7 +23,9 @@ Page {
                 objectName: "languageCombo"
                 width: parent.width
                 label: qsTr("Language")
-                currentIndex: KeyboardSettingsStore.availableLanguages.indexOf(KeyboardSettingsStore.currentLanguage)
+                Binding on currentIndex {
+                    value: KeyboardSettingsStore.availableLanguages.indexOf(KeyboardSettingsStore.currentLanguage)
+                }
                 menu: ContextMenu {
                     Repeater {
                         model: KeyboardSettingsStore.availableLanguages

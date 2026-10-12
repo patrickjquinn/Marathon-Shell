@@ -72,7 +72,9 @@ Page {
                 objectName: "timeoutCombo"
                 width: parent.width
                 label: qsTr("Turn screen off after")
-                currentIndex: page.timeouts.findIndex(option => Settings.screenTimeoutValue(option) === Display.screenTimeout)
+                Binding on currentIndex {
+                    value: page.timeouts.findIndex(option => Settings.screenTimeoutValue(option) === Display.screenTimeout)
+                }
                 menu: ContextMenu {
                     Repeater {
                         model: page.timeouts
@@ -109,7 +111,9 @@ Page {
                 width: parent.width
                 label: qsTr("Interface size")
                 description: qsTr("Size of text and controls")
-                currentIndex: Logic.nearestIndex(Logic.scales.map(s => s.factor), Settings.userScaleFactor)
+                Binding on currentIndex {
+                    value: Logic.nearestIndex(Logic.scales.map(s => s.factor), Settings.userScaleFactor)
+                }
                 menu: ContextMenu {
                     Repeater {
                         model: Logic.scales
@@ -128,7 +132,9 @@ Page {
                 width: parent.width
                 label: qsTr("Status bar clock")
                 description: page.clockPositions[Math.max(0, currentIndex)].description
-                currentIndex: Math.max(0, page.clockPositions.findIndex(p => p.value === (Settings.statusBarClockPosition || "center")))
+                Binding on currentIndex {
+                    value: Math.max(0, page.clockPositions.findIndex(p => p.value === (Settings.statusBarClockPosition || "center")))
+                }
                 menu: ContextMenu {
                     Repeater {
                         model: page.clockPositions
