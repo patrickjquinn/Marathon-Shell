@@ -623,44 +623,65 @@ Item {
 
             clip: true
 
-            // One gesture per sub-page; Continue advances.
+            // One gesture per sub-page; Next steps through them.
             property int currentCoachmark: 0
             readonly property var coachmarks: [
                 {
-                    "icon": "chevron-up",
-                    "title": "Swipe Up",
-                    "body": "From the bottom of the screen to go home or peek at open apps.",
-                    "direction": "up"
-                },
-                {
-                    "icon": "chevron-down",
-                    "title": "Swipe Down",
-                    "body": "From the top of the screen to open Quick Settings — Wi-Fi, brightness, Do Not Disturb.",
-                    "direction": "down"
+                    "icon": "chevron-left",
+                    "title": "Back",
+                    "body": "Drag the pill at the bottom of the screen to the left to go back.",
+                    "direction": "left",
+                    "source": "pill"
                 },
                 {
                     "icon": "chevron-right",
-                    "title": "Swipe Right",
-                    "body": "Across the home grid to reach the Hub — messages, notifications, calls.",
-                    "direction": "right"
+                    "title": "Forward",
+                    "body": "Drag the pill to the right to go forward again.",
+                    "direction": "right",
+                    "source": "pill"
                 },
                 {
-                    "icon": "chevron-left",
-                    "title": "Swipe Left",
-                    "body": "From the Hub back to your apps. The same gesture works between any two pages.",
-                    "direction": "left"
+                    "icon": "chevron-up",
+                    "title": "Home and open apps",
+                    "body": "Flick the pill up to go home. Drag it further up to see your open apps.",
+                    "direction": "up",
+                    "source": "pill"
+                },
+                {
+                    "icon": "chevron-down",
+                    "title": "Quick Settings",
+                    "body": "Drag the pill down for Wi-Fi, brightness and Do Not Disturb.",
+                    "direction": "down",
+                    "source": "pill"
+                },
+                {
+                    "icon": "chevron-right",
+                    "title": "Hub",
+                    "body": "Swipe in from the left edge of the screen to peek at the Hub — messages, notifications and calls.",
+                    "direction": "right",
+                    "source": "edge"
                 },
                 {
                     "icon": "check-circle",
                     "title": "You're set",
                     "body": "These gestures work everywhere in Marathon. Tap Next to continue.",
-                    "direction": "none"
+                    "direction": "none",
+                    "source": "none"
                 }
             ]
 
-            function markComplete() {
-                if (gesturesPage.currentCoachmark < gesturesPage.coachmarks.length - 1)
-                    gesturesPage.currentCoachmark++;
+            function stepForward() {
+                if (currentCoachmark === coachmarks.length - 1)
+                    return false;
+                currentCoachmark++;
+                return true;
+            }
+
+            function stepBack() {
+                if (currentCoachmark === 0)
+                    return false;
+                currentCoachmark--;
+                return true;
             }
 
             Silica.Label {
@@ -716,19 +737,43 @@ Item {
                                 height: Silica.Theme.itemSizeHuge
                                 anchors.horizontalCenter: parent.horizontalCenter
 
-                                GlyphIcon {
-                                    id: coachmarkIcon
+                                // The screen's left edge, for the Hub peek.
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Constants.spacingXSmall
+                                    height: parent.height
+                                    radius: Constants.borderRadiusSharp
+                                    color: Silica.Theme.secondaryColor
+                                    visible: coachmarkDelegate.modelData.source === "edge"
+                                }
 
+                                Column {
                                     anchors.centerIn: parent
-                                    name: coachmarkDelegate.modelData.icon
-                                    size: Silica.Theme.iconSizeExtraLarge
-                                    color: Silica.Theme.highlightColor
+                                    spacing: Silica.Theme.paddingMedium
 
                                     transform: Translate {
                                         id: coachmarkNudge
 
                                         x: 0
                                         y: 0
+                                    }
+
+                                    GlyphIcon {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        name: coachmarkDelegate.modelData.icon
+                                        size: Silica.Theme.iconSizeExtraLarge
+                                        color: Silica.Theme.highlightColor
+                                    }
+
+                                    // Drawn like the nav bar's pill.
+                                    Rectangle {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        width: Constants.cardBannerHeight
+                                        height: Constants.spacingXSmall
+                                        radius: Constants.borderRadiusSharp
+                                        color: Silica.Theme.primaryColor
+                                        visible: coachmarkDelegate.modelData.source === "pill"
                                     }
                                 }
 
@@ -790,18 +835,6 @@ Item {
                                 font.pixelSize: Silica.Theme.fontSizeSmall
                                 horizontalAlignment: Text.AlignHCenter
                                 wrapMode: Text.Wrap
-                            }
-
-                            // "Continue", not "Next": the outer row already has a Next.
-                            Silica.Button {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                visible: coachmarkDelegate.modelData.direction !== "none"
-                                text: "Continue"
-                                onClicked: {
-                                    if (typeof HapticManager !== "undefined")
-                                        HapticManager.light();
-                                    gesturesPage.markComplete();
-                                }
                             }
                         }
                     }
@@ -1094,10 +1127,10 @@ Item {
             text: "Back"
             visible: oobeRoot.currentPage > 0
             onClicked: {
-                if (oobeRoot.currentPage > 0) {
-                    HapticManager.light();
-                    oobeRoot.currentPage--;
-                }
+                HapticManager.light();
+                if (oobeRoot.currentPage === 4 && gesturesPage.stepBack())
+                    return;
+                oobeRoot.currentPage--;
             }
         }
 
@@ -1120,6 +1153,8 @@ Item {
             enabled: !(oobeRoot.currentPage === 5 && passcodePage.currentPin.length < passcodePage.requiredLength)
             onClicked: {
                 HapticManager.light();
+                if (oobeRoot.currentPage === 4 && gesturesPage.stepForward())
+                    return;
                 if (oobeRoot.currentPage === 5) {
                     passcodePage.tryAdvance();
                     return;
@@ -1193,12 +1228,20 @@ Item {
         anchors.bottom: parent.bottom
         z: 100
         onSwipeLeft: {
+            if (oobeRoot.currentPage === 4 && gesturesPage.stepBack()) {
+                HapticManager.light();
+                return;
+            }
             if (oobeRoot.currentPage > 0) {
                 HapticManager.light();
                 oobeRoot.currentPage--;
             }
         }
         onSwipeRight: {
+            if (oobeRoot.currentPage === 4 && gesturesPage.stepForward()) {
+                HapticManager.light();
+                return;
+            }
             if (oobeRoot.currentPage === 5 && oobeRoot.newPasscode === "")
                 return;
             if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
