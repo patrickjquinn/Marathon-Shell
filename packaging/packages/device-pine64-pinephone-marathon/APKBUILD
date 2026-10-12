@@ -4,7 +4,7 @@
 pkgname=device-pine64-pinephone-marathon
 pkgdesc="PINE64 PinePhone device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"

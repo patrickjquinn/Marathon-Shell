@@ -7,6 +7,10 @@
 #   * console=tty1               (was tty0) kernel output on the panel VT
 #   * splash                     Plymouth takes the display
 #   * vt.global_cursor_default=0 no VT cursor blinking behind the splash
+#   * mem_sleep_default=s2idle   suspend stays in Linux; Crust deep sleep
+#                                can miss the power key and never resume
+#                                (pmaports#4397). Opt in for testing with
+#                                echo deep > /sys/power/mem_sleep.
 #
 # and 1 MiB of RAM reserved for pstore/ramoops (the mainline A64 DT has
 # no reserved-memory node), so the kernel log survives a watchdog reset.
@@ -24,7 +28,7 @@ else
 	setenv bootdev 2;
 fi;
 
-setenv bootargs init=/init.sh rw console=tty1 console=ttyS0,115200 earlycon=uart,mmio32,0x01c28000 panic=10 consoleblank=0 splash loglevel=1 vt.global_cursor_default=0 PMOS_FORCE_PARTITION_RESIZE pmos_boot=/dev/mmcblk${bootdev}p1 pmos_root=/dev/mmcblk${bootdev}p2
+setenv bootargs init=/init.sh rw console=tty1 console=ttyS0,115200 earlycon=uart,mmio32,0x01c28000 panic=10 consoleblank=0 splash loglevel=1 vt.global_cursor_default=0 mem_sleep_default=s2idle PMOS_FORCE_PARTITION_RESIZE pmos_boot=/dev/mmcblk${bootdev}p1 pmos_root=/dev/mmcblk${bootdev}p2
 
 printenv
 
