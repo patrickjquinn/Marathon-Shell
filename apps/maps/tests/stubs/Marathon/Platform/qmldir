@@ -1,0 +1,4 @@
+module Marathon.Platform
+singleton Location 1.0 Location.qml
+singleton Permissions 1.0 Permissions.qml
+singleton Lifecycle 1.0 Lifecycle.qml

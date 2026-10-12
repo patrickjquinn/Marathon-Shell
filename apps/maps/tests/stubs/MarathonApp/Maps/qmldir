@@ -1,0 +1,3 @@
+module MarathonApp.Maps
+ValhallaRoutingClient 1.0 ValhallaRoutingClient.qml
+VoiceClient 1.0 VoiceClient.qml
