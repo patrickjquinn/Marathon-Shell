@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QProcess>
 #include <QString>
+#include <QStringList>
 #include <QtQmlIntegration>
 #include "TerminalScreen.h"
 
@@ -36,6 +37,7 @@ class TerminalEngine : public QObject {
     Q_INVOKABLE void terminate();
     Q_INVOKABLE void resize(int cols, int rows);
     Q_INVOKABLE void sendSignal(int signal) const;
+    Q_INVOKABLE QStringList recentLines(int count) const;
 
     Q_INVOKABLE void sendMousePress(int x, int y, int button);
     Q_INVOKABLE void sendMouseRelease(int x, int y, int button);

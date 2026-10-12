@@ -67,6 +67,7 @@ class TerminalScreen : public QObject {
         return m_cursorY;
     }
     const TerminalCell &cell(int x, int y) const;
+    QString             lineText(int y) const;
 
     void                setSelection(int startX, int startY, int endX, int endY);
     void                clearSelection();

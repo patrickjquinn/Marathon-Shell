@@ -281,6 +281,9 @@ void TerminalEngine::sendKey(int key, const QString &text, int modifiers) const 
             data.append(text.toUtf8());
     }
 
+    if (!data.isEmpty() && (modifiers & Qt::AltModifier))
+        data.prepend('\x1b');
+
     if (!data.isEmpty()) {
         write(m_masterFd, data.constData(), data.size());
     }
@@ -321,6 +324,16 @@ void TerminalEngine::resize(int cols, int rows) {
 void TerminalEngine::sendSignal(int signal) const {
     if (m_pid > 0)
         kill(m_pid, signal);
+}
+
+QStringList TerminalEngine::recentLines(int count) const {
+    QMutexLocker locker(m_screen->mutex());
+    QStringList  lines;
+    for (int y = 0; y <= m_screen->cursorY(); ++y)
+        lines.append(m_screen->lineText(y));
+    while (!lines.isEmpty() && lines.last().isEmpty())
+        lines.removeLast();
+    return lines.mid(qMax(0, lines.size() - count));
 }
 
 void TerminalEngine::sendMousePress(int x, int y, int button) {}

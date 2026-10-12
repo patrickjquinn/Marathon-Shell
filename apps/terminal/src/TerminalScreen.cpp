@@ -257,6 +257,17 @@ const TerminalCell &TerminalScreen::cell(int x, int y) const {
     return empty;
 }
 
+QString TerminalScreen::lineText(int y) const {
+    QString line;
+    for (int x = 0; x < m_cols; ++x) {
+        const uint32_t cp = cell(x, y).codePoint;
+        line.append(cp ? QChar(cp) : QChar(' '));
+    }
+    while (line.endsWith(' '))
+        line.chop(1);
+    return line;
+}
+
 void TerminalScreen::scrollUp() {
 
     m_topRow = (m_topRow + 1) % m_historySize;

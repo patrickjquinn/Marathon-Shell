@@ -14,7 +14,7 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     setFlag(ItemHasContents, true);
     setAntialiasing(true);
 
-    QStringList fonts = {"Cascadia Code", "Fira Code", "Roboto Mono", "Courier New", "Monospace"};
+    QStringList fonts = {"JetBrains Mono", "Cascadia Code", "Fira Code", "Roboto Mono", "Courier New", "Monospace"};
     for (const QString &family : fonts) {
         QFont f(family);
         if (f.exactMatch() || family == "Monospace") {
