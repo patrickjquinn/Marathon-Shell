@@ -16,13 +16,16 @@ Page {
         model: Apps
         header: PageHeader {
             title: qsTr("Hidden apps")
-            description: qsTr("Kept installed, left off the app grid")
+            description: qsTr("Switched on apps are hidden")
         }
 
         delegate: TextSwitch {
             required property var model
 
             objectName: "hide-" + model.id
+            // Hiding Settings would leave no way back to this page.
+            visible: model.id !== "settings"
+            height: visible ? implicitHeight : 0
             text: model.name
             automaticCheck: false
             checked: Settings.hiddenApps.indexOf(model.id) >= 0

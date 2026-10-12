@@ -176,6 +176,7 @@ TestCase {
     function test_hiddenApps() {
         const s = open("hiddenapps");
         compare(child(s.page, "appList").count, 3);
+        verify(!child(s.page, "hide-settings").visible);
         const notes = child(s.page, "hide-notes");
         verify(!notes.checked);
         notes.clicked(null);
