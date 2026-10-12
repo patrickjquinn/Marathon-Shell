@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../../components" as ShellComponents
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -105,7 +107,9 @@ MApp {
             }
             Timer {
                 id: revealHold
-                interval: 90
+                // Long enough for the compositor to import the first buffer; at 90 ms
+                // the splash faded onto a few black frames on lima.
+                interval: 250
                 onTriggered: splashScreen._revealed = true
             }
             Connections {
@@ -134,6 +138,7 @@ MApp {
                 MAppIcon {
                     id: splashIcon
 
+                    loadAsync: false
                     size: Math.round(128 * Constants.scaleFactor)
                     source: nativeAppWindow.nativeAppIcon && nativeAppWindow.nativeAppIcon !== "" ? nativeAppWindow.nativeAppIcon : ""
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -148,12 +153,10 @@ MApp {
                     visible: splashIcon.source === "" || splashIcon.status === Image.Error
                 }
 
-                Text {
-                    text: "Loading " + (nativeAppWindow.nativeTitle || "native app") + "..."
-                    color: MColors.textSecondary
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    anchors.horizontalCenter: parent.horizontalCenter
+                // Same height as the shell splash's spinner slot, so the icon doesn't shift at hand-off.
+                Item {
+                    width: 1
+                    height: Math.round(28 * Constants.scaleFactor)
                 }
             }
         }

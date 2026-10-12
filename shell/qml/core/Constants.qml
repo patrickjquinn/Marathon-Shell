@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 // MarathonUI.Theme is on the import path in both the shell and the
 // marathon-app-runner; MMotion is the canonical motion table.
 import MarathonUI.Theme

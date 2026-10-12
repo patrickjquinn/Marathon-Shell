@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -21,7 +23,7 @@ MApp {
 
         MPage {
             anchors.fill: parent
-            title: appName
+            title: templateApp.appName
             showBackButton: false
 
             content: Item {
@@ -34,7 +36,7 @@ MApp {
 
                     Icon {
                         name: {
-                            var iconPath = appIcon.replace("qrc:/images/", "").replace(".svg", "");
+                            var iconPath = templateApp.appIcon.replace("qrc:/images/", "").replace(".svg", "");
                             if (iconPath === "phone")
                                 return "phone";
 
@@ -85,7 +87,7 @@ MApp {
                     }
 
                     Text {
-                        text: appName
+                        text: templateApp.appName
                         color: MColors.text
                         font.pixelSize: MTypography.sizeXLarge
                         font.weight: MTypography.weightBold
