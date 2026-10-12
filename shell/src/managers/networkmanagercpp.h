@@ -30,7 +30,6 @@ class NetworkManagerCpp : public QObject {
     Q_PROPERTY(bool wifiAvailable READ wifiAvailable NOTIFY wifiAvailableChanged)
     Q_PROPERTY(bool bluetoothAvailable READ bluetoothAvailable NOTIFY bluetoothAvailableChanged)
     Q_PROPERTY(bool hotspotSupported READ hotspotSupported NOTIFY hotspotSupportedChanged)
-    Q_PROPERTY(bool bluetoothEnabled READ bluetoothEnabled NOTIFY bluetoothEnabledChanged)
     Q_PROPERTY(bool airplaneModeEnabled READ airplaneModeEnabled NOTIFY airplaneModeEnabledChanged)
     Q_PROPERTY(
         QVariantList availableNetworks READ availableNetworks NOTIFY availableNetworksChanged)
@@ -66,9 +65,6 @@ class NetworkManagerCpp : public QObject {
     bool hotspotSupported() const {
         return m_wifiAvailable;
     }
-    bool bluetoothEnabled() const {
-        return m_bluetoothEnabled;
-    }
     bool airplaneModeEnabled() const {
         return m_airplaneModeEnabled;
     }
@@ -82,10 +78,6 @@ class NetworkManagerCpp : public QObject {
     Q_INVOKABLE void         scanWifi();
     Q_INVOKABLE void         connectToNetwork(const QString &ssid, const QString &password);
     Q_INVOKABLE void         disconnectWifi();
-
-    Q_INVOKABLE void         enableBluetooth();
-    Q_INVOKABLE void         disableBluetooth();
-    Q_INVOKABLE void         toggleBluetooth();
 
     Q_INVOKABLE void         setAirplaneMode(bool enabled);
 
@@ -103,7 +95,6 @@ class NetworkManagerCpp : public QObject {
     void wifiAvailableChanged();
     void bluetoothAvailableChanged();
     void hotspotSupportedChanged();
-    void bluetoothEnabledChanged();
     void airplaneModeEnabledChanged();
     void networkError(const QString &message);
     void availableNetworksChanged();
@@ -143,7 +134,6 @@ class NetworkManagerCpp : public QObject {
     QString      m_ethernetConnectionName;
     QString      m_activeWifiDevicePath;
     QString      m_activeApPath;
-    bool         m_bluetoothEnabled;
     bool         m_airplaneModeEnabled;
     bool         m_wifiAvailable;
     bool         m_bluetoothAvailable;

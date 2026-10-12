@@ -852,7 +852,6 @@ class NetworkClient : public QObject {
     Q_PROPERTY(bool wifiAvailable READ wifiAvailable NOTIFY wifiAvailableChanged)
     Q_PROPERTY(bool bluetoothAvailable READ bluetoothAvailable NOTIFY bluetoothAvailableChanged)
     Q_PROPERTY(bool hotspotSupported READ hotspotSupported NOTIFY hotspotSupportedChanged)
-    Q_PROPERTY(bool bluetoothEnabled READ bluetoothEnabled NOTIFY bluetoothEnabledChanged)
     Q_PROPERTY(bool airplaneModeEnabled READ airplaneModeEnabled NOTIFY airplaneModeEnabledChanged)
     Q_PROPERTY(
         QVariantList availableNetworks READ availableNetworks NOTIFY availableNetworksChanged)
@@ -869,7 +868,6 @@ class NetworkClient : public QObject {
     bool             wifiAvailable() const;
     bool             bluetoothAvailable() const;
     bool             hotspotSupported() const;
-    bool             bluetoothEnabled() const;
     bool             airplaneModeEnabled() const;
     QVariantList     availableNetworks() const;
 
@@ -894,7 +892,6 @@ class NetworkClient : public QObject {
     void wifiAvailableChanged();
     void bluetoothAvailableChanged();
     void hotspotSupportedChanged();
-    void bluetoothEnabledChanged();
     void airplaneModeEnabledChanged();
     void availableNetworksChanged();
 

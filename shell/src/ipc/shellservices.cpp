@@ -1094,7 +1094,6 @@ NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManag
     QObject::connect(m_network, &NetworkManagerCpp::wifiAvailableChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::bluetoothAvailableChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::hotspotSupportedChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::bluetoothEnabledChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::airplaneModeEnabledChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::availableNetworksChanged, this, push);
 
@@ -1123,7 +1122,6 @@ QVariantMap NetworkObject::buildState() const {
         {"wifiAvailable", m_network->wifiAvailable()},
         {"bluetoothAvailable", m_network->bluetoothAvailable()},
         {"hotspotSupported", m_network->hotspotSupported()},
-        {"bluetoothEnabled", m_network->bluetoothEnabled()},
         {"airplaneModeEnabled", m_network->airplaneModeEnabled()},
         {"availableNetworks", wrappedNetworks},
         {"hotspotActive", m_network->isHotspotActive()},

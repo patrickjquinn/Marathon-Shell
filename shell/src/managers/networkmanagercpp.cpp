@@ -118,7 +118,6 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     , m_wifiSignalStrength(0)
     , m_ethernetConnected(false)
     , m_ethernetConnectionName("")
-    , m_bluetoothEnabled(false)
     , m_airplaneModeEnabled(false)
     , m_wifiAvailable(false)
     , m_bluetoothAvailable(false)
@@ -796,46 +795,6 @@ void NetworkManagerCpp::disconnectWifi() {
     m_wifiSsid      = "Disconnected";
     emit wifiConnectedChanged();
     emit wifiSsidChanged();
-}
-
-void NetworkManagerCpp::enableBluetooth() {
-    qDebug() << "[NetworkManagerCpp] Enabling Bluetooth";
-    if (m_hasNetworkManager) {
-        QDBusReply<void> reply =
-            m_nmInterface->call("SetProperty", "BluetoothEnabled", QVariant(true));
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to enable Bluetooth:"
-                     << reply.error().message();
-            emit networkError("Failed to enable Bluetooth");
-            return;
-        }
-    }
-    m_bluetoothEnabled = true;
-    emit bluetoothEnabledChanged();
-}
-
-void NetworkManagerCpp::disableBluetooth() {
-    qDebug() << "[NetworkManagerCpp] Disabling Bluetooth";
-    if (m_hasNetworkManager) {
-        QDBusReply<void> reply =
-            m_nmInterface->call("SetProperty", "BluetoothEnabled", QVariant(false));
-        if (!reply.isValid()) {
-            qDebug() << "[NetworkManagerCpp] Failed to disable Bluetooth:"
-                     << reply.error().message();
-            emit networkError("Failed to disable Bluetooth");
-            return;
-        }
-    }
-    m_bluetoothEnabled = false;
-    emit bluetoothEnabledChanged();
-}
-
-void NetworkManagerCpp::toggleBluetooth() {
-    if (m_bluetoothEnabled) {
-        disableBluetooth();
-    } else {
-        enableBluetooth();
-    }
 }
 
 void NetworkManagerCpp::setAirplaneMode(bool enabled) {
