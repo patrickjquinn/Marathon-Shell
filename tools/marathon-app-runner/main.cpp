@@ -1042,7 +1042,8 @@ int main(int argc, char *argv[]) {
         1140;
     view.resize(w, h);
 
-    if (!keelHost && KeelHost::wantedFor(info->toolkit))
+    // Every app gets the host's ambience: MarathonUI's theme follows Silica's.
+    if (!keelHost)
         startKeelHost();
     if (keelHost && KeelHost::wantedFor(info->toolkit)) {
         // The shell draws the ambience behind a Keel app, which leaves its
