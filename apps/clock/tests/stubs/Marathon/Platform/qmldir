@@ -1,0 +1,5 @@
+module Marathon.Platform
+singleton Alarms 1.0 Alarms.qml
+singleton Lifecycle 1.0 Lifecycle.qml
+singleton Settings 1.0 Settings.qml
+singleton WorldClock 1.0 WorldClock.qml
