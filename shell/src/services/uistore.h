@@ -31,7 +31,6 @@ class UIStore : public QObject {
     Q_PROPERTY(QString currentAppIcon READ currentAppIcon NOTIFY currentAppIconChanged)
     Q_PROPERTY(bool settingsOpen READ settingsOpen NOTIFY settingsOpenChanged)
     Q_PROPERTY(bool searchOpen READ searchOpen NOTIFY searchOpenChanged)
-    Q_PROPERTY(bool shareSheetOpen READ shareSheetOpen NOTIFY shareSheetOpenChanged)
     Q_PROPERTY(
         bool clipboardManagerOpen READ clipboardManagerOpen NOTIFY clipboardManagerOpenChanged)
     Q_PROPERTY(QObject *shellRef READ shellRef WRITE setShellRef NOTIFY shellRefChanged)
@@ -66,9 +65,6 @@ class UIStore : public QObject {
     bool searchOpen() const {
         return m_searchOpen;
     }
-    bool shareSheetOpen() const {
-        return m_shareSheetOpen;
-    }
     bool clipboardManagerOpen() const {
         return m_clipboardManagerOpen;
     }
@@ -80,7 +76,6 @@ class UIStore : public QObject {
     Q_INVOKABLE void openSearch();
     Q_INVOKABLE void closeSearch();
     Q_INVOKABLE void toggleSearch();
-    Q_INVOKABLE void closeShareSheet();
     Q_INVOKABLE void openClipboardManager();
     Q_INVOKABLE void closeClipboardManager();
     Q_INVOKABLE void openQuickSettings();
@@ -110,7 +105,6 @@ class UIStore : public QObject {
     void currentAppIconChanged();
     void settingsOpenChanged();
     void searchOpenChanged();
-    void shareSheetOpenChanged();
     void clipboardManagerOpenChanged();
     void shellRefChanged();
 
@@ -127,7 +121,6 @@ class UIStore : public QObject {
     void     setCurrentAppIcon(const QString &appIcon);
     void     setSettingsOpen(bool open);
     void     setSearchOpen(bool open);
-    void     setShareSheetOpen(bool open);
     void     setClipboardManagerOpen(bool open);
 
     bool     m_quickSettingsOpen     = false;
@@ -139,7 +132,6 @@ class UIStore : public QObject {
     QString  m_currentAppIcon;
     bool     m_settingsOpen         = false;
     bool     m_searchOpen           = false;
-    bool     m_shareSheetOpen       = false;
     bool     m_clipboardManagerOpen = false;
     QObject *m_shellRef             = nullptr;
 };

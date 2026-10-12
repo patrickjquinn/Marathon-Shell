@@ -35,9 +35,6 @@ void UIStore::toggleSearch() {
     }
 }
 
-void UIStore::closeShareSheet() {
-    setShareSheetOpen(false);
-}
 
 void UIStore::openClipboardManager() {
     setClipboardManagerOpen(true);
@@ -131,7 +128,6 @@ void UIStore::closeAll() {
     closeApp();
     closeSettings();
     closeSearch();
-    closeShareSheet();
     closeClipboardManager();
 }
 
@@ -205,14 +201,6 @@ void UIStore::setSearchOpen(bool open) {
     }
     m_searchOpen = open;
     emit searchOpenChanged();
-}
-
-void UIStore::setShareSheetOpen(bool open) {
-    if (m_shareSheetOpen == open) {
-        return;
-    }
-    m_shareSheetOpen = open;
-    emit shareSheetOpenChanged();
 }
 
 void UIStore::setClipboardManagerOpen(bool open) {
