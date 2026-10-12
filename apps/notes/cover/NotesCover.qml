@@ -14,6 +14,7 @@ CoverBackground {
         objectName: "coverPlaceholder"
         visible: cover.notes.length === 0
         text: qsTr("No notes")
+        icon.source: "image://theme/icon-m-note"
     }
 
     Column {
