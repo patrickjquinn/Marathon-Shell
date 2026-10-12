@@ -23,7 +23,10 @@ errors=0
 
 # ─ QML ──────────────────────────────────────────────────────────────────────
 
-QMLLINT="$(command -v qmllint-qt6 || command -v qmllint || true)"
+# Qt's own bin dir first: a bare `qmllint` on PATH can be Qt 5's, which
+# accepts Qt 6 QML and silently reports nothing.
+QT6_BINS="$(qtpaths6 --query QT_INSTALL_BINS 2>/dev/null || true)"
+QMLLINT="$( [ -x "$QT6_BINS/qmllint" ] && echo "$QT6_BINS/qmllint" || command -v qmllint-qt6 || command -v qmllint || true)"
 if [ -z "$QMLLINT" ]; then
     echo "[lint] qmllint not installed -- QML checks skipped" >&2
     errors=1
