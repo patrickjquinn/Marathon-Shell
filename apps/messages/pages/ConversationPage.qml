@@ -14,7 +14,9 @@ Page {
     property var conversation
     property var messages: []
     readonly property string recipientNumber: conversation.contactNumber
-    readonly property bool canSend: pendingText === "" && input.text.trim() !== ""
+    property string contactName: conversation.contactName || ""
+    readonly property bool hasModem: Telephony.hasModem
+    readonly property bool canSend: hasModem && pendingText === "" && input.text.trim() !== ""
     property string pendingText: ""
     property string sendError: ""
 
@@ -97,8 +99,25 @@ Page {
         model: root.messages
 
         header: PageHeader {
-            title: Logic.displayName(root.conversation)
-            description: root.conversation.contactName ? Logic.formatNumber(root.conversation.contactNumber) : ""
+            title: root.contactName || Logic.formatNumber(root.recipientNumber)
+            description: root.contactName ? Logic.formatNumber(root.recipientNumber) : ""
+        }
+
+        PullDownMenu {
+            MenuItem {
+                objectName: "addContactItem"
+                visible: root.contactName === ""
+                text: qsTr("Add to contacts")
+                onClicked: {
+                    const dialog = pageStack.push(Qt.resolvedUrl("AddContactDialog.qml"), { number: root.recipientNumber });
+                    dialog.accepted.connect(() => root.contactName = dialog.name);
+                }
+            }
+            MenuItem {
+                objectName: "callItem"
+                text: qsTr("Call")
+                onClicked: Navigation.launchAppWithRoute("phone", "/call", JSON.stringify({ number: root.recipientNumber }))
+            }
         }
 
         ViewPlaceholder {
@@ -111,7 +130,6 @@ Page {
             required property var modelData
 
             width: view.width
-            height: implicitHeight
             message: modelData
         }
 
@@ -124,6 +142,17 @@ Page {
             left: parent.left
             right: parent.right
             bottom: parent.bottom
+        }
+
+        Label {
+            objectName: "noModem"
+            x: Theme.horizontalPageMargin
+            width: parent.width - 2 * Theme.horizontalPageMargin
+            visible: !root.hasModem
+            text: qsTr("No SIM — messages can't be sent")
+            wrapMode: Text.Wrap
+            font.pixelSize: Theme.fontSizeExtraSmall
+            color: Theme.secondaryHighlightColor
         }
 
         Label {
@@ -167,6 +196,7 @@ Page {
                 enabled: root.canSend
                 icon.source: "image://theme/icon-m-send"
                 Accessible.name: root.sendError !== "" ? qsTr("Retry") : qsTr("Send")
+                Accessible.description: root.hasModem ? "" : qsTr("No SIM — messages can't be sent")
                 onClicked: root.send()
             }
         }

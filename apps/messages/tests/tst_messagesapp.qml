@@ -23,6 +23,8 @@ TestCase {
             { id: 2, text: "Lunch?", timestamp: now - 60000, isOutgoing: false, sender: "+15551234567" }
         ] });
         Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }, { name: "Alice", phone: "+15551234567" }];
+        Contacts.added = [];
+        Telephony.hasModem = true;
         const store = storeStub.createObject(test, { value: state || "{}" });
         const app = createTemporaryObject(appComponent, test, { store: store });
         tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy && findChild(app.pageStack.currentPage, "conversationList"));
@@ -148,6 +150,90 @@ TestCase {
         tryVerify(() => page(app).hasOwnProperty("archive") && !app.pageStack.busy);
         app.openConversation(sample()[0]);
         compare(findChild(waitForPage(app, "conversation"), "messageField").text, "half a thought");
+    }
+
+    function test_routeOpensNewConversation() {
+        Sms.reset(sample(), {});
+        Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }];
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "+1 555 987 6543" }) });
+        const conv = waitForPage(app, "conversation");
+        compare(conv.conversation.contactNumber, "+1 555 987 6543");
+        compare(conv.contactName, "Bob Smith");
+        compare(app.pageStack.depth, 2);
+    }
+
+    function test_routeOpensExistingThread() {
+        Sms.reset(sample(), {});
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "5551234567" }) });
+        compare(waitForPage(app, "conversation").conversation.id, "a");
+    }
+
+    function test_noModemBlocksSendButKeepsTyping() {
+        const app = makeApp();
+        Telephony.hasModem = false;
+        app.openConversation(sample()[0]);
+        const conv = waitForPage(app, "conversation");
+        verify(findChild(conv, "noModem").visible);
+        const field = findChild(conv, "messageField");
+        field.text = "later";
+        verify(!findChild(conv, "sendButton").enabled);
+        conv.send();
+        compare(Sms.sent, []);
+        compare(app.drafts.a, "later");
+        Telephony.hasModem = true;
+        verify(!findChild(conv, "noModem").visible);
+        verify(findChild(conv, "sendButton").enabled);
+    }
+
+    function test_callFromPulley() {
+        const app = makeApp();
+        Navigation.launches = [];
+        app.openConversation(sample()[0]);
+        const conv = waitForPage(app, "conversation");
+        compare(conv.contactName, "Alice");
+        findChild(conv, "callItem").clicked();
+        compare(Navigation.launches, [{ appId: "phone", route: "/call", params: JSON.stringify({ number: "+15551234567" }) }]);
+    }
+
+    function test_addUnknownNumberToContacts() {
+        const app = makeApp();
+        app.openConversation(sample()[1]);
+        const conv = waitForPage(app, "conversation");
+        compare(conv.contactName, "");
+        findChild(conv, "addContactItem").clicked();
+        tryVerify(() => page(app).hasOwnProperty("number") && !app.pageStack.busy);
+        const dialog = page(app);
+        verify(!dialog.canAccept);
+        findChild(dialog, "nameField").text = "Dana";
+        dialog.accept();
+        tryVerify(() => page(app) === conv && !app.pageStack.busy);
+        compare(Contacts.added, [{ name: "Dana", phone: "+447700900123" }]);
+        compare(conv.contactName, "Dana");
+    }
+
+    function test_bubblesHaveNoFillAndCanBeCopied() {
+        const app = makeApp();
+        Sms.messages = { a: [
+            { id: 1, text: "Hi", timestamp: now - 120000, isOutgoing: false, sender: "+15551234567" },
+            { id: 2, text: "Hello", timestamp: now - 60000, isOutgoing: true, sender: "" }
+        ] };
+        app.openConversation(sample()[0]);
+        const conv = waitForPage(app, "conversation");
+        const view = findChild(conv, "messageList");
+        let incoming = null;
+        let outgoing = null;
+        tryVerify(() => (incoming = view.itemAtIndex(0)) && (outgoing = view.itemAtIndex(1)));
+        compare(findChild(incoming, "messageText").color, Theme.highlightColor);
+        compare(findChild(outgoing, "messageText").color, Theme.primaryColor);
+        verify(findChild(outgoing, "messageText").x > findChild(incoming, "messageText").x);
+        Clipboard.text = "";
+        outgoing.openMenu();
+        tryVerify(() => outgoing.menuOpen && outgoing._menuItem._expanded && !outgoing._menuItem._displayHeightAnimating);
+        const copy = findChild(outgoing._menuItem, "copyItem");
+        mouseClick(copy);
+        tryCompare(Clipboard, "text", "Hello");
     }
 
     function test_newMessageWithContact() {

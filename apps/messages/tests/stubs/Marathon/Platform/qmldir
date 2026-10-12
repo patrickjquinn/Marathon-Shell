@@ -1,3 +1,5 @@
 module Marathon.Platform
 singleton Sms 1.0 Sms.qml
 singleton Contacts 1.0 Contacts.qml
+singleton Telephony 1.0 Telephony.qml
+singleton Navigation 1.0 Navigation.qml
