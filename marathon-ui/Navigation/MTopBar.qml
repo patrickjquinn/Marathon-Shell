@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonOS.Shell
 
@@ -122,17 +123,19 @@ Rectangle {
         width: visible ? root.backSize : 0
         height: root.backSize
         anchors.left: parent.left
-        anchors.leftMargin: root.insetMd
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.insetMd
+        anchors.leftMargin: root.insetSm
+        anchors.verticalCenter: titleText.verticalCenter
 
-        Text {
+        Icon {
             anchors.centerIn: parent
-            text: "‹"        // single left guillemet — chevron-left glyph
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeTitle2
+            name: "caret-left"
+            size: Math.round(24 * root.scaleFactor)
+            color: MColors.textPrimary
         }
+
+        Accessible.role: Accessible.Button
+        Accessible.name: "Back"
+        Accessible.onPressAction: root.backClicked()
 
         MouseArea {
             anchors.fill: parent

@@ -66,6 +66,15 @@ import MarathonUI.Theme
 StackView {
     id: stack
 
+    // Drop the keyboard unless the new page focused a field of its own.
+    function hideKeyboardUnlessEditing() {
+        const focused = stack.Window.activeFocusItem;
+        if (!focused || !("cursorPosition" in focused))
+            Qt.inputMethod.hide(); // qmllint disable missing-property
+    }
+
+    onCurrentItemChanged: Qt.callLater(stack.hideKeyboardUnlessEditing)
+
     // The width the outgoing/incoming pages translate across. Bound to
     // the stack's own width by default; expose for cases where the
     // stack is wider than the visible viewport (e.g. inside a SwipeView

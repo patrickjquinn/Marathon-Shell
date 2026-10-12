@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
@@ -73,7 +75,13 @@ Rectangle {
 
             scale: backMouseArea.pressed ? 0.96 : 1.0
 
+            Accessible.role: Accessible.Button
+            Accessible.name: root.backLabel
+            Accessible.onPressAction: root.backClicked()
+
             Behavior on scale {
+            enabled: !MMotion.reduceMotion
+
                 SpringAnimation {
                     spring: MMotion.springMedium
                     damping: MMotion.dampingMedium
@@ -150,11 +158,23 @@ Rectangle {
 
                     Rectangle {
                         id: actionTab
+
+                        required property var modelData
+                        required property int index
+
                         width: parent.width / actionRepeater.count
                         height: parent.height
                         color: isActive ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
 
                         property bool isActive: index === root.activeAction
+
+                        Accessible.role: Accessible.PageTab
+                        Accessible.name: modelData.label || ""
+                        Accessible.selected: isActive
+                        Accessible.onPressAction: {
+                            root.activeAction = index;
+                            root.actionSelected(index);
+                        }
 
                         scale: actionMouseArea.pressed ? 0.96 : 1.0
 
@@ -165,6 +185,8 @@ Rectangle {
                         }
 
                         Behavior on scale {
+            enabled: !MMotion.reduceMotion
+
                             SpringAnimation {
                                 spring: MMotion.springMedium
                                 damping: MMotion.dampingMedium
@@ -265,7 +287,7 @@ Rectangle {
                             spacing: Math.round(6 * root.scaleFactor)
 
                             Icon {
-                                name: modelData.icon || ""
+                                name: actionTab.modelData.icon || ""
                                 size: Math.round(22 * root.scaleFactor)
                                 color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -278,7 +300,7 @@ Rectangle {
                             }
 
                             Text {
-                                text: modelData.label || ""
+                                text: actionTab.modelData.label || ""
                                 color: actionTab.isActive ? MColors.textPrimary : MColors.textSecondary
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Normal
@@ -299,8 +321,8 @@ Rectangle {
 
                             onPressed: MHaptics.lightImpact()
                             onClicked: {
-                                root.activeAction = index;
-                                root.actionSelected(index);
+                                root.activeAction = actionTab.index;
+                                root.actionSelected(actionTab.index);
                             }
                         }
                     }
@@ -342,7 +364,13 @@ Rectangle {
 
                 scale: sigMouseArea.pressed ? 0.96 : 1.0
 
+                Accessible.role: Accessible.Button
+                Accessible.name: "Create"
+                Accessible.onPressAction: root.signatureClicked()
+
                 Behavior on scale {
+            enabled: !MMotion.reduceMotion
+
                     SpringAnimation {
                         spring: MMotion.springLight
                         damping: MMotion.dampingLight
@@ -392,6 +420,10 @@ Rectangle {
         Rectangle {
             id: overflowButton
             visible: root.showOverflow
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "More options"
+            Accessible.onPressAction: root.overflowClicked()
             anchors.verticalCenter: parent.verticalCenter
             width: Math.round(54 * root.scaleFactor)
             height: parent.height

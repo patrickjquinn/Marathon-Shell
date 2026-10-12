@@ -9,6 +9,7 @@ SwipeView {
     property bool hapticEnabled: true
     property bool bounceEnabled: true
     property real bounceIntensity: 0.1
+    readonly property ListView listView: contentItem as ListView
 
     signal pageChanged(int index)
     signal swipeStarted
@@ -25,16 +26,19 @@ SwipeView {
         pageChanged(currentIndex);
     }
 
-    onMovingChanged: {
-        if (moving) {
-            swipeStarted();
-        } else {
-            swipeFinished();
+    Connections {
+        target: root.listView
+
+        function onMovingChanged() {
+            if (root.listView.moving)
+                root.swipeStarted();
+            else
+                root.swipeFinished();
         }
     }
 
     Behavior on contentItem.x {
-        enabled: !moving
+        enabled: !(root.listView && root.listView.moving)
         SpringAnimation {
             spring: MMotion.springMedium
             damping: MMotion.dampingMedium

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -57,6 +59,9 @@ Rectangle {
             model: root.actions
 
             MButton {
+                required property var modelData
+                required property int index
+
                 text: modelData.text || ""
                 iconName: modelData.icon || ""
                 variant: modelData.variant || "default"

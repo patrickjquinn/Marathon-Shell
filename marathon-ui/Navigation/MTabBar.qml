@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -173,13 +175,27 @@ Rectangle {
 
             Item {
                 id: tabButton
+
+                required property var modelData
+                required property int index
+
                 width: root.width / tabRepeater.count
                 height: parent.height
 
                 property bool selected: index === root.activeTab
 
+                Accessible.role: Accessible.PageTab
+                Accessible.name: modelData.label || ""
+                Accessible.selected: selected
+                Accessible.onPressAction: {
+                    root.activeTab = index;
+                    root.tabSelected(index);
+                }
+
                 scale: tabMouseArea.pressed ? 0.96 : 1.0
                 Behavior on scale {
+                    enabled: !MMotion.reduceMotion
+
                     SpringAnimation {
                         spring: MMotion.stiffnessSpatialFor("tap")
                         damping: MMotion.dampingSpatialFor("tap")
@@ -195,7 +211,7 @@ Rectangle {
 
                     Icon {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        name: modelData.icon || ""
+                        name: tabButton.modelData.icon || ""
                         size: Math.round(20 * root.scaleFactor)
                         color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
                         Behavior on color {
@@ -207,7 +223,7 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: modelData.label || ""
+                        text: tabButton.modelData.label || ""
                         color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeCaption
@@ -226,8 +242,9 @@ Rectangle {
                     anchors.fill: parent
                     onPressed: MHaptics.lightImpact()
                     onClicked: {
-                        root.activeTab = index;
-                        root.tabSelected(index);
+                        Qt.inputMethod.hide(); // qmllint disable missing-property
+                        root.activeTab = tabButton.index;
+                        root.tabSelected(tabButton.index);
                     }
                 }
             }

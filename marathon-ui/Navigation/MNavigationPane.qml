@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonUI.Theme
 import MarathonOS.Shell
@@ -43,6 +45,11 @@ Rectangle {
             model: root.items
 
             Rectangle {
+                id: navItem
+
+                required property var modelData
+                required property int index
+
                 width: parent.width
                 height: MSpacing.touchTargetMin
                 color: index === root.selectedIndex ? Qt.rgba(0, 191 / 255, 165 / 255, 0.12) : "transparent"
@@ -51,10 +58,10 @@ Rectangle {
                 Text {
                     anchors.fill: parent
                     anchors.leftMargin: MSpacing.md
-                    text: modelData.title || modelData
-                    color: index === root.selectedIndex ? MColors.marathonTeal : MColors.textPrimary
+                    text: navItem.modelData.title || navItem.modelData
+                    color: navItem.index === root.selectedIndex ? MColors.marathonTeal : MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
-                    font.weight: index === root.selectedIndex ? MTypography.weightDemiBold : MTypography.weightNormal
+                    font.weight: navItem.index === root.selectedIndex ? MTypography.weightDemiBold : MTypography.weightNormal
                     font.family: MTypography.fontFamily
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -62,8 +69,8 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        root.selectedIndex = index;
-                        root.itemSelected(index, modelData);
+                        root.selectedIndex = navItem.index;
+                        root.itemSelected(navItem.index, navItem.modelData);
                     }
                 }
             }

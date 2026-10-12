@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonUI.Theme
 
@@ -17,9 +19,13 @@ Row {
         model: root.count
 
         Rectangle {
-            width: index === root.currentIndex ? dotSize * 2 : dotSize
-            height: dotSize
-            radius: dotSize / 2
+            id: dot
+
+            required property int index
+
+            width: index === root.currentIndex ? root.dotSize * 2 : root.dotSize
+            height: root.dotSize
+            radius: root.dotSize / 2
             color: index === root.currentIndex ? root.activeColor : root.inactiveColor
 
             Behavior on width {
@@ -37,7 +43,7 @@ Row {
             }
 
             Rectangle {
-                visible: index === root.currentIndex
+                visible: dot.index === root.currentIndex
                 anchors.centerIn: parent
                 width: parent.width - 2
                 height: parent.height - 2
