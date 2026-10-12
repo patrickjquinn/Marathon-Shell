@@ -110,10 +110,11 @@ overlay token.
 (each with a `*Dim` sibling for borders/secondary fills).
 
 **Text ladder:**
-`textPrimary #f5f5f5` → `textSecondary #6a6a6a` → `textTertiary #4a4a4a`
-→ `textHint #2a2a2a` → `textOnAccent #ffffff`. Three secondary tiers
-sounds like a lot; on OLED with 720x1440 it's the difference between
-"label", "metadata", and "placeholder" being legible without being loud.
+`textPrimary #f5f5f5` → `textSecondary #9a9a9a` → `textTertiary #8a8a8a`
+→ `textHint #5a5a5a` → `textOnAccent #000000`. `textSecondary` and
+`textTertiary` clear WCAG AA (4.5:1) on `elev0`–`elev3`; use them for any
+text a person needs to read, placeholders included. `textHint` is for
+disabled controls only (exempt from contrast minimums).
 
 ### 2.2 Typography
 
@@ -134,7 +135,7 @@ sweet spot.
 ### 2.3 Geometry
 
 **Spacing** (`MSpacing`, base px × scaleFactor):
-`xs 5 · sm 10 · md 16 · lg 20 · xl 32 · xxl 40`. Default gap between
+`xs 4 · sm 8 · md 16 · lg 24 · xl 32 · xxl 40` (4/8 grid). Default gap between
 related items is `sm`; between unrelated sections, `lg`. The grid is
 opinionated — designers don't get to pick "13".
 
@@ -144,14 +145,14 @@ reserved for the literal pill shape (badges, page indicators, the
 nav-bar pill itself). This is where Marathon visually diverges from
 iOS's pervasive rounded-rect language.
 
-**Touch targets**: `touchTargetMin 45 · Small 60 · Medium 70 · Large 90`.
+**Touch targets**: `touchTargetMin 44 · Small 60 · Medium 70 · Large 90`.
 Even a status-bar tap zone uses `Min` — never less, regardless of icon
 size.
 
 ### 2.4 Density grid
 
 The shell ships at 720×1440 on the L5 and is laid out around a 24-column
-soft grid with `lg` (20 px) gutters. Cards span 22 columns (the canonical
+soft grid with `lg` (24 px) gutters. Cards span 22 columns (the canonical
 content width); status chrome occupies the full 24. Apps don't get a
 say in the column count — they get `MPage`, which enforces it.
 
@@ -266,9 +267,8 @@ tracks the finger 1:1 — the spring only fires on cancel.
 
 ### 4.4 Reduce motion
 
-`MMotion.reduceMotion` is the central toggle. Bound at app startup from
-GNOME (`org.gnome.desktop.interface enable-animations`) or KDE
-(`KAccessibilityCommon.skipFancyEffects`). When true:
+`MMotion.reduceMotion` is the central toggle, bound to Settings → Display →
+Reduce Motion (`SettingsManager.reduceMotion`, readable by every app). When true:
 
 - `dur(token)` returns `micro` (80 ms)
 - `ease(token)` returns `Easing.OutQuad` (no overshoot)
@@ -497,14 +497,14 @@ must go through `MHaptics`, not `HapticManager` directly — that keeps
 
 These are *primitives*, not features.
 
-- **`MMotion.reduceMotion`** — bound from `org.gnome.desktop.interface
-  enable-animations`. Every animation routes through `dur()`/`ease()`
+- **`MMotion.reduceMotion`** — bound to Settings → Display → Reduce
+  Motion. Every animation routes through `dur()`/`ease()`
   or `MMotion.roles` accessors.
 - **`MMotion.reduceBlur`** + **`MMotion.translucencyLevel`** — bound
   from `org.gnome.desktop.a11y reduce-transparency`. `MGlass`
   collapses to opaque chrome when reduce-blur is on; otherwise scales
   blur+tint linearly by translucencyLevel.
-- **Touch-target floor** — `MSpacing.touchTargetMin 45 px` (scaled).
+- **Touch-target floor** — `MSpacing.touchTargetMin 44 px` (scaled).
   Even status-bar taps respect this — never less.
 - **Typography scaling** — every type token multiplies by
   `Constants.scaleFactor`. The shell reads system DPI on init;
