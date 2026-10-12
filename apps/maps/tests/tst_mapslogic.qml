@@ -107,6 +107,19 @@ TestCase {
         compare(Logic.placeLine({ name: "X", address: "", type: "cafe" }), "Café");
     }
 
+    function test_addRecent() {
+        const a = { name: "A", address: "A, X", lat: 1, lon: 1 };
+        const b = { name: "B", address: "B, X", lat: 2, lon: 2 };
+        let r = Logic.addRecent([], a);
+        r = Logic.addRecent(r, b);
+        r = Logic.addRecent(r, a);
+        compare(r.map(p => p.name), ["A", "B"]);
+        for (let i = 0; i < 20; i++)
+            r = Logic.addRecent(r, { name: "P" + i, address: "", lat: i, lon: 0 });
+        compare(r.length, 10);
+        compare(Logic.parseList("nope"), []);
+    }
+
     function test_mapFailureIsPermanent() {
         verify(Logic.mapFailureIsPermanent("Failed to initialize WebGL"));
         verify(Logic.mapFailureIsPermanent("Could not create a WebGL context"));

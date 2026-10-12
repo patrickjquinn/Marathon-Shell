@@ -165,3 +165,29 @@ function placeLine(place) {
     const kind = placeKind(place.type);
     return kind && rest ? kind + " · " + rest : kind || rest;
 }
+
+const recentLimit = 10;
+
+function parseList(json) {
+    try {
+        const v = JSON.parse(json);
+        return Array.isArray(v) ? v : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// The chosen place first; an earlier pick of the same place moves up.
+function addRecent(recents, place) {
+    const same = p => p.name === place.name && Math.abs(p.lat - place.lat) < 1e-6 && Math.abs(p.lon - place.lon) < 1e-6;
+    const entry = { name: place.name, address: place.address, lat: place.lat, lon: place.lon, type: place.type || "" };
+    return [entry].concat(recents.filter(p => !same(p))).slice(0, recentLimit);
+}
+
+// Nominatim prefers results inside this box but still returns others.
+function searchUrl(query, fix) {
+    let url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(query) + "&format=json&limit=10";
+    if (fix)
+        url += "&viewbox=" + [fix.lon - 0.5, fix.lat + 0.5, fix.lon + 0.5, fix.lat - 0.5].map(v => v.toFixed(4)).join(",");
+    return url;
+}

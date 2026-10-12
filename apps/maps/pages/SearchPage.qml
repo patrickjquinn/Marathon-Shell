@@ -40,7 +40,9 @@ Page {
 
         objectName: "resultsView"
         anchors.fill: parent
-        model: root.query.trim().length > 2 ? root.app.searchResults : []
+        readonly property bool showingRecent: root.query.trim() === ""
+
+        model: showingRecent ? root.app.recentPlaces : root.app.searchResults
 
         header: Column {
             property alias field: searchField
@@ -64,6 +66,11 @@ Page {
                     focus = false;
                 }
             }
+            SectionHeader {
+                objectName: "recentHeader"
+                text: qsTr("Recent")
+                visible: view.showingRecent && view.count > 0
+            }
         }
 
         PullDownMenu {
@@ -85,8 +92,8 @@ Page {
         ViewPlaceholder {
             objectName: "placeholder"
             enabled: !root.app.searching && view.count === 0
-            text: root.app.searchError !== "" ? qsTr("Search didn't work") : root.app.lastQuery !== "" && root.query.trim().length > 2 ? qsTr("No places found") : qsTr("Find a place")
-            hintText: root.app.searchError !== "" ? root.app.searchError : root.app.lastQuery !== "" && root.query.trim().length > 2 ? qsTr("Check the spelling, or try a street, city or postcode") : qsTr("Type an address, a place or a postcode")
+            text: root.app.searchError !== "" ? qsTr("Search didn't work") : root.app.lastQuery !== "" && !view.showingRecent ? qsTr("No places found") : qsTr("Find a place")
+            hintText: root.app.searchError !== "" ? root.app.searchError : root.app.lastQuery !== "" && !view.showingRecent ? qsTr("Check the spelling, or try a street, city or postcode") : qsTr("Type an address, a place or a postcode")
         }
 
         BusyIndicator {
@@ -111,7 +118,7 @@ Page {
 
                 x: Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                source: "image://theme/icon-m-location"
+                source: view.showingRecent ? "image://theme/icon-m-history" : "image://theme/icon-m-location"
                 color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
             }
             Column {

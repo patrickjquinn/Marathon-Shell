@@ -4,6 +4,7 @@ import QtPositioning as QP
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import Nemo.Configuration 1.0
 import MarathonApp.Maps
 import "MapsLogic.js" as Logic
 import "pages"
@@ -36,6 +37,11 @@ ApplicationWindow {
     }
 
     property var selectedPlace: null
+    property QtObject recentStore: ConfigurationValue {
+        key: "/apps/maps/recentPlaces"
+        defaultValue: "[]"
+    }
+    readonly property var recentPlaces: Logic.parseList(recentStore.value)
     // "idle", "preview" (route shown, not started) or "active" (navigating).
     property string routingMode: "idle"
     property var currentRoute: null
@@ -126,7 +132,7 @@ ApplicationWindow {
             return;
         }
         searching = true;
-        fetch("https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(query) + "&format=json&limit=10", (status, text) => {
+        fetch(Logic.searchUrl(query, fixValid ? fix : null), (status, text) => {
             if (query !== lastQuery)
                 return;
             searching = false;
@@ -141,6 +147,7 @@ ApplicationWindow {
 
     function selectPlace(place) {
         selectedPlace = place;
+        recentStore.value = JSON.stringify(Logic.addRecent(recentPlaces, place));
         mapCall("clearPins");
         mapCall("addPin", "place", place.lat, place.lon, "destination");
         mapCall("setCenter", place.lat, place.lon, 15);

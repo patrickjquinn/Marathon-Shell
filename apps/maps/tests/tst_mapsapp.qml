@@ -29,6 +29,9 @@ TestCase {
             width: 540
             height: 1140
             mapSource: Qt.resolvedUrl("MapStub.qml")
+            recentStore: QtObject {
+                property var value: "[]"
+            }
         }
     }
 
@@ -119,6 +122,43 @@ TestCase {
         compare(current(app).objectName, "placePage");
         compare(app.selectedPlace.name, "Tower Bridge");
         compare(app.pageStack.depth, 2);
+    }
+
+    function test_shortQueryOnEnterAndBias() {
+        const app = makeApp();
+        let asked = "";
+        app.fetch = (url, done) => {
+            asked = url;
+            done(200, JSON.stringify([{ display_name: "Ur, Iraq", lat: "30.9", lon: "46.1", type: "city" }]));
+        };
+        Location.moveTo(10, 1);
+        app.openSearch();
+        settle(app);
+        const field = findChild(current(app), "searchField");
+        field.text = "Ur";
+        field.forceActiveFocus();
+        keyClick(Qt.Key_Return);
+        verify(asked.indexOf("q=Ur") > 0);
+        verify(asked.indexOf("&viewbox=0.5000,10.5000,1.5000,9.5000") > 0);
+        tryCompare(findChild(current(app), "resultsView"), "count", 1);
+    }
+
+    function test_recentPlaces() {
+        const app = makeApp();
+        app.selectPlace(place);
+        app.selectPlace({ name: "Elsewhere", address: "Elsewhere, Town", lat: 1, lon: 2, type: "town" });
+        app.selectPlace(place);
+        compare(app.recentPlaces.map(p => p.name), ["Tower Bridge", "Elsewhere"]);
+        app.openSearch();
+        settle(app);
+        const view = findChild(current(app), "resultsView");
+        compare(view.count, 2);
+        verify(findChild(current(app), "recentHeader").visible);
+        verify(!findChild(current(app), "placeholder").enabled);
+        app.fetch = (url, done) => done(200, "[]");
+        findChild(current(app), "searchField").text = "nowhere";
+        compare(view.count, 0);
+        verify(!findChild(current(app), "recentHeader").visible);
     }
 
     function test_searchFailure() {
