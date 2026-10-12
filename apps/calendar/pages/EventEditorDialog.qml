@@ -97,6 +97,14 @@ Dialog {
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: descriptionArea.focus = true
             }
+            TextArea {
+                id: descriptionArea
+
+                objectName: "descriptionArea"
+                width: parent.width
+                label: qsTr("Description")
+                placeholderText: qsTr("Description")
+            }
             ValueButton {
                 objectName: "dateButton"
                 label: qsTr("Date")
@@ -175,14 +183,6 @@ Dialog {
                         }
                     }
                 }
-            }
-            TextArea {
-                id: descriptionArea
-
-                objectName: "descriptionArea"
-                width: parent.width
-                label: qsTr("Description")
-                placeholderText: qsTr("Description")
             }
         }
 
