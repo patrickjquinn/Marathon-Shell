@@ -31,7 +31,6 @@ launch() {
     QT_SCALE_FACTOR=1 \
     MARATHON_FORCE_DPI=160 \
     MARATHON_SHELL_QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml" \
-    MARATHON_UI_QML_IMPORT_PATH="$PROJECT_DIR/build" \
     QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$PROJECT_DIR/build" \
     MARATHON_DATA_DIR="$PROJECT_DIR/shell/resources" \
     "$PROJECT_DIR/build/shell/marathon-shell-bin" -geometry 720x720 \

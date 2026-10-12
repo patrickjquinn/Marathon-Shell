@@ -9,7 +9,7 @@ file. When this doc disagrees with someone's opinion in a PR review: the
 doc wins until the next baseline revision (which is a Bigger Decision
 than the PR).
 
-Source of truth for token values: `marathon-ui/Theme/*.qml`. Numbers
+Source of truth for token values: `shell/qml/theme/*.qml`. Numbers
 quoted here are the base before `Constants.scaleFactor`.
 
 ---
@@ -556,8 +556,8 @@ runs anywhere. These are the rules the rendering pipeline depends on:
 
 ### When adding a new component
 
-1. Belongs in `marathon-ui/` if reusable across apps + shell; in
-   `shell/qml/components/` if shell-only.
+1. Belongs in `marathon-silica/` if apps need it; in `shell/qml/ui/`
+   if shell-only.
 2. Every color: `MColors`. Every spacing: `MSpacing`. Every radius:
    `MRadius`. Every duration/spring: `MMotion.durationFor(role)` /
    `MMotion.stiffnessSpatialFor(role)`. No inline values.
@@ -573,7 +573,7 @@ runs anywhere. These are the rules the rendering pipeline depends on:
 
 1. Identify the role being changed (a spring stiffness, a colour, a
    duration). If it's not in a role table, propose a new role first.
-2. Update the role/token in `marathon-ui/Theme/*.qml`.
+2. Update the role/token in `shell/qml/theme/*.qml`.
 3. Update **this doc**. The doc is the change log for the system.
 4. Sweep the codebase for inline duplicates of the old value
    (`rg '#1de9b6' --type qml`) and migrate or leave a comment
@@ -717,7 +717,7 @@ not a vague aspiration:
 - **Target hardware**: Librem 5 (i.MX 8M Quad + etnaviv GC7000Lite,
   720×1440), Raspberry Pi 5 (Cortex-A76 + V3D, varies), pmOS QEMU
   developer simulator.
-- **Source of truth**: `marathon-ui/Theme/*.qml`. This doc reflects
+- **Source of truth**: `shell/qml/theme/*.qml`. This doc reflects
   those files; when they diverge, update this doc.
 - **Cross-references**: `docs/CODING_RULES.md` for the surrounding
   engineering rules (C8 lifecycle, C11 no-context-properties, C12

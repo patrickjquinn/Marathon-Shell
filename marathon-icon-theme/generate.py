@@ -14,8 +14,8 @@ from fontTools.ttLib import TTFont
 
 here = Path(__file__).resolve().parent
 repo = here.parent
-font = TTFont(repo / "marathon-ui/Core/fonts/Phosphor-Light.ttf")
-glyphs_js = (repo / "marathon-ui/Core/PhosphorGlyphs.js").read_text()
+font = TTFont(repo / "shell/qml/ui/fonts/Phosphor-Light.ttf")
+glyphs_js = (repo / "shell/qml/ui/PhosphorGlyphs.js").read_text()
 codepoints = {name: int(cp, 16) for name, cp in re.findall(r'"([a-z0-9-]+)": "\\u([0-9A-Fa-f]{4})"', glyphs_js)}
 
 upm = font["head"].unitsPerEm

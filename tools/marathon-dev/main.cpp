@@ -234,44 +234,27 @@ int initCommand(const QStringList &args) {
     appFileName += "App.qml";
 
     QString qmlTemplate = QString(R"(import QtQuick
-import QtQuick.Controls
-import MarathonUI.Core
-import MarathonUI.Controls
-import MarathonOS.Shell
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
-MApplicationWindow {
-    id: root
-    title: "%1"
-    
-    initialPage: mainPage
-    
-    Component {
-        id: mainPage
-        
-        MPage {
-            title: "%1"
-            
-            MColumn {
-                anchors.centerIn: parent
-                spacing: 20
-                
-                MText {
-                    text: "Welcome to %1!"
-                    type: MText.Heading
-                }
-                
-                MButton {
-                    text: "Get Started"
-                    onClicked: {
-                        console.log("Button clicked!")
-                    }
-                }
+ApplicationWindow {
+    appId: "%2"
+
+    initialPage: Component {
+        Page {
+            PageHeader {
+                title: "%1"
+            }
+
+            ViewPlaceholder {
+                enabled: true
+                text: "Welcome to %1!"
             }
         }
     }
 }
 )")
-                              .arg(appName);
+                              .arg(appName, manifest["id"].toString());
 
     QFile qmlFile(appId + "/" + appId.replace("-", "") + "App.qml");
     if (qmlFile.open(QIODevice::WriteOnly)) {

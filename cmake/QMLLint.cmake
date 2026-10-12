@@ -51,47 +51,8 @@ function(add_qmllint_target target_name)
         endif()
     endif()
     
-    # Find the MarathonUI module dir. We pick exactly ONE canonical path
-    # per module family — adding both `build/qmllint` and `build/MarathonUI`
-    # (which export the same singletons) triggers thousands of "Ambiguous
-    # type detected" warnings that drown out real findings. Prefer:
-    #   1. CMAKE_BINARY_DIR/MarathonUI when building marathon-ui directly
-    #   2. The dedicated build/qmllint staging tree if it exists
-    #   3. A sibling build/MarathonUI from an out-of-source build
-    set(_marathon_ui_path "")
-    if(CMAKE_CURRENT_BINARY_DIR MATCHES "marathon-ui"
-       AND EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/MarathonUI")
-    elseif(EXISTS "${CMAKE_BINARY_DIR}/qmllint/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/qmllint")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build/qmllint/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/build/qmllint")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/../build/qmllint/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/../build/qmllint")
-    elseif(EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/MarathonUI")
-        # Hoist module dir → parent to match QML_IMPORT_PATH convention.
-        get_filename_component(_marathon_ui_path "${_marathon_ui_path}" DIRECTORY)
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build-ui/MarathonUI")
-        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/build-ui")
-    endif()
-    if(_marathon_ui_path)
-        list(APPEND import_paths "${_marathon_ui_path}")
-    endif()
-
     if(EXISTS "${CMAKE_BINARY_DIR}/shell/qml")
         list(APPEND import_paths "${CMAKE_BINARY_DIR}/shell/qml")
-    endif()
-    
-    # 4. Check for installed MarathonUI (user-local)
-    set(marathon_ui_import_path "$ENV{HOME}/.local/share/marathon-ui")
-    if(EXISTS "${marathon_ui_import_path}")
-        list(APPEND import_paths "${marathon_ui_import_path}")
-    endif()
-    
-    # 5. Check for system-installed MarathonUI
-    if(EXISTS "/usr/lib/qt6/qml/MarathonUI")
-        list(APPEND import_paths "/usr/lib/qt6/qml/MarathonUI")
     endif()
     
     # Add MarathonOS.Shell import path (for shell QML files)
@@ -136,20 +97,9 @@ function(add_qmllint_target target_name)
     # Create a custom target that runs qmllint
     # Check if target already exists to avoid duplicates
     if(NOT TARGET ${target_name}_qmllint)
-        # Make qmllint depend on MarathonUI being built first (for shell linting)
-        # This ensures MarathonUI modules exist before we try to lint shell code that imports them
         set(qmllint_dependencies "")
-        if(TARGET marathon-ui-theme)
-            list(APPEND qmllint_dependencies marathon-ui-theme)
-        endif()
-        if(TARGET marathon-ui-core)
-            list(APPEND qmllint_dependencies marathon-ui-core)
-        endif()
         if(TARGET marathon-shell)
             list(APPEND qmllint_dependencies marathon-shell)
-        endif()
-        if(TARGET marathon-ui-qmllint-modules)
-            list(APPEND qmllint_dependencies marathon-ui-qmllint-modules)
         endif()
         
         add_custom_target(${target_name}_qmllint
@@ -197,11 +147,6 @@ function(validate_qml_directory target_name directory_path)
             get_filename_component(qt_qml_path ${qt_qml_path} DIRECTORY)
             list(APPEND import_paths "${qt_qml_path}/qml")
         endif()
-    endif()
-    
-    set(marathon_ui_import_path "$ENV{HOME}/.local/share/marathon-ui")
-    if(EXISTS "${marathon_ui_import_path}")
-        list(APPEND import_paths "${marathon_ui_import_path}")
     endif()
     
     string(REPLACE ";" ":" import_path_env "${import_paths}")

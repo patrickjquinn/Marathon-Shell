@@ -725,6 +725,22 @@ endif()
 # exists in marathon-shell-bin's address space). The APKBUILD's
 # package() step strips this directive post-install.
 
+# Sora and JetBrains Mono for fontconfig users (greetd, terminals, apps
+# outside the shell's qrc). The static cuts register as distinct styles.
+install(FILES
+    qml/theme/fonts/Sora.ttf
+    qml/theme/fonts/Sora-Thin.ttf
+    qml/theme/fonts/Sora-ExtraLight.ttf
+    qml/theme/fonts/Sora-Light.ttf
+    qml/theme/fonts/Sora-Regular.ttf
+    qml/theme/fonts/Sora-Medium.ttf
+    qml/theme/fonts/Sora-SemiBold.ttf
+    qml/theme/fonts/Sora-Bold.ttf
+    qml/theme/fonts/Sora-ExtraBold.ttf
+    qml/theme/fonts/JetBrainsMono-Medium.ttf
+    DESTINATION share/fonts/marathon
+)
+
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon.portal

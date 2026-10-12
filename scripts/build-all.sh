@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build MarathonUI, Marathon Shell AND all apps in one command
+# Build Marathon Shell AND all apps in one command
 
 set -e
 
@@ -18,42 +18,6 @@ echo ""
         QT_PATH="/usr"
     fi
     
-# Step 1: Build MarathonUI
-echo "Step 1/3: Building MarathonUI..."
-echo "----------------------------------------"
-cd "$PROJECT_ROOT"
-
-BUILD_UI_DIR="$PROJECT_ROOT/build-ui"
-INSTALL_UI_DIR="$HOME/.local/share/marathon-ui"
-
-# Check if MarathonUI needs rebuilding
-NEEDS_UI_RECONFIGURE=false
-if [ ! -d "$BUILD_UI_DIR" ]; then
-    echo "Creating MarathonUI build directory..."
-    mkdir -p "$BUILD_UI_DIR"
-    NEEDS_UI_RECONFIGURE=true
-elif [ -f "$BUILD_UI_DIR/CMakeCache.txt" ]; then
-    # Check if generator is Ninja
-    if ! grep -q "CMAKE_GENERATOR:INTERNAL=Ninja" "$BUILD_UI_DIR/CMakeCache.txt" 2>/dev/null; then
-        echo "  MarathonUI build directory uses wrong generator, reconfiguring..."
-        rm -rf "$BUILD_UI_DIR"
-        mkdir -p "$BUILD_UI_DIR"
-        NEEDS_UI_RECONFIGURE=true
-    fi
-fi
-
-if [ "$NEEDS_UI_RECONFIGURE" = true ] || [ "$PROJECT_ROOT/marathon-ui/CMakeLists.txt" -nt "$BUILD_UI_DIR/CMakeCache.txt" ]; then
-    cd "$BUILD_UI_DIR"
-    cmake "$PROJECT_ROOT/marathon-ui" \
-        -G Ninja \
-        -DCMAKE_PREFIX_PATH="$QT_PATH" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$HOME/.local"
-    cd ..
-fi
-
-cd "$BUILD_UI_DIR"
-
 # Detect CPU cores for parallel build
 if [[ "$OSTYPE" == "darwin"* ]]; then
     CORES=$(sysctl -n hw.ncpu)
@@ -61,17 +25,8 @@ else
     CORES=$(nproc)
 fi
 
-cmake --build . --parallel $CORES
-cmake --install .
-
-cd "$PROJECT_ROOT"
-
-echo ""
-echo " MarathonUI built and installed successfully!"
-echo ""
-
-# Step 2: Build Marathon Shell
-echo "Step 2/3: Building Marathon Shell..."
+# Step 1: Build Marathon Shell
+echo "Step 1/2: Building Marathon Shell..."
 echo "----------------------------------------"
 cd "$PROJECT_ROOT"
 
@@ -109,8 +64,8 @@ echo ""
 echo " Marathon Shell built successfully!"
 echo ""
 
-# Step 3: Build all Marathon Apps
-echo "Step 3/3: Building Marathon Apps..."
+# Step 2: Build all Marathon Apps
+echo "Step 2/2: Building Marathon Apps..."
 echo "----------------------------------------"
 # Pass any arguments (like "install") to build-apps.sh
 # QML linting is handled by build-apps.sh and CMake qmllint targets
@@ -123,9 +78,6 @@ echo "============================================"
 echo ""
 echo "To run Marathon Shell:"
 echo "  ./build/shell/marathon-shell-bin"
-echo ""
-echo "To rebuild just MarathonUI:"
-echo "  cd build-ui && cmake --build . && cmake --install ."
 echo ""
 echo "To rebuild just the shell:"
 if [[ "$OSTYPE" == "darwin"* ]]; then

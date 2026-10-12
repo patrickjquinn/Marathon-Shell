@@ -39,7 +39,7 @@ Nemo.Configuration, tests). Fuller reference: apps/notes.
 | MPageIndicator | PageIndicator (Marathon.Silica) |
 | MFilterChip | FilterChip (Marathon.Silica) |
 | MCard, MFloatingActionButton | redesign: ListItem rows; PullDownMenu actions |
-| Icon { name: "x" } | `Icon { source: "image://theme/icon-m-<name>" }`, Sailfish names. Every name used must be in marathon-icon-theme/icon-map.txt; add missing ones (Phosphor glyph names from marathon-ui/Core/PhosphorGlyphs.js), then run marathon-icon-theme/generate.py and commit the SVGs. |
+| Icon { name: "x" } | `Icon { source: "image://theme/icon-m-<name>" }`, Sailfish names. Every name used must be in marathon-icon-theme/icon-map.txt; add missing ones (Phosphor glyph names from shell/qml/ui/PhosphorGlyphs.js), then run marathon-icon-theme/generate.py and commit the SVGs. |
 | HapticService | `import Nemo.Ngf 1.0` → NonGraphicalFeedback { event: "feedback_press" } (events: shell/src/services/ngfevents.h) |
 | SettingsManagerCpp.get/set (app storage) | `import Nemo.Configuration 1.0` → ConfigurationValue { key: "/apps/<appId>/<name>" } |
 | NotificationService (posting) | `import Nemo.Notifications 1.0` → Notification { appName; summary; body; remoteActions } |

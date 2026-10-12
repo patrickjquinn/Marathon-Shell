@@ -69,7 +69,7 @@ if [ $? -eq 0 ]; then
     export QT_QUICK_CONTROLS_UNIVERSAL_THEME=""
     export QT_QUICK_CONTROLS_UNIVERSAL_VARIANT=""
     
-    # Set QML import path for MarathonUI modules
+    # Set QML import path for the shell module
     export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
     
     # Run the app (detect OS)

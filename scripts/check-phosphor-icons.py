@@ -22,7 +22,7 @@ import re
 import sys
 
 
-GLYPH_TABLE = pathlib.Path("marathon-ui/Core/PhosphorGlyphs.js")
+GLYPH_TABLE = pathlib.Path("shell/qml/ui/PhosphorGlyphs.js")
 # `icon:` / `"icon":` was the only shape checked, so every glyph passed
 # through the OTHER two spellings went unchecked -- `iconName:` (the
 # MEmptyState / MActiveFrame / MHubRow API) and Icon's own `name:`. That

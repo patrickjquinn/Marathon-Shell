@@ -24,27 +24,14 @@ if [ -x "$PROJECT_ROOT/scripts/check-qml-singletons.sh" ]; then
 fi
 
 # Set up ALL import paths
-MARATHON_UI_PATH="$HOME/.local/share/marathon-ui"
 SHELL_QML_PATH="$PROJECT_ROOT/shell/qml"
 QT_QML_PATH="$(qmlplugindump -nonrelocatable -noinstantiateqmltypes -noncomposite -defaultplatform QtQuick 2.0 2>/dev/null | grep -o 'path: .*' | cut -d' ' -f2 | head -1 || echo '/opt/homebrew/opt/qt@6/share/qt/qml')"
     
-# Check Marathon UI installation
-if [ ! -d "$MARATHON_UI_PATH" ]; then
-    echo -e "${RED}Marathon UI not found at $MARATHON_UI_PATH${NC}"
-    echo "  Please rebuild Marathon UI first:"
-    echo "  cd $PROJECT_ROOT && ./scripts/full-build.sh"
-    exit 1
-fi
-
-echo -e "${GREEN}${NC} Marathon UI found at $MARATHON_UI_PATH"
-
 # Build comprehensive import paths
-IMPORT_PATHS="-I $MARATHON_UI_PATH"
-IMPORT_PATHS="$IMPORT_PATHS -I $SHELL_QML_PATH"
+IMPORT_PATHS="-I $SHELL_QML_PATH"
 [ -d "$QT_QML_PATH" ] && IMPORT_PATHS="$IMPORT_PATHS -I $QT_QML_PATH"
 
 echo "  Import paths configured:"
-echo "    - $MARATHON_UI_PATH"
 echo "    - $SHELL_QML_PATH"
 [ -d "$QT_QML_PATH" ] && echo "    - $QT_QML_PATH"
 echo ""
@@ -117,7 +104,7 @@ echo ""
     echo -e "${RED}Validation failed with $ERROR_COUNT file(s) containing errors${NC}"
     echo ""
     echo "These are REAL errors that will cause runtime failures:"
-    echo "  - Missing imports (e.g. MarathonUI.Navigation for MActionBar)"
+    echo "  - Missing imports"
     echo "  - Non-existent properties"
     echo "  - Type mismatches"
     echo ""

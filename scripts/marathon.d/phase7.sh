@@ -96,7 +96,7 @@ cmd_fmt() {
             echo "$out"
             qml_issues=$((qml_issues + 1))
         fi
-    done < <(find "$MARATHON_SRC/marathon-ui" "$MARATHON_SRC/shell/qml" "$MARATHON_SRC/apps" \
+    done < <(find "$MARATHON_SRC/shell/qml" "$MARATHON_SRC/apps" \
         -name '*.qml' -not -path '*/build/*' 2>/dev/null)
     if [ "$qml_issues" -gt 0 ]; then
         marathon::error "qmllint: $qml_issues files with issues"

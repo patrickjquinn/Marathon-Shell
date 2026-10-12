@@ -219,32 +219,23 @@ A full image bake is ~10-20 min. For QML / shell C++ iteration on an
 already-flashed device, push the deltas and restart greetd:
 
 ```bash
-# 1. Shell binary (only when C++ changed)
+# 1. Shell binary (C++ or shell QML changed; shell QML is compiled in)
 sshpass -p marathon scp build/shell/marathon-shell-bin \
   root@marathon.local:/usr/bin/
 
 # 2. Shell libs (when shell libs changed)
 sshpass -p marathon scp build/lib*.so* root@marathon.local:/usr/lib/
 
-# 3. MarathonUI Controls QML — easiest thing to forget
-sshpass -p marathon scp marathon-ui/Controls/*.qml \
-  root@marathon.local:/usr/lib/qt6/qml/MarathonUI/Controls/
-# Also push Core/ Theme/ Effects/ when changed.
-
-# 4. Bust the QML disk cache
+# 3. Bust the QML disk cache
 sshpass -p marathon ssh root@marathon.local \
   'rm -rf /home/user/.cache/marathon-qml /root/.cache/marathon-qml'
 
-# 5. Restart
+# 4. Restart
 sshpass -p marathon ssh root@marathon.local 'systemctl restart greetd'
 
-# 6. Verify
+# 5. Verify
 scripts/device-snap.sh <label>
 ```
-
-Editing `marathon-ui/Controls/MQSTile.qml` on disk DOES NOT propagate without
-step 3 — the shell binary baked a `qmldir` at build time, but at runtime QML
-is loaded from `/usr/lib/qt6/qml/MarathonUI/...`.
 
 The per-app variant (the qrc-shadow trick where disk pushes to
 `/usr/share/marathon-apps/<app>/` are ignored until you also strip
@@ -324,9 +315,9 @@ wrong.
 
 | Path                                              | What it is                                                        |
 |---------------------------------------------------|-------------------------------------------------------------------|
-| `~/Developer/Marathon-Shell/`                     | This repo. Shell C++ + QML, MarathonUI Controls, scripts.         |
+| `~/Developer/Marathon-Shell/`                     | This repo. Shell C++ + QML, apps, scripts.                        |
 | `~/Developer/Marathon-Shell/shell/`               | Shell C++ source. Wayland glue at `shell/src/wayland/`.           |
-| `~/Developer/Marathon-Shell/marathon-ui/`         | MarathonUI QML modules: `Core/`, `Theme/`, `Effects/`, `Controls/`. |
+| `~/Developer/Marathon-Shell/shell/qml/theme/`, `shell/qml/ui/` | Shell theme singletons (MColors, MTypography, ...) and shell-only components. |
 | `~/Developer/Marathon-Shell/tools/marathon-webview-runner/` | WPE WebKit runner (Phase 2 validated). `main.cpp` is the dmabuf bridge entry. |
 | `~/Developer/Marathon-Shell/scripts/`             | Host-side scripts. `device-snap.sh`, `flash/`, `qemu/automation/`. |
 | `~/Developer/Marathon-Shell/docs/redesign/`       | JSX source-of-truth for next-gen surfaces (incl. `ds-qml-guide.jsx`). |
@@ -383,8 +374,6 @@ wrong.
 | Path on device                                    | What it is                                                        |
 |---------------------------------------------------|-------------------------------------------------------------------|
 | `/usr/bin/marathon-shell-bin`                     | Shell binary.                                                     |
-| `/usr/lib/qt6/qml/MarathonUI/Controls/`           | MarathonUI Controls QML (push deltas here for hot-deploy).        |
-| `/usr/lib/qt6/qml/MarathonUI/{Core,Theme,Effects}/` | Other MarathonUI modules.                                       |
 | `/usr/share/marathon-apps/<app>/`                 | App QML on disk (qrc-shadowed unless qmldir patched — see hot-deploy QRC trick memory). |
 | `/home/user/.cache/marathon-qml/`                 | User-side QML compile cache (bust on hot-deploy).                 |
 | `/root/.cache/marathon-qml/`                      | Root-side QML compile cache (bust on hot-deploy).                 |

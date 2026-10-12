@@ -222,7 +222,6 @@ message(STATUS "Marathon Core library added for app management")
 
 add_subdirectory(marathon-services)
 
-add_subdirectory(marathon-ui)
 add_subdirectory(marathon-silica)
 add_subdirectory(marathon-icon-theme)
 add_subdirectory(marathon-fonts)

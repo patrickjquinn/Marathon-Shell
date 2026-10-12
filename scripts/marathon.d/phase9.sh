@@ -27,7 +27,7 @@ cmd_quickstart() {
        marathon apps
 
   4. Iterate on the shell:
-       # after editing shell/ or marathon-ui/
+       # after editing shell/
        marathon deploy         # build + push + verify hash
 
   5. Interact with the device:

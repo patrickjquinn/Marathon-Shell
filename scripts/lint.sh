@@ -2,7 +2,7 @@
 # Mechanical enforcement for the rules in docs/CODING_RULES.md sections B & C.
 #
 # Runs:
-#   - qmllint over shell/qml, marathon-ui, apps/*/qml
+#   - qmllint over shell/qml, apps/*/qml
 #   - clazy-standalone (if installed) over compile_commands.json
 #   - clang-tidy (always; we have it) with a Qt-aware check set
 #
@@ -30,12 +30,9 @@ if [ -z "$QMLLINT" ]; then
 else
     echo "[lint] qmllint via $QMLLINT"
 
-    # qmllint needs to find our QML modules (MarathonUI.*, MarathonOS.Shell,
-    # MarathonApp.*). The cmake build emits the qmldir trees under build/.
-    # Without -I pointing there every file reports "Failed to import
-    # MarathonUI.Theme" and the real warnings get drowned out.
+    # qmllint needs to find our QML modules (MarathonOS.Shell, MarathonApp.*).
+    # The cmake build emits the qmldir trees under build/.
     QMLDIR_ROOTS=()
-    [ -d "$BUILD_DIR/MarathonUI"  ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR")
     [ -d "$BUILD_DIR/shell/qml"   ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/shell/qml")
     # Apps do NOT build into $BUILD_DIR -- they build into build-apps/, and
     # each app is its own import root (build-apps/apps/<app>/MarathonApp/<X>).
@@ -53,7 +50,7 @@ else
 
     QML_FILES=()
     while IFS= read -r -d '' f; do QML_FILES+=("$f"); done < <(
-        find shell/qml apps marathon-ui -name '*.qml' -not -path '*/build*/*' -print0 2>/dev/null)
+        find shell/qml apps -name '*.qml' -not -path '*/build*/*' -print0 2>/dev/null)
     if [ "${#QML_FILES[@]}" -gt 0 ]; then
         # Per-category levels live in .qmllint.ini at the repo root, which
         # qmllint discovers by walking up from each file. Do NOT pass
@@ -79,7 +76,7 @@ fi
 # Only lint our own source. Skip generated, build, third-party, asyncfuture.
 filter_sources() {
     jq -r '.[].file' "$COMPDB" |
-        grep -E "/(shell|marathon-core|marathon-ui|tools/marathon-app-runner)/" |
+        grep -E "/(shell|marathon-core|tools/marathon-app-runner)/" |
         grep -vE "/(build|third-party|\.qt|\.rcc|autogen|qmltyperegistrations|_qmlcache)" |
         grep -E '\.(cpp|cc)$'
 }
@@ -95,7 +92,7 @@ if [ -n "$CLAZY" ]; then
     # accounted for 12 no-module-include findings in /usr/include/qt6 that
     # nobody here can fix.
     "$CLAZY" -p "$BUILD_DIR" \
-        --header-filter="$PWD/(shell|apps|marathon-ui|marathon-core|marathon-services)/" \
+        --header-filter="$PWD/(shell|apps|marathon-core|marathon-services)/" \
         -checks=level0,level1,no-overloaded-signal,no-non-pod-global-static \
         "${SOURCES[@]}" 2>&1 || errors=1
 else
@@ -121,7 +118,7 @@ if [ -n "$CLANG_TIDY" ]; then
     # qtwaylandscanner-generated *-server.h headers (under build/shell/) and
     # MOC autogen (under build/<target>_autogen/) don't get linted -- those
     # are codegen, not source.
-    HEADER_FILTER='^(?!.*/(build|_autogen)/).*/(shell|marathon-core|marathon-ui|tools/marathon-app-runner)/.*$'
+    HEADER_FILTER='^(?!.*/(build|_autogen)/).*/(shell|marathon-core|tools/marathon-app-runner)/.*$'
     # --warnings-as-errors is what makes clang-tidy actually exit non-zero on
     # warning hits; without it the binary returns 0 even with thousands of
     # diagnostics. Same check list as enabled so we don't accidentally elevate
