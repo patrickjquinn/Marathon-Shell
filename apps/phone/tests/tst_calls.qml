@@ -85,6 +85,19 @@ TestCase {
         tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
     }
 
+    function test_declineWithMessage() {
+        Navigation.reset();
+        const app = makeApp();
+        Telephony.incomingCall("5551234567");
+        tryVerify(() => app.incomingPage !== null);
+        waitIdle(app);
+        findChild(app.incomingPage, "messageButton").clicked(null);
+        compare(Telephony.log, ["hangup"]);
+        compare(Navigation.launches.length, 1);
+        compare(JSON.parse(Navigation.launches[0].params).number, "5551234567");
+        tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
+    }
+
     function test_activeCallControls() {
         const app = makeApp();
         app.call("5551234567");
