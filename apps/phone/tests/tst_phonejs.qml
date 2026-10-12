@@ -64,4 +64,16 @@ TestCase {
         compare(rows[0].number, "+353 87 123 4567");
         compare(Phone.groupCalls([]), []);
     }
+
+    function test_peopleRows() {
+        const rows = Phone.peopleRows([
+            { id: 1, name: "grace Hopper" },
+            { id: 2, name: "Ada Lovelace", favorite: true },
+            { id: 3, name: "Alan Turing" },
+            { id: 4, name: "+353 87 123" }
+        ], "");
+        compare(rows.map(r => r.id), [2, 4, 3, 1]);
+        compare(rows.map(r => r.section), ["*", "#", "A", "G"]);
+        compare(Phone.peopleRows([{ id: 1, name: "Ada" }, { id: 2, name: "Bob" }], "bo").map(r => r.id), [2]);
+    }
 }

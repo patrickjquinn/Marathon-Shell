@@ -11,10 +11,7 @@ TabItem {
     property var phone
     property real headerOffset
     property string query: ""
-    readonly property var people: {
-        const all = Phone.filterContacts(phone.contacts, query);
-        return all.filter(c => c.favorite === true).concat(all.filter(c => c.favorite !== true));
-    }
+    readonly property var people: Phone.peopleRows(phone.contacts, query)
 
     function newContact() {
         phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), { contact: null });
@@ -62,6 +59,13 @@ TabItem {
             }
         }
 
+        section.property: "section"
+        section.delegate: SectionHeader {
+            required property string section
+
+            text: section === "*" ? qsTr("Favorites") : section
+        }
+
         ViewPlaceholder {
             objectName: "peoplePlaceholder"
             enabled: list.count === 0
@@ -75,7 +79,7 @@ TabItem {
             required property var modelData
 
             objectName: "personItem"
-            contentHeight: Theme.itemSizeMedium
+            contentHeight: Theme.itemSizeSmall
             Accessible.name: modelData.name || ""
             menu: ContextMenu {
                 MenuItem {
@@ -93,41 +97,13 @@ TabItem {
             }
             onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactPage.qml"), { phone: root.phone, contactId: modelData.id })
 
-            Column {
-                anchors {
-                    left: parent.left
-                    leftMargin: Theme.horizontalPageMargin
-                    right: favoriteIcon.left
-                    rightMargin: Theme.paddingMedium
-                    verticalCenter: parent.verticalCenter
-                }
-
-                Label {
-                    width: parent.width
-                    text: item.modelData.name || ""
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
-                }
-                Label {
-                    width: parent.width
-                    text: Phone.format(item.modelData.phone)
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                }
-            }
-
-            Icon {
-                id: favoriteIcon
-
-                anchors {
-                    right: parent.right
-                    rightMargin: Theme.horizontalPageMargin
-                    verticalCenter: parent.verticalCenter
-                }
-                visible: item.modelData.favorite === true
-                source: "image://theme/icon-s-favorite"
-                color: Theme.highlightColor
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: item.modelData.name || Phone.format(item.modelData.phone)
+                truncationMode: TruncationMode.Fade
+                color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
             }
         }
 

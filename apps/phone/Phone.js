@@ -90,3 +90,15 @@ function groupCalls(history) {
     }
     return out;
 }
+
+// Favourites first under "*", then alphabetical under each name's initial ("#" if not a letter).
+function peopleRows(contacts, query) {
+    const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""));
+    const initial = c => {
+        const ch = String(c.name || "").trim().charAt(0).toUpperCase();
+        return ch.toLowerCase() !== ch ? ch : "#";
+    };
+    const all = filterContacts(contacts, query).slice().sort(byName);
+    return all.filter(c => c.favorite === true).map(c => Object.assign({ section: "*" }, c))
+        .concat(all.filter(c => c.favorite !== true).map(c => Object.assign({ section: initial(c) }, c)));
+}
