@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: shareSheet
@@ -38,69 +40,40 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: Math.round(400 * Constants.scaleFactor)
-        radius: Constants.borderRadiusMedium
-        color: Qt.rgba(15, 15, 15, 0.98)
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.15)
-        layer.enabled: true
+        height: sheetColumn.height + Constants.navBarHeight
+        color: Silica.Theme.rgba("black", 0.85)
         y: shareSheet.visible ? 0 : parent.height
 
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.05)
-            lineWidth: 1
-        }
-
         Column {
-            anchors.fill: parent
-            anchors.margins: 24
-            spacing: Constants.spacingMedium
+            id: sheetColumn
 
-            Row {
+            width: parent.width
+
+            Item {
                 width: parent.width
-                height: Constants.touchTargetMinimum
+                height: Silica.Theme.itemSizeLarge
 
-                Text {
-                    text: "Share"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: Font.DemiBold
-                    font.family: MTypography.fontFamily
+                Silica.IconButton {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Silica.Theme.paddingSmall
                     anchors.verticalCenter: parent.verticalCenter
+                    icon.source: "image://theme/icon-m-close"
+                    Accessible.name: "Close"
+                    onClicked: UIStore.closeShareSheet()
                 }
 
-                Item {
-                    width: parent.width - Math.round(100 * Constants.scaleFactor)
-                    height: Constants.dividerHeight
-                }
-
-                Rectangle {
-                    width: Constants.touchTargetMinimum
-                    height: Constants.touchTargetMinimum
-                    radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(255, 255, 255, 0.08)
-
-                    GlyphIcon {
-                        name: "x"
-                        size: Constants.iconSizeSmall
-                        color: MColors.textPrimary
-                        anchors.centerIn: parent
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: UIStore.closeShareSheet()
-                    }
+                Silica.Label {
+                    anchors.right: parent.right
+                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Share"
+                    color: Silica.Theme.highlightColor
+                    font.pixelSize: Silica.Theme.fontSizeLarge
+                    font.family: Silica.Theme.fontFamilyHeading
                 }
             }
 
-            GridView {
-                width: parent.width
-                height: parent.height - 56
-                cellWidth: width / 4
-                cellHeight: 100
-                clip: true
+            Repeater {
                 model: [
                     {
                         "name": "Messages",
@@ -124,59 +97,38 @@ Item {
                     }
                 ]
 
-                delegate: Item {
+                delegate: Silica.BackgroundItem {
                     id: shareTarget
 
                     required property var modelData
 
-                    width: GridView.view.cellWidth
-                    height: GridView.view.cellHeight
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: Constants.spacingSmall
-
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.round(56 * Constants.scaleFactor)
-                            height: Math.round(56 * Constants.scaleFactor)
-                            radius: Constants.borderRadiusSmall
-                            color: Qt.rgba(255, 255, 255, 0.05)
-                            border.width: 1
-                            border.color: targetMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
-
-                            GlyphIcon {
-                                name: shareTarget.modelData.icon
-                                size: Constants.iconSizeMedium
-                                color: MColors.textPrimary
-                                anchors.centerIn: parent
-                            }
-
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: 150
-                                }
-                            }
-                        }
-
-                        Text {
-                            text: shareTarget.modelData.name
-                            color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeSmall
-                            font.family: MTypography.fontFamily
-                            anchors.horizontalCenter: parent.horizontalCenter
-                        }
+                    width: sheetColumn.width
+                    height: Silica.Theme.itemSizeMedium
+                    onClicked: {
+                        Logger.info("ShareSheet", "Share to: " + shareTarget.modelData.name);
+                        HapticManager.light();
+                        UIStore.closeShareSheet();
                     }
 
-                    MouseArea {
-                        id: targetMouseArea
+                    GlyphIcon {
+                        id: targetIcon
 
-                        anchors.fill: parent
-                        onClicked: {
-                            Logger.info("ShareSheet", "Share to: " + shareTarget.modelData.name);
-                            HapticManager.light();
-                            UIStore.closeShareSheet();
-                        }
+                        x: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: shareTarget.modelData.icon
+                        size: Silica.Theme.iconSizeMedium
+                        color: shareTarget.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    }
+
+                    Silica.Label {
+                        anchors.left: targetIcon.right
+                        anchors.leftMargin: Silica.Theme.paddingLarge
+                        anchors.right: parent.right
+                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: shareTarget.modelData.name
+                        color: shareTarget.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                        truncationMode: Silica.TruncationMode.Fade
                     }
                 }
             }

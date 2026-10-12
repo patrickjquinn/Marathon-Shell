@@ -2,12 +2,14 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Rectangle {
     id: clipboardManager
 
     anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.95)
+    color: Silica.Theme.rgba("black", 0.85)
     visible: UIStore.clipboardManagerOpen
     z: 2650
     opacity: visible ? 1 : 0
@@ -19,175 +21,120 @@ Rectangle {
 
     Column {
         anchors.fill: parent
-        anchors.topMargin: Constants.statusBarHeight + 24
-        anchors.leftMargin: Constants.spacingXLarge
-        anchors.rightMargin: Constants.spacingXLarge
-        anchors.bottomMargin: Constants.navBarHeight + 24
-        spacing: Constants.spacingMedium
+        anchors.topMargin: Constants.statusBarHeight
+        anchors.bottomMargin: Constants.navBarHeight
 
-        Row {
+        Item {
+            id: header
+
             width: parent.width
-            height: Constants.touchTargetMinimum
+            height: Silica.Theme.itemSizeLarge
 
-            Text {
-                text: "Clipboard History"
-                color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.DemiBold
-                font.family: MTypography.fontFamily
-                anchors.verticalCenter: parent.verticalCenter
-            }
+            Silica.BackgroundItem {
+                anchors.left: parent.left
+                width: clearLabel.width + Silica.Theme.horizontalPageMargin * 2
+                height: parent.height
+                onClicked: {
+                    ClipboardManagerCpp.clearHistory();
+                    HapticManager.light();
+                }
 
-            Item {
-                width: parent.width - 200
-            }
+                Silica.Label {
+                    id: clearLabel
 
-            Rectangle {
-                width: Math.round(80 * Constants.scaleFactor)
-                height: Math.round(36 * Constants.scaleFactor)
-                radius: Constants.borderRadiusSmall
-                color: Qt.rgba(255, 255, 255, 0.08)
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(255, 255, 255, 0.12)
-
-                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
                     text: "Clear"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeSmall
-                    font.family: MTypography.fontFamily
-                    anchors.centerIn: parent
+                    color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                 }
+            }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        ClipboardManagerCpp.clearHistory();
-                        HapticManager.light();
-                    }
-                }
+            Silica.Label {
+                anchors.right: parent.right
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Clipboard History"
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                font.family: Silica.Theme.fontFamilyHeading
             }
         }
 
         ListView {
+            id: clipList
+
             width: parent.width
-            height: parent.height - 56
+            height: parent.height - header.height
             clip: true
-            spacing: Constants.spacingSmall
             model: ClipboardManagerCpp.history
 
-            Text {
-                visible: parent.count === 0
-                text: "No clipboard history"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                anchors.centerIn: parent
-            }
-
-            delegate: Rectangle {
+            delegate: Silica.BackgroundItem {
                 id: clipItem
 
                 required property int index
                 required property var modelData
 
                 width: ListView.view.width
-                height: Constants.hubHeaderHeight
-                radius: Constants.borderRadiusSmall
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: Constants.borderWidthThin
-                border.color: itemMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
-                layer.enabled: true
-
-                MTopHairline {
-                    radius: parent.radius
-                    color: Qt.rgba(255, 255, 255, 0.03)
-                    lineWidth: 1
+                height: Math.max(Silica.Theme.itemSizeMedium, clipText.height + Silica.Theme.paddingMedium * 2)
+                onClicked: {
+                    Logger.info("ClipboardManager", "Selected item: " + clipItem.modelData.text.substring(0, 30));
+                    ClipboardManagerCpp.copyToClipboard(clipItem.modelData.text);
+                    HapticManager.light();
+                    UIStore.closeClipboardManager();
                 }
 
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: Constants.spacingMedium
+                Column {
+                    id: clipText
 
-                    Column {
-                        width: parent.width - Math.round(52 * Constants.scaleFactor)
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Math.round(6 * Constants.scaleFactor)
+                    anchors.left: parent.left
+                    anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                    anchors.right: deleteButton.left
+                    anchors.verticalCenter: parent.verticalCenter
 
-                        Text {
-                            text: clipItem.modelData.text
-                            color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeBody
-                            font.family: MTypography.fontFamily
-                            elide: Text.ElideRight
-                            maximumLineCount: 2
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-
-                        Text {
-                            text: {
-                                var date = new Date(clipItem.modelData.timestamp);
-                                return Qt.formatDateTime(date, "hh:mm AP");
-                            }
-                            color: MColors.textTertiary
-                            font.pixelSize: MTypography.sizeXSmall
-                            font.family: MTypography.fontFamily
-                        }
+                    Silica.Label {
+                        text: clipItem.modelData.text
+                        color: clipItem.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        wrapMode: Text.WordWrap
+                        width: parent.width
                     }
 
-                    Rectangle {
-                        width: Constants.touchTargetMinimum
-                        height: Constants.touchTargetMinimum
-                        radius: Constants.borderRadiusSmall
-                        color: deleteMouseArea.pressed ? Qt.rgba(230, 57, 70, 0.2) : Qt.rgba(255, 255, 255, 0.05)
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        GlyphIcon {
-                            name: "trash-2"
-                            size: Constants.iconSizeSmall
-                            color: "#E63946"
-                            anchors.centerIn: parent
+                    Silica.Label {
+                        text: {
+                            var date = new Date(clipItem.modelData.timestamp);
+                            return Qt.formatDateTime(date, "hh:mm AP");
                         }
-
-                        MouseArea {
-                            id: deleteMouseArea
-
-                            anchors.fill: parent
-                            onClicked: {
-                                ClipboardManagerCpp.deleteItem(clipItem.index);
-                                HapticManager.light();
-                            }
-                        }
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 100
-                            }
-                        }
+                        color: clipItem.highlighted ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
                     }
                 }
 
-                MouseArea {
-                    id: itemMouseArea
+                Silica.IconButton {
+                    id: deleteButton
 
-                    anchors.fill: parent
-                    anchors.rightMargin: Math.round(52 * Constants.scaleFactor)
+                    anchors.right: parent.right
+                    anchors.rightMargin: Silica.Theme.paddingSmall
+                    anchors.verticalCenter: parent.verticalCenter
+                    icon.source: "image://theme/icon-m-delete"
+                    Accessible.name: "Delete"
                     onClicked: {
-                        Logger.info("ClipboardManager", "Selected item: " + clipItem.modelData.text.substring(0, 30));
-                        ClipboardManagerCpp.copyToClipboard(clipItem.modelData.text);
+                        ClipboardManagerCpp.deleteItem(clipItem.index);
                         HapticManager.light();
-                        UIStore.closeClipboardManager();
-                    }
-                }
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 150
                     }
                 }
             }
         }
+    }
+
+    Silica.Label {
+        visible: clipList.count === 0
+        anchors.centerIn: parent
+        text: "No clipboard history"
+        color: Silica.Theme.secondaryHighlightColor
+        font.pixelSize: Silica.Theme.fontSizeExtraLarge
+        font.family: Silica.Theme.fontFamilyHeading
     }
 
     Behavior on opacity {
