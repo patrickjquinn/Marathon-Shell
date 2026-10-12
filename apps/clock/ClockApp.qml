@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -19,57 +20,58 @@ MApp {
         alarmsChanged();
     }
 
-    function createAlarm(hour, minute, label, enabled) {
+    function createAlarm(hour, minute, label, repeat) {
         if (typeof AlarmService === 'undefined')
-            return null;
+            return false;
 
-        var timeString = _padZero(hour) + ":" + _padZero(minute);
-        var repeat = [];
-        var alarmId = AlarmService.createAlarm(timeString, label, repeat, {
+        var alarmId = AlarmService.createAlarm(_padZero(hour) + ":" + _padZero(minute), label, repeat, {
             "vibrate": true,
             "snoozeEnabled": true,
             "snoozeDuration": 10
         });
         loadAlarms();
-        return {
-            "id": alarmId,
-            "hour": hour,
-            "minute": minute,
-            "label": label,
-            "enabled": enabled !== undefined ? enabled : true,
-            "repeat": repeat
-        };
+        return alarmId !== "";
     }
 
-    function updateAlarm(id, hour, minute, label, enabled, repeat) {
+    function updateAlarm(id, hour, minute, label, repeat) {
         if (typeof AlarmService === 'undefined')
             return false;
 
-        var timeString = _padZero(hour) + ":" + _padZero(minute);
-        var repeatDays = [];
-        if (repeat) {
-            for (var i = 0; i < repeat.length; i++) {
-                if (repeat[i])
-                    repeatDays.push(i);
-            }
-        }
-        AlarmService.updateAlarm(id, {
-            "time": timeString,
-            "label": label,
-            "enabled": enabled,
-            "repeat": repeatDays
+        var ok = AlarmService.updateAlarm(id, {
+            "time": _padZero(hour) + ":" + _padZero(minute),
+            "label": label || "Alarm",
+            "enabled": true,
+            "repeat": repeat
         });
         loadAlarms();
-        return true;
+        return ok;
     }
 
     function deleteAlarm(id) {
         if (typeof AlarmService === 'undefined')
             return false;
 
-        AlarmService.deleteAlarm(id);
+        var ok = AlarmService.deleteAlarm(id);
         loadAlarms();
-        return true;
+        return ok;
+    }
+
+    function restoreAlarm(alarm) {
+        if (typeof AlarmService === 'undefined')
+            return false;
+
+        var alarmId = AlarmService.createAlarm(alarm.time, alarm.label, alarm.repeat || [], {
+            "sound": alarm.sound,
+            "vibrate": alarm.vibrate,
+            "snoozeEnabled": alarm.snoozeEnabled,
+            "snoozeDuration": alarm.snoozeDuration
+        });
+        if (alarmId !== "" && !alarm.enabled)
+            AlarmService.updateAlarm(alarmId, {
+                "enabled": false
+            });
+        loadAlarms();
+        return alarmId !== "";
     }
 
     function toggleAlarm(id) {
@@ -109,7 +111,7 @@ MApp {
 
     Connections {
         function onAlarmsChanged() {
-            loadAlarms();
+            clockApp.loadAlarms();
         }
 
         target: typeof AlarmService !== 'undefined' ? AlarmService : null
@@ -119,6 +121,23 @@ MApp {
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
+
+        Binding {
+            target: clockApp
+            property: "navigationDepth"
+            value: alarmPage.backLayers + worldClockPage.backLayers
+        }
+
+        Connections {
+            function onBackPressed() {
+                if (alarmPage.backLayers > 0)
+                    alarmPage.handleBack();
+                else if (worldClockPage.backLayers > 0)
+                    worldClockPage.handleBack();
+            }
+
+            target: clockApp
+        }
 
         Column {
             property int currentView: 1     // default to Clock pane (index 1)
@@ -131,8 +150,7 @@ MApp {
                 height: parent.height - tabBar.height
                 currentIndex: parent.currentView
 
-                // Index order MUST match the tab labels in MTabBar below:
-                // 0 World · 1 Clock · 2 Alarm · 3 Timer · 4 Stopwatch (no tab).
+                // Index order MUST match the tab labels in MTabBar below.
                 WorldClockPage {
                     id: worldClockPage
                 }
@@ -143,14 +161,16 @@ MApp {
 
                 AlarmPage {
                     id: alarmPage
-                }
 
-                TimerPage {
-                    id: timerPage
+                    app: clockApp
                 }
 
                 StopwatchPage {
                     id: stopwatchPage
+                }
+
+                TimerPage {
+                    id: timerPage
                 }
             }
 
@@ -159,9 +179,6 @@ MApp {
 
                 width: parent.width
                 activeTab: parent.currentView
-                // DS ref-clock — World · Clock · Alarm · Timer (4 tabs).
-                // Stopwatch is reachable from the Timer tab's segmented
-                // control to keep the bottom bar at the DS-limited 4.
                 tabs: [
                     {
                         "label": "World",
@@ -176,8 +193,12 @@ MApp {
                         "icon": "bell"
                     },
                     {
-                        "label": "Timer",
+                        "label": "Stopwatch",
                         "icon": "timer"
+                    },
+                    {
+                        "label": "Timer",
+                        "icon": "hourglass"
                     }
                 ]
                 onTabSelected: index => {

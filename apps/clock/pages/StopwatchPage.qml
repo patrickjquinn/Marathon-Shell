@@ -1,5 +1,7 @@
+pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 
@@ -7,6 +9,8 @@ Item {
     id: stopwatchPage
 
     property int elapsedMs: 0
+    property int elapsedBeforeStart: 0
+    property double startedAt: 0
     property bool isRunning: false
     property var laps: []
 
@@ -22,15 +26,20 @@ Item {
         id: stopwatchTimer
 
         interval: 10
-        running: stopwatchPage.isRunning
+        running: stopwatchPage.isRunning && stopwatchPage.visible
         repeat: true
-        onTriggered: {
-            stopwatchPage.elapsedMs += 10;
-        }
+        onTriggered: stopwatchPage.elapsedMs = stopwatchPage.elapsedBeforeStart + (Date.now() - stopwatchPage.startedAt)
+    }
+
+    MTopBar {
+        id: topBar
+        width: parent.width
+        title: "Stopwatch"
     }
 
     Column {
         anchors.fill: parent
+        anchors.topMargin: topBar.height
         spacing: 0
 
         Column {
@@ -46,7 +55,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: formatTime(stopwatchPage.elapsedMs)
+                text: stopwatchPage.formatTime(stopwatchPage.elapsedMs)
                 color: MColors.textPrimary
                 font.pixelSize: MTypography.sizeHuge * 1.2
                 font.weight: Font.Bold
@@ -62,9 +71,10 @@ Item {
                     onClicked: {
                         HapticService.light();
                         if (stopwatchPage.isRunning) {
-                            stopwatchPage.laps.push(stopwatchPage.elapsedMs);
-                            lapsChanged();
+                            stopwatchPage.laps.push(stopwatchPage.elapsedBeforeStart + (Date.now() - stopwatchPage.startedAt));
+                            stopwatchPage.lapsChanged();
                         } else {
+                            stopwatchPage.startedAt = Date.now();
                             stopwatchPage.isRunning = true;
                         }
                     }
@@ -77,7 +87,10 @@ Item {
                         HapticService.light();
                         if (stopwatchPage.isRunning) {
                             stopwatchPage.isRunning = false;
+                            stopwatchPage.elapsedBeforeStart += Date.now() - stopwatchPage.startedAt;
+                            stopwatchPage.elapsedMs = stopwatchPage.elapsedBeforeStart;
                         } else {
+                            stopwatchPage.elapsedBeforeStart = 0;
                             stopwatchPage.elapsedMs = 0;
                             stopwatchPage.laps = [];
                         }
@@ -101,6 +114,11 @@ Item {
             visible: stopwatchPage.laps.length > 0
 
             delegate: Item {
+                id: lapRow
+
+                required property int index
+                required property var modelData
+
                 width: parent.width
                 height: Constants.touchTargetMedium
 
@@ -112,7 +130,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Lap " + (index + 1)
+                        text: "Lap " + (lapRow.index + 1)
                         color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
                         width: parent.width * 0.3
@@ -120,7 +138,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: formatTime(modelData)
+                        text: stopwatchPage.formatTime(lapRow.modelData)
                         color: MColors.marathonTeal
                         font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold

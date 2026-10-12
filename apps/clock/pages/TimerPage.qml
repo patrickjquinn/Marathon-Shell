@@ -1,5 +1,7 @@
+pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 
@@ -24,6 +26,19 @@ Item {
             return m + ":" + (s < 10 ? "0" : "") + s;
     }
 
+    // Keeps the app from being frozen in the background while a countdown runs.
+    property int backgroundHandle: 0
+    onIsRunningChanged: {
+        if (typeof AppLifecycle === "undefined")
+            return;
+        if (isRunning && backgroundHandle === 0)
+            backgroundHandle = AppLifecycle.beginBackgroundTask("countdown-timer", "timer running");
+        else if (!isRunning && backgroundHandle !== 0) {
+            AppLifecycle.endBackgroundTask(backgroundHandle);
+            backgroundHandle = 0;
+        }
+    }
+
     Timer {
         id: countdownTimer
 
@@ -35,13 +50,23 @@ Item {
                 timerPage.remainingSeconds--;
             } else {
                 timerPage.isRunning = false;
-                HapticService.heavy();
+                if (typeof AlarmService !== "undefined")
+                    AlarmService.triggerAlarmNow("Timer");
+                else
+                    HapticService.heavy();
             }
         }
     }
 
+    MTopBar {
+        id: topBar
+        width: parent.width
+        title: "Timer"
+    }
+
     Item {
         anchors.fill: parent
+        anchors.topMargin: topBar.height
 
         Text {
             id: timeText
@@ -49,7 +74,7 @@ Item {
             anchors.top: parent.top
             anchors.topMargin: MSpacing.xl
             anchors.horizontalCenter: parent.horizontalCenter
-            text: formatTime(timerPage.remainingSeconds)
+            text: timerPage.formatTime(timerPage.remainingSeconds)
             color: MColors.textPrimary
             font.pixelSize: Math.min(MTypography.sizeHuge * 1.8, Math.round(parent.width * 0.22))
             font.weight: Font.Light
@@ -93,8 +118,8 @@ Item {
                         variant: "secondary"
                         onClicked: {
                             HapticService.light();
-                            remainingSeconds = modelData * 60;
-                            totalSeconds = remainingSeconds;
+                            timerPage.remainingSeconds = modelData * 60;
+                            timerPage.totalSeconds = timerPage.remainingSeconds;
                         }
                     }
                 }

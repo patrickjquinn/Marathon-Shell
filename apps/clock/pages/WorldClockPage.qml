@@ -1,6 +1,10 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Clock
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQml.Models
 import QtQuick
@@ -10,6 +14,12 @@ Item {
 
     property var cities: []
     property AddCityDialog addCityDialog: null
+    property var lastRemoved: null
+    readonly property int backLayers: addCityDialog && addCityDialog.visible ? 1 : 0
+
+    function handleBack() {
+        addCityDialog.close();
+    }
 
     function loadCities() {
         var saved = SettingsManagerCpp.get("clock/worldCities", "");
@@ -36,32 +46,59 @@ Item {
         return [
             {
                 "name": "New York",
-                "offset": -5,
-                "dst": true
+                "tz": "America/New_York",
+                "offset": -5
             },
             {
                 "name": "London",
-                "offset": 0,
-                "dst": false
+                "tz": "Europe/London",
+                "offset": 0
             },
             {
                 "name": "Tokyo",
-                "offset": 9,
-                "dst": false
+                "tz": "Asia/Tokyo",
+                "offset": 9
             },
             {
                 "name": "Sydney",
-                "offset": 10,
-                "dst": false
+                "tz": "Australia/Sydney",
+                "offset": 10
             }
         ];
     }
 
-    function addCity(name, offset, dst) {
+    // Cities saved before zones were stored only have a fixed offset.
+    function zoneFor(city) {
+        if (city.tz)
+            return city.tz;
+        var known = getDefaultCities();
+        for (var i = 0; i < known.length; i++) {
+            if (known[i].name === city.name)
+                return known[i].tz;
+        }
+        return "";
+    }
+
+    function cityTimeInfo(city) {
+        var tz = zoneFor(city);
+        if (tz && typeof WorldClockHelper !== "undefined") {
+            var r = WorldClockHelper.timeIn(tz);
+            return {
+                "time": r.time,
+                "diff": r.offsetLabel
+            };
+        }
+        return {
+            "time": formatCityTime(city.offset),
+            "diff": (city.offset >= 0 ? "+" : "") + city.offset + "h"
+        };
+    }
+
+    function addCity(name, offset, tz) {
         cities.push({
             "name": name,
-            "offset": offset,
-            "dst": dst
+            "tz": tz,
+            "offset": offset
         });
         citiesChanged();
         saveCities();
@@ -69,7 +106,18 @@ Item {
     }
 
     function removeCity(index) {
-        cities.splice(index, 1);
+        lastRemoved = {
+            "index": index,
+            "city": cities.splice(index, 1)[0]
+        };
+        citiesChanged();
+        saveCities();
+        updateTimeModel();
+        snackbar.show(lastRemoved.city.name + " removed", "Undo");
+    }
+
+    function restoreCity() {
+        cities.splice(Math.min(lastRemoved.index, cities.length), 0, lastRemoved.city);
         citiesChanged();
         saveCities();
         updateTimeModel();
@@ -85,25 +133,41 @@ Item {
         saveCities();
     }
 
+    function formatCityTime(offset) {
+        var cityTime = new Date(Date.now() + offset * 3.6e+06);
+        var hours = cityTime.getUTCHours();
+        var minutes = cityTime.getUTCMinutes();
+        var ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12;
+        if (hours === 0)
+            hours = 12;
+        return hours + ":" + (minutes < 10 ? "0" : "") + minutes + " " + ampm;
+    }
+
+    function refreshTimes() {
+        // Rows are matched by name: drag-reordering moves cities but not timeModel.
+        for (var i = 0; i < timeModel.count; i++) {
+            var row = timeModel.get(i);
+            var city = cities.find(c => c.name === row.cityName) || {
+                "name": row.cityName,
+                "offset": row.offset
+            };
+            var info = cityTimeInfo(city);
+            timeModel.setProperty(i, "cityTime", info.time);
+            timeModel.setProperty(i, "timeDiff", info.diff);
+        }
+    }
+
     function updateTimeModel() {
-        visualModel.model.clear();
-        var now = new Date();
+        timeModel.clear();
         for (var i = 0; i < cities.length; i++) {
             var city = cities[i];
-            var cityTime = new Date(now.getTime() + (city.offset * 3.6e+06));
-            var hours = cityTime.getUTCHours();
-            var minutes = cityTime.getUTCMinutes();
-            var ampm = hours >= 12 ? "PM" : "AM";
-            hours = hours % 12;
-            if (hours === 0)
-                hours = 12;
-
-            var timeStr = hours + ":" + (minutes < 10 ? "0" : "") + minutes + " " + ampm;
-            visualModel.model.append({
+            var info = cityTimeInfo(city);
+            timeModel.append({
                 "cityName": city.name,
-                "cityTime": timeStr,
-                "timeDiff": (city.offset >= 0 ? "+" : "") + city.offset + "h",
-                "cityIndex": i
+                "cityTime": info.time,
+                "timeDiff": info.diff,
+                "offset": city.offset
             });
         }
     }
@@ -114,12 +178,10 @@ Item {
 
     Timer {
         interval: 1000
-        running: true
+        running: worldClockPage.visible
         repeat: true
         triggeredOnStart: true
-        onTriggered: {
-            updateTimeModel();
-        }
+        onTriggered: worldClockPage.refreshTimes()
     }
 
     DelegateModel {
@@ -132,6 +194,9 @@ Item {
         delegate: Item {
             id: delegateRoot
 
+            required property string cityName
+            required property string cityTime
+            required property string timeDiff
             property int heldIndex: -1
             property int dropIndex: -1
 
@@ -166,14 +231,14 @@ Item {
                         spacing: MSpacing.xs
 
                         Text {
-                            text: model.cityName
+                            text: delegateRoot.cityName
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.weight: Font.DemiBold
                         }
 
                         Text {
-                            text: model.timeDiff
+                            text: delegateRoot.timeDiff
                             color: MColors.textSecondary
                             font.pixelSize: MTypography.sizeSmall
                         }
@@ -183,7 +248,7 @@ Item {
                         id: timeText
 
                         anchors.verticalCenter: parent.verticalCenter
-                        text: model.cityTime
+                        text: delegateRoot.cityTime
                         color: MColors.marathonTeal
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Bold
@@ -198,9 +263,10 @@ Item {
                         iconName: "trash-2"
                         iconSize: Constants.iconSizeSmall
                         variant: "ghost"
+                        a11yName: "Remove " + delegateRoot.cityName
                         onClicked: {
                             HapticService.light();
-                            worldClockPage.removeCity(model.cityIndex);
+                            worldClockPage.removeCity(delegateRoot.DelegateModel.itemsIndex);
                         }
                     }
                 }
@@ -279,14 +345,21 @@ Item {
         }
     }
 
+    MTopBar {
+        id: topBar
+        width: parent.width
+        title: "World Clock"
+    }
+
     ListView {
         id: cityList
 
         anchors.fill: parent
-        anchors.topMargin: MSpacing.md
+        anchors.topMargin: topBar.height + MSpacing.md
         clip: true
         model: visualModel
         spacing: 0
+        bottomMargin: fab.height + MSpacing.lg * 2
 
         displaced: Transition {
             NumberAnimation {
@@ -297,59 +370,34 @@ Item {
         }
     }
 
-    Rectangle {
+    MEmptyState {
         anchors.centerIn: parent
-        width: Math.min(parent.width * 0.8, Constants.screenWidth * 0.6)
-        height: emptyColumn.height
-        color: "transparent"
+        width: parent.width - MSpacing.xl * 2
         visible: cityList.count === 0
-
-        Column {
-            id: emptyColumn
-
-            anchors.centerIn: parent
-            spacing: MSpacing.lg
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: ""
-                font.pixelSize: Constants.iconSizeXLarge * 2
-                opacity: 0.5
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "No cities added"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Medium
-            }
-
-            Text {
-                width: parent.width
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Tap the + button to add a city"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-        }
+        iconName: "globe"
+        iconSize: 64
+        title: "No cities added"
+        message: "Tap Add city to compare time zones."
     }
 
-    MIconButton {
+    MFloatingActionButton {
+        id: fab
+
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: MSpacing.lg
-        iconName: "plus"
-        iconSize: 28
-        variant: "primary"
-        shape: "circular"
-        onClicked: {
-            HapticService.light();
-            if (worldClockPage.addCityDialog)
-                worldClockPage.addCityDialog.open();
-        }
+        label: "Add city"
+        onClicked: worldClockPage.addCityDialog.open()
+    }
+
+    MSnackbar {
+        id: snackbar
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: fab.top
+        anchors.margins: MSpacing.md
+        onActionTriggered: worldClockPage.restoreCity()
     }
 
     Loader {
@@ -362,8 +410,8 @@ Item {
         onLoaded: worldClockPage.addCityDialog = item
 
         Connections {
-            function onCityAdded(name, offset) {
-                worldClockPage.addCity(name, offset, false);
+            function onCityAdded(name, offset, tz) {
+                worldClockPage.addCity(name, offset, tz);
             }
 
             target: addCityDialogLoader.item

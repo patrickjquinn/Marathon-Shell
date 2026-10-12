@@ -12,10 +12,21 @@ Item {
     property int alarmMinute: 0
     property string alarmLabel: "Alarm"
     property bool alarmEnabled: true
+    property var alarmRepeat: []
 
     signal toggled
-    signal deleted
     signal clicked
+
+    function repeatSummary(days) {
+        if (days.length === 7)
+            return "Every day";
+        const key = days.slice().sort().join(",");
+        if (key === "1,2,3,4,5")
+            return "Weekdays";
+        if (key === "0,6")
+            return "Weekends";
+        return [1, 2, 3, 4, 5, 6, 0].filter(d => days.indexOf(d) !== -1).map(d => Qt.locale().dayName(d, Locale.ShortFormat)).join(" ");
+    }
 
     function formatTime(hour, minute) {
         var h = hour;
@@ -55,7 +66,7 @@ Item {
                 spacing: MSpacing.xs
 
                 Text {
-                    text: formatTime(alarmItem.alarmHour, alarmItem.alarmMinute)
+                    text: alarmItem.formatTime(alarmItem.alarmHour, alarmItem.alarmMinute)
                     color: alarmItem.alarmEnabled ? MColors.text : MColors.textSecondary
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: MTypography.weightBold
@@ -63,7 +74,9 @@ Item {
                 }
 
                 Text {
-                    text: alarmItem.alarmLabel
+                    width: parent.width
+                    text: alarmItem.alarmRepeat.length > 0 ? alarmItem.alarmLabel + " · " + alarmItem.repeatSummary(alarmItem.alarmRepeat) : alarmItem.alarmLabel
+                    elide: Text.ElideRight
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
@@ -75,6 +88,7 @@ Item {
 
                 anchors.verticalCenter: parent.verticalCenter
                 checked: alarmItem.alarmEnabled
+                a11yName: "Alarm at " + alarmItem.formatTime(alarmItem.alarmHour, alarmItem.alarmMinute)
                 onToggled: {
                     alarmItem.toggled();
                 }

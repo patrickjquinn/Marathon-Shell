@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Navigation
@@ -6,7 +7,7 @@ import QtQuick
 
 // Marathon DS · Clock (screens-apps-2.jsx:ClockApp).
 //
-// MTopBar "Clock" + small "+" + ellipsis. Bare analog dial on black
+// MTopBar "Clock". Bare analog dial on black
 // (no bay) — 60 tick marks, longer hour ticks, numerals at 12/3/6/9,
 // FRI day-of-week left-of-center, AM/PM below center. White hour +
 // minute hands; teal-bright second hand with center pivot.
@@ -56,7 +57,7 @@ Item {
 
     Timer {
         interval: 1000
-        running: true
+        running: clockPage.visible
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -94,7 +95,7 @@ Item {
         anchors.topMargin: 18
         height: dialSize + 24
 
-        readonly property real dialSize: Math.round(parent.width * 0.60)
+        readonly property real dialSize: Math.max(0, Math.min(Math.round(parent.width * 0.60), worldSection.y - y - 24 - MSpacing.md))
 
         Item {
             id: dial
@@ -122,12 +123,16 @@ Item {
                 model: 60
 
                 Item {
+                    id: tick
+
+                    required property int index
+
                     width: dial.width
                     height: dial.height
                     rotation: index * 6
 
                     Rectangle {
-                        property bool isHourMarker: index % 5 === 0
+                        property bool isHourMarker: tick.index % 5 === 0
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
                         anchors.topMargin: 10
@@ -146,53 +151,53 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: 38
+                anchors.topMargin: Math.round(parent.width * 0.117)
                 text: "12"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
-                font.pixelSize: 22
+                font.pixelSize: Math.round(parent.width * 0.068)
                 font.weight: Font.Medium
             }
             Text {
                 anchors.right: parent.right
-                anchors.rightMargin: 38
+                anchors.rightMargin: Math.round(parent.width * 0.117)
                 anchors.verticalCenter: parent.verticalCenter
                 text: "3"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
-                font.pixelSize: 22
+                font.pixelSize: Math.round(parent.width * 0.068)
                 font.weight: Font.Medium
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 38
+                anchors.bottomMargin: Math.round(parent.width * 0.117)
                 text: "6"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
-                font.pixelSize: 22
+                font.pixelSize: Math.round(parent.width * 0.068)
                 font.weight: Font.Medium
             }
             Text {
                 anchors.left: parent.left
-                anchors.leftMargin: 38
+                anchors.leftMargin: Math.round(parent.width * 0.117)
                 anchors.verticalCenter: parent.verticalCenter
                 text: "9"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
-                font.pixelSize: 22
+                font.pixelSize: Math.round(parent.width * 0.068)
                 font.weight: Font.Medium
             }
 
             // Day-of-week label, left of center.
             Text {
                 anchors.right: parent.horizontalCenter
-                anchors.rightMargin: 22
+                anchors.rightMargin: Math.round(parent.width * 0.068)
                 anchors.verticalCenter: parent.verticalCenter
                 text: clockPage.dayOfWeek
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
+                font.pixelSize: Math.max(8, Math.round(parent.width * 0.034))
                 font.weight: Font.Medium
                 font.letterSpacing: 1
             }
@@ -201,11 +206,11 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: 26
+                anchors.verticalCenterOffset: Math.round(parent.width * 0.08)
                 text: clockPage.hours >= 12 ? "PM" : "AM"
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
+                font.pixelSize: Math.max(8, Math.round(parent.width * 0.034))
                 font.weight: Font.Medium
                 font.letterSpacing: 1
             }
@@ -336,13 +341,10 @@ Item {
             anchors.right: parent.right
             anchors.topMargin: 12
             elevation: 3
-            // Row delegates below are 72 px tall; size the card to match
-            // (4 cities × 72) + 16 px breathing room. The previous 4 × 64
-            // shortfall caused Sydney to extend past the card and bleed
-            // through the bottom tab bar's 78%-opaque glass background.
-            height: 4 * 72 + 16
+            height: worldRows.implicitHeight
 
             Column {
+                id: worldRows
                 anchors.fill: parent
                 anchors.topMargin: -8
                 anchors.bottomMargin: -8
@@ -374,26 +376,32 @@ Item {
                         }
                     ]
                     delegate: Item {
+                        id: worldRow
+
+                        required property var modelData
+                        required property int index
+
                         width: parent.width
-                        height: 72
+                        height: Math.max(cityColumn.implicitHeight, timeColumn.implicitHeight) + MSpacing.md * 2
 
                         readonly property var resolved: clockPage.timeIn(modelData.tz)
 
                         Column {
+                            id: cityColumn
                             anchors.left: parent.left
                             anchors.leftMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 4
 
                             Text {
-                                text: resolved.offsetLabel
+                                text: worldRow.resolved.offsetLabel
                                 color: MColors.textTertiary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
                                 font.weight: Font.Normal
                             }
                             Text {
-                                text: modelData.city
+                                text: worldRow.modelData.city
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeSubhead
@@ -402,6 +410,7 @@ Item {
                         }
 
                         Column {
+                            id: timeColumn
                             anchors.right: parent.right
                             anchors.rightMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
@@ -409,10 +418,10 @@ Item {
 
                             Text {
                                 anchors.right: parent.right
-                                text: resolved.time
+                                text: worldRow.resolved.time
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 22
+                                font.pixelSize: MTypography.sizeTitle3
                                 font.weight: Font.Light
                                 font.features: ({
                                         "tnum": 1
@@ -420,7 +429,7 @@ Item {
                             }
                             Text {
                                 anchors.right: parent.right
-                                text: resolved.weekday
+                                text: worldRow.resolved.weekday
                                 color: MColors.textTertiary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
@@ -431,7 +440,7 @@ Item {
                         }
 
                         Rectangle {
-                            visible: index < 3
+                            visible: worldRow.index < 3
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
                             anchors.leftMargin: 20

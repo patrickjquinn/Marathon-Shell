@@ -1,128 +1,115 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Clock
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 
 Item {
     id: alarmPage
 
-    Column {
+    required property var app
+    property var lastDeleted: null
+    readonly property int backLayers: alarmEditorDialog.showing ? 1 : 0
+
+    function handleBack() {
+        alarmEditorDialog.close();
+    }
+
+    function hourOf(timeStr) {
+        return timeStr ? parseInt(timeStr.split(":")[0]) : 0;
+    }
+
+    function minuteOf(timeStr) {
+        return timeStr ? parseInt(timeStr.split(":")[1]) : 0;
+    }
+
+    function reportFailure(ok, message) {
+        if (!ok)
+            snackbar.show(message, "");
+    }
+
+    MTopBar {
+        id: topBar
+        width: parent.width
+        title: "Alarms"
+    }
+
+    ListView {
+        id: alarmsList
+
         anchors.fill: parent
+        anchors.topMargin: topBar.height + MSpacing.md
+        clip: true
+        model: alarmPage.app.alarms
         spacing: 0
+        bottomMargin: fab.height + MSpacing.lg * 2
 
-        Item {
-            width: parent.width
-            height: parent.height
+        delegate: AlarmItem {
+            required property var modelData
 
-            ListView {
-                id: alarmsList
-
-                anchors.fill: parent
-                anchors.topMargin: MSpacing.md
-                clip: true
-                model: clockApp.alarms
-                spacing: 0
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width * 0.8, Constants.screenWidth * 0.6)
-                    height: emptyColumn.height
-                    color: "transparent"
-                    visible: alarmsList.count === 0
-
-                    Column {
-                        id: emptyColumn
-
-                        anchors.centerIn: parent
-                        spacing: MSpacing.lg
-
-                        ClockIcon {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            name: "clock"
-                            size: Constants.iconSizeXLarge * 2
-                            color: MColors.textSecondary
-                            opacity: 0.5
-                        }
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "No alarms set"
-                            color: MColors.textSecondary
-                            font.pixelSize: MTypography.sizeLarge
-                            font.weight: Font.Medium
-                        }
-
-                        Text {
-                            width: parent.width
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Tap the + button to create an alarm"
-                            color: MColors.textSecondary
-                            font.pixelSize: MTypography.sizeBody
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                delegate: AlarmItem {
-                    function _getHour(timeStr) {
-                        if (!timeStr)
-                            return 0;
-
-                        var parts = timeStr.split(":");
-                        return parseInt(parts[0]);
-                    }
-
-                    function _getMinute(timeStr) {
-                        if (!timeStr)
-                            return 0;
-
-                        var parts = timeStr.split(":");
-                        return parseInt(parts[1]);
-                    }
-
-                    width: alarmsList.width
-                    alarmId: modelData && modelData.id !== undefined ? modelData.id : ""
-                    alarmHour: modelData && modelData.time ? _getHour(modelData.time) : (modelData && modelData.hour !== undefined ? modelData.hour : 0)
-                    alarmMinute: modelData && modelData.time ? _getMinute(modelData.time) : (modelData && modelData.minute !== undefined ? modelData.minute : 0)
-                    alarmLabel: modelData && modelData.label !== undefined ? modelData.label : "Alarm"
-                    alarmEnabled: modelData && modelData.enabled !== undefined ? modelData.enabled : false
-                    onClicked: {
-                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel);
-                    }
-                    onToggled: {
-                        clockApp.toggleAlarm(alarmId);
-                    }
-                    onDeleted: {
-                        clockApp.deleteAlarm(alarmId);
-                    }
-                }
-            }
+            width: alarmsList.width
+            alarmId: modelData.id
+            alarmHour: alarmPage.hourOf(modelData.time)
+            alarmMinute: alarmPage.minuteOf(modelData.time)
+            alarmLabel: modelData.label || "Alarm"
+            alarmEnabled: modelData.enabled
+            alarmRepeat: modelData.repeat || []
+            onClicked: alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel, alarmRepeat)
+            onToggled: alarmPage.app.toggleAlarm(alarmId)
         }
     }
 
-    MIconButton {
+    MEmptyState {
+        anchors.centerIn: parent
+        width: parent.width - MSpacing.xl * 2
+        visible: alarmsList.count === 0
+        iconName: "alarm"
+        iconSize: 64
+        title: "No alarms set"
+        message: "Tap New alarm to create one."
+    }
+
+    MFloatingActionButton {
+        id: fab
+
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: MSpacing.lg
-        iconName: "plus"
-        iconSize: 28
-        variant: "primary"
-        shape: "circular"
-        onClicked: {
-            alarmEditorDialog.open();
-        }
+        label: "New alarm"
+        onClicked: alarmEditorDialog.open()
+    }
+
+    MSnackbar {
+        id: snackbar
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: fab.top
+        anchors.margins: MSpacing.md
+        onActionTriggered: alarmPage.reportFailure(alarmPage.app.restoreAlarm(alarmPage.lastDeleted), "Couldn't restore the alarm. Create it again with New alarm.")
     }
 
     AlarmEditorDialog {
         id: alarmEditorDialog
 
-        onAlarmCreated: function (hour, minute) {
-            clockApp.createAlarm(hour, minute, "Alarm", true);
+        onAlarmCreated: function (hour, minute, label, repeat) {
+            alarmPage.reportFailure(alarmPage.app.createAlarm(hour, minute, label, repeat), "Couldn't save the alarm. Try again.");
         }
-        onAlarmUpdated: function (alarmId, hour, minute) {
-            clockApp.updateAlarm(alarmId, hour, minute, "Alarm", true, []);
+        onAlarmUpdated: function (alarmId, hour, minute, label, repeat) {
+            alarmPage.reportFailure(alarmPage.app.updateAlarm(alarmId, hour, minute, label, repeat), "Couldn't save the alarm. Try again.");
+        }
+        onAlarmDeleted: function (alarmId) {
+            const alarm = alarmPage.app._getAlarmById(alarmId);
+            if (!alarmPage.app.deleteAlarm(alarmId)) {
+                snackbar.show("Couldn't delete the alarm. Try again.", "");
+                return;
+            }
+            alarmPage.lastDeleted = alarm;
+            snackbar.show("Alarm deleted", "Undo");
         }
     }
 }
