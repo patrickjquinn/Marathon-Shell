@@ -393,7 +393,9 @@ ApplicationWindow {
                 root.activate();
                 root.openSearch();
             }
-            onEndRequested: root.endNavigation()
+            voiceAvailable: root.voice !== null && root.voice.available
+            muted: root.voice !== null && root.voice.muted
+            onMuteToggled: root.voice.muted = !root.voice.muted
         }
     }
 

@@ -12,15 +12,17 @@ CoverBackground {
     property real distance
     property bool arrived
     property var place: null
+    property bool voiceAvailable
+    property bool muted
 
     signal searchRequested
-    signal endRequested
+    signal muteToggled
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: !root.navigating && !root.place
-        text: qsTr("Find a place")
-        icon.source: "image://theme/icon-m-location"
+        text: qsTr("Maps")
+        icon.source: "image://theme/icon-l-location"
     }
 
     Column {
@@ -87,11 +89,25 @@ CoverBackground {
         }
     }
 
+    // Ending a route stays in the app: a stray tap on Home shouldn't drop it.
     CoverActionList {
+        objectName: "searchActions"
+        enabled: !root.navigating
+
         CoverAction {
             objectName: "coverAction"
-            iconSource: root.navigating ? "image://theme/icon-cover-cancel" : "image://theme/icon-cover-search"
-            onTriggered: root.navigating ? root.endRequested() : root.searchRequested()
+            iconSource: "image://theme/icon-cover-search"
+            onTriggered: root.searchRequested()
+        }
+    }
+    CoverActionList {
+        objectName: "voiceActions"
+        enabled: root.navigating && root.voiceAvailable
+
+        CoverAction {
+            objectName: "muteAction"
+            iconSource: root.muted ? "image://theme/icon-cover-speaker" : "image://theme/icon-cover-speaker-mute"
+            onTriggered: root.muteToggled()
         }
     }
 }

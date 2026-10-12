@@ -52,11 +52,17 @@ TestCase {
         verify(!findChild(cover, "coverPlace").visible);
         compare(findChild(cover, "coverDistance").text, "1.2 km");
         compare(findChild(cover, "coverInstruction").text, "Turn right onto High Street.");
-        compare(findChild(cover, "coverAction").iconSource, "image://theme/icon-cover-cancel");
-        const spy = createTemporaryQmlObject("import QtTest; SignalSpy { signalName: \"endRequested\" }", tc);
+        compare(findChild(cover, "searchActions").enabled, false);
+        compare(findChild(cover, "voiceActions").enabled, false);
+        cover.voiceAvailable = true;
+        verify(findChild(cover, "voiceActions").enabled);
+        compare(findChild(cover, "muteAction").iconSource, "image://theme/icon-cover-speaker-mute");
+        const spy = createTemporaryQmlObject("import QtTest; SignalSpy { signalName: \"muteToggled\" }", tc);
         spy.target = cover;
-        findChild(cover, "coverAction").triggered();
+        findChild(cover, "muteAction").triggered();
         compare(spy.count, 1);
+        cover.muted = true;
+        compare(findChild(cover, "muteAction").iconSource, "image://theme/icon-cover-speaker");
         cover.arrived = true;
         verify(!findChild(cover, "coverDistance").visible);
     }
