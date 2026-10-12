@@ -26,8 +26,9 @@ void AmbienceService::setWallpaper(const QString &path) {
     const QImage img = reader.read();
     if (img.isNull())
         return;
-    const AmbienceSeed seed = deriveAmbienceSeed(img);
-    m_base                  = seed.base;
+    const AmbienceSeed seed   = deriveAmbienceSeed(img);
+    const QColor       chosen = bundledHighlight(local);
+    m_base                    = chosen.isValid() ? chosen : seed.base;
     m_light                 = seed.light;
     m_wallpaperUrl          = local.startsWith(QLatin1Char(':')) ? QStringLiteral("qrc") + local
                                                                  : QUrl::fromLocalFile(local).toString();

@@ -1,5 +1,8 @@
 #include "ambiencederivation.h"
 
+#include <QFileInfo>
+#include <QHash>
+
 #include <array>
 
 AmbienceSeed deriveAmbienceSeed(const QImage &wallpaper) {
@@ -51,14 +54,38 @@ AmbienceSeed deriveAmbienceSeed(const QImage &wallpaper) {
                                  : QColor(qRound(sumR / pixels), qRound(sumG / pixels), qRound(sumB / pixels));
     seed.light = sumLum / pixels / 255.0 > 0.6;
 
-    // The wallpaper's hue at Sailfish's highlight strength: a light pastel on
-    // a dark ambience (water #7ff0fe), a deep tone on a light one (airy
-    // #004c99). A grey wallpaper keeps a near-neutral highlight.
+    // The wallpaper's hue as a restrained highlight: a light pastel on a
+    // dark ambience, a deep quiet tone on a light one. A grey wallpaper
+    // keeps a near-neutral highlight.
     const qreal hue    = qMax<qreal>(0, dominant.hsvHueF());
     const bool  greyed = !best;
     if (seed.light)
-        seed.base = QColor::fromHsvF(hue, greyed ? 0.1 : 1.0, 0.6);
+        seed.base = QColor::fromHsvF(hue, greyed ? 0.1 : 0.65, 0.5);
     else
-        seed.base = QColor::fromHsvF(hue, greyed ? 0.08 : 0.5, 1.0);
+        seed.base = QColor::fromHsvF(hue, greyed ? 0.06 : 0.32, 1.0);
     return seed;
+}
+
+QColor bundledHighlight(const QString &wallpaperPath) {
+    // Each picks up its wallpaper's accent, which is Marathon teal on all of
+    // them; Tundra leans to its sky, Dawn to its warmer glow.
+    static const QHash<QString, QColor> highlights = {
+        {QStringLiteral("slate-aurora"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("long-run"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("carbon"), QColor(0x7d, 0xe6, 0xcf)},
+        {QStringLiteral("indigo-dusk"), QColor(0x84, 0xe8, 0xda)},
+        {QStringLiteral("track"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("mesh"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("contour"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("stride"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("tundra"), QColor(0x88, 0xe3, 0xea)},
+        {QStringLiteral("striae"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("halftone"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("pulse"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("dawn"), QColor(0xa3, 0xee, 0xc9)},
+    };
+    const QFileInfo info(wallpaperPath);
+    if (!wallpaperPath.contains(QLatin1String("wallpapers/")))
+        return {};
+    return highlights.value(info.completeBaseName());
 }

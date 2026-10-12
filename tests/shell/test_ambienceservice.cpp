@@ -27,6 +27,14 @@ class TestAmbienceService : public QObject {
         QCOMPARE(svc.wallpaperUrl(), QUrl::fromLocalFile(dir.path() + "/blue.png").toString());
     }
 
+    void bundledWallpaperUsesItsChosenHighlight() {
+        QDir(dir.path()).mkpath("wallpapers");
+        AmbienceService svc;
+        svc.setWallpaper(writeImage("wallpapers/indigo-dusk.png", QColor(40, 30, 120)));
+        QVERIFY(svc.baseColor().hsvHue() >= 155 && svc.baseColor().hsvHue() <= 185);
+        QVERIFY(!svc.light());
+    }
+
     void unreadableWallpaperKeepsPreviousSeed() {
         AmbienceService svc;
         svc.setWallpaper(writeImage("red.png", QColor(180, 20, 20)));
