@@ -96,7 +96,6 @@ class AudioManagerCpp : public QObject {
     void mutedChanged();
     void streamsChanged();
     void isPlayingChanged();
-    void streamPlaybackStateChanged(int streamId, bool playing);
 
   private slots:
     void updateFromPulse(double vol, bool isMuted);

@@ -60,7 +60,6 @@ class Router : public QObject {
     void navigateToFrames();
     void navigateToApps(int appPage);
     void navigateBack();
-    void navigateNext();
     void navigateToSettingPage(const QString &settingId);
 
   private:

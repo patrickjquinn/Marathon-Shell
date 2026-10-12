@@ -55,7 +55,6 @@ class MmsManager : public QObject {
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp,
                          const QVariantList &attachments);
     void messageSent(const QString &messagePath);
-    void messageStatusChanged(const QString &messagePath, const QString &status);
     void sendFailed(const QString &reason);
 
   private slots:

@@ -63,8 +63,6 @@ class UpdateService : public QObject {
     void latestVersionChanged();
     void checkingChanged();
     void lastErrorChanged();
-    void updateInstallStarted();
-    void updateInstallFinished(bool success, const QString &message);
 
   private slots:
     void onReleasesReply();

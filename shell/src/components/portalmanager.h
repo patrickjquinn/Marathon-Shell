@@ -29,7 +29,6 @@ class PortalManager : public QObject {
     void locationAccessGranted(const QString &appId);
     void locationAccessDenied(const QString &appId);
 
-    void microphoneAccessGranted(const QString &appId);
     void microphoneAccessDenied(const QString &appId);
 
   private slots:

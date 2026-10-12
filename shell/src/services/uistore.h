@@ -114,8 +114,6 @@ class UIStore : public QObject {
     void clipboardManagerOpenChanged();
     void shellRefChanged();
 
-    void showNotificationToast(const QVariant &notification);
-    void showSystemHUD(const QString &type, double value);
     void showConfirmDialog(const QString &title, const QString &message, const QVariant &onConfirm);
 
   private:
