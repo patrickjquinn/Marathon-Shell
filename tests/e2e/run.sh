@@ -411,8 +411,8 @@ flow_settings() {
     for p in $SETTINGS_PAGES; do
         p=${p//_/ }
         local tries=0
-        until e2e_showing "$p" marathon-app-runner || [ $tries -ge 6 ]; do
-            e2e_swipe 195 650 195 300 300
+        until e2e_showing "$p" marathon-app-runner || [ $tries -ge 10 ]; do
+            e2e_swipe 195 650 195 350 500 300
             tries=$((tries + 1))
         done
         if e2e_tap_name "$p" marathon-app-runner 2; then
