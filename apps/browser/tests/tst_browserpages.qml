@@ -216,7 +216,7 @@ TestCase {
         app.createNewTab("https://b.org", false);
         app.tabs.setProperty(1, "title", "Bee");
         const page = push(app, "TabsPage.qml");
-        const grid = findChild(page, "tabsGrid");
+        const grid = findChild(page, "tabsView");
         compare(grid.count, 2);
         const second = grid.itemAtIndex(1);
         compare(second.Accessible.name, "Bee, current tab");
@@ -229,7 +229,7 @@ TestCase {
         const app = makeApp();
         app.createNewTab("https://b.org", false);
         const page = push(app, "TabsPage.qml");
-        const grid = findChild(page, "tabsGrid");
+        const grid = findChild(page, "tabsView");
         mouseClick(findChild(grid.itemAtIndex(1), "closeTabButton"));
         compare(app.tabs.count, 1);
         tryCompare(grid, "count", 1);

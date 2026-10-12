@@ -25,13 +25,12 @@ Page {
         id: remorse
     }
 
-    SilicaGridView {
-        id: grid
+    SilicaListView {
+        id: view
 
-        objectName: "tabsGrid"
+        objectName: "tabsView"
         anchors.fill: parent
-        cellWidth: width / 2
-        cellHeight: Math.round(cellWidth * 4 / 3)
+        spacing: Theme.paddingLarge
         model: root.browser.tabs
 
         header: PageHeader {
@@ -42,7 +41,7 @@ Page {
             MenuItem {
                 objectName: "closeAllItem"
                 text: qsTr("Close all tabs")
-                onClicked: remorse.execute(qsTr("Closing all tabs"), function () {
+                onClicked: remorse.execute(qsTr("Closed all tabs"), function () {
                     root.browser.closeAllTabs();
                 })
             }
@@ -54,10 +53,10 @@ Page {
             }
         }
 
-        delegate: GridItem {
-            id: cell
+        // A card per tab: title bar with close, then the page thumbnail.
+        delegate: ListItem {
+            id: card
 
-            required property var model
             required property int index
             required property int tabId
             required property string title
@@ -66,93 +65,78 @@ Page {
 
             readonly property bool current: index === root.browser.currentTabIndex
 
-            width: grid.cellWidth
-            contentHeight: grid.cellHeight
-            activeFocusOnTab: true
-            Accessible.role: Accessible.Button
+            width: view.width
+            contentHeight: Math.round((width - 2 * Theme.horizontalPageMargin) * 2 / 3)
             Accessible.name: (title || qsTr("New tab")) + (current ? ", " + qsTr("current tab") : "")
-            Accessible.onPressAction: root.openTab(tabId)
-            Keys.onReturnPressed: root.openTab(tabId)
-            Keys.onSpacePressed: root.openTab(tabId)
+            menu: ContextMenu {
+                MenuItem {
+                    text: qsTr("Close tab")
+                    onClicked: root.browser.closeTab(card.tabId)
+                }
+            }
             onClicked: root.openTab(tabId)
 
-            Rectangle {
-                id: frame
-
+            Item {
                 anchors {
                     fill: parent
-                    margins: Theme.paddingSmall
+                    leftMargin: Theme.horizontalPageMargin
+                    rightMargin: Theme.horizontalPageMargin
                 }
-                radius: Theme.paddingSmall
-                color: Qt.rgba(0, 0, 0, 0.55)
-                border.width: cell.current ? Math.max(2, Math.round(Theme.pixelRatio * 2)) : 0
-                border.color: Theme.highlightColor
                 clip: true
 
-                Icon {
-                    anchors.centerIn: parent
-                    visible: cell.thumbnail === ""
-                    source: "image://theme/icon-l-browser"
-                    color: Theme.secondaryColor
+                Rectangle {
+                    anchors.fill: parent
+                    visible: card.thumbnail === ""
+                    color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityLow)
+
+                    Icon {
+                        anchors.centerIn: parent
+                        source: "image://theme/icon-l-browser"
+                        color: Theme.secondaryColor
+                    }
                 }
                 Image {
                     objectName: "thumbnail"
                     anchors {
                         fill: parent
-                        margins: frame.border.width
+                        topMargin: titleBar.height
                     }
-                    source: cell.thumbnail
+                    source: card.thumbnail
                     fillMode: Image.PreserveAspectCrop
                     verticalAlignment: Image.AlignTop
                     asynchronous: true
                 }
                 Rectangle {
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        bottom: parent.bottom
-                        margins: frame.border.width
-                    }
-                    height: Theme.itemSizeSmall
+                    id: titleBar
+
+                    width: parent.width
+                    height: Theme.itemSizeExtraSmall
                     color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
 
                     Label {
                         anchors {
                             left: parent.left
-                            leftMargin: Theme.paddingMedium
-                            right: parent.right
-                            rightMargin: Theme.paddingMedium
+                            leftMargin: Theme.paddingLarge
+                            right: closeButton.left
                             verticalCenter: parent.verticalCenter
                         }
-                        text: cell.title || Logic.displayHost(cell.url) || qsTr("New tab")
-                        font.pixelSize: Theme.fontSizeSmall
+                        text: card.title || Logic.displayHost(card.url) || qsTr("New tab")
                         truncationMode: TruncationMode.Fade
-                        color: cell.current || cell.highlighted ? Theme.highlightColor : Theme.primaryColor
+                        color: card.current || card.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
+                    IconButton {
+                        id: closeButton
+
+                        objectName: "closeTabButton"
+                        anchors {
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                        }
+                        icon.source: "image://theme/icon-m-close"
+                        Accessible.name: qsTr("Close tab")
+                        onClicked: root.browser.closeTab(card.tabId)
                     }
                 }
-            }
-
-            IconButton {
-                objectName: "closeTabButton"
-                anchors {
-                    top: frame.top
-                    right: frame.right
-                }
-                icon.source: "image://theme/icon-m-close"
-                Accessible.name: qsTr("Close tab")
-                onClicked: root.browser.closeTab(cell.tabId)
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    z: -1
-                    width: Theme.iconSizeMedium
-                    height: width
-                    radius: width / 2
-                    color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
-                }
-            }
-            FocusFrame {
-                parent: cell
             }
         }
 
