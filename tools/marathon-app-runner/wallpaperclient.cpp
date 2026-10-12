@@ -12,7 +12,7 @@ WallpaperClient::WallpaperClient(QObject *settings, const QDBusConnection &bus, 
     const QMetaObject *mo   = m_settings->metaObject();
     const QMetaProperty prop = mo->property(mo->indexOfProperty("wallpaperPath"));
     connect(m_settings, prop.notifySignal(), this,
-            metaObject()->method(metaObject()->indexOfSignal("currentWallpaperChanged()")));
+            QMetaMethod::fromSignal(&WallpaperClient::currentWallpaperChanged));
 
     const QDBusMessage msg = QDBusMessage::createMethodCall(
         QStringLiteral("org.marathonos.Shell"), QStringLiteral("/org/marathonos/Shell/Wallpaper"),

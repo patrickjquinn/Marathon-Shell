@@ -31,7 +31,7 @@ static void onTerm(int) {
 
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
-    QStringList      args = app.arguments().mid(1);
+    QStringList      args = QCoreApplication::arguments().mid(1);
     const qsizetype  sep  = args.indexOf(QStringLiteral("--"));
     if (sep < 0 || sep + 1 >= args.size()) {
         qCritical("usage: marathon-keel-host --app-id ID [--dpi N] -- PROGRAM [ARGS...]");
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     }
 
     HostedApp hosted(&host, program, arguments);
-    QObject::connect(&hosted, &HostedApp::finished, &app, [&app](int code) { app.exit(code); });
+    QObject::connect(&hosted, &HostedApp::finished, &app, [](int code) { QCoreApplication::exit(code); });
     if (!hosted.start()) {
         qCritical("marathon-keel-host: cannot start %s", qPrintable(program));
         return 1;
@@ -99,5 +99,5 @@ int main(int argc, char *argv[]) {
         sa.sa_flags = SA_RESTART;
         ::sigaction(SIGTERM, &sa, nullptr);
     }
-    return app.exec();
+    return QCoreApplication::exec();
 }

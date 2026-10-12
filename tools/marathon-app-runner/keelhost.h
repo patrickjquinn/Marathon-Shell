@@ -65,7 +65,7 @@ class KeelHost : public QObject {
   public slots:
     QString     Ping();
     QVariantMap GetAmbience();
-    void        Activate();
+    void        Activate() const;
     void        SetContentOrientation(int degrees);
 
   signals:

@@ -4,7 +4,8 @@
 #include <QDBusMetaType>
 
 namespace {
-const QString kAppearance = QStringLiteral("org.freedesktop.appearance");
+using namespace Qt::StringLiterals;
+constexpr auto kAppearance = "org.freedesktop.appearance"_L1;
 
 struct Rgb {
     double r = 0, g = 0, b = 0;

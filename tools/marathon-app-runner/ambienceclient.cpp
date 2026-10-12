@@ -6,9 +6,11 @@
 #include <QDBusReply>
 #include <QDBusServiceWatcher>
 
-static const QString kService = QStringLiteral("org.marathonos.Shell");
-static const QString kPath    = QStringLiteral("/org/marathonos/Shell/Ambience");
-static const QString kIface   = QStringLiteral("org.marathonos.Shell.Ambience1");
+using namespace Qt::StringLiterals;
+
+static constexpr auto kService = "org.marathonos.Shell"_L1;
+static constexpr auto kPath    = "/org/marathonos/Shell/Ambience"_L1;
+static constexpr auto kIface   = "org.marathonos.Shell.Ambience1"_L1;
 
 AmbienceClient::AmbienceClient(const QDBusConnection &bus, QObject *parent)
     : QObject(parent)

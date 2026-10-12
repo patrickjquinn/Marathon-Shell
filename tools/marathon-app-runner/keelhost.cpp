@@ -4,8 +4,10 @@
 #include <QEvent>
 #include <QRegularExpression>
 
-static const QString kPath     = QStringLiteral("/org/shipwright/keel/Shell");
-static const QString kThemeDir = QStringLiteral("/desktop/jolla/theme/");
+using namespace Qt::StringLiterals;
+
+static constexpr auto kPath     = "/org/shipwright/keel/Shell"_L1;
+static constexpr auto kThemeDir = "/desktop/jolla/theme/"_L1;
 
 KeelHost::KeelHost(int dpi, QObject *parent)
     : QObject(parent)
@@ -88,7 +90,7 @@ QVariantMap KeelHost::GetAmbience() {
     return m_ambience;
 }
 
-void KeelHost::Activate() {
+void KeelHost::Activate() const {
     if (onActivate)
         onActivate();
 }
