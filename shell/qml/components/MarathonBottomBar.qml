@@ -6,7 +6,8 @@ import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
 // The home dock: Phone and Camera either side of the page indicator, on the
-// wallpaper fading to black.
+// wallpaper fading to black. Bare glyphs, as Silica's IconButton; the touch
+// areas are padded, not drawn.
 Item {
     id: bottomBar
 
@@ -15,71 +16,59 @@ Item {
     property bool showNotifications: currentPage >= 0
     property bool showPageIndicators: true
 
+    // The row sits a clear gap above the nav bar, and its touch areas
+    // never reach into it.
+    readonly property real rowCenter: Math.min((height - Silica.Theme.paddingMedium) / 2, height - Silica.Theme.itemSizeExtraSmall / 2)
+
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
 
-    // The lock screen's glass-ring shortcut, launching on a tap and
-    // ignoring a vertical drag through to the gestures beneath.
-    component DockButton: MCircularIconButton {
+    // Launches on a tap and lets a vertical drag through to the gestures
+    // beneath.
+    component DockButton: MouseArea {
         id: dockButton
 
         property var app
+        property string iconName
+        property real startY: 0
 
-        width: Silica.Theme.itemSizeSmall
+        width: Silica.Theme.itemSizeExtraSmall
         height: width
-        anchors.verticalCenter: parent.verticalCenter
+        y: bottomBar.rowCenter - height / 2
         z: 10
-        iconSize: Silica.Theme.iconSizeSmall
-        variant: "secondary"
-        a11yName: app.name
-        down: mouse.pressed
-        onClicked: bottomBar.appLaunched(app)
+        propagateComposedEvents: true
+        Accessible.role: Accessible.Button
+        Accessible.name: app.name
+        Accessible.onPressAction: bottomBar.appLaunched(app)
+        onPressed: event => startY = event.y
+        onReleased: event => {
+            if (Math.abs(event.y - startY) < Silica.Theme.startDragDistance)
+                bottomBar.appLaunched(dockButton.app);
+            else
+                event.accepted = false;
+        }
 
-        MouseArea {
-            id: mouse
-
-            property real startY: 0
-
-            anchors.fill: parent
-            propagateComposedEvents: true
-            onPressed: event => startY = event.y
-            onReleased: event => {
-                if (Math.abs(event.y - startY) < 10)
-                    bottomBar.appLaunched(dockButton.app);
-                else
-                    event.accepted = false;
-            }
+        GlyphIcon {
+            anchors.centerIn: parent
+            name: dockButton.iconName
+            size: Silica.Theme.iconSizeSmall
+            color: dockButton.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
         }
     }
 
-    component PageGlyph: Item {
-        id: glyph
-
-        property string iconName
+    component PageGlyph: GlyphIcon {
         property string a11yName
         property bool active: false
 
         signal clicked
 
-        width: Silica.Theme.itemSizeExtraSmall
-        height: width
         anchors.verticalCenter: parent.verticalCenter
-
+        size: Silica.Theme.iconSizeExtraSmall
+        color: active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+        Accessible.ignored: false
         Accessible.role: Accessible.Button
         Accessible.name: a11yName
         Accessible.onPressAction: clicked()
-
-        GlyphIcon {
-            anchors.centerIn: parent
-            name: glyph.iconName
-            size: glyph.active ? Silica.Theme.iconSizeSmall : Math.round(Silica.Theme.iconSizeSmall * 0.75)
-            color: glyph.active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: glyph.clicked()
-        }
     }
 
     height: Constants.bottomBarHeight
@@ -100,8 +89,9 @@ Item {
     }
 
     DockButton {
-        anchors.left: parent.left
-        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        objectName: "dockPhone"
+        // Glyph flush with the page margin.
+        x: Silica.Theme.horizontalPageMargin - (width - Silica.Theme.iconSizeSmall) / 2
         iconName: "phone"
         app: ({
                 "id": "phone",
@@ -113,15 +103,17 @@ Item {
     Row {
         id: pageIndicatorRow
 
-        anchors.centerIn: parent
-        spacing: Silica.Theme.paddingMedium
+        objectName: "pageIndicatorRow"
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: bottomBar.rowCenter - height / 2
+        spacing: Silica.Theme.paddingLarge
         z: 1
         visible: bottomBar.showPageIndicators
 
         PageGlyph {
             id: hubIndicator
 
-            iconName: "inbox"
+            name: "inbox"
             a11yName: qsTr("Hub")
             active: bottomBar.currentPage === -2
             onClicked: bottomBar.pageNavigationRequested(-2)
@@ -130,7 +122,7 @@ Item {
         PageGlyph {
             id: framesIndicator
 
-            iconName: "layers"
+            name: "layers"
             a11yName: qsTr("Open apps")
             active: bottomBar.currentPage === -1
             onClicked: bottomBar.pageNavigationRequested(-1)
@@ -163,50 +155,56 @@ Item {
         }
     }
 
-    // Drag across the indicator to scrub between pages.
+    // Tap an indicator, or drag across them to scrub between pages. The
+    // nearest indicator wins, so the whole band is the touch area.
     MouseArea {
         id: scrubGesture
 
         property int lastHoveredPage: -999
 
-        function pageAt(x, y) {
-            for (const [item, page] of [[hubIndicator, -2], [framesIndicator, -1]]) {
-                const p = mapToItem(item, x, y);
-                if (p.x >= 0 && p.x <= item.width && p.y >= 0 && p.y <= item.height)
-                    return page;
+        function pageAt(x) {
+            const items = [[hubIndicator, -2], [framesIndicator, -1]];
+            for (let i = 0; i < appGridIndicators.count; i++)
+                items.push([appGridIndicators.itemAt(i), i]);
+            let best = -999;
+            let bestDistance = Infinity;
+            for (const [item, page] of items) {
+                const d = Math.abs(mapToItem(item, x, 0).x - item.width / 2);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = page;
+                }
             }
-            for (let i = 0; i < appGridIndicators.count; i++) {
-                const item = appGridIndicators.itemAt(i);
-                const p = mapToItem(item, x, y);
-                if (p.x >= -Silica.Theme.paddingSmall && p.x <= item.width + Silica.Theme.paddingSmall)
-                    return i;
-            }
-            return -999;
+            return best;
         }
 
-        function scrubTo(x, y) {
-            const page = pageAt(x, y);
-            if (page !== -999 && page !== lastHoveredPage) {
+        function scrubTo(x) {
+            const page = pageAt(x);
+            if (page !== lastHoveredPage) {
                 lastHoveredPage = page;
                 bottomBar.pageNavigationRequested(page);
             }
         }
 
-        anchors.fill: pageIndicatorRow
-        anchors.margins: -Silica.Theme.paddingMedium
+        objectName: "pageScrub"
+        x: pageIndicatorRow.x - Silica.Theme.paddingMedium
+        width: pageIndicatorRow.width + Silica.Theme.paddingMedium * 2
+        height: Silica.Theme.itemSizeExtraSmall
+        y: bottomBar.rowCenter - height / 2
         z: 2
+        enabled: pageIndicatorRow.visible
         onPressed: event => {
             lastHoveredPage = -999;
-            scrubTo(event.x, event.y);
+            scrubTo(event.x);
         }
-        onPositionChanged: event => scrubTo(event.x, event.y)
+        onPositionChanged: event => scrubTo(event.x)
         onReleased: lastHoveredPage = -999
         onCanceled: lastHoveredPage = -999
     }
 
     DockButton {
-        anchors.right: parent.right
-        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        objectName: "dockCamera"
+        x: bottomBar.width - Silica.Theme.horizontalPageMargin - Silica.Theme.iconSizeSmall - (width - Silica.Theme.iconSizeSmall) / 2
         iconName: "camera"
         app: ({
                 "id": "camera",
