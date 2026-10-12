@@ -8,7 +8,6 @@ QtObject {
     property int appGridColumns: 0
     property bool dndEnabled: false
     property bool reduceMotion: false
-    property string statusBarClockPosition: "center"
     property real userScaleFactor: 1
     property int screenTimeout: 60000
     property string ringtone: "/sounds/ring_classic.wav"
@@ -29,7 +28,6 @@ QtObject {
         appGridColumns = 0;
         dndEnabled = false;
         reduceMotion = false;
-        statusBarClockPosition = "center";
         userScaleFactor = 1;
         screenTimeout = 60000;
         ringtone = "/sounds/ring_classic.wav";

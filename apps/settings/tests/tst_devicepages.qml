@@ -95,10 +95,7 @@ TestCase {
         pick(scale, 4);
         compare(Settings.userScaleFactor, 1.25);
 
-        const clock = child(s.page, "clockCombo");
-        compare(clock.currentIndex, 1);
-        pick(clock, 0);
-        compare(Settings.statusBarClockPosition, "left");
+        compare(findChild(s.page, "clockCombo"), null);
 
         compare(child(s.page, "wallpaperButton").value, "Slate Aurora");
     }

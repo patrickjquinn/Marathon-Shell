@@ -47,7 +47,7 @@ const sections = [
     {
         title: qsTr("Device"),
         entries: [
-            { page: "display", title: qsTr("Display"), icon: "image://theme/icon-m-display", keywords: "screen brightness rotation auto-brightness clock status bar reduce motion animation timeout sleep scale text size" },
+            { page: "display", title: qsTr("Display"), icon: "image://theme/icon-m-display", keywords: "screen brightness rotation auto-brightness reduce motion animation timeout sleep scale text size" },
             { page: "wallpaper", title: qsTr("Wallpaper"), icon: "image://theme/icon-m-wallpaper", keywords: "background home screen" },
             { page: "sound", title: qsTr("Sounds"), icon: "image://theme/icon-m-volume", keywords: "volume ringtone alarm audio mute" },
             { page: "notifications", title: qsTr("Notifications"), icon: "image://theme/icon-m-notifications", keywords: "alerts lock screen per-app do not disturb" },

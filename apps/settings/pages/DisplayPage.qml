@@ -11,11 +11,6 @@ Page {
     readonly property var timeouts: Settings.screenTimeoutOptions()
     readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
     readonly property var wallpaper: wallpapers ? wallpapers.wallpapers.find(w => w.path === wallpapers.currentWallpaper) : undefined
-    readonly property var clockPositions: [
-        { value: "left", title: qsTr("Left"), description: qsTr("Best for right-side notches") },
-        { value: "center", title: qsTr("Center"), description: qsTr("Default position") },
-        { value: "right", title: qsTr("Right"), description: qsTr("Best for left-side notches") }
-    ]
 
     function setBrightness(percent) {
         Display.brightness = Math.max(0, Math.min(100, percent)) / 100;
@@ -120,27 +115,6 @@ Page {
 
                             text: modelData.title + " · " + modelData.description
                             onClicked: Settings.userScaleFactor = modelData.factor
-                        }
-                    }
-                }
-            }
-            ComboBox {
-                objectName: "clockCombo"
-                width: parent.width
-                label: qsTr("Status bar clock")
-                description: page.clockPositions[Math.max(0, currentIndex)].description
-                Binding on currentIndex {
-                    value: Math.max(0, page.clockPositions.findIndex(p => p.value === (Settings.statusBarClockPosition || "center")))
-                }
-                menu: ContextMenu {
-                    Repeater {
-                        model: page.clockPositions
-
-                        MenuItem {
-                            required property var modelData
-
-                            text: modelData.title
-                            onClicked: Settings.statusBarClockPosition = modelData.value
                         }
                     }
                 }
