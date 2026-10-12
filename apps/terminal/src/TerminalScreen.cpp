@@ -10,6 +10,7 @@ TerminalScreen::TerminalScreen(QObject *parent)
     , m_cursorY(0)
     , m_topRow(0)
     , m_historySize(1000)
+    , m_history(0)
     , m_currentFg(0xFFFFFFFF)
     , m_currentBg(0xFF000000)
     , m_currentBold(false)
@@ -27,8 +28,7 @@ TerminalScreen::TerminalScreen(QObject *parent)
 }
 
 TerminalCell &TerminalScreen::cellAt(int x, int y) {
-
-    int bufferRow = (m_topRow + y) % m_historySize;
+    const int bufferRow = ((m_topRow + y) % m_historySize + m_historySize) % m_historySize;
     return m_grid[bufferRow][x];
 }
 
@@ -43,30 +43,36 @@ void TerminalScreen::resize(int cols, int rows) {
     if (cols == m_cols && rows == m_rows)
         return;
 
+    rows = std::min(rows, m_historySize);
+
     QVector<QVector<TerminalCell>> newGrid(m_historySize);
     for (int i = 0; i < m_historySize; ++i) {
         newGrid[i].resize(cols);
     }
 
-    int copyRows = std::min(rows, m_rows);
-    int copyCols = std::min(cols, m_cols);
+    // Losing rows pushes the top ones into history so the cursor line stays
+    // on screen, the way a shrinking xterm does when the keyboard opens.
+    const int shift    = std::max(0, m_cursorY - rows + 1);
+    const int history  = std::min(m_history + shift, m_historySize - rows);
+    const int copyCols = std::min(cols, m_cols);
 
-    for (int y = 0; y < copyRows; ++y) {
-        for (int x = 0; x < copyCols; ++x) {
-            int oldRow    = (m_topRow + y) % m_historySize;
-            newGrid[y][x] = m_grid[oldRow][x];
-        }
+    for (int y = -history; y < rows; ++y) {
+        const int from = y + shift;
+        if (from >= m_rows)
+            break;
+        for (int x = 0; x < copyCols; ++x)
+            newGrid[y + history][x] = cellAt(x, from);
     }
 
-    m_grid   = newGrid;
-    m_cols   = cols;
-    m_rows   = rows;
-    m_topRow = 0;
+    m_grid    = newGrid;
+    m_cols    = cols;
+    m_rows    = rows;
+    m_topRow  = history;
+    m_history = history;
+    m_cursorY -= shift;
 
     if (m_cursorX >= m_cols)
         m_cursorX = m_cols - 1;
-    if (m_cursorY >= m_rows)
-        m_cursorY = m_rows - 1;
 
     emit screenChanged();
 }
@@ -250,7 +256,7 @@ void TerminalScreen::resetStyle() {
 
 const TerminalCell &TerminalScreen::cell(int x, int y) const {
     static TerminalCell empty;
-    if (y >= 0 && y < m_rows && x >= 0 && x < m_cols) {
+    if (y >= -m_history && y < m_rows && x >= 0 && x < m_cols) {
 
         return const_cast<TerminalScreen *>(this)->cellAt(x, y);
     }
@@ -271,6 +277,7 @@ QString TerminalScreen::lineText(int y) const {
 void TerminalScreen::scrollUp() {
 
     m_topRow = (m_topRow + 1) % m_historySize;
+    m_history = std::min(m_history + 1, m_historySize - m_rows);
 
     int bottomRowIndex = (m_topRow + m_rows - 1) % m_historySize;
 
@@ -292,9 +299,9 @@ void TerminalScreen::setSelection(int startX, int startY, int endX, int endY) {
     }
 
     m_selStartX = std::clamp(startX, 0, m_cols - 1);
-    m_selStartY = std::clamp(startY, 0, m_rows - 1);
+    m_selStartY = std::clamp(startY, -m_history, m_rows - 1);
     m_selEndX   = std::clamp(endX, 0, m_cols - 1);
-    m_selEndY   = std::clamp(endY, 0, m_rows - 1);
+    m_selEndY   = std::clamp(endY, -m_history, m_rows - 1);
 
     emit screenChanged();
 }

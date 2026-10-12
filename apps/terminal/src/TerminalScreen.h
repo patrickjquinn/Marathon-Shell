@@ -66,6 +66,11 @@ class TerminalScreen : public QObject {
     int cursorY() const {
         return m_cursorY;
     }
+    // Rows scrolled off the top that are still kept; cell() and lineText()
+    // reach them with y from -historyLines() to -1.
+    int historyLines() const {
+        return m_history;
+    }
     const TerminalCell &cell(int x, int y) const;
     QString             lineText(int y) const;
 
@@ -96,6 +101,7 @@ class TerminalScreen : public QObject {
 
     int                            m_topRow;
     int                            m_historySize;
+    int                            m_history;
 
     uint32_t                       m_currentFg;
     uint32_t                       m_currentBg;

@@ -20,6 +20,9 @@ class TerminalRenderer : public QQuickPaintedItem {
                    backgroundColorChanged)
     Q_PROPERTY(QColor selectionColor READ selectionColor WRITE setSelectionColor NOTIFY
                    selectionColorChanged)
+    // Pixels scrolled back from the live screen into history.
+    Q_PROPERTY(qreal scrollOffset READ scrollOffset WRITE setScrollOffset NOTIFY scrollOffsetChanged)
+    Q_PROPERTY(int historyLines READ historyLines NOTIFY historyLinesChanged)
 
   public:
     explicit TerminalRenderer(QQuickItem *parent = nullptr);
@@ -54,6 +57,15 @@ class TerminalRenderer : public QQuickPaintedItem {
     }
     void  setSelectionColor(const QColor &color);
 
+    qreal scrollOffset() const {
+        return m_scrollOffset;
+    }
+    void  setScrollOffset(qreal offset);
+
+    int   historyLines() const {
+        return m_historyLines;
+    }
+
     qreal charWidth() const {
         return m_charWidth;
     }
@@ -68,6 +80,8 @@ class TerminalRenderer : public QQuickPaintedItem {
     void textColorChanged();
     void backgroundColorChanged();
     void selectionColorChanged();
+    void scrollOffsetChanged();
+    void historyLinesChanged();
 
   protected:
     void paint(QPainter *painter) override;
@@ -88,4 +102,6 @@ class TerminalRenderer : public QQuickPaintedItem {
     qreal           m_charWidth;
     qreal           m_charHeight;
     qreal           m_ascent;
+    qreal           m_scrollOffset;
+    int             m_historyLines;
 };

@@ -8,6 +8,8 @@ Item {
     property color textColor
     property color backgroundColor
     property color selectionColor
+    property real scrollOffset
+    property int historyLines
     property var selected: null
 
     signal charSizeChanged

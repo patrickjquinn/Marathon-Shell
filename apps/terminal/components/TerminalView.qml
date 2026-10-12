@@ -13,8 +13,13 @@ Item {
     // Modifiers latched on the extra-keys row, applied to the next key.
     property int extraModifiers: 0
     property string selection: ""
+    // Pixels scrolled back into history; 0 shows the live screen.
+    property real scrollOffset: 0
+    readonly property int historyLines: renderer.historyLines
+    readonly property real lineHeight: renderer.charHeight
 
     signal modifiersUsed
+    signal typed
 
     function forceFocus() {
         renderer.forceActiveFocus(Qt.ActiveWindowFocusReason);
@@ -76,6 +81,7 @@ Item {
                 session.sendInput(event.text);
         }
         event.accepted = true;
+        typed();
         if (extraModifiers !== 0)
             modifiersUsed();
     }
@@ -104,6 +110,7 @@ Item {
             margins: Theme.paddingMedium
         }
         terminal: root.session
+        scrollOffset: root.scrollOffset
         font.pixelSize: root.fontSize
         textColor: root.colorScheme === "light" ? "black" : root.colorScheme === "dark" ? "white" : Theme.primaryColor
         backgroundColor: root.colorScheme === "light" ? "white" : root.colorScheme === "dark" ? "black" : "transparent"

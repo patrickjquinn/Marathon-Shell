@@ -3,6 +3,7 @@
 #include "TerminalScreen.h"
 #include <QPainter>
 #include <QTimer>
+#include <cmath>
 
 TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     : QQuickPaintedItem(parent)
@@ -10,7 +11,9 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     , m_screen(nullptr)
     , m_charWidth(10)
     , m_charHeight(20)
-    , m_ascent(15) {
+    , m_ascent(15)
+    , m_scrollOffset(0)
+    , m_historyLines(0) {
     setFlag(ItemHasContents, true);
     setAntialiasing(true);
 
@@ -48,11 +51,19 @@ void TerminalRenderer::setTerminal(TerminalEngine *terminal) {
 
     if (m_terminal && m_screen) {
 
-        connect(m_screen, &TerminalScreen::screenChanged, this, &QQuickItem::update);
-        connect(m_screen, &TerminalScreen::cursorChanged, this, &QQuickItem::update);
+        connect(m_screen, &TerminalScreen::screenChanged, this, &TerminalRenderer::onScreenChanged);
+        connect(m_screen, &TerminalScreen::cursorChanged, this, &TerminalRenderer::onScreenChanged);
     }
 
     emit terminalChanged();
+    onScreenChanged();
+}
+
+void TerminalRenderer::setScrollOffset(qreal offset) {
+    if (m_scrollOffset == offset)
+        return;
+    m_scrollOffset = offset;
+    emit scrollOffsetChanged();
     update();
 }
 
@@ -98,6 +109,11 @@ void TerminalRenderer::updateCharSize() {
 }
 
 void TerminalRenderer::onScreenChanged() {
+    const int history = m_screen ? m_screen->historyLines() : 0;
+    if (history != m_historyLines) {
+        m_historyLines = history;
+        emit historyLinesChanged();
+    }
     update();
 }
 
@@ -129,7 +145,7 @@ QPoint TerminalRenderer::positionToGrid(qreal x, qreal y) const {
         return QPoint(0, 0);
 
     int col = static_cast<int>(x / m_charWidth);
-    int row = static_cast<int>(y / m_charHeight);
+    int row = static_cast<int>(std::floor((y - m_scrollOffset) / m_charHeight));
 
     return QPoint(col, row);
 }
@@ -150,9 +166,14 @@ void TerminalRenderer::paint(QPainter *painter) {
     QString lineBuffer;
     lineBuffer.reserve(cols);
 
-    for (int y = 0; y < rows; ++y) {
+    // Rows above 0 are history; the offset slides them into view.
+    painter->translate(0, m_scrollOffset);
+    const int firstRow = std::max(-m_screen->historyLines(),
+                                  static_cast<int>(std::floor(-m_scrollOffset / m_charHeight)));
 
-        if (y * m_charHeight > height())
+    for (int y = firstRow; y < rows; ++y) {
+
+        if (y * m_charHeight + m_scrollOffset > height())
             break;
 
         int x = 0;

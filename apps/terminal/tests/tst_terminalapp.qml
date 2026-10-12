@@ -130,4 +130,40 @@ TestCase {
         tryVerify(() => findChild(p, "renderer").activeFocus, 5000, "focus returns");
         compare(app.currentSession.sent.length, 0);
     }
+
+    function test_scrollsBackThroughHistory() {
+        const app = makeApp();
+        const p = page(app);
+        const flick = findChild(p, "terminalFlick");
+        const renderer = findChild(p, "renderer");
+        renderer.historyLines = 10;
+        compare(flick.contentHeight, flick.height + 200);
+        compare(flick.contentY, 200);
+        compare(renderer.scrollOffset, 0);
+        flick.contentY = 0;
+        flick.following = false;
+        compare(renderer.scrollOffset, 200);
+        renderer.historyLines = 12;
+        compare(flick.contentY, 0);
+        compare(renderer.scrollOffset, 240);
+        tryVerify(() => renderer.activeFocus);
+        keyClick(Qt.Key_A);
+        compare(flick.contentY, 240);
+        compare(renderer.scrollOffset, 0);
+        verify(flick.following);
+    }
+
+    function test_closingThePulleyReturnsToLiveOutput() {
+        const app = makeApp();
+        const p = page(app);
+        const flick = findChild(p, "terminalFlick");
+        findChild(p, "renderer").historyLines = 10;
+        tryVerify(() => findChild(p, "renderer").activeFocus);
+        keyClick(Qt.Key_Menu);
+        const menu = findChild(p, "pulley");
+        tryVerify(() => menu.active, 5000);
+        keyClick(Qt.Key_Escape);
+        tryVerify(() => !menu.active, 5000);
+        tryCompare(flick, "contentY", 200, 5000);
+    }
 }

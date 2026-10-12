@@ -25,18 +25,45 @@ Page {
         if (status === PageStatus.Active)
             Qt.callLater(focusTerminal);
     }
-    onCurrentViewChanged: Qt.callLater(focusTerminal)
+    onCurrentViewChanged: {
+        flick.toLive();
+        Qt.callLater(focusTerminal);
+    }
 
+    // History scrolls like the rows above a Silica list, pulley at its top;
+    // the terminal stays in view and draws the rows the position asks for.
     SilicaFlickable {
+        id: flick
+
+        readonly property real history: page.currentView ? page.currentView.historyLines * page.currentView.lineHeight : 0
+        property bool following: true
+
+        function toLive() {
+            following = true;
+            if (!pulley.active)
+                contentY = contentHeight - height;
+        }
+
+        objectName: "terminalFlick"
         anchors.fill: parent
-        contentHeight: height
+        contentHeight: height + history
+        onContentHeightChanged: {
+            if (following && !pulley.active)
+                contentY = contentHeight - height;
+        }
+        onMovementEnded: following = contentY >= contentHeight - height - 1
 
         PullDownMenu {
+            id: pulley
+
             objectName: "pulley"
 
             onActiveChanged: {
-                if (!active)
-                    Qt.callLater(page.focusTerminal);
+                if (active)
+                    return;
+                if (flick.following)
+                    flick.toLive();
+                Qt.callLater(page.focusTerminal);
             }
 
             MenuItem {
@@ -71,7 +98,10 @@ Page {
                 objectName: "pasteItem"
                 text: qsTr("Paste")
                 enabled: Clipboard.hasText
-                onClicked: page.app.currentSession.sendInput(Clipboard.text)
+                onClicked: {
+                    flick.toLive();
+                    page.app.currentSession.sendInput(Clipboard.text);
+                }
             }
             MenuItem {
                 objectName: "copyItem"
@@ -86,45 +116,56 @@ Page {
         }
 
         Item {
-            anchors {
-                top: parent.top
-                left: parent.left
-                right: parent.right
-                bottom: keyRow.visible ? keyRow.top : parent.bottom
-            }
+            id: viewport
 
-            Repeater {
-                id: views
+            y: Math.max(0, Math.min(flick.contentY, flick.history))
+            width: flick.width
+            height: flick.height
 
-                model: page.app.sessions
+            Item {
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                    bottom: keyRow.visible ? keyRow.top : parent.bottom
+                }
 
-                TerminalView {
-                    required property var modelData
-                    required property int index
+                Repeater {
+                    id: views
 
-                    anchors.fill: parent
-                    visible: index === page.app.currentIndex
-                    session: modelData
-                    fontSize: page.app.fontSize.value
-                    colorScheme: page.app.colorScheme.value
-                    extraModifiers: keyRow.visible ? keyRow.modifiers : 0
-                    onModifiersUsed: keyRow.consumeArmed()
+                    model: page.app.sessions
+
+                    TerminalView {
+                        required property var modelData
+                        required property int index
+
+                        anchors.fill: parent
+                        visible: index === page.app.currentIndex
+                        session: modelData
+                        scrollOffset: visible ? flick.history - viewport.y : 0
+                        fontSize: page.app.fontSize.value
+                        colorScheme: page.app.colorScheme.value
+                        extraModifiers: keyRow.visible ? keyRow.modifiers : 0
+                        onModifiersUsed: keyRow.consumeArmed()
+                        onTyped: flick.toLive()
+                    }
                 }
             }
-        }
 
-        VirtualKeyRow {
-            id: keyRow
+            VirtualKeyRow {
+                id: keyRow
 
-            objectName: "keyRow"
-            anchors.bottom: parent.bottom
-            width: parent.width
-            visible: page.app.extraKeys.value
-            onKeyTriggered: (key, text, modifiers) => {
-                if (key === 0)
-                    page.app.currentSession.sendInput(text);
-                else
-                    page.app.currentSession.sendKey(key, text, modifiers & ~Qt.ControlModifier);
+                objectName: "keyRow"
+                anchors.bottom: parent.bottom
+                width: parent.width
+                visible: page.app.extraKeys.value
+                onKeyTriggered: (key, text, modifiers) => {
+                    flick.toLive();
+                    if (key === 0)
+                        page.app.currentSession.sendInput(text);
+                    else
+                        page.app.currentSession.sendKey(key, text, modifiers & ~Qt.ControlModifier);
+                }
             }
         }
     }
