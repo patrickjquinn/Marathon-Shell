@@ -31,6 +31,11 @@ Item {
         }
     }
 
+    function refreshFieldHints() {
+        if (marathonKeyboardLoader.item)
+            (marathonKeyboardLoader.item as MarathonKeyboard).refreshFieldHints();
+    }
+
     Loader {
         id: marathonKeyboardLoader
 
