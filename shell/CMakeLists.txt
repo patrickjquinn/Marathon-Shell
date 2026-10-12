@@ -296,6 +296,13 @@ set(QML_FILES
     qml/core/Logger.qml
     qml/core/AmbienceController.qml
     qml/models/FilteredAppModel.qml
+    qml/theme/MColors.qml
+    qml/theme/MTypography.qml
+    qml/theme/MSpacing.qml
+    qml/theme/MRadius.qml
+    qml/theme/MElevation.qml
+    qml/theme/MMotion.qml
+    qml/theme/MBlur.qml
 )
 
 set(JSON_FILES
@@ -309,6 +316,20 @@ set(JSON_FILES
     qml/keyboard/Layouts/languages/ar_SA.json
     qml/keyboard/Layouts/languages/zh_CN.json
     qml/keyboard/Layouts/languages/ja_JP.json
+)
+
+set(THEME_RESOURCES
+    qml/theme/halo-teal.svg
+    qml/theme/fonts/Sora.ttf
+    qml/theme/fonts/Sora-Thin.ttf
+    qml/theme/fonts/Sora-ExtraLight.ttf
+    qml/theme/fonts/Sora-Light.ttf
+    qml/theme/fonts/Sora-Regular.ttf
+    qml/theme/fonts/Sora-Medium.ttf
+    qml/theme/fonts/Sora-SemiBold.ttf
+    qml/theme/fonts/Sora-Bold.ttf
+    qml/theme/fonts/Sora-ExtraBold.ttf
+    qml/theme/fonts/JetBrainsMono-Medium.ttf
 )
 
 # Find PAM library for authentication
@@ -327,6 +348,13 @@ set_source_files_properties(src/managers/marathoninputcontext.cpp PROPERTIES
 set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
+    qml/theme/MColors.qml
+    qml/theme/MTypography.qml
+    qml/theme/MSpacing.qml
+    qml/theme/MRadius.qml
+    qml/theme/MElevation.qml
+    qml/theme/MMotion.qml
+    qml/theme/MBlur.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -429,7 +457,6 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     IMPORTS
-        MarathonUI.Theme
         MarathonUI.Core
         MarathonUI.Controls
         MarathonUI.Lists
@@ -512,17 +539,23 @@ qt6_add_qml_module(marathon-shell
         src/controllers/displaypolicycontroller.h
         src/controllers/audiopolicycontroller.cpp
         src/controllers/audiopolicycontroller.h
-    RESOURCES ${JSON_FILES}
+    RESOURCES ${JSON_FILES} ${THEME_RESOURCES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/qmllint")
 
-set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH
+set(_shell_qml_import_path
     "${CMAKE_BINARY_DIR}/qmllint"
     "${CMAKE_BINARY_DIR}"
     "${CMAKE_BINARY_DIR}/shell/qml"
+    "${CMAKE_SOURCE_DIR}/marathon-silica"
 )
+# Keel's QML on a development host; devices have keel-silica in Qt's path.
+if(DEFINED ENV{KEEL_QML})
+    list(APPEND _shell_qml_import_path "$ENV{KEEL_QML}")
+endif()
+set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH ${_shell_qml_import_path})
 
 # Link the big resources (sounds-only qrc) to the target
 target_sources(marathon-shell PRIVATE ${SHELL_SOUNDS})

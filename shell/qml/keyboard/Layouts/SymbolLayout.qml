@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import "../UI"
 import MarathonOS.Shell
-import MarathonUI.Theme
 import QtQuick
 
 Item {

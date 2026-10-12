@@ -1,6 +1,5 @@
 import MarathonOS.Shell
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 
 // WEA / ETWS / CMAS emergency alert overlay. Fed by CellBroadcastManagerCpp

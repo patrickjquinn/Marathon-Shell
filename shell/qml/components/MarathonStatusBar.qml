@@ -1,6 +1,5 @@
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 
 // Marathon DS · status bar (28 px glass).

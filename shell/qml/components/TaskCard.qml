@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0

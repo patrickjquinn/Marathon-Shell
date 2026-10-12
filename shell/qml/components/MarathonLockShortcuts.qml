@@ -1,6 +1,5 @@
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 
 // Lock screen bottom chrome — JSX LockScreen (screens-shell.jsx:51) renders

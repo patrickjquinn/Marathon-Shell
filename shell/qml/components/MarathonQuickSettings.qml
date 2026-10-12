@@ -5,7 +5,6 @@ import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Effects
-import MarathonUI.Theme
 import QtQuick
 
 // Marathon DS · Quick Settings panel (§7.5).

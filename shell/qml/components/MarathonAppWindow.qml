@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Feedback
-import MarathonUI.Theme
 import QtQuick
 
 Rectangle {

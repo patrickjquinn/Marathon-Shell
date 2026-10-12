@@ -4,7 +4,6 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 

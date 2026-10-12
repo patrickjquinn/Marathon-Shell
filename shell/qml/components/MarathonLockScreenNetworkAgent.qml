@@ -1,6 +1,5 @@
 import MarathonOS.Shell
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 
 // Lock-screen network agent. GNOME 50.1 added a captive-portal /

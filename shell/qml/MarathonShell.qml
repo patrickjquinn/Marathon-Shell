@@ -2,7 +2,6 @@ import "./components" as Comp
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
-import MarathonUI.Theme
 import QtQuick
 import QtQuick.Window
 
@@ -647,7 +646,7 @@ Item {
     ]
 
     // Fonts are loaded by MTypography's singleton FontLoaders at
-    // qrc:/qt/qml/MarathonUI/Theme/fonts/. The previous shell-level
+    // qrc:/qt/qml/MarathonOS/Shell/qml/theme/fonts/. The previous shell-level
     // FontLoaders pointed at qrc:/fonts/Sora.ttf — a path that doesn't
     // exist in the shell's qrc (no resource ever installed it there),
     // so they always logged "status=Error" on startup. Removed: those

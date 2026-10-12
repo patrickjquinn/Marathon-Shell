@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 
 MApp {
