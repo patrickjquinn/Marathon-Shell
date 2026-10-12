@@ -102,6 +102,7 @@ class AppLaunchService : public QObject {
 
     QVariantMap resolveAppObject(const QVariant &app) const;
     bool launchNativeApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
+    QSize initialAppSize() const;
     bool launchMarathonApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
 
     // Per-launch route+params (set by launchAppWithRoute, consumed and

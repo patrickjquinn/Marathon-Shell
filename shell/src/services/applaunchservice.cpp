@@ -632,9 +632,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // Initial app-runner canvas, from DeviceProfile (L5 default 540x1140).
         // The runner reads these exact names; sourcing them here lets a device
         // overlay set its own canvas without touching the runner binary.
-        env.insert("MARATHON_APP_WIDTH", QString::number(DeviceProfile::instance().runnerWidth()));
-        env.insert("MARATHON_APP_HEIGHT",
-                   QString::number(DeviceProfile::instance().runnerHeight()));
+        const QSize appSize = initialAppSize();
+        env.insert("MARATHON_APP_WIDTH", QString::number(appSize.width()));
+        env.insert("MARATHON_APP_HEIGHT", QString::number(appSize.height()));
 
         // Input method for SPAWNED clients: QT_IM_MODULE=wayland.
         // QtVirtualKeyboard has no Wayland client-side IM backend (Qt 6.x
@@ -1284,9 +1284,8 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          // — so a preforked pool spare boots at the device's own size instead of
          // the runner's built-in 540x1140 fallback (matters on non-L5 devices).
          << QStringLiteral("--setenv") << QStringLiteral("MARATHON_APP_WIDTH")
-         << QString::number(DeviceProfile::instance().runnerWidth()) << QStringLiteral("--setenv")
-         << QStringLiteral("MARATHON_APP_HEIGHT")
-         << QString::number(DeviceProfile::instance().runnerHeight());
+         << QString::number(initialAppSize().width()) << QStringLiteral("--setenv")
+         << QStringLiteral("MARATHON_APP_HEIGHT") << QString::number(initialAppSize().height());
 
     {
         const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
@@ -1834,4 +1833,15 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
         invokeVoid(m_appWindow, "show",
                    {effectiveAppId, appName, appIcon, QStringLiteral("native"),
                     QVariant::fromValue(qmlSurfaceObj), surfaceId});
+}
+
+// The compositor's real app area once the shell has laid out; a client that
+// starts at its final size never lays out twice on open.
+QSize AppLaunchService::initialAppSize() const {
+    if (m_compositor) {
+        const QSize viewport = m_compositor->property("appViewportSize").toSize();
+        if (viewport.width() > 0 && viewport.height() > 0)
+            return viewport;
+    }
+    return {DeviceProfile::instance().runnerWidth(), DeviceProfile::instance().runnerHeight()};
 }

@@ -93,6 +93,8 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
     if (m_settingsManager) {
         connect(m_settingsManager, &SettingsManager::timeFormatChanged, this,
                 [this]() { updateTime(); });
+        connect(m_settingsManager, &SettingsManager::timeZoneChanged, this,
+                [this]() { updateTime(); });
     }
 
     // Clock display is "HH:mm" / "h:mm AP" -- second-granularity, so 59 of
