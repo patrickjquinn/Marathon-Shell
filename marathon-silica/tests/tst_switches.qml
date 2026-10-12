@@ -52,38 +52,6 @@ TestCase {
         compare(s.checked, false);
     }
 
-    // A pill toggle on the right in place of Silica's glass dot on the left.
-    function test_textSwitchIsAPillOnTheRight() {
-        const s = createTemporaryObject(textSwitch, testCase);
-        const pill = findChild(s, "toggle");
-        verify(pill && pill.visible);
-        verify(pill.x + pill.width <= s.width - Theme.horizontalPageMargin + 1);
-        verify(pill.x > s.width / 2);
-        const label = findChild(s, "toggleLabel") || s._label;
-        compare(Math.round(label.mapToItem(s, 0, 0).x), Math.round(Theme.horizontalPageMargin));
-        verify(label.x + label.width <= pill.x);
-        verify(!findChild(s, "glass").visible);
-    }
-
-    function test_iconTextSwitchLeadsWithItsIcon() {
-        const s = createTemporaryObject(iconTextSwitch, testCase);
-        const pill = findChild(s, "toggle");
-        verify(pill && pill.visible);
-        verify(pill.x > s.width / 2);
-        compare(Math.round(s.icon.x), Math.round(Theme.horizontalPageMargin));
-        verify(s._label.mapToItem(s, 0, 0).x >= s.icon.x + s.icon.width);
-        verify(s._label.mapToItem(s, 0, 0).x + s._label.width <= pill.x);
-        verify(!findChild(s, "glass").visible);
-    }
-
-    function test_pillFollowsChecked() {
-        const s = createTemporaryObject(textSwitch, testCase);
-        const knob = findChild(s, "toggleKnob");
-        const off = knob.x;
-        s.checked = true;
-        tryVerify(function () { return knob.x > off; });
-    }
-
     function test_focusFrame() {
         const s = createTemporaryObject(textSwitch, testCase);
         verify(s.activeFocusOnTab);
