@@ -82,6 +82,9 @@ void SettingsController::setNotificationEnabled(const QString &appId, bool enabl
 
 void SettingsController::showWifiDialog(const QString &ssid, int strength, const QString &security,
                                         bool secured) {
+    if (ssid != m_wifiDialogSsid || m_wifiDialogHidden)
+        m_wifiDialogPassword.clear();
+    m_wifiDialogHidden     = false;
     m_wifiDialogSsid       = ssid;
     m_wifiDialogStrength   = strength;
     m_wifiDialogSecurity   = security.isEmpty() ? QStringLiteral("WPA2") : security;
@@ -103,10 +106,48 @@ void SettingsController::submitWifiPassword(const QString &password) {
         return;
     }
     m_wifiDialogConnecting = true;
+    m_wifiDialogPassword   = password;
     m_wifiDialogError.clear();
     emit wifiDialogChanged();
     QMetaObject::invokeMethod(m_networkManager, "connectToNetwork",
                               Q_ARG(QString, m_wifiDialogSsid), Q_ARG(QString, password));
+}
+
+void SettingsController::connectSavedNetwork(const QString &ssid, int strength,
+                                             const QString &security, bool secured) {
+    showWifiDialog(ssid, strength, security, secured);
+    submitWifiPassword(QString());
+}
+
+void SettingsController::showHiddenNetworkDialog() {
+    if (!m_wifiDialogHidden) {
+        m_wifiDialogSsid.clear();
+        m_wifiDialogSecurity = QStringLiteral("wpa-psk");
+        m_wifiDialogPassword.clear();
+    }
+    m_wifiDialogHidden     = true;
+    m_wifiDialogConnecting = false;
+    m_wifiDialogError.clear();
+    m_wifiDialogVisible = true;
+    emit wifiDialogChanged();
+}
+
+void SettingsController::connectHiddenNetwork(const QString &ssid, const QString &security,
+                                              const QString &password) {
+    if (!m_networkManager)
+        resolveDependencies();
+    if (!m_networkManager)
+        return;
+    m_wifiDialogHidden     = true;
+    m_wifiDialogVisible    = true;
+    m_wifiDialogSsid       = ssid;
+    m_wifiDialogSecurity   = security;
+    m_wifiDialogPassword   = password;
+    m_wifiDialogConnecting = true;
+    m_wifiDialogError.clear();
+    emit wifiDialogChanged();
+    QMetaObject::invokeMethod(m_networkManager, "connectToHiddenNetwork", Q_ARG(QString, ssid),
+                              Q_ARG(QString, security), Q_ARG(QString, password));
 }
 
 void SettingsController::showBluetoothDialog(const QString &name, const QString &address,
@@ -424,6 +465,14 @@ QString SettingsController::wifiDialogError() const {
     return m_wifiDialogError;
 }
 
+QString SettingsController::wifiDialogPassword() const {
+    return m_wifiDialogPassword;
+}
+
+bool SettingsController::wifiDialogHidden() const {
+    return m_wifiDialogHidden;
+}
+
 bool SettingsController::bluetoothDialogVisible() const {
     return m_bluetoothDialogVisible;
 }
@@ -616,6 +665,8 @@ void SettingsController::updateSystemInfo() {
 void SettingsController::handleWifiConnectionSuccess() {
     m_wifiDialogConnecting = false;
     m_wifiDialogError.clear();
+    m_wifiDialogPassword.clear();
+    m_wifiDialogHidden = false;
     setWifiDialogVisible(false);
 }
 

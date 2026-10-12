@@ -45,6 +45,9 @@ class SettingsController : public QObject {
     Q_PROPERTY(bool wifiDialogSecured READ wifiDialogSecured NOTIFY wifiDialogChanged)
     Q_PROPERTY(bool wifiDialogConnecting READ wifiDialogConnecting NOTIFY wifiDialogChanged)
     Q_PROPERTY(QString wifiDialogError READ wifiDialogError NOTIFY wifiDialogChanged)
+    // The last password tried, so a failed attempt can be corrected rather than retyped.
+    Q_PROPERTY(QString wifiDialogPassword READ wifiDialogPassword NOTIFY wifiDialogChanged)
+    Q_PROPERTY(bool wifiDialogHidden READ wifiDialogHidden NOTIFY wifiDialogChanged)
     Q_PROPERTY(
         bool bluetoothDialogVisible READ bluetoothDialogVisible NOTIFY bluetoothDialogChanged)
     Q_PROPERTY(QString bluetoothDialogName READ bluetoothDialogName NOTIFY bluetoothDialogChanged)
@@ -63,6 +66,11 @@ class SettingsController : public QObject {
                                     bool secured);
     Q_INVOKABLE void dismissWifiDialog();
     Q_INVOKABLE void submitWifiPassword(const QString &password);
+    Q_INVOKABLE void connectSavedNetwork(const QString &ssid, int strength,
+                                         const QString &security, bool secured);
+    Q_INVOKABLE void showHiddenNetworkDialog();
+    Q_INVOKABLE void connectHiddenNetwork(const QString &ssid, const QString &security,
+                                          const QString &password);
     Q_INVOKABLE void showBluetoothDialog(const QString &name, const QString &address,
                                          const QString &type, const QString &mode);
     Q_INVOKABLE void showBluetoothPasskeyConfirmation(const QString &name, const QString &address,
@@ -102,6 +110,8 @@ class SettingsController : public QObject {
     bool                wifiDialogSecured() const;
     bool                wifiDialogConnecting() const;
     QString             wifiDialogError() const;
+    QString             wifiDialogPassword() const;
+    bool                wifiDialogHidden() const;
     bool                bluetoothDialogVisible() const;
     QString             bluetoothDialogName() const;
     QString             bluetoothDialogAddress() const;
@@ -150,6 +160,8 @@ class SettingsController : public QObject {
     bool                   m_wifiDialogSecured    = true;
     bool                   m_wifiDialogConnecting = false;
     QString                m_wifiDialogError;
+    QString                m_wifiDialogPassword;
+    bool                   m_wifiDialogHidden = false;
     bool                   m_bluetoothDialogVisible = false;
     QString                m_bluetoothDialogName;
     QString                m_bluetoothDialogAddress;

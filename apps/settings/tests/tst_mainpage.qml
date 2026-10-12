@@ -153,7 +153,7 @@ TestCase {
     function test_coverToggles() {
         const app = makeApp();
         app.toggleWifi();
-        verify(!Network.wifiEnabled);
+        tryVerify(() => !Network.wifiEnabled);
         app.toggleBluetooth();
         verify(Bluetooth.enabled);
     }

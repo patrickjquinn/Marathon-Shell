@@ -20,6 +20,8 @@ QtObject {
     property bool wifiDialogSecured: true
     property bool wifiDialogConnecting: false
     property string wifiDialogError: ""
+    property string wifiDialogPassword: ""
+    property bool wifiDialogHidden: false
 
     property bool bluetoothDialogVisible: false
     property string bluetoothDialogName: ""
@@ -36,6 +38,9 @@ QtObject {
         wifiDialogVisible = false;
         wifiDialogConnecting = false;
         wifiDialogError = "";
+        wifiDialogPassword = "";
+        wifiDialogHidden = false;
+        wifiDialogSsid = "";
         bluetoothDialogVisible = false;
         bluetoothDialogPairing = false;
         bluetoothDialogError = "";
@@ -46,6 +51,9 @@ QtObject {
     }
 
     function showWifiDialog(ssid, strength, security, secured) {
+        if (ssid !== wifiDialogSsid || wifiDialogHidden)
+            wifiDialogPassword = "";
+        wifiDialogHidden = false;
         wifiDialogSsid = ssid;
         wifiDialogStrength = strength;
         wifiDialogSecurity = security === "" ? "WPA2" : security;
@@ -59,12 +67,40 @@ QtObject {
     }
     function submitWifiPassword(password) {
         record(["wifiPassword", wifiDialogSsid, password]);
+        wifiDialogPassword = password;
+        wifiDialogError = "";
+        wifiDialogConnecting = true;
+    }
+    function connectSavedNetwork(ssid, strength, security, secured) {
+        showWifiDialog(ssid, strength, security, secured);
+        submitWifiPassword("");
+    }
+    function showHiddenNetworkDialog() {
+        if (!wifiDialogHidden) {
+            wifiDialogSsid = "";
+            wifiDialogSecurity = "wpa-psk";
+            wifiDialogPassword = "";
+        }
+        wifiDialogHidden = true;
+        wifiDialogConnecting = false;
+        wifiDialogError = "";
+        wifiDialogVisible = true;
+    }
+    function connectHiddenNetwork(ssid, security, password) {
+        record(["hidden", ssid, security, password]);
+        wifiDialogHidden = true;
+        wifiDialogVisible = true;
+        wifiDialogSsid = ssid;
+        wifiDialogSecurity = security;
+        wifiDialogPassword = password;
         wifiDialogError = "";
         wifiDialogConnecting = true;
     }
     // Test hooks for the network manager's answers.
     function wifiSucceeded() {
         wifiDialogConnecting = false;
+        wifiDialogPassword = "";
+        wifiDialogHidden = false;
         wifiDialogVisible = false;
     }
     function wifiFailed(message) {

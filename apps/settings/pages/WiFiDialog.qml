@@ -10,6 +10,7 @@ Dialog {
     readonly property bool secured: SettingsController.wifiDialogSecured
     property alias password: passwordField.text
 
+    Component.onCompleted: password = SettingsController.wifiDialogPassword
     canAccept: !secured || password.length >= 8
     onAccepted: SettingsController.submitWifiPassword(password)
     onRejected: SettingsController.dismissWifiDialog()

@@ -21,13 +21,16 @@ Page {
     }
 
     function select(network) {
-        SettingsController.showWifiDialog(network.ssid, network.strength, network.security || "Open", !!network.secured);
+        if (network.known)
+            SettingsController.connectSavedNetwork(network.ssid, network.strength, network.security || "Open", !!network.secured);
+        else
+            SettingsController.showWifiDialog(network.ssid, network.strength, network.security || "Open", !!network.secured);
     }
 
     function showDialog() {
         if (!dialogWanted || status !== PageStatus.Active)
             return;
-        pageStack.push(Qt.resolvedUrl("WiFiDialog.qml"));
+        pageStack.push(Qt.resolvedUrl(SettingsController.wifiDialogHidden ? "HiddenNetworkDialog.qml" : "WiFiDialog.qml"));
     }
 
     onDialogWantedChanged: Qt.callLater(showDialog)
@@ -50,6 +53,10 @@ Page {
         function onAvailableNetworksChanged() {
             page.scanning = false;
         }
+        function onWifiEnabledChanged() {
+            if (Network.wifiEnabled)
+                page.scan();
+        }
     }
 
     SilicaFlickable {
@@ -57,6 +64,14 @@ Page {
         contentHeight: column.height + Theme.paddingLarge
 
         PullDownMenu {
+            busy: page.scanning
+
+            MenuItem {
+                objectName: "addNetworkItem"
+                text: qsTr("Add network")
+                enabled: Network.wifiEnabled
+                onClicked: SettingsController.showHiddenNetworkDialog()
+            }
             MenuItem {
                 objectName: "scanItem"
                 text: qsTr("Scan")
@@ -80,11 +95,7 @@ Page {
                 automaticCheck: false
                 enabled: Network.wifiAvailable
                 checked: Network.wifiAvailable && Network.wifiEnabled
-                onClicked: {
-                    Network.toggleWifi();
-                    if (Network.wifiEnabled)
-                        Qt.callLater(page.scan);
-                }
+                onClicked: Network.toggleWifi()
             }
 
             Row {
@@ -122,6 +133,14 @@ Page {
                         objectName: "disconnectItem"
                         text: qsTr("Disconnect")
                         onClicked: Network.disconnectWifi()
+                    }
+                    MenuItem {
+                        objectName: "forgetCurrentItem"
+                        text: qsTr("Forget network")
+                        onClicked: {
+                            const ssid = Network.wifiSsid;
+                            current.remorseDelete(() => Network.forgetNetwork(ssid));
+                        }
                     }
                 }
                 onClicked: openMenu()
@@ -174,8 +193,24 @@ Page {
 
                     objectName: "network-" + modelData.ssid
                     contentHeight: Theme.itemSizeMedium
+                    menu: modelData.known ? forgetMenu : null
                     Accessible.name: modelData.ssid + ", " + SettingsController.availableNetworkSubtitle(modelData.security || "", modelData.strength, modelData.frequency)
                     onClicked: page.select(modelData)
+
+                    Component {
+                        id: forgetMenu
+
+                        ContextMenu {
+                            MenuItem {
+                                objectName: "forgetItem"
+                                text: qsTr("Forget network")
+                                onClicked: {
+                                    const ssid = item.modelData.ssid;
+                                    item.remorseDelete(() => Network.forgetNetwork(ssid));
+                                }
+                            }
+                        }
+                    }
 
                     Icon {
                         id: icon
@@ -202,7 +237,7 @@ Page {
                         }
                         Label {
                             width: parent.width
-                            text: SettingsController.availableNetworkSubtitle(item.modelData.security || "", item.modelData.strength, item.modelData.frequency)
+                            text: (item.modelData.known ? qsTr("Saved") + " · " : "") + SettingsController.availableNetworkSubtitle(item.modelData.security || "", item.modelData.strength, item.modelData.frequency)
                             font.pixelSize: Theme.fontSizeExtraSmall
                             truncationMode: TruncationMode.Fade
                             color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

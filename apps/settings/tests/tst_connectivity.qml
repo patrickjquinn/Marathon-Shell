@@ -63,9 +63,80 @@ TestCase {
         child(s.page, "scanItem").clicked();
         compare(Network.calls[Network.calls.length - 1], ["scanWifi"]);
         child(s.page, "wifiSwitch").clicked(null);
-        verify(!Network.wifiEnabled);
+        tryVerify(() => !Network.wifiEnabled);
         verify(!child(s.page, "noNetworks").visible);
         compare(child(s.page, "networks").count, 0);
+    }
+
+    function test_turningWifiOnScans() {
+        Network.wifiEnabled = false;
+        const s = open("wifi");
+        compare(Network.calls.length, 0);
+        child(s.page, "wifiSwitch").clicked(null);
+        tryVerify(() => Network.wifiEnabled);
+        compare(Network.calls[Network.calls.length - 1], ["scanWifi"]);
+        verify(s.page.scanning);
+        verify(!child(s.page, "noNetworks").visible);
+    }
+
+    function test_savedNetworkConnectsWithoutPassword() {
+        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }];
+        const s = open("wifi");
+        child(s.page, "network-Home").clicked(null);
+        compare(SettingsController.calls, [["wifiPassword", "Home", ""]]);
+        verify(child(s.page, "connectingLabel").visible);
+        verify(s.app.pageStack.currentPage === s.page);
+        SettingsController.wifiFailed("Incorrect password");
+        const dialog = activeDialog(s.app);
+        compare(child(dialog, "errorLabel").text, "Incorrect password");
+    }
+
+    function test_retryKeepsThePassword() {
+        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true }];
+        const s = open("wifi");
+        child(s.page, "network-Home").clicked(null);
+        const dialog = activeDialog(s.app);
+        dialog.password = "hunter22x";
+        dialog.accept();
+        tryCompare(s.app.pageStack, "currentPage", s.page);
+        SettingsController.wifiFailed("Incorrect password");
+        const retry = activeDialog(s.app);
+        compare(retry.password, "hunter22x");
+    }
+
+    function test_forgetSavedNetwork() {
+        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }, { ssid: "Cafe", strength: 30, secured: false }];
+        const s = open("wifi");
+        verify(child(s.page, "network-Cafe").menu === null);
+        const menu = child(s.page, "network-Home").openMenu();
+        tryVerify(() => menu._open && menu.height > 0);
+        wait(300);
+        mouseClick(findChild(menu, "forgetItem"));
+        verify(!Network.calls.some(c => c[0] === "forget"));
+        tryVerify(() => Network.calls.some(c => c[0] === "forget" && c[1] === "Home"), 10000);
+    }
+
+    function test_hiddenNetwork() {
+        const s = open("wifi");
+        child(s.page, "addNetworkItem").clicked();
+        const dialog = activeDialog(s.app);
+        verify(!dialog.canAccept);
+        dialog.ssid = "Secret";
+        verify(!dialog.canAccept);
+        dialog.password = "password1";
+        verify(dialog.canAccept);
+        dialog.accept();
+        tryCompare(s.app.pageStack, "currentPage", s.page);
+        compare(SettingsController.calls, [["hidden", "Secret", "wpa-psk", "password1"]]);
+        verify(child(s.page, "connectingLabel").visible);
+        SettingsController.wifiFailed("Incorrect password");
+        const retry = activeDialog(s.app);
+        compare(retry.ssid, "Secret");
+        compare(retry.password, "password1");
+        compare(child(retry, "errorLabel").text, "Incorrect password");
+        retry.security = "none";
+        verify(!child(retry, "passwordField").visible);
+        verify(retry.canAccept);
     }
 
     function test_wifiWithoutAdapter() {

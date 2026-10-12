@@ -27,9 +27,15 @@ QtObject {
     function record(call) {
         calls = calls.concat([call]);
     }
+    // NetworkManager reports the new state later, as the real client does.
     function toggleWifi() {
         record(["toggleWifi"]);
-        wifiEnabled = !wifiEnabled;
+        const next = !wifiEnabled;
+        Qt.callLater(() => wifiEnabled = next);
+    }
+    function forgetNetwork(ssid) {
+        record(["forget", ssid]);
+        availableNetworks = availableNetworks.map(n => n.ssid === ssid ? Object.assign({}, n, { known: false }) : n);
     }
     function scanWifi() {
         record(["scanWifi"]);
