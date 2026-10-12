@@ -16,7 +16,6 @@ QtObject {
     // sandboxed app, zeroing heightScaleFactor and forcing isTallScreen false.
     property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.width > 0) ? ScreenMetricsCpp.width : (typeof MARATHON_SCREEN_WIDTH !== "undefined" && MARATHON_SCREEN_WIDTH > 0) ? MARATHON_SCREEN_WIDTH : 0
     property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.height > 0) ? ScreenMetricsCpp.height : (typeof MARATHON_SCREEN_HEIGHT !== "undefined" && MARATHON_SCREEN_HEIGHT > 0) ? MARATHON_SCREEN_HEIGHT : 0
-    readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
     // DPI source order: shell's ScreenMetricsCpp (full device probe) →
     // marathon-app-runner's MARATHON_DPI context property (forwarded from
     // the shell at launch) → baseDPI. Without the app-runner fallback the
@@ -54,12 +53,9 @@ QtObject {
     readonly property int zIndexBackground: 0
     readonly property int zIndexMainContent: 90
     readonly property int zIndexBottomSection: 150
-    readonly property int zIndexTaskSwitcher: 200
     readonly property int zIndexAppWindow: 600
     readonly property int zIndexPeekGesture: 650
     readonly property int zIndexPeek: 700
-    readonly property int zIndexSettings: 700
-    readonly property int zIndexSettingsPage: 700
     readonly property int zIndexLockScreen: 1000
     readonly property int zIndexPinScreen: 1100
     readonly property int zIndexSearch: 1150
@@ -71,9 +67,6 @@ QtObject {
     readonly property int zIndexModalOverlay: 2000
     readonly property int zIndexModal: zIndexModalOverlay
     readonly property int zIndexKeyboard: 3000
-    readonly property real gestureEdgeWidth: Math.round(50 * scaleFactor)
-    readonly property real gesturePeekThreshold: Math.round(100 * scaleFactor)
-    readonly property real gestureCommitThreshold: Math.round(200 * scaleFactor)
     readonly property real gestureSwipeShort: Math.round(80 * scaleFactor)
     readonly property real gestureSwipeLong: Math.round(150 * scaleFactor)
     readonly property real quickSettingsDismissThreshold: 0.3
@@ -85,15 +78,9 @@ QtObject {
     readonly property int animationFast: MMotion.durationFor("hover")
     readonly property int animationNormal: MMotion.durationFor("nav")
     readonly property int animationSlow: MMotion.durationFor("panel")
-    readonly property int animationDurationFast: MMotion.durationFor("hover")
-    readonly property int animationDurationNormal: MMotion.durationFor("modal")
-    readonly property int animationDurationSlow: MMotion.durationFor("sheet")
-    readonly property int sessionTimeout: 600000
     property bool performanceMode: false
     readonly property bool enableAnimations: !performanceMode
     property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
-    readonly property int peekThreshold: 40
-    readonly property int commitThreshold: 100
     // Marathon DS 2026: 28px status bar, 96px top bar, 70px tab bar,
     // 64px dock, 36px Now Bar. See docs/redesign/ANALYSIS.md §4.
     //
@@ -118,46 +105,22 @@ QtObject {
     readonly property real safeAreaBottom: navBarHeight
     readonly property real safeAreaLeft: 0
     readonly property real safeAreaRight: 0
-    readonly property real pageIndicatorSizeActive: Math.round(28 * scaleFactor)
     readonly property real pageIndicatorSizeInactive: Math.round(16 * scaleFactor)
-    readonly property real pageIndicatorHubSizeActive: Math.round(40 * scaleFactor)
-    readonly property real pageIndicatorHubSizeInactive: Math.round(20 * scaleFactor)
-    readonly property real lockScreenNotificationSize: Math.round(40 * scaleFactor)
-    readonly property real lockScreenShortcutSize: Math.round(64 * scaleFactor)
-    readonly property int flickDecelerationFast: 8000
-    readonly property int flickVelocityMax: 5000
-    readonly property int touchFlickDeceleration: 25000
-    readonly property int touchFlickVelocity: 8000
     readonly property real touchTargetLarge: Math.round(90 * scaleFactor)
-    readonly property real touchTargetXLarge: Math.round(110 * scaleFactor)
     readonly property real touchTargetMedium: Math.round(70 * scaleFactor)
     readonly property real touchTargetSmall: Math.round(60 * scaleFactor)
     readonly property real touchTargetIndicator: Math.round(50 * scaleFactor)
     readonly property real touchTargetMinimum: Math.max(44, Math.round(45 * scaleFactor))
     readonly property real inputHeight: Math.round(48 * scaleFactor)
-    readonly property real listItemHeight: Math.round(56 * scaleFactor)
-    readonly property real iconButtonSize: Math.round(20 * scaleFactor)
-    readonly property real smallIndicatorSize: Math.round(8 * scaleFactor)
-    readonly property real mediumIndicatorSize: Math.round(12 * scaleFactor)
-    readonly property real dividerHeight: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real actionBarHeight: Math.round(72 * scaleFactor)
     readonly property real hubHeaderHeight: Math.round(80 * scaleFactor)
     readonly property real appIconSize: Math.round(64 * scaleFactor)
-    readonly property real appGridSpacing: Math.round(20 * scaleFactor)
-    readonly property real appLabelHeight: Math.round(32 * scaleFactor)
-    readonly property real cardHeight: Math.round(160 * scaleFactor)
-    readonly property real cardWidth: Math.round(screenWidth * 0.42)
     readonly property real cardBannerHeight: Math.round(60 * scaleFactor)
-    // DS .m-card uses radius 4 (--r-md). Was 20 (off-spec).
-    readonly property real cardRadius: Math.round(4 * scaleFactor)
-    readonly property real fontSizeXSmall: Math.round(12 * scaleFactor)
     readonly property real fontSizeSmall: Math.round(14 * scaleFactor)
     readonly property real fontSizeMedium: Math.round(16 * scaleFactor)
     readonly property real fontSizeLarge: Math.round(18 * scaleFactor)
     readonly property real fontSizeXLarge: Math.round(24 * scaleFactor)
     readonly property real fontSizeXXLarge: Math.round(32 * scaleFactor)
     readonly property real fontSizeHuge: Math.round(48 * scaleFactor)
-    readonly property real fontSizeGigantic: Math.round(96 * scaleFactor)
     readonly property real spacingXSmall: Math.round(5 * scaleFactor)
     readonly property real spacingSmall: Math.round(10 * scaleFactor)
     readonly property real spacingMedium: Math.round(16 * scaleFactor)
@@ -185,21 +148,11 @@ QtObject {
     readonly property real borderRadiusXLarge: Math.round(8 * scaleFactor)
     readonly property real borderWidthThin: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real borderWidthMedium: Math.max(1, Math.round(2 * scaleFactor))
-    readonly property real borderWidthThick: Math.max(2, Math.round(3 * scaleFactor))
     readonly property bool enableAntialiasing: true
     readonly property real iconSizeSmall: Math.round(20 * scaleFactor)
     readonly property real iconSizeMedium: Math.round(32 * scaleFactor)
     readonly property real iconSizeLarge: Math.round(40 * scaleFactor)
     readonly property real iconSizeXLarge: Math.round(64 * scaleFactor)
-    readonly property real shadowSmall: Math.max(1, Math.round(2 * scaleFactor))
-    readonly property real shadowMedium: Math.max(2, Math.round(4 * scaleFactor))
-    readonly property real shadowLarge: Math.max(4, Math.round(8 * scaleFactor))
-    readonly property real shadowOpacity: 0.3
-    readonly property color shadowColor: "#000000"
-    readonly property real modalMaxWidth: Math.round(screenWidth * 0.85)
-    readonly property real modalMaxHeight: Math.round(screenHeight * 0.75)
-    readonly property real toastHeight: Math.round(64 * scaleFactor)
-    readonly property real hudSize: Math.round(128 * scaleFactor)
 
     function updateScreenSize(width, height, deviceDpi) {
         screenWidth = width;
