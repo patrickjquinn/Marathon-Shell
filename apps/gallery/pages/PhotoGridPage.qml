@@ -87,6 +87,8 @@ Page {
             id: thumb
 
             size: grid.cellWidth
+            // Keel's ThumbnailImage fixes its height, which leaves no room for the menu.
+            height: implicitHeight
             source: modelData.thumbnailPath || modelData.path
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
@@ -96,6 +98,30 @@ Page {
             Keys.onEnterPressed: root.openPhoto(index)
             Keys.onSpacePressed: root.openPhoto(index)
             onClicked: root.openPhoto(index)
+            menu: ContextMenu {
+                MenuItem {
+                    objectName: "deleteAction"
+                    text: qsTr("Delete")
+                    onClicked: {
+                        const store = root.store;
+                        const id = modelData.id;
+                        thumb.remorseDelete(function () { store.deletePhoto(id); });
+                    }
+                }
+            }
+
+            // A video given a thumbnail would otherwise pass for a photo.
+            Icon {
+                objectName: "videoMark"
+                anchors {
+                    left: parent.left
+                    bottom: parent.bottom
+                    margins: Theme.paddingSmall
+                }
+                visible: Model.isVideo(modelData) && !!modelData.thumbnailPath
+                source: "image://theme/icon-s-video"
+                color: Theme.lightPrimaryColor
+            }
 
             FocusFrame { parent: thumb }
         }

@@ -197,6 +197,33 @@ TestCase {
         verify(findChild(player, "positionSlider").visible);
     }
 
+    function test_longPressDeletesWithRemorse() {
+        const app = makeApp(threePhotos());
+        const grid = findChild(openGrid(app, "all"), "grid");
+        tryCompare(grid, "count", 3);
+        tryVerify(() => grid.itemAtIndex(0) !== null);
+        const item = grid.itemAtIndex(0);
+        const id = grid.model[0].id;
+        item.openMenu();
+        tryVerify(() => findChild(item, "deleteAction") !== null);
+        findChild(item, "deleteAction").clicked();
+        item.closeMenu();
+        compare(MediaLibrary.deleted, [], "nothing deleted during the countdown");
+        tryCompare(MediaLibrary, "deleted", [id], 8000);
+        tryCompare(grid, "count", 2);
+    }
+
+    function test_videoThumbnailsAreMarked() {
+        const withThumb = video(9);
+        withThumb.thumbnailPath = Qt.resolvedUrl("data/photo1.png").toString();
+        const app = makeApp(threePhotos(), [withThumb, video(2)]);
+        const grid = findChild(openGrid(app, "videos"), "grid");
+        tryCompare(grid, "count", 2);
+        tryVerify(() => grid.itemAtIndex(1) !== null);
+        verify(findChild(grid.itemAtIndex(0), "videoMark").visible);
+        verify(!findChild(grid.itemAtIndex(1), "videoMark").visible, "Keel already shows a video icon without a thumbnail");
+    }
+
     function test_tappingAPhotoBesideVideosOpensThatPhoto() {
         const app = makeApp(threePhotos(), [video(9)]);
         const grid = findChild(openGrid(app, "all"), "grid");
