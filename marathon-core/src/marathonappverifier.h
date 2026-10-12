@@ -36,7 +36,8 @@ class MarathonAppVerifier : public QObject {
     void error(const QString &message);
 
   private:
-    bool    verifySignatureFile(const QString &manifestPath, const QString &signaturePath);
+    VerificationResult verifySignatureFile(const QString &manifestPath,
+                                           const QString &signaturePath);
     bool    isGPGAvailable();
     QString getTrustedKeysDir();
     bool    initializeTrustedKeysDir();

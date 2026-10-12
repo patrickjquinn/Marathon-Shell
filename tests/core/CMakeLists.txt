@@ -165,3 +165,9 @@ add_executable(test_core_sailjail test_sailjail.cpp ../../tools/marathon-app-run
 target_link_libraries(test_core_sailjail Qt6::Test Qt6::Core)
 target_include_directories(test_core_sailjail PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
 add_test(NAME Core_Sailjail COMMAND test_core_sailjail)
+
+# App signature trust: only keys in trusted-keys verify
+add_executable(test_core_appverifier test_appverifier.cpp ../../marathon-core/src/marathonappverifier.cpp)
+target_link_libraries(test_core_appverifier Qt6::Test Qt6::Core)
+target_include_directories(test_core_appverifier PRIVATE ${CMAKE_SOURCE_DIR}/marathon-core/src)
+add_test(NAME Core_AppVerifier COMMAND test_core_appverifier)
