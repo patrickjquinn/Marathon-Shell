@@ -4,11 +4,13 @@
 about info
 accept check
 add plus
+airplane-mode airplane
 alarm alarm
 alarm-clock alarm
 ambience palette
 answer phone-call
 app-grid dots-nine
+apps package
 attach paperclip
 audio speaker-high
 back arrow-left
@@ -43,6 +45,7 @@ device-lock lock
 dialpad dots-nine
 dismiss x
 display monitor
+do-not-disturb moon
 document file-text
 down caret-down
 download download-simple
@@ -111,6 +114,7 @@ mic microphone
 mic-mute microphone-slash
 missed-call phone-x
 more dots-three
+mouse mouse
 music music-note
 mute speaker-slash
 navigate compass
@@ -118,6 +122,7 @@ new plus
 next-song skip-forward
 note note
 office briefcase
+notifications bell
 other dots-three-circle
 outgoing-call phone-outgoing
 package package
@@ -160,8 +165,10 @@ storage hard-drives
 stopwatch timer
 sync arrows-clockwise
 tab browsers
+terminal terminal-window
 text-input textbox
 timer timer
+toggle toggle-right
 transfer arrows-left-right
 trash trash
 unfocused-down caret-down
@@ -182,6 +189,10 @@ wallpaper image-square
 warning warning
 weather cloud-sun
 wlan wifi-high
+wlan-0 wifi-none
+wlan-1 wifi-low
+wlan-2 wifi-medium
+wlan-3 wifi-high
 wlan-off wifi-slash
 world globe
 zoom-in magnifying-glass-plus
