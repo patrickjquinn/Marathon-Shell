@@ -207,9 +207,11 @@ TestCase {
         verify(!SettingsController.bluetoothDialogVisible);
     }
 
-    function test_cellularWithoutModem() {
+    function test_cellularUnavailable() {
         const s = open("cellular");
-        verify(child(s.page, "noModem").visible);
-        verify(!child(s.page, "dataSwitch").enabled);
+        const placeholder = child(s.page, "placeholder");
+        verify(placeholder.enabled);
+        compare(placeholder.text, "Mobile network settings aren't available yet");
+        compare(findChild(s.page, "dataSwitch"), null);
     }
 }
