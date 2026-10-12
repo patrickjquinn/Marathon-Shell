@@ -1,0 +1,3 @@
+module Marathon.Platform
+singleton Navigation 1.0 Navigation.qml
+singleton Permissions 1.0 Permissions.qml

@@ -1,0 +1,3 @@
+module MarathonApp.Camera
+CameraController 1.0 CameraController.qml
+SoftwareVideoOutput 1.0 SoftwareVideoOutput.qml
