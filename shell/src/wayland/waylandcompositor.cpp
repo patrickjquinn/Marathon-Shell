@@ -784,6 +784,10 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
+    connect(surface, &QWaylandSurface::inhibitsIdleChanged, this,
+            &WaylandCompositor::checkIdleInhibitors);
+    connect(surface, &QWaylandSurface::hasContentChanged, this,
+            &WaylandCompositor::checkIdleInhibitors);
 
     // Client commit meter (harmless when the 1Hz stats timer isn't running).
     connect(surface, &QWaylandSurface::redraw, this,
@@ -1228,6 +1232,7 @@ void WaylandCompositor::handleSurfaceDestroyed() {
     m_surfaceMap.remove(surfaceId);
     m_xdgSurfaceMap.remove(surfaceId);
     m_surfaces.removeAll(surface);
+    checkIdleInhibitors();
 
     emit surfacesChanged();
     emit surfaceDestroyed(surface, surfaceId);
@@ -1723,7 +1728,8 @@ bool WaylandCompositor::checkIdleInhibitors() {
 
     for (auto it = m_surfaceMap.constBegin(); it != m_surfaceMap.constEnd(); ++it) {
         QWaylandSurface *surface = it.value();
-        if (surface && surface->inhibitsIdle()) {
+        // The protocol only honours an inhibitor while its surface is mapped.
+        if (surface && surface->inhibitsIdle() && surface->hasContent()) {
             qDebug() << "[WaylandCompositor] Surface" << it.key() << "inhibits idle";
             hasInhibitor = true;
             break;
