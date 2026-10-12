@@ -101,8 +101,11 @@ Row {
             }
 
             Label {
+                id: keyLabel
+
                 visible: !!keyItem.modelData.label
                 anchors.centerIn: parent
+                anchors.verticalCenterOffset: lockMark.visible ? -lockMark.height / 2 : 0
                 text: keyItem.modelData.label || ""
                 font.pixelSize: Theme.fontSizeSmall
                 color: keyItem.highlighted || keyItem.modState !== VirtualKeyRow.Idle ? Theme.highlightColor : Theme.primaryColor
@@ -110,14 +113,14 @@ Row {
             }
 
             Icon {
+                id: lockMark
+
                 objectName: "lockMark"
                 visible: keyItem.modState === VirtualKeyRow.Locked
-                anchors {
-                    top: parent.top
-                    right: parent.right
-                    topMargin: Theme.paddingSmall / 2
-                    rightMargin: Theme.paddingSmall / 2
-                }
+                anchors.top: keyLabel.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                sourceSize.width: Theme.iconSizeExtraSmall
+                sourceSize.height: Theme.iconSizeExtraSmall
                 source: "image://theme/icon-s-lock"
                 highlighted: true
             }
