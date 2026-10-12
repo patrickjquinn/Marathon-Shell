@@ -30,18 +30,28 @@ Page {
 
     Component {
         id: alarmsTab
-        AlarmsTab { app: root.app }
+        AlarmsTab {
+            app: root.app
+            topMargin: tabs.tabBarHeight
+        }
     }
     Component {
         id: worldClockTab
-        WorldClockTab { app: root.app }
+        WorldClockTab {
+            app: root.app
+            topMargin: tabs.tabBarHeight
+        }
     }
     Component {
         id: stopwatchTab
-        StopwatchTab { app: root.app }
+        StopwatchTab {
+            app: root.app
+        }
     }
     Component {
         id: timerTab
-        TimerTab { app: root.app }
+        TimerTab {
+            app: root.app
+        }
     }
 }

@@ -7,6 +7,7 @@ TabItem {
     id: root
 
     property var app
+    property real topMargin
 
     flickable: list
 
@@ -16,6 +17,10 @@ TabItem {
         objectName: "alarmList"
         anchors.fill: parent
         model: root.app.alarms
+        header: Item {
+            width: 1
+            height: root.topMargin
+        }
 
         PullDownMenu {
             MenuItem {

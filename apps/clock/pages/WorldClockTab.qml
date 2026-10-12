@@ -6,6 +6,7 @@ TabItem {
     id: root
 
     property var app
+    property real topMargin
     property date now: new Date()
 
     flickable: list
@@ -34,7 +35,7 @@ TabItem {
 
         header: Column {
             width: list.width
-            topPadding: Theme.paddingLarge * 2
+            topPadding: root.topMargin + Theme.paddingLarge * 2
             bottomPadding: Theme.paddingLarge
 
             Label {

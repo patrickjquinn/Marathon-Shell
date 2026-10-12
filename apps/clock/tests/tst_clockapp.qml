@@ -132,6 +132,22 @@ TestCase {
         compare(createTemporaryObject(appComponent, testCase).cities.length, 4);
     }
 
+    function test_addCityPage() {
+        const app = makeApp();
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        let list = null;
+        tryVerify(() => (list = findChild(page, "addCityList")) !== null);
+        const all = list.count;
+        verify(all > 20);
+        page.query = "par";
+        compare(list.count, 1);
+        let item = null;
+        tryVerify(() => (item = findChild(list, "addCityItem")) !== null);
+        item.clicked(null);
+        compare(app.cities[app.cities.length - 1].name, "Paris");
+        tryVerify(() => app.pageStack.depth === 1);
+    }
+
     function test_cityTime() {
         const app = makeApp();
         compare(app.cityTime({ name: "London", tz: "Europe/London" }, new Date()).diff, "Local");
