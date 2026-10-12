@@ -27,8 +27,6 @@ class SettingsController : public QObject {
   public:
     explicit SettingsController(QObject *parent = nullptr);
 
-    Q_PROPERTY(int appSourceRevision READ appSourceRevision NOTIFY appSourceChanged)
-    Q_PROPERTY(int defaultAppsRevision READ defaultAppsRevision NOTIFY defaultAppsChanged)
     Q_PROPERTY(QVariantList notificationApps READ notificationApps NOTIFY notificationAppsChanged)
     Q_PROPERTY(
         int notificationAppsRevision READ notificationAppsRevision NOTIFY notificationAppsChanged)
@@ -61,9 +59,6 @@ class SettingsController : public QObject {
         bool bluetoothDialogPairing READ bluetoothDialogPairing NOTIFY bluetoothDialogChanged)
     Q_PROPERTY(QString bluetoothDialogError READ bluetoothDialogError NOTIFY bluetoothDialogChanged)
 
-    Q_INVOKABLE QVariantList appsForHandler(const QString &handler, int revision = 0);
-    Q_INVOKABLE QString      defaultAppName(const QString &handler, int revision = 0);
-    Q_INVOKABLE void         setDefaultApp(const QString &handler, const QString &appId);
     Q_INVOKABLE void         setNotificationEnabled(const QString &appId, bool enabled);
     Q_INVOKABLE void showWifiDialog(const QString &ssid, int strength, const QString &security,
                                     bool secured);
@@ -92,8 +87,6 @@ class SettingsController : public QObject {
     Q_INVOKABLE QString quickPinValidationError(const QString &pin, const QString &password) const;
     Q_INVOKABLE QString soundTypeLabel(const QString &soundType) const;
 
-    int                 appSourceRevision() const;
-    int                 defaultAppsRevision() const;
     int                 notificationAppsRevision() const;
     QVariantList        notificationApps() const;
     QString             osVersion() const;
@@ -122,8 +115,6 @@ class SettingsController : public QObject {
     QString             bluetoothDialogError() const;
 
   signals:
-    void appSourceChanged();
-    void defaultAppsChanged();
     void wifiDialogChanged();
     void bluetoothDialogChanged();
     void notificationAppsChanged();
@@ -131,14 +122,8 @@ class SettingsController : public QObject {
 
   private slots:
     void                resolveDependencies();
-    QVariantList        buildEligibleApps(const QString &handler) const;
-    QString             findAppName(const QString &appId) const;
-    QVariantMap         defaultAppsMap() const;
-    void                updateDefaultApps(const QVariantMap &apps);
     QAbstractItemModel *appModel() const;
-    int                 roleIndex(const QByteArray &roleName) const;
     void                handleAppSourceChanged();
-    void                handleDefaultAppsChanged();
     void                handleNotificationSettingsChanged();
     void                updateSystemInfo();
     void                handleWifiConnectionSuccess();
@@ -159,8 +144,6 @@ class SettingsController : public QObject {
     QPointer<QObject>      m_settingsManager;
     QPointer<QObject>      m_appSource;
     QHash<int, QByteArray> m_roleNames;
-    int                    m_appSourceRevision        = 0;
-    int                    m_defaultAppsRevision      = 0;
     int                    m_notificationAppsRevision = 0;
     QPointer<QObject>      m_networkManager;
     QPointer<QObject>      m_bluetoothManager;

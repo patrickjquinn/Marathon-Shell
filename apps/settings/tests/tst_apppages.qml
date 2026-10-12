@@ -81,27 +81,8 @@ TestCase {
         tryCompare(AppInstaller, "uninstalled", ["weather"], 10000);
     }
 
-    function test_defaultApps() {
-        const s = open("defaultapps");
-        const browser = child(s.page, "handler-browser");
-        compare(browser.value, "Browser");
-        compare(child(s.page, "handler-email").value, "None");
-        browser.clicked(null);
-        tryVerify(() => s.app.pageStack.currentPage !== s.page && s.app.pageStack.currentPage.status === PageStatus.Active);
-        const picker = s.app.pageStack.currentPage;
-        compare(picker.handler, "browser");
-        compare(child(picker, "appList").count, 2);
-        verify(child(picker, "pick-browser").selected);
-        child(picker, "pick-webby").clicked(null);
-        tryVerify(() => s.app.pageStack.currentPage === s.page);
-        compare(browser.value, "Webby");
-    }
-
-    function test_emptyHandler() {
-        const s = open("defaultapps");
-        child(s.page, "handler-files").clicked(null);
-        tryVerify(() => s.app.pageStack.currentPage !== s.page && s.app.pageStack.currentPage.status === PageStatus.Active);
-        verify(child(s.app.pageStack.currentPage, "placeholder").enabled);
+    function test_noDefaultAppsPage() {
+        compare(Logic.pageFile("defaultapps"), "");
     }
 
     function test_hiddenApps() {

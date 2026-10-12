@@ -3,8 +3,6 @@ import QtQml
 
 // Mirrors src/SettingsController's dialog state and text helpers.
 QtObject {
-    property int appSourceRevision: 0
-    property int defaultAppsRevision: 0
     property var notificationApps: [{ id: "notes", name: "Notes", enabled: true }, { id: "weather", name: "Weather", enabled: false }]
     property string osVersion: "Marathon OS r375"
     property string buildType: "arm64-little_endian-lp64"
@@ -33,7 +31,6 @@ QtObject {
     property bool bluetoothDialogPairing: false
     property string bluetoothDialogError: ""
 
-    property var defaults: ({ browser: "browser" })
     property var calls: []
 
     function reset() {
@@ -43,7 +40,6 @@ QtObject {
         bluetoothDialogVisible = false;
         bluetoothDialogPairing = false;
         bluetoothDialogError = "";
-        defaults = { browser: "browser" };
         calls = [];
     }
     function record(call) {
@@ -165,20 +161,6 @@ QtObject {
         return { ringtone: "Ringtone", notification: "Notification Sound", alarm: "Alarm Sound" }[type] || "Sound";
     }
 
-    function appsForHandler(handler, revision) {
-        return handler === "browser" ? [{ id: "browser", name: "Browser" }, { id: "webby", name: "Webby" }] : [];
-    }
-    function defaultAppName(handler, revision) {
-        const id = defaults[handler];
-        const app = appsForHandler(handler).find(a => a.id === id);
-        return app ? app.name : "None";
-    }
-    function setDefaultApp(handler, appId) {
-        const next = Object.assign({}, defaults);
-        next[handler] = appId;
-        defaults = next;
-        defaultAppsRevision++;
-    }
     function setNotificationEnabled(appId, enabled) {
         record(["notify", appId, enabled]);
         notificationApps = notificationApps.map(a => a.id === appId ? Object.assign({}, a, { enabled: enabled }) : a);

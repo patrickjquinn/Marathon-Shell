@@ -51,7 +51,7 @@ TestCase {
 
     function test_listsEveryCategory() {
         const app = makeApp();
-        ["wifi", "bluetooth", "cellular", "display", "wallpaper", "sound", "notifications", "datetime", "battery", "storage", "keyboard", "security", "accounts", "appmanager", "defaultapps", "hiddenapps", "appsort", "quicksettings", "updates", "about", "terminal"].forEach(name => entry(app, name));
+        ["wifi", "bluetooth", "cellular", "display", "wallpaper", "sound", "notifications", "datetime", "battery", "storage", "keyboard", "security", "accounts", "appmanager", "hiddenapps", "appsort", "quicksettings", "updates", "about", "terminal"].forEach(name => entry(app, name));
     }
 
     function test_summariesFollowServices() {

@@ -68,35 +68,6 @@ SettingsController::SettingsController(QObject *parent)
     QTimer::singleShot(0, this, &SettingsController::resolveDependencies);
 }
 
-QVariantList SettingsController::appsForHandler(const QString &handler, int) {
-    if (!m_appSource) {
-        resolveDependencies();
-    }
-    return buildEligibleApps(handler);
-}
-
-QString SettingsController::defaultAppName(const QString &handler, int) {
-    if (!m_settingsManager || !m_appSource) {
-        resolveDependencies();
-    }
-
-    // Read-only: QML binds to this with defaultAppsRevision, so writing a
-    // default from here bumped the revision and looped the binding. The
-    // shell's SettingsManager seeds the defaults.
-    const QString defaultId = defaultAppsMap().value(handler).toString();
-    const QString appName   = findAppName(defaultId);
-    return appName.isEmpty() ? QStringLiteral("None") : appName;
-}
-
-void SettingsController::setDefaultApp(const QString &handler, const QString &appId) {
-    if (!m_settingsManager) {
-        resolveDependencies();
-    }
-    QVariantMap defaults = defaultAppsMap();
-    defaults.insert(handler, appId);
-    updateDefaultApps(defaults);
-}
-
 void SettingsController::setNotificationEnabled(const QString &appId, bool enabled) {
     if (!m_settingsManager) {
         resolveDependencies();
@@ -356,14 +327,6 @@ QString SettingsController::soundTypeLabel(const QString &soundType) const {
     return QStringLiteral("Sound");
 }
 
-int SettingsController::appSourceRevision() const {
-    return m_appSourceRevision;
-}
-
-int SettingsController::defaultAppsRevision() const {
-    return m_defaultAppsRevision;
-}
-
 int SettingsController::notificationAppsRevision() const {
     return m_notificationAppsRevision;
 }
@@ -520,12 +483,6 @@ void SettingsController::resolveDependencies() {
     if (!m_settingsManager) {
         m_settingsManager = context->contextProperty("SettingsManagerCpp").value<QObject *>();
         if (m_settingsManager) {
-            const int signalIndex =
-                m_settingsManager->metaObject()->indexOfSignal("defaultAppsChanged()");
-            const int slotIndex = metaObject()->indexOfSlot("handleDefaultAppsChanged()");
-            if (signalIndex != -1 && slotIndex != -1) {
-                QMetaObject::connect(m_settingsManager, signalIndex, this, slotIndex);
-            }
             const int notifyIndex =
                 m_settingsManager->metaObject()->indexOfSignal("appNotificationSettingsChanged()");
             const int notifySlot = metaObject()->indexOfSlot("handleNotificationSettingsChanged()");
@@ -620,112 +577,13 @@ void SettingsController::resolveDependencies() {
     }
 }
 
-QVariantList SettingsController::buildEligibleApps(const QString &handler) const {
-    QVariantList        result;
-    QAbstractItemModel *model = appModel();
-    if (!model) {
-        return result;
-    }
-
-    const int idRole         = roleIndex("id");
-    const int nameRole       = roleIndex("name");
-    const int defaultForRole = roleIndex("defaultFor");
-    if (idRole == -1 || nameRole == -1 || defaultForRole == -1) {
-        return result;
-    }
-
-    const int total = model->rowCount();
-    result.reserve(total);
-    for (int i = 0; i < total; ++i) {
-        const QModelIndex index           = model->index(i, 0);
-        const QVariant    defaultForValue = model->data(index, defaultForRole);
-
-        QStringList       handlers;
-        if (defaultForValue.canConvert<QStringList>()) {
-            handlers = defaultForValue.toStringList();
-        } else if (defaultForValue.typeId() == QMetaType::QVariantList) {
-            const QVariantList rawList = defaultForValue.toList();
-            for (const QVariant &entry : rawList) {
-                handlers.append(entry.toString());
-            }
-        }
-
-        if (!handlers.contains(handler)) {
-            continue;
-        }
-
-        QVariantMap appInfo;
-        appInfo.insert("id", model->data(index, idRole));
-        appInfo.insert("name", model->data(index, nameRole));
-        result.append(appInfo);
-    }
-
-    return result;
-}
-
-QString SettingsController::findAppName(const QString &appId) const {
-    if (appId.isEmpty()) {
-        return {};
-    }
-    QAbstractItemModel *model = appModel();
-    if (!model) {
-        return {};
-    }
-
-    const int idRole   = roleIndex("id");
-    const int nameRole = roleIndex("name");
-    if (idRole == -1 || nameRole == -1) {
-        return {};
-    }
-
-    const int total = model->rowCount();
-    for (int i = 0; i < total; ++i) {
-        const QModelIndex index = model->index(i, 0);
-        if (model->data(index, idRole).toString() == appId) {
-            return model->data(index, nameRole).toString();
-        }
-    }
-    return {};
-}
-
-QVariantMap SettingsController::defaultAppsMap() const {
-    if (!m_settingsManager) {
-        return {};
-    }
-    const QVariant raw = m_settingsManager->property("defaultApps");
-    return raw.toMap();
-}
-
-void SettingsController::updateDefaultApps(const QVariantMap &apps) {
-    if (!m_settingsManager) {
-        return;
-    }
-    m_settingsManager->setProperty("defaultApps", apps);
-}
-
 QAbstractItemModel *SettingsController::appModel() const {
     return qobject_cast<QAbstractItemModel *>(m_appSource.data());
 }
 
-int SettingsController::roleIndex(const QByteArray &roleName) const {
-    for (auto it = m_roleNames.constBegin(); it != m_roleNames.constEnd(); ++it) {
-        if (it.value() == roleName) {
-            return it.key();
-        }
-    }
-    return -1;
-}
-
 void SettingsController::handleAppSourceChanged() {
-    ++m_appSourceRevision;
-    emit appSourceChanged();
     ++m_notificationAppsRevision;
     emit notificationAppsChanged();
-}
-
-void SettingsController::handleDefaultAppsChanged() {
-    ++m_defaultAppsRevision;
-    emit defaultAppsChanged();
 }
 
 void SettingsController::handleNotificationSettingsChanged() {

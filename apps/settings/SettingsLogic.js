@@ -25,7 +25,6 @@ const pages = {
     accounts: "AccountsPage.qml",
     quicksettings: "QuickSettingsPage.qml",
     hiddenapps: "HiddenAppsPage.qml",
-    defaultapps: "DefaultAppsPage.qml",
     appsort: "AppLayoutPage.qml"
 };
 
@@ -68,7 +67,6 @@ const sections = [
         title: qsTr("Apps"),
         entries: [
             { page: "appmanager", title: qsTr("Installed apps"), icon: "image://theme/icon-m-apps", keywords: "apps uninstall installed remove manager" },
-            { page: "defaultapps", title: qsTr("Default apps"), icon: "image://theme/icon-m-favorite", keywords: "browser phone email handler open with" },
             { page: "hiddenapps", title: qsTr("Hidden apps"), icon: "image://theme/icon-m-hidden", keywords: "hide drawer" },
             { page: "appsort", title: qsTr("App grid"), icon: "image://theme/icon-m-app-grid", keywords: "grid columns icons layout filter desktop native search badges" },
             { page: "quicksettings", title: qsTr("Quick settings"), icon: "image://theme/icon-m-toggle", keywords: "tiles shade toggles" }
