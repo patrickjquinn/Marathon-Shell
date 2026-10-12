@@ -554,7 +554,11 @@ bool MediaLibraryClient::ensureStoragePermission() {
     if (r.value())
         return true;
 
-    auto req = m_permIface.call("RequestPermission", m_appId, "storage");
+    // Ask once: refresh() runs on every library signal, also in the background.
+    if (m_storageRequested)
+        return false;
+    m_storageRequested = true;
+    auto req           = m_permIface.call("RequestPermission", m_appId, "storage");
     if (req.type() == QDBusMessage::ErrorMessage && req.errorMessage().size())
         qWarning() << "[MediaLibraryClient] RequestPermission(storage) failed:"
                    << req.errorMessage();

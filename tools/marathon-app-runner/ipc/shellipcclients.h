@@ -251,10 +251,11 @@ class MediaLibraryClient : public QObject {
     QDBusInterface m_permIface;
 
     QVariantList   m_albums;
-    bool           m_isScanning   = false;
-    int            m_photoCount   = 0;
-    int            m_videoCount   = 0;
-    int            m_scanProgress = 0;
+    bool           m_isScanning       = false;
+    int            m_photoCount       = 0;
+    int            m_videoCount       = 0;
+    int            m_scanProgress     = 0;
+    bool           m_storageRequested = false;
 };
 
 class SettingsClient : public QObject {
