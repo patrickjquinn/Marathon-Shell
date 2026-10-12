@@ -62,6 +62,7 @@
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
+#include "src/services/ngfservice.h"
 #include "src/managers/bluetoothmanager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -690,6 +691,16 @@ int main(int argc, char *argv[]) {
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
                                                 hapticManager);
+    {
+        auto *ngf = new NgfService(
+            [hapticManager](const QList<int> &pattern) { hapticManager->vibratePattern(pattern); },
+            [hapticManager]() { hapticManager->cancelVibration(); }, &app);
+        QDBusConnection bus = QDBusConnection::systemBus();
+        if (!bus.registerObject(QStringLiteral("/com/nokia/NonGraphicFeedback1"), ngf,
+                                QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals) ||
+            !bus.registerService(QStringLiteral("com.nokia.NonGraphicFeedback1.Backend")))
+            qWarning() << "[MarathonShell] Nemo.Ngf backend not registered:" << bus.lastError().message();
+    }
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);

@@ -81,3 +81,15 @@ add_executable(test_shell_keyrouting test_keyrouting.cpp)
 target_link_libraries(test_shell_keyrouting Qt6::Test Qt6::Core)
 target_include_directories(test_shell_keyrouting PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_KeyRouting COMMAND test_shell_keyrouting)
+
+# Nemo.Ngf events to vibration patterns
+add_executable(test_shell_ngfevents test_ngfevents.cpp)
+target_link_libraries(test_shell_ngfevents Qt6::Test Qt6::Core)
+target_include_directories(test_shell_ngfevents PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_NgfEvents COMMAND test_shell_ngfevents)
+
+# Nemo.Ngf backend (com.nokia.NonGraphicFeedback1)
+add_executable(test_shell_ngfservice test_ngfservice.cpp ../../shell/src/services/ngfservice.cpp)
+target_link_libraries(test_shell_ngfservice Qt6::Test Qt6::Core)
+target_include_directories(test_shell_ngfservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_NgfService COMMAND test_shell_ngfservice)

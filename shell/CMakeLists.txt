@@ -136,6 +136,7 @@ set(SOURCES
     src/services/router.cpp
     src/services/ambiencederivation.cpp
     src/services/ambienceservice.cpp
+    src/services/ngfservice.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
     src/services/domainsuggestions.h
@@ -455,6 +456,8 @@ qt6_add_qml_module(marathon-shell
         src/services/ambiencederivation.h
         src/services/ambienceservice.cpp
         src/services/ambienceservice.h
+        src/services/ngfservice.cpp
+        src/services/ngfservice.h
         src/services/surfaceregistry.cpp
         src/services/surfaceregistry.h
         src/services/domainsuggestions.cpp
@@ -682,3 +685,6 @@ endif()
 # exists in marathon-shell-bin's address space). The APKBUILD's
 # package() step strips this directive post-install, alongside the
 # equivalent strip it already does for MarathonUI sub-modules.
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)
