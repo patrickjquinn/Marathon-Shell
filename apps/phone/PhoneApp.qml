@@ -6,6 +6,7 @@ import Marathon.Platform 1.0
 import Nemo.Configuration 1.0
 import "Phone.js" as Phone
 import "pages"
+import "cover"
 
 ApplicationWindow {
     id: root
@@ -111,6 +112,13 @@ ApplicationWindow {
     }
 
     appId: "phone"
+
+    cover: Component {
+        PhoneCover {
+            phone: root
+            onHangupRequested: Telephony.hangup()
+        }
+    }
 
     initialPage: emergencyOnly ? emergencyPage : mainPage
 

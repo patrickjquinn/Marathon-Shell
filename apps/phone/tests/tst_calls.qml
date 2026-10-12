@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import ".."
+import "../cover"
 
 TestCase {
     id: testCase
@@ -26,6 +27,16 @@ TestCase {
             width: 720
             height: 1440
         }
+    }
+    Component {
+        id: coverComponent
+
+        PhoneCover {}
+    }
+    SignalSpy {
+        id: hangupSpy
+
+        signalName: "hangupRequested"
     }
 
     function init() {
@@ -115,6 +126,32 @@ TestCase {
         verify(banner.visible);
         banner.clicked(null);
         tryVerify(() => app.callPage !== null && app.pageStack.currentPage === app.callPage);
+    }
+
+    function test_coverShowsDurationAndHangs() {
+        const app = makeApp();
+        app.call("5551234567");
+        Telephony.setState("active");
+        app.callStartedAt = Date.now() - 125000;
+        const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
+        cover.now = Date.now();
+        compare(findChild(cover, "coverPrimary").text, "2:05");
+        compare(findChild(cover, "coverSecondary").text, "Grace Hopper");
+        verify(!findChild(cover, "coverPlaceholder").visible);
+        hangupSpy.target = cover;
+        hangupSpy.clear();
+        findChild(cover, "hangupAction").trigger();
+        compare(hangupSpy.count, 1);
+    }
+
+    function test_coverShowsMissedCalls() {
+        CallHistory.history = [{ id: 1, number: "1", type: "missed", timestamp: 1700000000 }, { id: 2, number: "2", type: "missed", timestamp: 1700000001 }];
+        const app = makeApp();
+        const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
+        compare(findChild(cover, "coverPrimary").text, "2");
+        compare(findChild(cover, "coverSecondary").text, "missed calls");
+        seenStub.value = Date.now();
+        verify(findChild(cover, "coverPlaceholder").visible);
     }
 
     function test_openingWithActiveCallShowsIt() {
