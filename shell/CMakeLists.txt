@@ -675,13 +675,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 set_target_properties(marathon-shell PROPERTIES
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
     OUTPUT_NAME marathon-shell-bin
 )
 
 install(TARGETS marathon-shell
-    BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
