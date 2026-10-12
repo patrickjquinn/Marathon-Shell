@@ -9,6 +9,20 @@ Page {
 
     // Names by app id, kept for the notice after the app has left the list.
     property var removing: ({})
+    // Set by the "appmanager/<appId>" route: that app's page opens over the list.
+    property string focusAppId
+
+    function showApp(appId) {
+        pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), { appId: appId });
+    }
+
+    onStatusChanged: {
+        if (status === PageStatus.Active && focusAppId !== "") {
+            const id = focusAppId;
+            focusAppId = "";
+            showApp(id);
+        }
+    }
 
     function uninstall(appId, name) {
         const next = Object.assign({}, removing);
@@ -55,10 +69,7 @@ Page {
             contentHeight: Theme.itemSizeMedium
             Accessible.name: model.name + (model.isProtected ? ", " + qsTr("system app") : "")
             menu: item.model.isProtected ? null : uninstallMenu
-            onClicked: {
-                if (!item.model.isProtected)
-                    openMenu();
-            }
+            onClicked: page.showApp(item.model.id)
 
             Component {
                 id: uninstallMenu

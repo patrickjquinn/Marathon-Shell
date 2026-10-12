@@ -81,6 +81,38 @@ TestCase {
         tryCompare(AppInstaller, "uninstalled", ["weather"], 10000);
     }
 
+    function test_tapOpensAppInfo() {
+        const s = open("appmanager");
+        child(s.page, "app-settings").clicked(null);
+        tryVerify(() => s.app.pageStack.currentPage.appId === "settings" && s.app.pageStack.currentPage.status === PageStatus.Active);
+        const info = s.app.pageStack.currentPage;
+        compare(child(info, "header").title, "Settings");
+        compare(child(info, "kindItem").value, "System app");
+        compare(child(info, "permissions").count, 3);
+    }
+
+    function test_appInfoRoute() {
+        const app = createTemporaryObject(appComponent, testCase, { route: "appmanager/notes" });
+        tryVerify(() => app.pageStack.currentPage && app.pageStack.currentPage.appId === "notes" && app.pageStack.currentPage.status === PageStatus.Active, 5000);
+        const info = app.pageStack.currentPage;
+        compare(app.pageStack.depth, 3);
+        compare(child(info, "versionItem").value, "1.2.0");
+        compare(child(info, "permissions").count, 1);
+        const notify = child(info, "notifySwitch");
+        verify(notify.checked);
+        notify.clicked(null);
+        compare(SettingsController.calls, [["notify", "notes", false]]);
+    }
+
+    function test_liveAppInfoLinkReplacesOpenPages() {
+        const s = open("wifi");
+        verify(s.app.openPage("appmanager/weather", PageStackAction.Immediate, true));
+        tryVerify(() => s.app.pageStack.currentPage.appId === "weather" && s.app.pageStack.currentPage.status === PageStatus.Active, 5000);
+        compare(s.app.pageStack.depth, 3);
+        compare(Logic.routeArgument("/appmanager/weather?x=1"), "weather");
+        compare(Logic.routeArgument("wifi"), "");
+    }
+
     function test_noDefaultAppsPage() {
         compare(Logic.pageFile("defaultapps"), "");
     }

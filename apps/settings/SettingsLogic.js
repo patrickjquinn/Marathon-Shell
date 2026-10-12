@@ -22,6 +22,7 @@ const pages = {
     updates: "UpdatesPage.qml",
     keyboard: "KeyboardPage.qml",
     appmanager: "AppManagerPage.qml",
+    appinfo: "AppManagerPage.qml",
     accounts: "AccountsPage.qml",
     quicksettings: "QuickSettingsPage.qml",
     hiddenapps: "HiddenAppsPage.qml",
@@ -31,6 +32,11 @@ const pages = {
 function pageFile(route) {
     const name = String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase();
     return pages[name] || "";
+}
+
+// "appmanager/notes" -> "notes".
+function routeArgument(route) {
+    return String(route || "").replace(/^\/+/, "").split("?")[0].split("/")[1] || "";
 }
 
 // What the main page lists, in order, and what search looks through.
@@ -217,3 +223,25 @@ const handlers = [
     { section: qsTr("Media"), id: "video", title: qsTr("Video") },
     { section: qsTr("Utilities"), id: "files", title: qsTr("File manager") }
 ];
+
+const permissions = {
+    network: { title: qsTr("Network"), description: qsTr("Internet access") },
+    location: { title: qsTr("Location"), description: qsTr("Where the device is") },
+    camera: { title: qsTr("Camera"), description: qsTr("Photos and video") },
+    microphone: { title: qsTr("Microphone"), description: qsTr("Recording audio") },
+    contacts: { title: qsTr("Contacts"), description: qsTr("Read and change contacts") },
+    calendar: { title: qsTr("Calendar"), description: qsTr("Read and change events") },
+    storage: { title: qsTr("Storage"), description: qsTr("Files on the device") },
+    notifications: { title: qsTr("Notifications"), description: qsTr("Show notifications") },
+    alarms: { title: qsTr("Alarms"), description: qsTr("Alarms and timers") },
+    telephony: { title: qsTr("Phone"), description: qsTr("Make and answer calls") },
+    sms: { title: qsTr("Messages"), description: qsTr("Send and read SMS") },
+    bluetooth: { title: qsTr("Bluetooth"), description: qsTr("Bluetooth devices") },
+    system: { title: qsTr("System"), description: qsTr("Device settings") },
+    sensors: { title: qsTr("Sensors"), description: qsTr("Motion and light sensors") },
+    terminal: { title: qsTr("Terminal"), description: qsTr("Full access to the system") }
+};
+
+function permissionInfo(id) {
+    return permissions[id] || { title: id, description: "" };
+}

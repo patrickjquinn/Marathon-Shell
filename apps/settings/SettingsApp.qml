@@ -12,12 +12,19 @@ ApplicationWindow {
 
     property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
 
-    // Opens the page for a route name ("wifi", "/about"); false if there is none.
-    function openPage(name, operation) {
+    // Opens the page for a route name ("wifi", "/about", "appmanager/<appId>"); false if there is none.
+    // replace drops whatever was open above the main page, for links from outside the app.
+    function openPage(name, operation, replace) {
         const file = Logic.pageFile(name);
         if (file === "")
             return false;
-        pageStack.push(Qt.resolvedUrl("pages/" + file), {}, operation);
+        const arg = Logic.routeArgument(name);
+        const props = arg !== "" ? { focusAppId: arg } : {};
+        const main = replace ? pageStack.find(p => p.objectName === "mainPage") : null;
+        if (main)
+            pageStack.replaceAbove(main, Qt.resolvedUrl("pages/" + file), props, operation);
+        else
+            pageStack.push(Qt.resolvedUrl("pages/" + file), props, operation);
         return true;
     }
 
@@ -42,12 +49,12 @@ ApplicationWindow {
         function onDeepLinkRequested(appId, route, params) {
             if (appId === app.appId) {
                 app.activate();
-                app.openPage(route);
+                app.openPage(route, undefined, true);
             }
         }
         function onSettingsNavigationRequested(page, subpage, params) {
             app.activate();
-            app.openPage(page);
+            app.openPage(page, undefined, true);
         }
     }
 
@@ -60,6 +67,7 @@ ApplicationWindow {
 
     initialPage: Component {
         MainPage {
+            objectName: "mainPage"
             app: app
         }
     }
