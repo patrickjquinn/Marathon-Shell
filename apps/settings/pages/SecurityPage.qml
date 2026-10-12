@@ -149,20 +149,31 @@ Page {
             }
 
             SectionHeader {
+                objectName: "statusHeader"
                 text: qsTr("Status")
+                visible: fingerprint.visible || failedAttempts.visible || accountStatus.visible
             }
             DetailItem {
+                id: fingerprint
+
                 objectName: "fingerprint"
+                visible: Security.fingerprintAvailable
                 label: qsTr("Fingerprint")
-                value: Security.fingerprintAvailable ? qsTr("Enrolled") : qsTr("Not enrolled")
+                value: qsTr("Enrolled")
             }
             DetailItem {
+                id: failedAttempts
+
                 objectName: "failedAttempts"
+                visible: Security.failedAttempts > 0
                 label: qsTr("Failed attempts")
                 value: String(Security.failedAttempts)
             }
             DetailItem {
+                id: accountStatus
+
                 objectName: "accountStatus"
+                visible: Security.isLockedOut
                 label: qsTr("Account")
                 value: SettingsController.lockoutStatusText(Security.isLockedOut, Security.lockoutSecondsRemaining)
             }
@@ -176,7 +187,7 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Your system password (PAM) always unlocks the device. The quick PIN is an optional shortcut, stored encrypted. Fingerprints are handled by fprintd. Failed attempts are rate limited to 5, with a growing lockout, and logged.")
+                text: qsTr("Your device password always unlocks the device. The quick PIN is an optional shortcut, stored encrypted. Wrong attempts are logged, and after 5 you have to wait before trying again, longer each time.")
             }
         }
 

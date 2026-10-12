@@ -67,6 +67,14 @@ TestCase {
         tryVerify(() => s.app.pageStack.currentPage === s.page && s.page.status === PageStatus.Active, 3000);
     }
 
+    function test_securityStatusHiddenWhenQuiet() {
+        const s = open("security");
+        verify(!child(s.page, "statusHeader").visible);
+        verify(!child(s.page, "fingerprint").visible);
+        verify(!child(s.page, "failedAttempts").visible);
+        verify(!child(s.page, "accountStatus").visible);
+    }
+
     function test_securityStatus() {
         Security.fingerprintAvailable = true;
         Security.failedAttempts = 2;
@@ -75,8 +83,10 @@ TestCase {
         compare(findChild(s.page, "autoLockSwitch"), null);
         compare(child(s.page, "fingerprint").value, "Enrolled");
         compare(child(s.page, "failedAttempts").value, "2");
-        compare(child(s.page, "accountStatus").value, "Active");
+        verify(child(s.page, "statusHeader").visible);
+        verify(!child(s.page, "accountStatus").visible);
         Security.isLockedOut = true;
+        verify(child(s.page, "accountStatus").visible);
         Security.lockoutSecondsRemaining = 30;
         compare(child(s.page, "accountStatus").value, "Locked (30s remaining)");
         verify(!child(s.page, "removePinItem").visible);
