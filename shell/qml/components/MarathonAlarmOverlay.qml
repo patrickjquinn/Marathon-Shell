@@ -20,6 +20,7 @@ Item {
             AlarmManagerCpp.dismissAlarm(currentAlarm.id);
             currentAlarm = null;
         }
+        swipeAnimation.stop();
         visible = false;
     }
 
@@ -28,6 +29,7 @@ Item {
             AlarmManagerCpp.snoozeAlarm(currentAlarm.id);
             currentAlarm = null;
         }
+        swipeAnimation.stop();
         visible = false;
     }
 
@@ -116,7 +118,7 @@ Item {
         Silica.Label {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: Qt.formatTime(new Date(), "hh:mm")
+            text: SystemStatusStore.timeString
             color: Silica.Theme.primaryColor
             font.family: Silica.Theme.fontFamilyHeading
             font.pixelSize: Silica.Theme.fontSizeHuge * 1.5
@@ -198,27 +200,5 @@ Item {
                 }
             }
         }
-    }
-
-    Timer {
-        id: updateTimeTimer
-
-        interval: 1000
-        repeat: true
-        running: alarmOverlay.visible
-        onTriggered: {
-            alarmOverlay.currentAlarmChanged();
-        }
-    }
-
-    Connections {
-        function onAlarmTriggered(id, label) {
-            alarmOverlay.show({
-                "id": id,
-                "label": label
-            });
-        }
-
-        target: AlarmManagerCpp
     }
 }
