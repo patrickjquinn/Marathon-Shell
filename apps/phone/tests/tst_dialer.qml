@@ -88,6 +88,31 @@ TestCase {
         verify(!findChild(app.pageStack.currentPage, "callButton").enabled);
     }
 
+    function test_emptyCallRecallsLastDialled() {
+        CallHistory.history = [
+            { id: 1, number: "0871111111", type: "outgoing", timestamp: 1700000000 },
+            { id: 2, number: "0872222222", type: "incoming", timestamp: 1700000300 },
+            { id: 3, number: "0873333333", type: "outgoing", timestamp: 1700000200 }
+        ];
+        const app = makeApp();
+        dialer(app);
+        const button = findChild(app.pageStack.currentPage, "callButton");
+        verify(button.enabled);
+        button.clicked(null);
+        compare(app.dialedNumber, "0873333333");
+        compare(Telephony.log, []);
+        button.clicked(null);
+        compare(Telephony.log, ["dial:0873333333"]);
+    }
+
+    function test_noRecallWithoutModem() {
+        Telephony.hasModem = false;
+        CallHistory.history = [{ id: 1, number: "0871111111", type: "outgoing", timestamp: 1700000000 }];
+        const app = makeApp();
+        dialer(app);
+        verify(!findChild(app.pageStack.currentPage, "callButton").enabled);
+    }
+
     function test_emergencyNumberUsesEmergencyDial() {
         const app = makeApp();
         type(app, "112");

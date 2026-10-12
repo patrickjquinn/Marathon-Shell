@@ -102,3 +102,12 @@ function peopleRows(contacts, query) {
     return all.filter(c => c.favorite === true).map(c => Object.assign({ section: "*" }, c))
         .concat(all.filter(c => c.favorite !== true).map(c => Object.assign({ section: initial(c) }, c)));
 }
+
+function lastOutgoing(history) {
+    let best = null;
+    for (const c of history || []) {
+        if (c && c.type === "outgoing" && c.number && (!best || timestampMs(c.timestamp) > timestampMs(best.timestamp)))
+            best = c;
+    }
+    return best ? String(best.number) : "";
+}

@@ -14,6 +14,7 @@ Item {
     readonly property string match: number.length >= 3 && !phone.emergencyOnly ? phone.contactName(number) : ""
     readonly property bool emergency: phone ? phone.emergencyOnly || Phone.isEmergency(number) : false
     readonly property bool canCall: number.length > 0 && (Telephony.hasModem || emergency)
+    readonly property string lastDialed: phone && !phone.emergencyOnly && Telephony.hasModem ? Phone.lastOutgoing(phone.callHistory) : ""
 
     function append(text) {
         phone.dialedNumber = number + text;
@@ -23,9 +24,12 @@ Item {
         phone.dialedNumber = number.slice(0, -1);
     }
 
+    // Call on an empty dialer recalls the last dialled number; a second press dials it.
     function call() {
         if (canCall)
             phone.call(number);
+        else if (number.length === 0 && lastDialed.length > 0)
+            phone.dialedNumber = lastDialed;
     }
 
     activeFocusOnTab: true
@@ -144,7 +148,7 @@ Item {
             bottomMargin: 2 * Theme.paddingLarge
         }
         preferredWidth: Theme.buttonWidthLarge
-        enabled: root.canCall
+        enabled: root.canCall || (root.number.length === 0 && root.lastDialed.length > 0)
         icon.source: "image://theme/icon-m-call"
         text: root.emergency ? qsTr("Emergency call") : qsTr("Call")
         onClicked: root.call()
