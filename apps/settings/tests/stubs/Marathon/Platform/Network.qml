@@ -2,6 +2,7 @@ pragma Singleton
 import QtQml
 
 QtObject {
+    property bool wifiAvailable: true
     property bool wifiEnabled: true
     property bool wifiConnected: false
     property string wifiSsid: ""
@@ -14,6 +15,7 @@ QtObject {
     signal connectionFailed(string message)
 
     function reset() {
+        wifiAvailable = true;
         wifiEnabled = true;
         wifiConnected = false;
         wifiSsid = "";

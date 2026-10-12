@@ -33,7 +33,7 @@ Page {
     onDialogWantedChanged: Qt.callLater(showDialog)
     onStatusChanged: Qt.callLater(showDialog)
     Component.onCompleted: {
-        if (Network.wifiEnabled)
+        if (Network.wifiAvailable && Network.wifiEnabled)
             scan();
     }
 
@@ -78,7 +78,8 @@ Page {
                 text: qsTr("Wi-Fi")
                 description: Network.wifiEnabled ? qsTr("Connect to wireless networks") : qsTr("Turn on to see networks")
                 automaticCheck: false
-                checked: Network.wifiEnabled
+                enabled: Network.wifiAvailable
+                checked: Network.wifiAvailable && Network.wifiEnabled
                 onClicked: {
                     Network.toggleWifi();
                     if (Network.wifiEnabled)
@@ -227,15 +228,22 @@ Page {
                 }
             }
             InfoLabel {
+                objectName: "noAdapter"
+                topPadding: Theme.paddingLarge * 2
+                visible: !Network.wifiAvailable
+                text: qsTr("No Wi-Fi adapter found")
+                font.pixelSize: Theme.fontSizeLarge
+            }
+            InfoLabel {
                 objectName: "noNetworks"
-                visible: Network.wifiEnabled && !page.scanning && page.others.length === 0
+                visible: Network.wifiAvailable && Network.wifiEnabled && !page.scanning && page.others.length === 0
                 text: qsTr("No networks found")
                 font.pixelSize: Theme.fontSizeLarge
             }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: Network.wifiEnabled && !page.scanning && page.others.length === 0
+                visible: Network.wifiAvailable && Network.wifiEnabled && !page.scanning && page.others.length === 0
                 text: qsTr("Move closer to a router, or pull down to scan again.")
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter

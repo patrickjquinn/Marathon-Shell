@@ -67,6 +67,16 @@ TestCase {
         compare(child(s.page, "networks").count, 0);
     }
 
+    function test_wifiWithoutAdapter() {
+        Network.wifiAvailable = false;
+        const s = open("wifi");
+        compare(Network.calls.length, 0);
+        verify(child(s.page, "noAdapter").visible);
+        verify(!child(s.page, "wifiSwitch").enabled);
+        verify(!child(s.page, "wifiSwitch").checked);
+        verify(!child(s.page, "noNetworks").visible);
+    }
+
     function test_wifiListsNetworksAndCurrent() {
         Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true }, { ssid: "Cafe", strength: 30, security: "", secured: false }];
         Network.wifiConnected = true;
