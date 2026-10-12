@@ -61,4 +61,12 @@ TestCase {
         cover.store.jobs = jobs;
         compare(findChild(cover, "coverTitle").text, "42%");
     }
+
+    function test_cancelFromCover() {
+        const cover = makeCover();
+        cover.store.installApp("org.gnome.Maps");
+        findChild(cover, "cancelAction").triggered();
+        compare(cover.store.opened[1], "marathon-store://cancel/org.gnome.Maps");
+        compare(findChild(cover, "coverTitle").text, "Cancelling");
+    }
 }

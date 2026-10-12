@@ -149,6 +149,10 @@ TestCase {
         compare(app.store.opened[app.store.opened.length - 1], "marathon-store://install/org.gnome.Maps");
         verify(action.busy);
         verify(findChild(action, "installProgress").visible);
+        verify(findChild(action, "cancelButton").visible);
+        findChild(action, "cancelButton").clicked(null);
+        compare(app.store.opened[app.store.opened.length - 1], "marathon-store://cancel/org.gnome.Maps");
+        verify(!findChild(action, "cancelButton").visible);
     }
 
     function test_uninstallWithRemorse() {

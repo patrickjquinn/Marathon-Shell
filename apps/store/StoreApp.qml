@@ -21,6 +21,8 @@ ApplicationWindow {
 
     function noticeFor(appId, verb, job) {
         const name = store.nameOf(appId);
+        if (job.state === "cancelled")
+            return (verb === "update" ? qsTr("Cancelled updating %1") : qsTr("Cancelled installing %1")).arg(name);
         if (job.state === "failed")
             return (verb === "uninstall" ? qsTr("Couldn't remove %1.") : verb === "update" ? qsTr("Couldn't update %1.") : qsTr("Couldn't install %1.")).arg(name) + " " + store.jobError(job);
         if (verb === "uninstall")

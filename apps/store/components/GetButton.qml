@@ -2,9 +2,9 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
-// The action every app row and the detail page share. Label and behaviour
-// follow the app's install state; while flatpak runs it becomes progress of
-// the same footprint, so rows don't reflow mid-install.
+// The detail page's install action. Label and behaviour follow the app's
+// install state; while flatpak runs it becomes progress of the same
+// footprint, with a cancel button beside the full-width bar.
 Item {
     id: root
 
@@ -29,6 +29,8 @@ Item {
             return "";
         if (job.state === "removing")
             return qsTr("Removing");
+        if (job.state === "cancelling")
+            return qsTr("Cancelling");
         return job.percent >= 0 ? qsTr("Installing %1%").arg(job.percent) : qsTr("Waiting");
     }
 
@@ -83,7 +85,7 @@ Item {
         id: bar
 
         objectName: "installProgress"
-        width: parent.width
+        width: parent.width - (cancel.visible ? cancel.width : 0)
         visible: root.large && root.busy
         leftMargin: 0
         rightMargin: 0
@@ -92,5 +94,16 @@ Item {
         label: root.progressText
         Accessible.role: Accessible.ProgressBar
         Accessible.name: root.progressText
+    }
+    IconButton {
+        id: cancel
+
+        objectName: "cancelButton"
+        anchors.right: parent.right
+        anchors.verticalCenter: bar.verticalCenter
+        visible: root.large && root.busy && root.store.canCancel(root.job)
+        icon.source: "image://theme/icon-m-cancel"
+        Accessible.name: root.store.isInstalled(root.appId) ? qsTr("Cancel update") : qsTr("Cancel installation")
+        onClicked: root.store.cancelJob(root.appId)
     }
 }

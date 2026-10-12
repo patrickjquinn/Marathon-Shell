@@ -137,6 +137,57 @@ TestCase {
         compare(b.jobFor("org.example.B").state, "pending");
     }
 
+    function test_cancelStopsTheJob() {
+        const b = makeBackend();
+        b.installApp("org.example.Cancelled");
+        b.cancelJob("org.example.Cancelled");
+        compare(b.opened[1], "marathon-store://cancel/org.example.Cancelled");
+        compare(b.jobFor("org.example.Cancelled").state, "cancelling");
+        compare(b.activeJobId, "org.example.Cancelled");
+        tryCompare(finishedSpy, "count", 1, 3000);
+        compare(finishedSpy.signalArguments[0][2].state, "cancelled");
+        verify(!b.isInstalled("org.example.Cancelled"));
+        compare(b.activeJobId, "");
+    }
+
+    function test_onlyRunningInstallsCancel() {
+        const b = makeBackend();
+        b.cancelJob("org.gnome.Maps");
+        b.uninstallApp("org.gnome.Maps");
+        b.cancelJob("org.gnome.Maps");
+        compare(b.opened, ["marathon-store://uninstall/org.gnome.Maps"]);
+        compare(b.jobFor("org.gnome.Maps").state, "removing");
+    }
+
+    function test_cancellingIgnoresStaleProgress() {
+        const b = makeBackend();
+        b.stateDir = Qt.resolvedUrl("data/resume").toString().replace("file://", "");
+        b.installApp("org.example.Late");
+        b.cancelJob("org.example.Late");
+        wait(1000);
+        compare(b.jobFor("org.example.Late").state, "cancelling");
+    }
+
+    function test_silentHelperFailsTheJob() {
+        const b = makeBackend();
+        b.helperTimeout = 0;
+        b.installApp("org.example.Nobody");
+        tryCompare(finishedSpy, "count", 1, 3000);
+        compare(b.jobFor("org.example.Nobody").state, "failed");
+        compare(b.jobError(b.jobFor("org.example.Nobody")), "The Store helper didn't respond. Try again.");
+    }
+
+    function test_reopenedStoreResumesRunningJobs() {
+        const b = makeBackend();
+        b.stateDir = Qt.resolvedUrl("data/resume").toString().replace("file://", "");
+        tryVerify(() => b.jobFor("org.example.Busy") !== null, 3000);
+        compare(b.jobFor("org.example.Busy").percent, 40);
+        compare(b._verbs["org.example.Busy"], "update");
+        verify(b.jobFor("org.example.Late") !== null);
+        compare(b.jobFor("org.example.Stale"), null);
+        compare(b.jobFor("org.example.Gone"), null);
+    }
+
     function test_cachedLookupsSkipTheNetwork() {
         const b = makeBackend();
         const cache = {};

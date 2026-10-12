@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtCore
 import QtQuick
+import Qt.labs.folderlistmodel
 
 // Marathon Store's data layer: a Flathub catalogue with ODRS ratings and
 // reviews. The pages reach everything here through `store`.
@@ -19,6 +20,8 @@ QtObject {
     // Same directory the store handler scripts write to ($XDG_RUNTIME_DIR).
     property string stateDir: String(StandardPaths.writableLocation(StandardPaths.RuntimeLocation)).replace("file://", "") + "/marathon-store-state"
     property var openExternally: url => Qt.openUrlExternally(url)
+    // How long a request may go unanswered by the handler, in seconds.
+    property int helperTimeout: 30
 
     property var collections: ({})
     property var appOfTheDay: null
@@ -689,6 +692,8 @@ QtObject {
         return null;
     }
 
+    readonly property string helperSilentError: "The Store helper didn't respond. Try again."
+
     // The handler records flatpak's last error line; turn the common ones
     // into something a phone user can act on.
     function jobError(job) {
@@ -757,6 +762,25 @@ QtObject {
         startJob("uninstall", appId);
     }
 
+    function canCancel(job) {
+        return !!job && (job.state === "pending" || job.state === "installing");
+    }
+
+    // The job stays running as "cancelling" until the handler reports back.
+    function cancelJob(appId) {
+        const job = jobs[appId];
+        if (!isValidRef(appId) || !canCancel(job))
+            return;
+        const next = Object.assign({}, jobs);
+        next[appId] = Object.assign({}, job, {
+            "state": "cancelling",
+            "cancelTs": Math.floor(Date.now() / 1000)
+        });
+        jobs = next;
+        jobPollTimer.running = true;
+        root.openExternally("marathon-store://cancel/" + appId);
+    }
+
     function updateAll() {
         for (let i = 0; i < pendingUpdates.length; i++) {
             const next = Object.assign({}, jobs);
@@ -786,7 +810,15 @@ QtObject {
     }
 
     function jobRunning(job) {
-        return job.state === "pending" || job.state === "installing" || job.state === "removing";
+        return job.state === "pending" || job.state === "installing" || job.state === "removing" || job.state === "cancelling";
+    }
+
+    function _finish(appId, data) {
+        var next = Object.assign({}, jobs);
+        next[appId] = data;
+        jobs = next;
+        stateRefreshTimer.restart();
+        jobFinished(appId, _verbs[appId] || "install", data);
     }
 
     function pollJobs() {
@@ -797,17 +829,34 @@ QtObject {
         }
         ids.forEach(function (appId) {
             readLocalJson(stateDir + "/install-progress-" + appId + ".json", function (data) {
-                var current = root.jobs[appId];
-                // A record older than the job is the previous run's result.
-                if (!data || !current || data.ts < current.ts)
+                const current = root.jobs[appId];
+                if (!current || !root.jobRunning(current))
                     return;
+                const now = Math.floor(Date.now() / 1000);
+                const asked = current.cancelTs || current.ts;
+                // A record older than the job is the previous run's result.
+                if (!data || data.ts < current.ts) {
+                    if (now - asked > root.helperTimeout)
+                        root._finish(appId, {
+                            "appId": appId,
+                            "state": "failed",
+                            "percent": -1,
+                            "error": root.helperSilentError,
+                            "ts": now
+                        });
+                    return;
+                }
+                // Progress written before the stop landed; hold "cancelling"
+                // unless the handler never answers the cancel.
+                if (current.state === "cancelling" && root.jobRunning(data) && now - asked <= root.helperTimeout)
+                    return;
+                if (!root.jobRunning(data)) {
+                    root._finish(appId, data);
+                    return;
+                }
                 var next = Object.assign({}, root.jobs);
                 next[appId] = data;
                 root.jobs = next;
-                if (!root.jobRunning(data)) {
-                    stateRefreshTimer.restart();
-                    root.jobFinished(appId, root._verbs[appId] || "install", data);
-                }
             });
         });
     }
@@ -829,7 +878,28 @@ QtObject {
         });
     }
 
+    // A reopened Store picks up the installs still running from the handler's
+    // progress records; a record untouched for half an hour is a dead run.
+    function adoptJobs() {
+        const now = Math.floor(Date.now() / 1000);
+        for (let i = 0; i < _progressFiles.count; i++) {
+            const appId = String(_progressFiles.get(i, "fileName")).replace(/^install-progress-/, "").replace(/\.json$/, "");
+            if (!isValidRef(appId) || jobs[appId])
+                continue;
+            readLocalJson(stateDir + "/install-progress-" + appId + ".json", function (data) {
+                if (!data || !root.jobRunning(data) || now - data.ts > 1800 || root.jobs[appId])
+                    return;
+                var next = Object.assign({}, root.jobs);
+                next[appId] = data;
+                root.jobs = next;
+                root._setVerb(appId, data.verb || (data.state === "removing" ? "uninstall" : "install"));
+                jobPollTimer.running = true;
+            });
+        }
+    }
+
     function refreshState() {
+        adoptJobs();
         loadInstalled();
         loadUpdates();
         root.openExternally("marathon-store://refresh-state/all");
@@ -874,6 +944,16 @@ QtObject {
             "screenshots": shots,
             "startIndex": index
         });
+    }
+
+    property FolderListModel _progressFiles: FolderListModel {
+        folder: "file://" + root.stateDir
+        nameFilters: ["install-progress-*.json"]
+        showDirs: false
+        onStatusChanged: {
+            if (status === FolderListModel.Ready)
+                root.adoptJobs();
+        }
     }
 
     property Timer _jobPollTimer: Timer {

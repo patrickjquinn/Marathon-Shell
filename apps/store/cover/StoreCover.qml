@@ -31,7 +31,7 @@ CoverBackground {
         Label {
             objectName: "coverTitle"
             width: parent.width
-            text: root.mode === "job" ? (root.job.state === "removing" ? qsTr("Removing") : root.job.percent >= 0 ? root.job.percent + "%" : qsTr("Waiting")) : root.updates
+            text: root.mode === "job" ? (root.job.state === "removing" ? qsTr("Removing") : root.job.state === "cancelling" ? qsTr("Cancelling") : root.job.percent >= 0 ? root.job.percent + "%" : qsTr("Waiting")) : root.updates
             font.pixelSize: Theme.fontSizeHuge
             fontSizeMode: Text.HorizontalFit
         }
@@ -46,6 +46,15 @@ CoverBackground {
         }
     }
 
+    CoverActionList {
+        enabled: root.mode === "job" && root.store.canCancel(root.job)
+
+        CoverAction {
+            objectName: "cancelAction"
+            iconSource: "image://theme/icon-cover-cancel"
+            onTriggered: root.store.cancelJob(root.jobId)
+        }
+    }
     CoverActionList {
         enabled: root.mode === "updates"
 
