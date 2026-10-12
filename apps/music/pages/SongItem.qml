@@ -32,9 +32,17 @@ ListItem {
             }
         }
         MenuItem {
+            objectName: "removeAction"
             visible: item.playlistId >= 0
             text: qsTr("Remove from playlist")
-            onClicked: item.music.savePlaylists(Playlists.removeTrack(item.music.playlists, item.playlistId, item.track.path))
+            onClicked: {
+                const music = item.music;
+                const playlistId = item.playlistId;
+                const path = item.track.path;
+                item.remorseAction(qsTr("Removed"), function () {
+                    music.savePlaylists(Playlists.removeTrack(music.playlists, playlistId, path));
+                });
+            }
         }
     }
 

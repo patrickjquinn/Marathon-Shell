@@ -53,6 +53,21 @@ TestCase {
         compare(view.count, 1);
     }
 
+    function test_removeFromPlaylistWaitsForRemorse() {
+        const app = makeApp([{ id: 1, name: "Run", paths: ["file:///m/3.mp3", "file:///m/1.mp3"] }]);
+        const page = push(app, "SongsPage.qml", { music: app, title: "Run", playlistId: 1 });
+        const view = findChild(page, "songsView");
+        tryVerify(() => view.itemAtIndex(0) !== null);
+        const item = view.itemAtIndex(0);
+        item.openMenu();
+        tryVerify(() => findChild(item, "removeAction") !== null);
+        findChild(item, "removeAction").clicked();
+        item.closeMenu();
+        compare(app.playlists[0].paths.length, 2, "nothing removed during the countdown");
+        tryVerify(() => app.playlists[0].paths.length === 1, 8000);
+        compare(app.playlists[0].paths[0], "file:///m/1.mp3");
+    }
+
     function test_addToExistingPlaylist() {
         const app = makeApp([{ id: 1, name: "Run", paths: [] }]);
         const page = push(app, "AddToPlaylistPage.qml", { music: app, track: app.tracks[1] });
