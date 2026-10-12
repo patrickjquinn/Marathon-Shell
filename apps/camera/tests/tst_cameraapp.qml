@@ -80,6 +80,20 @@ TestCase {
         compare(app.mode, "photo");
     }
 
+    function test_modeSwitchHighlightsTheCurrentMode() {
+        const app = makeApp();
+        const photo = child(app, "photoMode");
+        const video = child(app, "videoMode");
+        verify(photo.icon.highlighted);
+        verify(!video.icon.highlighted);
+        compare(child(app, "photoModeLabel").color, Theme.highlightColor);
+        verify(child(app, "modeSwitch").color === undefined);
+        mouseClick(video);
+        tryVerify(function () { return !photo.icon.highlighted; });
+        verify(video.icon.highlighted);
+        compare(child(app, "videoModeLabel").color, Theme.highlightColor);
+    }
+
     function test_thumbnailOpensGallery() {
         const app = makeApp();
         app.camera.latestPhotoPath = Qt.resolvedUrl("data/photo.png");

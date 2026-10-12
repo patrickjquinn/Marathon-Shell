@@ -3,58 +3,48 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
-// The current mode sits on a highlight disc.
-Rectangle {
+Row {
     id: root
 
     property string mode: "photo"
 
     signal selected(string mode)
 
-    width: row.width + 2 * Theme.paddingSmall
-    height: row.height + 2 * Theme.paddingSmall
-    radius: height / 2
-    color: Theme.rgba(Theme.darkPrimaryColor, Theme.opacityLow)
+    spacing: Theme.paddingLarge
 
-    Row {
-        id: row
+    Repeater {
+        model: ListModel {
+            ListElement { mode: "photo"; glyph: "image://theme/icon-m-camera"; label: qsTr("Photo") }
+            ListElement { mode: "video"; glyph: "image://theme/icon-m-video"; label: qsTr("Video") }
+        }
 
-        anchors.centerIn: parent
+        delegate: Column {
+            id: option
 
-        Repeater {
-            model: ListModel {
-                ListElement { mode: "photo"; glyph: "image://theme/icon-m-camera"; label: qsTr("Photo") }
-                ListElement { mode: "video"; glyph: "image://theme/icon-m-video"; label: qsTr("Video") }
-            }
+            required property string mode
+            required property string glyph
+            required property string label
+            readonly property bool current: root.mode === mode
 
-            delegate: IconButton {
-                id: option
-
-                required property string mode
-                required property string glyph
-                required property string label
-                readonly property bool current: root.mode === mode
-
-                objectName: mode + "Mode"
-                width: Theme.itemSizeSmall
-                height: Theme.itemSizeSmall
-                icon.source: glyph
+            IconButton {
+                objectName: option.mode + "Mode"
+                anchors.horizontalCenter: parent.horizontalCenter
+                highlighted: option.current || down
+                icon.source: option.glyph
                 icon.color: Theme.lightPrimaryColor
                 Accessible.role: Accessible.RadioButton
-                Accessible.name: label
+                Accessible.name: option.label
                 Accessible.checkable: true
-                Accessible.checked: current
-                onClicked: root.selected(mode)
+                Accessible.checked: option.current
+                onClicked: root.selected(option.mode)
+            }
 
-                Rectangle {
-                    z: -1
-                    anchors.centerIn: parent
-                    width: parent.width
-                    height: width
-                    radius: width / 2
-                    color: Theme.highlightBackgroundColor
-                    visible: option.current
-                }
+            Label {
+                objectName: option.mode + "ModeLabel"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: option.label
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: option.current ? Theme.highlightColor : Theme.lightPrimaryColor
             }
         }
     }
