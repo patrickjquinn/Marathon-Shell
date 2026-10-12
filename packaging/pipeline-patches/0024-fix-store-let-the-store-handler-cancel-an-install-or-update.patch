@@ -1,0 +1,155 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 12 Oct 2026 21:54:44 +0100
+Subject: [PATCH] fix(store): let the store handler cancel an install or update
+
+Syncs marathon-extras/marathon-store-handler with scripts/store in the
+Marathon-Shell repo (63a4214f).
+
+Each install, update and uninstall now runs in its own transient user
+unit, marathon-store-job-<appid>.service, so the new cancel verb can
+stop it and a second job for the same app is refused while one runs.
+update-all writes every queued app as pending up front and runs each in
+its own unit, so one can be cancelled or skipped. Progress records carry
+the verb so a reopened Store can tell an install from an update.
+---
+ marathon-extras/marathon-store-handler | 62 +++++++++++++++++++++-----
+ 1 file changed, 50 insertions(+), 12 deletions(-)
+
+diff --git a/marathon-extras/marathon-store-handler b/marathon-extras/marathon-store-handler
+index a543fbe..6ce3d26 100755
+--- a/marathon-extras/marathon-store-handler
++++ b/marathon-extras/marathon-store-handler
+@@ -19,6 +19,10 @@ RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+ STATE_DIR="$RUNTIME_DIR/marathon-store-state"
+ mkdir -p "$STATE_DIR"
+ 
++job_unit() {
++    printf 'marathon-store-job-%s.service' "$1"
++}
++
+ url=${1:-}
+ verb=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://\([^/]*\)/.*|\1|p')
+ arg=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://[^/]*/\(.*\)$|\1|p')
+@@ -29,7 +33,7 @@ if [ -z "$verb" ]; then
+ fi
+ 
+ case "$verb" in
+-    install|update|uninstall|open|refresh-state|update-all) ;;
++    install|update|uninstall|cancel|open|refresh-state|update-all) ;;
+     *)
+         printf 'marathon-store-handler: unknown verb: %s\n' "$verb" >&2
+         exit 2
+@@ -61,20 +65,26 @@ if [ -z "${MARATHON_STORE_UNIT:-}" ]; then
+         exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/AppStore \
+             org.marathonos.Shell.AppStore1 RunStoreUrl s "$url"
+     fi
+-    exec systemd-run --user --quiet --collect --setenv=MARATHON_STORE_UNIT=1 \
++    # One named unit per app, so cancel can stop it and a second install of
++    # the same app is refused while the first runs.
++    unit=()
++    case "$verb" in
++        install|update|uninstall) unit=(--unit="$(job_unit "$arg")") ;;
++    esac
++    exec systemd-run --user --quiet --collect "${unit[@]}" --setenv=MARATHON_STORE_UNIT=1 \
+         "$(readlink -f "$0")" "$url"
+ fi
+ 
+ write_state() {
+-    local appid=$1 state=$2 pct=$3 msg=${4:-}
++    local op=$1 appid=$2 state=$3 pct=$4 msg=${5:-}
+     local target="$STATE_DIR/install-progress-${appid}.json"
+     local tmp
+     # The message is flatpak's own error text: keep it printable and free of
+     # the two characters that could break out of the JSON string.
+     msg=$(printf '%s' "$msg" | tr -d '"\\' | tr -c '[:print:]' ' ' | cut -c1-400)
+     tmp=$(mktemp "${target}.XXXXXX")
+-    printf '{"appId":"%s","state":"%s","percent":%s,"error":"%s","ts":%s}\n' \
+-        "$appid" "$state" "$pct" "$msg" "$(date +%s)" > "$tmp"
++    printf '{"appId":"%s","verb":"%s","state":"%s","percent":%s,"error":"%s","ts":%s}\n' \
++        "$appid" "$op" "$state" "$pct" "$msg" "$(date +%s)" > "$tmp"
+     mv "$tmp" "$target"
+ }
+ 
+@@ -99,7 +109,7 @@ run_op() {
+     esac
+     log=$(mktemp "$STATE_DIR/log.XXXXXX")
+     set +e
+-    write_state "$appid" pending -1
++    write_state "$op" "$appid" pending -1
+     [ "$op" = install ] && ensure_remote >>"$log" 2>&1
+     # flatpak only draws progress ("Installing 2/3… 45%") on a terminal, so
+     # it runs under script(1) for a pty; -e passes its exit status through.
+@@ -109,17 +119,17 @@ run_op() {
+     script -q -e -c "$cmd" /dev/null 2>&1 | while IFS= read -r -d $'\r' chunk || [ -n "$chunk" ]; do
+         printf '%s\n' "$chunk" >> "$log"
+         if [[ $chunk =~ ([0-9]+)/([0-9]+)….*[^0-9]([0-9]{1,3})% ]]; then
+-            write_state "$appid" "$busy" \
++            write_state "$op" "$appid" "$busy" \
+                 $(( ((BASH_REMATCH[1] - 1) * 100 + BASH_REMATCH[3]) / BASH_REMATCH[2] ))
+         fi
+     done
+     rc=${PIPESTATUS[0]}
+     if [ "$rc" = 0 ]; then
+-        write_state "$appid" "$done_state" 100
++        write_state "$op" "$appid" "$done_state" 100
+     else
+         # flatpak's own reason, without the terminal escapes and progress
+         # redraws that share its line.
+-        write_state "$appid" failed -1 "$(sed -e 's/\x1b\][^\x1b]*\x1b\\//g' -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$log" \
++        write_state "$op" "$appid" failed -1 "$(sed -e 's/\x1b\][^\x1b]*\x1b\\//g' -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$log" \
+             | grep -o 'error: .*' | tail -1 | sed 's/^error: //')"
+     fi
+     rm -f "$log"
+@@ -127,10 +137,35 @@ run_op() {
+     set -e
+ }
+ 
++# Every queued app reports "pending" up front, so the Store doesn't give up
++# on the ones still waiting their turn. Each update runs in its own job unit,
++# which lets one be cancelled without stopping the rest; a cancelled record
++# skips an app that hasn't started yet.
+ update_all() {
+-    flatpak --user remote-ls --updates --columns=application 2>/dev/null \
+-        | grep -vE '\.(Locale|Sources|Debug)$' \
+-        | while read -r app; do run_op update "$app"; done
++    local apps app
++    apps=$(flatpak --user remote-ls --updates --columns=application 2>/dev/null \
++        | grep -vE '\.(Locale|Sources|Debug)$' | grep -E "$REF_RE" || true)
++    for app in $apps; do write_state update "$app" pending -1; done
++    for app in $apps; do
++        grep -q '"state":"cancelled"' "$STATE_DIR/install-progress-${app}.json" 2>/dev/null && continue
++        systemd-run --user --quiet --collect --wait --unit="$(job_unit "$app")" \
++            --setenv=MARATHON_STORE_UNIT=1 "$(readlink -f "$0")" "marathon-store://update/$app" || true
++    done
++}
++
++# Stopping the unit kills flatpak mid-transaction; ostree leaves the
++# installed version untouched until a deploy completes. A job that finished
++# before the stop keeps its result.
++cancel_op() {
++    local appid=$1 target="$STATE_DIR/install-progress-$1.json" record="" op
++    systemctl --user stop "$(job_unit "$appid")" 2>/dev/null || true
++    [ -f "$target" ] && record=$(cat "$target")
++    case "$record" in
++        *'"state":"done"'*|*'"state":"removed"'*|*'"state":"failed"'*) return ;;
++    esac
++    op=$(printf '%s' "$record" | sed -n 's/.*"verb":"\([a-z]*\)".*/\1/p')
++    write_state "${op:-install}" "$appid" cancelled -1
++    /usr/libexec/marathon-store-refresh-state
+ }
+ 
+ # arg has already been validated against REF_RE, so nothing shell-meaningful
+@@ -153,6 +188,9 @@ case "$verb" in
+             (update_all </dev/null >/dev/null 2>&1 &)
+         fi
+         ;;
++    cancel)
++        cancel_op "$arg"
++        ;;
+     refresh-state)
+         exec /usr/libexec/marathon-store-refresh-state
+         ;;
+-- 
+2.55.0
+
