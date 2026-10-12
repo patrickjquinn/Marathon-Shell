@@ -109,8 +109,8 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 visible: page.dayEvents.length === 0
                 text: qsTr("No events")
+                horizontalAlignment: Text.AlignHCenter
                 color: Theme.secondaryHighlightColor
-                font.pixelSize: Theme.fontSizeLarge
                 wrapMode: Text.Wrap
             }
         }

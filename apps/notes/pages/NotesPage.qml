@@ -16,9 +16,14 @@ Page {
     readonly property var scope: inFolder ? Store.inFolder(store.notes, folder) : store.notes
     readonly property var shown: Store.sorted(Store.search(scope, searchText))
 
+    // Today's notes by time; older ones by day and month ("5 Oct"), with
+    // the year once it is not this one.
     function when(timestamp) {
         const d = new Date(timestamp);
-        return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString(Qt.locale(), Locale.ShortFormat) : d.toLocaleDateString(Qt.locale(), Locale.ShortFormat);
+        const now = new Date();
+        if (d.toDateString() === now.toDateString())
+            return d.toLocaleTimeString(Qt.locale(), Locale.ShortFormat);
+        return Qt.formatDate(d, d.getFullYear() === now.getFullYear() ? "d MMM" : "d MMM yyyy");
     }
 
     function snippet(text) {
