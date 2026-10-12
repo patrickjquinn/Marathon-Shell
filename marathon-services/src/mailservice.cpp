@@ -6,10 +6,14 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDebug>
+#include <QDir>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QNetworkInformation>
 #include <QProcess>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -24,6 +28,7 @@
 #include <qmaildatacomparator.h>
 #include <qmailfolder.h>
 #include <qmailfolderkey.h>
+#include <qmailfoldersortkey.h>
 #include <qmailmessage.h>
 #include <qmailmessagekey.h>
 #include <qmailmessagelistmodel.h>
@@ -184,11 +189,37 @@ MailService::MailService(QObject *parent)
     m_accountsModel->setKey(
         QMailAccountKey::status(QMailAccount::Enabled, QMailDataComparator::Includes));
 
+    // Store signals arrive in bursts during a sync; coalesce the list rebuild.
+    m_accountListTimer = new QTimer(this);
+    m_accountListTimer->setSingleShot(true);
+    m_accountListTimer->setInterval(100);
+    connect(m_accountListTimer, &QTimer::timeout, this, &MailService::accountListChanged);
+
+    if (QNetworkInformation::loadBackendByFeatures(QNetworkInformation::Feature::Reachability))
+        connect(QNetworkInformation::instance(), &QNetworkInformation::reachabilityChanged, this,
+                &MailService::onlineChanged);
+
     {
         connect(store, &QMailStore::accountsAdded, this, [this](const auto &ids) {
             (void)ids;
+            m_accountListTimer->start();
             emit currentAccountChanged();
         });
+        connect(store, &QMailStore::accountsUpdated, m_accountListTimer,
+                qOverload<>(&QTimer::start));
+        const auto foldersChanged = [this] {
+            // A new account's Inbox only exists once its folder list arrives.
+            if (m_currentFolderId.isEmpty() && !m_currentAccountId.isEmpty()) {
+                const QMailAccount acct(QMailAccountId(m_currentAccountId.toULongLong()));
+                const auto inboxId = acct.standardFolder(QMailFolder::InboxFolder);
+                if (inboxId.isValid())
+                    setCurrentFolderId(QString::number(inboxId.toULongLong()));
+            }
+            m_accountListTimer->start();
+        };
+        connect(store, &QMailStore::foldersAdded, this, foldersChanged);
+        connect(store, &QMailStore::foldersUpdated, this, foldersChanged);
+        connect(store, &QMailStore::foldersRemoved, this, foldersChanged);
         connect(store, &QMailStore::accountsRemoved, this, [this](const auto &ids) {
             (void)ids;
             // If the removed account was the current one, fall back to
@@ -203,6 +234,7 @@ MailService::MailService(QObject *parent)
                 if (removedCurrent)
                     restoreLastSelection();
             }
+            m_accountListTimer->start();
             emit currentAccountChanged();
         });
         // messagesAdded fires for IMAP IDLE arrivals (new server-side
@@ -228,10 +260,29 @@ MailService::MailService(QObject *parent)
                     case QMailServiceAction::Successful:
                         m_syncState = QStringLiteral("idle");
                         break;
-                    case QMailServiceAction::Failed: m_syncState = QStringLiteral("error"); break;
+                    case QMailServiceAction::Failed:
+                        if (m_retrieval->status().errorCode ==
+                            QMailServiceAction::Status::ErrCancel) {
+                            m_syncState = QStringLiteral("idle");
+                        } else {
+                            m_syncState = QStringLiteral("error");
+                            m_lastError = m_retrieval->status().text;
+                        }
+                        break;
                     default: break;
                 }
                 emit syncStateChanged();
+            });
+    connect(m_transmit, &QMailServiceAction::activityChanged, this,
+            [this](QMailServiceAction::Activity a) {
+                if (a == QMailServiceAction::Successful) {
+                    emit sendSucceeded();
+                } else if (a == QMailServiceAction::Failed) {
+                    const auto code = m_transmit->status().errorCode;
+                    if (code != QMailServiceAction::Status::ErrCancel)
+                        emit sendFailed(failureReason(code));
+                }
+                updateOutboxCount();
             });
 
     restoreLastSelection();
@@ -257,6 +308,98 @@ int MailService::unreadCount() const {
     return m_unreadCount;
 }
 
+int MailService::outboxCount() const {
+    return m_outboxCount;
+}
+
+bool MailService::online() const {
+    const auto *info = QNetworkInformation::instance();
+    return !info || info->reachability() != QNetworkInformation::Reachability::Disconnected;
+}
+
+QStringList MailService::oauthProviders() const {
+    return m_oauthProviders;
+}
+
+static QMailMessageKey outboxKey(const QMailAccountId &accountId) {
+    return QMailMessageKey::parentAccountId(accountId) &
+           QMailMessageKey::status(QMailMessage::Outbox) &
+           ~QMailMessageKey::status(QMailMessage::Trash);
+}
+
+static QMailMessageKey unreadIn(const QMailFolderId &folderId) {
+    return QMailMessageKey::parentFolderId(folderId) &
+           ~QMailMessageKey::status(QMailMessage::Read);
+}
+
+QVariantList MailService::accountList() const {
+    QVariantList out;
+    if (!m_accountsModel)
+        return out;
+    auto *store = QMailStore::instance();
+    for (int row = 0; row < m_accountsModel->rowCount(); ++row) {
+        const QMailAccountId aid = m_accountsModel->idFromIndex(m_accountsModel->index(row));
+        const QMailAccount   acct(aid);
+        const QList<QPair<QMailFolder::StandardFolder, QString>> standard = {
+            {QMailFolder::InboxFolder, QStringLiteral("inbox")},
+            {QMailFolder::DraftsFolder, QStringLiteral("drafts")},
+            {QMailFolder::SentFolder, QStringLiteral("sent")},
+            {QMailFolder::JunkFolder, QStringLiteral("junk")},
+            {QMailFolder::TrashFolder, QStringLiteral("trash")},
+        };
+        QHash<QMailFolderId, QString> kinds;
+        for (const auto &[folder, kind] : standard)
+            if (acct.standardFolder(folder).isValid())
+                kinds.insert(acct.standardFolder(folder), kind);
+
+        const auto entry = [store](const QMailFolderId &id, const QString &kind) {
+            const QMailFolder folder(id);
+            return QVariantMap{
+                {QStringLiteral("id"), QString::number(id.toULongLong())},
+                {QStringLiteral("name"), folder.displayName()},
+                {QStringLiteral("kind"), kind},
+                {QStringLiteral("unread"), store->countMessages(unreadIn(id))},
+                {QStringLiteral("count"),
+                 store->countMessages(QMailMessageKey::parentFolderId(id))},
+            };
+        };
+
+        // Jolla order: Inbox, Drafts, Sent, Outbox, the rest, Junk, Trash.
+        QVariantList head, middle, tail;
+        for (const auto &[folder, kind] : standard) {
+            const auto id = acct.standardFolder(folder);
+            if (!id.isValid())
+                continue;
+            (folder == QMailFolder::JunkFolder || folder == QMailFolder::TrashFolder ? tail : head)
+                << entry(id, kind);
+        }
+        const int queued = store->countMessages(outboxKey(aid));
+        if (queued > 0)
+            head << QVariantMap{
+                {QStringLiteral("id"), QStringLiteral("outbox")},
+                {QStringLiteral("name"), tr("Outbox")},
+                {QStringLiteral("kind"), QStringLiteral("outbox")},
+                {QStringLiteral("unread"), 0},
+                {QStringLiteral("count"), queued},
+            };
+        const auto ids = store->queryFolders(QMailFolderKey::parentAccountId(aid),
+                                             QMailFolderSortKey::path());
+        for (const auto &id : ids)
+            if (!kinds.contains(id) && !(QMailFolder(id).status() & QMailFolder::NonMail))
+                middle << entry(id, QStringLiteral("other"));
+
+        const auto inbox = acct.standardFolder(QMailFolder::InboxFolder);
+        out << QVariantMap{
+            {QStringLiteral("id"), QString::number(aid.toULongLong())},
+            {QStringLiteral("name"), acct.name()},
+            {QStringLiteral("address"), acct.fromAddress().address()},
+            {QStringLiteral("unread"), inbox.isValid() ? store->countMessages(unreadIn(inbox)) : 0},
+            {QStringLiteral("folders"), head + middle + tail},
+        };
+    }
+    return out;
+}
+
 QString MailService::currentAccountId() const {
     return m_currentAccountId;
 }
@@ -280,6 +423,8 @@ QString MailService::currentAccountName() const {
 QString MailService::currentFolderName() const {
     if (m_currentFolderId.isEmpty())
         return {};
+    if (m_currentFolderId == QLatin1String("outbox"))
+        return tr("Outbox");
     QMailFolder folder(QMailFolderId(m_currentFolderId.toULongLong()));
     return folder.displayName();
 }
@@ -289,6 +434,7 @@ void MailService::setCurrentAccountId(const QString &id) {
         return;
     m_currentAccountId = id;
     saveLastSelection();
+    updateOutboxCount();
 
     if (!id.isEmpty()) {
         const QMailAccountId aid(id.toULongLong());
@@ -322,17 +468,15 @@ void MailService::rebindMessagesToCurrentFolder() {
         return;
     }
 
+    const bool outbox = m_currentFolderId == QLatin1String("outbox");
+    const QMailFolderId folderId(m_currentFolderId.toULongLong());
     auto *proxy = new MailMessageListProxy(this);
-    proxy->inner()->setKey(
-        QMailMessageKey::parentFolderId(QMailFolderId(m_currentFolderId.toULongLong())));
+    proxy->inner()->setKey(outbox ? outboxKey(QMailAccountId(m_currentAccountId.toULongLong())) :
+                                    QMailMessageKey::parentFolderId(folderId));
     proxy->inner()->setSortKey(QMailMessageSortKey::timeStamp(Qt::DescendingOrder));
     m_messagesModel = proxy;
 
-    // Unread count from the same key set.
-    const auto unreadKey =
-        QMailMessageKey::parentFolderId(QMailFolderId(m_currentFolderId.toULongLong())) &
-        ~QMailMessageKey::status(QMailMessage::Read);
-    m_unreadCount = QMailStore::instance()->countMessages(unreadKey);
+    m_unreadCount = outbox ? 0 : QMailStore::instance()->countMessages(unreadIn(folderId));
     emit unreadCountChanged();
 }
 
@@ -340,10 +484,55 @@ bool MailService::refresh() {
     if (m_currentAccountId.isEmpty())
         return false;
     const QMailAccountId aid(m_currentAccountId.toULongLong());
+    if (m_outboxCount > 0 && !m_transmit->isRunning())
+        m_transmit->transmitMessages(aid);
+    if (m_currentFolderId == QLatin1String("outbox"))
+        return true;
     m_retrieval->retrieveMessageList(aid, QMailFolderId(m_currentFolderId.toULongLong()),
                                      100, // window
                                      QMailMessageSortKey::timeStamp(Qt::DescendingOrder));
     return true;
+}
+
+void MailService::cancelSync() {
+    if (m_retrieval && m_retrieval->isRunning())
+        m_retrieval->cancelOperation();
+}
+
+void MailService::refreshFolders(const QString &accountId) {
+    const QMailAccountId aid(accountId.toULongLong());
+    if (!aid.isValid() || !m_accountsModel)
+        return;
+    auto *action = new QMailRetrievalAction(this);
+    connect(action, &QMailServiceAction::activityChanged, action,
+            [action](QMailServiceAction::Activity a) {
+                if (a == QMailServiceAction::Successful || a == QMailServiceAction::Failed)
+                    action->deleteLater();
+            });
+    action->retrieveFolderList(aid, QMailFolderId(), true);
+}
+
+void MailService::updateOutboxCount() {
+    const int n = m_currentAccountId.isEmpty() || !m_accountsModel ?
+            0 :
+            QMailStore::instance()->countMessages(
+                outboxKey(QMailAccountId(m_currentAccountId.toULongLong())));
+    if (n == m_outboxCount)
+        return;
+    m_outboxCount = n;
+    emit outboxCountChanged();
+}
+
+QString MailService::failureReason(int errorCode) const {
+    switch (errorCode) {
+        case QMailServiceAction::Status::ErrCancel: return QStringLiteral("cancelled");
+        case QMailServiceAction::Status::ErrLoginFailed: return QStringLiteral("login");
+        case QMailServiceAction::Status::ErrNoSslSupport:
+        case QMailServiceAction::Status::ErrUntrustedCertificates:
+            return QStringLiteral("certificate");
+        case QMailServiceAction::Status::ErrInvalidAddress: return QStringLiteral("address");
+        default: return online() ? QStringLiteral("server") : QStringLiteral("offline");
+    }
 }
 
 bool MailService::markAsRead(const QString &messageId, bool read) {
@@ -368,6 +557,8 @@ bool MailService::moveToTrash(const QString &messageId) {
         return false;
     QMailMessage msg(mid);
     msg.setParentFolderId(trashId);
+    // A deleted Outbox message must not go out on the next send.
+    msg.setStatus(QMailMessage::Outbox, false);
     return QMailStore::instance()->updateMessage(&msg);
 }
 
@@ -388,8 +579,9 @@ bool MailService::moveToArchive(const QString &messageId) {
     return QMailStore::instance()->updateMessage(&msg);
 }
 
-bool MailService::send(const QString &to, const QString &cc, const QString &subject,
-                       const QString &body, const QStringList &attachmentPaths) {
+bool MailService::send(const QString &to, const QString &cc, const QString &bcc,
+                       const QString &subject, const QString &body,
+                       const QStringList &attachmentPaths) {
     if (m_currentAccountId.isEmpty())
         return false;
     QMailAccount acct(QMailAccountId(m_currentAccountId.toULongLong()));
@@ -399,6 +591,8 @@ bool MailService::send(const QString &to, const QString &cc, const QString &subj
     msg.setTo(QMailAddress::fromStringList(to));
     if (!cc.isEmpty())
         msg.setCc(QMailAddress::fromStringList(cc));
+    if (!bcc.isEmpty())
+        msg.setBcc(QMailAddress::fromStringList(bcc));
     msg.setSubject(subject);
     msg.setBody(QMailMessageBody::fromData(body.toUtf8(),
                                            QMailMessageContentType("text/plain; charset=UTF-8"),
@@ -413,12 +607,20 @@ bool MailService::send(const QString &to, const QString &cc, const QString &subj
     }
 
     msg.setParentAccountId(acct.id());
-    msg.setStatus(QMailMessage::Outgoing, true);
+    const auto outboxId = acct.standardFolder(QMailFolder::OutboxFolder);
+    msg.setParentFolderId(outboxId.isValid() ? outboxId :
+                                               QMailFolderId(QMailFolderId::LocalStorageFolderId));
+    // transmitMessages() only picks up messages flagged Outbox.
+    msg.setStatus(QMailMessage::Outbox | QMailMessage::Outgoing | QMailMessage::ContentAvailable |
+                      QMailMessage::Read,
+                  true);
 
     if (!QMailStore::instance()->addMessage(&msg))
         return false;
 
-    m_transmit->transmitMessages(acct.id());
+    updateOutboxCount();
+    if (!m_transmit->isRunning())
+        m_transmit->transmitMessages(acct.id());
     return true;
 }
 
@@ -453,27 +655,62 @@ QVariantMap MailService::openMessage(const QString &messageId) {
     }
 
     QVariantList atts;
-    for (uint i = 0; i < msg.partCount(); ++i) {
-        const auto &part = msg.partAt(i);
+    msg.foreachPart([&atts](const QMailMessagePart &part) {
         if (part.contentDisposition().type() == QMailMessageContentDisposition::Attachment) {
             QVariantMap a;
-            a[QStringLiteral("name")] = part.displayName();
-            a[QStringLiteral("size")] = static_cast<qulonglong>(part.body().length());
-            a[QStringLiteral("mime")] = QString::fromUtf8(part.contentType().content());
+            a[QStringLiteral("name")]     = part.displayName();
+            a[QStringLiteral("size")]     = static_cast<qulonglong>(part.indicativeSize());
+            a[QStringLiteral("mime")]     = QString::fromUtf8(part.contentType().content());
+            a[QStringLiteral("location")] = part.location().toString(true);
             atts << a;
         }
-    }
+        return true;
+    });
     out[QStringLiteral("attachments")] = atts;
     return out;
 }
 
+bool MailService::saveAttachment(const QString &messageId, const QString &location) {
+    const QMailMessageId              mid(messageId.toULongLong());
+    const QMailMessagePart::Location  loc(location);
+    if (!mid.isValid() || !loc.isValid() || !QMailMessage(mid).contains(loc))
+        return false;
+
+    const auto write = [this, mid, loc, messageId, location] {
+        const QMailMessage msg(mid);
+        const QString      dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+        const QString path = QDir().mkpath(dir) ? msg.partAt(loc).writeBodyTo(dir) : QString();
+        if (path.isEmpty())
+            emit attachmentFailed(messageId, location);
+        else
+            emit attachmentSaved(messageId, location, path);
+    };
+    if (QMailMessage(mid).partAt(loc).contentAvailable()) {
+        write();
+        return true;
+    }
+    auto *action = new QMailRetrievalAction(this);
+    connect(action, &QMailServiceAction::activityChanged, this,
+            [this, action, write, messageId, location](QMailServiceAction::Activity a) {
+                if (a != QMailServiceAction::Successful && a != QMailServiceAction::Failed)
+                    return;
+                action->deleteLater();
+                if (a == QMailServiceAction::Successful)
+                    write();
+                else
+                    emit attachmentFailed(messageId, location);
+            });
+    action->retrieveMessagePart(loc);
+    return true;
+}
+
 void MailService::onMessagesUpdated() {
-    if (m_currentFolderId.isEmpty())
+    updateOutboxCount();
+    m_accountListTimer->start();
+    if (m_currentFolderId.isEmpty() || m_currentFolderId == QLatin1String("outbox"))
         return;
-    const auto unreadKey =
-        QMailMessageKey::parentFolderId(QMailFolderId(m_currentFolderId.toULongLong())) &
-        ~QMailMessageKey::status(QMailMessage::Read);
-    const int n = QMailStore::instance()->countMessages(unreadKey);
+    const int n = QMailStore::instance()->countMessages(
+        unreadIn(QMailFolderId(m_currentFolderId.toULongLong())));
     if (n != m_unreadCount) {
         m_unreadCount = n;
         emit unreadCountChanged();
@@ -567,15 +804,19 @@ void MailService::saveLastSelection() {
     s.setValue(QStringLiteral("lastAccountId"), m_currentAccountId);
 }
 
-QString MailService::addImapAccount(const QString &name, const QString &email,
-                                    const QString &imapHost, int imapPort, int imapEncryption,
-                                    const QString &smtpHost, int smtpPort, int smtpEncryption,
-                                    const QString &username, const QString &password) {
+bool MailService::addImapAccount(const QString &name, const QString &email,
+                                 const QString &imapHost, int imapPort, int imapEncryption,
+                                 const QString &smtpHost, int smtpPort, int smtpEncryption,
+                                 const QString &username, const QString &password) {
+    if (m_setupAccountId.isValid()) {
+        qWarning() << "[MailService] addImapAccount: a setup is already running";
+        return false;
+    }
     // Basic input validation — refuse incomplete payloads so QMF doesn't
     // see a half-configured account that will keep failing to sync.
     if (imapHost.isEmpty() || smtpHost.isEmpty() || username.isEmpty() || email.isEmpty()) {
         qWarning() << "[MailService] addImapAccount: missing required field";
-        return {};
+        return false;
     }
     if (imapPort <= 0)
         imapPort = (imapEncryption == 1) ? 993 : 143;
@@ -585,7 +826,7 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     auto *store = QMailStore::instance();
     if (!store) {
         qWarning() << "[MailService] addImapAccount: QMailStore unavailable";
-        return {};
+        return false;
     }
 
     // Encryption value → QMF imap4/smtp plugin "encryption" key. Numeric
@@ -593,7 +834,6 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     const QString encStr        = QString::number(imapEncryption);
     const QString smtpEncStr    = QString::number(smtpEncryption);
     const QString displayName   = name.isEmpty() ? email : name;
-    const QString fromAddrLabel = displayName + QStringLiteral(" <") + email + QStringLiteral(">");
 
     QMailAccount  account;
     account.setName(displayName);
@@ -616,7 +856,7 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     // (qmf/src/plugins/messageservices/imap/imapconfiguration.cpp).
     if (!cfg.addServiceConfiguration(QStringLiteral("imap4"))) {
         qWarning() << "[MailService] addImapAccount: failed to add imap4 service";
-        return {};
+        return false;
     }
     QMailAccountConfiguration::ServiceConfiguration &imap =
         cfg.serviceConfiguration(QStringLiteral("imap4"));
@@ -641,7 +881,7 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
 
     if (!cfg.addServiceConfiguration(QStringLiteral("smtp"))) {
         qWarning() << "[MailService] addImapAccount: failed to add smtp service";
-        return {};
+        return false;
     }
     QMailAccountConfiguration::ServiceConfiguration &smtp =
         cfg.serviceConfiguration(QStringLiteral("smtp"));
@@ -657,42 +897,100 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
 
     if (!store->addAccount(&account, &cfg)) {
         qWarning() << "[MailService] addImapAccount: QMailStore::addAccount failed";
-        return {};
+        return false;
     }
 
     const QString accountId = QString::number(account.id().toULongLong());
+    m_setupAccountId        = account.id();
 
     // Now that QMF has assigned a stable id, hand the password off to the
     // helper for Secret-Service storage. The helper indexes by accountId.
     // Password goes over stdin so it never lands in /proc/<pid>/cmdline.
-    QProcess helper;
-    helper.setProgram(QStringLiteral("/usr/bin/marathon-mail-oauth"));
-    helper.setArguments({QStringLiteral("classic-add"), QStringLiteral("--account-id"), accountId,
-                         QStringLiteral("--username"), username});
-    helper.start();
-    if (!helper.waitForStarted(2000)) {
-        qWarning() << "[MailService] addImapAccount: helper did not start —"
-                   << helper.errorString();
-        store->removeAccount(account.id());
-        return {};
-    }
-    helper.write(password.toUtf8());
-    helper.write("\n");
-    helper.closeWriteChannel();
-    if (!helper.waitForFinished(8000) || helper.exitCode() != 0) {
-        qWarning() << "[MailService] addImapAccount: helper failed —"
-                   << helper.readAllStandardError();
-        store->removeAccount(account.id());
-        return {};
-    }
+    m_setupHelper = new QProcess(this);
+    m_setupHelper->setProgram(QStringLiteral("/usr/bin/marathon-mail-oauth"));
+    m_setupHelper->setArguments({QStringLiteral("classic-add"), QStringLiteral("--account-id"),
+                                 accountId, QStringLiteral("--username"), username});
+    connect(m_setupHelper, &QProcess::errorOccurred, this, [this](QProcess::ProcessError e) {
+        if (e == QProcess::FailedToStart)
+            finishAccountSetup(QStringLiteral("keyring"));
+    });
+    connect(m_setupHelper, &QProcess::finished, this,
+            [this, imapHost, imapPort, imapEncryption, smtpHost, smtpPort,
+             smtpEncryption](int code, QProcess::ExitStatus status) {
+                if (!m_setupHelper)
+                    return;
+                if (status != QProcess::NormalExit || code != 0) {
+                    qWarning() << "[MailService] addImapAccount: helper failed —"
+                               << m_setupHelper->readAllStandardError();
+                    finishAccountSetup(QStringLiteral("keyring"));
+                    return;
+                }
+                m_setupHelper->deleteLater();
+                m_setupHelper = nullptr;
+                qInfo() << "[MailService] addImapAccount: verifying accountId="
+                        << m_setupAccountId.toULongLong() << "imap=" << imapHost << ":" << imapPort
+                        << "(enc=" << imapEncryption << ")"
+                        << "smtp=" << smtpHost << ":" << smtpPort << "(enc=" << smtpEncryption
+                        << ")";
+                verifyNewAccount();
+            });
+    connect(m_setupHelper, &QProcess::started, this, [this, password] {
+        m_setupHelper->write(password.toUtf8());
+        m_setupHelper->write("\n");
+        m_setupHelper->closeWriteChannel();
+    });
+    m_setupHelper->start();
+    return true;
+}
 
-    qInfo() << "[MailService] addImapAccount: created accountId=" << accountId
-            << "imap=" << imapHost << ":" << imapPort << "(enc=" << imapEncryption << ")"
-            << "smtp=" << smtpHost << ":" << smtpPort << "(enc=" << smtpEncryption << ")"
-            << "fromAddr=" << fromAddrLabel;
+// Listing the folders signs in to the IMAP server, which proves the
+// password and server settings before the account is kept.
+void MailService::verifyNewAccount() {
+    m_setupAction = new QMailRetrievalAction(this);
+    connect(m_setupAction, &QMailServiceAction::activityChanged, this,
+            [this](QMailServiceAction::Activity a) {
+                if (a == QMailServiceAction::Successful)
+                    finishAccountSetup({});
+                else if (a == QMailServiceAction::Failed)
+                    finishAccountSetup(failureReason(m_setupAction->status().errorCode));
+            });
+    m_setupAction->retrieveFolderList(m_setupAccountId, QMailFolderId(), true);
+}
 
-    setCurrentAccountId(accountId);
-    return accountId;
+void MailService::cancelAccountSetup() {
+    if (m_setupAccountId.isValid())
+        finishAccountSetup(QStringLiteral("cancelled"));
+}
+
+// An empty reason keeps the account; any other removes it and its password.
+void MailService::finishAccountSetup(const QString &reason) {
+    const QMailAccountId aid = m_setupAccountId;
+    m_setupAccountId         = QMailAccountId();
+    if (m_setupHelper) {
+        m_setupHelper->disconnect(this);
+        m_setupHelper->kill();
+        m_setupHelper->deleteLater();
+        m_setupHelper = nullptr;
+    }
+    if (m_setupAction) {
+        m_setupAction->disconnect(this);
+        if (m_setupAction->isRunning())
+            m_setupAction->cancelOperation();
+        m_setupAction->deleteLater();
+        m_setupAction = nullptr;
+    }
+    const QString accountId = QString::number(aid.toULongLong());
+    if (reason.isEmpty()) {
+        qInfo() << "[MailService] addImapAccount: created accountId=" << accountId;
+        setCurrentAccountId(accountId);
+        emit accountSetupSucceeded(accountId);
+        return;
+    }
+    qWarning() << "[MailService] addImapAccount: failed (" << reason << ")";
+    QMailStore::instance()->removeAccount(aid);
+    QProcess::startDetached(QStringLiteral("/usr/bin/marathon-mail-oauth"),
+                            {QStringLiteral("remove"), QStringLiteral("--account-id"), accountId});
+    emit accountSetupFailed(reason);
 }
 
 bool MailService::startOAuthLogin(const QString &provider) {
@@ -783,7 +1081,9 @@ bool MailService::startOAuthLogin(const QString &provider) {
     //   • binds 127.0.0.1:<random>, prints the auth URL on stderr
     //   • blocks waiting for the loopback redirect
     //   • on success, writes the Added envelope to stdout and exits 0
-    auto *proc = new QProcess(this);
+    auto *proc       = new QProcess(this);
+    m_oauthHelper    = proc;
+    m_oauthCancelled = false;
     proc->setProgram(QStringLiteral("/usr/bin/marathon-mail-oauth"));
     proc->setArguments({QStringLiteral("add"), QStringLiteral("--provider"), helperProvider,
                         QStringLiteral("--account-id"), accountId});
@@ -823,6 +1123,13 @@ bool MailService::startOAuthLogin(const QString &provider) {
                 proc->deleteLater();
                 delete stdoutBuf;
 
+                if (m_oauthCancelled) {
+                    m_oauthCancelled = false;
+                    store->removeAccount(account.id());
+                    emit oauthLoginFailed(QStringLiteral("cancelled"),
+                                          QStringLiteral("Sign-in cancelled"));
+                    return;
+                }
                 if (es != QProcess::NormalExit || kind == QStringLiteral("error")) {
                     const auto code =
                         obj.value(QStringLiteral("code")).toString(QStringLiteral("io"));
@@ -867,6 +1174,35 @@ bool MailService::startOAuthLogin(const QString &provider) {
         return false;
     }
     return true;
+}
+
+void MailService::cancelOAuthLogin() {
+    if (!m_oauthHelper || m_oauthHelper->state() == QProcess::NotRunning)
+        return;
+    m_oauthCancelled = true;
+    m_oauthHelper->kill();
+}
+
+void MailService::checkOAuthProviders() {
+    if (m_oauthProvidersChecked)
+        return;
+    m_oauthProvidersChecked = true;
+    auto *proc              = new QProcess(this);
+    connect(proc, &QProcess::finished, this, [this, proc](int code, QProcess::ExitStatus status) {
+        proc->deleteLater();
+        if (status != QProcess::NormalExit || code != 0)
+            return;
+        const auto reply = QJsonDocument::fromJson(proc->readAllStandardOutput()).object();
+        QStringList found;
+        for (const auto &v : reply.value(QStringLiteral("configured")).toArray())
+            found << v.toString();
+        if (found != m_oauthProviders) {
+            m_oauthProviders = found;
+            emit oauthProvidersChanged();
+        }
+    });
+    connect(proc, &QProcess::errorOccurred, proc, &QObject::deleteLater);
+    proc->start(QStringLiteral("/usr/bin/marathon-mail-oauth"), {QStringLiteral("providers")});
 }
 
 #include "mailservice.moc"

@@ -87,6 +87,7 @@ if(MARATHON_HAS_QMF)
     target_link_libraries(MarathonMailService PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Network
         Qt6::Qml
         ${QMF_CLIENT_LIB}
     )

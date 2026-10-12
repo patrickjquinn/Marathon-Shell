@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 #include <qqml.h>
@@ -19,6 +20,7 @@
 class QMailAccountListModel;
 class QMailRetrievalAction;
 class QMailTransmitAction;
+class QProcess;
 
 // MailService — the QtQuick-facing facade in front of QMF (Qt Messaging
 // Framework). Replaces the webmail-picker that shipped before.
@@ -67,9 +69,14 @@ class MailService : public QObject {
     Q_PROPERTY(QString currentAccountId READ currentAccountId WRITE setCurrentAccountId NOTIFY
                    currentAccountChanged)
     Q_PROPERTY(QString currentAccountName READ currentAccountName NOTIFY currentAccountChanged)
+    // Every account with its folders, for the folder list:
+    //   [{ id, name, address, unread,
+    //      folders: [{ id, name, kind, unread, count }] }]
+    // kind is inbox | drafts | sent | outbox | junk | trash | other. The
+    // Outbox entry (id "outbox") lists queued, unsent mail.
+    Q_PROPERTY(QVariantList accountList READ accountList NOTIFY accountListChanged)
     // Currently-selected folder id; defaults to the account's Inbox.
-    // (Folder list is not exposed yet — QMailStore::queryFolders gives
-    // ids directly; a per-account folder list model is a future add.)
+    // "outbox" selects the current account's unsent mail.
     Q_PROPERTY(QString currentFolderId READ currentFolderId WRITE setCurrentFolderId NOTIFY
                    currentFolderChanged)
     Q_PROPERTY(QString currentFolderName READ currentFolderName NOTIFY currentFolderChanged)
@@ -79,6 +86,13 @@ class MailService : public QObject {
     // unread, hasAttachment, messageId.
     Q_PROPERTY(QObject *messages READ messages NOTIFY currentFolderChanged)
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
+    // Messages of the current account waiting to be sent.
+    Q_PROPERTY(int outboxCount READ outboxCount NOTIFY outboxCountChanged)
+    // False only when the system reports no network; unknown counts as online.
+    Q_PROPERTY(bool online READ online NOTIFY onlineChanged)
+    // OAuth providers this build can sign in to ("gmail", "outlook").
+    // Empty until checkOAuthProviders() has heard back from the helper.
+    Q_PROPERTY(QStringList oauthProviders READ oauthProviders NOTIFY oauthProvidersChanged)
     // Connection state of the current account's incoming server. One of
     // "offline" | "connecting" | "idle" | "syncing" | "error".
     Q_PROPERTY(QString syncState READ syncState NOTIFY syncStateChanged)
@@ -98,12 +112,17 @@ class MailService : public QObject {
     void                setCurrentAccountId(const QString &id);
     QString             currentAccountName() const;
 
+    QVariantList        accountList() const;
+
     QString             currentFolderId() const;
     void                setCurrentFolderId(const QString &id);
     QString             currentFolderName() const;
 
     QObject            *messages() const;
     int                 unreadCount() const;
+    int                 outboxCount() const;
+    bool                online() const;
+    QStringList         oauthProviders() const;
 
     QString             syncState() const;
     QString             lastError() const;
@@ -112,8 +131,12 @@ class MailService : public QObject {
 
     // Trigger a fetch of the current folder. On a server we already
     // IMAP-IDLE against this is mostly a no-op; on first-open it fetches
-    // headers. Returns false if no current account.
+    // headers. Also retries sending anything in the Outbox. Returns false
+    // if no current account.
     Q_INVOKABLE bool refresh();
+    Q_INVOKABLE void cancelSync();
+    // Fetch the account's folder list from the server.
+    Q_INVOKABLE void refreshFolders(const QString &accountId);
 
     // Mark a message read / unread. messageId is the string-encoded
     // QMailMessageId surfaced via the messages model's "messageId" role.
@@ -124,21 +147,30 @@ class MailService : public QObject {
     Q_INVOKABLE bool moveToTrash(const QString &messageId);
     Q_INVOKABLE bool moveToArchive(const QString &messageId);
 
-    // Compose-and-send. Synchronous from QML's point of view (returns
-    // immediately, transmit happens async); see syncState for progress.
-    Q_INVOKABLE bool send(const QString &to, const QString &cc, const QString &subject,
-                          const QString &body, const QStringList &attachmentPaths = {});
+    // Compose-and-send. Returns once the message is queued in the Outbox;
+    // the outcome arrives as sendSucceeded / sendFailed.
+    Q_INVOKABLE bool send(const QString &to, const QString &cc, const QString &bcc,
+                          const QString &subject, const QString &body,
+                          const QStringList &attachmentPaths = {});
 
     // Open a message — loads body + parts into a viewer-friendly map.
     // Returns:
     //   { "subject": ..., "from": ..., "to": [...], "cc": [...],
     //     "date": ..., "bodyHtml": "<html>...", "bodyPlain": "...",
-    //     "attachments": [{ "name": ..., "size": ..., "mime": ... }] }
+    //     "attachments": [{ "name": ..., "size": ..., "mime": ...,
+    //                       "location": ... }] }
     Q_INVOKABLE QVariantMap openMessage(const QString &messageId);
+
+    // Write an attachment to the Downloads folder, fetching it from the
+    // server first if needed. location is the attachment's "location" from
+    // openMessage(). Answers with attachmentSaved / attachmentFailed.
+    Q_INVOKABLE bool saveAttachment(const QString &messageId, const QString &location);
 
     // Add a classic-password IMAP/SMTP account. Used for Fastmail,
     // self-hosted IMAP, and any provider that doesn't expose OAuth.
-    // Returns the new accountId as a string (empty on failure).
+    // Asynchronous: stores the password, signs in to the IMAP server to
+    // check it, then emits accountSetupSucceeded or accountSetupFailed.
+    // Returns false when the request can't start.
     //
     // encryption values per QMF imap4/smtp plugins:
     //   0 = none, 1 = SSL (implicit, typically port 993/465),
@@ -148,7 +180,7 @@ class MailService : public QObject {
     // under ~/.config/QMF/QMF.conf). That file is user-owned, but moving
     // the password into Secret-Service through a QMailCredentialsPlugin
     // is a known follow-on — tracked under the credentials-plugin task.
-    Q_INVOKABLE QString addImapAccount(const QString &name, const QString &email,
+    Q_INVOKABLE bool addImapAccount(const QString &name, const QString &email,
                                        const QString &imapHost, int imapPort, int imapEncryption,
                                        const QString &smtpHost, int smtpPort, int smtpEncryption,
                                        const QString &username, const QString &password);
@@ -166,12 +198,30 @@ class MailService : public QObject {
     // provider: "gmail" | "outlook" (or "google" | "microsoft" — both
     // resolve to the same canonical id in the helper's clap parser).
     Q_INVOKABLE bool startOAuthLogin(const QString &provider);
+    // Stop an account setup or sign-in in progress; the matching failure
+    // signal follows with reason / code "cancelled".
+    Q_INVOKABLE void cancelAccountSetup();
+    Q_INVOKABLE void cancelOAuthLogin();
+    Q_INVOKABLE void checkOAuthProviders();
 
   signals:
     void currentAccountChanged();
     void currentFolderChanged();
     void unreadCountChanged();
     void syncStateChanged();
+    void accountListChanged();
+    void outboxCountChanged();
+    void onlineChanged();
+    void oauthProvidersChanged();
+
+    // reason: offline | login | certificate | address | server
+    void sendSucceeded();
+    void sendFailed(const QString &reason);
+    // reason: offline | login | certificate | keyring | server | cancelled
+    void accountSetupSucceeded(const QString &accountId);
+    void accountSetupFailed(const QString &reason);
+    void attachmentSaved(const QString &messageId, const QString &location, const QString &path);
+    void attachmentFailed(const QString &messageId, const QString &location);
 
     // OAuth login flow signals — emitted asynchronously from
     // startOAuthLogin() as the helper subprocess progresses.
@@ -213,6 +263,10 @@ class MailService : public QObject {
     // header free of QMF includes; the .cpp casts back to
     // QMailMessageIdList.
     void notifyForNewMessages(const QMailMessageIdList &ids);
+    void updateOutboxCount();
+    void verifyNewAccount();
+    void finishAccountSetup(const QString &reason);
+    QString failureReason(int errorCode) const;
 
     // QMF model handles. All owned by MailService (QObject parent).
     // m_messagesModel is the MailMessageListProxy (defined in .cpp) so
@@ -225,11 +279,22 @@ class MailService : public QObject {
     QMailRetrievalAction *m_retrieval = nullptr;
     QMailTransmitAction  *m_transmit  = nullptr;
 
+    QTimer               *m_accountListTimer = nullptr;
+
+    QMailAccountId        m_setupAccountId;
+    QProcess             *m_setupHelper = nullptr;
+    QMailRetrievalAction *m_setupAction = nullptr;
+    QPointer<QProcess>    m_oauthHelper;
+    bool                  m_oauthCancelled = false;
+    QStringList           m_oauthProviders;
+    bool                  m_oauthProvidersChecked = false;
+
     QString               m_currentAccountId;
     QString               m_currentFolderId;
     QString               m_syncState = QStringLiteral("offline");
     QString               m_lastError;
     int                   m_unreadCount = 0;
+    int                   m_outboxCount = 0;
 };
 
 #endif // MAILSERVICE_H
