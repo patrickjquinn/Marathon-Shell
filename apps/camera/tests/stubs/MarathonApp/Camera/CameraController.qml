@@ -70,4 +70,9 @@ QtObject {
         latestPreview = Qt.resolvedUrl("../../../data/photo.png");
     }
     function focusOnPoint(x, y) { record("focusOnPoint"); }
+    function deleteLatestCapture() {
+        record("deleteLatestCapture");
+        latestCapture = "";
+        latestPreview = "";
+    }
 }

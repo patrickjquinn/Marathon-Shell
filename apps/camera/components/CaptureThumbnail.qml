@@ -10,7 +10,7 @@ BackgroundItem {
 
     width: Theme.itemSizeMedium
     height: width
-    Accessible.name: qsTr("Open Gallery")
+    Accessible.name: source === "" && !video ? qsTr("Open Gallery") : video ? qsTr("Show last video") : qsTr("Show last photo")
 
     Rectangle {
         anchors.fill: parent

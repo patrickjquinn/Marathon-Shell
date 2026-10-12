@@ -54,8 +54,11 @@ ApplicationWindow {
         camera.start();
     }
 
-    function openGallery() {
-        Navigation.launchApp("gallery");
+    function openLatest() {
+        if (camera.latestCapture === "")
+            Navigation.launchApp("gallery");
+        else
+            pageStack.push(Qt.resolvedUrl("pages/CaptureReviewPage.qml"), { app: app });
     }
 
     function handleBack() {
@@ -73,7 +76,7 @@ ApplicationWindow {
     }
 
     function updateCamera() {
-        if (firstFrameShown && applicationActive)
+        if (firstFrameShown && applicationActive && pageStack.depth === 1)
             camera.start();
         else
             camera.stop();
@@ -81,6 +84,14 @@ ApplicationWindow {
 
     appId: "camera"
     onApplicationActiveChanged: updateCamera()
+
+    Connections {
+        target: app.pageStack
+
+        function onDepthChanged() {
+            app.updateCamera();
+        }
+    }
 
     Connections {
         target: app.Window.window

@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QElapsedTimer>
 #include <QFutureWatcher>
@@ -227,6 +228,20 @@ void CameraController::focusOnPoint(qreal x, qreal y) {
     if (m_camera->isFocusModeSupported(QCamera::FocusModeAutoNear)) {
         m_camera->setFocusMode(QCamera::FocusModeAutoNear);
     }
+}
+
+void CameraController::deleteLatestCapture() {
+    const QString file = QUrl(m_latestCapture).toLocalFile();
+    if (file.isEmpty())
+        return;
+    const QString preview = QUrl(m_latestPreview).toLocalFile();
+    QFile::remove(file);
+    if (!preview.isEmpty() && preview != file)
+        QFile::remove(preview);
+    m_latestCapture.clear();
+    m_latestPreview.clear();
+    emit latestCaptureChanged();
+    scanForLatestCapture();
 }
 
 QObject *CameraController::videoSink() const {

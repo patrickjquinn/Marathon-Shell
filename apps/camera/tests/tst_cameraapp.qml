@@ -24,7 +24,7 @@ TestCase {
         Permissions.reset();
         const app = createTemporaryObject(appComponent, testCase);
         tryVerify(function () { return app.pageStack.currentPage !== null && !app.pageStack.busy; });
-        app.camera.start();
+        tryVerify(function () { return app.camera.active; });
         return app;
     }
 
@@ -125,13 +125,59 @@ TestCase {
         verify(child(app, "thumbnailPlay").visible);
     }
 
-    function test_thumbnailOpensGallery() {
+    function openReview(app, capture) {
+        app.camera.latestCapture = capture;
+        app.camera.latestPreview = Qt.resolvedUrl("data/photo.png");
+        mouseClick(child(app, "thumbnail"));
+        tryVerify(function () { return app.pageStack.depth === 2 && !app.pageStack.busy; });
+        return app.pageStack.currentPage;
+    }
+
+    function test_thumbnailWithoutCaptureOpensGallery() {
         const app = makeApp();
-        app.camera.latestCapture = Qt.resolvedUrl("data/photo.png");
-        app.camera.latestPreview = app.camera.latestCapture;
-        verify(child(app, "thumbnailImage").visible);
         mouseClick(child(app, "thumbnail"));
         compare(Navigation.launches, ["gallery"]);
+        compare(app.pageStack.depth, 1);
+    }
+
+    function test_thumbnailShowsTheLastPhoto() {
+        const app = makeApp();
+        const page = openReview(app, Qt.resolvedUrl("data/photo.png").toString());
+        verify(findChild(page, "photoViewer"));
+        verify(!app.camera.active);
+        compare(Navigation.launches, []);
+        app.handleBack();
+        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        verify(app.camera.active);
+    }
+
+    function test_thumbnailPlaysTheLastVideo() {
+        const app = makeApp();
+        const page = openReview(app, "file:///pictures/VID_1.mp4");
+        const playback = findChild(page, "videoPlayback");
+        verify(playback);
+        compare(String(findChild(playback, "video").source), "file:///pictures/VID_1.mp4");
+        verify(findChild(playback, "playButton").visible);
+    }
+
+    function test_reviewOpensGallery() {
+        const app = makeApp();
+        const page = openReview(app, Qt.resolvedUrl("data/photo.png").toString());
+        findChild(page, "galleryAction").clicked();
+        compare(Navigation.launches, ["gallery"]);
+    }
+
+    function test_reviewDeletesTheCapture() {
+        MediaLibrary.reset();
+        const path = Qt.resolvedUrl("data/photo.png").toString();
+        MediaLibrary.photos = [{ id: 7, path: path }];
+        const app = makeApp();
+        const page = openReview(app, path);
+        page.deleteCapture();
+        compare(MediaLibrary.deleted, [7]);
+        verify(app.camera.calls.indexOf("deleteLatestCapture") >= 0);
+        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        compare(app.camera.latestCapture, "");
     }
 
     function test_settingsCloseOnBackAndEscape() {

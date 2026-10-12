@@ -388,7 +388,8 @@ Page {
         visible: page.controlsShown
         source: page.camera.latestPreview
         video: page.app.latestIsVideo
-        onClicked: page.app.openGallery()
+        enabled: !page.camera.isRecording
+        onClicked: page.app.openLatest()
     }
 
     ShutterButton {

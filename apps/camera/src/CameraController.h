@@ -99,6 +99,7 @@ class CameraController : public QObject {
     Q_INVOKABLE void startRecording();
     Q_INVOKABLE void stopRecording();
     Q_INVOKABLE void focusOnPoint(qreal x, qreal y);
+    Q_INVOKABLE void deleteLatestCapture();
 
   signals:
     void videoSinkChanged();
