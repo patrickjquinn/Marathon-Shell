@@ -79,11 +79,6 @@ class SMSService : public QObject {
     QTimer             *m_pollTimer;
     ContactsManager    *m_contactsManager;
     MmsManager         *m_mmsManager = nullptr;
-
-#ifdef Q_OS_MACOS
-    bool m_stubMode;
-    void handleStubSend(const QString &recipient, const QString &text);
-#endif
 };
 
 #endif

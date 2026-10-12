@@ -189,12 +189,10 @@ QStringList MediaLibraryManager::getScanPaths() {
     QString     picturesPath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
     paths << picturesPath;
 
-#ifndef Q_OS_MACOS
     QString dcimPath = QDir::homePath() + "/DCIM";
     if (QDir(dcimPath).exists()) {
         paths << dcimPath;
     }
-#endif
 
     return paths;
 }
@@ -220,12 +218,10 @@ void MediaLibraryManager::scanLibrary() {
 
     scanDirectory(picturesPath);
 
-#ifndef Q_OS_MACOS
     QString dcimPath = QDir::homePath() + "/DCIM";
     if (QDir(dcimPath).exists()) {
         scanDirectory(dcimPath);
     }
-#endif
 
     loadAlbums();
 
