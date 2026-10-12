@@ -201,14 +201,27 @@ TestCase {
         compare(child(s.page, "statusLabel").text, "Discharging");
         Power.isCharging = true;
         compare(child(s.page, "statusLabel").text, "Charging");
-        child(s.page, "saverSwitch").clicked(null);
-        verify(Power.isPowerSaveMode);
+        compare(findChild(s.page, "saverSwitch"), null);
         const profile = child(s.page, "profileCombo");
         compare(profile.currentIndex, 1);
         pick(profile, 2);
-        compare(Power.powerProfile, "power-saver");
+        verify(Power.isPowerSaveMode);
+        compare(profile.currentIndex, 2);
+        pick(profile, 0);
+        verify(!Power.isPowerSaveMode);
+        compare(Power.powerProfile, "performance");
+        compare(profile.currentIndex, 0);
+        Power.setPowerSaveMode(true);
+        compare(profile.currentIndex, 2);
         Power.powerProfilesSupported = false;
         verify(!profile.visible);
+    }
+
+    function test_noBattery() {
+        Power.batteryLevel = -1;
+        const s = open("battery");
+        compare(child(s.page, "levelLabel").text, "No battery");
+        verify(!child(s.page, "statusLabel").visible);
     }
 
     function test_storage() {

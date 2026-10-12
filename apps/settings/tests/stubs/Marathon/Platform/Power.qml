@@ -19,7 +19,14 @@ QtObject {
         powerProfile = "balanced";
         powerProfilesSupported = true;
     }
+    property string profileBeforeSaver: "balanced"
+
     function setPowerSaveMode(on) {
+        if (on === isPowerSaveMode)
+            return;
+        if (on)
+            profileBeforeSaver = powerProfile;
+        powerProfile = on ? "power-saver" : profileBeforeSaver;
         isPowerSaveMode = on;
     }
     function setPowerProfile(profile) {
