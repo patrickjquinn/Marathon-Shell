@@ -13,6 +13,8 @@ Item {
     property bool on: false
     // One-shot actions (Screenshot, Power) are buttons, not switches.
     property bool checkable: true
+    // The backend is switching: pulse the ring as Silica's Switch.busy does.
+    property bool busy: false
 
     signal toggled
 
@@ -28,6 +30,7 @@ Item {
     Rectangle {
         id: circle
 
+        objectName: "ring"
         anchors.horizontalCenter: parent.horizontalCenter
         width: Silica.Theme.itemSizeExtraSmall
         height: width
@@ -37,8 +40,13 @@ Item {
         color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
                        : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
         border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-        border.color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+        border.color: tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow)
+                    : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
+        Behavior on border.color {
+            enabled: tile.busy && !MMotion.reduceMotion
+            ColorAnimation { duration: busyPulse.interval - 50; easing.type: Easing.InOutQuad }
+        }
         Behavior on color {
             enabled: !MMotion.reduceMotion
             ColorAnimation { duration: MMotion.quick }
@@ -69,6 +77,19 @@ Item {
         font.pixelSize: Silica.Theme.fontSizeTiny
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
+    }
+
+    Timer {
+        id: busyPulse
+
+        property bool bright: true
+
+        objectName: "busyPulse"
+        interval: 500
+        repeat: true
+        running: tile.busy && tile.visible && !MMotion.reduceMotion
+        onRunningChanged: bright = true
+        onTriggered: bright = !bright
     }
 
     MouseArea {
