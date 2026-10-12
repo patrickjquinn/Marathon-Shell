@@ -17,9 +17,53 @@ Page {
     readonly property string bodyHtml: msg.bodyHtml || ""
     readonly property string bodyPlain: msg.bodyPlain || ""
     readonly property var attachments: msg.attachments || []
+    property var savedPaths: ({})
+    // Location of the attachment being fetched, and whether to open it after.
+    property string fetching: ""
+    property bool openWhenSaved: false
+
+    function openAttachment(location) {
+        if (savedPaths[location]) {
+            Qt.openUrlExternally("file://" + savedPaths[location]);
+            return;
+        }
+        saveAttachment(location, true);
+    }
+
+    function saveAttachment(location, open) {
+        if (fetching !== "")
+            return;
+        if (!app.mail.saveAttachment(messageId, location)) {
+            Notices.show(qsTr("Couldn't save the attachment."));
+            return;
+        }
+        fetching = location;
+        openWhenSaved = open;
+    }
 
     function size(bytes) {
         return bytes >= 1048576 ? qsTr("%1 MB").arg((bytes / 1048576).toFixed(1)) : qsTr("%1 kB").arg(Math.max(1, Math.round(bytes / 1024)));
+    }
+
+    Connections {
+        target: page.app.mail
+        ignoreUnknownSignals: true
+        function onAttachmentSaved(messageId, location, path) {
+            if (messageId !== page.messageId || location !== page.fetching)
+                return;
+            page.fetching = "";
+            page.savedPaths = Object.assign({}, page.savedPaths, { [location]: path });
+            if (page.openWhenSaved)
+                Qt.openUrlExternally("file://" + path);
+            else
+                Notices.show(qsTr("Saved to Downloads"));
+        }
+        function onAttachmentFailed(messageId, location) {
+            if (messageId !== page.messageId || location !== page.fetching)
+                return;
+            page.fetching = "";
+            Notices.show(qsTr("Couldn't download the attachment. Check your connection and try again."));
+        }
     }
 
     SilicaFlickable {
@@ -44,12 +88,12 @@ Page {
             MenuItem {
                 objectName: "forwardItem"
                 text: qsTr("Forward")
-                onClicked: page.app.compose(Logic.forwardPrefill(page.msg, page.dateText))
+                onClicked: page.app.compose(Object.assign(Logic.forwardPrefill(page.msg, page.dateText), { draftKey: "forward-" + page.messageId }))
             }
             MenuItem {
                 objectName: "replyItem"
                 text: qsTr("Reply")
-                onClicked: page.app.compose(Logic.replyPrefill(page.msg))
+                onClicked: page.app.compose(Object.assign(Logic.replyPrefill(page.msg), { draftKey: "reply-" + page.messageId }))
             }
         }
 
@@ -111,21 +155,39 @@ Page {
                 Repeater {
                     model: page.attachments
 
-                    Item {
+                    ListItem {
                         id: attachment
 
                         required property var modelData
+                        readonly property string location: modelData.location || ""
+                        readonly property bool busy: page.fetching !== "" && page.fetching === location
 
-                        width: parent.width
-                        height: Theme.itemSizeExtraSmall
+                        objectName: "attachment-" + (modelData.name || "")
+                        contentHeight: Theme.itemSizeSmall
+                        enabled: location !== ""
+                        Accessible.name: (modelData.name || qsTr("Attachment")) + ", " + page.size(modelData.size || 0)
+                        onClicked: page.openAttachment(location)
+                        menu: ContextMenu {
+                            MenuItem {
+                                objectName: "saveItem"
+                                text: qsTr("Save to Downloads")
+                                onClicked: page.saveAttachment(attachment.location, false)
+                            }
+                        }
 
                         Icon {
                             id: attachIcon
 
                             x: Theme.horizontalPageMargin
                             anchors.verticalCenter: parent.verticalCenter
+                            visible: !attachment.busy
                             source: "image://theme/icon-s-attach"
-                            color: Theme.highlightColor
+                            color: attachment.highlighted ? Theme.highlightColor : Theme.primaryColor
+                        }
+                        BusyIndicator {
+                            anchors.centerIn: attachIcon
+                            size: BusyIndicatorSize.ExtraSmall
+                            running: attachment.busy
                         }
                         Label {
                             anchors {
@@ -138,7 +200,7 @@ Page {
                             text: attachment.modelData.name || qsTr("Attachment")
                             truncationMode: TruncationMode.Fade
                             font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.highlightColor
+                            color: attachment.highlighted ? Theme.highlightColor : Theme.primaryColor
                         }
                         Label {
                             id: sizeLabel
@@ -150,7 +212,7 @@ Page {
                             }
                             text: page.size(attachment.modelData.size || 0)
                             font.pixelSize: Theme.fontSizeExtraSmall
-                            color: Theme.secondaryHighlightColor
+                            color: attachment.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                         }
                     }
                 }

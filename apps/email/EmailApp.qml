@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Services
 import Nemo.Configuration 1.0
+import "MailLogic.js" as Logic
 import "pages"
 import "cover"
 
@@ -13,9 +14,14 @@ ApplicationWindow {
 
     property var mail: MailService
     property QtObject draftStore: ConfigurationValue {
+        key: "/apps/email/drafts"
+        defaultValue: "{}"
+    }
+    property QtObject legacyDraft: ConfigurationValue {
         key: "/apps/email/composeDraft"
         defaultValue: ""
     }
+    readonly property var drafts: Logic.draftList(Logic.parseDrafts(draftStore ? draftStore.value : ""))
     // accounts is null when MailService couldn't reach QMailStore.
     readonly property bool serviceAvailable: mail.accounts !== null
     // rowCount() isn't notifiable; currentAccountId changes on account add/remove.
@@ -25,6 +31,8 @@ ApplicationWindow {
     // A message moved from its own page waits out the inbox's remorse.
     property string pendingMoveId: ""
     property string pendingMoveKind: ""
+    // Kind of the open folder (inbox, sent, outbox…) for its empty state.
+    property string folderKind: "inbox"
 
     function commitPendingMove() {
         if (pendingMoveId === "")
@@ -64,7 +72,26 @@ ApplicationWindow {
     }
 
     function compose(properties) {
-        return pageStack.push(Qt.resolvedUrl("pages/MailComposePage.qml"), Object.assign({ mail: mail, draftStore: draftStore }, properties || { restoreDraft: true }));
+        return pageStack.push(Qt.resolvedUrl("pages/MailComposePage.qml"), Object.assign({ mail: mail, draftStore: draftStore, draftKey: "new-" + Date.now() }, properties || {}));
+    }
+
+    function continueDraft() {
+        if (drafts.length === 1)
+            return compose({ draftKey: drafts[0].key });
+        return pageStack.push(Qt.resolvedUrl("pages/DraftsPage.qml"), { app: app });
+    }
+
+    function deleteDraft(key) {
+        draftStore.value = Logic.withDraft(draftStore.value, key, { to: "", cc: "", bcc: "", subject: "", body: "" }, 0);
+    }
+
+    function openFolder(accountId, folderId, kind) {
+        mail.currentAccountId = accountId;
+        mail.currentFolderId = folderId;
+        folderKind = kind;
+        showInbox();
+        if (kind !== "outbox")
+            mail.refresh();
     }
 
     function openMessage(id) {
@@ -88,11 +115,30 @@ ApplicationWindow {
         updateLatest();
     }
     Component.onCompleted: {
+        const legacy = Logic.parseDrafts(legacyDraft.value);
+        if (legacy.to !== undefined) {
+            draftStore.value = Logic.withDraft(draftStore.value, "new-0", Object.assign({ to: "", cc: "", bcc: "", subject: "", body: "" }, legacy), 0);
+            legacyDraft.value = "";
+        }
         if (hasAccount)
             Qt.callLater(mail.refresh);
         updateLatest();
     }
     Component.onDestruction: commitPendingMove()
+
+    Connections {
+        target: app.mail
+        ignoreUnknownSignals: true
+        function onSendSucceeded() {
+            Notices.show(qsTr("Sent"));
+        }
+        function onSendFailed(reason) {
+            Notices.show(Logic.sendFailureText(reason));
+        }
+        function onCurrentFolderChanged() {
+            app.folderKind = "inbox";
+        }
+    }
 
     DelegateModel {
         id: latest

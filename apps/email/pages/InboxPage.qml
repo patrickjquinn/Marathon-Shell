@@ -11,8 +11,12 @@ Page {
     readonly property var mail: app.mail
     readonly property string syncState: app.serviceAvailable ? mail.syncState : ""
     readonly property int count: app.hasAccount ? view.count : 0
-    readonly property bool loading: app.hasAccount && count === 0 && syncState !== "idle" && syncState !== "error"
-    readonly property bool syncFailed: app.hasAccount && syncState === "error"
+    readonly property bool syncing: app.hasAccount && syncState === "syncing"
+    readonly property bool waiting: app.hasAccount && count === 0 && syncState !== "idle" && syncState !== "error"
+    // Past this the server isn't answering; stop spinning and say so.
+    property bool timedOut: false
+    readonly property bool loading: waiting && !timedOut
+    readonly property bool syncFailed: app.hasAccount && (syncState === "error" || (waiting && timedOut))
 
     function remorseMove(kind) {
         remorse.execute(kind === "archive" ? qsTr("Archived") : qsTr("Deleted"), function () {
@@ -21,6 +25,14 @@ Page {
     }
 
     objectName: "inboxPage"
+    onSyncStateChanged: timedOut = false
+
+    Timer {
+        objectName: "syncTimeout"
+        interval: 15000
+        running: page.loading
+        onTriggered: page.timedOut = true
+    }
 
     RemorsePopup {
         id: remorse
@@ -41,7 +53,7 @@ Page {
 
             PageHeader {
                 title: page.app.hasAccount ? page.mail.currentFolderName || qsTr("Inbox") : qsTr("Mail")
-                description: page.app.hasAccount ? Logic.headerDescription(page.mail.currentAccountName, page.mail.unreadCount) : ""
+                description: page.app.hasAccount ? Logic.headerDescription(page.mail.currentAccountName, page.mail.unreadCount, page.mail.outboxCount) : ""
             }
             Label {
                 objectName: "syncError"
@@ -57,7 +69,9 @@ Page {
         }
 
         PullDownMenu {
+            objectName: "pulley"
             visible: page.app.serviceAvailable
+            busy: page.syncing
 
             MenuItem {
                 objectName: "accountsItem"
@@ -67,8 +81,20 @@ Page {
             MenuItem {
                 objectName: "syncItem"
                 visible: page.app.hasAccount
-                text: qsTr("Sync")
-                onClicked: page.mail.refresh()
+                text: page.syncing ? qsTr("Stop") : qsTr("Sync")
+                onClicked: {
+                    page.timedOut = false;
+                    if (page.syncing)
+                        page.mail.cancelSync();
+                    else
+                        page.mail.refresh();
+                }
+            }
+            MenuItem {
+                objectName: "draftItem"
+                visible: page.app.hasAccount && page.app.drafts.length > 0
+                text: page.app.drafts.length === 1 ? qsTr("Continue draft") : qsTr("Drafts")
+                onClicked: page.app.continueDraft()
             }
             MenuItem {
                 objectName: "newMessageItem"
@@ -81,8 +107,8 @@ Page {
         ViewPlaceholder {
             objectName: "placeholder"
             enabled: !page.loading && page.count === 0
-            text: !page.app.serviceAvailable ? qsTr("Mail isn't available") : !page.app.hasAccount ? qsTr("No mail accounts") : page.syncFailed ? qsTr("Couldn't load your mail") : qsTr("Inbox zero")
-            hintText: !page.app.serviceAvailable ? qsTr("Close Mail and open it again. If that doesn't help, restart your phone.") : !page.app.hasAccount ? qsTr("Pull down to add one") : page.syncFailed ? qsTr("Check your connection, then pull down to sync") : qsTr("All caught up")
+            text: !page.app.serviceAvailable ? qsTr("Mail isn't available") : !page.app.hasAccount ? qsTr("No mail accounts") : page.syncFailed ? qsTr("Couldn't load your mail") : page.app.folderKind === "inbox" ? qsTr("Inbox zero") : page.app.folderKind === "outbox" ? qsTr("Nothing waiting to send") : qsTr("No messages")
+            hintText: !page.app.serviceAvailable ? qsTr("Close Mail and open it again. If that doesn't help, restart your phone.") : !page.app.hasAccount ? qsTr("Pull down to add one") : page.syncFailed ? qsTr("Check your connection, then pull down to sync") : page.app.folderKind === "inbox" ? qsTr("All caught up") : ""
         }
 
         BusyLabel {

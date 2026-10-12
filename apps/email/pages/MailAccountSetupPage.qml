@@ -43,29 +43,29 @@ Page {
             lastError = qsTr("Enter your provider's incoming and outgoing server names. Their help pages list them.");
             return;
         }
-        busy = true;
-        // Lets the busy state paint before the blocking add call.
-        addTimer.start();
-    }
-
-    function add() {
         const name = nameField.text.trim();
         const user = usernameField.text.trim();
-        const id = mail.addImapAccount(name || email, email, imapHostField.text.trim(), parseInt(imapPortField.text) || 0, imapEnc, smtpHostField.text.trim(), parseInt(smtpPortField.text) || 0, smtpEnc, user || email, passwordField.text);
-        busy = false;
-        if (id === "") {
-            lastError = qsTr("Couldn't sign in. Check your email address and password (many providers need an app password here) and the server settings, then try again.");
-            return;
-        }
-        passwordField.text = "";
-        app.showInbox();
+        busy = mail.addImapAccount(name || email, email, imapHostField.text.trim(), parseInt(imapPortField.text) || 0, imapEnc, smtpHostField.text.trim(), parseInt(smtpPortField.text) || 0, smtpEnc, user || email, passwordField.text);
+        if (!busy)
+            lastError = qsTr("Couldn't start signing in. Close Mail and open it again, then try again.");
     }
 
-    Timer {
-        id: addTimer
+    Component.onDestruction: if (busy)
+        mail.cancelAccountSetup()
 
-        interval: 50
-        onTriggered: page.add()
+    Connections {
+        target: page.mail
+        ignoreUnknownSignals: true
+        function onAccountSetupSucceeded(accountId) {
+            page.busy = false;
+            passwordField.text = "";
+            page.app.showInbox();
+        }
+        function onAccountSetupFailed(reason) {
+            page.busy = false;
+            if (reason !== "cancelled")
+                page.lastError = Logic.setupFailureText(reason);
+        }
     }
 
     SilicaFlickable {
@@ -289,12 +289,20 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 topPadding: Theme.paddingMedium
+                bottomPadding: Theme.paddingLarge
                 visible: page.busy
-                text: qsTr("Checking your account. This can take a few seconds.")
+                text: qsTr("Signing in to your mail server. This can take a few seconds.")
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
+            }
+            Button {
+                objectName: "cancelButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Cancel")
+                visible: page.busy
+                onClicked: page.mail.cancelAccountSetup()
             }
         }
 

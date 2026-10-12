@@ -13,6 +13,10 @@ QtObject {
     property string currentFolderId: ""
     property string currentFolderName: ""
     property int unreadCount: 0
+    property int outboxCount: 0
+    property bool online: true
+    property var oauthProviders: []
+    property var accountList: []
     property string syncState: "idle"
     property string lastError: ""
     property bool fail: false
@@ -22,6 +26,12 @@ QtObject {
     signal oauthAuthUrlReady(string url)
     signal oauthLoginSucceeded(string accountId)
     signal oauthLoginFailed(string code, string message)
+    signal sendSucceeded()
+    signal sendFailed(string reason)
+    signal accountSetupSucceeded(string accountId)
+    signal accountSetupFailed(string reason)
+    signal attachmentSaved(string messageId, string location, string path)
+    signal attachmentFailed(string messageId, string location)
 
     function log(name, args) {
         calls = calls.concat([{ name: name, args: args }]);
@@ -41,6 +51,10 @@ QtObject {
         currentFolderId = "";
         currentFolderName = "";
         unreadCount = 0;
+        outboxCount = 0;
+        online = true;
+        oauthProviders = [];
+        accountList = [];
         syncState = "idle";
         fail = false;
         bodies = {};
@@ -108,8 +122,21 @@ QtObject {
         return move("moveToArchive", id);
     }
 
-    function send(to, cc, subject, body, attachments) {
-        log("send", [to, cc, subject, body, attachments]);
+    function cancelSync() {
+        log("cancelSync", []);
+    }
+
+    function refreshFolders(id) {
+        log("refreshFolders", [id]);
+    }
+
+    function send(to, cc, bcc, subject, body, attachments) {
+        log("send", [to, cc, bcc, subject, body, attachments]);
+        return !fail;
+    }
+
+    function saveAttachment(id, location) {
+        log("saveAttachment", [id, location]);
         return !fail;
     }
 
@@ -119,10 +146,19 @@ QtObject {
 
     function addImapAccount(name, email, imapHost, imapPort, imapEnc, smtpHost, smtpPort, smtpEnc, username, password) {
         log("addImapAccount", [name, email, imapHost, imapPort, imapEnc, smtpHost, smtpPort, smtpEnc, username, password]);
-        if (fail)
-            return "";
-        setAccount(name);
-        return "1";
+        return !fail;
+    }
+
+    function cancelAccountSetup() {
+        log("cancelAccountSetup", []);
+    }
+
+    function cancelOAuthLogin() {
+        log("cancelOAuthLogin", []);
+    }
+
+    function checkOAuthProviders() {
+        log("checkOAuthProviders", []);
     }
 
     function startOAuthLogin(provider) {

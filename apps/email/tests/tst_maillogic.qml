@@ -45,16 +45,48 @@ TestCase {
     }
 
     function test_headerDescription() {
-        compare(Logic.headerDescription("Work", 0), "Work");
-        compare(Logic.headerDescription("Work", 3), "Work · 3 unread");
-        compare(Logic.headerDescription("", 1), "1 unread");
+        compare(Logic.headerDescription("Work", 0, 0), "Work");
+        compare(Logic.headerDescription("Work", 3, 0), "Work · 3 unread");
+        compare(Logic.headerDescription("", 1, 0), "1 unread");
+        compare(Logic.headerDescription("Work", 0, 2), "Work · 2 in Outbox");
+        compare(Logic.headerDescription("Work", 1, 1), "Work · 1 unread · 1 in Outbox");
     }
 
-    function test_draftRoundTrip() {
-        compare(Logic.draft({ to: " ", cc: "", subject: "", body: "\n" }), "");
-        const json = Logic.draft({ to: "a@b.co", cc: "", subject: "Hi", body: "x" });
-        compare(Logic.parseDraft(json), { to: "a@b.co", cc: "", subject: "Hi", body: "x" });
-        compare(Logic.parseDraft(""), null);
-        compare(Logic.parseDraft("{bad"), null);
+    function test_parseRecipients() {
+        compare(Logic.parseRecipients("a@b.co; c@d.org,e@f.net"), { recipients: ["a@b.co", "c@d.org", "e@f.net"], invalid: "" });
+        compare(Logic.parseRecipients(" a@b.co  c@d.org ").recipients, ["a@b.co", "c@d.org"]);
+        compare(Logic.parseRecipients("Ann Lee <ann@x.org>, <b@x.org>").recipients, ["Ann Lee <ann@x.org>", "b@x.org"]);
+        compare(Logic.parseRecipients('"Lee, Ann" <ann@x.org>').recipients, ['"Lee, Ann" <ann@x.org>']);
+        compare(Logic.parseRecipients("a@b.co, bob").invalid, "bob");
+        compare(Logic.parseRecipients("Bob <bob>").invalid, "Bob <bob>");
+        compare(Logic.parseRecipients(" ; ").recipients, []);
+    }
+
+    function test_failureTexts() {
+        verify(Logic.sendFailureText("offline").indexOf("offline") >= 0);
+        verify(Logic.sendFailureText("server").indexOf("Outbox") >= 0);
+        verify(Logic.setupFailureText("offline").indexOf("You're offline") === 0);
+        verify(Logic.setupFailureText("login").indexOf("app password") >= 0);
+        verify(Logic.setupFailureText("x").indexOf("server settings") >= 0);
+    }
+
+    function test_drafts() {
+        const empty = { to: " ", cc: "", bcc: "", subject: "", body: "\n" };
+        compare(Logic.withDraft("{}", "new-1", empty, 5), "{}");
+        let json = Logic.withDraft("", "new-1", { to: "a@b.co", cc: "", bcc: "", subject: "Hi", body: "x" }, 5);
+        json = Logic.withDraft(json, "reply-7", { to: "c@d.co", cc: "", bcc: "", subject: "Re: Yo", body: "" }, 9);
+        const list = Logic.draftList(Logic.parseDrafts(json));
+        compare(list.map(d => d.key), ["reply-7", "new-1"]);
+        compare(list[1].subject, "Hi");
+        compare(Logic.draftList(Logic.parseDrafts(Logic.withDraft(json, "reply-7", empty, 10))).length, 1);
+        compare(Logic.parseDrafts("{bad"), {});
+        compare(Logic.parseDrafts("[]"), {});
+        compare(Logic.draftKind("reply-7"), "reply");
+        compare(Logic.draftKind("new-12"), "new");
+    }
+
+    function test_folderIcon() {
+        compare(Logic.folderIcon("trash"), "image://theme/icon-m-delete");
+        compare(Logic.folderIcon("whatever"), "image://theme/icon-m-folder");
     }
 }

@@ -89,7 +89,7 @@ TestCase {
         const app = makeApp();
         findChild(inbox(app), "accountsItem").clicked();
         const add = pushed(app, 2);
-        verify(findChild(add, "provider-gmail"));
+        verify(findChild(add, "provider-imap"));
     }
 
     function test_loading() {
@@ -145,7 +145,92 @@ TestCase {
         compare(MailService.called("refresh").length, 2);
         findChild(inbox(app), "newMessageItem").clicked();
         const compose = pushed(app, 2);
-        verify(compose.restoreDraft);
+        verify(compose.draftKey.indexOf("new-") === 0);
+    }
+
+    function test_pulleyBusyWhileSyncing() {
+        withMessages();
+        const app = makeApp();
+        const pulley = findChild(inbox(app), "pulley");
+        const sync = findChild(inbox(app), "syncItem");
+        verify(!pulley.busy);
+        MailService.syncState = "syncing";
+        verify(pulley.busy);
+        compare(sync.text, "Stop");
+        sync.clicked();
+        compare(MailService.called("cancelSync").length, 1);
+        MailService.syncState = "idle";
+        verify(!pulley.busy);
+        compare(sync.text, "Sync");
+    }
+
+    function test_syncTimesOut() {
+        MailService.setAccount("Work");
+        MailService.syncState = "connecting";
+        const app = makeApp();
+        const page = inbox(app);
+        verify(findChild(page, "busy").running);
+        verify(findChild(page, "syncTimeout").running);
+        findChild(page, "syncTimeout").triggered();
+        verify(!findChild(page, "busy").running);
+        compare(findChild(page, "placeholder").text, "Couldn't load your mail");
+        findChild(page, "syncItem").clicked();
+        verify(findChild(page, "busy").running);
+    }
+
+    function test_outboxInHeader() {
+        withMessages();
+        MailService.outboxCount = 2;
+        const app = makeApp();
+        compare(view(app).headerItem.children[0].description, "Work · 1 unread · 2 in Outbox");
+    }
+
+    function test_sendResultNotices() {
+        withMessages();
+        const app = makeApp();
+        Notices._queue = [];
+        Notices._dismissCurrent();
+        MailService.sendFailed("offline");
+        compare(Notices._current.text, "Not sent — you're offline. It'll stay in Outbox; pull down in Inbox to retry.");
+        Notices._dismissCurrent();
+        MailService.sendSucceeded();
+        compare(Notices._current.text, "Sent");
+        Notices._dismissCurrent();
+    }
+
+    function test_continueDraft() {
+        withMessages();
+        const app = makeApp();
+        verify(!findChild(inbox(app), "draftItem").visible);
+        app.draftStore.value = JSON.stringify({ "reply-2": { to: "bob@x.org", subject: "Re: Report", body: "ok", savedAt: 5 } });
+        const item = findChild(inbox(app), "draftItem");
+        compare(item.text, "Continue draft");
+        item.clicked();
+        const compose = pushed(app, 2);
+        compare(compose.draftKey, "reply-2");
+        compare(findChild(compose, "toField").text, "bob@x.org");
+    }
+
+    function test_severalDraftsOpenList() {
+        withMessages();
+        const app = makeApp();
+        app.draftStore.value = JSON.stringify({ "new-1": { subject: "One", savedAt: 1 }, "new-2": { subject: "Two", savedAt: 2 } });
+        compare(findChild(inbox(app), "draftItem").text, "Drafts");
+        app.continueDraft();
+        const drafts = pushed(app, 2);
+        compare(findChild(drafts, "draftView").count, 2);
+        mouseClick(findChild(drafts, "draft-new-1"));
+        compare(pushed(app, 3).draftKey, "new-1");
+    }
+
+    function test_legacyDraftMigrates() {
+        withMessages();
+        const store = createTemporaryObject(valueStub, testCase, { value: "{}" });
+        const legacy = createTemporaryObject(valueStub, testCase, { value: JSON.stringify({ to: "a@b.co", cc: "", subject: "Old", body: "" }) });
+        const app = createTemporaryObject(appComponent, testCase, { draftStore: store, legacyDraft: legacy });
+        compare(app.drafts.length, 1);
+        compare(app.drafts[0].subject, "Old");
+        compare(legacy.value, "");
     }
 
     function test_tapOpensAndMarksRead() {
@@ -232,25 +317,68 @@ TestCase {
         tryCompare(app, "latestSender", "Bea");
     }
 
-    function test_accountsPage() {
+    function accountList() {
+        return [
+            { id: "1", name: "Work", address: "me@work.org", unread: 1, folders: [
+                { id: "10", name: "Inbox", kind: "inbox", unread: 1, count: 3 },
+                { id: "11", name: "Sent", kind: "sent", unread: 0, count: 4 },
+                { id: "outbox", name: "Outbox", kind: "outbox", unread: 0, count: 1 },
+                { id: "12", name: "Trash", kind: "trash", unread: 0, count: 0 }
+            ] },
+            { id: "2", name: "Home", address: "me@home.org", unread: 0, folders: [
+                { id: "20", name: "Inbox", kind: "inbox", unread: 0, count: 0 }
+            ] }
+        ];
+    }
+
+    function test_accountsPageListsFolders() {
         withMessages();
-        MailService.accountModel.append({ display: "Home" });
+        MailService.accountList = accountList();
         const app = makeApp();
         findChild(inbox(app), "accountsItem").clicked();
         const accounts = pushed(app, 2);
         compare(findChild(accounts, "accounts").count, 2);
-        const work = findChild(accounts, "folder-Work");
-        verify(work.enabled);
-        verify(!findChild(accounts, "folder-Home").enabled);
-        tryVerify(() => work.mapToItem(accounts, 0, 0).y > 0);
-        mouseClick(work);
+        compare(MailService.called("refreshFolders").map(c => c.args[0]), ["1", "2"]);
+        verify(findChild(accounts, "folder-Work-inbox").highlighted);
+        verify(!findChild(accounts, "folder-Work-trash").highlighted);
+        verify(findChild(accounts, "folder-Work-outbox"));
+        verify(findChild(accounts, "folder-Home-inbox").enabled);
+    }
+
+    function test_openTrashFolder() {
+        withMessages();
+        MailService.accountList = accountList();
+        const app = makeApp();
+        findChild(inbox(app), "accountsItem").clicked();
+        const accounts = pushed(app, 2);
+        const trash = findChild(accounts, "folder-Work-trash");
+        tryVerify(() => trash.mapToItem(accounts, 0, 0).y > 0);
+        mouseClick(trash);
         pushed(app, 1);
+        compare(MailService.currentFolderId, "12");
+        compare(app.folderKind, "trash");
+        MailService.messageModel.clear();
+        compare(findChild(inbox(app), "placeholder").text, "No messages");
+    }
+
+    function test_switchAccount() {
+        withMessages();
+        MailService.accountList = accountList();
+        const app = makeApp();
+        app.pageStack.push(Qt.resolvedUrl("../pages/AccountsPage.qml"), { app: app });
+        const accounts = pushed(app, 2);
+        tryVerify(() => MailService.called("refresh").length === 1);
+        findChild(accounts, "folder-Home-inbox").clicked(null);
+        pushed(app, 1);
+        compare(MailService.currentAccountId, "2");
+        compare(MailService.currentFolderId, "20");
+        compare(MailService.called("refresh").length, 2);
     }
 
     function test_coverCompose() {
         withMessages();
         const app = makeApp();
         app.compose();
-        verify(pushed(app, 2).restoreDraft);
+        verify(pushed(app, 2).draftKey.indexOf("new-") === 0);
     }
 }
