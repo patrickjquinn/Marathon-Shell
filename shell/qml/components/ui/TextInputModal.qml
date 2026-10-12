@@ -1,5 +1,7 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Modal {
     id: textInputModal
@@ -11,151 +13,38 @@ Modal {
 
     Column {
         width: parent.width
-        spacing: Constants.spacingMedium
+        spacing: Silica.Theme.paddingLarge
 
-        Rectangle {
+        Silica.TextField {
+            id: textInput
+
             width: parent.width
-            height: Constants.inputHeight
-            color: MColors.background
-            radius: Constants.borderRadiusSmall
-            border.width: textInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-            border.color: textInput.activeFocus ? MColors.marathonTeal : Qt.rgba(255, 255, 255, 0.1)
-
-            TextInput {
-                id: textInput
-
-                anchors.fill: parent
-                anchors.margins: 12
-                color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                verticalAlignment: TextInput.AlignVCenter
-                selectByMouse: true
-
-                Text {
-                    visible: !textInput.text && !textInput.activeFocus
-                    text: textInputModal.placeholderText
-                    color: MColors.textTertiary
-                    font: textInput.font
-                    anchors.fill: parent
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Behavior on border.color {
-                ColorAnimation {
-                    duration: Constants.animationDurationFast
-                }
-            }
+            textLeftMargin: 0
+            textRightMargin: 0
+            placeholderText: textInputModal.placeholderText
         }
 
         Row {
             width: parent.width
-            height: Constants.statusBarHeight
-            spacing: Constants.spacingMedium
+            spacing: Silica.Theme.paddingMedium
             z: 10
 
-            Rectangle {
-                width: (parent.width - 12) / 2
-                height: Constants.statusBarHeight
-                color: MColors.surface
-                radius: Constants.borderRadiusSmall
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(255, 255, 255, 0.08)
-
-                Text {
-                    text: "Cancel"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    anchors.centerIn: parent
-                }
-
-                MouseArea {
-                    id: cancelMouseArea
-
-                    anchors.fill: parent
-                    z: 20
-                    onClicked: {
-                        console.log("Cancel clicked");
-                        textInputModal.close();
-                    }
-                }
-
-                transform: Translate {
-                    y: cancelMouseArea.pressed ? -2 : 0
-                }
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 200
-                    }
+            Silica.Button {
+                text: "Cancel"
+                width: (parent.width - Silica.Theme.paddingMedium) / 2
+                onClicked: {
+                    console.log("Cancel clicked");
+                    textInputModal.close();
                 }
             }
 
-            Rectangle {
-                width: (parent.width - Constants.spacingSmall) / 2
-                height: Constants.statusBarHeight
-                radius: Constants.borderRadiusSmall
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.4)
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    color: "transparent"
-                    border.width: saveMouseArea.pressed ? 1 : 0
-                    border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
-                    opacity: saveMouseArea.pressed ? 1 : 0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 200
-                        }
-                    }
-                }
-
-                Text {
-                    text: "Save"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.DemiBold
-                    font.family: MTypography.fontFamily
-                    anchors.centerIn: parent
-                }
-
-                MouseArea {
-                    id: saveMouseArea
-
-                    anchors.fill: parent
-                    z: 20
-                    onClicked: {
-                        console.log("Save clicked, text:", textInput.text);
-                        textInputModal.accepted(textInput.text);
-                        textInputModal.close();
-                    }
-                }
-
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.78)
-                    }
-
-                    GradientStop {
-                        position: 1
-                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.35)
-                    }
-                }
-
-                transform: Translate {
-                    y: saveMouseArea.pressed ? -2 : 0
-                }
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 200
-                    }
+            Silica.Button {
+                text: "Save"
+                width: (parent.width - Silica.Theme.paddingMedium) / 2
+                onClicked: {
+                    console.log("Save clicked, text:", textInput.text);
+                    textInputModal.accepted(textInput.text);
+                    textInputModal.close();
                 }
             }
         }

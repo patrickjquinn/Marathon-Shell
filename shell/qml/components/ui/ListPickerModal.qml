@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Modal {
     id: listPickerModal
@@ -18,109 +20,31 @@ Modal {
         Repeater {
             model: listPickerModal.options
 
-            Rectangle {
+            Silica.BackgroundItem {
                 id: optionRow
 
                 required property int index
                 required property var modelData
 
+                readonly property bool isCurrent: index === listPickerModal.selectedIndex
+
                 width: parent.width
-                height: Constants.listItemHeight
-                color: "transparent"
-                radius: Constants.borderRadiusSmall
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Qt.rgba(255, 255, 255, 0.02)
-                    opacity: itemMouseArea.pressed ? 1 : 0
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.04)
-                    radius: parent.radius
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutCubic
-                        }
-                    }
+                height: Silica.Theme.itemSizeSmall
+                onClicked: {
+                    listPickerModal.selectedIndex = optionRow.index;
+                    listPickerModal.selected(optionRow.index, optionRow.modelData);
+                    listPickerModal.close();
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: MColors.marathonTeal
-                    opacity: itemMouseArea.pressed ? 0.05 : 0
-                    radius: parent.radius
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 100
-                        }
-                    }
-                }
-
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: Constants.spacingMedium
-
-                    Text {
-                        text: optionRow.modelData
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: optionRow.index === listPickerModal.selectedIndex ? Font.DemiBold : Font.Normal
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 28
-                    }
-
-                    Rectangle {
-                        visible: optionRow.index === listPickerModal.selectedIndex
-                        width: Constants.iconButtonSize
-                        height: Constants.iconButtonSize
-                        radius: Constants.borderRadiusSmall
-                        color: MColors.marathonTeal
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Rectangle {
-                            width: Constants.smallIndicatorSize
-                            height: Constants.smallIndicatorSize
-                            radius: Constants.borderRadiusSmall
-                            color: MColors.textPrimary
-                            anchors.centerIn: parent
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: optionRow.index < listPickerModal.options.length - 1
-                    anchors.bottom: parent.bottom
+                Silica.Label {
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: Constants.spacingMedium
-                    height: Constants.dividerHeight
-                    color: Qt.rgba(255, 255, 255, 0.08)
-                }
-
-                MouseArea {
-                    id: itemMouseArea
-
-                    anchors.fill: parent
-                    onClicked: {
-                        listPickerModal.selectedIndex = optionRow.index;
-                        listPickerModal.selected(optionRow.index, optionRow.modelData);
-                        listPickerModal.close();
-                    }
-                }
-
-                transform: Translate {
-                    y: itemMouseArea.pressed ? -2 : 0
-
-                    Behavior on y {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutCubic
-                        }
-                    }
+                    anchors.leftMargin: Silica.Theme.paddingMedium
+                    anchors.rightMargin: Silica.Theme.paddingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: optionRow.modelData
+                    color: (optionRow.highlighted || optionRow.isCurrent) ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    truncationMode: Silica.TruncationMode.Fade
                 }
             }
         }

@@ -70,46 +70,44 @@ Rectangle {
         id: modalCard
 
         anchors.centerIn: parent
-        width: Math.min(parent.width - 64, 500)
-        height: Math.min(modalColumn.height + MSpacing.touchTargetLarge, parent.height - 128)
-        color: Qt.rgba(15, 15, 15, 0.98)
-        radius: MRadius.md
+        width: parent.width - Silica.Theme.horizontalPageMargin * 2
+        height: Math.min(modalColumn.height + Silica.Theme.paddingLarge * 2, parent.height - Silica.Theme.itemSizeLarge * 2)
+        color: Silica.Theme.rgba("black", 0.85)
+        radius: Silica.Theme.paddingMedium
         z: 2
         border.width: 1
-        border.color: MColors.border
-
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.02)
-            lineWidth: 1
-        }
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
 
         Column {
             id: modalColumn
 
-            anchors.fill: parent
-            anchors.margins: MSpacing.xl
-            spacing: MSpacing.lg
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingLarge
 
             Item {
                 id: modalHeader
 
                 width: parent.width
-                height: MSpacing.touchTargetMedium
+                height: Silica.Theme.itemSizeSmall
 
-                Text {
+                Silica.Label {
                     id: modalTitle
 
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: MTypography.weightBold
-                    font.family: MTypography.fontFamily
-                    width: parent.width - MSpacing.touchTargetMedium - MSpacing.sm
+                    color: Silica.Theme.highlightColor
+                    font.pixelSize: Silica.Theme.fontSizeLarge
+                    font.family: Silica.Theme.fontFamilyHeading
+                    truncationMode: Silica.TruncationMode.Fade
+                    width: parent.width - closeButton.width - Silica.Theme.paddingSmall
                 }
 
                 Silica.IconButton {
+                    id: closeButton
+
                     icon.source: "image://theme/icon-m-close"
                     Accessible.name: "Close"
                     anchors.right: parent.right

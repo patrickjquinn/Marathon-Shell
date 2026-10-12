@@ -56,62 +56,50 @@ Item {
         id: dialog
 
         anchors.centerIn: parent
-        width: Math.min(parent.width - 64, 400)
-        height: contentColumn.height + MSpacing.touchTargetLarge
-        radius: MRadius.md
-        color: Qt.rgba(15, 15, 15, 0.98)
+        width: parent.width - Silica.Theme.horizontalPageMargin * 2
+        height: contentColumn.height + Silica.Theme.paddingLarge * 2
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
-        border.color: MColors.border
-        layer.enabled: true
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         opacity: 0
-        scale: 0.9
-
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.05)
-            lineWidth: 1
-        }
 
         Column {
             id: contentColumn
 
             anchors.centerIn: parent
-            width: parent.width - MSpacing.touchTargetLarge
-            spacing: MSpacing.xl
+            width: parent.width - Silica.Theme.paddingLarge * 2
+            spacing: Silica.Theme.paddingLarge
 
             Column {
                 width: parent.width
-                spacing: MSpacing.md
+                spacing: Silica.Theme.paddingSmall
 
-                Text {
+                Silica.Label {
                     text: confirmDialog.title
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: MTypography.weightBold
-                    font.family: MTypography.fontFamily
+                    color: Silica.Theme.highlightColor
+                    font.pixelSize: Silica.Theme.fontSizeLarge
+                    font.family: Silica.Theme.fontFamilyHeading
                     width: parent.width
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                 }
 
-                Text {
+                Silica.Label {
                     text: confirmDialog.message
-                    color: MColors.textSecondary
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
+                    color: Silica.Theme.secondaryHighlightColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
                     width: parent.width
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                 }
             }
 
             Row {
                 width: parent.width
-                spacing: MSpacing.md
+                spacing: Silica.Theme.paddingMedium
 
                 Silica.Button {
                     text: confirmDialog.cancelText
-                    backgroundColor: "transparent"
-                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
-                    width: (parent.width - MSpacing.md) / 2
+                    width: (parent.width - Silica.Theme.paddingMedium) / 2
                     onClicked: {
                         confirmDialog.cancelled();
                         var callback = confirmDialog.onCancel;
@@ -124,7 +112,7 @@ Item {
 
                 Silica.Button {
                     text: confirmDialog.confirmText
-                    width: (parent.width - MSpacing.md) / 2
+                    width: (parent.width - Silica.Theme.paddingMedium) / 2
                     onClicked: {
                         confirmDialog.confirmed();
                         var callback = confirmDialog.onConfirm;
@@ -156,14 +144,6 @@ Item {
             duration: 200
             easing.type: Easing.OutCubic
         }
-
-        NumberAnimation {
-            target: dialog
-            property: "scale"
-            to: 1
-            duration: 200
-            easing.type: Easing.OutCubic
-        }
     }
 
     ParallelAnimation {
@@ -185,14 +165,6 @@ Item {
             target: dialog
             property: "opacity"
             to: 0
-            duration: 150
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: dialog
-            property: "scale"
-            to: 0.9
             duration: 150
             easing.type: Easing.InCubic
         }

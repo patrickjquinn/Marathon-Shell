@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Modal {
     id: storageModal
@@ -10,44 +11,43 @@ Modal {
 
     Column {
         width: parent.width
-        spacing: Constants.spacingXLarge
+        spacing: Silica.Theme.paddingLarge
 
         Column {
             width: parent.width
-            spacing: Constants.spacingSmall
+            spacing: Silica.Theme.paddingSmall
 
             Row {
                 width: parent.width
 
-                Text {
+                Silica.Label {
+                    id: usedLabel
+
                     text: "Used"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
+                    color: Silica.Theme.primaryColor
                     width: parent.width / 2
                 }
 
-                Text {
+                Silica.Label {
                     text: "45.2 GB of 64 GB"
-                    color: MColors.textSecondary
-                    font.pixelSize: MTypography.sizeSmall
-                    font.family: MTypography.fontFamily
+                    color: Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
                     horizontalAlignment: Text.AlignRight
                     width: parent.width / 2
+                    height: usedLabel.height
+                    verticalAlignment: Text.AlignVCenter
                 }
             }
 
             Rectangle {
                 width: parent.width
-                height: Constants.smallIndicatorSize
-                radius: Constants.borderRadiusSmall
-                color: MColors.background
+                height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+                color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
 
                 Rectangle {
                     width: parent.width * 0.71
                     height: parent.height
-                    radius: parent.radius
-                    color: MColors.marathonTeal
+                    color: Silica.Theme.highlightColor
                 }
             }
         }
@@ -90,45 +90,16 @@ Modal {
                     }
                 ]
 
-                Item {
+                Silica.DetailItem {
                     id: storageRow
 
                     required property var modelData
 
                     width: parent.width
-                    height: Constants.statusBarHeight
-
-                    Row {
-                        anchors.fill: parent
-                        spacing: Constants.spacingMedium
-
-                        Rectangle {
-                            width: Constants.mediumIndicatorSize
-                            height: Constants.mediumIndicatorSize
-                            radius: Math.round(2 * Constants.scaleFactor)
-                            color: storageRow.modelData.color
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: storageRow.modelData.name
-                            color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeBody
-                            font.family: MTypography.fontFamily
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - 100
-                        }
-
-                        Text {
-                            text: storageRow.modelData.size
-                            color: MColors.textSecondary
-                            font.pixelSize: MTypography.sizeSmall
-                            font.family: MTypography.fontFamily
-                            horizontalAlignment: Text.AlignRight
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Constants.touchTargetMedium
-                        }
-                    }
+                    leftMargin: 0
+                    rightMargin: 0
+                    label: storageRow.modelData.name
+                    value: storageRow.modelData.size
                 }
             }
         }
