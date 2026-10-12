@@ -12,6 +12,8 @@ Page {
     property string query: ""
     readonly property var results: Logic.search(app.events, query)
 
+    objectName: "searchPage"
+
     SilicaListView {
         id: view
 

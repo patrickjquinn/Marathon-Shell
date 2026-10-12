@@ -23,6 +23,11 @@ Page {
 
         PullDownMenu {
             MenuItem {
+                objectName: "searchItem"
+                text: qsTr("Search")
+                onClicked: pageStack.push(Qt.resolvedUrl("SearchPage.qml"), { app: page.app })
+            }
+            MenuItem {
                 objectName: "newEventItem"
                 text: qsTr("New event")
                 onClicked: page.app.newEvent(new Date())

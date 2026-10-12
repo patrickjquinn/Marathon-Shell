@@ -293,6 +293,23 @@ TestCase {
         verify(child(page, "placeholder").enabled);
     }
 
+    function test_monthPulleyHasAtMostFourItems() {
+        const app = makeApp([]);
+        const page = app.pageStack.currentPage;
+        verify(findChild(page, "agendaItem"));
+        verify(findChild(page, "yearItem"));
+        verify(findChild(page, "todayItem"));
+        verify(findChild(page, "newEventItem"));
+        verify(!findChild(page, "searchItem"));
+    }
+
+    function test_searchFromAllEvents() {
+        const app = makeApp([]);
+        app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
+        child(app.pageStack.currentPage, "searchItem").clicked(null);
+        compare(pushed(app, 3).objectName, "searchPage");
+    }
+
     function test_searchPage() {
         const app = makeApp([ev(1, { title: "Dentist" }), ev(2, { title: "Lunch" })]);
         const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), { app: app }, PageStackAction.Immediate);
