@@ -100,6 +100,15 @@ link link
 location map-pin
 lock lock
 mail envelope
+maneuver-arrive flag-checkered
+maneuver-depart navigation-arrow
+maneuver-left arrow-bend-up-left
+maneuver-right arrow-bend-up-right
+maneuver-roundabout arrows-clockwise
+maneuver-slight-left arrow-up-left
+maneuver-slight-right arrow-up-right
+maneuver-straight arrow-up
+maneuver-uturn arrow-u-down-left
 media-albums vinyl-record
 media-artists microphone-stage
 media-next skip-forward
