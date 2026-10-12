@@ -13,7 +13,9 @@ WebEngineView {
 
     zoomFactor: 1
     // The default white flashes between navigation start and first paint.
-    backgroundColor: Theme.overlayBackgroundColor
+    // Chromium takes only an opaque or a fully transparent background;
+    // the translucent overlay colour failed a CHECK on the first load.
+    backgroundColor: Qt.rgba(Theme.overlayBackgroundColor.r, Theme.overlayBackgroundColor.g, Theme.overlayBackgroundColor.b, 1)
     lifecycleState: forceDiscarded ? WebEngineView.LifecycleState.Discarded : (active ? WebEngineView.LifecycleState.Active : WebEngineView.LifecycleState.Frozen)
     settings.accelerated2dCanvasEnabled: true
     settings.webGLEnabled: true

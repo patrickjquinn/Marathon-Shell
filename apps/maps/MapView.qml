@@ -44,7 +44,9 @@ Item {
 
         anchors.fill: parent
         webChannel: channel
-        backgroundColor: Theme.overlayBackgroundColor
+        // Chromium takes only an opaque or a fully transparent background;
+        // the translucent overlay colour failed a CHECK on the first load.
+        backgroundColor: Qt.rgba(Theme.overlayBackgroundColor.r, Theme.overlayBackgroundColor.g, Theme.overlayBackgroundColor.b, 1)
         settings.javascriptEnabled: true
         settings.localContentCanAccessFileUrls: true
         settings.localContentCanAccessRemoteUrls: true

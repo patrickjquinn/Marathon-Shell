@@ -16,6 +16,9 @@ add_subdirectory(keyboard)
 # Every file importing Sailfish.Silica also imports Marathon.Silica after it
 add_test(NAME Lint_SilicaImports COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-silica-imports.sh ${CMAKE_SOURCE_DIR})
 
+# WebEngineView backgrounds must be opaque or fully transparent
+add_test(NAME Lint_WebEngineBackground COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-webengine-background.sh ${CMAKE_SOURCE_DIR})
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")
