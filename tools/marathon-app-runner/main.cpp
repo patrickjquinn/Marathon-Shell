@@ -158,6 +158,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "keelhost.h"
 #include "ambienceclient.h"
 #include "platformtypes.h"
+#include "wallpaperclient.h"
 #include "calendarmanagercpp.h"
 #include "musiclibrarymanager.h"
 
@@ -1267,6 +1268,8 @@ int main(int argc, char *argv[]) {
     PowerClient     *powerClient     = nullptr;
     AudioClient     *audioClient     = nullptr;
     SecurityClient  *securityClient  = nullptr;
+    if (hasPerm("system") && settingsClient)
+        ctx->setContextProperty("WallpaperStore", new WallpaperClient(settingsClient, QDBusConnection::sessionBus(), &app));
     if (hasPerm("system")) {
         bluetoothClient = new BluetoothClient(appId, &app);
         displayClient   = new DisplayClient(appId, &app);
