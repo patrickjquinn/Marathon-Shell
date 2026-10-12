@@ -2,7 +2,6 @@
 
 #include <QDebug>
 #include <QDir>
-#include <QFile>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTimer>
@@ -12,11 +11,6 @@ namespace {
 
     QString       flatpakBinary() {
         return QStringLiteral("flatpak");
-    }
-
-    QString overridesFilePath(const QString &ref) {
-        const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-        return home + QStringLiteral("/.local/share/flatpak/overrides/") + ref;
     }
 } // namespace
 
@@ -126,30 +120,6 @@ void FlatpakManager::requestPermissions(const QString &ref) {
                  });
 }
 
-void FlatpakManager::requestUserOverrides(const QString &ref) {
-    if (ref.isEmpty())
-        return;
-
-    QMetaObject::invokeMethod(
-        this,
-        [this, ref]() {
-            const QString path = overridesFilePath(ref);
-            QFile         f(path);
-            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                emit userOverridesReady(ref, {});
-                return;
-            }
-            const QString text = QString::fromUtf8(f.readAll());
-            f.close();
-            emit userOverridesReady(ref, parsePermissionsIni(text));
-        },
-        Qt::QueuedConnection);
-}
-
-QVariantMap FlatpakManager::cachedPermissions(const QString &ref) const {
-    return m_permCache.value(ref);
-}
-
 QVariantMap FlatpakManager::parsePermissionsIni(const QString &iniText) const {
     QVariantMap result;
     QString     currentSection;
@@ -180,76 +150,4 @@ QVariantMap FlatpakManager::parsePermissionsIni(const QString &iniText) const {
     }
     flush();
     return result;
-}
-
-void FlatpakManager::setTalkPolicy(const QString &ref, const QString &busName,
-                                   const QString &policy) {
-    if (ref.isEmpty() || busName.isEmpty()) {
-        emit overrideApplied(ref, false);
-        return;
-    }
-
-    QStringList args = {QStringLiteral("override"), QStringLiteral("--user")};
-    if (policy == QLatin1String("allow") || policy == QLatin1String("talk"))
-        args << QStringLiteral("--talk-name=") + busName;
-    else if (policy == QLatin1String("own"))
-        args << QStringLiteral("--own-name=") + busName;
-    else if (policy == QLatin1String("none") || policy.isEmpty())
-        args << QStringLiteral("--no-talk-name=") + busName;
-    else {
-        qWarning() << "[FlatpakManager] unknown talk policy:" << policy;
-        emit overrideApplied(ref, false);
-        return;
-    }
-    args << ref;
-
-    startProcess(args, [this, ref](bool ok, const QByteArray &) {
-        if (ok)
-            m_permCache.remove(ref);
-        emit overrideApplied(ref, ok);
-    });
-}
-
-void FlatpakManager::setFilesystemPolicy(const QString &ref, const QString &path,
-                                         const QString &mode) {
-    if (ref.isEmpty() || path.isEmpty()) {
-        emit overrideApplied(ref, false);
-        return;
-    }
-
-    QStringList args = {QStringLiteral("override"), QStringLiteral("--user")};
-
-    if (mode.isEmpty()) {
-        args << QStringLiteral("--nofilesystem=") + path;
-    } else if (mode == QLatin1String("ro") || mode == QLatin1String("rw") ||
-               mode == QLatin1String("create")) {
-        args << QStringLiteral("--filesystem=") + path + QLatin1Char(':') + mode;
-    } else {
-        qWarning() << "[FlatpakManager] unknown filesystem mode:" << mode;
-        emit overrideApplied(ref, false);
-        return;
-    }
-
-    args << ref;
-
-    startProcess(args, [this, ref](bool ok, const QByteArray &) {
-        if (ok)
-            m_permCache.remove(ref);
-        emit overrideApplied(ref, ok);
-    });
-}
-
-void FlatpakManager::resetOverrides(const QString &ref) {
-    if (ref.isEmpty()) {
-        emit overrideApplied(ref, false);
-        return;
-    }
-
-    startProcess(
-        {QStringLiteral("override"), QStringLiteral("--user"), QStringLiteral("--reset"), ref},
-        [this, ref](bool ok, const QByteArray &) {
-            if (ok)
-                m_permCache.remove(ref);
-            emit overrideApplied(ref, ok);
-        });
 }

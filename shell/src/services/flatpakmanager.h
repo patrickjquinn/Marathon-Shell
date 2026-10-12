@@ -35,33 +35,10 @@ class FlatpakManager : public QObject {
     // to force a re-read.
     Q_INVOKABLE void requestPermissions(const QString &ref);
 
-    // Reads the user override file under ~/.local/share/flatpak/overrides/<ref>.
-    // Result delivered via userOverridesReady(ref, overrides). Fast (small file)
-    // but async-shaped for API consistency.
-    Q_INVOKABLE void requestUserOverrides(const QString &ref);
-
-    // `policy`: "allow" / "talk" -> --talk-name, "own" -> --own-name,
-    // "" or "none" -> --no-talk-name (revoke). Result via overrideApplied.
-    Q_INVOKABLE void setTalkPolicy(const QString &ref, const QString &busName,
-                                   const QString &policy);
-
-    // `mode`: "rw" / "ro" / "create" -> --filesystem=path[:mode];
-    // "" -> --nofilesystem=path (revoke). Path can be xdg-* token or absolute.
-    Q_INVOKABLE void setFilesystemPolicy(const QString &ref, const QString &path,
-                                         const QString &mode);
-
-    // `flatpak override --user --reset <ref>` then emit overrideApplied.
-    Q_INVOKABLE void resetOverrides(const QString &ref);
-
-    // Whatever permissions() has fetched for this ref so far; empty if never.
-    Q_INVOKABLE QVariantMap cachedPermissions(const QString &ref) const;
-
   signals:
     void installedAppsChanged();
     void loadingChanged();
     void permissionsReady(const QString &ref, const QVariantMap &perms);
-    void userOverridesReady(const QString &ref, const QVariantMap &overrides);
-    void overrideApplied(const QString &ref, bool success);
 
   private:
     void                        startProcess(const QStringList                                   &args,
