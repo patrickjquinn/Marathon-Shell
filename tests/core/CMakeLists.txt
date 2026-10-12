@@ -171,3 +171,18 @@ add_executable(test_core_appverifier test_appverifier.cpp ../../marathon-core/sr
 target_link_libraries(test_core_appverifier Qt6::Test Qt6::Core)
 target_include_directories(test_core_appverifier PRIVATE ${CMAKE_SOURCE_DIR}/marathon-core/src)
 add_test(NAME Core_AppVerifier COMMAND test_core_appverifier)
+
+# Every setting the Settings app writes reaches the shell and has a reader
+find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
+add_executable(test_core_settingscontract
+    test_settingscontract.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+)
+target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_settingscontract PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
