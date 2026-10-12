@@ -642,14 +642,11 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("fpsMonitor", fpsMonitor);
     ctx->setContextProperty("MARATHON_FPS_OVERLAY", fpsOverlay);
 
-    createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
-
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
     compositorManager->setAppRegistry(appRegistry);
     auto *appStore    = new AppStore(appRegistry, &app);
     qmlRegisterSingletonInstance<AppStore>("MarathonOS.Shell", 1, 0, "AppStore", appStore);
-    auto *appScanner =
-        createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
+    auto *appScanner   = new MarathonAppScanner(appRegistry, &app);
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
     if (debugEnabled || profileMode) {
@@ -694,10 +691,10 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("CellBroadcastManagerCpp", cellBroadcastManager);
     qmlRegisterSingletonInstance<CellBroadcastManager>(
         "MarathonOS.Shell", 1, 0, "CellBroadcastManagerCpp", cellBroadcastManager);
-    auto *sensorManager = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    auto *sensorManager = new SensorManagerCpp(&app);
     displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
-    auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
+    auto *locationManager  = new LocationManager(&app);
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
                                                 hapticManager);
@@ -715,8 +712,7 @@ int main(int argc, char *argv[]) {
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
-    auto *audioRoutingManager =
-        createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
+    auto *audioRoutingManager = new AudioRoutingManager(&app);
     QObject::connect(audioRoutingManager, &AudioRoutingManager::playbackStreamsChanged,
                      audioManager, &AudioManagerCpp::refreshStreams);
     auto *securityManager = new SecurityManager(&app);
@@ -929,7 +925,7 @@ int main(int argc, char *argv[]) {
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
-    auto *wordEngine = createObject<WordEngine>(ctx, "WordEngine", &app);
+    auto *wordEngine = new WordEngine(&app);
     wordEngine->setLanguage("en_US");
     wordEngine->setEnabled(true);
     qInfo() << "[MarathonShell] Word Engine initialized";
@@ -947,7 +943,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<LanguageManager>("MarathonOS.Shell", 1, 0, "LanguageManager",
                                                   languageManager);
 
-    auto *rtScheduler = createObject<RTScheduler>(ctx, "RTScheduler", &app);
+    auto *rtScheduler = new RTScheduler(&app);
     if (rtScheduler->isRealtimeKernel()) {
         qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
         qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy()
@@ -985,9 +981,9 @@ int main(int argc, char *argv[]) {
         if (unifiedPush->registerService()) {
             qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
         }
-        createObject<MarathonNtfyClient>(ctx, "NtfyClient", unifiedPush, &app);
+        new MarathonNtfyClient(unifiedPush, &app);
 
-        createObject<CarrierProvisioning>(ctx, "CarrierProvisioning", &app);
+        new CarrierProvisioning(&app);
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
@@ -1003,8 +999,7 @@ int main(int argc, char *argv[]) {
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &MarathonPermissionManager::dismissForApp);
 
-    auto *appStoreService =
-        createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
+    auto *appStoreService = new MarathonAppStoreService(appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
 
     auto *flatpakManager = createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
@@ -1034,14 +1029,13 @@ int main(int argc, char *argv[]) {
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
-    auto *callHistoryManager = createObject<CallHistoryManager>(ctx, "CallHistoryManager", &app);
-    auto *smsService         = createObject<SMSService>(ctx, "SMSService", &app);
-    auto *mmsManager         = createObject<MmsManager>(ctx, "MmsManager", &app);
+    auto *callHistoryManager = new CallHistoryManager(&app);
+    auto *smsService         = new SMSService(&app);
+    auto *mmsManager         = new MmsManager(&app);
     smsService->setMmsManager(mmsManager);
-    auto *updateService    = createObject<UpdateService>(ctx, "UpdateService", &app);
-    auto *davCalendarStore = createObject<DavCalendarStore>(ctx, "DavCalendarStore", &app);
-    auto *davSyncEngine =
-        createObject<DavSyncEngine>(ctx, "DavSyncEngine", contactsManager, davCalendarStore, &app);
+    auto *updateService    = new UpdateService(&app);
+    auto *davCalendarStore = new DavCalendarStore(&app);
+    auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
                                          navigationRouter, telephonyService, smsService, &app);
     createObject<TelephonyIntegrationCpp>(
@@ -1085,7 +1079,7 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] Audio routing wired to telephony";
 
-    auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
+    auto *mediaLibraryManager = new MediaLibraryManager(&app);
     createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
 
     {
