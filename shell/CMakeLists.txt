@@ -265,7 +265,6 @@ set(QML_FILES
     qml/keyboard/Core/MarathonKeyboard.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
-    qml/keyboard/UI/LongPressPopup.qml
     qml/keyboard/UI/LanguageSelector.qml
     qml/keyboard/Layouts/QwertyLayout.qml
     qml/keyboard/Layouts/DynamicLayout.qml
