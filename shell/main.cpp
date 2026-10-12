@@ -974,8 +974,7 @@ int main(int argc, char *argv[]) {
         QObject::connect(notificationService, &NotificationServiceCpp::notificationActionTriggered,
                          freedesktopNotif, &FreedesktopNotifications::activate);
 
-        auto *unifiedPush = createObject<UnifiedPushDistributor>(
-            ctx, "UnifiedPushDistributor", notificationService, settingsManager, &app);
+        auto *unifiedPush = new UnifiedPushDistributor(notificationService, settingsManager, &app);
         if (unifiedPush->registerService()) {
             qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
         }
@@ -998,7 +997,7 @@ int main(int argc, char *argv[]) {
     auto *appStoreService = new MarathonAppStoreService(appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
 
-    auto *flatpakManager = createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
+    auto *flatpakManager = new FlatpakManager(&app);
     if (debugEnabled && flatpakManager->available()) {
         QObject::connect(flatpakManager, &FlatpakManager::installedAppsChanged, &app,
                          [flatpakManager]() {
