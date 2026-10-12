@@ -99,9 +99,12 @@ TestCase {
         tryVerify(() => app.pageStack.depth === 2);
         waitIdle(app);
         const page = app.pageStack.currentPage;
-        compare(findChild(page, "phoneDetail").value, "+44 207 946 0001");
-        compare(findChild(page, "emailDetail").value, "ada@example.com");
-        findChild(page, "callButton").clicked(null);
+        compare(findChild(page, "phoneValue").text, "+44 207 946 0001");
+        compare(findChild(page, "emailValue").text, "ada@example.com");
+        findChild(page, "messageButton").clicked(null);
+        compare(Navigation.launches.length, 1);
+        compare(JSON.parse(Navigation.launches[0].params).number, "+44 20 7946 0001");
+        findChild(page, "phoneItem").clicked(null);
         compare(Telephony.log, ["dial:+44 20 7946 0001"]);
         compare(app.callName, "Ada Lovelace");
     }
@@ -111,8 +114,11 @@ TestCase {
         app.pageStack.push(Qt.resolvedUrl("../pages/ContactPage.qml"), { phone: app, contactId: 3 });
         waitIdle(app);
         const page = app.pageStack.currentPage;
-        findChild(page, "favoriteMenuItem").clicked();
+        const star = findChild(page, "favoriteButton");
+        compare(star.icon.source.toString(), "image://theme/icon-m-favorite");
+        star.clicked(null);
         verify(Contacts.contacts.find(c => c.id === 3).favorite);
+        compare(star.icon.source.toString(), "image://theme/icon-m-favorite-selected");
         page.remove();
         compare(Contacts.contacts.length, 3);
         tryVerify(() => Contacts.contacts.length === 2, 8000);

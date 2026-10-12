@@ -10,6 +10,7 @@ Page {
     property var phone
     property int contactId: -1
     readonly property var contact: phone.contacts.find(c => c.id === contactId) || null
+    readonly property bool favorite: !!(contact && contact.favorite)
 
     function remove() {
         remorse.execute(qsTr("Deleted %1").arg(contact.name), function () {
@@ -33,11 +34,6 @@ Page {
                 onClicked: root.remove()
             }
             MenuItem {
-                objectName: "favoriteMenuItem"
-                text: root.contact && root.contact.favorite ? qsTr("Remove from favorites") : qsTr("Add to favorites")
-                onClicked: Contacts.updateContact(root.contactId, { favorite: !root.contact.favorite })
-            }
-            MenuItem {
                 objectName: "editMenuItem"
                 text: qsTr("Edit")
                 onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), { contact: root.contact })
@@ -48,44 +44,119 @@ Page {
             id: column
 
             width: parent.width
-            spacing: Theme.paddingLarge
 
             PageHeader {
+                id: header
+
                 title: root.contact ? root.contact.name : ""
-                description: root.contact && root.contact.favorite ? qsTr("Favorite") : ""
-            }
+                wrapMode: Text.Wrap
 
-            Column {
-                width: parent.width
-
-                DetailItem {
-                    objectName: "phoneDetail"
-                    label: qsTr("Phone")
-                    value: root.contact ? Phone.format(root.contact.phone) : ""
-                }
-                DetailItem {
-                    objectName: "emailDetail"
-                    visible: !!(root.contact && root.contact.email)
-                    label: qsTr("Email")
-                    value: root.contact && root.contact.email || ""
+                IconButton {
+                    objectName: "favoriteButton"
+                    parent: header.extraContent
+                    anchors.verticalCenter: parent.verticalCenter
+                    icon.source: root.favorite ? "image://theme/icon-m-favorite-selected" : "image://theme/icon-m-favorite"
+                    highlighted: down || root.favorite
+                    Accessible.role: Accessible.CheckBox
+                    Accessible.name: qsTr("Favorite")
+                    Accessible.checkable: true
+                    Accessible.checked: root.favorite
+                    onClicked: Contacts.updateContact(root.contactId, { favorite: !root.favorite })
                 }
             }
 
-            Button {
-                objectName: "callButton"
-                anchors.horizontalCenter: parent.horizontalCenter
-                preferredWidth: Theme.buttonWidthLarge
-                icon.source: "image://theme/icon-m-call"
-                text: qsTr("Call")
+            ListItem {
+                id: phoneRow
+
+                objectName: "phoneItem"
+                contentHeight: Theme.itemSizeMedium
+                Accessible.name: qsTr("Call %1").arg(phoneValue.text)
                 onClicked: root.phone.call(root.contact.phone)
+
+                Icon {
+                    id: phoneIcon
+
+                    x: Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: "image://theme/icon-m-call"
+                    highlighted: phoneRow.highlighted
+                }
+                Column {
+                    anchors {
+                        left: phoneIcon.right
+                        leftMargin: Theme.paddingLarge
+                        right: messageButton.left
+                        rightMargin: Theme.paddingMedium
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    Label {
+                        id: phoneValue
+
+                        objectName: "phoneValue"
+                        width: parent.width
+                        text: root.contact ? Phone.format(root.contact.phone) : ""
+                        truncationMode: TruncationMode.Fade
+                        color: phoneRow.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
+                    Label {
+                        width: parent.width
+                        text: qsTr("Phone")
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: phoneRow.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                    }
+                }
+                IconButton {
+                    id: messageButton
+
+                    objectName: "messageButton"
+                    anchors {
+                        right: parent.right
+                        rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
+                        verticalCenter: parent.verticalCenter
+                    }
+                    icon.source: "image://theme/icon-m-message"
+                    Accessible.name: qsTr("Send message")
+                    onClicked: root.phone.sendMessage(root.contact.phone)
+                }
             }
-            Button {
-                objectName: "messageButton"
-                anchors.horizontalCenter: parent.horizontalCenter
-                preferredWidth: Theme.buttonWidthLarge
-                icon.source: "image://theme/icon-m-message"
-                text: qsTr("Send message")
-                onClicked: root.phone.sendMessage(root.contact.phone)
+
+            Item {
+                width: parent.width
+                height: Theme.itemSizeMedium
+                visible: !!(root.contact && root.contact.email)
+
+                Icon {
+                    id: emailIcon
+
+                    x: Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: "image://theme/icon-m-mail"
+                    color: Theme.highlightColor
+                }
+                Column {
+                    anchors {
+                        left: emailIcon.right
+                        leftMargin: Theme.paddingLarge
+                        right: parent.right
+                        rightMargin: Theme.horizontalPageMargin
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    Label {
+                        objectName: "emailValue"
+                        width: parent.width
+                        text: root.contact && root.contact.email || ""
+                        truncationMode: TruncationMode.Fade
+                        color: Theme.highlightColor
+                    }
+                    Label {
+                        width: parent.width
+                        text: qsTr("Email")
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.secondaryHighlightColor
+                    }
+                }
             }
         }
 
