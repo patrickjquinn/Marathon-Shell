@@ -32,3 +32,4 @@ singleton MPhoneNumber 1.0 ../../../../../shell/qml/ui/MPhoneNumber.qml
 KeelAmbienceBackground 1.0 ../../../../../shell/qml/components/KeelAmbienceBackground.qml
 singleton ClipboardManagerCpp 1.0 ClipboardManagerCpp.qml
 singleton LanguageManager 1.0 LanguageManager.qml
+singleton NetworkManagerCpp 1.0 NetworkManagerCpp.qml
