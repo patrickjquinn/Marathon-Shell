@@ -297,6 +297,36 @@ TestCase {
         compare(calls[calls.length - 1].args, ["2", false]);
     }
 
+    function test_searchFiltersInbox() {
+        withMessages();
+        const app = makeApp();
+        const page = inbox(app);
+        findChild(page, "searchItem").clicked();
+        verify(page.searching);
+        findChild(page, "searchField").text = "bob";
+        tryCompare(view(app), "count", 1);
+        tryVerify(() => view(app).itemAtIndex(0) && view(app).itemAtIndex(0).messageId === "2");
+        findChild(page, "searchField").text = "nobody";
+        tryCompare(view(app), "count", 0);
+        const p = findChild(page, "placeholder");
+        verify(p.enabled);
+        compare(p.text, "No matching messages");
+        findChild(page, "searchItem").clicked();
+        verify(!page.searching);
+        tryCompare(view(app), "count", 3);
+    }
+
+    function test_searchKeepsNewMail() {
+        withMessages();
+        const app = makeApp();
+        const page = inbox(app);
+        page.searching = true;
+        findChild(page, "searchField").text = "lunch";
+        tryCompare(view(app), "count", 1);
+        MailService.addMessage(9, "Dee", "Lunch again", true);
+        tryCompare(view(app), "count", 2);
+    }
+
     function test_cancelMoveFromMessagePage() {
         withMessages();
         const app = makeApp();
@@ -346,8 +376,11 @@ TestCase {
         withMessages();
         MailService.accountList = accountList();
         const app = makeApp();
-        findChild(inbox(app), "accountsItem").clicked();
+        verify(!findChild(inbox(app), "accountsItem").visible);
+        tryVerify(() => app.pageStack.nextPage(inbox(app)) !== null);
+        app.pageStack.navigateForward();
         const accounts = pushed(app, 2);
+        compare(accounts.objectName, "accountsPage");
         compare(findChild(accounts, "accounts").count, 2);
         compare(MailService.called("refreshFolders").map(c => c.args[0]), ["1", "2"]);
         verify(findChild(accounts, "folder-Work-inbox").current);
@@ -362,7 +395,8 @@ TestCase {
         withMessages();
         MailService.accountList = accountList();
         const app = makeApp();
-        findChild(inbox(app), "accountsItem").clicked();
+        tryVerify(() => app.pageStack.nextPage(inbox(app)) !== null);
+        app.pageStack.navigateForward();
         const accounts = pushed(app, 2);
         const trash = findChild(accounts, "folder-Work-trash");
         tryVerify(() => trash.mapToItem(accounts, 0, 0).y > 0);

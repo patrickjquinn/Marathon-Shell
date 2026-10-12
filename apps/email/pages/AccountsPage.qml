@@ -10,7 +10,9 @@ Page {
     property var app
     readonly property var mail: app.mail
 
-    Component.onCompleted: mail.accountList.forEach(a => mail.refreshFolders(a.id))
+    objectName: "accountsPage"
+    onStatusChanged: if (status === PageStatus.Activating)
+        mail.accountList.forEach(a => mail.refreshFolders(a.id))
 
     SilicaFlickable {
         anchors.fill: parent

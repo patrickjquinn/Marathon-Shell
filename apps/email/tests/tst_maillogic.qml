@@ -13,6 +13,16 @@ TestCase {
         verify(!Logic.emailValid(""));
     }
 
+    function test_matchesMessage() {
+        const m = { from: "Ann <ann@x.org>", subject: "Lunch", snippet: "at noon" };
+        verify(Logic.matchesMessage(m, ""));
+        verify(Logic.matchesMessage(m, " ANN "));
+        verify(Logic.matchesMessage(m, "lunch"));
+        verify(Logic.matchesMessage(m, "noon"));
+        verify(!Logic.matchesMessage(m, "dinner"));
+        verify(!Logic.matchesMessage({}, "x"));
+    }
+
     function test_presetForEmail() {
         compare(Logic.presetForEmail("me@FastMail.com"), "fastmail");
         compare(Logic.presetForEmail("me@me.com"), "icloud");

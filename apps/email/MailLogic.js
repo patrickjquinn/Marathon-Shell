@@ -157,6 +157,12 @@ function draftList(drafts) {
     return Object.keys(drafts).map(k => Object.assign({ to: "", cc: "", bcc: "", subject: "", body: "", savedAt: 0 }, drafts[k], { key: k })).sort((a, b) => b.savedAt - a.savedAt);
 }
 
+// Search matches the sender, subject or preview, ignoring case.
+function matchesMessage(message, query) {
+    const q = String(query || "").trim().toLowerCase();
+    return q === "" || [message.from, message.subject, message.snippet].some(v => String(v || "").toLowerCase().indexOf(q) !== -1);
+}
+
 function draftKind(key) {
     return String(key).split("-")[0];
 }
