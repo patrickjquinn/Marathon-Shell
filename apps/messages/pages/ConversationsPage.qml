@@ -92,7 +92,7 @@ Page {
             readonly property string draft: root.app.drafts[modelData.id] || ""
 
             objectName: "conversation-" + modelData.id
-            contentHeight: Theme.itemSizeMedium
+            contentHeight: Math.max(Theme.itemSizeMedium, name.height + preview.height + 2 * Theme.paddingMedium)
             Accessible.name: Logic.displayName(modelData) + (unread > 0 ? ", " + qsTr("%n unread", "", unread) : "")
             menu: ContextMenu {
                 MenuItem {
@@ -139,7 +139,7 @@ Page {
                     right: time.left
                     rightMargin: Theme.paddingMedium
                     top: parent.top
-                    topMargin: Theme.paddingSmall
+                    topMargin: Theme.paddingMedium
                 }
                 text: Logic.displayName(item.modelData)
                 truncationMode: TruncationMode.Fade
@@ -157,6 +157,8 @@ Page {
                 color: item.unread > 0 ? Theme.highlightColor : Theme.secondaryColor
             }
             Label {
+                id: preview
+                objectName: "preview"
                 anchors {
                     left: parent.left
                     leftMargin: Theme.horizontalPageMargin
@@ -165,9 +167,10 @@ Page {
                     top: name.bottom
                 }
                 text: item.draft !== "" ? qsTr("Draft: %1").arg(item.draft) : item.modelData.lastMessage
-                font.pixelSize: Theme.fontSizeExtraSmall
-                truncationMode: TruncationMode.Fade
-                maximumLineCount: 1
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+                elide: Text.ElideRight
+                maximumLineCount: 2
                 color: item.draft !== "" || item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
             }
             Label {
@@ -179,8 +182,7 @@ Page {
                 }
                 visible: item.unread > 0
                 text: item.unread
-                font.pixelSize: Theme.fontSizeExtraSmall
-                font.bold: true
+                font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
             }
         }
