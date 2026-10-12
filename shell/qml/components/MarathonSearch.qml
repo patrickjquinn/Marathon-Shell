@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: searchOverlay
@@ -99,111 +101,103 @@ Item {
         }
     }
 
-    Rectangle {
+    KeelAmbienceBackground {
         anchors.fill: parent
-        color: MColors.background
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
     }
 
     Column {
         anchors.fill: parent
-        anchors.topMargin: Constants.safeAreaTop + MSpacing.md
-        anchors.leftMargin: MSpacing.md
-        anchors.rightMargin: MSpacing.md
-        anchors.bottomMargin: Constants.safeAreaBottom + MSpacing.lg
-        spacing: MSpacing.md
+        anchors.topMargin: Constants.safeAreaTop + Silica.Theme.paddingLarge
+        anchors.bottomMargin: Constants.safeAreaBottom + Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
         z: 10
 
+        // Silica's search field: a magnifier, the text, and an underline lit
+        // while focused.
         Item {
-            width: parent.width
-            height: 56
+            id: searchBarContainer
+
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+            height: Silica.Theme.itemSizeSmall
+
+            GlyphIcon {
+                id: searchGlyph
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                name: "search"
+                size: Silica.Theme.iconSizeSmall
+                color: searchInput.activeFocus ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            }
+
+            TextInput {
+                id: searchInput
+
+                anchors.left: searchGlyph.right
+                anchors.leftMargin: Silica.Theme.paddingLarge
+                anchors.right: clearButton.left
+                anchors.rightMargin: Silica.Theme.paddingMedium
+                anchors.verticalCenter: parent.verticalCenter
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeMedium
+                font.family: Silica.Theme.fontFamily
+                selectionColor: Silica.Theme.highlightColor
+                selectedTextColor: Silica.Theme.highlightDimmerColor
+                clip: true
+                Keys.onEscapePressed: searchOverlay.close()
+                Keys.onDownPressed: resultsList.forceActiveFocus()
+                onTextChanged: {
+                    searchOverlay.searchQuery = text;
+                    searchOverlay.performSearch();
+                }
+
+                Text {
+                    anchors.fill: parent
+                    text: qsTr("Search apps and settings")
+                    color: Silica.Theme.secondaryColor
+                    font: parent.font
+                    visible: !searchInput.text && !searchInput.preeditText
+                }
+            }
+
+            Item {
+                id: clearButton
+
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: Silica.Theme.iconSizeSmall
+                height: width
+                visible: searchInput.text.length > 0
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    name: "x"
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.primaryColor
+                }
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "Clear search"
+
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -Silica.Theme.paddingMedium
+                    onClicked: {
+                        searchInput.text = "";
+                        searchInput.forceActiveFocus();
+                    }
+                }
+            }
 
             Rectangle {
-                id: searchBarContainer
-
-                anchors.fill: parent
-                color: MColors.surface
-                radius: MRadius.lg
-                border.width: searchInput.activeFocus ? 2 : 1
-                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.border
-                antialiasing: true
-
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: MSpacing.sm
-                    spacing: MSpacing.sm
-
-                    GlyphIcon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "search"
-                        size: 24
-                        color: searchInput.activeFocus ? MColors.accentBright : MColors.textSecondary
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 200
-                            }
-                        }
-                    }
-
-                    TextInput {
-                        id: searchInput
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 64
-                        color: MColors.text
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        selectionColor: MColors.accentBright
-                        selectedTextColor: MColors.text
-                        clip: true
-                        Keys.onEscapePressed: searchOverlay.close()
-                        Keys.onDownPressed: resultsList.forceActiveFocus()
-                        onTextChanged: {
-                            searchOverlay.searchQuery = text;
-                            searchOverlay.performSearch();
-                        }
-
-                        Text {
-                            anchors.fill: parent
-                            text: "Search apps, settings..."
-                            color: MColors.textSecondary
-                            font: parent.font
-                            visible: !searchInput.text && !searchInput.preeditText
-                        }
-                    }
-
-                    Item {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 20
-                        height: 20
-                        visible: searchInput.text.length > 0
-
-                        GlyphIcon {
-                            anchors.centerIn: parent
-                            name: "x"
-                            size: 16
-                            color: MColors.textSecondary
-                        }
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: "Clear search"
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -12
-                            onClicked: {
-                                searchInput.text = "";
-                                searchInput.forceActiveFocus();
-                            }
-                        }
-                    }
-                }
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 200
-                    }
-                }
+                anchors.left: searchInput.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                color: searchInput.activeFocus ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
             }
         }
 
@@ -211,9 +205,8 @@ Item {
             id: resultsList
 
             width: parent.width
-            height: parent.height - 76
+            height: parent.height - searchBarContainer.height - parent.spacing
             clip: true
-            spacing: MSpacing.xs
             model: searchOverlay.searchResults
             interactive: true
             boundsBehavior: Flickable.StopAtBounds
@@ -233,11 +226,11 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: searchInput.text.length === 0 ? "Search apps, settings and more" : "No results for \u201c" + searchInput.text + "\u201d"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                width: parent.width
+                text: searchInput.text.length === 0 ? qsTr("Search apps, settings and more") : qsTr("No results for \u201c%1\u201d").arg(searchInput.text)
+                color: Silica.Theme.secondaryHighlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                font.family: Silica.Theme.fontFamily
+                width: parent.width - 2 * Silica.Theme.horizontalPageMargin
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 visible: resultsList.count === 0 && !recentColumn.visible
@@ -251,28 +244,18 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: Math.round(44 * Constants.scaleFactor)
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "RECENT"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeEyebrow
-                        font.weight: MTypography.weightBold
-                        font.letterSpacing: MTypography.trackingEyebrow
-                        font.family: MTypography.fontFamily
-                    }
+                    height: Silica.Theme.itemSizeExtraSmall
 
                     Text {
                         id: clearRecent
 
-                        anchors.right: parent.right
+                        anchors.left: parent.left
+                        anchors.leftMargin: Silica.Theme.horizontalPageMargin
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Clear"
-                        color: MColors.accentBright
-                        font.pixelSize: MTypography.sizeSubhead
-                        font.family: MTypography.fontFamily
+                        text: qsTr("Clear")
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        font.family: Silica.Theme.fontFamily
 
                         Accessible.role: Accessible.Button
                         Accessible.name: "Clear recent searches"
@@ -280,9 +263,19 @@ Item {
 
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -12
+                            anchors.margins: -Silica.Theme.paddingMedium
                             onClicked: UnifiedSearchService.clearRecentSearches()
                         }
+                    }
+
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: qsTr("Recent")
+                        color: Silica.Theme.highlightColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        font.family: Silica.Theme.fontFamily
                     }
                 }
 
@@ -295,29 +288,30 @@ Item {
                         required property string modelData
 
                         width: recentColumn.width
-                        height: Math.round(48 * Constants.scaleFactor)
+                        height: Silica.Theme.itemSizeSmall
 
                         Accessible.role: Accessible.Button
                         Accessible.name: "Search for " + modelData
                         Accessible.onPressAction: searchInput.text = modelData
 
                         Row {
+                            x: Silica.Theme.horizontalPageMargin
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: MSpacing.md
+                            spacing: Silica.Theme.paddingLarge
 
                             GlyphIcon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "clock-counter-clockwise"
-                                size: Math.round(18 * Constants.scaleFactor)
-                                color: MColors.textSecondary
+                                size: Silica.Theme.iconSizeSmall
+                                color: Silica.Theme.secondaryColor
                             }
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: recentItem.modelData
-                                color: MColors.textPrimary
-                                font.pixelSize: MTypography.sizeBody
-                                font.family: MTypography.fontFamily
+                                color: Silica.Theme.primaryColor
+                                font.pixelSize: Silica.Theme.fontSizeMedium
+                                font.family: Silica.Theme.fontFamily
                             }
                         }
 
@@ -338,102 +332,49 @@ Item {
                 required property var modelData
                 required property int index
 
+                readonly property bool down: resultMouseArea.pressed || resultsList.currentIndex === index && resultsList.activeFocus
+
                 width: resultsList.width
-                height: Constants.appIconSize
-                color: resultMouseArea.pressed ? MColors.pressed : (resultsList.currentIndex === resultDelegate.index ? MColors.highlightSubtle : "transparent")
-                radius: MRadius.md
-                antialiasing: true
+                height: Silica.Theme.itemSizeMedium
+                color: down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
 
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: MSpacing.md
-                    spacing: MSpacing.md
+                MAppIcon {
+                    id: resultIcon
 
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 48
-                        height: 48
-                        radius: resultDelegate.modelData.type === "app" ? MRadius.sm : 24
-                        color: MColors.elevated
-                        antialiasing: true
+                    x: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: resultDelegate.modelData.icon
+                    size: resultDelegate.modelData.type === "app" ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
+                    width: Silica.Theme.iconSizeMedium
+                    height: width
+                }
 
-                        MAppIcon {
-                            anchors.centerIn: parent
-                            source: resultDelegate.modelData.icon
-                            size: resultDelegate.modelData.type === "app" ? 40 : 24
-                        }
+                Column {
+                    anchors.left: resultIcon.right
+                    anchors.leftMargin: Silica.Theme.paddingLarge
+                    anchors.right: parent.right
+                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Text {
+                        width: parent.width
+                        text: resultDelegate.modelData.title
+                        color: resultDelegate.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
+                        font.family: Silica.Theme.fontFamily
+                        elide: Text.ElideRight
                     }
 
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 76
-                        spacing: MSpacing.xs
-
-                        Text {
-                            width: parent.width
-                            text: resultDelegate.modelData.title
-                            color: MColors.text
-                            font.pixelSize: MTypography.sizeBody
-                            font.weight: MTypography.weightDemiBold
-                            font.family: MTypography.fontFamily
-                            elide: Text.ElideRight
+                    Text {
+                        width: parent.width
+                        text: {
+                            const type = resultDelegate.modelData.type === "app" ? qsTr("App") : resultDelegate.modelData.type === "deeplink" ? qsTr("Page") : qsTr("Setting");
+                            return resultDelegate.modelData.subtitle ? type + " · " + resultDelegate.modelData.subtitle : type;
                         }
-
-                        Row {
-                            spacing: MSpacing.sm
-
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: typeText.width + MSpacing.md
-                                height: 20
-                                radius: MRadius.sm
-                                color: {
-                                    if (resultDelegate.modelData.type === "app")
-                                        return MColors.elevated;
-
-                                    if (resultDelegate.modelData.type === "deeplink")
-                                        return Qt.rgba(139 / 255, 92 / 255, 246 / 255, 0.15);
-
-                                    return Qt.rgba(59 / 255, 130 / 255, 246 / 255, 0.15);
-                                }
-                                antialiasing: Constants.enableAntialiasing
-
-                                Text {
-                                    id: typeText
-
-                                    anchors.centerIn: parent
-                                    text: {
-                                        if (resultDelegate.modelData.type === "app")
-                                            return "App";
-
-                                        if (resultDelegate.modelData.type === "deeplink")
-                                            return "Page";
-
-                                        return "Setting";
-                                    }
-                                    color: {
-                                        if (resultDelegate.modelData.type === "app")
-                                            return MColors.accentBright;
-
-                                        if (resultDelegate.modelData.type === "deeplink")
-                                            return Qt.rgba(167 / 255, 139 / 255, 250 / 255, 1);
-
-                                        return Qt.rgba(96 / 255, 165 / 255, 250 / 255, 1);
-                                    }
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.weight: MTypography.weightMedium
-                                    font.family: MTypography.fontFamily
-                                }
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: resultDelegate.modelData.subtitle
-                                color: MColors.textSecondary
-                                font.pixelSize: MTypography.sizeSmall
-                                font.family: MTypography.fontFamily
-                            }
-                        }
+                        color: resultDelegate.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        font.family: Silica.Theme.fontFamily
+                        elide: Text.ElideRight
                     }
                 }
 
