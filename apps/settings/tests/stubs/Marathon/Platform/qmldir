@@ -8,6 +8,7 @@ singleton Display 1.0 Display.qml
 singleton Modem 1.0 Modem.qml
 singleton Navigation 1.0 Navigation.qml
 singleton Network 1.0 Network.qml
+singleton Permissions 1.0 Permissions.qml
 singleton Power 1.0 Power.qml
 singleton Security 1.0 Security.qml
 singleton Settings 1.0 Settings.qml

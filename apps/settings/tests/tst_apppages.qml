@@ -30,6 +30,7 @@ TestCase {
         Apps.reset();
         AppInstaller.reset();
         SettingsController.reset();
+        Permissions.reset();
     }
 
     function open(name) {
@@ -102,6 +103,61 @@ TestCase {
         verify(notify.checked);
         notify.clicked(null);
         compare(SettingsController.calls, [["notify", "notes", false]]);
+    }
+
+    function openInfo(appId) {
+        const app = createTemporaryObject(appComponent, testCase, { route: "appmanager/" + appId });
+        tryVerify(() => app.pageStack.currentPage && app.pageStack.currentPage.appId === appId && app.pageStack.currentPage.status === PageStatus.Active, 5000);
+        return app.pageStack.currentPage;
+    }
+
+    function test_permissionSwitchesShowRealState() {
+        const info = openInfo("weather");
+        const network = child(info, "permission-network");
+        const location = child(info, "permission-location");
+        verify(network.enabled);
+        verify(network.checked);
+        verify(!location.checked);
+    }
+
+    function test_permissionSwitchGrantsAndRevokes() {
+        const info = openInfo("weather");
+        const location = child(info, "permission-location");
+        location.clicked(null);
+        verify(location.checked);
+        verify(Permissions.hasPermission("weather", "location"));
+        const network = child(info, "permission-network");
+        network.clicked(null);
+        verify(!network.checked);
+        compare(Permissions.calls, [["weather", "location", true], ["weather", "network", false]]);
+    }
+
+    function test_permissionSwitchRevertsOnFailure() {
+        const info = openInfo("weather");
+        const network = child(info, "permission-network");
+        Permissions.fail = true;
+        network.clicked(null);
+        verify(network.checked);
+        compare(Permissions.calls.length, 1);
+    }
+
+    function test_permissionSwitchFollowsShellSignals() {
+        const info = openInfo("weather");
+        const location = child(info, "permission-location");
+        Permissions.permissionGranted("weather", "location");
+        verify(location.checked);
+        Permissions.permissionDenied("notes", "location");
+        verify(location.checked);
+        Permissions.permissionDenied("weather", "location");
+        verify(!location.checked);
+    }
+
+    function test_systemAppPermissionsAreFixed() {
+        Permissions.granted = { "settings/system": true };
+        const info = openInfo("settings");
+        const system = child(info, "permission-system");
+        verify(!system.enabled);
+        verify(system.checked);
     }
 
     function test_liveAppInfoLinkReplacesOpenPages() {

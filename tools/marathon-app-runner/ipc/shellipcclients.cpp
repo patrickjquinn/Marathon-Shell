@@ -133,11 +133,14 @@ void PermissionClient::requestPermission(const QString &appId, const QString &pe
         qWarning() << "[PermissionClient] RequestPermission failed:" << r.errorMessage();
 }
 
-void PermissionClient::setPermission(const QString &appId, const QString &permission, bool granted,
+bool PermissionClient::setPermission(const QString &appId, const QString &permission, bool granted,
                                      bool remember) {
     auto r = m_iface.call("SetPermission", appId, permission, granted, remember);
-    if (r.type() == QDBusMessage::ErrorMessage)
+    if (r.type() == QDBusMessage::ErrorMessage) {
         qWarning() << "[PermissionClient] SetPermission failed:" << r.errorMessage();
+        return false;
+    }
+    return true;
 }
 
 ContactsClient::ContactsClient(QObject *parent)

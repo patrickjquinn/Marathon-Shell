@@ -20,6 +20,7 @@ set(SOURCES
     src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
+    src/ipc/permissionauth.h
     src/ipc/shellservices.h
     src/ipc/shellservices.cpp
     src/models/taskmodel.h

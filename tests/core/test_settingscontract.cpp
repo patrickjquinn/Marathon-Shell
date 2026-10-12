@@ -137,6 +137,7 @@ namespace {
         {"Audio", &AudioClient::staticMetaObject},
         {"Security", &SecurityClient::staticMetaObject},
         {"Modem", &ModemClient::staticMetaObject},
+        {"Permissions", &PermissionClient::staticMetaObject},
     };
 
 } // namespace

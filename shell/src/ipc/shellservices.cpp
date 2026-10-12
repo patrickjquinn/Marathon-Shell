@@ -1,4 +1,5 @@
 #include "shellservices.h"
+#include "permissionauth.h"
 
 #include "applaunchservice.h"
 #include "marathonpermissionmanager.h"
@@ -1415,21 +1416,18 @@ PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
                      &PermissionsObject::PermissionRequested);
 }
 
-// Reject calls where one app is trying to set / read another app's permission.
 // MARATHON_TEST_TRUSTED ($MARATHON_TEST_CALLER_ID) is admitted as the synthetic
-// admin caller -- it's the only caller allowed to act on a different appId, and
-// only when the test-bypass env var is set.
-static bool authorizePermissionCall(const QString &caller, const QString &targetAppId) {
-    if (caller.isEmpty())
-        return false;
-    if (caller == targetAppId)
+// admin caller, only when the test-bypass env var is set.
+static bool authorizePermissionCall(const QString &caller, const QString &targetAppId,
+                                    PermissionAuth::Op op) {
+    if (g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID))
         return true;
-    return g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID);
+    return PermissionAuth::allowed(caller, targetAppId, op);
 }
 
 bool PermissionsObject::HasPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (!authorizePermissionCall(caller, appId)) {
+    if (!authorizePermissionCall(caller, appId, PermissionAuth::Op::Read)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return false;
     }
@@ -1438,7 +1436,7 @@ bool PermissionsObject::HasPermission(const QString &appId, const QString &permi
 
 void PermissionsObject::RequestPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (!authorizePermissionCall(caller, appId)) {
+    if (!authorizePermissionCall(caller, appId, PermissionAuth::Op::Request)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }
@@ -1448,7 +1446,7 @@ void PermissionsObject::RequestPermission(const QString &appId, const QString &p
 void PermissionsObject::SetPermission(const QString &appId, const QString &permission, bool granted,
                                       bool remember) {
     const QString caller = callerAppIdOrEmpty();
-    if (!authorizePermissionCall(caller, appId)) {
+    if (!authorizePermissionCall(caller, appId, PermissionAuth::Op::Change)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }

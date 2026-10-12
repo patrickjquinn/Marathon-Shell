@@ -54,11 +54,38 @@ Page {
                 objectName: "permissions"
                 model: page.app.permissions || []
 
-                DetailItem {
+                TextSwitch {
+                    id: permissionSwitch
+
                     required property string modelData
 
-                    label: Logic.permissionInfo(modelData).title
-                    value: Logic.permissionInfo(modelData).description
+                    function refresh() {
+                        checked = Permissions.hasPermission(page.appId, modelData);
+                    }
+
+                    objectName: "permission-" + modelData
+                    text: Logic.permissionInfo(modelData).title
+                    description: Logic.permissionInfo(modelData).description
+                    automaticCheck: false
+                    enabled: !page.app.isProtected
+                    Component.onCompleted: refresh()
+                    onClicked: {
+                        if (Permissions.setPermission(page.appId, modelData, !checked))
+                            checked = !checked;
+                    }
+
+                    Connections {
+                        target: Permissions
+
+                        function onPermissionGranted(appId, permission) {
+                            if (appId === page.appId && permission === permissionSwitch.modelData)
+                                permissionSwitch.checked = true;
+                        }
+                        function onPermissionDenied(appId, permission) {
+                            if (appId === page.appId && permission === permissionSwitch.modelData)
+                                permissionSwitch.checked = false;
+                        }
+                    }
                 }
             }
             Label {

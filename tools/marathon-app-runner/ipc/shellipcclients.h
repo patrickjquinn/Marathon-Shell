@@ -16,7 +16,7 @@ class PermissionClient : public QObject {
 
     Q_INVOKABLE bool hasPermission(const QString &appId, const QString &permission);
     Q_INVOKABLE void requestPermission(const QString &appId, const QString &permission);
-    Q_INVOKABLE void setPermission(const QString &appId, const QString &permission, bool granted,
+    Q_INVOKABLE bool setPermission(const QString &appId, const QString &permission, bool granted,
                                    bool remember = true);
 
   signals:
