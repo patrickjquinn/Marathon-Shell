@@ -170,17 +170,6 @@ void SystemControlStore::toggleFlashlight() {
     }
 }
 
-void SystemControlStore::toggleCellular() {
-    if (!m_modemManager) {
-        return;
-    }
-    if (m_modemManager->modemEnabled()) {
-        m_modemManager->disable();
-    } else {
-        m_modemManager->enable();
-    }
-}
-
 void SystemControlStore::toggleCellularData() {
     if (!m_modemManager) {
         return;
@@ -287,12 +276,6 @@ void SystemControlStore::setVolume(int value) {
 void SystemControlStore::sleep() {
     if (m_powerManager) {
         m_powerManager->suspend();
-    }
-}
-
-void SystemControlStore::powerOff() {
-    if (m_powerManager) {
-        m_powerManager->shutdown();
     }
 }
 

@@ -106,7 +106,6 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleAirplaneMode();
     Q_INVOKABLE void toggleRotationLock();
     Q_INVOKABLE void toggleFlashlight();
-    Q_INVOKABLE void toggleCellular();
     Q_INVOKABLE void toggleCellularData();
     Q_INVOKABLE void toggleDndMode();
     Q_INVOKABLE void toggleLowPowerMode();
@@ -122,7 +121,6 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void setBrightnessFromUser(int value);
     Q_INVOKABLE void setVolume(int value);
     Q_INVOKABLE void sleep();
-    Q_INVOKABLE void powerOff();
     Q_INVOKABLE void reboot();
 
   signals:
