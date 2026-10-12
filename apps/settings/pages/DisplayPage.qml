@@ -34,9 +34,6 @@ Page {
                 title: qsTr("Display")
             }
 
-            SectionHeader {
-                text: qsTr("Brightness")
-            }
             Slider {
                 id: brightness
 
