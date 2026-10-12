@@ -208,17 +208,10 @@ Item {
         z: 1
         opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
 
+        // Always drawn, so nothing beneath the lock screen shows through.
         WallpaperSlateAurora {
             anchors.fill: parent
-            visible: lockScreen.appBackdrop === null
             dither: DeviceProfile.panelDither
-        }
-
-        // Nothing beneath the lock screen shows through the blur.
-        Rectangle {
-            anchors.fill: parent
-            visible: lockScreen.appBackdrop !== null
-            color: "black"
         }
 
         AppBackdropBlur {
