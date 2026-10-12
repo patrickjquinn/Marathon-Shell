@@ -3,6 +3,7 @@ import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import "../SettingsLogic.js" as Logic
 import ".."
 
 TestCase {
@@ -113,6 +114,30 @@ TestCase {
         entry(app, "terminal").clicked(null);
         compare(Navigation.launched, ["terminal"]);
         compare(app.pageStack.depth, 1);
+    }
+
+    // Every category on the main page opens its own page.
+    function test_everyEntryOpensItsPage() {
+        const app = makeApp();
+        const main = app.pageStack.currentPage;
+        Logic.sections.forEach(section => section.entries.filter(e => e.page).forEach(e => {
+            entry(app, e.page).clicked(null);
+            tryVerify(() => app.pageStack.currentPage !== main && app.pageStack.currentPage.status === PageStatus.Active, 3000, e.page);
+            const name = String(app.pageStack.currentPage);
+            verify(name.indexOf(Logic.pageFile(e.page).replace(".qml", "")) === 0, e.page + " opened " + name);
+            app.pageStack.pop(undefined, PageStackAction.Immediate);
+            tryVerify(() => app.pageStack.currentPage === main && main.status === PageStatus.Active);
+        }));
+    }
+
+    function test_everyRouteOpens() {
+        const app = makeApp();
+        Object.keys(Logic.pages).forEach(route => {
+            verify(app.openPage("/" + route, PageStackAction.Immediate), route);
+            tryVerify(() => app.pageStack.depth === 2 && app.pageStack.currentPage.status === PageStatus.Active, 3000, route);
+            app.pageStack.pop(undefined, PageStackAction.Immediate);
+            tryVerify(() => app.pageStack.depth === 1);
+        });
     }
 
     function test_unknownRoute() {
