@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import QtMultimedia
+import MarathonApp.Music 1.0
 import ".."
 
 TestCase {
@@ -146,5 +147,16 @@ TestCase {
         compare(p.currentTrack.title, "Three");
         verify(!p.restore({ paths: ["file:///gone.mp3"], index: 0 }, tracks));
         verify(!makePlayer().restore({}, tracks));
+    }
+
+    function test_artFromTheFolder() {
+        const p = makePlayer();
+        compare(p.artUrl, "");
+        Artwork.folders = { "file:///m/2.mp3": "file:///m/cover.jpg" };
+        p.playTracks(tracks, 1);
+        compare(p.artUrl, "file:///m/cover.jpg");
+        p.next();
+        compare(p.artUrl, "");
+        Artwork.folders = {};
     }
 }

@@ -77,6 +77,7 @@ ApplicationWindow {
         title: track ? track.title : ""
         artist: track ? track.artist : ""
         album: track ? track.album : ""
+        artUrl: app.player.artUrl
         length: app.player.duration
         position: app.player.position
 

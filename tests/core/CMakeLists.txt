@@ -210,3 +210,14 @@ if(DBUS_RUN_SESSION)
     target_include_directories(test_core_mprisplayer PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
     add_test(NAME Core_MprisPlayer COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_mprisplayer>)
 endif()
+
+# Music album art: embedded art cached to disk, or a cover file beside the track
+find_package(Qt6 REQUIRED COMPONENTS Gui Qml)
+add_executable(test_core_musicartwork
+    test_musicartwork.cpp
+    ../../apps/music/src/Artwork.cpp
+    ../../apps/music/src/Artwork.h
+)
+target_link_libraries(test_core_musicartwork Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml)
+target_include_directories(test_core_musicartwork PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
+add_test(NAME Core_MusicArtwork COMMAND test_core_musicartwork)

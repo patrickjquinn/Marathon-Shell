@@ -27,37 +27,42 @@ Page {
                 description: page.track ? page.track.album : ""
             }
 
-            Rectangle {
+            Image {
+                id: artwork
+
+                objectName: "artwork"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 height: width
-                radius: Theme.paddingSmall
-                color: Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
-
-                Icon {
-                    anchors.centerIn: parent
-                    width: Theme.iconSizeExtraLarge
-                    height: width
-                    source: "image://theme/icon-l-music"
-                }
+                visible: status === Image.Ready
+                source: page.player.artUrl
+                sourceSize.width: width
+                sourceSize.height: height
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                Accessible.ignored: true
             }
 
             Column {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
+                topPadding: artwork.visible ? 0 : Theme.itemSizeLarge
 
                 Label {
                     objectName: "playerTitle"
                     width: parent.width
                     text: page.track ? page.track.title : qsTr("Nothing playing")
-                    font.pixelSize: Theme.fontSizeLarge
+                    font.pixelSize: artwork.visible ? Theme.fontSizeLarge : Theme.fontSizeHuge
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 3
                     color: Theme.highlightColor
-                    truncationMode: TruncationMode.Fade
+                    truncationMode: TruncationMode.Elide
                     horizontalAlignment: Text.AlignHCenter
                 }
                 Label {
                     width: parent.width
                     text: page.track ? page.track.artist : ""
+                    font.pixelSize: artwork.visible ? Theme.fontSizeMedium : Theme.fontSizeLarge
                     color: Theme.secondaryHighlightColor
                     truncationMode: TruncationMode.Fade
                     horizontalAlignment: Text.AlignHCenter

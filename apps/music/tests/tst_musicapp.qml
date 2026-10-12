@@ -302,6 +302,18 @@ TestCase {
         verify(mpris.canGoPrevious);
         app.player.media.position = 5000;
         compare(mpris.position, 5000);
+        compare(mpris.artUrl, app.player.artUrl.toString());
+    }
+
+    function test_playerShowsArtOnlyWhenThereIsSome() {
+        const app = makeApp();
+        app.player.playTracks(app.tracks, 0);
+        app.openPlayer();
+        tryCompare(app.pageStack, "depth", 2);
+        tryCompare(app.pageStack, "busy", false);
+        const art = findChild(app.pageStack.currentPage, "artwork");
+        compare(art.source.toString(), "");
+        verify(!art.visible);
     }
 
     function test_mprisControlsThePlayer() {
