@@ -12,6 +12,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Quick
     QuickControls2
     DBus
+    Sql
 )
 
 set(SOURCES
@@ -22,6 +23,7 @@ set(SOURCES
     platformtypes.cpp
     ipc/shellipcclients.cpp
     calendarmanagercpp.cpp
+    ../../marathon-services/src/musiclibrarymanager.cpp
 )
 
 qt6_add_executable(marathon-app-runner ${SOURCES})
@@ -39,6 +41,7 @@ target_sources(marathon-app-runner PRIVATE ${SHELL_SINGLETONS_RCC})
 target_include_directories(marathon-app-runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../shell/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-services/src
 )
 
 target_link_libraries(marathon-app-runner PRIVATE
@@ -48,6 +51,7 @@ target_link_libraries(marathon-app-runner PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::DBus
+    Qt6::Sql
     MarathonCore
 )
 

@@ -119,6 +119,7 @@ class TelephonyClient : public QObject {
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void dial(const QString &number);
+    Q_INVOKABLE void dialEmergency(const QString &number);
     Q_INVOKABLE void answer();
     Q_INVOKABLE void hangup();
     Q_INVOKABLE void sendDTMF(const QString &digit);
@@ -285,6 +286,8 @@ class SettingsClient : public QObject {
     Q_PROPERTY(bool dndEnabled READ dndEnabled WRITE setDndEnabled NOTIFY dndEnabledChanged)
     Q_PROPERTY(bool vibrationEnabled READ vibrationEnabled WRITE setVibrationEnabled NOTIFY
                    vibrationEnabledChanged)
+    Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY reduceMotionChanged)
+    Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
@@ -357,6 +360,8 @@ class SettingsClient : public QObject {
     qreal                   systemVolume() const;
     bool                    dndEnabled() const;
     bool                    vibrationEnabled() const;
+    bool reduceMotion() const;
+    QString timeZone() const;
     QString                 audioProfile() const;
 
     int                     screenTimeout() const;
@@ -405,6 +410,8 @@ class SettingsClient : public QObject {
     void                    setSystemVolume(qreal v);
     void                    setDndEnabled(bool v);
     void                    setVibrationEnabled(bool v);
+    void                    setReduceMotion(bool v);
+    void                    setTimeZone(const QString &v);
     void                    setAudioProfile(const QString &v);
 
     void                    setScreenTimeout(int v);
@@ -465,6 +472,8 @@ class SettingsClient : public QObject {
     void systemVolumeChanged();
     void dndEnabledChanged();
     void vibrationEnabledChanged();
+    void reduceMotionChanged();
+    void timeZoneChanged();
     void audioProfileChanged();
 
     void screenTimeoutChanged();

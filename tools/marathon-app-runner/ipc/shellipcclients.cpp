@@ -1,5 +1,7 @@
 #include "shellipcclients.h"
 
+#include <ctime>
+
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -380,6 +382,10 @@ void TelephonyClient::dial(const QString &number) {
     auto r = m_iface.call("Dial", number);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[TelephonyClient] Dial failed:" << r.errorMessage();
+}
+void TelephonyClient::dialEmergency(const QString &number) {
+    qWarning().noquote() << "[SECURITY] Emergency dial from" << m_appId << "number=" << number;
+    dial(number);
 }
 void TelephonyClient::answer() {
     if (!ensurePermission())
@@ -808,6 +814,8 @@ void SettingsClient::refresh() {
         emit systemVolumeChanged();
         emit dndEnabledChanged();
         emit vibrationEnabledChanged();
+        emit reduceMotionChanged();
+        emit timeZoneChanged();
         emit audioProfileChanged();
         emit screenTimeoutChanged();
         emit autoBrightnessChanged();
@@ -853,6 +861,15 @@ void SettingsClient::setProp(const QString &name, const QVariant &value) {
 void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &value) {
     m_state.insert(name, normalizeDbusVariantDeep(value.variant()));
 
+    // libc keeps the zone it read at startup; a new TZ makes local-time calls follow the change.
+    if (name == QLatin1String("timeZone")) {
+        const QString zone = m_state.value(name).toString();
+        if (!zone.isEmpty()) {
+            qputenv("TZ", (QStringLiteral(":") + zone).toUtf8());
+            tzset();
+        }
+    }
+
     using Notify                                           = void (SettingsClient::*)();
     static const QHash<QString, Notify> kSignalForProperty = {
         {"userScaleFactor", &SettingsClient::userScaleFactorChanged},
@@ -873,6 +890,8 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         {"systemVolume", &SettingsClient::systemVolumeChanged},
         {"dndEnabled", &SettingsClient::dndEnabledChanged},
         {"vibrationEnabled", &SettingsClient::vibrationEnabledChanged},
+        {"reduceMotion", &SettingsClient::reduceMotionChanged},
+        {"timeZone", &SettingsClient::timeZoneChanged},
         {"audioProfile", &SettingsClient::audioProfileChanged},
         {"screenTimeout", &SettingsClient::screenTimeoutChanged},
         {"autoBrightness", &SettingsClient::autoBrightnessChanged},
@@ -954,6 +973,12 @@ bool SettingsClient::dndEnabled() const {
 }
 bool SettingsClient::vibrationEnabled() const {
     return prop("vibrationEnabled", true).toBool();
+}
+bool SettingsClient::reduceMotion() const {
+    return prop("reduceMotion", false).toBool();
+}
+QString SettingsClient::timeZone() const {
+    return prop("timeZone", QStringLiteral("UTC")).toString();
 }
 QString SettingsClient::audioProfile() const {
     return prop("audioProfile", "normal").toString();
@@ -1082,6 +1107,12 @@ void SettingsClient::setDndEnabled(bool v) {
 }
 void SettingsClient::setVibrationEnabled(bool v) {
     setProp("vibrationEnabled", v);
+}
+void SettingsClient::setReduceMotion(bool v) {
+    setProp("reduceMotion", v);
+}
+void SettingsClient::setTimeZone(const QString &v) {
+    setProp("timeZone", v);
 }
 void SettingsClient::setAudioProfile(const QString &v) {
     setProp("audioProfile", v);

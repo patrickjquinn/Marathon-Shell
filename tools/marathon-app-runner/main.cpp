@@ -159,6 +159,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "ambienceclient.h"
 #include "platformtypes.h"
 #include "calendarmanagercpp.h"
+#include "musiclibrarymanager.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
     Q_OBJECT
@@ -257,9 +258,8 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
 
     qint64            m_expectedShellPid  = -1;
     QPointer<QObject> m_root;
-
-    QPointer<KeelHost> m_keelHost;
     bool              m_minimizeRequested = false;
+    QPointer<KeelHost> m_keelHost;
 };
 
 static QString capitalizeAppId(const QString &appId) {
@@ -847,8 +847,9 @@ int main(int argc, char *argv[]) {
                     "        Component { MEmptyState {} }, Component { MLabel {} }, Component { MCard {} },\n"
                     "        Component { MButton {} }, Component { MIconButton {} }, Component { Icon {} },\n"
                     "        Component { MTabBar {} }, Component { MConfirmDialog {} },\n"
+                    "        Component { MSnackbar {} }, Component { MSearchField {} },\n"
                     "        Component { MActivityIndicator {} }, Component { MTextField {} },\n"
-                    "        Component { MStackView {} },\n"
+                    "        Component { MFloatingActionButton {} }, Component { MStackView {} },\n"
                     "        Component { MSheet {} }, Component { MToggle {} }, Component { MSlider {} }\n"
                     "    ]\n";
             if (silica)
@@ -1193,10 +1194,8 @@ int main(int argc, char *argv[]) {
     // the manifest's backgroundCapabilities (gated shell-side), so it's
     // safe to expose without a permission probe.
     // Two names: "AppLifecycle" for code that uses the runner-friendly
-    // alias, "AppLifecycleManager" for code that does the bare
-    // `typeof AppLifecycleManager !== 'undefined'` probe (MApp.qml does
-    // this -- it doesn't `import MarathonOS.Shell`, so the singleton
-    // registration alone isn't reachable from a bare identifier).
+    // alias, "AppLifecycleManager" for MApp and anything else that reaches
+    // it through the MarathonOS.Shell singleton.
     auto *appLifecycleClient = new AppLifecycleClient(&app);
     ctx->setContextProperty("AppLifecycle", appLifecycleClient);
     ctx->setContextProperty("AppLifecycleManager", appLifecycleClient);
@@ -1239,6 +1238,9 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("MediaLibraryManager", mediaLibraryClient);
         qmlRegisterSingletonInstance<MediaLibraryClient>("MarathonOS.Shell", 1, 0,
                                                          "MediaLibraryManager", mediaLibraryClient);
+        qmlRegisterSingletonType<MusicLibraryManager>(
+            "MarathonOS.Shell", 1, 0, "MusicLibraryManager",
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new MusicLibraryManager(); });
     }
 
     // Qt 6.10+ qmlcache compiles singleton lookups into bytecode at app build
@@ -1255,6 +1257,9 @@ int main(int argc, char *argv[]) {
         qmlRegisterSingletonInstance<SettingsClient>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                      settingsClient);
     }
+    // Settings reads are unprivileged; MMotion needs reduceMotion in every app.
+    ctx->setContextProperty("MarathonA11ySettings",
+                            settingsClient ? settingsClient : new SettingsClient(appId, &app));
 
     BluetoothClient *bluetoothClient = nullptr;
     DisplayClient   *displayClient   = nullptr;
@@ -1369,8 +1374,6 @@ int main(int argc, char *argv[]) {
                              logStartupPhase(appId, "first-frame", startupTimer.elapsed());
                          });
     }
-
-    view.show();
 
     AppRunnerLifecycleObject lifecycleObj;
     lifecycleObj.setKeelHost(keelHost.get());
@@ -1489,6 +1492,10 @@ int main(int argc, char *argv[]) {
                                  [&view, rootItem](int) { rootItem->setHeight(view.height()); });
 
                 lifecycleObj.setRoot(rootObj);
+
+                // Map only once the app's content exists: an earlier show() hands
+                // the shell empty frames, which it reveals as a black window.
+                view.show();
             };
 
             if (component->status() == QQmlComponent::Loading) {
