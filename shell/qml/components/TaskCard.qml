@@ -99,7 +99,9 @@ Item {
         // lie OUTSIDE cardRoot's rounded shape — visually making the
         // handle look wider than the card body.
         clip: true
-        scale: closing ? 0.7 : 1
+        readonly property bool pressed: (previewTapArea.pressed || handleTapArea.pressed) && !taskCard.suppressTapOpen
+
+        scale: closing ? 0.7 : (pressed ? 0.97 : 1)
         opacity: closing ? 0 : 1
 
         SequentialAnimation {
@@ -135,7 +137,6 @@ Item {
 
             property real pressX: 0
             property real pressY: 0
-            property real pressTime: 0
 
             anchors.fill: parent
             anchors.bottomMargin: bannerRect.height
@@ -145,14 +146,12 @@ Item {
             onPressed: mouse => {
                 pressX = mouse.x;
                 pressY = mouse.y;
-                pressTime = Date.now();
                 mouse.accepted = true;
             }
             onReleased: mouse => {
-                var deltaTime = Date.now() - pressTime;
                 var deltaX = Math.abs(mouse.x - pressX);
                 var deltaY = Math.abs(mouse.y - pressY);
-                if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                if (!taskCard.suppressTapOpen && deltaX < 15 && deltaY < 15) {
                     mouse.accepted = true;
                     Logger.info("TaskCard", "TAP on preview - Opening: " + taskCard.appId);
                     var appId = taskCard.appId;
@@ -174,10 +173,11 @@ Item {
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
+            z: 3
             radius: cardRoot.radius - 1
             color: "transparent"
             border.width: 1
-            border.color: Theme.rgba(Theme.primaryColor, 0.1)
+            border.color: cardRoot.pressed ? Theme.highlightColor : Theme.rgba(Theme.primaryColor, 0.1)
         }
 
         Item {
@@ -471,8 +471,7 @@ Item {
 
                 property real pressX: 0
                 property real pressY: 0
-                property real pressTime: 0
-
+    
                 anchors.fill: parent
                 z: 50
                 preventStealing: false
@@ -492,14 +491,12 @@ Item {
                     }
                     pressX = mouse.x;
                     pressY = mouse.y;
-                    pressTime = Date.now();
-                    mouse.accepted = true;
+                        mouse.accepted = true;
                 }
                 onReleased: mouse => {
-                    var deltaTime = Date.now() - pressTime;
                     var deltaX = Math.abs(mouse.x - pressX);
                     var deltaY = Math.abs(mouse.y - pressY);
-                    if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                    if (!taskCard.suppressTapOpen && deltaX < 15 && deltaY < 15) {
                         mouse.accepted = true;
                         Logger.info("TaskCard", "TAP on handle - Opening: " + taskCard.appId);
                         var appId = taskCard.appId;
@@ -603,7 +600,7 @@ Item {
 
         Behavior on scale {
             NumberAnimation {
-                duration: 250
+                duration: cardRoot.closing ? 250 : MMotion.quick
                 easing.type: Easing.OutCubic
             }
         }
