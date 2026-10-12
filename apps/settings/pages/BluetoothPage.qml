@@ -12,6 +12,9 @@ Page {
     // The controller keeps the pairing dialog's state, including PIN requests from the device.
     readonly property bool dialogWanted: SettingsController.bluetoothDialogVisible && !SettingsController.bluetoothDialogPairing
     readonly property var available: Bluetooth.devices.filter(d => !d.paired)
+    // The paired device being connected or disconnected, until BlueZ reports the new state.
+    property string pendingAddress: ""
+    property bool pendingConnect: false
 
     function showDialog() {
         if (dialogWanted && status === PageStatus.Active)
@@ -19,6 +22,9 @@ Page {
     }
 
     function toggleConnection(device) {
+        pendingAddress = device.address;
+        pendingConnect = !device.connected;
+        pendingTimeout.restart();
         if (device.connected)
             Bluetooth.disconnectDevice(device.address);
         else
@@ -44,11 +50,23 @@ Page {
             Bluetooth.stopScan();
     }
 
+    Timer {
+        id: pendingTimeout
+
+        interval: 20000
+        onTriggered: page.pendingAddress = ""
+    }
+
     Connections {
         target: Bluetooth
 
         function onEnabledChanged() {
             page.updateScan();
+        }
+        function onPairedDevicesChanged() {
+            const device = Bluetooth.pairedDevices.find(d => d.address === page.pendingAddress);
+            if (!device || !!device.connected === page.pendingConnect)
+                page.pendingAddress = "";
         }
     }
 
@@ -155,7 +173,10 @@ Page {
                     id: paired
 
                     objectName: "paired-" + modelData.address
-                    subtitle: modelData.connected ? qsTr("Connected") : qsTr("Not connected")
+                    readonly property bool pending: modelData.address === page.pendingAddress
+
+                    enabled: !pending
+                    subtitle: pending ? (page.pendingConnect ? qsTr("Connecting…") : qsTr("Disconnecting…")) : modelData.connected ? qsTr("Connected") : qsTr("Not connected")
                     menu: ContextMenu {
                         MenuItem {
                             text: paired.modelData.connected ? qsTr("Disconnect") : qsTr("Connect")
@@ -184,7 +205,7 @@ Page {
 
                 DeviceItem {
                     objectName: "device-" + modelData.address
-                    subtitle: modelData.rssi ? qsTr("Signal %1 dBm").arg(modelData.rssi) : qsTr("Tap to pair")
+                    subtitle: qsTr("Tap to pair")
                     onClicked: SettingsController.showBluetoothDialog(modelData.name || Logic.deviceName(modelData), modelData.address, modelData.type || "device", "justworks")
                 }
             }

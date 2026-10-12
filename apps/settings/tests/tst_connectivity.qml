@@ -215,6 +215,12 @@ TestCase {
         child(s.page, "paired-AA").clicked(null);
         child(s.page, "paired-BB").clicked(null);
         compare(Bluetooth.calls, [["disconnect", "AA"], ["connect", "BB"]]);
+        compare(child(s.page, "paired-BB").subtitle, "Connecting…");
+        verify(!child(s.page, "paired-BB").enabled);
+        compare(child(s.page, "paired-AA").subtitle, "Connected");
+        Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: true, paired: true }, { name: "Keys", address: "BB", connected: true, paired: true }];
+        compare(child(s.page, "paired-BB").subtitle, "Connected");
+        verify(child(s.page, "paired-BB").enabled);
         verify(child(s.page, "noDevices").visible);
         child(s.page, "scanItem").clicked();
         verify(!Bluetooth.scanning);
