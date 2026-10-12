@@ -216,11 +216,12 @@ void SystemControlStore::toggleCellularData() {
 }
 
 void SystemControlStore::toggleDndMode() {
+    const bool enable = !m_isDndMode;
     if (m_settingsManager) {
-        m_settingsManager->setDndEnabled(!m_isDndMode);
+        m_settingsManager->setDndEnabled(enable);
     }
     if (m_audioPolicyController) {
-        m_audioPolicyController->setDoNotDisturb(!m_isDndMode);
+        m_audioPolicyController->setDoNotDisturb(enable);
     }
 }
 
