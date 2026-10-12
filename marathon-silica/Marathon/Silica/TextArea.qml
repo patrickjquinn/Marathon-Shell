@@ -9,8 +9,4 @@ S.TextArea {
     Accessible.role: Accessible.EditableText
     Accessible.name: label !== "" ? label : placeholderText
     Accessible.description: description
-
-    FocusFrame {
-        showing: root._editor.activeFocus
-    }
 }

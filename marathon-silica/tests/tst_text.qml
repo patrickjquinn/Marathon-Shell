@@ -48,9 +48,11 @@ TestCase {
         compare(f.second.text, "b");
     }
 
-    function test_focusFrameOnField() {
+    // A focused field shows Silica's own cursor and underline, no box.
+    function test_noFocusFrameOnField() {
         const t = createTemporaryObject(labelled, testCase);
         t.forceActiveFocus();
-        verify(findChild(t, "focusFrame").showing);
+        verify(t._editor.activeFocus);
+        compare(findChild(t, "focusFrame"), null);
     }
 }
