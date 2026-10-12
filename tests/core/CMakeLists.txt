@@ -196,3 +196,17 @@ add_executable(test_core_musiclibrary
 target_link_libraries(test_core_musiclibrary Qt6::Test Qt6::Core Qt6::Sql)
 target_include_directories(test_core_musiclibrary PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
 add_test(NAME Core_MusicLibrary COMMAND test_core_musiclibrary)
+
+# Music's MPRIS publisher, on a private session bus
+find_program(DBUS_RUN_SESSION dbus-run-session)
+if(DBUS_RUN_SESSION)
+    find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
+    add_executable(test_core_mprisplayer
+        test_mprisplayer.cpp
+        ../../apps/music/src/MprisPlayer.cpp
+        ../../apps/music/src/MprisPlayer.h
+    )
+    target_link_libraries(test_core_mprisplayer Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+    target_include_directories(test_core_mprisplayer PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
+    add_test(NAME Core_MprisPlayer COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_mprisplayer>)
+endif()

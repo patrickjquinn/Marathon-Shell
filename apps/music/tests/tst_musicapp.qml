@@ -286,6 +286,50 @@ TestCase {
         compare(Lifecycle.held, held);
     }
 
+    function test_mprisFollowsThePlayer() {
+        const app = makeApp();
+        const mpris = app.mpris;
+        verify(!mpris.active);
+        app.player.playTracks(app.tracks, 1);
+        verify(mpris.active);
+        verify(mpris.playing);
+        compare(mpris.title, "Cold");
+        compare(mpris.artist, "Bo");
+        compare(mpris.album, "Ice");
+        compare(mpris.trackId, 2);
+        compare(mpris.length, 61000);
+        verify(mpris.canGoNext);
+        verify(mpris.canGoPrevious);
+        app.player.media.position = 5000;
+        compare(mpris.position, 5000);
+    }
+
+    function test_mprisControlsThePlayer() {
+        const app = makeApp();
+        const mpris = app.mpris;
+        app.player.playTracks(app.tracks, 0);
+        mpris.pauseRequested();
+        verify(!app.player.playing);
+        mpris.pauseRequested();
+        verify(!app.player.playing);
+        mpris.playRequested();
+        verify(app.player.playing);
+        mpris.playPauseRequested();
+        verify(!app.player.playing);
+        mpris.nextRequested();
+        compare(app.player.currentTrack.title, "Cold");
+        mpris.previousRequested();
+        compare(app.player.currentTrack.title, "Blue");
+        mpris.seekRequested(12000);
+        compare(app.player.media.position, 12000);
+        mpris.shuffleRequested(true);
+        verify(app.player.shuffle);
+        mpris.repeatModeRequested("one");
+        compare(app.player.repeatMode, "one");
+        mpris.stopRequested();
+        verify(!app.player.playing);
+    }
+
     function test_corruptPlaylistsStartEmpty() {
         const app = makeApp();
         app.playlistStore.value = "{bad";

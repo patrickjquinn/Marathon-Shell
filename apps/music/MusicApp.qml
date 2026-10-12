@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Shell
 import Marathon.Platform 1.0
+import MarathonApp.Music 1.0
 import Nemo.Configuration 1.0
 import "Library.js" as Library
 import "Playlists.js" as Playlists
@@ -61,6 +62,40 @@ ApplicationWindow {
     property Player player: Player {
         onFailed: track => Notices.show(qsTr("Can't play “%1”. The file may be missing or in an unsupported format.")
                                         .arg(track ? track.title : ""))
+    }
+
+    property MprisPlayer mpris: MprisPlayer {
+        readonly property var track: app.player.currentTrack
+
+        active: track !== null
+        playing: app.player.playing
+        shuffle: app.player.shuffle
+        repeatMode: app.player.repeatMode
+        canGoNext: app.player.queue.length > 1
+        canGoPrevious: app.player.queue.length > 1
+        trackId: track ? track.id : -1
+        title: track ? track.title : ""
+        artist: track ? track.artist : ""
+        album: track ? track.album : ""
+        length: app.player.duration
+        position: app.player.position
+
+        onRaiseRequested: app.activate()
+        onPlayRequested: {
+            if (!app.player.playing)
+                app.player.toggle();
+        }
+        onPauseRequested: {
+            if (app.player.playing)
+                app.player.toggle();
+        }
+        onPlayPauseRequested: app.player.toggle()
+        onStopRequested: app.player.media.stop()
+        onNextRequested: app.player.next()
+        onPreviousRequested: app.player.previous()
+        onSeekRequested: position => app.player.seek(position)
+        onShuffleRequested: shuffle => app.player.shuffle = shuffle
+        onRepeatModeRequested: mode => app.player.repeatMode = mode
     }
 
     readonly property bool playerPageActive: pageStack.currentPage !== null && pageStack.currentPage.objectName === "playerPage"
