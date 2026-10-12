@@ -1,20 +1,16 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Store
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Modals
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../components"
 
 // One app: header, key facts, screenshots, what's new, description,
 // ratings and reviews, permissions, information.
-Rectangle {
-    id: page
+Page {
+    id: root
 
-    required property var store
-    required property string appId
+    property var store
+    property string appId
     // The list entry the user tapped, shown until the full record lands.
     property var summaryApp: null
     property var fullApp: null
@@ -28,322 +24,288 @@ Rectangle {
     readonly property var latestRelease: (app.releases && app.releases.length > 0) ? app.releases[0] : null
     readonly property var permissions: summary && summary.metadata ? store.describePermissions(summary.metadata.permissions) : []
     readonly property bool installed: store.isInstalled(appId)
+    readonly property var job: store.jobFor(appId)
 
-    function dismissOverlay() {
-        if (!confirm.showing)
-            return false;
-        confirm.hide();
-        return true;
+    function uninstall() {
+        remorse.execute(qsTr("Uninstalled %1").arg(app.name || appId), function () {
+            root.store.uninstallApp(root.appId);
+        });
     }
 
-    color: MColors.background
     Component.onCompleted: {
         store.ensureRating(appId);
         store.loadAppstream(appId, function (full) {
-            page.fullApp = full;
+            root.fullApp = full;
         });
         store.loadSummary(appId, function (s) {
-            page.summary = s;
+            root.summary = s;
         });
         store.loadReviews(appId, function (list) {
-            page.reviews = list;
+            root.reviews = list;
         });
     }
 
-    MTopBar {
-        id: bar
-        width: parent.width
-        minimized: true
-        showBack: true
-        // The name moves into the bar once the header has scrolled away.
-        title: flick.contentY > header.height ? (page.app.name || "") : ""
-        onBackClicked: page.store.goBack()
-        z: 2
+    RemorsePopup {
+        id: remorse
     }
 
-    Flickable {
+    SilicaFlickable {
         id: flick
-        anchors.top: bar.bottom
-        anchors.bottom: parent.bottom
-        width: parent.width
-        contentHeight: body.height + MSpacing.xxl
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
+
+        objectName: "detailView"
+        anchors.fill: parent
+        contentHeight: body.height + Theme.paddingLarge
+
+        PullDownMenu {
+            visible: root.installed
+            MenuItem {
+                objectName: "uninstallItem"
+                text: qsTr("Uninstall")
+                onClicked: root.uninstall()
+            }
+            MenuItem {
+                text: qsTr("Open")
+                onClicked: root.store.openApp(root.appId)
+            }
+        }
 
         Column {
             id: body
-            width: flick.width
-            spacing: MSpacing.lg
+
+            width: parent.width
+            spacing: Theme.paddingMedium
+
+            PageHeader {
+                title: root.app.name || root.appId
+            }
 
             // ── Header ────────────────────────────────────
             Item {
-                id: header
-                width: parent.width
-                height: headerRow.height + MSpacing.lg
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                height: Math.max(bigIcon.height, headerText.height)
 
-                Row {
-                    id: headerRow
-                    x: MSpacing.md
-                    y: MSpacing.md
-                    width: parent.width - MSpacing.md * 2
-                    spacing: page.store.dp(16)
+                AppIcon {
+                    id: bigIcon
+                    width: Theme.iconSizeExtraLarge
+                    height: width
+                    source: root.store.iconFor(root.app)
+                }
+                Column {
+                    id: headerText
+                    anchors.left: bigIcon.right
+                    anchors.leftMargin: Theme.paddingLarge
+                    anchors.right: parent.right
+                    anchors.verticalCenter: bigIcon.verticalCenter
+                    spacing: Theme.paddingSmall
 
-                    AppIcon {
-                        id: bigIcon
-                        width: page.store.dp(96)
-                        height: width
-                        source: page.store.iconFor(page.app)
+                    Row {
+                        width: parent.width
+                        spacing: Theme.paddingSmall
+
+                        Label {
+                            id: developer
+                            width: Math.min(implicitWidth, parent.width - (verified.visible ? verified.width + parent.spacing : 0))
+                            text: root.app.developer_name || ""
+                            color: Theme.highlightColor
+                            truncationMode: TruncationMode.Fade
+                        }
+                        Icon {
+                            id: verified
+                            anchors.verticalCenter: developer.verticalCenter
+                            width: Theme.iconSizeSmall
+                            height: width
+                            visible: root.store.isVerified(root.app)
+                            source: "image://theme/icon-s-verified"
+                            color: Theme.highlightColor
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: qsTr("Verified developer")
+                        }
                     }
-
-                    Column {
-                        width: parent.width - bigIcon.width - parent.spacing
-                        spacing: page.store.dp(3)
-
-                        Text {
-                            width: parent.width
-                            text: page.app.name || page.appId
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeTitle2
-                            font.weight: Font.Medium
-                            font.letterSpacing: MTypography.trackingTitle2
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                        }
-                        Row {
-                            spacing: page.store.dp(4)
-                            width: parent.width
-                            Text {
-                                id: developer
-                                width: Math.min(implicitWidth, parent.width - (verified.visible ? verified.width + parent.spacing : 0))
-                                text: page.app.developer_name || ""
-                                color: MColors.textSecondary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeFootnote
-                                elide: Text.ElideRight
-                            }
-                            Icon {
-                                id: verified
-                                anchors.verticalCenter: developer.verticalCenter
-                                visible: page.store.isVerified(page.app)
-                                name: "seal-check"
-                                size: page.store.dp(15)
-                                color: MColors.marathonTealBright
-                            }
-                        }
-                        Item {
-                            width: 1
-                            height: page.store.dp(8)
-                        }
-                        GetButton {
-                            store: page.store
-                            appId: page.appId
-                            large: true
-                        }
-                        Text {
-                            readonly property var job: page.store.jobFor(page.appId)
-                            width: parent.width
-                            topPadding: page.store.dp(6)
-                            visible: job !== null && job.state === "failed"
-                            text: "Couldn't " + (job && job.state === "failed" && page.installed ? "update" : "install") + ". " + page.store.jobError(job)
-                            color: MColors.error
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 3
-                            elide: Text.ElideRight
-                        }
+                    Label {
+                        width: parent.width
+                        text: root.store.categoryLabel(root.app) || ""
+                        color: Theme.secondaryHighlightColor
+                        font.pixelSize: Theme.fontSizeSmall
+                        truncationMode: TruncationMode.Fade
+                    }
+                    StarRating {
+                        visible: root.rating !== null
+                        value: root.rating ? root.rating.average : 0
+                        color: Theme.highlightColor
                     }
                 }
             }
 
+            GetButton {
+                objectName: "detailAction"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                store: root.store
+                appId: root.appId
+                large: true
+            }
+            Label {
+                objectName: "jobError"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: root.job !== null && root.job.state === "failed"
+                text: (root.installed ? qsTr("Couldn't update. %1") : qsTr("Couldn't install. %1")).arg(root.store.jobError(root.job))
+                color: Theme.errorColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+                maximumLineCount: 3
+                elide: Text.ElideRight
+            }
+
             // Flathub flags apps whose metadata promises a phone layout.
-            Rectangle {
-                x: MSpacing.md
-                width: parent.width - MSpacing.md * 2
-                height: warnText.implicitHeight + page.store.dp(20)
-                radius: MRadius.lg
-                visible: page.fullApp !== null && page.fullApp.isMobileFriendly === false
-                color: MColors.elev2
-                border.width: 1
-                border.color: Qt.rgba(MColors.warning.r, MColors.warning.g, MColors.warning.b, 0.35)
+            Item {
+                objectName: "desktopWarning"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                height: Math.max(warnIcon.height, warnText.height)
+                visible: root.fullApp !== null && root.fullApp.isMobileFriendly === false
 
                 Icon {
                     id: warnIcon
-                    x: page.store.dp(12)
                     anchors.verticalCenter: parent.verticalCenter
-                    name: "desktop"
-                    size: page.store.dp(20)
-                    color: MColors.warning
+                    source: "image://theme/icon-m-computer"
+                    color: Theme.highlightColor
                 }
-                Text {
+                Label {
                     id: warnText
                     anchors.left: warnIcon.right
-                    anchors.leftMargin: page.store.dp(10)
+                    anchors.leftMargin: Theme.paddingMedium
                     anchors.right: parent.right
-                    anchors.rightMargin: page.store.dp(12)
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Designed for desktop. It may not fit a phone screen or work well by touch."
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeFootnote
-                    wrapMode: Text.WordWrap
+                    text: qsTr("Designed for desktop. It may not fit a phone screen or work well by touch.")
+                    color: Theme.highlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.Wrap
                 }
             }
 
             // ── Key facts ─────────────────────────────────
             Row {
                 id: facts
-                x: MSpacing.md
-                width: parent.width - MSpacing.md * 2
-                height: page.store.dp(64)
 
                 readonly property var cells: [
                     {
-                        "top": page.rating ? page.rating.average.toFixed(1) : "–",
-                        "bottom": page.rating ? page.store.formatCount(page.rating.total) + " ratings" : "No ratings",
-                        "stars": page.rating !== null
+                        "top": root.rating ? root.rating.average.toFixed(1) : "–",
+                        "bottom": root.rating ? qsTr("%1 ratings").arg(root.store.formatCount(root.rating.total)) : qsTr("No ratings")
                     },
                     {
-                        "top": page.summary ? page.store.formatSize(page.summary.download_size) : "–",
-                        "bottom": "Download"
+                        "top": root.summary ? root.store.formatSize(root.summary.download_size) : "–",
+                        "bottom": qsTr("Download")
                     },
                     {
-                        "top": page.store.categoryLabel(page.app),
-                        "bottom": "Category"
-                    },
-                    {
-                        "top": page.store.formatCount(page.store.installsFor(page.app)),
-                        "bottom": "Installs"
+                        "top": root.store.formatCount(root.store.installsFor(root.app)),
+                        "bottom": qsTr("Installs")
                     }
                 ]
 
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+
                 Repeater {
                     model: facts.cells
-                    delegate: Item {
+                    delegate: Column {
                         id: cell
-                        required property var modelData
-                        required property int index
-                        width: facts.width / 4
-                        height: facts.height
 
-                        Rectangle {
-                            visible: cell.index > 0
-                            width: 1
-                            height: parent.height * 0.6
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: MColors.whiteOverlay08
+                        required property var modelData
+
+                        width: facts.width / facts.cells.length
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: modelData.top + " " + modelData.bottom
+
+                        Label {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            text: cell.modelData.top
+                            color: Theme.highlightColor
+                            font.pixelSize: Theme.fontSizeMedium
+                            truncationMode: TruncationMode.Fade
                         }
-                        Column {
-                            anchors.centerIn: parent
-                            width: parent.width - page.store.dp(8)
-                            spacing: page.store.dp(3)
-                            Text {
-                                width: parent.width
-                                horizontalAlignment: Text.AlignHCenter
-                                text: cell.modelData.top
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeHeadline
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            StarRating {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                visible: cell.modelData.stars === true
-                                value: page.rating ? page.rating.average : 0
-                                starSize: page.store.dp(9)
-                            }
-                            Text {
-                                width: parent.width
-                                horizontalAlignment: Text.AlignHCenter
-                                text: cell.modelData.bottom
-                                color: MColors.textTertiary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeCaption
-                                elide: Text.ElideRight
-                            }
+                        Label {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            text: cell.modelData.bottom
+                            color: Theme.secondaryHighlightColor
+                            font.pixelSize: Theme.fontSizeExtraSmall
+                            truncationMode: TruncationMode.Fade
                         }
                     }
                 }
             }
 
             // ── Screenshots ───────────────────────────────
-            ListView {
+            SilicaListView {
                 id: shots
+
                 // Phone screenshots get a tall strip; desktop ones are
                 // landscape, so the strip shrinks to their shape instead of
                 // letterboxing them in a portrait frame.
-                readonly property var first: page.screenshots.length > 0 ? page.store.pickScreenshot(page.screenshots[0], 400) : null
+                readonly property var first: root.screenshots.length > 0 ? root.store.pickScreenshot(root.screenshots[0], 400) : null
                 readonly property real aspect: first ? first.width / first.height : 0.6
+
+                objectName: "screenshotStrip"
                 width: parent.width
-                height: aspect > 1 ? Math.round(page.width * 0.86 / aspect) : page.store.dp(380)
-                visible: page.screenshots.length > 0
+                height: aspect > 1 ? Math.round(root.width * 0.86 / aspect) : Math.round(root.height * 0.45)
+                visible: root.screenshots.length > 0
                 orientation: ListView.Horizontal
-                spacing: MSpacing.sm
-                leftMargin: MSpacing.md
-                rightMargin: MSpacing.md
+                spacing: Theme.paddingMedium
+                leftMargin: Theme.horizontalPageMargin
+                rightMargin: Theme.horizontalPageMargin
                 clip: true
-                model: page.screenshots
-                delegate: Rectangle {
+                model: root.screenshots
+                delegate: BackgroundItem {
                     id: shot
+
                     required property var modelData
                     required property int index
-                    readonly property var pick: page.store.pickScreenshot(modelData, shots.height)
+                    readonly property var pick: root.store.pickScreenshot(modelData, shots.height)
 
                     height: shots.height
-                    width: pick ? Math.min(height * pick.width / pick.height, page.width * 0.86) : height * 0.6
-                    radius: MRadius.lg
-                    color: MColors.elev2
-                    clip: true
+                    width: pick ? Math.min(height * pick.width / pick.height, root.width * 0.86) : height * 0.6
+                    Accessible.name: qsTr("Screenshot %1 of %2").arg(index + 1).arg(root.screenshots.length)
+                    onClicked: root.store.openScreenshots(root.screenshots, index)
 
                     Image {
                         anchors.fill: parent
-                        source: shot.pick ? page.store.safeImageUrl(shot.pick.src) : ""
+                        source: shot.pick ? root.store.safeImageUrl(shot.pick.src) : ""
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         smooth: true
                         mipmap: true
                     }
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        color: "transparent"
-                        border.width: 1
-                        border.color: MColors.whiteOverlay08
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: page.store.openScreenshots(page.screenshots, shot.index)
-                    }
-                    Accessible.role: Accessible.Button
-                    Accessible.name: "Screenshot " + (shot.index + 1) + " of " + page.screenshots.length
-                    Accessible.onPressAction: page.store.openScreenshots(page.screenshots, shot.index)
                 }
+
+                HorizontalScrollDecorator {}
             }
 
             // ── What's new ────────────────────────────────
             Column {
                 width: parent.width
-                spacing: page.store.dp(6)
-                visible: page.latestRelease !== null
+                visible: root.latestRelease !== null
 
                 SectionHeader {
-                    width: parent.width
-                    title: "What's new"
-                    subtitle: page.latestRelease ? page.store.releaseLine(page.latestRelease) : ""
+                    text: qsTr("What's new")
                 }
-                Text {
-                    x: MSpacing.md
-                    width: parent.width - MSpacing.md * 2
-                    text: page.latestRelease && page.latestRelease.description ? page.store.cleanMarkup(page.latestRelease.description) : "No release notes for this version."
+                Label {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    text: root.latestRelease ? root.store.releaseLine(root.latestRelease) : ""
+                    color: Theme.secondaryHighlightColor
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                }
+                Label {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    text: root.latestRelease && root.latestRelease.description ? root.store.cleanMarkup(root.latestRelease.description) : qsTr("No release notes for this version.")
                     textFormat: Text.StyledText
-                    color: MColors.textSecondary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeSubhead
-                    lineHeight: 1.3
-                    wrapMode: Text.WordWrap
+                    color: Theme.highlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.Wrap
                     maximumLineCount: 6
                     elide: Text.ElideRight
                 }
@@ -352,51 +314,47 @@ Rectangle {
             // ── About ─────────────────────────────────────
             Column {
                 width: parent.width
-                spacing: page.store.dp(6)
 
                 SectionHeader {
-                    width: parent.width
-                    title: "About"
+                    text: qsTr("About")
                 }
-                Text {
-                    x: MSpacing.md
-                    width: parent.width - MSpacing.md * 2
-                    text: page.app.summary || ""
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeHeadline
-                    font.weight: Font.Medium
-                    wrapMode: Text.WordWrap
+                Label {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    text: root.app.summary || ""
+                    color: Theme.highlightColor
+                    wrapMode: Text.Wrap
                 }
-                Text {
+                Label {
                     id: description
-                    x: MSpacing.md
-                    width: parent.width - MSpacing.md * 2
-                    text: page.app.description ? page.store.cleanMarkup(page.app.description) : ""
+                    objectName: "description"
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    topPadding: Theme.paddingSmall
+                    text: root.app.description ? root.store.cleanMarkup(root.app.description) : ""
                     textFormat: Text.StyledText
-                    color: MColors.textSecondary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeSubhead
-                    lineHeight: 1.3
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: page.descriptionExpanded ? 1000 : 6
+                    color: Theme.secondaryHighlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.Wrap
+                    maximumLineCount: root.descriptionExpanded ? 1000 : 6
                     elide: Text.ElideRight
                 }
-                Text {
-                    x: MSpacing.md
-                    visible: description.truncated || page.descriptionExpanded
-                    text: page.descriptionExpanded ? "Less" : "More"
-                    color: MColors.marathonTealBright
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.weight: Font.Medium
-                    Accessible.role: Accessible.Button
-                    Accessible.name: page.descriptionExpanded ? "Show less" : "Show more"
-                    Accessible.onPressAction: page.descriptionExpanded = !page.descriptionExpanded
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -MSpacing.md
-                        onClicked: page.descriptionExpanded = !page.descriptionExpanded
+                BackgroundItem {
+                    objectName: "moreItem"
+                    width: parent.width
+                    height: Theme.itemSizeSmall
+                    visible: description.truncated || root.descriptionExpanded
+                    Accessible.name: moreLabel.text
+                    onClicked: root.descriptionExpanded = !root.descriptionExpanded
+
+                    Label {
+                        id: moreLabel
+                        anchors.right: parent.right
+                        anchors.rightMargin: Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.descriptionExpanded ? qsTr("Show less") : qsTr("Show more")
+                        color: parent.highlighted ? Theme.highlightColor : Theme.primaryColor
+                        font.pixelSize: Theme.fontSizeSmall
                     }
                 }
             }
@@ -404,75 +362,82 @@ Rectangle {
             // ── Ratings & reviews ─────────────────────────
             Column {
                 width: parent.width
-                spacing: page.store.dp(12)
-                visible: page.rating !== null
+                spacing: Theme.paddingMedium
+                visible: root.rating !== null
 
                 SectionHeader {
-                    width: parent.width
-                    title: "Ratings & reviews"
+                    text: qsTr("Ratings & reviews")
                 }
 
-                Row {
-                    x: MSpacing.md
-                    width: parent.width - MSpacing.md * 2
-                    spacing: MSpacing.lg
+                Item {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    height: Math.max(score.height, histogram.height)
 
                     Column {
-                        id: scoreColumn
-                        width: page.store.dp(96)
-                        Text {
+                        id: score
+                        width: Theme.itemSizeHuge
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: root.rating ? qsTr("%1 out of 5, %2 ratings").arg(root.rating.average.toFixed(1)).arg(root.rating.total) : ""
+
+                        Label {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: page.rating ? page.rating.average.toFixed(1) : ""
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeTitleL
-                            font.weight: Font.Light
+                            text: root.rating ? root.rating.average.toFixed(1) : ""
+                            color: Theme.highlightColor
+                            font.pixelSize: Theme.fontSizeHuge
                         }
                         StarRating {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            value: page.rating ? page.rating.average : 0
-                            starSize: page.store.dp(12)
-                            color: MColors.textPrimary
+                            value: root.rating ? root.rating.average : 0
+                            color: Theme.highlightColor
                         }
-                        Text {
+                        Label {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            topPadding: page.store.dp(4)
-                            text: page.rating ? page.store.formatCount(page.rating.total) + " ratings" : ""
-                            color: MColors.textTertiary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeCaption
+                            topPadding: Theme.paddingSmall
+                            text: root.rating ? qsTr("%1 ratings").arg(root.store.formatCount(root.rating.total)) : ""
+                            color: Theme.secondaryHighlightColor
+                            font.pixelSize: Theme.fontSizeExtraSmall
                         }
                     }
 
                     Column {
-                        anchors.verticalCenter: scoreColumn.verticalCenter
-                        width: parent.width - scoreColumn.width - parent.spacing
-                        spacing: page.store.dp(4)
+                        id: histogram
+                        anchors.left: score.right
+                        anchors.leftMargin: Theme.paddingLarge
+                        anchors.right: parent.right
+                        anchors.verticalCenter: score.verticalCenter
+                        spacing: Theme.paddingSmall
+
                         Repeater {
                             model: [5, 4, 3, 2, 1]
-                            delegate: Row {
+                            delegate: Item {
                                 id: histRow
+
                                 required property int modelData
-                                width: parent.width
-                                spacing: page.store.dp(8)
-                                Text {
-                                    width: page.store.dp(10)
+
+                                width: histogram.width
+                                height: starCount.height
+
+                                Label {
+                                    id: starCount
+                                    width: Theme.paddingLarge
                                     text: histRow.modelData
-                                    color: MColors.textTertiary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeCaption
+                                    color: Theme.secondaryHighlightColor
+                                    font.pixelSize: Theme.fontSizeTiny
                                 }
                                 Rectangle {
+                                    anchors.left: starCount.right
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - page.store.dp(18)
-                                    height: page.store.dp(5)
+                                    height: Theme.paddingSmall
                                     radius: height / 2
-                                    color: MColors.whiteOverlay08
+                                    color: Theme.rgba(Theme.highlightColor, Theme.opacityFaint)
+
                                     Rectangle {
-                                        width: page.rating && page.rating.total > 0 ? parent.width * page.rating.counts[histRow.modelData] / page.rating.total : 0
+                                        width: root.rating && root.rating.total > 0 ? parent.width * root.rating.counts[histRow.modelData] / root.rating.total : 0
                                         height: parent.height
                                         radius: parent.radius
-                                        color: MColors.textSecondary
+                                        color: Theme.highlightColor
                                     }
                                 }
                             }
@@ -481,61 +446,46 @@ Rectangle {
                 }
 
                 Repeater {
-                    model: page.reviews
-                    delegate: Rectangle {
-                        id: card
-                        required property var modelData
-                        x: MSpacing.md
-                        width: page.width - MSpacing.md * 2
-                        height: reviewBody.height + page.store.dp(28)
-                        radius: MRadius.lg
-                        color: MColors.elev2
-                        border.width: 1
-                        border.color: MColors.whiteOverlay06
+                    model: root.reviews
+                    delegate: Column {
+                        id: review
 
-                        Column {
-                            id: reviewBody
-                            x: page.store.dp(14)
-                            y: page.store.dp(14)
-                            width: parent.width - page.store.dp(28)
-                            spacing: page.store.dp(4)
-                            Text {
-                                width: parent.width
-                                text: card.modelData.summary || ""
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeSubhead
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
+                        required property var modelData
+
+                        x: Theme.horizontalPageMargin
+                        width: root.width - 2 * Theme.horizontalPageMargin
+                        bottomPadding: Theme.paddingMedium
+
+                        Label {
+                            width: parent.width
+                            text: review.modelData.summary || ""
+                            color: Theme.highlightColor
+                            truncationMode: TruncationMode.Fade
+                        }
+                        Row {
+                            spacing: Theme.paddingSmall
+
+                            StarRating {
+                                anchors.verticalCenter: parent.verticalCenter
+                                value: (review.modelData.rating || 0) / 20
+                                color: Theme.highlightColor
                             }
-                            Row {
-                                spacing: page.store.dp(8)
-                                StarRating {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    value: (card.modelData.rating || 0) / 20
-                                    starSize: page.store.dp(10)
-                                    color: MColors.textPrimary
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: page.store.reviewByline(card.modelData)
-                                    color: MColors.textTertiary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeCaption
-                                }
+                            Label {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: root.store.reviewByline(review.modelData)
+                                color: Theme.secondaryHighlightColor
+                                font.pixelSize: Theme.fontSizeExtraSmall
                             }
-                            Text {
-                                width: parent.width
-                                topPadding: page.store.dp(4)
-                                text: card.modelData.description || ""
-                                color: MColors.textSecondary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeFootnote
-                                lineHeight: 1.25
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 5
-                                elide: Text.ElideRight
-                            }
+                        }
+                        Label {
+                            width: parent.width
+                            topPadding: Theme.paddingSmall
+                            text: review.modelData.description || ""
+                            color: Theme.secondaryHighlightColor
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 5
+                            elide: Text.ElideRight
                         }
                     }
                 }
@@ -546,45 +496,58 @@ Rectangle {
             // Flathub has to a privacy label.
             Column {
                 width: parent.width
-                spacing: page.store.dp(8)
-                visible: page.summary !== null
+                spacing: Theme.paddingMedium
+                visible: root.summary !== null
 
                 SectionHeader {
-                    width: parent.width
-                    title: "Permissions"
-                    subtitle: page.permissions.length === 0 ? "No special access: runs fully sandboxed" : "What this app can reach outside its sandbox"
+                    text: qsTr("Permissions")
+                }
+                Label {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    text: root.permissions.length === 0 ? qsTr("No special access: runs fully sandboxed") : qsTr("What this app can reach outside its sandbox")
+                    color: Theme.secondaryHighlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.Wrap
                 }
                 Repeater {
-                    model: page.permissions
-                    delegate: Row {
+                    objectName: "permissionRows"
+                    model: root.permissions
+                    delegate: Item {
                         id: perm
+
                         required property var modelData
-                        x: MSpacing.md
-                        width: page.width - MSpacing.md * 2
-                        spacing: page.store.dp(12)
+
+                        x: Theme.horizontalPageMargin
+                        width: root.width - 2 * Theme.horizontalPageMargin
+                        height: Math.max(permIcon.height, permText.height)
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: modelData.label + ": " + modelData.detail
+
                         Icon {
+                            id: permIcon
                             anchors.verticalCenter: parent.verticalCenter
-                            name: perm.modelData.icon
-                            size: page.store.dp(20)
-                            color: perm.modelData.risky ? MColors.warning : MColors.textSecondary
+                            source: "image://theme/icon-m-" + perm.modelData.icon
+                            color: perm.modelData.risky ? Theme.errorColor : Theme.highlightColor
                         }
                         Column {
+                            id: permText
+                            anchors.left: permIcon.right
+                            anchors.leftMargin: Theme.paddingMedium
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - page.store.dp(32)
-                            Text {
+
+                            Label {
                                 width: parent.width
                                 text: perm.modelData.label
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeSubhead
+                                color: perm.modelData.risky ? Theme.errorColor : Theme.highlightColor
                             }
-                            Text {
+                            Label {
                                 width: parent.width
                                 text: perm.modelData.detail
-                                color: MColors.textTertiary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeCaption
-                                wrapMode: Text.WordWrap
+                                color: Theme.secondaryHighlightColor
+                                font.pixelSize: Theme.fontSizeExtraSmall
+                                wrapMode: Text.Wrap
                             }
                         }
                     }
@@ -594,75 +557,38 @@ Rectangle {
             // ── Information ───────────────────────────────
             Column {
                 width: parent.width
-                spacing: page.store.dp(2)
 
                 SectionHeader {
-                    width: parent.width
-                    title: "Information"
+                    text: qsTr("Information")
                 }
                 Repeater {
-                    model: page.store.infoRows(page.app, page.summary)
+                    model: root.store.infoRows(root.app, root.summary)
                     delegate: Item {
                         id: info
+
                         required property var modelData
-                        x: MSpacing.md
-                        width: page.width - MSpacing.md * 2
-                        height: page.store.dp(44)
-                        Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: info.modelData.label
-                            color: MColors.textTertiary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeSubhead
-                        }
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width * 0.6
-                            horizontalAlignment: Text.AlignRight
-                            text: info.modelData.value
-                            color: info.modelData.url ? MColors.marathonTealBright : MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeSubhead
-                            elide: Text.ElideMiddle
-                        }
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 1
-                            color: MColors.whiteOverlay04
-                        }
-                        MouseArea {
+                        readonly property bool isLink: modelData.url !== undefined
+
+                        width: root.width
+                        height: detail.height
+
+                        BackgroundItem {
                             anchors.fill: parent
-                            enabled: info.modelData.url !== undefined
+                            visible: info.isLink
+                            Accessible.role: Accessible.Link
+                            Accessible.name: info.modelData.label + ": " + info.modelData.value
                             onClicked: Qt.openUrlExternally(info.modelData.url)
                         }
-                        Accessible.role: info.modelData.url !== undefined ? Accessible.Link : Accessible.StaticText
-                        Accessible.name: info.modelData.label + ": " + info.modelData.value
-                        Accessible.onPressAction: if (info.modelData.url !== undefined)
-                            Qt.openUrlExternally(info.modelData.url)
+                        DetailItem {
+                            id: detail
+                            label: info.modelData.label
+                            value: info.modelData.value
+                        }
                     }
                 }
             }
-
-            MButton {
-                x: MSpacing.md
-                visible: page.installed
-                text: "Uninstall"
-                variant: "secondary"
-                textColor: MColors.error
-                onClicked: confirm.show()
-            }
         }
-    }
 
-    MConfirmDialog {
-        id: confirm
-        title: "Uninstall " + (page.app.name || page.appId) + "?"
-        message: "The app and its data in the sandbox will be removed."
-        confirmText: "Uninstall"
-        destructive: true
-        onConfirmed: page.store.uninstallApp(page.appId)
+        VerticalScrollDecorator {}
     }
 }

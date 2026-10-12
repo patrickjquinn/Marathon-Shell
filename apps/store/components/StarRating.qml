@@ -1,14 +1,15 @@
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
-// Five stars filled to `value` (0-5). Phosphor ships outline stars only, so
-// the shape is painted; a fractional value fills the last star partway.
+// Five stars filled to `value` (0-5), painted so a fractional value fills the
+// last star partway.
 Canvas {
-    id: stars
+    id: root
 
     property real value: 0
-    property int starSize: 12
-    property color color: MColors.textSecondary
+    property int starSize: Theme.iconSizeExtraSmall
+    property color color: Theme.secondaryColor
     readonly property int gap: Math.max(1, Math.round(starSize * 0.15))
 
     function starPath(ctx, x) {
@@ -40,7 +41,7 @@ Canvas {
         ctx.fillStyle = color;
         for (let i = 0; i < 5; i++) {
             const x = i * (starSize + gap);
-            ctx.globalAlpha = 0.22;
+            ctx.globalAlpha = Theme.opacityFaint;
             starPath(ctx, x);
             ctx.fill();
             const fill = Math.max(0, Math.min(1, value - i));

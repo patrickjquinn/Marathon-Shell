@@ -1,78 +1,72 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Store
-import MarathonUI.Core
-import MarathonUI.Feedback
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../components"
 
 // A full list of apps behind a title: a category, or a Discover section's
-// "See all". `source` is a Flathub collection path such as
+// "Show all". `source` is a Flathub collection path such as
 // "collection/category/game" or "collection/mobile".
-Rectangle {
-    id: page
+Page {
+    id: root
 
-    required property var store
-    required property string title
-    required property string source
+    property var store
+    property string title
+    property string source
 
     property var apps: []
     property bool loading: true
     property string error: ""
 
     function load() {
-        page.loading = true;
-        page.error = "";
+        root.loading = true;
+        root.error = "";
         store.loadList(source, function (list, err) {
-            page.loading = false;
-            page.error = err || "";
-            page.apps = list;
+            root.loading = false;
+            root.error = err || "";
+            root.apps = list;
         });
     }
 
-    color: MColors.background
     Component.onCompleted: load()
 
-    MTopBar {
-        id: bar
-        width: parent.width
-        title: page.title
-        showBack: true
-        onBackClicked: page.store.goBack()
-    }
+    SilicaListView {
+        id: list
 
-    ListView {
-        anchors.top: bar.bottom
-        anchors.bottom: parent.bottom
-        width: parent.width
-        clip: true
-        model: page.apps
-        bottomMargin: MSpacing.lg
+        objectName: "appList"
+        anchors.fill: parent
+        model: root.apps
+        header: PageHeader {
+            title: root.title
+        }
+
+        PullDownMenu {
+            visible: root.error !== ""
+            MenuItem {
+                objectName: "retryItem"
+                text: qsTr("Try again")
+                onClicked: root.load()
+            }
+        }
+
+        ViewPlaceholder {
+            objectName: "listPlaceholder"
+            enabled: !root.loading && root.apps.length === 0
+            text: root.error !== "" ? qsTr("Couldn't load apps") : qsTr("Nothing here for this phone yet")
+            hintText: root.error !== "" ? qsTr("Check your connection, then pull down to try again") : qsTr("None of the apps in this list are built for this phone's processor.")
+        }
+
         delegate: AppRow {
             required property var modelData
-            required property int index
-            width: ListView.view.width
-            store: page.store
+            width: list.width
+            store: root.store
             app: modelData
-            showDivider: index < page.apps.length - 1
         }
+
+        VerticalScrollDecorator {}
     }
 
-    MActivityIndicator {
-        anchors.centerIn: parent
-        visible: page.loading
-    }
-
-    MEmptyState {
-        anchors.centerIn: parent
-        width: parent.width - MSpacing.xxl
-        visible: !page.loading && page.apps.length === 0
-        iconName: page.error !== "" ? "wifi-slash" : "package"
-        iconSize: page.store.dp(64)
-        title: page.error !== "" ? "Couldn't load apps" : "Nothing here for this phone yet"
-        actionText: page.error !== "" ? "Try again" : ""
-        onActionClicked: page.load()
-        message: page.error !== "" ? "Couldn't reach Flathub. Check your connection and try again." : "None of the apps in this list are built for this phone's processor."
+    PageBusyIndicator {
+        running: root.loading
     }
 }
