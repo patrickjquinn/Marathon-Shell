@@ -1248,7 +1248,7 @@ Item {
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
 
-        // The Hub never outlives a lock or an app coming forward.
+        // The Hub and Quick Settings never outlive a lock or an app launch.
         Connections {
             target: SessionStore
             function onIsLockedChanged() {
@@ -1256,11 +1256,17 @@ Item {
                     peekFlow.closePeek();
             }
         }
+        // Any launch brings an app forward, also over an app already open.
         Connections {
-            target: UIStore
-            function onAppWindowOpenChanged() {
-                if (UIStore.appWindowOpen)
-                    peekFlow.closePeek();
+            target: AppLaunchService
+            function onAppLaunchStarted() {
+                peekFlow.closePeek();
+                UIStore.closeQuickSettings();
+            }
+            // Bringing forward an app that is already running.
+            function onAppLaunchCompleted() {
+                peekFlow.closePeek();
+                UIStore.closeQuickSettings();
             }
         }
         onNotificationTapped: notification => {
