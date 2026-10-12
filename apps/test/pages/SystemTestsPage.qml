@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     property var testApp
 
     Flickable {
@@ -81,9 +83,9 @@ Item {
                                     PowerManagerService.setPowerSaveMode(!PowerManagerService.isPowerSaveMode);
 
                                 Logger.info("TestApp", "Toggled power save mode");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -142,9 +144,9 @@ Item {
                                     NetworkManagerCpp.scanWifi();
 
                                 Logger.info("TestApp", "WiFi scan initiated");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -158,9 +160,9 @@ Item {
                                     NetworkManagerCpp.setAirplaneMode(!NetworkManagerCpp.airplaneModeEnabled);
 
                                 Logger.info("TestApp", "Toggled airplane mode");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -209,9 +211,9 @@ Item {
                                     DisplayManagerCpp.brightness = Math.min(1, DisplayManagerCpp.brightness + 0.1);
 
                                 Logger.info("TestApp", "Increased brightness");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -225,9 +227,9 @@ Item {
                                     DisplayManagerCpp.brightness = Math.max(0, DisplayManagerCpp.brightness - 0.1);
 
                                 Logger.info("TestApp", "Decreased brightness");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -241,9 +243,9 @@ Item {
                                     DisplayPolicyControllerCpp.autoBrightnessEnabled = !DisplayPolicyControllerCpp.autoBrightnessEnabled;
 
                                 Logger.info("TestApp", "Toggled auto-brightness");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -270,9 +272,9 @@ Item {
                                 Logger.info("TestApp", "Display Power: BLANK");
                                 if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
                                     DisplayManagerCpp.setScreenState(false);
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -285,9 +287,9 @@ Item {
                                 Logger.info("TestApp", "Display Power: WAKE");
                                 if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
                                     DisplayManagerCpp.setScreenState(true);
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -300,9 +302,9 @@ Item {
                                 if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
                                     DisplayManagerCpp.brightness = 0.5;
                                 Logger.info("TestApp", "Brightness set to 50%");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -315,9 +317,9 @@ Item {
                                 if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
                                     DisplayManagerCpp.brightness = 1.0;
                                 Logger.info("TestApp", "Brightness set to 100%");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -348,9 +350,9 @@ Item {
                                 HapticService.medium();
                                 ScreenshotService.takeScreenshot();
                                 Logger.info("TestApp", "Screenshot taken");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }

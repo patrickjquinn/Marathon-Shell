@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     property var testApp
     property var alarmService: typeof AlarmService !== "undefined" ? AlarmService : null
     property string lastAlarmId: ""
@@ -52,7 +54,7 @@ Item {
                     }
 
                     MLabel {
-                        text: "Current Alarms: " + (alarmService ? alarmService.alarms.length : 0)
+                        text: "Current Alarms: " + (root.alarmService ? root.alarmService.alarms.length : 0)
                         variant: "secondary"
                     }
 
@@ -64,32 +66,32 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.medium();
-                                if (alarmService && alarmService.triggerAlarmNow) {
-                                    alarmService.triggerAlarmNow("Test Alarm");
+                                if (root.alarmService && root.alarmService.triggerAlarmNow) {
+                                    root.alarmService.triggerAlarmNow("Test Alarm");
                                     Logger.info("TestApp", "Triggered alarm now");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (alarmService && alarmService.createAlarm) {
+                                } else if (root.alarmService && root.alarmService.createAlarm) {
                                     var futureTime = new Date();
                                     futureTime.setMinutes(futureTime.getMinutes() + 1);
-                                    lastAlarmId = alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (auto trigger)", [], {});
-                                    if (lastAlarmId) {
-                                        Logger.info("TestApp", "Created trigger alarm: " + lastAlarmId);
-                                        if (testApp) {
-                                            testApp.passedTests++;
-                                            testApp.totalTests++;
+                                    root.lastAlarmId = root.alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (auto trigger)", [], {});
+                                    if (root.lastAlarmId) {
+                                        Logger.info("TestApp", "Created trigger alarm: " + root.lastAlarmId);
+                                        if (root.testApp) {
+                                            root.testApp.passedTests++;
+                                            root.testApp.totalTests++;
                                         }
-                                    } else if (testApp) {
+                                    } else if (root.testApp) {
                                         Logger.warn("TestApp", "Failed to create trigger alarm");
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AlarmService not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -99,25 +101,25 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                if (alarmService && alarmService.createAlarm) {
+                                if (root.alarmService && root.alarmService.createAlarm) {
                                     var futureTime = new Date();
                                     futureTime.setMinutes(futureTime.getMinutes() + 1);
-                                    var alarmId = alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (+1 min)", [], {});
+                                    var alarmId = root.alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (+1 min)", [], {});
                                     if (alarmId) {
                                         Logger.info("TestApp", "Created alarm: " + alarmId);
-                                        if (testApp) {
-                                            testApp.passedTests++;
-                                            testApp.totalTests++;
+                                        if (root.testApp) {
+                                            root.testApp.passedTests++;
+                                            root.testApp.totalTests++;
                                         }
-                                    } else if (testApp) {
+                                    } else if (root.testApp) {
                                         Logger.warn("TestApp", "Failed to create alarm");
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AlarmService not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -126,13 +128,13 @@ Item {
             }
 
             Connections {
-                target: alarmService
-                enabled: alarmService !== null
+                target: root.alarmService
+                enabled: root.alarmService !== null
                 function onAlarmTriggered(id, label) {
                     Logger.info("TestApp", "Alarm triggered: " + label);
-                    if (testApp) {
-                        testApp.passedTests++;
-                        testApp.totalTests++;
+                    if (root.testApp) {
+                        root.testApp.passedTests++;
+                        root.testApp.totalTests++;
                     }
                 }
             }
@@ -167,15 +169,15 @@ Item {
                                 if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
                                     WakeManager.wake("alarm");
                                     Logger.info("TestApp", "Wake: alarm");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "WakeManager not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -189,15 +191,15 @@ Item {
                                 if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
                                     WakeManager.wake("call");
                                     Logger.info("TestApp", "Wake: call");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "WakeManager not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -211,15 +213,15 @@ Item {
                                 if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
                                     WakeManager.wake("notification");
                                     Logger.info("TestApp", "Wake: notification");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "WakeManager not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -235,15 +237,15 @@ Item {
                                     wakeTime.setMinutes(wakeTime.getMinutes() + 1);
                                     WakeManager.scheduleWake(wakeTime, "test");
                                     Logger.info("TestApp", "Scheduled wake in 1 minute");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "WakeManager.scheduleWake not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }

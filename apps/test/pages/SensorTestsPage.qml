@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     property var testApp
 
     Flickable {
@@ -188,9 +190,9 @@ Item {
                                 HapticService.light();
                                 LocationService.start();
                                 Logger.info("TestApp", "Enabled location service");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -238,9 +240,9 @@ Item {
                                     FlashlightManagerCpp.toggle();
 
                                 Logger.info("TestApp", "Toggled flashlight");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }

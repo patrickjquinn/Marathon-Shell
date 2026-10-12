@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Test
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -65,15 +67,15 @@ MApp {
             switch (testApp.autoStep) {
             case 1:
                 Logger.info("AutoTest", "=== TELEPHONY TESTS (D-Bus IPC) ===");
-                autoTest("TelephonyService available", function () {
+                testApp.autoTest("TelephonyService available", function () {
                     return typeof TelephonyService !== 'undefined';
                 });
-                autoTest("SMSService available", function () {
+                testApp.autoTest("SMSService available", function () {
                     return typeof SMSService !== 'undefined';
                 });
                 break;
             case 2:
-                autoTest("simulateIncomingCall", function () {
+                testApp.autoTest("simulateIncomingCall", function () {
                     if (typeof TelephonyService === 'undefined')
                         return false;
 
@@ -82,7 +84,7 @@ MApp {
                 });
                 break;
             case 3:
-                autoTest("simulateCallStateChange(active)", function () {
+                testApp.autoTest("simulateCallStateChange(active)", function () {
                     if (typeof TelephonyService === 'undefined')
                         return false;
 
@@ -91,14 +93,14 @@ MApp {
                 });
                 break;
             case 4:
-                autoTest("setCallMuted(true) via D-Bus IPC", function () {
+                testApp.autoTest("setCallMuted(true) via D-Bus IPC", function () {
                     if (typeof TelephonyService === 'undefined' || typeof TelephonyService.setCallMuted !== 'function')
                         return false;
 
                     TelephonyService.setCallMuted(true);
                     return true;
                 });
-                autoTest("setSpeakerphone(true) via D-Bus IPC", function () {
+                testApp.autoTest("setSpeakerphone(true) via D-Bus IPC", function () {
                     if (typeof TelephonyService === 'undefined' || typeof TelephonyService.setSpeakerphone !== 'function')
                         return false;
 
@@ -107,7 +109,7 @@ MApp {
                 });
                 break;
             case 5:
-                autoTest("isCallMuted() returns bool", function () {
+                testApp.autoTest("isCallMuted() returns bool", function () {
                     if (typeof TelephonyService === 'undefined' || typeof TelephonyService.isCallMuted !== 'function')
                         return false;
 
@@ -115,7 +117,7 @@ MApp {
                     Logger.info("AutoTest", "  isCallMuted: " + val);
                     return true;
                 });
-                autoTest("isSpeakerphoneOn() returns bool", function () {
+                testApp.autoTest("isSpeakerphoneOn() returns bool", function () {
                     if (typeof TelephonyService === 'undefined' || typeof TelephonyService.isSpeakerphoneOn !== 'function')
                         return false;
 
@@ -125,14 +127,14 @@ MApp {
                 });
                 break;
             case 6:
-                autoTest("simulateCallStateChange(idle)", function () {
+                testApp.autoTest("simulateCallStateChange(idle)", function () {
                     if (typeof TelephonyService === 'undefined')
                         return false;
 
                     TelephonyService.simulateCallStateChange("idle");
                     return true;
                 });
-                autoTest("simulateIncomingSMS", function () {
+                testApp.autoTest("simulateIncomingSMS", function () {
                     if (typeof SMSService === 'undefined' || typeof SMSService.simulateIncomingSMS !== 'function')
                         return false;
 
@@ -142,16 +144,16 @@ MApp {
                 break;
             case 7:
                 Logger.info("AutoTest", "=== NOTIFICATION TESTS ===");
-                autoTest("NotificationService available", function () {
+                testApp.autoTest("NotificationService available", function () {
                     return typeof NotificationService !== 'undefined';
                 });
                 break;
             case 8:
                 Logger.info("AutoTest", "=== ALARM TESTS ===");
-                autoTest("AlarmService available", function () {
+                testApp.autoTest("AlarmService available", function () {
                     return typeof AlarmService !== 'undefined';
                 });
-                autoTest("createAlarm", function () {
+                testApp.autoTest("createAlarm", function () {
                     if (typeof AlarmService === 'undefined' || typeof AlarmService.createAlarm !== 'function')
                         return false;
 
@@ -163,10 +165,10 @@ MApp {
                 break;
             case 9:
                 Logger.info("AutoTest", "=== MEDIA & AUDIO TESTS ===");
-                autoTest("AudioManagerCpp available", function () {
+                testApp.autoTest("AudioManagerCpp available", function () {
                     return typeof AudioManagerCpp !== 'undefined';
                 });
-                autoTest("AudioManagerCpp.volume readable", function () {
+                testApp.autoTest("AudioManagerCpp.volume readable", function () {
                     if (typeof AudioManagerCpp === 'undefined')
                         return false;
 
@@ -174,17 +176,17 @@ MApp {
                     Logger.info("AutoTest", "  Volume: " + Math.round(v * 100) + "%");
                     return v >= 0;
                 });
-                autoTest("HapticService.light()", function () {
+                testApp.autoTest("HapticService.light()", function () {
                     HapticService.light();
                     return true;
                 });
                 break;
             case 10:
                 Logger.info("AutoTest", "=== SYSTEM TESTS ===");
-                autoTest("PowerManagerService available", function () {
+                testApp.autoTest("PowerManagerService available", function () {
                     return typeof PowerManagerService !== 'undefined';
                 });
-                autoTest("PowerManagerService.batteryLevel readable", function () {
+                testApp.autoTest("PowerManagerService.batteryLevel readable", function () {
                     if (typeof PowerManagerService === 'undefined')
                         return false;
 
@@ -192,10 +194,10 @@ MApp {
                     Logger.info("AutoTest", "  Battery: " + level + "%");
                     return level >= 0;
                 });
-                autoTest("NetworkManagerCpp available", function () {
+                testApp.autoTest("NetworkManagerCpp available", function () {
                     return typeof NetworkManagerCpp !== 'undefined';
                 });
-                autoTest("NetworkManagerCpp.wifiConnected readable", function () {
+                testApp.autoTest("NetworkManagerCpp.wifiConnected readable", function () {
                     if (typeof NetworkManagerCpp === 'undefined')
                         return false;
 
@@ -205,10 +207,10 @@ MApp {
                 });
                 break;
             case 11:
-                autoTest("DisplayManagerCpp available", function () {
+                testApp.autoTest("DisplayManagerCpp available", function () {
                     return typeof DisplayManagerCpp !== 'undefined';
                 });
-                autoTest("DisplayManagerCpp.brightness readable", function () {
+                testApp.autoTest("DisplayManagerCpp.brightness readable", function () {
                     if (typeof DisplayManagerCpp === 'undefined')
                         return false;
 
@@ -216,16 +218,16 @@ MApp {
                     Logger.info("AutoTest", "  Brightness: " + Math.round(b * 100) + "%");
                     return b >= 0;
                 });
-                autoTest("BluetoothManagerCpp available", function () {
+                testApp.autoTest("BluetoothManagerCpp available", function () {
                     return typeof BluetoothManagerCpp !== 'undefined';
                 });
                 break;
             case 12:
                 Logger.info("AutoTest", "=== SENSOR TESTS ===");
-                autoTest("SensorService available", function () {
+                testApp.autoTest("SensorService available", function () {
                     return typeof SensorService !== 'undefined';
                 });
-                autoTest("SensorService.ambientLight readable", function () {
+                testApp.autoTest("SensorService.ambientLight readable", function () {
                     if (typeof SensorService === 'undefined')
                         return false;
 
@@ -233,7 +235,7 @@ MApp {
                     Logger.info("AutoTest", "  Ambient light: " + lux + " lux");
                     return lux >= 0;
                 });
-                autoTest("SensorService.proximityNear readable", function () {
+                testApp.autoTest("SensorService.proximityNear readable", function () {
                     if (typeof SensorService === 'undefined')
                         return false;
 
@@ -243,10 +245,10 @@ MApp {
                 });
                 break;
             case 13:
-                autoTest("LocationService available", function () {
+                testApp.autoTest("LocationService available", function () {
                     return typeof LocationService !== 'undefined';
                 });
-                autoTest("LocationService.start()", function () {
+                testApp.autoTest("LocationService.start()", function () {
                     if (typeof LocationService === 'undefined')
                         return false;
 
@@ -255,7 +257,7 @@ MApp {
                 });
                 break;
             case 14:
-                autoTest("LocationService.stop()", function () {
+                testApp.autoTest("LocationService.stop()", function () {
                     if (typeof LocationService === 'undefined')
                         return false;
 
@@ -362,32 +364,34 @@ MApp {
             StackLayout {
                 id: stackLayout
 
+                readonly property var appRef: testApp
+
                 width: parent.width
                 height: testApp.height - 100 - 70
                 currentIndex: tabBar.activeTab
 
                 TelephonyTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
 
                 NotificationTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
 
                 AlarmTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
 
                 MediaTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
 
                 SystemTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
 
                 SensorTestsPage {
-                    testApp: testApp
+                    testApp: stackLayout.appRef
                 }
             }
 

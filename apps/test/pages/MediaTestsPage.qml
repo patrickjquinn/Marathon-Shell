@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     property var testApp
     property var audioManager: typeof AudioManagerCpp !== "undefined" ? AudioManagerCpp : null
 
@@ -51,7 +53,7 @@ Item {
                     }
 
                     MLabel {
-                        text: "Volume: " + (audioManager ? Math.round(audioManager.volume * 100) : 0) + "%"
+                        text: "Volume: " + (root.audioManager ? Math.round(root.audioManager.volume * 100) : 0) + "%"
                         variant: "secondary"
                     }
 
@@ -64,17 +66,17 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.playRingtone) {
-                                    audioManager.playRingtone();
+                                if (root.audioManager && root.audioManager.playRingtone) {
+                                    root.audioManager.playRingtone();
                                     Logger.info("TestApp", "Playing ringtone");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.playRingtone not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -84,17 +86,17 @@ Item {
                             variant: "danger"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.stopRingtone) {
-                                    audioManager.stopRingtone();
+                                if (root.audioManager && root.audioManager.stopRingtone) {
+                                    root.audioManager.stopRingtone();
                                     Logger.info("TestApp", "Stopped ringtone");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.stopRingtone not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -104,17 +106,17 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.playNotificationSound) {
-                                    audioManager.playNotificationSound();
+                                if (root.audioManager && root.audioManager.playNotificationSound) {
+                                    root.audioManager.playNotificationSound();
                                     Logger.info("TestApp", "Played notification sound");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.playNotificationSound not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -124,17 +126,17 @@ Item {
                             variant: "accent"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.playAlarmSound) {
-                                    audioManager.playAlarmSound();
+                                if (root.audioManager && root.audioManager.playAlarmSound) {
+                                    root.audioManager.playAlarmSound();
                                     Logger.info("TestApp", "Playing alarm sound");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.playAlarmSound not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -144,17 +146,17 @@ Item {
                             variant: "danger"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.stopAlarmSound) {
-                                    audioManager.stopAlarmSound();
+                                if (root.audioManager && root.audioManager.stopAlarmSound) {
+                                    root.audioManager.stopAlarmSound();
                                     Logger.info("TestApp", "Stopped alarm sound");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.stopAlarmSound not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -176,7 +178,7 @@ Item {
                     }
 
                     MLabel {
-                        text: "Current: " + (audioManager && audioManager.audioProfile ? audioManager.audioProfile : "unknown")
+                        text: "Current: " + (root.audioManager && root.audioManager.audioProfile ? root.audioManager.audioProfile : "unknown")
                         variant: "secondary"
                     }
 
@@ -189,17 +191,17 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.setAudioProfile) {
-                                    audioManager.setAudioProfile("silent");
+                                if (root.audioManager && root.audioManager.setAudioProfile) {
+                                    root.audioManager.setAudioProfile("silent");
                                     Logger.info("TestApp", "Profile: silent");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.setAudioProfile not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -209,17 +211,17 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.setAudioProfile) {
-                                    audioManager.setAudioProfile("vibrate");
+                                if (root.audioManager && root.audioManager.setAudioProfile) {
+                                    root.audioManager.setAudioProfile("vibrate");
                                     Logger.info("TestApp", "Profile: vibrate");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.setAudioProfile not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -229,17 +231,17 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.setAudioProfile) {
-                                    audioManager.setAudioProfile("normal");
+                                if (root.audioManager && root.audioManager.setAudioProfile) {
+                                    root.audioManager.setAudioProfile("normal");
                                     Logger.info("TestApp", "Profile: normal");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.setAudioProfile not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -249,17 +251,17 @@ Item {
                             variant: "accent"
                             onClicked: {
                                 HapticService.light();
-                                if (audioManager && audioManager.setAudioProfile) {
-                                    audioManager.setAudioProfile("loud");
+                                if (root.audioManager && root.audioManager.setAudioProfile) {
+                                    root.audioManager.setAudioProfile("loud");
                                     Logger.info("TestApp", "Profile: loud");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
-                                } else if (testApp) {
+                                } else if (root.testApp) {
                                     Logger.warn("TestApp", "AudioManagerCpp.setAudioProfile not available");
-                                    testApp.failedTests++;
-                                    testApp.totalTests++;
+                                    root.testApp.failedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -290,9 +292,9 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 Logger.info("TestApp", "Haptic: light");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -303,9 +305,9 @@ Item {
                             onClicked: {
                                 HapticService.medium();
                                 Logger.info("TestApp", "Haptic: medium");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -316,9 +318,9 @@ Item {
                             onClicked: {
                                 HapticService.heavy();
                                 Logger.info("TestApp", "Haptic: heavy");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -329,9 +331,9 @@ Item {
                             onClicked: {
                                 HapticService.vibratePattern([100, 50, 100, 50, 200], 1);
                                 Logger.info("TestApp", "Haptic: custom pattern");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }

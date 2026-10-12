@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     property var testApp
 
     Flickable {
@@ -60,9 +62,9 @@ Item {
                                 HapticService.light();
                                 NotificationService.sendNotification("test", "Test Notification", "This is a simple test notification");
                                 Logger.info("TestApp", "Sent simple notification");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -77,9 +79,9 @@ Item {
                                     "category": "test"
                                 });
                                 Logger.info("TestApp", "Sent notification with icon");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -95,9 +97,9 @@ Item {
                                     "icon": "alert-triangle"
                                 });
                                 Logger.info("TestApp", "Sent high priority notification");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -113,9 +115,9 @@ Item {
                                     "icon": "message-circle"
                                 });
                                 Logger.info("TestApp", "Sent notification with actions");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -149,9 +151,9 @@ Item {
                                     "category": "message",
                                     "icon": "message-circle"
                                 });
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -165,9 +167,9 @@ Item {
                                     "category": "email",
                                     "icon": "mail"
                                 });
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -181,9 +183,9 @@ Item {
                                     "category": "social",
                                     "icon": "users"
                                 });
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -197,9 +199,9 @@ Item {
                                     "category": "system",
                                     "icon": "download"
                                 });
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -234,9 +236,9 @@ Item {
                                     });
                                 }
                                 Logger.info("TestApp", "Sent 10 burst notifications");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }
@@ -248,9 +250,9 @@ Item {
                                 HapticService.light();
                                 NotificationService.dismissAllNotifications();
                                 Logger.info("TestApp", "Cleared all notifications");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (root.testApp) {
+                                    root.testApp.passedTests++;
+                                    root.testApp.totalTests++;
                                 }
                             }
                         }

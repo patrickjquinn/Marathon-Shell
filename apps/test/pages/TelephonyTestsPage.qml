@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    id: root
+
     // Outer TestApp.qml hands this in so the .qml-file scope here can
     // touch its passedTests / failedTests / totalTests counters; QML ids
     // don't bubble across separately-compiled .qml component files.
@@ -70,15 +72,15 @@ Item {
                                 if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateIncomingCall === 'function') {
                                     TelephonyService.simulateIncomingCall("+1234567890");
                                     Logger.info("TestApp", "Simulated incoming call");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "TelephonyService.simulateIncomingCall not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -96,15 +98,15 @@ Item {
                                     }
                                     TelephonyService.simulateIncomingCall("+1555123456");
                                     Logger.info("TestApp", "Simulated incoming call from contact");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "TelephonyService.simulateIncomingCall not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -144,15 +146,15 @@ Item {
                                 if (typeof SMSService !== 'undefined' && typeof SMSService.simulateIncomingSMS === 'function') {
                                     SMSService.simulateIncomingSMS("+1234567890", "Hey! This is a test message from the Marathon Test Suite.");
                                     Logger.info("TestApp", "Simulated incoming SMS");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "SMSService.simulateIncomingSMS not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -168,15 +170,15 @@ Item {
                                         SMSService.simulateIncomingSMS("+1555987654" + i, "Message " + (i + 1) + " from test suite");
                                     }
                                     Logger.info("TestApp", "Simulated 3 incoming SMS");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "SMSService.simulateIncomingSMS not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -217,15 +219,15 @@ Item {
                                 if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
                                     TelephonyService.simulateCallStateChange("active");
                                     Logger.info("TestApp", "Call state: active");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -239,15 +241,15 @@ Item {
                                 if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
                                     TelephonyService.simulateCallStateChange("ringing");
                                     Logger.info("TestApp", "Call state: ringing");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -261,15 +263,15 @@ Item {
                                 if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
                                     TelephonyService.simulateCallStateChange("idle");
                                     Logger.info("TestApp", "Call state: idle");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
@@ -287,15 +289,15 @@ Item {
                                             TelephonyService.simulateCallStateChange("terminated");
                                     });
                                     Logger.info("TestApp", "Simulated missed call");
-                                    if (testApp) {
-                                        testApp.passedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.passedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 } else {
                                     Logger.warn("TestApp", "simulateIncomingCall not available (shell-only)");
-                                    if (testApp) {
-                                        testApp.failedTests++;
-                                        testApp.totalTests++;
+                                    if (root.testApp) {
+                                        root.testApp.failedTests++;
+                                        root.testApp.totalTests++;
                                     }
                                 }
                             }
