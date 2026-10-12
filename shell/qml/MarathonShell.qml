@@ -1616,9 +1616,6 @@ Item {
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
-        // Frosted-glass source for the home case (no app behind the shade) —
-        // the shade blurs the wallpaper instead of dropping an opaque slab.
         homeBackdrop: wallpaperImage
         onClosed: {
             UIStore.closeQuickSettings();
@@ -2180,6 +2177,15 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+
+        // The keyboard sits above the lock screen: put it away on locking.
+        Connections {
+            target: SessionStore
+            function onIsLockedChanged() {
+                if (SessionStore.isLocked)
+                    virtualKeyboard.active = false;
+            }
+        }
         Component.onCompleted: {
             focusConnection.target = shell.shellWindow;
         }
