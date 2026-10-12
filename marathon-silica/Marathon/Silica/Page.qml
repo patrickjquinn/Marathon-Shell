@@ -36,6 +36,8 @@ S.Page {
     Connections {
         target: root.Window.window
         function onActiveFocusItemChanged() {
+            if (!root)
+                return;
             const item = root.Window.activeFocusItem;
             if (item && item !== root && root._contains(item))
                 root._lastFocus = item;
