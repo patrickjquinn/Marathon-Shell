@@ -16,12 +16,12 @@ target_include_directories(test_core_appregistry PRIVATE
 )
 add_test(NAME Core_AppRegistry COMMAND test_core_appregistry)
 
-# AppPackager tests (validation + round-trip with zip/unzip)
+# AppPackager tests (validation, round-trip, archive symlink refusal)
 add_executable(test_core_apppackager
     test_apppackager.cpp
     ../../marathon-core/src/marathonapppackager.cpp
 )
-target_link_libraries(test_core_apppackager Qt6::Test Qt6::Core)
+target_link_libraries(test_core_apppackager Qt6::Test Qt6::Core marathon_core_native)
 target_include_directories(test_core_apppackager PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
