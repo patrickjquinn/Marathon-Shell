@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 // Marathon DS · Quick Settings panel (§7.5).
 //
@@ -11,8 +12,7 @@ import QtQuick
 //   • Sliders block — brightness + volume (MQSSlider)
 //   • Primary tile grid — 4 cols × 2 rows of MQSTile (the common toggles)
 //   • Now-playing strip — MNowBar (only when media/call active)
-//   • "More Controls" — 4 cols × 2 rows of the secondary toggles
-//   • Quick actions — Screenshot · Lock · Power (one-shot, not toggles)
+//   • "More Controls" — the secondary toggles, then Screenshot and Power
 //   • Drag handle — 72 × 6 bar centred at bottom
 //
 // Notifications deliberately DO NOT live here — they belong to the Hub.
@@ -209,14 +209,8 @@ Item {
     // ── One-shot actions (distinct from toggles) ─────────────
     readonly property var actions: [
         { id: "screenshot", icon: "camera", label: "Screenshot" },
-        { id: "lock",       icon: "lock",   label: "Lock" },
         { id: "power",      icon: "power",  label: "Power" }
     ]
-
-    // QS tile height. Taller than MQSTile's 84px default so the centred
-    // icon+label sits with generous breathing room top and bottom rather
-    // than crowding the tile's top edge.
-    readonly property int tileCellHeight: 96
 
     // ── Bottom edge terminus — soft hairline + shadow line ───
     Rectangle {
@@ -292,10 +286,10 @@ Item {
         Column {
             id: content
 
-            x: MSpacing.lg
-            y: MSpacing.lg
-            width: shadeScroll.width - MSpacing.lg * 2
-            spacing: MSpacing.md
+            x: Silica.Theme.horizontalPageMargin
+            y: Silica.Theme.paddingLarge
+            width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
+            spacing: Silica.Theme.paddingLarge
 
             layer.enabled: true
 
@@ -335,76 +329,39 @@ Item {
                     spacing: 4
                     Text {
                         text: header.timeText
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeTitle3
-                        font.weight: MTypography.weightDemiBold
+                        color: Silica.Theme.highlightColor
+                        font.family: Silica.Theme.fontFamilyHeading
+                        font.pixelSize: Silica.Theme.fontSizeExtraLarge
                         font.features: ({ "tnum": 1 })
                     }
                     Text {
                         text: header.dateText
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
-                        font.weight: MTypography.weightMedium
+                        color: Silica.Theme.secondaryHighlightColor
+                        font.family: Silica.Theme.fontFamily
+                        font.pixelSize: Silica.Theme.fontSizeSmall
                     }
                 }
             }
 
             // ── Sliders — brightness + volume ────────────────────
-            Rectangle {
+            Column {
                 width: parent.width
-                height: slidersInner.height + 36
-                radius: MRadius.md
-                // Lit-from-above: elev3 top → elev2 bottom. A flat fill on an
-                // OLED reads as a hole; the vertical ramp is what gives the card
-                // a face that catches light and a base that recedes.
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: MColors.elev3 }
-                    GradientStop { position: 1.0; color: MColors.elev2 }
+
+                MQSSlider {
+                    id: brightness
+                    width: parent.width
+                    iconName: "sun"
+                    a11yName: "Brightness"
+                    value: SystemControlStore.brightness
+                    onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
-                border.width: 1
-                border.color: MColors.whiteOverlay16
-
-                QSContactShadow {}
-
-                MTopHairline {
-                    radius: parent.radius
-                    color: MColors.whiteOverlay16
-                    lineWidth: 1
-                }
-
-                Column {
-                    id: slidersInner
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    anchors.topMargin: 18
-                    spacing: 16
-
-                    MQSSlider {
-                        id: brightness
-                        width: parent.width
-                        iconName: "sun"
-                        a11yName: "Brightness"
-                        value: SystemControlStore.brightness
-                        onMoved: v => SystemControlStore.setBrightnessFromUser(v)
-                    }
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: MColors.whiteOverlay08
-                    }
-                    MQSSlider {
-                        id: volume
-                        width: parent.width
-                        iconName: "speaker-high"
-                        a11yName: "Volume"
-                        value: SystemControlStore.volume
-                        onMoved: v => SystemControlStore.setVolume(v)
-                    }
+                MQSSlider {
+                    id: volume
+                    width: parent.width
+                    iconName: "speaker-high"
+                    a11yName: "Volume"
+                    value: SystemControlStore.volume
+                    onMoved: v => SystemControlStore.setVolume(v)
                 }
             }
 
@@ -413,16 +370,14 @@ Item {
                 id: tileGrid
                 width: parent.width
                 columns: 4
-                rowSpacing: 10
-                columnSpacing: 10
-                readonly property real cellWidth: (width - columnSpacing * 3) / 4
+                rowSpacing: Silica.Theme.paddingLarge
+                readonly property real cellWidth: width / 4
 
                 Repeater {
                     model: quickSettings.tiles
                     delegate: MQSTile {
                         required property var modelData
                         width: tileGrid.cellWidth
-                        height: quickSettings.tileCellHeight
                         iconName: modelData.icon || "square"
                         label: modelData.label || ""
                         on: modelData.on === true
@@ -462,108 +417,45 @@ Item {
             }
 
             // ── Section label ────────────────────────────────────
-            // The group break lives in the label's own topPadding, not a
-            // separate spacer Item. A spacer in a Column is bracketed by the
-            // Column's spacing on BOTH sides (md + spacer + md ≈ 67px at 1.79×
-            // — far too airy); topPadding adds to the single leading gap for a
-            // controlled section break (~47px) that reads as "new group."
             Text {
-                text: "MORE CONTROLS"
-                topPadding: MSpacing.sm
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                font.weight: MTypography.weightDemiBold
-                font.letterSpacing: 1.2
+                width: parent.width
+                horizontalAlignment: Text.AlignRight
+                text: qsTr("More controls")
+                color: Silica.Theme.highlightColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeSmall
             }
 
-            // ── Secondary contextual toggles (4 × 2) ─────────────
+            // ── Secondary toggles, then one-shot actions ─────────
             Grid {
                 id: expandedGrid
                 width: parent.width
                 columns: 4
-                rowSpacing: 10
-                columnSpacing: 10
-                readonly property real cellWidth: (width - columnSpacing * 3) / 4
+                rowSpacing: Silica.Theme.paddingLarge
+                readonly property real cellWidth: width / 4
 
                 Repeater {
                     model: quickSettings.expandedTiles
                     delegate: MQSTile {
                         required property var modelData
                         width: expandedGrid.cellWidth
-                        height: quickSettings.tileCellHeight
                         iconName: modelData.icon || "square"
                         label: modelData.label || ""
                         on: modelData.on === true
                         onToggled: quickSettings.toggle(modelData.id)
                     }
                 }
-            }
-
-            // ── Quick actions row (one-shot) ─────────────────────
-            // No extra break here — the wide chips are already visually distinct
-            // from the toggle grid, so the standard rhythm reads cleanly.
-            Row {
-                width: parent.width
-                spacing: 10
-
                 Repeater {
                     model: quickSettings.actions
-                    delegate: Rectangle {
-                        id: actionChip
+                    delegate: MQSTile {
                         required property var modelData
-                        width: (parent.width - 20) / 3
-                        height: 76
-                        radius: MRadius.md
-                        // Same lit-from-above gradient as the slider card so the
-                        // action chips read as raised keys, not flat swatches.
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: MColors.elev3 }
-                            GradientStop { position: 1.0; color: MColors.elev2 }
-                        }
-                        border.width: 1
-                        border.color: MColors.whiteOverlay16
-                        scale: chipTap.pressed ? 0.96 : 1.0
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: MMotion.reduceMotion ? MMotion.micro : MMotion.fast
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-
-                        MTopHairline {
-                            radius: parent.radius
-                            color: MColors.whiteOverlay08
-                            lineWidth: 1
-                        }
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 6
-                            GlyphIcon {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                name: actionChip.modelData.icon
-                                size: 24
-                                color: MColors.textPrimary
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: actionChip.modelData.label
-                                color: MColors.textPrimary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeCaption
-                                font.weight: MTypography.weightMedium
-                            }
-                        }
-
-                        MouseArea {
-                            id: chipTap
-                            anchors.fill: parent
-                            onClicked: {
-                                MHaptics.light();
-                                quickSettings.doAction(actionChip.modelData.id);
-                            }
+                        width: expandedGrid.cellWidth
+                        iconName: modelData.icon
+                        label: modelData.label
+                        checkable: false
+                        onToggled: {
+                            MHaptics.light();
+                            quickSettings.doAction(modelData.id);
                         }
                     }
                 }
@@ -613,10 +505,6 @@ Item {
             // Dismiss first so the shade isn't in the capture.
             quickSettings.closed();
             SystemControlStore.captureScreenshot();
-            break;
-        case "lock":
-            quickSettings.closed();
-            SystemControlStore.sleep();
             break;
         case "power":
             quickSettings.closed();
