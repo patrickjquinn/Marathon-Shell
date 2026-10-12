@@ -15,7 +15,7 @@ TabItem {
         interval: 1000
         repeat: true
         triggeredOnStart: true
-        running: root.isCurrentItem && Qt.application.active
+        running: root.isCurrentItem && Qt.application.state === Qt.ApplicationActive
         onTriggered: root.now = new Date()
     }
 
