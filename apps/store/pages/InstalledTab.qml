@@ -67,11 +67,13 @@ TabItem {
 
             SectionHeader {
                 text: qsTr("On this phone")
-                visible: root.store.installedApps.length > 0
+                visible: installedRows.count > 0
             }
             Repeater {
+                id: installedRows
+
                 objectName: "installedRows"
-                model: root.store.installedApps
+                model: root.store.installedApps.filter(a => !root.store.hasUpdate(a.app_id))
                 delegate: AppRow {
                     required property var modelData
                     width: column.width

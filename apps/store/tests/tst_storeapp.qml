@@ -157,8 +157,8 @@ TestCase {
     function test_installedTab() {
         const app = makeApp();
         const tab = showTab(app, 2);
-        tryCompare(findChild(tab, "installedRows"), "count", 2, 3000);
         tryCompare(findChild(tab, "updateRows"), "count", 1, 3000);
+        tryCompare(findChild(tab, "installedRows"), "count", 1, 3000);
         verify(!findChild(tab, "installedPlaceholder").enabled);
         verify(app.store.opened.indexOf("marathon-store://refresh-state/all") >= 0);
     }
@@ -213,7 +213,7 @@ TestCase {
     function test_rowsShowStateNotButtons() {
         const app = makeApp();
         const tab = showTab(app, 2);
-        tryCompare(findChild(tab, "installedRows"), "count", 2, 3000);
+        tryCompare(findChild(tab, "installedRows"), "count", 1, 3000);
         verify(findChild(tab, "getButton") === null);
         const row = findChild(tab, "installedRows").itemAt(0);
         compare(findChild(row, "stateLabel").text, "Installed");
