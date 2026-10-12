@@ -186,7 +186,8 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
-                color: MColors.background
+                // A cover sits on the ambience, as in Sailfish's switcher.
+                color: coverView.available ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) : MColors.background
                 radius: cardRoot.radius
 
                 KeelCoverView {
@@ -627,6 +628,10 @@ Item {
 
                         HighlightImage {
                             anchors.centerIn: parent
+                            width: Theme.iconSizeSmall
+                            height: width
+                            sourceSize.width: width
+                            sourceSize.height: height
                             source: "image://theme/icon-m-close"
                             highlighted: closeButtonArea.pressed
                         }
