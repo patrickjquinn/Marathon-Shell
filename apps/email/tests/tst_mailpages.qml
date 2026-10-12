@@ -102,7 +102,7 @@ TestCase {
         tryVerify(() => body.item !== null);
         verify(!body.item.loadImages);
         verify(msg.canShowImages);
-        findChild(msg, "showImagesItem").clicked(null);
+        findChild(msg, "showImagesItem").clicked();
         verify(body.item.loadImages);
         verify(!msg.canShowImages);
     }
@@ -384,7 +384,8 @@ TestCase {
         findChild(setup, "emailField").text = "me@example.org";
         findChild(setup, "passwordField").text = "pw";
         verify(setup.canSubmit);
-        setup.submit();
+        verify(!setup.canAccept);
+        setup.acceptBlocked();
         verify(findChild(setup, "serverSettings").visible);
         verify(findChild(setup, "error").visible);
         compare(MailService.called("addImapAccount").length, 0);
@@ -395,9 +396,10 @@ TestCase {
         const setup = push(app, "MailAccountSetupPage.qml", 2);
         findChild(setup, "emailField").text = "me@fastmail.com";
         findChild(setup, "passwordField").text = "pw";
-        tap(findChild(setup, "signInButton"));
+        verify(setup.canAccept);
+        setup.accept();
         verify(setup.busy);
-        verify(findChild(setup, "cancelButton").visible);
+        compare(pushed(app, 3).objectName, "signingInPage");
         compare(MailService.called("addImapAccount")[0].args, ["me@fastmail.com", "me@fastmail.com", "imap.fastmail.com", 993, 1, "smtp.fastmail.com", 465, 1, "me@fastmail.com", "pw"]);
         MailService.setAccount("me@fastmail.com");
         MailService.accountSetupSucceeded("1");
@@ -418,17 +420,44 @@ TestCase {
         compare(findChild(setup, "passwordField").text, "pw");
     }
 
+    function test_imapFailureReturnsToForm() {
+        const app = makeApp(false);
+        const setup = push(app, "MailAccountSetupPage.qml", 2);
+        findChild(setup, "emailField").text = "me@fastmail.com";
+        findChild(setup, "passwordField").text = "pw";
+        setup.accept();
+        pushed(app, 3);
+        MailService.accountSetupFailed("login");
+        compare(pushed(app, 2), setup);
+        verify(findChild(setup, "error").visible);
+        compare(findChild(setup, "passwordField").text, "pw");
+    }
+
     function test_imapCancel() {
         const app = makeApp(false);
         const setup = push(app, "MailAccountSetupPage.qml", 2);
         findChild(setup, "emailField").text = "me@fastmail.com";
         findChild(setup, "passwordField").text = "pw";
-        setup.submit();
-        findChild(setup, "cancelButton").clicked(null);
+        setup.accept();
+        const waiting = pushed(app, 3);
+        findChild(waiting, "cancelItem").clicked();
         compare(MailService.called("cancelAccountSetup").length, 1);
         MailService.accountSetupFailed("cancelled");
         verify(!setup.busy);
+        compare(pushed(app, 2), setup);
         verify(!findChild(setup, "error").visible);
+    }
+
+    function test_imapBackFromWaitingCancels() {
+        const app = makeApp(false);
+        const setup = push(app, "MailAccountSetupPage.qml", 2);
+        findChild(setup, "emailField").text = "me@fastmail.com";
+        findChild(setup, "passwordField").text = "pw";
+        setup.accept();
+        pushed(app, 3);
+        app.pageStack.pop();
+        pushed(app, 2);
+        compare(MailService.called("cancelAccountSetup").length, 1);
     }
 
     function test_imapSubmitFails() {
@@ -439,11 +468,11 @@ TestCase {
         findChild(setup, "emailField").text = "me@example.org";
         findChild(setup, "passwordField").text = "pw";
         findChild(setup, "nameField").text = "Me";
-        setup.submit();
+        setup.accept();
         verify(!setup.busy);
-        verify(findChild(setup, "error").visible);
-        compare(MailService.called("addImapAccount")[0].args[0], "Me");
+        tryVerify(() => app.pageStack.currentPage === setup && !app.pageStack.busy && findChild(setup, "error").visible, 5000);
         compare(app.pageStack.depth, 2);
+        compare(MailService.called("addImapAccount")[0].args[0], "Me");
     }
 
     function test_imapInvalidEmail() {
@@ -452,6 +481,6 @@ TestCase {
         findChild(setup, "emailField").text = "nope";
         findChild(setup, "passwordField").text = "pw";
         verify(!setup.canSubmit);
-        verify(!findChild(setup, "signInButton").enabled);
+        verify(!setup.canAccept);
     }
 }

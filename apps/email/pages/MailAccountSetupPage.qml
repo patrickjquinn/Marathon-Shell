@@ -5,7 +5,7 @@ import Marathon.Silica 1.0
 import "../MailLogic.js" as Logic
 
 // Classic-password IMAP/SMTP account for providers without OAuth.
-Page {
+Dialog {
     id: page
 
     property var app
@@ -14,11 +14,13 @@ Page {
     property int imapEnc: 1
     property int smtpEnc: 1
     property bool busy: false
+    property bool signedIn: false
     property string lastError: ""
 
     readonly property string email: emailField.text.trim()
     readonly property bool emailValid: Logic.emailValid(email)
     readonly property bool canSubmit: !busy && emailValid && passwordField.text.length > 0
+    readonly property bool hasServers: imapHostField.text.trim() !== "" && smtpHostField.text.trim() !== ""
 
     function applyPreset(id) {
         provider = id;
@@ -36,11 +38,15 @@ Page {
         smtpEnc = p.smtpEnc;
     }
 
+    function askForServers() {
+        serverSwitch.checked = true;
+        lastError = qsTr("Enter your provider's incoming and outgoing server names. Their help pages list them.");
+    }
+
     function submit() {
         lastError = "";
-        if (imapHostField.text.trim() === "" || smtpHostField.text.trim() === "") {
-            serverSwitch.checked = true;
-            lastError = qsTr("Enter your provider's incoming and outgoing server names. Their help pages list them.");
+        if (!hasServers) {
+            askForServers();
             return;
         }
         const name = nameField.text.trim();
@@ -50,6 +56,17 @@ Page {
             lastError = qsTr("Couldn't start signing in. Close Mail and open it again, then try again.");
     }
 
+    canAccept: canSubmit && hasServers
+    acceptDestination: signingIn
+    onAcceptBlocked: {
+        if (busy)
+            return;
+        if (canSubmit)
+            askForServers();
+        else
+            Notices.show(emailValid ? qsTr("Enter your password") : qsTr("Enter your email address"));
+    }
+    onAccepted: submit()
     Component.onDestruction: if (busy)
         mail.cancelAccountSetup()
 
@@ -57,6 +74,7 @@ Page {
         target: page.mail
         ignoreUnknownSignals: true
         function onAccountSetupSucceeded(accountId) {
+            page.signedIn = true;
             page.busy = false;
             passwordField.text = "";
             page.app.showInbox();
@@ -65,6 +83,54 @@ Page {
             page.busy = false;
             if (reason !== "cancelled")
                 page.lastError = Logic.setupFailureText(reason);
+        }
+    }
+
+    Component {
+        id: signingIn
+
+        Page {
+            id: waitPage
+
+            // A failure or a cancel returns to the form with its fields kept.
+            function leaveIfDone() {
+                if (!page.busy && !page.signedIn && status === PageStatus.Active && page.status === PageStatus.Inactive)
+                    pageStack.pop();
+            }
+
+            objectName: "signingInPage"
+            onStatusChanged: {
+                if (status === PageStatus.Deactivating && page.busy)
+                    page.mail.cancelAccountSetup();
+                leaveIfDone();
+            }
+
+            Connections {
+                target: page
+                function onBusyChanged() {
+                    waitPage.leaveIfDone();
+                }
+                function onStatusChanged() {
+                    waitPage.leaveIfDone();
+                }
+            }
+
+            SilicaFlickable {
+                anchors.fill: parent
+
+                PullDownMenu {
+                    MenuItem {
+                        objectName: "cancelItem"
+                        text: qsTr("Cancel sign-in")
+                        onClicked: page.mail.cancelAccountSetup()
+                    }
+                }
+
+                BusyLabel {
+                    running: true
+                    text: qsTr("Signing in")
+                }
+            }
         }
     }
 
@@ -77,7 +143,8 @@ Page {
 
             width: parent.width
 
-            PageHeader {
+            DialogHeader {
+                acceptText: qsTr("Sign in")
                 title: qsTr("Other (IMAP)")
             }
             Label {
@@ -266,43 +333,6 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.errorColor
-            }
-            Item {
-                width: parent.width
-                height: Theme.paddingLarge
-            }
-            Button {
-                objectName: "signInButton"
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: qsTr("Sign in")
-                enabled: page.canSubmit
-                visible: !page.busy
-                onClicked: page.submit()
-            }
-            BusyIndicator {
-                anchors.horizontalCenter: parent.horizontalCenter
-                size: BusyIndicatorSize.Medium
-                running: page.busy
-                visible: running
-            }
-            Label {
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * Theme.horizontalPageMargin
-                topPadding: Theme.paddingMedium
-                bottomPadding: Theme.paddingLarge
-                visible: page.busy
-                text: qsTr("Signing in to your mail server. This can take a few seconds.")
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
-            }
-            Button {
-                objectName: "cancelButton"
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: qsTr("Cancel")
-                visible: page.busy
-                onClicked: page.mail.cancelAccountSetup()
             }
         }
 
