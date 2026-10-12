@@ -19,6 +19,7 @@ Item {
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
     signal appLaunched(var app)
+    signal appLongPressed(var app, point scenePos)
 
     function incrementCurrentIndex() {
         pageView.incrementCurrentIndex();
@@ -234,6 +235,7 @@ Item {
                     Logger.info("PageView", "App launched: " + app.name);
                     pageViewContainer.appLaunched(app);
                 }
+                onLongPress: (app, scenePos) => pageViewContainer.appLongPressed(app, scenePos)
             }
         }
 

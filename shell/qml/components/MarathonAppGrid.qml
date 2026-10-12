@@ -28,7 +28,7 @@ Item {
     }
 
     signal appLaunched(var app)
-    signal longPress
+    signal longPress(var app, point scenePos)
 
     Timer {
         id: autoDismissTimer
@@ -239,7 +239,8 @@ Item {
             onPressAndHold: {
                 held = true;
                 if (iconCell.appData) {
-                    appGrid.longPress();
+                    appGrid.longPress(iconCell.appData, iconCell.mapToItem(null, iconCell.width / 2, 0));
+                    HapticManager.medium();
                 }
             }
         }

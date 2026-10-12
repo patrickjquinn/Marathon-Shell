@@ -1,27 +1,24 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: contextMenu
 
     property var appData: null
-    property point position: Qt.point(0, 0)
-
-    signal appInfo
-    signal uninstall
-    signal move
+    readonly property string appId: appData ? (appData.id || "") : ""
+    readonly property bool removable: appId !== "" && typeof MarathonAppInstaller !== "undefined" && MarathonAppInstaller.canUninstall(appId)
 
     function show(app, pos) {
         appData = app;
-        position = pos;
-        menu.x = Math.min(Math.max(pos.x - menu.width / 2, 16), parent.width - menu.width - 16);
-        menu.y = Math.max(pos.y - menu.height - 10, Constants.statusBarHeight + 16);
+        menu.x = Math.min(Math.max(pos.x - menu.width / 2, Silica.Theme.paddingLarge), width - menu.width - Silica.Theme.paddingLarge);
+        menu.y = Math.max(pos.y - menu.height - Silica.Theme.paddingSmall, Constants.statusBarHeight + Silica.Theme.paddingLarge);
         visible = true;
-        fadeIn.start();
+        menu.opacity = 1;
     }
 
     function hide() {
-        fadeOut.start();
+        menu.opacity = 0;
     }
 
     anchors.fill: parent
@@ -36,175 +33,69 @@ Item {
     Rectangle {
         id: menu
 
-        width: Math.round(180 * Constants.scaleFactor)
-        height: menuColumn.height + Constants.spacingMedium
-        radius: Constants.borderRadiusSmall
-        color: Qt.rgba(15, 15, 15, 0.98)
+        width: Math.round(contextMenu.width * 0.6)
+        height: menuColumn.height
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.15)
-        layer.enabled: true
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        clip: true
         opacity: 0
-        scale: 0.9
+        onOpacityChanged: if (opacity === 0) contextMenu.visible = false
 
-        MTopHairline {
-            radius: parent.radius
-            color: Qt.rgba(255, 255, 255, 0.05)
-            lineWidth: 1
+        Behavior on opacity {
+            NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutQuad }
         }
 
         Column {
             id: menuColumn
 
+            width: parent.width
+
+            MenuEntry {
+                text: qsTr("App info")
+                onActivated: AppLaunchService.launchAppWithRoute("settings", "appmanager", "", null, null)
+            }
+
+            MenuEntry {
+                visible: contextMenu.removable
+                text: qsTr("Uninstall")
+                onActivated: {
+                    const id = contextMenu.appId;
+                    UIStore.showConfirmDialog(qsTr("Uninstall %1?").arg(contextMenu.appData.name), qsTr("This app will be removed from your device."), function () {
+                        MarathonAppInstaller.uninstallApp(id);
+                    });
+                }
+            }
+        }
+    }
+
+    component MenuEntry: Rectangle {
+        id: entry
+
+        property alias text: label.text
+        signal activated
+
+        width: menuColumn.width
+        height: Silica.Theme.itemSizeSmall
+        color: area.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+
+        Silica.Label {
+            id: label
+
             anchors.centerIn: parent
-            width: parent.width - Constants.spacingMedium
-            spacing: 0
+            color: area.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+        }
 
-            Rectangle {
-                width: parent.width
-                height: Constants.inputHeight
-                radius: Constants.borderRadiusSmall
-                color: infoMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
+        MouseArea {
+            id: area
 
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.rightMargin: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
-
-                    GlyphIcon {
-                        name: "info"
-                        size: Constants.iconSizeSmall
-                        color: MColors.textPrimary
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: "App Info"
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    id: infoMouseArea
-
-                    anchors.fill: parent
-                    onClicked: {
-                        Logger.info("AppContextMenu", "App info for: " + contextMenu.appData.name);
-                        HapticManager.light();
-                        contextMenu.appInfo();
-                        contextMenu.hide();
-                    }
-                }
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 100
-                    }
-                }
+            anchors.fill: parent
+            onClicked: {
+                HapticManager.light();
+                contextMenu.hide();
+                entry.activated();
             }
-
-            Rectangle {
-                width: parent.width
-                height: Constants.dividerHeight
-                color: Qt.rgba(255, 255, 255, 0.05)
-            }
-
-            Rectangle {
-                width: parent.width
-                height: Constants.inputHeight
-                radius: Constants.borderRadiusSmall
-                color: uninstallMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
-
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.rightMargin: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
-
-                    GlyphIcon {
-                        name: "trash-2"
-                        size: Constants.iconSizeSmall
-                        color: "#E63946"
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: "Uninstall"
-                        color: "#E63946"
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    id: uninstallMouseArea
-
-                    anchors.fill: parent
-                    onClicked: {
-                        Logger.info("AppContextMenu", "Uninstall: " + contextMenu.appData.name);
-                        HapticManager.medium();
-                        contextMenu.uninstall();
-                        contextMenu.hide();
-                        UIStore.showConfirmDialog("Uninstall " + contextMenu.appData.name + "?", "This app will be removed from your device.", function () {
-                            Logger.info("AppContextMenu", "Confirmed uninstall");
-                        });
-                    }
-                }
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 100
-                    }
-                }
-            }
-        }
-    }
-
-    ParallelAnimation {
-        id: fadeIn
-
-        NumberAnimation {
-            target: menu
-            property: "opacity"
-            to: 1
-            duration: 150
-            easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: menu
-            property: "scale"
-            to: 1
-            duration: 150
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    ParallelAnimation {
-        id: fadeOut
-
-        onFinished: {
-            contextMenu.visible = false;
-        }
-
-        NumberAnimation {
-            target: menu
-            property: "opacity"
-            to: 0
-            duration: 100
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: menu
-            property: "scale"
-            to: 0.9
-            duration: 100
-            easing.type: Easing.InCubic
         }
     }
 }
