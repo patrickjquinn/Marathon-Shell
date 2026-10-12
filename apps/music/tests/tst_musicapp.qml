@@ -158,6 +158,14 @@ TestCase {
         verify(panel(app).open);
     }
 
+    function test_pagesStopAbovePanel() {
+        const app = makeApp();
+        verify(!app.pageStack.clip);
+        app.player.playTracks(app.tracks, 0);
+        tryVerify(() => app.bottomMargin > 0);
+        verify(app.pageStack.clip);
+    }
+
     function test_panelControls() {
         const app = makeApp();
         app.player.playTracks(app.tracks, 0);

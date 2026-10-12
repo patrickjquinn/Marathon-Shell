@@ -168,6 +168,13 @@ ApplicationWindow {
         delayed: true
     }
 
+    // Keel's window does not clip at bottomMargin, so lists would scroll on under the panel.
+    Binding {
+        target: app.pageStack
+        property: "clip"
+        value: app.bottomMargin > 0
+    }
+
     Binding {
         target: panel
         property: "open"
