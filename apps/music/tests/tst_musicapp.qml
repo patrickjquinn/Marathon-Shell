@@ -96,19 +96,34 @@ TestCase {
         const app = makeApp();
         const categories = findChild(app.pageStack.currentPage, "categories");
         compare(categories.count, 4);
-        compare(categories.itemAt(0).modelData.count, 2, "artists");
-        compare(categories.itemAt(1).modelData.count, 2, "albums");
-        compare(categories.itemAt(2).modelData.count, 3, "songs");
-        compare(categories.itemAt(3).modelData.count, 0, "playlists");
+        compare(categories.itemAt(0).modelData.detail, "0 playlists");
+        compare(categories.itemAt(1).modelData.detail, "3 songs");
+        compare(categories.itemAt(2).modelData.detail, "2 albums");
+        compare(categories.itemAt(3).modelData.detail, "2 artists");
     }
 
     function test_categoryOpensList() {
         const app = makeApp();
         const categories = findChild(app.pageStack.currentPage, "categories");
-        categories.itemAt(0).clicked(null);
+        categories.itemAt(3).clicked(null);
         tryCompare(app.pageStack, "depth", 2);
         compare(app.pageStack.currentPage.music, app);
         compare(findChild(app.pageStack.currentPage, "pageHeader").title, "Artists");
+    }
+
+    function test_searchIsInThePulley() {
+        const app = makeApp();
+        const page = app.pageStack.currentPage;
+        const field = findChild(page, "searchField");
+        verify(!field.visible);
+        findChild(page, "searchAction").clicked();
+        verify(field.visible);
+        field.text = "bo";
+        compare(mainView(app).count, 2);
+        findChild(page, "searchAction").clicked();
+        verify(!field.visible);
+        compare(field.text, "");
+        compare(findChild(page, "categories").count, 4);
     }
 
     function test_unavailableLibrary() {
@@ -251,7 +266,7 @@ TestCase {
         app.savePlaylists([{ id: 1, name: "Run", paths: ["file:///m/2.mp3"] }]);
         compare(JSON.parse(app.playlistStore.value)[0].name, "Run");
         compare(app.playlists.length, 1);
-        compare(findChild(app.pageStack.currentPage, "categories").itemAt(3).modelData.count, 1);
+        compare(findChild(app.pageStack.currentPage, "categories").itemAt(0).modelData.detail, "1 playlist");
     }
 
     function test_queueAndPositionSurviveRestart() {
