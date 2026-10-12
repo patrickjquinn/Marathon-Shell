@@ -29,6 +29,13 @@ Rectangle {
     readonly property var permissions: summary && summary.metadata ? store.describePermissions(summary.metadata.permissions) : []
     readonly property bool installed: store.isInstalled(appId)
 
+    function dismissOverlay() {
+        if (!confirm.showing)
+            return false;
+        confirm.hide();
+        return true;
+    }
+
     color: MColors.background
     Component.onCompleted: {
         store.ensureRating(appId);
@@ -310,6 +317,9 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: page.store.openScreenshots(page.screenshots, shot.index)
                     }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Screenshot " + (shot.index + 1) + " of " + page.screenshots.length
+                    Accessible.onPressAction: page.store.openScreenshots(page.screenshots, shot.index)
                 }
             }
 
@@ -380,9 +390,12 @@ Rectangle {
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeSubhead
                     font.weight: Font.Medium
+                    Accessible.role: Accessible.Button
+                    Accessible.name: page.descriptionExpanded ? "Show less" : "Show more"
+                    Accessible.onPressAction: page.descriptionExpanded = !page.descriptionExpanded
                     MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -MSpacing.sm
+                        anchors.margins: -MSpacing.md
                         onClicked: page.descriptionExpanded = !page.descriptionExpanded
                     }
                 }
@@ -625,6 +638,10 @@ Rectangle {
                             enabled: info.modelData.url !== undefined
                             onClicked: Qt.openUrlExternally(info.modelData.url)
                         }
+                        Accessible.role: info.modelData.url !== undefined ? Accessible.Link : Accessible.StaticText
+                        Accessible.name: info.modelData.label + ": " + info.modelData.value
+                        Accessible.onPressAction: if (info.modelData.url !== undefined)
+                            Qt.openUrlExternally(info.modelData.url)
                     }
                 }
             }
@@ -645,6 +662,7 @@ Rectangle {
         title: "Uninstall " + (page.app.name || page.appId) + "?"
         message: "The app and its data in the sandbox will be removed."
         confirmText: "Uninstall"
+        destructive: true
         onConfirmed: page.store.uninstallApp(page.appId)
     }
 }

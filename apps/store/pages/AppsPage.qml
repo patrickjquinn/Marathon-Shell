@@ -50,6 +50,9 @@ Flickable {
                         color: tap.pressed ? MColors.elev3 : MColors.elev2
                         border.width: 1
                         border.color: MColors.whiteOverlay06
+                        Accessible.role: Accessible.Button
+                        Accessible.name: chip.modelData.label
+                        Accessible.onPressAction: page.store.openCategory(chip.modelData.id, chip.modelData.label)
 
                         Row {
                             anchors.left: parent.left

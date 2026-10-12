@@ -19,7 +19,7 @@ Rectangle {
     radius: Math.max(MRadius.md, Math.round(width * 0.18))
     color: MColors.elev3
     border.width: 1
-    border.color: Qt.rgba(0, 0, 0, 0.6)
+    border.color: MColors.shadowStrong
 
     Image {
         id: img
@@ -50,6 +50,6 @@ Rectangle {
         anchors.top: parent.top
         anchors.margins: 1
         height: 1
-        color: Qt.rgba(1, 1, 1, 0.12)
+        color: MColors.whiteOverlay12
     }
 }

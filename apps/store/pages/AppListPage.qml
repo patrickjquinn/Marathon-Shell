@@ -21,17 +21,25 @@ Rectangle {
     property bool loading: true
     property string error: ""
 
+    function load() {
+        page.loading = true;
+        page.error = "";
+        store.loadList(source, function (list, err) {
+            page.loading = false;
+            page.error = err || "";
+            page.apps = list;
+        });
+    }
+
     color: MColors.background
-    Component.onCompleted: store.loadList(source, function (list, err) {
-        page.loading = false;
-        page.error = err || "";
-        page.apps = list;
-    })
+    Component.onCompleted: load()
 
     MTopBar {
         id: bar
         width: parent.width
         title: page.title
+        showBack: true
+        onBackClicked: page.store.goBack()
     }
 
     ListView {
@@ -63,6 +71,8 @@ Rectangle {
         iconName: page.error !== "" ? "wifi-slash" : "package"
         iconSize: page.store.dp(64)
         title: page.error !== "" ? "Couldn't load apps" : "Nothing here for this phone yet"
-        message: page.error !== "" ? page.error : "None of the apps in this list are built for this phone's processor."
+        actionText: page.error !== "" ? "Try again" : ""
+        onActionClicked: page.load()
+        message: page.error !== "" ? "Couldn't reach Flathub. Check your connection and try again." : "None of the apps in this list are built for this phone's processor."
     }
 }

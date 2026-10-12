@@ -37,6 +37,10 @@ Flickable {
 
             readonly property var app: page.store.heroApp
 
+            Accessible.role: Accessible.Button
+            Accessible.name: hero.app ? "Editors' pick: " + (hero.app.name || hero.app.app_id || "") : ""
+            Accessible.onPressAction: page.store.openDetail(hero.app)
+
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
@@ -103,7 +107,7 @@ Flickable {
                         id: pickText
                         anchors.centerIn: parent
                         text: "EDITORS' PICK"
-                        color: "#000000"
+                        color: MColors.textOnAccent
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeEyebrow
                         font.weight: Font.Bold
@@ -208,6 +212,9 @@ Flickable {
                             width: parent.width
                             height: width
                             source: page.store.safeImageUrl(tile.modelData.icon || "")
+                            Accessible.role: Accessible.Button
+                            Accessible.name: tile.modelData.name || tile.appId
+                            Accessible.onPressAction: page.store.openDetail(tile.modelData)
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
@@ -333,7 +340,7 @@ Flickable {
             iconName: "wifi-slash"
             iconSize: page.store.dp(64)
             title: "Can't reach Flathub"
-            message: page.store.lastError !== "" ? "Check your connection and try again.\n(" + page.store.lastError + ")" : "Check your connection and try again."
+            message: "Check your connection and try again."
         }
 
         MButton {

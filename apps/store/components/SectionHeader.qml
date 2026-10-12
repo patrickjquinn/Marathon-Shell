@@ -48,6 +48,9 @@ Item {
         font.family: MTypography.fontFamily
         font.pixelSize: MTypography.sizeSubhead
         font.weight: Font.Medium
+        Accessible.role: Accessible.Button
+        Accessible.name: header.actionText
+        Accessible.onPressAction: header.actionClicked()
 
         MouseArea {
             anchors.fill: parent

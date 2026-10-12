@@ -61,7 +61,8 @@ Flickable {
     }
 
     MEmptyState {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Math.max(0, (page.height - height) / 2)
         width: parent.width - MSpacing.xxl
         visible: page.store.installedApps.length === 0
         iconName: "download"

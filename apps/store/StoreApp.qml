@@ -1,8 +1,11 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Store
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Navigation
 import MarathonUI.Theme
+import QtCore
 import QtQuick
 import QtQuick.Layouts
 
@@ -24,7 +27,8 @@ MApp {
 
     readonly property string flathubApi: "https://flathub.org/api/v2"
     readonly property string odrsApi: "https://odrs.gnome.org/1.0/reviews/api"
-    readonly property string stateDir: "/run/user/" + (typeof userUid !== "undefined" ? userUid : "1000") + "/marathon-store-state"
+    // Same directory the store handler scripts write to ($XDG_RUNTIME_DIR).
+    readonly property string stateDir: String(StandardPaths.writableLocation(StandardPaths.RuntimeLocation)).replace("file://", "") + "/marathon-store-state"
     readonly property real sf: Constants.scaleFactor || 1.0
 
     property var collections: ({})
@@ -38,7 +42,7 @@ MApp {
     // Four collections load concurrently, so this counts fetches in flight
     // rather than being a bool that the first response would clear.
     property int catalogFetchesInFlight: 0
-    readonly property bool catalogLoading: catalogFetchesInFlight > 0
+    readonly property bool catalogLoading: catalogFetchesInFlight > 0 || startupTimer.running
     property string lastError: ""
     // Collections can come back with keys but no entries once the aarch64
     // filter has run, so "loaded" means apps were counted, not keys.
@@ -297,7 +301,7 @@ MApp {
                 root.lastError = name + ": " + err;
                 return;
             }
-            const next = Object.assign({}, root.collections);
+            var next = Object.assign({}, root.collections);
             next[name] = pickAarch64(data.hits || []);
             root.collections = next;
             root.lastError = "";
@@ -328,7 +332,7 @@ MApp {
                 cb(null);
                 return;
             }
-            const next = Object.assign({}, root.appstreamCache);
+            var next = Object.assign({}, root.appstreamCache);
             next[appId] = full;
             root.appstreamCache = next;
             cb(full);
@@ -349,7 +353,7 @@ MApp {
             }
             fetchJson(flathubApi + "/stats/" + appId, null, function (stats) {
                 summary.installs_last_month = stats ? stats.installs_last_month : undefined;
-                const next = Object.assign({}, root.summaryCache);
+                var next = Object.assign({}, root.summaryCache);
                 next[appId] = summary;
                 root.summaryCache = next;
                 cb(summary);
@@ -428,7 +432,7 @@ MApp {
         loadAppstream(id, function (full) {
             if (!full || !full.categories || full.categories.length === 0)
                 return;
-            const next = Object.assign({}, root._categoryFor);
+            var next = Object.assign({}, root._categoryFor);
             next[id] = categoryName(full.categories[0]);
             root._categoryFor = next;
             root._categoryTick += 1;
@@ -471,15 +475,15 @@ MApp {
                 cb(null);
                 return;
             }
-            const counts = {
+            var counts = {
                 "1": d.star1 || 0,
                 "2": d.star2 || 0,
                 "3": d.star3 || 0,
                 "4": d.star4 || 0,
                 "5": d.star5 || 0
             };
-            const total = counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
-            const sum = counts[1] + counts[2] * 2 + counts[3] * 3 + counts[4] * 4 + counts[5] * 5;
+            var total = counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
+            var sum = counts[1] + counts[2] * 2 + counts[3] * 3 + counts[4] * 4 + counts[5] * 5;
             cb(total > 0 ? {
                 "average": sum / total,
                 "total": total,
@@ -515,7 +519,7 @@ MApp {
                 cb([]);
                 return;
             }
-            const written = list.filter(r => r.description && !r.reported);
+            var written = list.filter(r => r.description && !r.reported);
             written.sort((a, b) => (b.score || 0) - (a.score || 0));
             cb(written.slice(0, 3));
         });
@@ -658,7 +662,7 @@ MApp {
 
     function infoRows(app, summary) {
         const rows = [];
-        const add = (label, value, url) => {
+        var add = (label, value, url) => {
             if (value)
                 rows.push(url ? {
                     "label": label,
@@ -792,11 +796,11 @@ MApp {
         }
         ids.forEach(function (appId) {
             readLocalJson(stateDir + "/install-progress-" + appId + ".json", function (data) {
-                const current = root.jobs[appId];
+                var current = root.jobs[appId];
                 // A record older than the job is the previous run's result.
                 if (!data || !current || data.ts < current.ts)
                     return;
-                const next = Object.assign({}, root.jobs);
+                var next = Object.assign({}, root.jobs);
                 next[appId] = data;
                 root.jobs = next;
                 if (!root.jobRunning(data))
@@ -807,7 +811,7 @@ MApp {
 
     function loadInstalled() {
         readLocalJson(stateDir + "/installed.json", function (data) {
-            const list = data && data.installed ? data.installed : [];
+            var list = data && data.installed ? data.installed : [];
             root.installedApps = list.map(a => ({
                         "app_id": a.app_id,
                         "name": a.name,
@@ -899,6 +903,14 @@ MApp {
         }
     }
 
+    function _dismissOverlay(page) {
+        return page.dismissOverlay && page.dismissOverlay();
+    }
+
+    function _focusField(page) {
+        page.focusField();
+    }
+
     Component {
         id: detailPage
         AppDetailPage {
@@ -939,6 +951,8 @@ MApp {
                     navStack.pop();
             }
             function onBackPressed() {
+                if (root._dismissOverlay(navStack.currentItem))
+                    return;
                 if (navStack.depth > 1)
                     navStack.pop();
             }
@@ -977,7 +991,7 @@ MApp {
                         sourceComponent: SearchPage {
                             store: root
                         }
-                        onLoaded: item.focusField()
+                        onLoaded: root._focusField(item)
                     }
                     Loader {
                         active: root.activeTab === 3 || item !== null
@@ -1014,7 +1028,7 @@ MApp {
                         HapticService.light();
                         root.activeTab = index;
                         if (index === 2 && searchLoader.item)
-                            searchLoader.item.focusField();
+                            root._focusField(searchLoader.item);
                     }
                 }
             }

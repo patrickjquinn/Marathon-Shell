@@ -23,7 +23,7 @@ Rectangle {
     property int generation: 0
 
     function focusField() {
-        field.forceActiveFocus();
+        field.focusInput();
     }
 
     function runSearch() {
@@ -47,14 +47,17 @@ Rectangle {
 
     color: MColors.background
 
-    MTextField {
+    MSearchField {
         id: field
         x: MSpacing.md
         y: page.store.dp(10)
         width: parent.width - MSpacing.md * 2
         placeholder: "Apps, games, developers"
-        inputMethodHints: Qt.ImhNoPredictiveText
         onTextChanged: debounce.restart()
+        onAccepted: {
+            debounce.stop();
+            page.runSearch();
+        }
     }
 
     Timer {
@@ -129,6 +132,8 @@ Rectangle {
         iconName: page.error !== "" ? "wifi-slash" : "magnifying-glass"
         iconSize: page.store.dp(64)
         title: page.error !== "" ? "Search isn't available" : "No results"
-        message: page.error !== "" ? page.error : "Nothing on Flathub for this phone matches \"" + field.text.trim() + "\"."
+        actionText: page.error !== "" ? "Try again" : ""
+        onActionClicked: page.runSearch()
+        message: page.error !== "" ? "Couldn't reach Flathub. Check your connection and try again." : "Nothing on Flathub for this phone matches \"" + field.text.trim() + "\"."
     }
 }

@@ -12,7 +12,7 @@ Rectangle {
     required property var screenshots
     property int startIndex: 0
 
-    color: "#000000"
+    color: MColors.background
 
     MTopBar {
         id: bar

@@ -22,6 +22,10 @@ Item {
         store.ensureIcon(app);
     }
 
+    Accessible.role: Accessible.Button
+    Accessible.name: (app.name || appId) + (rating ? ", rated " + rating.average.toFixed(1) + " stars" : "")
+    Accessible.onPressAction: store.openDetail(app)
+
     MouseArea {
         anchors.fill: parent
         onClicked: {
