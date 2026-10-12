@@ -81,6 +81,11 @@ ApplicationWindow {
             Notices.show(qsTr("Couldn't delete the alarm. Try again."));
     }
 
+    function setTimer(seconds) {
+        countdown.set(seconds);
+        Settings.set("clock/lastTimer", seconds);
+    }
+
     function _saveCities(next) {
         cities = next;
         Settings.set("clock/worldCities", JSON.stringify(next));

@@ -206,6 +206,41 @@ TestCase {
         compare(app.countdown.remaining, 0);
     }
 
+    function test_setAnyTimerLength() {
+        const app = makeApp();
+        const tabs = tabsOf(app);
+        tabs.moveTo(3, PagedView.Immediate);
+        let item = null;
+        tryVerify(() => (item = findChild(tabs.currentItem, "setTimer")) !== null, 3000);
+        item.clicked();
+        let dialog = null;
+        tryVerify(() => (dialog = app.pageStack.currentPage).objectName === "timerDialog", 3000);
+        tryCompare(dialog, "status", PageStatus.Active);
+        dialog.hour = 1;
+        dialog.minute = 30;
+        dialog.second = 15;
+        compare(dialog.seconds, 5415);
+        dialog.accept();
+        tryVerify(() => app.pageStack.depth === 1, 3000);
+        compare(app.countdown.remaining, 5415);
+        compare(app.countdown.total, 5415);
+        compare(Settings.get("clock/lastTimer", 0), 5415);
+        findChild(tabs.currentItem, "reset").clicked(null);
+        item.clicked();
+        tryVerify(() => (dialog = app.pageStack.currentPage).objectName === "timerDialog", 3000);
+        compare(dialog.hour, 1);
+        compare(dialog.minute, 30);
+        compare(dialog.second, 15);
+    }
+
+    function test_zeroTimerCannotBeSet() {
+        const app = makeApp();
+        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/TimerDialog.qml"), { app: app, seconds: 0 }, PageStackAction.Immediate);
+        verify(!dialog.canAccept);
+        dialog.second = 5;
+        verify(dialog.canAccept);
+    }
+
     function test_stopwatchTabControls() {
         const app = makeApp();
         const tabs = tabsOf(app);

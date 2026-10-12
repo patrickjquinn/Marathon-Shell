@@ -1,6 +1,7 @@
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import "../ClockLogic.js" as Logic
 
 TabItem {
@@ -17,6 +18,18 @@ TabItem {
 
         anchors.fill: parent
         contentHeight: column.height
+
+        PullDownMenu {
+            MenuItem {
+                objectName: "setTimer"
+                text: qsTr("Set timer")
+                enabled: !root.countdown.running
+                onClicked: pageStack.push(Qt.resolvedUrl("TimerDialog.qml"), {
+                    app: root.app,
+                    seconds: Settings.get("clock/lastTimer", 600)
+                })
+            }
+        }
 
         Column {
             id: column
