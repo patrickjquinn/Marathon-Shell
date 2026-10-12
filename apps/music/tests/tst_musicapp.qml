@@ -33,6 +33,7 @@ TestCase {
             props.library = null;
         const app = createTemporaryObject(appComponent, this, props);
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);
+        tryVerify(() => app.loaded);
         return app;
     }
 
@@ -49,8 +50,43 @@ TestCase {
         compare(app.tracks.length, 3);
         compare(app.library.scans, 1);
         app.library.tracks = app.library.tracks.slice(0, 1);
-        app.library.scanComplete(1);
-        compare(app.tracks.length, 1);
+        app.library.libraryChanged();
+        tryCompare(app, "tracks", app.library.tracks);
+        compare(app.artistCount, 1);
+        compare(app.albumCount, 1);
+    }
+
+    function test_nothingClaimedBeforeTracksLoad() {
+        const library = createTemporaryObject(libraryStub, this, { deliver: false });
+        const app = createTemporaryObject(appComponent, this, {
+            library: library,
+            playlistStore: createTemporaryObject(storeStub, this),
+            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+        });
+        tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);
+        compare(library.loads, 1);
+        verify(!app.loaded);
+        verify(!findChild(app.pageStack.currentPage, "placeholder").enabled);
+        verify(findChild(app.pageStack.currentPage, "busyLabel").running);
+        library.tracksLoaded([]);
+        verify(app.loaded);
+        verify(findChild(app.pageStack.currentPage, "placeholder").enabled);
+    }
+
+    function test_firstScanShowsProgress() {
+        const library = createTemporaryObject(libraryStub, this, { tracks: [], isScanning: true, scanProgress: 40 });
+        const app = makeApp(library);
+        const busy = findChild(app.pageStack.currentPage, "busyLabel");
+        verify(busy.running);
+        compare(busy.text, "Looking for music… 40%");
+        library.tracks = [{ id: 1, path: "file:///m/1.mp3", title: "Blue", artist: "Ava", album: "Sky", duration: 200, trackNumber: 1 }];
+        library.scanProgress = 60;
+        library.libraryChanged();
+        tryVerify(() => app.tracks.length === 1);
+        verify(!busy.running);
+        compare(findChild(app.pageStack.currentPage, "pageHeader").description, "Looking for music… 60%");
+        library.isScanning = false;
+        compare(findChild(app.pageStack.currentPage, "pageHeader").description, "");
     }
 
     function test_categoriesWithCounts() {

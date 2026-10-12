@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Shell
 import Nemo.Configuration 1.0
+import "Library.js" as Library
 import "Playlists.js" as Playlists
 import "pages"
 import "cover"
@@ -15,7 +16,10 @@ ApplicationWindow {
     // MusicLibraryManager is registered only for apps granted storage.
     property QtObject library: typeof MusicLibraryManager !== "undefined" ? MusicLibraryManager : null
     property var tracks: []
+    property bool loaded: library === null
     readonly property bool scanning: library !== null && library.isScanning
+    readonly property int artistCount: Library.artists(tracks).length
+    readonly property int albumCount: Library.albums(tracks).length
 
     property QtObject playlistStore: ConfigurationValue {
         key: "/apps/music/playlists"
@@ -34,7 +38,8 @@ ApplicationWindow {
     readonly property bool playerPageActive: pageStack.currentPage !== null && pageStack.currentPage.objectName === "playerPage"
 
     function reload() {
-        tracks = library ? library.getAllTracks() : [];
+        if (library)
+            library.loadTracksAsync();
     }
 
     function openPlayer() {
@@ -53,7 +58,11 @@ ApplicationWindow {
 
     Connections {
         target: app.library
-        function onScanComplete() {
+        function onTracksLoaded(list) {
+            app.tracks = list;
+            app.loaded = true;
+        }
+        function onLibraryChanged() {
             app.reload();
         }
     }

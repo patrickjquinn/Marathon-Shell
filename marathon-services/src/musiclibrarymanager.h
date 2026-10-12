@@ -5,11 +5,10 @@
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
-#include <QSqlDatabase>
 #include <QFileSystemWatcher>
 #include <QTimer>
 #include <QThread>
-#include <QMutex>
+#include <QThreadPool>
 
 struct Track {
     int     id;
@@ -28,22 +27,24 @@ struct Artist {
     int     trackCount;
 };
 
+// Walks the music folders and writes the tracks table on its own thread and
+// database connection, committing in batches.
 class MusicScanWorker : public QObject {
     Q_OBJECT
   public:
-    explicit MusicScanWorker(const QStringList &paths, QObject *parent = nullptr);
+    MusicScanWorker(const QStringList &paths, const QString &dbPath, QObject *parent = nullptr);
 
   public slots:
     void process();
 
   signals:
     void scanProgress(int current, int total);
-    void scanFinished(QList<Track> tracks);
-    void scanError(QString error);
+    void batchStored(int trackCount);
+    void scanFinished(int trackCount, const QList<Artist> &artists);
 
   private:
     QStringList              m_paths;
-    bool                     isAudioFile(const QString &path);
+    QString                  m_dbPath;
     Track                    scanFile(const QString &filePath);
 
     static const QStringList &audioExtensions();
@@ -65,34 +66,28 @@ class MusicLibraryManager : public QObject {
     int                      trackCount() const;
     int                      scanProgress() const;
 
-    Q_INVOKABLE void         scanLibrary();
     Q_INVOKABLE void         scanLibraryAsync();
-    Q_INVOKABLE QVariantList getAllTracks();
+    // Emits tracksLoaded with every track; the query runs off the GUI thread.
+    Q_INVOKABLE void         loadTracksAsync();
 
   signals:
     void libraryChanged();
     void scanningChanged(bool scanning);
     void scanComplete(int trackCount);
     void scanProgressChanged(int progress);
+    void tracksLoaded(const QVariantList &tracks);
 
   private slots:
     void onDirectoryChanged(const QString &path);
-    void performScan();
-    void onScanFinished(const QList<Track> &tracks);
+    void onScanFinished(int trackCount, const QList<Artist> &artists);
     void onScanProgress(int current, int total);
 
   private:
     void                     initDatabase();
-    void                     scanDirectory(const QString &path);
-    void                     addTrack(const QString &filePath);
-    void                     addTrackBatch(const QList<Track> &tracks);
-    void                     extractMetadata(const QString &path, Track &track);
-    void                     loadArtists();
-    bool                     isAudioFile(const QString &path);
     QStringList              getScanPaths();
 
     QList<Artist>            m_artists;
-    QSqlDatabase             m_database;
+    QString                  m_dbPath;
     QFileSystemWatcher      *m_watcher;
     QTimer                  *m_scanTimer;
     QThread                 *m_scanThread;
@@ -100,9 +95,8 @@ class MusicLibraryManager : public QObject {
     bool                     m_isScanning;
     int                      m_trackCount;
     int                      m_scanProgress;
-    mutable QMutex           m_mutex;
-
-    static const QStringList &audioExtensions();
+    int                      m_loadGeneration;
+    QThreadPool              m_readers;
 };
 
 #endif

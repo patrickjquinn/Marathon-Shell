@@ -29,6 +29,7 @@ TestCase {
             player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
         });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);
+        tryVerify(() => app.loaded);
         return app;
     }
 

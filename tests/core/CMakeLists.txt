@@ -186,3 +186,13 @@ target_include_directories(test_core_settingscontract PRIVATE
 )
 target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
+
+# Music library: scans and track loads run off the GUI thread
+find_package(Qt6 REQUIRED COMPONENTS Sql)
+add_executable(test_core_musiclibrary
+    test_musiclibrary.cpp
+    ../../marathon-services/src/musiclibrarymanager.cpp
+)
+target_link_libraries(test_core_musiclibrary Qt6::Test Qt6::Core Qt6::Sql)
+target_include_directories(test_core_musiclibrary PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
+add_test(NAME Core_MusicLibrary COMMAND test_core_musiclibrary)

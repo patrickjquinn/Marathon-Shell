@@ -12,6 +12,7 @@ Page {
     property string searchText
     readonly property bool searching: searchText.trim() !== ""
     readonly property bool empty: music.tracks.length === 0
+    readonly property string progressText: qsTr("Looking for music… %1%").arg(music.library ? music.library.scanProgress : 0)
 
     SilicaListView {
         id: view
@@ -35,7 +36,9 @@ Page {
             width: view.width
 
             PageHeader {
+                objectName: "pageHeader"
                 title: qsTr("Music")
+                description: page.music.scanning && !page.empty ? page.progressText : ""
             }
 
             SearchField {
@@ -53,8 +56,8 @@ Page {
             Repeater {
                 objectName: "categories"
                 model: page.searching || page.empty ? [] : [
-                    { name: qsTr("Artists"), icon: "media-artists", count: Library.artists(page.music.tracks).length, page: "ArtistsPage.qml" },
-                    { name: qsTr("Albums"), icon: "media-albums", count: Library.albums(page.music.tracks).length, page: "AlbumsPage.qml" },
+                    { name: qsTr("Artists"), icon: "media-artists", count: page.music.artistCount, page: "ArtistsPage.qml" },
+                    { name: qsTr("Albums"), icon: "media-albums", count: page.music.albumCount, page: "AlbumsPage.qml" },
                     { name: qsTr("Songs"), icon: "media-songs", count: page.music.tracks.length, page: "SongsPage.qml" },
                     { name: qsTr("Playlists"), icon: "media-playlists", count: page.music.playlists.length, page: "PlaylistsPage.qml" }
                 ]
@@ -116,13 +119,14 @@ Page {
         }
 
         BusyLabel {
-            running: page.music.scanning && page.empty
-            text: qsTr("Looking for music…")
+            objectName: "busyLabel"
+            running: !page.music.loaded || (page.music.scanning && page.empty)
+            text: page.music.scanning ? page.progressText : qsTr("Loading…")
         }
 
         ViewPlaceholder {
             objectName: "placeholder"
-            enabled: !page.music.scanning && (page.empty || (page.searching && view.count === 0))
+            enabled: page.music.loaded && !page.music.scanning && (page.empty || (page.searching && view.count === 0))
             text: page.searching && !page.empty ? qsTr("No matches")
                 : page.music.library ? qsTr("No music yet") : qsTr("Music library unavailable")
             hintText: page.searching && !page.empty ? ""
