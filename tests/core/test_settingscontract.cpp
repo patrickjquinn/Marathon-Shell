@@ -136,6 +136,7 @@ namespace {
         {"Power", &PowerClient::staticMetaObject},
         {"Audio", &AudioClient::staticMetaObject},
         {"Security", &SecurityClient::staticMetaObject},
+        {"Modem", &ModemClient::staticMetaObject},
     };
 
 } // namespace
@@ -211,6 +212,15 @@ class TestSettingsContract : public QObject {
                 found = meta->method(i).name() == m;
             QVERIFY2(found, qPrintable(name + QLatin1Char('.') + member));
         }
+    }
+
+    // The runner hands Settings the modem under the name platformtypes publishes as Modem.
+    void modemReachesTheRunner() {
+        QVERIFY(read("tools/marathon-app-runner/platformtypes.cpp")
+                    .contains(R"({QStringLiteral("ModemManagerCpp"), QStringLiteral("Modem")})"));
+        QVERIFY(read("tools/marathon-app-runner/main.cpp")
+                    .contains(R"(setContextProperty("ModemManagerCpp", new ModemClient)"));
+        QVERIFY(read("shell/src/ipc/shellipcserver.cpp").contains("/org/marathonos/Shell/Modem"));
     }
 
     void quickSettingsTileIds() {

@@ -25,6 +25,7 @@ TestCase {
     }
 
     function init() {
+        Modem.reset();
         Network.reset();
         Bluetooth.reset();
         Settings.reset();
@@ -75,6 +76,9 @@ TestCase {
         compare(valueOf(entry(app, "appsort")), "App grid, Automatic");
         Settings.hiddenApps = ["notes", "weather"];
         compare(valueOf(entry(app, "hiddenapps")), "Hidden apps, 2 hidden");
+        compare(valueOf(entry(app, "cellular")), "Mobile network, Vodafone");
+        Modem.simPresent = false;
+        compare(valueOf(entry(app, "cellular")), "Mobile network, No SIM card");
     }
 
     function test_quickSwitches() {

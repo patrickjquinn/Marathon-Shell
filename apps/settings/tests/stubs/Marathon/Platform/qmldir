@@ -5,6 +5,7 @@ singleton Audio 1.0 Audio.qml
 singleton Bluetooth 1.0 Bluetooth.qml
 singleton DavSync 1.0 DavSync.qml
 singleton Display 1.0 Display.qml
+singleton Modem 1.0 Modem.qml
 singleton Navigation 1.0 Navigation.qml
 singleton Network 1.0 Network.qml
 singleton Power 1.0 Power.qml

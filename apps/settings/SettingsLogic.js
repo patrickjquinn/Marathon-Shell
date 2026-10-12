@@ -245,3 +245,13 @@ const permissions = {
 function permissionInfo(id) {
     return permissions[id] || { title: id, description: "" };
 }
+
+// ModemManager mode mask (2G = 2, 3G = 4, 4G = 8, 5G = 16) -> "4G, 3G and 2G".
+function networkModeTitle(mask) {
+    const names = [[16, "5G"], [8, "4G"], [4, "3G"], [2, "2G"]].filter(m => mask & m[0]).map(m => m[1]);
+    if (names.length === 0)
+        return qsTr("Any");
+    if (names.length === 1)
+        return qsTr("%1 only").arg(names[0]);
+    return qsTr("%1 and %2").arg(names.slice(0, -1).join(", ")).arg(names[names.length - 1]);
+}

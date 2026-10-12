@@ -25,6 +25,7 @@ TestCase {
     }
 
     function init() {
+        Modem.reset();
         Network.reset();
         Bluetooth.reset();
         SettingsController.reset();
@@ -230,11 +231,38 @@ TestCase {
         verify(!SettingsController.bluetoothDialogVisible);
     }
 
-    function test_cellularUnavailable() {
+    function test_cellular() {
+        const s = open("cellular");
+        verify(!child(s.page, "placeholder").enabled);
+        const data = child(s.page, "dataSwitch");
+        verify(!data.checked);
+        data.clicked(null);
+        verify(Modem.dataEnabled);
+        child(s.page, "roamingSwitch").clicked(null);
+        verify(Modem.dataRoamingAllowed);
+        const mode = child(s.page, "modeCombo");
+        compare(mode.currentIndex, 0);
+        compare(mode.value, "4G, 3G and 2G");
+        Modem.setAllowedModes(2);
+        compare(mode.currentIndex, 2);
+        compare(mode.value, "2G only");
+        compare(child(s.page, "operatorItem").value, "Vodafone");
+        compare(child(s.page, "networkItem").value, "LTE");
+        compare(child(s.page, "signalItem").value, "Excellent");
+        compare(child(s.page, "roamingItem").value, "Home network");
+        Modem.registered = false;
+        compare(child(s.page, "operatorItem").value, "No service");
+        verify(!child(s.page, "signalItem").visible);
+    }
+
+    function test_cellularWithoutSimOrModem() {
+        Modem.simPresent = false;
         const s = open("cellular");
         const placeholder = child(s.page, "placeholder");
         verify(placeholder.enabled);
-        compare(placeholder.text, "Mobile network settings aren't available yet");
-        compare(findChild(s.page, "dataSwitch"), null);
+        compare(placeholder.text, "No SIM card");
+        verify(!child(s.page, "dataSwitch").visible);
+        Modem.available = false;
+        compare(placeholder.text, "No modem found");
     }
 }

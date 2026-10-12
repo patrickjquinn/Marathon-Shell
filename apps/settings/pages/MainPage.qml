@@ -20,6 +20,8 @@ Page {
             return Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid);
         case "bluetooth":
             return Logic.bluetoothSummary(Bluetooth.enabled, Bluetooth.pairedDevices);
+        case "cellular":
+            return !Modem.available ? "" : !Modem.simPresent ? qsTr("No SIM card") : Modem.registered && Modem.operatorName !== "" ? Modem.operatorName : qsTr("No service");
         case "display":
             return qsTr("Brightness %1%").arg(Logic.percent(Display.brightness));
         case "sound":
