@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
+#include <QStringList>
 #include <QString>
 #include <qqml.h>
 
@@ -42,6 +44,8 @@ class SystemControlStore : public QObject {
     Q_PROPERTY(int brightness READ brightness NOTIFY brightnessChanged)
     Q_PROPERTY(int volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool isLowPowerMode READ isLowPowerMode NOTIFY isLowPowerModeChanged)
+    // Switches toggled but not yet confirmed by their backend.
+    Q_PROPERTY(QStringList pendingSwitches READ pendingSwitches NOTIFY pendingSwitchesChanged)
 
   public:
     explicit SystemControlStore(NetworkManagerCpp    *networkManager,
@@ -108,6 +112,9 @@ class SystemControlStore : public QObject {
     bool isLowPowerMode() const {
         return m_isLowPowerMode;
     }
+    QStringList pendingSwitches() const {
+        return m_pendingSwitches;
+    }
 
     Q_INVOKABLE void toggleWifi();
     Q_INVOKABLE void toggleBluetooth();
@@ -152,6 +159,7 @@ class SystemControlStore : public QObject {
     void userBrightnessChanged(int value);
     void volumeChanged();
     void isLowPowerModeChanged();
+    void pendingSwitchesChanged();
 
   private:
     void                   setIsWifiOn(bool enabled);
@@ -172,6 +180,8 @@ class SystemControlStore : public QObject {
     void                   setIsLowPowerMode(bool enabled);
     void                   refreshAlarmState();
     void                   ensureHotspotCredentials();
+    void                   markPending(const QString &id);
+    void                   clearPending(const QString &id);
 
     NetworkManagerCpp     *m_networkManager;
     BluetoothManager      *m_bluetoothManager;
@@ -205,4 +215,7 @@ class SystemControlStore : public QObject {
     bool                   m_isLowPowerMode     = false;
     QString                m_hotspotSsid;
     QString                m_hotspotPassword;
+    QStringList            m_pendingSwitches;
+    QHash<QString, int>    m_pendingSerial;
+    int                    m_nextPendingSerial = 0;
 };

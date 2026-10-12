@@ -478,36 +478,41 @@ void NetworkManagerCpp::updateWifiDetails() {
 }
 
 void NetworkManagerCpp::enableWifi() {
-    qDebug() << "[NetworkManagerCpp] Enabling WiFi";
-
-    if (m_hasNetworkManager) {
-        // Write the WirelessEnabled PROPERTY (wlan-only soft switch that maps
-        // to the wlan rfkill), NOT the global Enable() method — Enable(false)
-        // sleeps ALL of NetworkManager (cellular data + ethernet included),
-        // so the old code made the Wi-Fi tile tear down the whole stack.
-        if (!m_nmInterface->setProperty("WirelessEnabled", true)) {
-            qDebug() << "[NetworkManagerCpp] Failed to enable WiFi (WirelessEnabled set failed)";
-            emit networkError("Failed to enable WiFi");
-            return;
-        }
-    }
-
-    m_wifiEnabled = true;
-    emit wifiEnabledChanged();
+    setWifiEnabled(true);
 }
 
 void NetworkManagerCpp::disableWifi() {
-    qDebug() << "[NetworkManagerCpp] Disabling WiFi";
+    setWifiEnabled(false);
+}
 
-    if (m_hasNetworkManager) {
-        if (!m_nmInterface->setProperty("WirelessEnabled", false)) {
-            qDebug() << "[NetworkManagerCpp] Failed to disable WiFi (WirelessEnabled set failed)";
-            emit networkError("Failed to disable WiFi");
-            return;
-        }
+// WirelessEnabled is the wlan-only soft switch. NM's global Enable() would
+// sleep cellular and ethernet too. Asynchronous: the radio takes seconds.
+void NetworkManagerCpp::setWifiEnabled(bool enabled) {
+    if (!m_hasNetworkManager) {
+        m_wifiEnabled = enabled;
+        emit wifiEnabledChanged();
+        return;
     }
-    m_wifiEnabled = false;
-    emit wifiEnabledChanged();
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
+        "org.freedesktop.DBus.Properties", "Set");
+    msg << QStringLiteral("org.freedesktop.NetworkManager") << QStringLiteral("WirelessEnabled")
+        << QVariant::fromValue(QDBusVariant(enabled));
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, enabled](QDBusPendingCallWatcher *watcher) {
+                watcher->deleteLater();
+                if (watcher->isError()) {
+                    qWarning() << "[NetworkManagerCpp] WirelessEnabled set failed:"
+                               << watcher->error().message();
+                    emit networkError(enabled ? QStringLiteral("Failed to enable WiFi")
+                                              : QStringLiteral("Failed to disable WiFi"));
+                } else {
+                    m_wifiEnabled = enabled;
+                }
+                // Emitted either way: it is the answer a pending switch waits for.
+                emit wifiEnabledChanged();
+            });
 }
 
 void NetworkManagerCpp::toggleWifi() {

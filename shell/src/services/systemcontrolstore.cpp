@@ -13,6 +13,7 @@
 #include "src/managers/settingsmanager.h"
 #include "src/services/screenshotservicecpp.h"
 #include <QRandomGenerator>
+#include <QTimer>
 #include <cmath>
 #include <algorithm>
 
@@ -44,7 +45,10 @@ SystemControlStore::SystemControlStore(
         connect(m_networkManager, &NetworkManagerCpp::hotspotActiveChanged, this,
                 [this]() { setIsHotspotOn(m_networkManager->isHotspotActive()); });
         connect(m_networkManager, &NetworkManagerCpp::hotspotFailed, this,
-                &SystemControlStore::hotspotFailed);
+                [this](const QString &message) {
+                    clearPending(QStringLiteral("hotspot"));
+                    emit hotspotFailed(message);
+                });
         connect(m_networkManager, &NetworkManagerCpp::wifiEnabledChanged, this,
                 [this]() { setIsWifiOn(m_networkManager->wifiEnabled()); });
         connect(m_networkManager, &NetworkManagerCpp::airplaneModeEnabledChanged, this,
@@ -52,8 +56,10 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_bluetoothManager) {
-        connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
-                &SystemControlStore::isBluetoothOnChanged);
+        connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this, [this]() {
+            clearPending(QStringLiteral("bluetooth"));
+            emit isBluetoothOnChanged();
+        });
     }
 
     if (m_displayManager) {
@@ -131,8 +137,29 @@ SystemControlStore::SystemControlStore(
     }
 }
 
+// Cleared by the backend's state change, or after 10 s if it never comes.
+void SystemControlStore::markPending(const QString &id) {
+    const int serial      = ++m_nextPendingSerial;
+    m_pendingSerial[id] = serial;
+    if (!m_pendingSwitches.contains(id)) {
+        m_pendingSwitches.append(id);
+        emit pendingSwitchesChanged();
+    }
+    QTimer::singleShot(10000, this, [this, id, serial]() {
+        if (m_pendingSerial.value(id) == serial)
+            clearPending(id);
+    });
+}
+
+void SystemControlStore::clearPending(const QString &id) {
+    m_pendingSerial.remove(id);
+    if (m_pendingSwitches.removeAll(id) > 0)
+        emit pendingSwitchesChanged();
+}
+
 void SystemControlStore::toggleWifi() {
     if (m_networkManager) {
+        markPending(QStringLiteral("wifi"));
         m_networkManager->toggleWifi();
     }
 }
@@ -153,6 +180,7 @@ int SystemControlStore::brightness() const {
 
 void SystemControlStore::toggleBluetooth() {
     if (m_bluetoothManager) {
+        markPending(QStringLiteral("bluetooth"));
         m_bluetoothManager->setEnabled(!m_bluetoothManager->enabled());
     }
 }
@@ -179,6 +207,7 @@ void SystemControlStore::toggleCellularData() {
     if (!m_modemManager) {
         return;
     }
+    markPending(QStringLiteral("cellular"));
     if (m_modemManager->dataEnabled()) {
         m_modemManager->disableData();
     } else {
@@ -211,6 +240,7 @@ void SystemControlStore::toggleLocation() {
     if (!m_locationManager) {
         return;
     }
+    markPending(QStringLiteral("location"));
     if (m_isLocationOn) {
         m_locationManager->stop();
     } else {
@@ -222,6 +252,7 @@ void SystemControlStore::toggleHotspot() {
     if (!m_networkManager) {
         return;
     }
+    markPending(QStringLiteral("hotspot"));
     if (m_networkManager->isHotspotActive()) {
         m_networkManager->stopHotspot();
     } else {
@@ -319,6 +350,7 @@ void SystemControlStore::reboot() {
 }
 
 void SystemControlStore::setIsWifiOn(bool enabled) {
+    clearPending(QStringLiteral("wifi"));
     if (m_isWifiOn == enabled) {
         return;
     }
@@ -359,6 +391,7 @@ void SystemControlStore::setIsCellularOn(bool enabled) {
 }
 
 void SystemControlStore::setIsCellularDataOn(bool enabled) {
+    clearPending(QStringLiteral("cellular"));
     if (m_isCellularDataOn == enabled) {
         return;
     }
@@ -391,6 +424,7 @@ void SystemControlStore::setIsAutoBrightnessOn(bool enabled) {
 }
 
 void SystemControlStore::setIsLocationOn(bool enabled) {
+    clearPending(QStringLiteral("location"));
     if (m_isLocationOn == enabled) {
         return;
     }
@@ -399,6 +433,7 @@ void SystemControlStore::setIsLocationOn(bool enabled) {
 }
 
 void SystemControlStore::setIsHotspotOn(bool enabled) {
+    clearPending(QStringLiteral("hotspot"));
     if (m_isHotspotOn == enabled) {
         return;
     }

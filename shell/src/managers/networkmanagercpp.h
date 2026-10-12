@@ -122,6 +122,7 @@ class NetworkManagerCpp : public QObject {
     void            detectHardwareAvailability();
     void            setHotspotActive(bool active);
     void            watchHotspot(bool watch);
+    void            setWifiEnabled(bool enabled);
 
     QDBusInterface *m_nmInterface;
     QTimer         *m_signalMonitor = nullptr;

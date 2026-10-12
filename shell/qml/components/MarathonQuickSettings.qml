@@ -381,6 +381,7 @@ Item {
                         iconName: modelData.icon
                         label: modelData.label
                         on: modelData.on === true
+                        busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
                         onToggled: quickSettings.toggle(modelData.id)
                     }
                 }
