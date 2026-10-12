@@ -40,6 +40,13 @@ Item {
         hideAnimation.start();
     }
 
+    function cancel() {
+        if (isConnecting)
+            NetworkManagerCpp.cancelPendingConnection();
+        cancelled();
+        hide();
+    }
+
     function showError(message) {
         connectTimeout.stop();
         errorMessage = message;
@@ -56,17 +63,17 @@ Item {
     anchors.fill: parent
     visible: false
     z: Constants.zIndexModalOverlay + 10
-    Keys.onEscapePressed: {
-        wifiDialog.cancelled();
-        wifiDialog.hide();
-    }
+    Keys.onEscapePressed: wifiDialog.cancel()
 
     Timer {
         id: connectTimeout
 
         objectName: "connectTimeout"
         interval: 30000
-        onTriggered: wifiDialog.showError(qsTr("Couldn't connect. Check the password or move closer to the router."))
+        onTriggered: {
+            NetworkManagerCpp.cancelPendingConnection();
+            wifiDialog.showError(qsTr("Couldn't connect. Check the password or move closer to the router."));
+        }
     }
 
     // A full-screen Silica dialog on the ambience: Cancel and Connect in the
@@ -105,8 +112,7 @@ Item {
                 onClicked: {
                     Logger.info("WiFiDialog", "Cancelled");
                     HapticManager.light();
-                    wifiDialog.cancelled();
-                    wifiDialog.hide();
+                    wifiDialog.cancel();
                 }
 
                 Silica.Label {

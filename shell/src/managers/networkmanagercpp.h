@@ -79,6 +79,8 @@ class NetworkManagerCpp : public QObject {
     Q_INVOKABLE void         scanWifi();
     Q_INVOKABLE void         connectToNetwork(const QString &ssid, const QString &password);
     Q_INVOKABLE void         disconnectWifi();
+    // Abandons a connectToNetwork that has not reached ACTIVATED yet.
+    Q_INVOKABLE void         cancelPendingConnection();
 
     Q_INVOKABLE void         setAirplaneMode(bool enabled);
 
@@ -136,6 +138,8 @@ class NetworkManagerCpp : public QObject {
     // reply — without that gating the WiFi password dialog dismisses
     // before authentication completes.
     QString      m_pendingConnectSsid;
+    QString      m_pendingConnectPath;
+    bool         m_connectCancelled = false;
     int          m_wifiSignalStrength;
     bool         m_ethernetConnected;
     QString      m_ethernetConnectionName;

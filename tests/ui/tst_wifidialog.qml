@@ -53,8 +53,16 @@ TestCase {
         dialog.showConnecting();
         const cancel = findChild(dialog, "cancelButton");
         verify(cancel.enabled);
+        const before = NetworkManagerCpp.cancelledConnects;
         mouseClick(cancel);
         compare(cancelSpy.count, 1);
+        compare(NetworkManagerCpp.cancelledConnects, before + 1);
+    }
+
+    function test_cancelBeforeConnectingLeavesNetworkManagerAlone() {
+        const before = NetworkManagerCpp.cancelledConnects;
+        mouseClick(findChild(dialog, "cancelButton"));
+        compare(NetworkManagerCpp.cancelledConnects, before);
     }
 
     function test_connectingTimesOut() {
@@ -62,7 +70,9 @@ TestCase {
         const timer = findChild(dialog, "connectTimeout");
         compare(timer.interval, 30000);
         verify(timer.running);
+        const before = NetworkManagerCpp.cancelledConnects;
         timer.triggered();
+        compare(NetworkManagerCpp.cancelledConnects, before + 1);
         verify(!dialog.isConnecting);
         verify(dialog.errorMessage.length > 0);
     }

@@ -391,6 +391,7 @@ void NetworkManagerCpp::queryConnectionState() {
     if (hasWifi && !m_pendingConnectSsid.isEmpty() && wifiSsid == m_pendingConnectSsid) {
         qInfo() << "[NetworkManagerCpp] Pending connect activated:" << m_pendingConnectSsid;
         m_pendingConnectSsid.clear();
+        m_pendingConnectPath.clear();
         emit connectionSuccess();
     }
 
@@ -672,6 +673,8 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
         return;
     }
 
+    m_connectCancelled = false;
+
     QString apPath;
     bool    isSecured = false;
 
@@ -768,7 +771,8 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
                         userError = QStringLiteral("Failed (%1)").arg(name);
                     }
 
-                    emit connectionFailed(userError);
+                    if (!m_connectCancelled)
+                        emit connectionFailed(userError);
                 } else {
                     // AddAndActivateConnection returning OK only means
                     // NetworkManager *accepted* the request — auth +
@@ -783,6 +787,12 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
                     // m_wifiConnected transition.
                     const QDBusObjectPath connPath   = reply.argumentAt<0>();
                     const QDBusObjectPath activePath = reply.argumentAt<1>();
+                    m_pendingConnectPath             = activePath.path();
+                    if (m_connectCancelled) {
+                        cancelPendingConnection();
+                        watcher->deleteLater();
+                        return;
+                    }
                     qInfo() << "[NetworkManagerCpp] Activation request accepted for:" << ssid
                             << "connection=" << connPath.path() << "active=" << activePath.path()
                             << "— waiting for state=ACTIVATED";
@@ -795,11 +805,41 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
 }
 
 void NetworkManagerCpp::disconnectWifi() {
-    qDebug() << "[NetworkManagerCpp] Disconnecting WiFi";
-    m_wifiConnected = false;
-    m_wifiSsid      = "Disconnected";
-    emit wifiConnectedChanged();
-    emit wifiSsidChanged();
+    if (!m_hasNetworkManager || m_wifiDevicePath.isEmpty())
+        return;
+    // The connected and SSID state follow from NM's PropertiesChanged.
+    QDBusMessage msg = QDBusMessage::createMethodCall("org.freedesktop.NetworkManager",
+                                                      m_wifiDevicePath,
+                                                      "org.freedesktop.NetworkManager.Device",
+                                                      "Disconnect");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        if (w->isError()) {
+            qWarning() << "[NetworkManagerCpp] Wi-Fi disconnect failed:" << w->error().message();
+            emit networkError(QStringLiteral("Failed to disconnect Wi-Fi"));
+        }
+    });
+}
+
+void NetworkManagerCpp::cancelPendingConnection() {
+    m_pendingConnectSsid.clear();
+    if (m_pendingConnectPath.isEmpty()) {
+        // The AddAndActivateConnection reply is still on its way.
+        m_connectCancelled = true;
+        return;
+    }
+    const QString path = std::exchange(m_pendingConnectPath, QString());
+    QDBusMessage  msg  = QDBusMessage::createMethodCall(
+        "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
+        "org.freedesktop.NetworkManager", "DeactivateConnection");
+    msg << QVariant::fromValue(QDBusObjectPath(path));
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        if (w->isError())
+            qWarning() << "[NetworkManagerCpp] Cancel connect failed:" << w->error().message();
+    });
 }
 
 void NetworkManagerCpp::setAirplaneMode(bool enabled) {
