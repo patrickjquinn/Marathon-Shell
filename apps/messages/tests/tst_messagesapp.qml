@@ -277,6 +277,20 @@ TestCase {
         compare(waitForPage(app, "conversation").conversation.id, "a");
     }
 
+    function test_shortNumberHintWaitsForSubmit() {
+        const app = makeApp();
+        app.newMessage();
+        const picker = waitForPage(app, "matches");
+        const field = findChild(picker, "recipientField");
+        field.text = "5";
+        compare(field.description, "");
+        picker.startWithTyped();
+        compare(field.description, "Enter at least 3 digits");
+        compare(app.pageStack.currentPage, picker);
+        field.text = "55";
+        compare(field.description, "");
+    }
+
     function test_newMessageTypesIntoRecipient() {
         const app = makeApp();
         app.newMessage();

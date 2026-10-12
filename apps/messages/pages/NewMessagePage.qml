@@ -11,6 +11,7 @@ Page {
 
     property var app
     property string typed: ""
+    property bool submitted: false
     readonly property bool hasLetters: /[A-Za-z]/.test(typed)
     readonly property bool isNumber: !hasLetters && Logic.isPhoneNumber(typed)
     readonly property var matches: Contacts.contacts.filter(c => Logic.matches(typed, c.name, c.phone, ""))
@@ -18,6 +19,8 @@ Page {
     function startWithTyped() {
         if (isNumber)
             app.startConversation(Logic.normaliseNumber(typed), "");
+        else
+            submitted = true;
     }
 
     onStatusChanged: if (status === PageStatus.Active && typed === "")
@@ -40,11 +43,16 @@ Page {
             inputMethodHints: Qt.ImhNoPredictiveText
             description: root.typed === "" || root.isNumber ? ""
                        : root.hasLetters ? (root.matches.length > 0 ? qsTr("Choose a contact below, or enter a phone number") : qsTr("No contact matches; enter a phone number"))
-                       : qsTr("Enter at least 3 digits")
-            EnterKey.enabled: root.isNumber
+                       : root.submitted ? qsTr("Enter at least 3 digits") : ""
+            EnterKey.enabled: root.typed !== ""
             EnterKey.iconSource: "image://theme/icon-m-enter-next"
             EnterKey.onClicked: root.startWithTyped()
-            onTextChanged: root.typed = text.trim()
+            onActiveFocusChanged: if (!activeFocus && root.typed !== "")
+                root.submitted = true
+            onTextChanged: {
+                root.typed = text.trim();
+                root.submitted = false;
+            }
         }
         ListItem {
             objectName: "typedNumberItem"
