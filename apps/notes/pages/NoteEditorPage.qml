@@ -29,7 +29,7 @@ Page {
     }
 
     function deleteNote() {
-        remorse.execute(qsTr("Deleting"), function () {
+        remorse.execute(qsTr("Deleted"), function () {
             page.discarded = true;
             page.store.save(Store.remove(page.store.notes, page.noteId));
             page.pageContainer.pop();
