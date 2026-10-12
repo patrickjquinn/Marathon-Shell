@@ -23,7 +23,7 @@ Item {
         if (!message)
             return "";
         if (message.isFailed)
-            return "FAILED";
+            return "Not sent";
         if (message.isRead)
             return "READ";
         if (message.isDelivered)

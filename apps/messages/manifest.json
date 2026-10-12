@@ -6,7 +6,7 @@
   "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["sms", "phone", "contacts", "notifications"],
+  "permissions": ["sms", "phone", "contacts", "notifications", "storage"],
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Communication"],

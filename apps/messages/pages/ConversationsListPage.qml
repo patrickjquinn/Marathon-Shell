@@ -1,6 +1,10 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Modals
 import MarathonUI.Navigation
 import MarathonUI.Theme
@@ -9,41 +13,63 @@ import QtQuick.Controls
 
 // Marathon DS · Messages list (screens-apps-1.jsx:234).
 //
-// MTopBar with "Messages" + search + small 32×32 teal-gradient compose
-// squircle. 44×44 monogram rows beneath, name + time + snippet +
-// teal-bright unread count badge. Three-tab bottom nav:
-// Pinned · All · Archive.
+// MTopBar with "Messages", search field, 44×44 monogram rows beneath,
+// name + time + snippet + teal-bright unread count badge, compose FAB.
+// Three-tab bottom nav: Pinned · All · Archive.
 Page {
     id: conversationsPage
 
-    property var filteredConversations: messagesApp.conversations
+    required property var app
+
     property string selectedTab: "all"        // "pinned" | "all" | "archive"
     property string searchQuery: ""
+    // Deleted only when the Undo snackbar expires.
+    property string pendingDeleteId: ""
+    readonly property bool sheetOpen: contextMenu.showing
+
+    readonly property var filteredConversations: {
+        const pinned = conversationsPage.app.pinnedIds;
+        const archived = conversationsPage.app.archivedIds;
+        const query = searchQuery.toLowerCase();
+        var list = conversationsPage.app.conversations.filter(c => {
+            if (c.id === pendingDeleteId)
+                return false;
+            var isArchived = archived.indexOf(c.id) !== -1;
+            if (selectedTab === "archive" ? !isArchived : isArchived)
+                return false;
+            if (selectedTab === "pinned" && pinned.indexOf(c.id) === -1)
+                return false;
+            if (query.length === 0)
+                return true;
+            return (c.contactName && c.contactName.toLowerCase().includes(query)) || (c.contactNumber && MPhoneNumber.digits(query).length > 0 && MPhoneNumber.digits(c.contactNumber).includes(MPhoneNumber.digits(query))) || (c.lastMessage && c.lastMessage.toLowerCase().includes(query));
+        });
+        if (selectedTab === "all")
+            list.sort((a, b) => (pinned.indexOf(b.id) !== -1) - (pinned.indexOf(a.id) !== -1));
+        return list;
+    }
 
     signal openConversation(string conversationId)
     signal newMessage
 
-    function updateFilter() {
-        var conversations = messagesApp.conversations;
-        if (selectedTab === "pinned")
-            conversations = conversations.filter(function (c) {
-                return c.pinned === true;
-            });
-        else if (selectedTab === "archive")
-            conversations = conversations.filter(function (c) {
-                return c.archived === true;
-            });
-        if (searchQuery.length > 0) {
-            var query = searchQuery.toLowerCase();
-            conversations = conversations.filter(function (c) {
-                return (c.contactName && c.contactName.toLowerCase().includes(query)) || (c.contactNumber && c.contactNumber.includes(query)) || (c.lastMessage && c.lastMessage.toLowerCase().includes(query));
-            });
-        }
-        filteredConversations = conversations;
+    function commitPendingDelete() {
+        if (pendingDeleteId === "")
+            return;
+        const id = pendingDeleteId;
+        pendingDeleteId = "";
+        conversationsPage.app.setPinned(id, false);
+        conversationsPage.app.setArchived(id, false);
+        conversationsPage.app.setDraft(id, "");
+        SMSService.deleteConversation(id);
     }
 
     function deleteConversation(conversationId) {
-        SMSService.deleteConversation(conversationId);
+        commitPendingDelete();
+        pendingDeleteId = conversationId;
+        snackbar.show("Conversation deleted", "Undo");
+    }
+
+    function closeSheet() {
+        contextMenu.hide();
     }
 
     function monogramOf(name) {
@@ -57,22 +83,7 @@ Page {
         return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
-    // Tint palette: pseudo-random per contact, drawn from the DS
-    // secondary-accent ramp + a few brand-aware tones.
-    function tintFor(name) {
-        const palette = ["#3a6b9c", "#a85968", "#6b5d8f", "#1a4a3e", "#4a8a5e", "#c89545", MColors.elev3];
-        let h = 0;
-        for (let i = 0; i < name.length; ++i) {
-            h = (h * 31 + name.charCodeAt(i)) >>> 0;
-        }
-        return palette[h % palette.length];
-    }
-
-    onSelectedTabChanged: updateFilter()
-
-    Component.onCompleted: {
-        updateFilter();
-    }
+    Component.onDestruction: commitPendingDelete()
 
     background: Rectangle {
         color: MColors.background
@@ -82,74 +93,67 @@ Page {
         anchors.fill: parent
         spacing: 0
 
-        // ── Header — MTopBar with compose action ─────────────────
         MTopBar {
             id: topBar
             width: parent.width
             title: "Messages"
-            actions: [
-                // Compose squircle. Uses Math.round(X * Constants.scaleFactor)
-                // per Marathon convention (MSectionHeader / MActionBar / MComboBox);
-                // raw 32 dp rendered at ~32 device px on the L5 (scaleFactor 1.79)
-                // — half the iOS HIG tappable. 48 dp scaled = ~86 device px,
-                // matches the rest of the chrome.
-                Rectangle {
-                    width: Math.round(48 * Constants.scaleFactor)
-                    height: Math.round(48 * Constants.scaleFactor)
-                    radius: MRadius.md
-                    border.width: 1
-                    border.color: MColors.tealBorder
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0
-                            color: MColors.marathonTealBright
-                        }
-                        GradientStop {
-                            position: 1
-                            color: MColors.marathonTealDark
-                        }
-                    }
-
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "plus"
-                        size: Math.round(28 * Constants.scaleFactor)
-                        color: "#000000"
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        onClicked: {
-                            HapticService.medium();
-                            conversationsPage.newMessage();
-                        }
-                    }
-                }
-            ]
         }
 
-        // ── List ────────────────────────────────────────────────
+        Item {
+            width: parent.width
+            height: searchField.height + MSpacing.sm * 2
+
+            MSearchField {
+                id: searchField
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
+                placeholder: "Search messages"
+                onTextChanged: conversationsPage.searchQuery = text.trim()
+            }
+        }
+
         ListView {
             id: conversationsList
             width: parent.width
-            height: parent.height - topBar.height - tabBar.height
+            height: parent.height - topBar.height - searchField.parent.height - tabBar.height
             clip: true
             model: conversationsPage.filteredConversations
             spacing: 0
+            bottomMargin: composeFab.height + MSpacing.lg * 2
 
             MEmptyState {
                 visible: conversationsList.count === 0
                 anchors.centerIn: parent
                 width: parent.width - MSpacing.xl * 2
                 iconName: "message-circle"
-                title: conversationsPage.selectedTab === "pinned" ? "No pinned conversations" : conversationsPage.selectedTab === "archive" ? "Archive is empty" : "No conversations yet"
-                message: "Tap the compose button at the top right to start a new conversation."
+                title: conversationsPage.searchQuery !== "" ? "No matches" : conversationsPage.selectedTab === "pinned" ? "No pinned conversations" : conversationsPage.selectedTab === "archive" ? "Archive is empty" : "No conversations yet"
+                message: conversationsPage.searchQuery !== "" ? "No conversations match \"" + conversationsPage.searchQuery + "\"." : conversationsPage.selectedTab === "pinned" ? "Press and hold a conversation, then choose Pin." : conversationsPage.selectedTab === "archive" ? "Press and hold a conversation, then choose Archive." : "Tap New message to start a conversation."
             }
 
             delegate: Item {
+                id: row
+
+                required property var modelData
+                readonly property string displayName: modelData.contactName || MPhoneNumber.format(modelData.contactNumber) || "Unknown"
+                readonly property bool pinned: conversationsPage.app.pinnedIds.indexOf(modelData.id) !== -1
+                readonly property string draft: conversationsPage.app.drafts[modelData.id] || ""
+
+                function openMenu() {
+                    HapticService.medium();
+                    contextMenu.conversationId = modelData.id;
+                    contextMenu.isUnread = (modelData.unreadCount || 0) > 0;
+                    contextMenu.show();
+                }
+
                 width: conversationsList.width
                 height: 70
+
+                Accessible.role: Accessible.Button
+                Accessible.name: displayName + ((modelData.unreadCount || 0) > 0 ? ", " + modelData.unreadCount + " unread" : "")
+                Accessible.onPressAction: conversationsPage.openConversation(modelData.id || modelData.contactNumber || "")
 
                 Row {
                     anchors.fill: parent
@@ -165,16 +169,16 @@ Page {
                         width: 44
                         height: 44
                         radius: width / 2
-                        color: conversationsPage.tintFor(modelData.contactName || modelData.contactNumber || "?")
+                        color: conversationsPage.app.tintFor(row.modelData.contactName || row.modelData.contactNumber || "?")
                         border.width: 1
                         border.color: MColors.whiteOverlay08
 
                         Text {
                             anchors.centerIn: parent
-                            text: conversationsPage.monogramOf(modelData.contactName || modelData.contactNumber || "·")
+                            text: conversationsPage.monogramOf(row.modelData.contactName || row.modelData.contactNumber || "·")
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: 15
+                            font.pixelSize: MTypography.sizeSubhead
                             font.weight: Font.DemiBold
                         }
                     }
@@ -189,12 +193,23 @@ Page {
                             width: parent.width
                             height: nameText.implicitHeight
 
+                            Icon {
+                                id: pinIcon
+                                anchors.left: parent.left
+                                anchors.verticalCenter: nameText.verticalCenter
+                                visible: row.pinned
+                                width: visible ? implicitWidth : 0
+                                name: "push-pin"
+                                size: 14
+                                color: MColors.textSecondary
+                            }
                             Text {
                                 id: nameText
-                                anchors.left: parent.left
+                                anchors.left: pinIcon.right
+                                anchors.leftMargin: row.pinned ? MSpacing.xs : 0
                                 anchors.right: timeText.left
                                 anchors.rightMargin: 8
-                                text: modelData.contactName || modelData.contactNumber || "Unknown"
+                                text: row.displayName
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeSubhead
@@ -205,8 +220,8 @@ Page {
                                 id: timeText
                                 anchors.right: parent.right
                                 anchors.verticalCenter: nameText.verticalCenter
-                                text: modelData.lastMessageTime || ""
-                                color: (modelData.unreadCount || 0) > 0 ? MColors.marathonTealBright : MColors.textSecondary
+                                text: row.modelData.lastTimestamp ? conversationsPage.app.formatTimestamp(row.modelData.lastTimestamp) : ""
+                                color: (row.modelData.unreadCount || 0) > 0 ? MColors.marathonTealBright : MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeEyebrow
                                 font.weight: Font.Medium
@@ -226,8 +241,8 @@ Page {
                                 anchors.left: parent.left
                                 anchors.right: badge.visible ? badge.left : parent.right
                                 anchors.rightMargin: badge.visible ? 8 : 0
-                                text: modelData.lastMessage || ""
-                                color: MColors.textSecondary
+                                text: row.draft !== "" ? "Draft: " + row.draft : (row.modelData.lastMessage || "")
+                                color: row.draft !== "" ? MColors.marathonTealBright : MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
                                 font.weight: Font.Normal
@@ -242,14 +257,14 @@ Page {
                                 height: 18
                                 radius: MRadius.md
                                 color: MColors.marathonTealBright
-                                visible: (modelData.unreadCount || 0) > 0
+                                visible: (row.modelData.unreadCount || 0) > 0
                                 width: badgeText.implicitWidth + 14
 
                                 Text {
                                     id: badgeText
                                     anchors.centerIn: parent
-                                    text: String(modelData.unreadCount || 0)
-                                    color: "#000000"
+                                    text: String(row.modelData.unreadCount || 0)
+                                    color: MColors.textOnAccent
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeEyebrow
                                     font.weight: Font.Bold
@@ -276,14 +291,9 @@ Page {
                     anchors.fill: parent
                     onClicked: {
                         HapticService.light();
-                        conversationsPage.openConversation(modelData.id || modelData.contactNumber || "");
+                        conversationsPage.openConversation(row.modelData.id || row.modelData.contactNumber || "");
                     }
-                    onPressAndHold: {
-                        HapticService.medium();
-                        contextMenu.conversationId = modelData.id;
-                        contextMenu.isUnread = (modelData.unreadCount || 0) > 0;
-                        contextMenu.show();
-                    }
+                    onPressAndHold: row.openMenu()
                 }
             }
         }
@@ -296,7 +306,7 @@ Page {
             tabs: [
                 {
                     "label": "Pinned",
-                    "icon": "star"
+                    "icon": "push-pin"
                 },
                 {
                     "label": "All",
@@ -314,11 +324,36 @@ Page {
         }
     }
 
+    MFloatingActionButton {
+        id: composeFab
+        label: "New message"
+        iconName: "pencil-simple"
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: MSpacing.lg
+        anchors.bottomMargin: tabBar.height + MSpacing.lg + (snackbar.open ? snackbar.height + MSpacing.md : 0)
+        onClicked: conversationsPage.newMessage()
+    }
+
+    MSnackbar {
+        id: snackbar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
+        anchors.bottomMargin: tabBar.height + MSpacing.md
+        onActionTriggered: conversationsPage.pendingDeleteId = ""
+        onExpired: conversationsPage.commitPendingDelete()
+    }
+
     MSheet {
         id: contextMenu
 
         property string conversationId: ""
         property bool isUnread: false
+        readonly property bool isPinned: conversationsPage.app.pinnedIds.indexOf(conversationId) !== -1
+        readonly property bool isArchived: conversationsPage.app.archivedIds.indexOf(conversationId) !== -1
 
         title: "Conversation Options"
 
@@ -327,12 +362,34 @@ Page {
             spacing: 0
 
             MSettingsListItem {
-                title: contextMenu.isUnread ? "Mark as Read" : "Mark as Unread"
-                iconName: contextMenu.isUnread ? "check" : "circle"
+                visible: contextMenu.isUnread
+                title: "Mark as Read"
+                iconName: "check"
                 showChevron: false
                 onSettingClicked: {
-                    if (contextMenu.isUnread)
-                        SMSService.markAsRead(contextMenu.conversationId);
+                    SMSService.markAsRead(contextMenu.conversationId);
+                    HapticService.light();
+                    contextMenu.hide();
+                }
+            }
+
+            MSettingsListItem {
+                title: contextMenu.isPinned ? "Unpin" : "Pin"
+                iconName: "push-pin"
+                showChevron: false
+                onSettingClicked: {
+                    conversationsPage.app.setPinned(contextMenu.conversationId, !contextMenu.isPinned);
+                    HapticService.light();
+                    contextMenu.hide();
+                }
+            }
+
+            MSettingsListItem {
+                title: contextMenu.isArchived ? "Move to Inbox" : "Archive"
+                iconName: "archive"
+                showChevron: false
+                onSettingClicked: {
+                    conversationsPage.app.setArchived(contextMenu.conversationId, !contextMenu.isArchived);
                     HapticService.light();
                     contextMenu.hide();
                 }
@@ -343,7 +400,7 @@ Page {
                 iconName: "trash"
                 showChevron: false
                 onSettingClicked: {
-                    deleteConversation(contextMenu.conversationId);
+                    conversationsPage.deleteConversation(contextMenu.conversationId);
                     HapticService.medium();
                     contextMenu.hide();
                 }

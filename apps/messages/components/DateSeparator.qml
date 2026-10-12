@@ -44,7 +44,7 @@ Item {
         }
 
         MLabel {
-            text: formatDate(root.messageDate)
+            text: root.formatDate(root.messageDate)
             variant: "tertiary"
             font.pixelSize: MTypography.sizeXSmall
             font.weight: MTypography.weightMedium

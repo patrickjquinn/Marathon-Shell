@@ -116,7 +116,7 @@ Item {
                 id: timestampLabel
 
                 anchors.verticalCenter: parent.verticalCenter
-                text: formatTimestamp((root.conversation && root.conversation.lastTimestamp) || Date.now())
+                text: root.formatTimestamp((root.conversation && root.conversation.lastTimestamp) || Date.now())
                 variant: root.isUnread ? "secondary" : "tertiary"
                 font.pixelSize: MTypography.sizeXSmall
                 font.weight: root.isUnread ? MTypography.weightDemiBold : MTypography.weightRegular

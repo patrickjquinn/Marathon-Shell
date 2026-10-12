@@ -6,21 +6,31 @@ import QtQuick.Controls
 
 // Marathon DS · Thread composer (screens-apps-1.jsx:MessagesThread).
 //
-// Glass-tabbar surface, 70 px tall. 36×36 elev-2 "+" plug-in
-// attachments button on the left, "iMessage" placeholder input with
-// elev-2 fill and 18 px radius, 48×48 teal-gradient send button right.
+// Glass-tabbar surface. "Message" input with elev-2 fill and pill
+// radius, teal-gradient send button right. The text is kept until the
+// caller clears it, so a failed send never loses what was typed.
 Rectangle {
     id: root
 
     property alias text: messageInput.text
     property alias placeholderText: messageInput.placeholderText
-    property int maxLength: 1000
+    property bool sending: false
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real controlSize: Math.round(44 * scaleFactor)
+    readonly property bool canSend: !sending && messageInput.text.trim().length > 0
 
     signal sendMessage(string text)
-    signal attachPressed
+
+    function send() {
+        if (!canSend)
+            return;
+        HapticService.medium();
+        sendMessage(messageInput.text);
+    }
 
     width: parent ? parent.width : 0
-    height: 70
+    height: controlSize + MSpacing.md * 2
     color: MColors.glassTabbar
 
     Rectangle {
@@ -32,53 +42,16 @@ Rectangle {
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: 14
-        anchors.rightMargin: 14
-        anchors.topMargin: 12
-        anchors.bottomMargin: 12
-        spacing: 10
-
-        // 36 × 36 attach (+) button — elev-2 circle with subtle border.
-        Rectangle {
-            id: attachButton
-            anchors.verticalCenter: parent.verticalCenter
-            width: 36
-            height: 36
-            radius: width / 2
-            color: attachArea.pressed ? MColors.bb10Card : MColors.elev2
-            border.width: 1
-            border.color: MColors.whiteOverlay04
-
-            Icon {
-                anchors.centerIn: parent
-                name: "plus"
-                size: 18
-                color: MColors.textPrimary
-            }
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 80
-                }
-            }
-
-            MouseArea {
-                id: attachArea
-                anchors.fill: parent
-                onClicked: {
-                    HapticService.light();
-                    root.attachPressed();
-                }
-            }
-        }
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
+        spacing: MSpacing.sm
 
         // Input field — flexes to fill remaining width.
         Rectangle {
-            id: inputContainer
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - attachButton.width - sendButton.width - parent.spacing * 2
-            height: 36
-            radius: 18
+            width: parent.width - sendButton.width - parent.spacing
+            height: root.controlSize
+            radius: height / 2
             color: MColors.elev2
             border.width: 1
             border.color: MColors.whiteOverlay04
@@ -86,35 +59,33 @@ Rectangle {
             TextField {
                 id: messageInput
                 anchors.fill: parent
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
                 verticalAlignment: TextInput.AlignVCenter
-                placeholderText: "iMessage"
+                placeholderText: "Message"
                 color: MColors.textPrimary
                 placeholderTextColor: MColors.textTertiary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeBody
                 background: null
                 selectByMouse: true
-                Keys.onReturnPressed: {
-                    if (text.trim().length > 0) {
-                        root.sendMessage(text);
-                        text = "";
-                    }
-                }
+                Keys.onReturnPressed: root.send()
             }
         }
 
-        // 48 × 48 send button — teal-gradient with halo when active.
         Rectangle {
             id: sendButton
             anchors.verticalCenter: parent.verticalCenter
-            width: 48
-            height: 48
+            width: Math.round(48 * root.scaleFactor)
+            height: width
             radius: width / 2
             border.width: 1
             border.color: MColors.tealBorder
-            opacity: messageInput.text.trim().length > 0 ? 1 : 0.4
+            opacity: root.canSend ? 1 : 0.4
+
+            Accessible.role: Accessible.Button
+            Accessible.name: root.sending ? "Sending" : "Send message"
+            Accessible.onPressAction: root.send()
 
             gradient: Gradient {
                 GradientStop {
@@ -133,14 +104,14 @@ Rectangle {
                 radius: width / 2
                 color: "transparent"
                 border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.3)
+                border.color: MColors.whiteOverlay30
             }
 
             Icon {
                 anchors.centerIn: parent
                 name: "send"
-                size: 20
-                color: "#000000"
+                size: Math.round(20 * root.scaleFactor)
+                color: MColors.textOnAccent
             }
 
             scale: sendArea.pressed ? 0.94 : 1.0
@@ -159,12 +130,8 @@ Rectangle {
             MouseArea {
                 id: sendArea
                 anchors.fill: parent
-                enabled: messageInput.text.trim().length > 0
-                onClicked: {
-                    HapticService.medium();
-                    root.sendMessage(messageInput.text);
-                    messageInput.text = "";
-                }
+                enabled: root.canSend
+                onClicked: root.send()
             }
         }
     }

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -8,11 +10,28 @@ import QtQuick
 Rectangle {
     id: chatPage
 
+    required property var app
     property var conversation
     property var messages: []
     property var groupedMessages: []
+    readonly property string recipientNumber: conversation ? (conversation.contactNumber || conversation.id.replace("conv_", "")) : ""
+    property string pendingText: ""
+    property string sendError: ""
 
     signal navigateBack
+
+    function send(text) {
+        pendingText = text.trim();
+        sendError = "";
+        sendTimeout.restart();
+        SMSService.sendMessage(recipientNumber, pendingText);
+    }
+
+    function failureText(reason) {
+        if (/modem/i.test(reason))
+            return "Message not sent. No mobile network is available. Check that a SIM card is inserted and signal is on.";
+        return "Message not sent. Check your mobile signal and try again.";
+    }
 
     function loadMessages() {
         if (!conversation)
@@ -75,20 +94,46 @@ Rectangle {
     color: MColors.background
     Component.onCompleted: {
         loadMessages();
-        if (conversation)
+        if (conversation) {
             SMSService.markAsRead(conversation.id);
+            messageInputBar.text = chatPage.app.drafts[conversation.id] || "";
+        }
+    }
+
+    Timer {
+        id: sendTimeout
+        interval: 30000
+        onTriggered: {
+            chatPage.pendingText = "";
+            chatPage.sendError = "Couldn't confirm the message was sent. Check the conversation before sending again.";
+        }
     }
 
     Connections {
         function onMessageSent(recipient, timestamp) {
+            if (chatPage.pendingText !== "" && MPhoneNumber.sameNumber(recipient, chatPage.recipientNumber)) {
+                sendTimeout.stop();
+                if (messageInputBar.text.trim() === chatPage.pendingText)
+                    messageInputBar.text = "";
+                chatPage.pendingText = "";
+            }
             if (chatPage.conversation)
-                loadMessages();
+                chatPage.loadMessages();
+        }
+
+        function onSendFailed(recipient, reason) {
+            if (chatPage.pendingText === "" || (recipient !== "" && !MPhoneNumber.sameNumber(recipient, chatPage.recipientNumber)))
+                return;
+            Logger.warn("Messages", "Send failed: " + reason);
+            sendTimeout.stop();
+            chatPage.pendingText = "";
+            chatPage.sendError = chatPage.failureText(reason);
         }
 
         function onMessageReceived(sender, text, timestamp) {
-            if (chatPage.conversation && sender === chatPage.conversation.contactNumber) {
-                loadMessages();
-                scrollToBottom();
+            if (chatPage.conversation && MPhoneNumber.sameNumber(sender, chatPage.conversation.contactNumber)) {
+                chatPage.loadMessages();
+                chatPage.scrollToBottom();
             }
         }
 
@@ -109,11 +154,6 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // Header migrated to MTopBar (P3B · ad-hoc-chrome-bypasses-mtopbar).
-        // The old hand-rolled 88 px Rectangle didn't inherit MTopBar's
-        // shrink-on-scroll or future Live-Activity chip slot. Now uses
-        // MTopBar with leadingContent (avatar + name + typing stack)
-        // and actions (phone + more).
         MTopBar {
             id: header
             width: parent.width
@@ -130,7 +170,7 @@ Rectangle {
                     width: 36
                     height: 36
                     radius: width / 2
-                    color: "#3a6b9c"     // tint per contact (stub)
+                    color: chatPage.app.tintFor((chatPage.conversation && (chatPage.conversation.contactName || chatPage.conversation.contactNumber)) || "?")
                     border.width: 1
                     border.color: MColors.whiteOverlay08
 
@@ -139,7 +179,7 @@ Rectangle {
                         text: chatPage.contactMonogram()
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
-                        font.pixelSize: 13
+                        font.pixelSize: MTypography.sizeFootnote
                         font.weight: Font.DemiBold
                     }
                 },
@@ -148,10 +188,10 @@ Rectangle {
                     spacing: 0
 
                     Text {
-                        text: (chatPage.conversation && chatPage.conversation.contactName) || (chatPage.conversation && chatPage.conversation.contactNumber) || ""
+                        text: (chatPage.conversation && chatPage.conversation.contactName) || (chatPage.conversation && MPhoneNumber.format(chatPage.conversation.contactNumber)) || ""
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
-                        font.pixelSize: 17
+                        font.pixelSize: MTypography.sizeHeadline
                         font.weight: Font.Medium
                         elide: Text.ElideRight
                     }
@@ -167,33 +207,6 @@ Rectangle {
                     }
                 }
             ]
-
-            actions: [
-                Icon {
-                    name: "phone"
-                    size: 20
-                    color: MColors.textPrimary
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        onClicked: {
-                            HapticService.light();
-                            // Hand off to Phone app once TelephonyService
-                            // supports cross-app launch.
-                        }
-                    }
-                },
-                Icon {
-                    name: "ellipsis-vertical"
-                    size: 22
-                    color: MColors.textSecondary
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        onClicked: HapticService.light()
-                    }
-                }
-            ]
         }
 
         ListView {
@@ -204,7 +217,7 @@ Rectangle {
             }
 
             width: parent.width
-            height: parent.height - header.height - messageInputBar.height
+            height: parent.height - header.height - statusStrip.height - messageInputBar.height
             clip: true
             verticalLayoutDirection: ListView.BottomToTop
             spacing: 0
@@ -222,19 +235,25 @@ Rectangle {
             }
 
             delegate: Column {
+                id: dayGroup
+
+                required property var modelData
+
                 width: messagesList.width
                 spacing: 0
 
                 DateSeparator {
-                    visible: modelData.showDate
-                    messageDate: modelData.date
+                    visible: dayGroup.modelData.showDate
+                    messageDate: dayGroup.modelData.date
                     width: parent.width
                 }
 
                 Repeater {
-                    model: modelData.messages
+                    model: dayGroup.modelData.messages
 
                     MessageBubble {
+                        required property var modelData
+
                         message: modelData
                         showTimestamp: modelData.showTime
                         isFirstInGroup: modelData.isFirst
@@ -245,19 +264,52 @@ Rectangle {
             }
         }
 
+        Rectangle {
+            id: statusStrip
+            width: parent.width
+            height: visible ? statusRow.implicitHeight + MSpacing.sm * 2 : 0
+            visible: chatPage.sendError !== "" || chatPage.pendingText !== ""
+            color: MColors.bb10Elevated
+
+            Row {
+                id: statusRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.sm
+                spacing: MSpacing.sm
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - (retryButton.visible ? retryButton.width + parent.spacing : 0)
+                    text: chatPage.sendError !== "" ? chatPage.sendError : "Sending…"
+                    color: chatPage.sendError !== "" ? MColors.error : MColors.textSecondary
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: MTypography.sizeFootnote
+                    wrapMode: Text.WordWrap
+                }
+                MButton {
+                    id: retryButton
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: chatPage.sendError !== "" && messageInputBar.text.trim() !== ""
+                    text: "Retry"
+                    size: "compact"
+                    onClicked: chatPage.send(messageInputBar.text)
+                }
+            }
+        }
+
         MessageInputBar {
             id: messageInputBar
 
             width: parent.width
+            sending: chatPage.pendingText !== ""
+            onTextChanged: if (chatPage.conversation)
+                chatPage.app.setDraft(chatPage.conversation.id, text)
             onSendMessage: text => {
-                if (text.trim().length > 0 && chatPage.conversation) {
-                    Logger.info("Messages", "Sending message to: " + chatPage.conversation.contactName);
-                    var recipientNumber = chatPage.conversation.contactNumber || chatPage.conversation.id.replace("conv_", "");
-                    SMSService.sendMessage(recipientNumber, text.trim());
-                }
-            }
-            onAttachPressed: {
-                Logger.info("Messages", "Attach pressed");
+                if (chatPage.conversation)
+                    chatPage.send(text);
             }
         }
     }
