@@ -9,7 +9,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <signal.h>
+#include <csignal>
 
 #if defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
 #include <termios.h>
@@ -64,7 +64,7 @@ void TerminalEngine::start(const QString &shell) {
         setenv("COLORTERM", "truecolor", 1);
         QByteArray  shellPath = shellProgram.toUtf8();
         const char *argv[]    = {shellPath.constData(), "-i", nullptr};
-        execvp(argv[0], (char *const *)argv);
+        execvp(argv[0], const_cast<char *const *>(argv));
         _exit(1);
     } else {
         m_pid     = pid;
@@ -230,14 +230,14 @@ void TerminalEngine::handleOSC(const QString &seq) {
     }
 }
 
-void TerminalEngine::sendInput(const QString &text) {
+void TerminalEngine::sendInput(const QString &text) const {
     if (m_masterFd != -1) {
         QByteArray data = text.toUtf8();
         write(m_masterFd, data.constData(), data.size());
     }
 }
 
-void TerminalEngine::sendKey(int key, const QString &text, int modifiers) {
+void TerminalEngine::sendKey(int key, const QString &text, int modifiers) const {
     if (m_masterFd == -1)
         return;
 
@@ -318,7 +318,7 @@ void TerminalEngine::resize(int cols, int rows) {
     }
 }
 
-void TerminalEngine::sendSignal(int signal) {
+void TerminalEngine::sendSignal(int signal) const {
     if (m_pid > 0)
         kill(m_pid, signal);
 }

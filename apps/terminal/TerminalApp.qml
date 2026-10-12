@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Terminal
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -76,8 +78,10 @@ MApp {
                     model: terminalApp.tabs.length
 
                     TerminalSession {
+                        required property int index
+
                         anchors.fill: parent
-                        visible: index === currentTabIndex
+                        visible: index === terminalApp.currentTabIndex
                         Component.onCompleted: {
                             var tab = terminalApp.tabs[index];
                             if (tab)
@@ -134,6 +138,8 @@ MApp {
                                 model: terminalApp.tabs.length
 
                                 TerminalTabButton {
+                                    required property int index
+
                                     height: 36
                                     anchors.verticalCenter: parent.verticalCenter
                                     title: {
@@ -143,9 +149,9 @@ MApp {
 
                                         return tab ? tab.title : "";
                                     }
-                                    active: index === currentTabIndex
+                                    active: index === terminalApp.currentTabIndex
                                     canClose: terminalApp.tabs.length > 1
-                                    onClicked: currentTabIndex = index
+                                    onClicked: terminalApp.currentTabIndex = index
                                     onCloseClicked: terminalApp.closeTab(index)
                                 }
                             }
@@ -172,7 +178,7 @@ MApp {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.round(48 * Constants.scaleFactor)
                 onKeyTriggered: (key, modifiers) => {
-                    var tab = terminalApp.tabs[currentTabIndex];
+                    var tab = terminalApp.tabs[terminalApp.currentTabIndex];
                     if (tab && tab.session)
                         tab.session.sendKey(key, "", modifiers);
                 }

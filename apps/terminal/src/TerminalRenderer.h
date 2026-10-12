@@ -27,7 +27,7 @@ class TerminalRenderer : public QQuickPaintedItem {
     Q_INVOKABLE void    select(int startX, int startY, int endX, int endY);
     Q_INVOKABLE void    clearSelection();
     Q_INVOKABLE QString selectedText() const;
-    Q_INVOKABLE QPoint  positionToGrid(qreal x, qreal y);
+    Q_INVOKABLE QPoint  positionToGrid(qreal x, qreal y) const;
 
     TerminalEngine     *terminal() const {
         return m_terminal;

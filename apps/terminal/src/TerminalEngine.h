@@ -31,11 +31,11 @@ class TerminalEngine : public QObject {
     }
 
     Q_INVOKABLE void start(const QString &shell = "");
-    Q_INVOKABLE void sendInput(const QString &text);
-    Q_INVOKABLE void sendKey(int key, const QString &text, int modifiers = 0);
+    Q_INVOKABLE void sendInput(const QString &text) const;
+    Q_INVOKABLE void sendKey(int key, const QString &text, int modifiers = 0) const;
     Q_INVOKABLE void terminate();
     Q_INVOKABLE void resize(int cols, int rows);
-    Q_INVOKABLE void sendSignal(int signal);
+    Q_INVOKABLE void sendSignal(int signal) const;
 
     Q_INVOKABLE void sendMousePress(int x, int y, int button);
     Q_INVOKABLE void sendMouseRelease(int x, int y, int button);

@@ -124,7 +124,7 @@ QString TerminalRenderer::selectedText() const {
     return QString();
 }
 
-QPoint TerminalRenderer::positionToGrid(qreal x, qreal y) {
+QPoint TerminalRenderer::positionToGrid(qreal x, qreal y) const {
     if (m_charWidth <= 0 || m_charHeight <= 0)
         return QPoint(0, 0);
 
