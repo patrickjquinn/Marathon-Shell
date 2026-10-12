@@ -252,9 +252,10 @@ Item {
         }
     }
 
+    // The ambience, blurred and dimmed, as behind Sailfish's lock code.
     Rectangle {
         anchors.fill: parent
-        color: MColors.overlay
+        color: Qt.rgba(0, 0, 0, 0.45)
         z: 2
     }
 
@@ -272,10 +273,10 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: pinScreen.passwordMode ? "Enter Password" : "Enter PIN"
-                color: MColors.text
-                font.pixelSize: Math.round(24 * Constants.scaleFactor)
-                font.weight: Font.Medium
+                text: pinScreen.passwordMode ? "Enter password" : "Enter PIN"
+                color: Silica.Theme.highlightColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeLarge
                 renderType: Text.QtRendering
 
                 Behavior on text {
@@ -330,9 +331,9 @@ Item {
                             x: Math.round((pinDot.index >= 3 ? 6 : -6) * Constants.scaleFactor)
                         }
                         radius: Math.round(7 * Constants.scaleFactor)
-                        color: pinDot.index < pinScreen.pin.length ? MColors.accentBright : "transparent"
+                        color: pinDot.index < pinScreen.pin.length ? Silica.Theme.highlightColor : "transparent"
                         border.width: 2
-                        border.color: pinDot.index < pinScreen.pin.length ? MColors.accentBright : MColors.borderSubtle
+                        border.color: pinDot.index < pinScreen.pin.length ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
                         antialiasing: true
                         scale: (pinDot.index === pinScreen.pin.length - 1 && pinScreen.pin.length > 0) ? 1.3 : 1
 
@@ -361,7 +362,6 @@ Item {
             Silica.BusyIndicator {
                 anchors.verticalCenter: pinCircles.verticalCenter
                 size: Silica.BusyIndicatorSize.Small
-                color: MColors.accentBright
                 running: pinScreen.authenticating && !pinScreen.passwordMode
                 visible: pinScreen.authenticating && !pinScreen.passwordMode
                 opacity: visible ? 1 : 0
@@ -378,17 +378,16 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.round(300 * Constants.scaleFactor)
             height: Math.round(40 * Constants.scaleFactor)
-            radius: Math.round(8 * Constants.scaleFactor)
-            color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
+            color: "transparent"
             visible: pinScreen.error !== ""
             opacity: pinScreen.error !== "" ? 1 : 0
 
             Text {
                 anchors.centerIn: parent
                 text: pinScreen.error
-                color: MColors.error
-                font.pixelSize: Math.round(14 * Constants.scaleFactor)
-                font.weight: Font.Medium
+                color: Silica.Theme.errorColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeSmall
                 renderType: Text.QtRendering
             }
 
@@ -553,10 +552,16 @@ Item {
                     id: passwordField
 
                     anchors.fill: parent
-                    radius: Math.round(12 * Constants.scaleFactor)
-                    color: MColors.bb10Surface
-                    border.width: 2
-                    border.color: passwordTextInput.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
+                    // Silica's field: no box, an underline lit while focused.
+                    color: "transparent"
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                        color: passwordTextInput.activeFocus ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+                    }
                     Component.onCompleted: {
                         if (pinScreen.passwordMode)
                             Qt.callLater(function () {
@@ -569,9 +574,9 @@ Item {
                         anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Enter password"
-                        color: MColors.textSecondary
-                        font.pixelSize: Math.round(18 * Constants.scaleFactor)
-                        font.family: MTypography.fontFamily
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
+                        font.family: Silica.Theme.fontFamily
                         visible: passwordTextInput.text.length === 0 && !passwordTextInput.activeFocus
                     }
 
@@ -582,11 +587,11 @@ Item {
                         anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
                         anchors.rightMargin: Math.round(48 * Constants.scaleFactor)
                         verticalAlignment: TextInput.AlignVCenter
-                        color: MColors.textPrimary
-                        selectedTextColor: MColors.textOnAccent
-                        selectionColor: MColors.marathonTeal
-                        font.pixelSize: Math.round(18 * Constants.scaleFactor)
-                        font.family: MTypography.fontFamily
+                        color: Silica.Theme.highlightColor
+                        selectedTextColor: Silica.Theme.highlightDimmerColor
+                        selectionColor: Silica.Theme.highlightColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
+                        font.family: Silica.Theme.fontFamily
                         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                         echoMode: TextInput.Password
                         onAccepted: pinScreen.verifyPasswordInput()
@@ -596,11 +601,6 @@ Item {
                         }
                     }
 
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: 200
-                        }
-                    }
                 }
 
                 Silica.BusyIndicator {
@@ -608,7 +608,6 @@ Item {
                     anchors.rightMargin: Math.round(12 * Constants.scaleFactor)
                     anchors.verticalCenter: parent.verticalCenter
                     size: Silica.BusyIndicatorSize.Small
-                    color: MColors.accentBright
                     running: pinScreen.authenticating && pinScreen.passwordMode
                     visible: pinScreen.authenticating && pinScreen.passwordMode
                     opacity: visible ? 1 : 0
@@ -661,7 +660,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
             backgroundColor: "transparent"
-            color: MColors.textSecondary
+            color: Silica.Theme.secondaryColor
             onClicked: {
                 HapticManager.light();
                 pinScreen.cancelled();
@@ -674,9 +673,9 @@ Item {
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Emergency"
+            text: "Emergency call"
             backgroundColor: "transparent"
-            color: MColors.error
+            color: Silica.Theme.errorColor
             onClicked: {
                 HapticManager.medium();
                 Logger.info("PinScreen", "Emergency dial requested from lock screen");
