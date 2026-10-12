@@ -19,6 +19,7 @@ set(SOURCES
     pagetouch.cpp
     keelhost.cpp
     ambienceclient.cpp
+    platformtypes.cpp
     ipc/shellipcclients.cpp
     calendarmanagercpp.cpp
 )

@@ -157,6 +157,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "pagetouch.h"
 #include "keelhost.h"
 #include "ambienceclient.h"
+#include "platformtypes.h"
 #include "calendarmanagercpp.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
@@ -1326,6 +1327,7 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("CalendarManager",
                                 new CalendarManagerCpp(settingsClient, notificationClient, &app));
     }
+    registerPlatformTypes(ctx);
 
     const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);
     const QUrl    entryUrl      = QUrl::fromLocalFile(entryAbs);

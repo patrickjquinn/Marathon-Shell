@@ -123,3 +123,15 @@ target_include_directories(test_core_ambienceclient PRIVATE
 )
 add_test(NAME Core_AmbienceClient COMMAND test_core_ambienceclient)
 set_tests_properties(Core_KeelHost PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Marathon.Platform: the runner's service clients under Sailfish-style names
+find_package(Qt6 REQUIRED COMPONENTS Qml)
+add_executable(test_core_platformtypes
+    test_platformtypes.cpp
+    ../../tools/marathon-app-runner/platformtypes.cpp
+)
+target_link_libraries(test_core_platformtypes Qt6::Test Qt6::Core Qt6::Qml)
+target_include_directories(test_core_platformtypes PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_PlatformTypes COMMAND test_core_platformtypes)
