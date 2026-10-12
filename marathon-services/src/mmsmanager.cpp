@@ -21,8 +21,8 @@ namespace {
 Q_DECLARE_METATYPE(OAPair)
 Q_DECLARE_METATYPE(OAList)
 
-static const QString kBus     = QStringLiteral("org.ofono.mms");
-static const QString kManager = QStringLiteral("/org/ofono/mms");
+static constexpr QLatin1StringView kBus{"org.ofono.mms"};
+static constexpr QLatin1StringView kManager{"/org/ofono/mms"};
 
 MmsManager::MmsManager(QObject *parent)
     : QObject(parent)

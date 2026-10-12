@@ -49,8 +49,8 @@ class MediaScanWorker : public QObject {
     bool                     isVideoFile(const QString &path);
     MediaItem                scanFile(const QString &filePath);
 
-    static const QStringList IMAGE_EXTENSIONS;
-    static const QStringList VIDEO_EXTENSIONS;
+    static const QStringList &imageExtensions();
+    static const QStringList &videoExtensions();
 };
 
 class MediaLibraryManager : public QObject {
@@ -120,8 +120,8 @@ class MediaLibraryManager : public QObject {
     int                      m_scanProgress;
     QMutex                   m_mutex;
 
-    static const QStringList IMAGE_EXTENSIONS;
-    static const QStringList VIDEO_EXTENSIONS;
+    static const QStringList &imageExtensions();
+    static const QStringList &videoExtensions();
 };
 
 #endif

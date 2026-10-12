@@ -12,17 +12,29 @@
 #include <QCryptographicHash>
 #include <QUrl>
 
-const QStringList MediaScanWorker::IMAGE_EXTENSIONS = {"jpg", "jpeg", "png",  "gif",
-                                                       "bmp", "webp", "heic", "heif"};
+namespace {
+    const QStringList &mediaImageExtensions() {
+        static const QStringList list{"jpg", "jpeg", "png", "gif", "bmp", "webp", "heic", "heif"};
+        return list;
+    }
+    const QStringList &mediaVideoExtensions() {
+        static const QStringList list{"mp4", "mov", "avi", "mkv", "webm", "m4v", "3gp"};
+        return list;
+    }
+}
 
-const QStringList MediaScanWorker::VIDEO_EXTENSIONS = {"mp4",  "mov", "avi", "mkv",
-                                                       "webm", "m4v", "3gp"};
-
-const QStringList MediaLibraryManager::IMAGE_EXTENSIONS = {"jpg", "jpeg", "png",  "gif",
-                                                           "bmp", "webp", "heic", "heif"};
-
-const QStringList MediaLibraryManager::VIDEO_EXTENSIONS = {"mp4",  "mov", "avi", "mkv",
-                                                           "webm", "m4v", "3gp"};
+const QStringList &MediaScanWorker::imageExtensions() {
+    return mediaImageExtensions();
+}
+const QStringList &MediaScanWorker::videoExtensions() {
+    return mediaVideoExtensions();
+}
+const QStringList &MediaLibraryManager::imageExtensions() {
+    return mediaImageExtensions();
+}
+const QStringList &MediaLibraryManager::videoExtensions() {
+    return mediaVideoExtensions();
+}
 
 MediaScanWorker::MediaScanWorker(const QStringList &paths, QObject *parent)
     : QObject(parent)
@@ -54,7 +66,7 @@ void MediaScanWorker::process() {
             QFileInfo fileInfo(filePath);
             QString   extension = fileInfo.suffix().toLower();
 
-            if (IMAGE_EXTENSIONS.contains(extension) || VIDEO_EXTENSIONS.contains(extension)) {
+            if (imageExtensions().contains(extension) || videoExtensions().contains(extension)) {
                 MediaItem item = scanFile(filePath);
                 if (!item.path.isEmpty()) {
                     items.append(item);
@@ -81,7 +93,7 @@ MediaItem MediaScanWorker::scanFile(const QString &filePath) {
     QFileInfo fileInfo(filePath);
     QString   extension = fileInfo.suffix().toLower();
 
-    item.type      = IMAGE_EXTENSIONS.contains(extension) ? "photo" : "video";
+    item.type      = imageExtensions().contains(extension) ? "photo" : "video";
     item.timestamp = fileInfo.lastModified().toMSecsSinceEpoch();
     item.width     = 0;
     item.height    = 0;
@@ -100,12 +112,12 @@ MediaItem MediaScanWorker::scanFile(const QString &filePath) {
 
 bool MediaScanWorker::isImageFile(const QString &path) {
     QString extension = QFileInfo(path).suffix().toLower();
-    return IMAGE_EXTENSIONS.contains(extension);
+    return imageExtensions().contains(extension);
 }
 
 bool MediaScanWorker::isVideoFile(const QString &path) {
     QString extension = QFileInfo(path).suffix().toLower();
-    return VIDEO_EXTENSIONS.contains(extension);
+    return videoExtensions().contains(extension);
 }
 
 MediaLibraryManager::MediaLibraryManager(QObject *parent)
@@ -526,7 +538,7 @@ void MediaLibraryManager::scanDirectory(const QString &path) {
         QFileInfo fileInfo(filePath);
         QString   extension = fileInfo.suffix().toLower();
 
-        if (IMAGE_EXTENSIONS.contains(extension) || VIDEO_EXTENSIONS.contains(extension)) {
+        if (imageExtensions().contains(extension) || videoExtensions().contains(extension)) {
             addMediaItem(filePath);
         }
     }
@@ -553,11 +565,11 @@ void MediaLibraryManager::addMediaItem(const QString &filePath) {
 
     QString extension = fileInfo.suffix().toLower();
 
-    if (IMAGE_EXTENSIONS.contains(extension)) {
+    if (imageExtensions().contains(extension)) {
         item.type = "photo";
         extractPhotoMetadata(filePath, item);
         item.thumbnailPath = createThumbnail(filePath);
-    } else if (VIDEO_EXTENSIONS.contains(extension)) {
+    } else if (videoExtensions().contains(extension)) {
         item.type          = "video";
         item.width         = 0;
         item.height        = 0;
@@ -703,10 +715,10 @@ QString MediaLibraryManager::getCacheDir() {
 
 bool MediaLibraryManager::isImageFile(const QString &path) {
     QFileInfo fileInfo(path);
-    return IMAGE_EXTENSIONS.contains(fileInfo.suffix().toLower());
+    return imageExtensions().contains(fileInfo.suffix().toLower());
 }
 
 bool MediaLibraryManager::isVideoFile(const QString &path) {
     QFileInfo fileInfo(path);
-    return VIDEO_EXTENSIONS.contains(fileInfo.suffix().toLower());
+    return videoExtensions().contains(fileInfo.suffix().toLower());
 }

@@ -62,12 +62,10 @@ namespace {
                         cur.status = 200;
                     else
                         cur.status = 500;
-                } else if (currentTag == "current-user-principal") {
-                    // Inner href will populate principal -- we capture below in next iteration.
-                } else if (currentTag == "addressbook-home-set") {
-                    // Same pattern -- inner href captures it.
-                } else if (currentTag == "calendar-home-set") {
-                    // Same.
+                } else if (currentTag == "current-user-principal" ||
+                           currentTag == "addressbook-home-set" ||
+                           currentTag == "calendar-home-set") {
+                    // Their inner href is captured on the next iteration.
                 } else if (currentTag == "address-data" || currentTag == "calendar-data") {
                     cur.body = r.readElementText();
                 } else if (currentTag == "resourcetype") {

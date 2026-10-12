@@ -46,7 +46,7 @@ class MusicScanWorker : public QObject {
     bool                     isAudioFile(const QString &path);
     Track                    scanFile(const QString &filePath);
 
-    static const QStringList AUDIO_EXTENSIONS;
+    static const QStringList &audioExtensions();
 };
 
 class MusicLibraryManager : public QObject {
@@ -105,7 +105,7 @@ class MusicLibraryManager : public QObject {
     int                      m_scanProgress;
     mutable QMutex           m_mutex;
 
-    static const QStringList AUDIO_EXTENSIONS;
+    static const QStringList &audioExtensions();
 };
 
 #endif

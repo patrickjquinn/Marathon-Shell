@@ -6,14 +6,20 @@
 #include <QSqlError>
 #include <QFileInfo>
 #include <QDebug>
-#include <QMediaPlayer>
-#include <QAudioOutput>
 
-const QStringList MusicScanWorker::AUDIO_EXTENSIONS = {"mp3",  "m4a", "flac", "ogg",
-                                                       "opus", "wav", "aac",  "wma"};
+namespace {
+    const QStringList &musicAudioExtensions() {
+        static const QStringList list{"mp3", "m4a", "flac", "ogg", "opus", "wav", "aac", "wma"};
+        return list;
+    }
+}
 
-const QStringList MusicLibraryManager::AUDIO_EXTENSIONS = {"mp3",  "m4a", "flac", "ogg",
-                                                           "opus", "wav", "aac",  "wma"};
+const QStringList &MusicScanWorker::audioExtensions() {
+    return musicAudioExtensions();
+}
+const QStringList &MusicLibraryManager::audioExtensions() {
+    return musicAudioExtensions();
+}
 
 MusicScanWorker::MusicScanWorker(const QStringList &paths, QObject *parent)
     : QObject(parent)
@@ -45,7 +51,7 @@ void MusicScanWorker::process() {
             QFileInfo fileInfo(filePath);
             QString   extension = fileInfo.suffix().toLower();
 
-            if (AUDIO_EXTENSIONS.contains(extension)) {
+            if (audioExtensions().contains(extension)) {
                 Track track = scanFile(filePath);
                 if (!track.path.isEmpty()) {
                     tracks.append(track);
@@ -89,7 +95,7 @@ Track MusicScanWorker::scanFile(const QString &filePath) {
 
 bool MusicScanWorker::isAudioFile(const QString &path) {
     QString extension = QFileInfo(path).suffix().toLower();
-    return AUDIO_EXTENSIONS.contains(extension);
+    return audioExtensions().contains(extension);
 }
 
 MusicLibraryManager::MusicLibraryManager(QObject *parent)
@@ -528,5 +534,5 @@ void MusicLibraryManager::loadArtists() {
 
 bool MusicLibraryManager::isAudioFile(const QString &path) {
     QFileInfo fileInfo(path);
-    return AUDIO_EXTENSIONS.contains(fileInfo.suffix().toLower());
+    return audioExtensions().contains(fileInfo.suffix().toLower());
 }
