@@ -1,7 +1,8 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
-Rectangle {
+Item {
     id: alarmOverlay
 
     property var currentAlarm: null
@@ -31,9 +32,49 @@ Rectangle {
     }
 
     anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.95)
     visible: false
     z: 10000
+
+    // A ring with its label beneath, as the power menu's choices.
+    component AlarmAction: Column {
+        id: action
+
+        property string iconName
+        property string label
+        property bool emphasised: false
+
+        signal activated
+
+        spacing: Silica.Theme.paddingMedium
+
+        Accessible.role: Accessible.Button
+        Accessible.name: label
+        Accessible.onPressAction: activated()
+
+        MCircularIconButton {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Silica.Theme.itemSizeLarge
+            height: width
+            iconName: action.iconName
+            iconSize: Silica.Theme.iconSizeMedium
+            variant: action.emphasised ? "primary" : "secondary"
+            a11yName: action.label
+            onClicked: action.activated()
+        }
+
+        Silica.Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: action.label
+            font.pixelSize: Silica.Theme.fontSizeSmall
+            color: action.emphasised ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+        }
+    }
+
+    KeelAmbienceBackground {
+        anchors.fill: parent
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
 
     MouseArea {
         property real startY: 0
@@ -62,133 +103,76 @@ Rectangle {
 
     Column {
         anchors.centerIn: parent
-        width: parent.width * 0.8
-        spacing: Constants.spacingLarge * 2
+        width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+        spacing: Silica.Theme.paddingLarge
 
         GlyphIcon {
             anchors.horizontalCenter: parent.horizontalCenter
             name: "bell"
-            size: Constants.iconSizeXLarge * 2
-            color: MColors.accentBright
+            size: Silica.Theme.iconSizeLarge
+            color: Silica.Theme.highlightColor
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : "Alarm"
-            color: MColors.text
-            font.pixelSize: MTypography.sizeXLarge
-            font.weight: MTypography.weightBold
-            font.family: MTypography.fontFamily
-        }
-
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
+        Silica.Label {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
             text: Qt.formatTime(new Date(), "hh:mm")
-            color: MColors.textSecondary
-            font.pixelSize: MTypography.sizeXXLarge
-            font.weight: MTypography.weightMedium
-            font.family: MTypography.fontFamily
+            color: Silica.Theme.primaryColor
+            font.family: Silica.Theme.fontFamilyHeading
+            font.pixelSize: Silica.Theme.fontSizeHuge * 1.5
+            font.weight: Font.Light
+        }
+
+        Silica.Label {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : "Alarm"
+            color: Silica.Theme.highlightColor
+            font.pixelSize: Silica.Theme.fontSizeLarge
+            truncationMode: Silica.TruncationMode.Fade
         }
 
         Item {
-            height: Constants.spacingLarge
+            width: parent.width
+            height: Silica.Theme.paddingLarge
         }
 
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingLarge
+            spacing: Silica.Theme.itemSizeMedium
 
-            Rectangle {
-                width: Constants.touchTargetXLarge
-                height: Constants.touchTargetLarge
-                radius: MRadius.lg
-                color: MColors.surface
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingSmall
-
-                    GlyphIcon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        name: "clock"
-                        size: Constants.iconSizeMedium
-                        color: MColors.text
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Snooze"
-                        color: MColors.text
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                    }
-                }
-
-                Accessible.role: Accessible.Button
-                Accessible.name: "Snooze"
-                Accessible.onPressAction: alarmOverlay.snooze()
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticManager.medium();
-                        alarmOverlay.snooze();
-                    }
+            AlarmAction {
+                iconName: "clock"
+                label: "Snooze"
+                onActivated: {
+                    HapticManager.medium();
+                    alarmOverlay.snooze();
                 }
             }
 
-            Rectangle {
-                width: Constants.touchTargetXLarge
-                height: Constants.touchTargetLarge
-                radius: MRadius.lg
-                color: MColors.accent
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingSmall
-
-                    GlyphIcon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        name: "x"
-                        size: Constants.iconSizeMedium
-                        color: MColors.background
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Dismiss"
-                        color: MColors.background
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                    }
-                }
-
-                Accessible.role: Accessible.Button
-                Accessible.name: "Dismiss"
-                Accessible.onPressAction: alarmOverlay.dismiss()
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticManager.medium();
-                        alarmOverlay.dismiss();
-                    }
+            AlarmAction {
+                iconName: "x"
+                label: "Dismiss"
+                emphasised: true
+                onActivated: {
+                    HapticManager.medium();
+                    alarmOverlay.dismiss();
                 }
             }
         }
 
         Item {
-            height: Constants.spacingLarge
+            width: parent.width
+            height: Silica.Theme.paddingLarge
         }
 
-        Text {
+        Silica.Label {
             id: swipeUpText
 
             anchors.horizontalCenter: parent.horizontalCenter
             text: "↑ Swipe up to dismiss"
-            color: MColors.textSecondary
-            font.pixelSize: MTypography.sizeSmall
-            font.family: MTypography.fontFamily
+            color: Silica.Theme.secondaryColor
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
 
             SequentialAnimation {
                 id: swipeAnimation

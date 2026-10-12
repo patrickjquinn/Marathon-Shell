@@ -1,10 +1,11 @@
 import MarathonOS.Shell
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 // WEA / ETWS / CMAS emergency alert overlay. Fed by CellBroadcastManagerCpp
 // (org.freedesktop.ModemManager1.Modem.CellBroadcast — ModemManager 1.22+).
 //
-// Visual: red distress banner + large category label + body text. Tone +
+// Visual: pulsing red strip + category label + body text on the ambience. Tone +
 // distinguishable vibration on arrival; non-dismissable categories
 // (Presidential WEA, ETWS earthquake/tsunami) suppress the dismiss
 // button per FCC §10.500 and MIC ordinance — the user must wait for the
@@ -29,13 +30,13 @@ Item {
         case "presidential":
         case "ETWS":
         case "imminent":
-            return MColors.error;
+            return Silica.Theme.errorColor;
         case "amber":
             return MColors.warning !== undefined ? MColors.warning : "#F59E0B";
         case "test":
-            return MColors.textTertiary;
+            return Silica.Theme.secondaryColor;
         default:
-            return MColors.error;
+            return Silica.Theme.errorColor;
         }
     }
 
@@ -79,12 +80,10 @@ Item {
         target: CellBroadcastManagerCpp
     }
 
-    // Heavy red background — the WEA spec calls for distinguishable
-    // visuals; light theming would underplay the urgency.
-    Rectangle {
+    KeelAmbienceBackground {
         anchors.fill: parent
-        color: "#0a0000"
-        opacity: 0.97
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
     }
 
     Rectangle {
@@ -92,8 +91,8 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.topMargin: Constants.safeAreaTop
-        height: Math.round(8 * Constants.scaleFactor)
-        color: overlay.current ? overlay.categoryColor(overlay.current.category) : MColors.error
+        height: Silica.Theme.paddingSmall
+        color: overlay.current ? overlay.categoryColor(overlay.current.category) : Silica.Theme.errorColor
         SequentialAnimation on opacity {
             running: overlay.visible
             loops: Animation.Infinite
@@ -112,68 +111,45 @@ Item {
 
     Column {
         anchors.centerIn: parent
-        width: parent.width - Constants.safeAreaLeft - Constants.safeAreaRight - MSpacing.xl * 2
-        spacing: MSpacing.xl
+        width: parent.width - Constants.safeAreaLeft - Constants.safeAreaRight - 2 * Silica.Theme.horizontalPageMargin
+        spacing: Silica.Theme.paddingLarge
 
         GlyphIcon {
             anchors.horizontalCenter: parent.horizontalCenter
             name: "warning"
-            size: Math.round(80 * Constants.scaleFactor)
-            color: overlay.current ? overlay.categoryColor(overlay.current.category) : MColors.error
+            size: Silica.Theme.iconSizeExtraLarge
+            color: overlay.current ? overlay.categoryColor(overlay.current.category) : Silica.Theme.errorColor
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
+        Silica.Label {
+            width: parent.width
             text: overlay.current ? overlay.categoryTitle(overlay.current.category) : ""
-            color: MColors.textPrimary
-            font.pixelSize: MTypography.sizeTitle1
-            font.weight: MTypography.weightBold
-            font.family: MTypography.fontFamily
-            font.letterSpacing: 2
+            color: Silica.Theme.highlightColor
+            font.family: Silica.Theme.fontFamilyHeading
+            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
         }
 
-        Text {
+        Silica.Label {
             width: parent.width
             text: overlay.current ? overlay.current.text : ""
-            color: MColors.textPrimary
-            font.pixelSize: MTypography.sizeTitle3
-            font.weight: MTypography.weightMedium
-            font.family: MTypography.fontFamily
-            wrapMode: Text.WordWrap
+            color: Silica.Theme.primaryColor
+            font.pixelSize: Silica.Theme.fontSizeMedium
+            wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
         }
 
         // Dismiss button — present for normal categories. For
         // Presidential / ETWS the user must long-press the screen for
         // 3 seconds to acknowledge (anti-accidental-dismiss).
-        Item {
+        Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(220 * Constants.scaleFactor)
-            height: Math.round(56 * Constants.scaleFactor)
             visible: overlay.current && !overlay.current.nonDismissable
-
-            Rectangle {
-                anchors.fill: parent
-                radius: MRadius.md
-                color: MColors.textPrimary
-                opacity: dismissArea.pressed ? 0.85 : 1.0
-            }
-            Text {
-                anchors.centerIn: parent
-                text: "Acknowledge"
-                color: "#000000"
-                font.pixelSize: MTypography.sizeBody
-                font.weight: MTypography.weightDemiBold
-                font.family: MTypography.fontFamily
-            }
-            MouseArea {
-                id: dismissArea
-                anchors.fill: parent
-                onClicked: {
-                    if (overlay.current)
-                        CellBroadcastManagerCpp.acknowledge(overlay.current.path);
-                }
+            text: "Acknowledge"
+            onClicked: {
+                if (overlay.current)
+                    CellBroadcastManagerCpp.acknowledge(overlay.current.path);
             }
         }
 
@@ -181,15 +157,16 @@ Item {
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width
-            height: Math.round(56 * Constants.scaleFactor)
+            height: Silica.Theme.itemSizeMedium
             visible: overlay.current && overlay.current.nonDismissable
 
-            Text {
+            Silica.Label {
                 anchors.centerIn: parent
+                width: parent.width
                 text: holdTimer.running ? "Hold to acknowledge — " + Math.ceil((3000 - holdTimer.elapsed) / 1000) + " s" : "Touch and hold for 3 seconds to acknowledge"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeFootnote
-                font.family: MTypography.fontFamily
+                color: holdTimer.running ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+                wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
             }
 

@@ -2,8 +2,9 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
-Rectangle {
+Item {
     id: callOverlay
 
     property string callerNumber: ""
@@ -31,263 +32,149 @@ Rectangle {
     }
 
     anchors.fill: parent
-    color: MColors.background
     z: Constants.zIndexModalOverlay + 100
     visible: false
     opacity: callOverlay.visible ? 1 : 0
 
-    Rectangle {
+    // A ring with its label beneath, as the power menu's choices.
+    component CallAction: Column {
+        id: action
+
+        property string iconName
+        property string label
+        property bool emphasised: false
+
+        signal activated
+
+        spacing: Silica.Theme.paddingMedium
+
+        MCircularIconButton {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Silica.Theme.itemSizeExtraLarge
+            height: width
+            iconName: action.iconName
+            iconSize: Silica.Theme.iconSizeMedium
+            variant: action.emphasised ? "primary" : "secondary"
+            a11yName: action.label
+            onClicked: action.activated()
+        }
+
+        Silica.Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: action.label
+            font.pixelSize: Silica.Theme.fontSizeSmall
+            color: action.emphasised ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+        }
+    }
+
+    KeelAmbienceBackground {
         anchors.fill: parent
-        color: MColors.background
-        opacity: 0.98
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
+
+    // Swallow touches meant for whatever is underneath.
+    MouseArea {
+        anchors.fill: parent
     }
 
     Column {
         anchors.centerIn: parent
-        spacing: Constants.spacingXLarge * 3
-        width: parent.width * 0.85
+        spacing: Silica.Theme.paddingLarge * 3
+        width: parent.width - 2 * Silica.Theme.horizontalPageMargin
 
         Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingXLarge
+            width: parent.width
+            spacing: Silica.Theme.paddingLarge
 
             Rectangle {
-                width: Math.round(Constants.iconSizeXLarge * 3)
-                height: Math.round(Constants.iconSizeXLarge * 3)
-                radius: width / 2
-                color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15)
-                border.width: Constants.borderWidthThick
-                border.color: MColors.accent
                 anchors.horizontalCenter: parent.horizontalCenter
+                width: Silica.Theme.itemSizeHuge
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
                 GlyphIcon {
                     anchors.centerIn: parent
                     name: "user"
-                    size: Constants.iconSizeXLarge * 1.5
-                    color: MColors.accent
-                }
-
-                Repeater {
-                    model: 3
-
-                    Rectangle {
-                        id: ringPulse
-
-                        required property int index
-
-                        anchors.centerIn: parent
-                        width: parent.width
-                        height: parent.height
-                        radius: width / 2
-                        color: "transparent"
-                        border.width: 2
-                        border.color: MColors.accent
-                        opacity: 0
-
-                        SequentialAnimation on scale {
-                            running: MMotion.gate(callOverlay.isRinging)
-                            loops: Animation.Infinite
-
-                            PauseAnimation {
-                                duration: ringPulse.index * 700
-                            }
-
-                            ParallelAnimation {
-                                NumberAnimation {
-                                    from: 1
-                                    to: 1.8
-                                    duration: 2100
-                                    easing.type: Easing.OutQuad
-                                }
-
-                                NumberAnimation {
-                                    target: ringPulse
-                                    property: "opacity"
-                                    from: 0.6
-                                    to: 0
-                                    duration: 2100
-                                }
-                            }
-                        }
-                    }
-                }
-
-                SequentialAnimation on scale {
-                    running: MMotion.gate(callOverlay.isRinging)
-                    loops: Animation.Infinite
-
-                    NumberAnimation {
-                        from: 1
-                        to: 1.15
-                        duration: 1000
-                        easing.type: Easing.InOutQuad
-                    }
-
-                    NumberAnimation {
-                        from: 1.15
-                        to: 1
-                        duration: 1000
-                        easing.type: Easing.InOutQuad
-                    }
+                    size: Silica.Theme.iconSizeLarge
+                    color: Silica.Theme.primaryColor
                 }
             }
 
             Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingSmall
+                width: parent.width
+                spacing: Silica.Theme.paddingSmall
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Incoming Call"
-                    font.pixelSize: MTypography.sizeSmall
-                    font.weight: Font.Medium
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
-                    opacity: 0.7
+                Silica.Label {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Incoming call"
+                    font.pixelSize: Silica.Theme.fontSizeSmall
+                    color: Silica.Theme.secondaryHighlightColor
                 }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Silica.Label {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
                     text: callOverlay.callerName || MPhoneNumber.format(callOverlay.callerNumber) || "Unknown caller"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
-                    font.family: MTypography.fontFamily
-                    color: MColors.text
+                    font.family: Silica.Theme.fontFamilyHeading
+                    font.pixelSize: Silica.Theme.fontSizeExtraLarge
+                    font.weight: Font.Light
+                    color: Silica.Theme.highlightColor
+                    truncationMode: Silica.TruncationMode.Fade
                 }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Silica.Label {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
                     text: MPhoneNumber.format(callOverlay.callerNumber)
                     visible: callOverlay.callerName !== ""
-                    font.pixelSize: MTypography.sizeLarge
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
+                    font.pixelSize: Silica.Theme.fontSizeMedium
+                    color: Silica.Theme.secondaryColor
                 }
             }
         }
 
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingXLarge * 3
+            spacing: Silica.Theme.itemSizeLarge
 
-            Column {
-                spacing: Constants.spacingMedium
-
-                Rectangle {
-                    width: Constants.touchTargetLarge * 1.8
-                    height: Constants.touchTargetLarge * 1.8
-                    radius: width / 2
-                    color: MColors.error
-                    border.width: Constants.borderWidthThick
-                    border.color: Qt.darker(MColors.error, 1.2)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    scale: declineMouseArea.pressed ? 0.95 : 1
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: "Decline"
-
-                    GlyphIcon {
-                        anchors.centerIn: parent
-                        name: "phone"
-                        size: Constants.iconSizeLarge
-                        color: MColors.background
-                        rotation: 135
-                    }
-
-                    MouseArea {
-                        id: declineMouseArea
-
-                        anchors.fill: parent
-                        anchors.margins: -Constants.spacingMedium
-                        onClicked: {
-                            Logger.info("IncomingCallOverlay", "Call declined");
-                            HapticManager.medium();
-                            TelephonyService.hangup();
-                            callOverlay.declined();
-                            callOverlay.hide();
-                        }
-                    }
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: Constants.animationDurationFast
-                        }
-                    }
-                }
-
-                Text {
-                    text: "Decline"
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.Medium
-                    font.family: MTypography.fontFamily
-                    color: MColors.text
-                    anchors.horizontalCenter: parent.horizontalCenter
+            CallAction {
+                iconName: "phone-disconnect"
+                label: "Decline"
+                onActivated: {
+                    Logger.info("IncomingCallOverlay", "Call declined");
+                    HapticManager.medium();
+                    TelephonyService.hangup();
+                    callOverlay.declined();
+                    callOverlay.hide();
                 }
             }
 
-            Column {
-                spacing: Constants.spacingMedium
-
-                Rectangle {
-                    width: Constants.touchTargetLarge * 1.8
-                    height: Constants.touchTargetLarge * 1.8
-                    radius: width / 2
-                    color: MColors.success
-                    border.width: Constants.borderWidthThick
-                    border.color: Qt.darker(MColors.success, 1.2)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    scale: answerMouseArea.pressed ? 0.95 : 1
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: "Answer"
-
-                    GlyphIcon {
-                        anchors.centerIn: parent
-                        name: "phone"
-                        size: Constants.iconSizeLarge
-                        color: MColors.background
-                    }
-
-                    MouseArea {
-                        id: answerMouseArea
-
-                        anchors.fill: parent
-                        anchors.margins: -Constants.spacingMedium
-                        onClicked: {
-                            Logger.info("IncomingCallOverlay", "Call answered");
-                            HapticManager.heavy();
-                            TelephonyService.answer();
-                            callOverlay.answered();
-                            callOverlay.hide();
-                            UIStore.openApp("phone", "Phone", "");
-                        }
-                    }
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: Constants.animationDurationFast
-                        }
-                    }
-                }
-
-                Text {
-                    text: "Answer"
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.Medium
-                    font.family: MTypography.fontFamily
-                    color: MColors.text
-                    anchors.horizontalCenter: parent.horizontalCenter
+            CallAction {
+                iconName: "phone"
+                label: "Answer"
+                emphasised: true
+                onActivated: {
+                    Logger.info("IncomingCallOverlay", "Call answered");
+                    HapticManager.heavy();
+                    TelephonyService.answer();
+                    callOverlay.answered();
+                    callOverlay.hide();
+                    UIStore.openApp("phone", "Phone", "");
                 }
             }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
+        Silica.Label {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
             text: SessionStore.isLocked ? "Answering will unlock your device" : ""
-            font.pixelSize: MTypography.sizeSmall
-            font.family: MTypography.fontFamily
-            color: MColors.textTertiary
-            opacity: 0.6
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+            color: Silica.Theme.secondaryColor
             visible: SessionStore.isLocked
         }
     }
@@ -299,7 +186,7 @@ Rectangle {
 
         Behavior on y {
             NumberAnimation {
-                duration: Constants.animationDurationNormal
+                duration: MMotion.quick
                 easing.type: Easing.OutCubic
             }
         }
@@ -307,7 +194,7 @@ Rectangle {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: Constants.animationDurationFast
+            duration: MMotion.fast
         }
     }
 }

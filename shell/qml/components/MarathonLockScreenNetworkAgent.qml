@@ -1,5 +1,6 @@
 import MarathonOS.Shell
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 // Lock-screen network agent. GNOME 50.1 added a captive-portal /
 // WiFi-credential prompt that surfaces on the lock screen before the
@@ -8,8 +9,8 @@ import QtQuick
 // SSID, and a captive-portal hotspot landing page can be acknowledged
 // without unlocking.
 //
-// Marathon's pattern: a low-elevation MGlass card slides up from the
-// lock-screen shortcuts. The PIN keypad is hidden while this is open
+// Marathon's pattern: a full-screen Silica dialog on the ambience over
+// the lock screen. The PIN keypad is hidden while this is open
 // (the back arrow returns to the swipe-up affordance). After success
 // the dialog dismisses and the lock screen returns to its idle state —
 // the device does NOT unlock.
@@ -48,158 +49,121 @@ Item {
     visible: active
     z: Constants.zIndexLockScreen + 50
 
-    // Backdrop dim — taps outside dismiss.
-    Rectangle {
+    // A full-screen Silica dialog on the ambience: Cancel and Connect in the
+    // header corners. A tap on empty space dismisses.
+    KeelAmbienceBackground {
         anchors.fill: parent
-        color: "#000000"
-        opacity: 0.45
-        MouseArea {
-            anchors.fill: parent
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        onClicked: agent.hide()
+    }
+
+    Item {
+        id: header
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Constants.safeAreaTop
+        height: Silica.Theme.itemSizeLarge
+
+        Silica.BackgroundItem {
+            anchors.left: parent.left
+            width: parent.width / 2
+            height: parent.height
             onClicked: agent.hide()
+
+            Silica.Label {
+                anchors.left: parent.left
+                anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Cancel"
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            }
+        }
+
+        Silica.BackgroundItem {
+            id: connectButton
+
+            anchors.right: parent.right
+            width: parent.width / 2
+            height: parent.height
+            enabled: passwordField.text.length > 0
+            onClicked: agent.submit()
+
+            Silica.Label {
+                anchors.right: parent.right
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Connect"
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                color: Silica.Theme.highlightColor
+                opacity: connectButton.enabled ? 1 : Silica.Theme.opacityLow
+            }
         }
     }
 
-    // Card slides up from bottom.
-    Rectangle {
-        id: card
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: parent.height - height - Constants.safeAreaBottom - MSpacing.xl
-        width: parent.width - Constants.safeAreaLeft - Constants.safeAreaRight - MSpacing.xl * 2
-        height: cardCol.implicitHeight + MSpacing.xl * 2
-        radius: MRadius.lg
-        color: MColors.elev1
-        border.color: MColors.borderSubtle
-        border.width: 1
+    Column {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: header.bottom
+        anchors.topMargin: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
-        Column {
-            id: cardCol
-            anchors.centerIn: parent
-            width: parent.width - MSpacing.xl * 2
-            spacing: MSpacing.md
+        GlyphIcon {
+            anchors.horizontalCenter: parent.horizontalCenter
+            name: "wifi"
+            size: Silica.Theme.iconSizeLarge
+            color: Silica.Theme.primaryColor
+        }
 
-            Row {
-                width: parent.width
-                spacing: MSpacing.md
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            horizontalAlignment: Text.AlignHCenter
+            text: agent.targetSsid !== "" ? "Sign in to " + agent.targetSsid : "Sign in to WiFi"
+            color: Silica.Theme.highlightColor
+            font.pixelSize: Silica.Theme.fontSizeLarge
+            truncationMode: Silica.TruncationMode.Fade
+        }
 
-                GlyphIcon {
-                    name: "wifi"
-                    size: Math.round(28 * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            horizontalAlignment: Text.AlignHCenter
+            text: agent.targetSecurity
+            color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
+        }
 
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    Text {
-                        text: agent.targetSsid !== "" ? "Sign in to " + agent.targetSsid : "Sign in to WiFi"
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightDemiBold
-                        font.family: MTypography.fontFamily
-                        elide: Text.ElideRight
-                        width: card.width - MSpacing.xl * 2 - Math.round(28 * Constants.scaleFactor) - MSpacing.md
-                    }
-                    Text {
-                        text: agent.targetSecurity
-                        color: MColors.textTertiary
-                        font.pixelSize: MTypography.sizeFootnote
-                        font.family: MTypography.fontFamily
-                    }
-                }
-            }
+        Item {
+            width: parent.width
+            height: Silica.Theme.paddingLarge
+        }
 
-            // Password input. Uses native TextInput; the virtual keyboard
-            // is the system one, so it pops up under our z-layer
-            // automatically when this field gains focus.
-            Rectangle {
-                width: parent.width
-                height: Math.round(44 * Constants.scaleFactor)
-                radius: MRadius.md
-                color: MColors.elev2
-                border.color: passwordField.activeFocus ? MColors.marathonTealBright : MColors.borderSubtle
-                border.width: 1
+        Silica.PasswordField {
+            id: passwordField
 
-                TextInput {
-                    id: passwordField
-                    anchors.fill: parent
-                    anchors.leftMargin: MSpacing.md
-                    anchors.rightMargin: MSpacing.md
-                    verticalAlignment: TextInput.AlignVCenter
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    echoMode: TextInput.Password
-                    selectByMouse: true
-                    onAccepted: agent.submit()
-                }
-            }
+            width: parent.width
+            label: "Password"
+            placeholderText: "Password"
+            errorHighlight: agent.statusText !== ""
+            Keys.onReturnPressed: agent.submit()
+        }
 
-            Text {
-                visible: agent.statusText !== ""
-                text: agent.statusText
-                color: MColors.error
-                font.pixelSize: MTypography.sizeFootnote
-                font.family: MTypography.fontFamily
-                width: parent.width
-                wrapMode: Text.WordWrap
-            }
-
-            Row {
-                width: parent.width
-                spacing: MSpacing.md
-                layoutDirection: Qt.RightToLeft
-
-                // Right-aligned primary action.
-                Rectangle {
-                    width: (parent.width - MSpacing.md) / 2
-                    height: Math.round(44 * Constants.scaleFactor)
-                    radius: MRadius.md
-                    color: passwordField.text.length > 0 ? MColors.marathonTealBright : MColors.elev2
-                    opacity: connectArea.pressed ? 0.85 : 1.0
-                    enabled: passwordField.text.length > 0
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "Connect"
-                        color: passwordField.text.length > 0 ? "#000000" : MColors.textTertiary
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightDemiBold
-                        font.family: MTypography.fontFamily
-                    }
-
-                    MouseArea {
-                        id: connectArea
-                        anchors.fill: parent
-                        enabled: passwordField.text.length > 0
-                        onClicked: agent.submit()
-                    }
-                }
-
-                // Cancel.
-                Rectangle {
-                    width: (parent.width - MSpacing.md) / 2
-                    height: Math.round(44 * Constants.scaleFactor)
-                    radius: MRadius.md
-                    color: MColors.elev2
-                    border.color: MColors.borderSubtle
-                    border.width: 1
-                    opacity: cancelArea.pressed ? 0.85 : 1.0
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "Cancel"
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                    }
-
-                    MouseArea {
-                        id: cancelArea
-                        anchors.fill: parent
-                        onClicked: agent.hide()
-                    }
-                }
-            }
+        Silica.Label {
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            visible: agent.statusText !== ""
+            text: agent.statusText
+            wrapMode: Text.Wrap
+            color: Silica.Theme.errorColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
         }
     }
 
