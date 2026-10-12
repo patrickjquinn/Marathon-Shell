@@ -61,6 +61,7 @@
 #include "src/managers/modemmanagercpp.h"
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
+#include "src/services/ambienceservice.h"
 #include "src/managers/bluetoothmanager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -574,6 +575,14 @@ int main(int argc, char *argv[]) {
     auto *wallpaperStore = new WallpaperStore(settingsManager, &app);
     qmlRegisterSingletonInstance<WallpaperStore>("MarathonOS.Shell", 1, 0, "WallpaperStore",
                                                  wallpaperStore);
+    auto *ambienceService = new AmbienceService(&app);
+    ambienceService->setWallpaper(settingsManager->wallpaperPath());
+    QObject::connect(settingsManager, &SettingsManager::wallpaperPathChanged, ambienceService,
+                     [settingsManager, ambienceService]() {
+                         ambienceService->setWallpaper(settingsManager->wallpaperPath());
+                     });
+    qmlRegisterSingletonInstance<AmbienceService>("MarathonOS.Shell", 1, 0, "AmbienceService",
+                                                  ambienceService);
 
     createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
     if (debugEnabled || profileMode) {

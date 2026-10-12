@@ -134,6 +134,8 @@ set(SOURCES
     src/services/wallpaperstore.cpp
     src/services/router.h
     src/services/router.cpp
+    src/services/ambiencederivation.cpp
+    src/services/ambienceservice.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
     src/services/domainsuggestions.h
@@ -447,6 +449,10 @@ qt6_add_qml_module(marathon-shell
         src/services/wallpaperstore.h
         src/services/router.cpp
         src/services/router.h
+        src/services/ambiencederivation.cpp
+        src/services/ambiencederivation.h
+        src/services/ambienceservice.cpp
+        src/services/ambienceservice.h
         src/services/surfaceregistry.cpp
         src/services/surfaceregistry.h
         src/services/domainsuggestions.cpp
