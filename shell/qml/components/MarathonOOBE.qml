@@ -7,6 +7,8 @@ import QtQuick.Layouts
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
+// First-run setup, drawn as Sailfish's setup wizard: each step is a page
+// on the dimmed ambience with a highlight-coloured heading.
 Item {
     id: oobeRoot
 
@@ -50,29 +52,31 @@ Item {
     property string passcodeError: ""
     property bool passcodeSkipped: false
 
-    // Compact OOBE layout for short / square screens (e.g. HyperPixel 4.0
-    // Square 720×720 on the Hackberry CM5). At physical DPI 254 the DS-
-    // canvas scaleFactor lands around 1.6×, and 220 sf reserved at the
-    // bottom + 180 sf hero image + status bar overflowed the 720 px
-    // panel — the logo+title got clipped on first boot.
+    // Short / square panels (HyperPixel 4.0 Square 720×720).
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    // Space page content must clear at the bottom: the Back/Next row and
-    // the nav-bar pill, measured rather than guessed.
-    //
-    // This was a constant (170, then 250) multiplied by scaleFactor. Both
-    // directions were wrong: the constant only ever matched one device's
-    // scaleFactor (250 was tuned for the L5 at ~1.61), and raising it to
-    // stop content colliding with the nav row simultaneously shrank the
-    // content area, so at scaleFactor ~2.0 it reserved ~500 px of a
-    // 1440 px screen and the Passcode keypad's last row clipped off the
-    // bottom at the shipping default userScaleFactor of 1.10.
-    //
-    // navigationRow and navBar already scale themselves, so reading their
-    // real heights tracks every device and every user scale for free.
-    readonly property real swipeBottomInset: navigationRow.height + navBar.height + MSpacing.lg * 2
+    // Measured from the Back/Next row and nav bar so it tracks every scale.
+    readonly property real swipeBottomInset: navigationRow.height + navBar.height + Silica.Theme.paddingLarge * 2
     readonly property real heroImageBlockSize: compactLayout ? 100 : 180
 
     signal setupComplete
+
+    component StepTitle: Silica.Label {
+        Layout.fillWidth: true
+        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+        wrapMode: Text.Wrap
+        color: Silica.Theme.highlightColor
+        font.pixelSize: Silica.Theme.fontSizeLarge
+    }
+
+    component StepBody: Silica.Label {
+        Layout.fillWidth: true
+        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+        wrapMode: Text.Wrap
+        color: Silica.Theme.secondaryHighlightColor
+        font.pixelSize: Silica.Theme.fontSizeSmall
+    }
 
     anchors.fill: parent
     visible: !SettingsManagerCpp.firstRunComplete
@@ -90,13 +94,13 @@ Item {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.background
+    KeelAmbienceBackground {
+        width: oobeRoot.width
+        height: oobeRoot.height
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
 
-        // Dither overlay — break HyperPixel 4.0 Square's 18 bpp DPI
-        // quantisation banding on the smooth gradient below. Same
-        // 4 % tiled noise pattern used by the live wallpaper renderer.
+        // Breaks the HyperPixel Square's 18 bpp banding.
         Image {
             anchors.fill: parent
             source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
@@ -104,31 +108,6 @@ Item {
             smooth: false
             opacity: 0.04
             visible: DeviceProfile.panelDither
-            z: Constants.zIndexBackground + 1
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            opacity: 0.08
-
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-
-                GradientStop {
-                    position: 0
-                    color: MColors.accent
-                }
-
-                GradientStop {
-                    position: 0.5
-                    color: "transparent"
-                }
-
-                GradientStop {
-                    position: 1
-                    color: MColors.accent
-                }
-            }
         }
     }
 
@@ -145,12 +124,7 @@ Item {
         id: swipeView
 
         anchors.fill: parent
-        // Pages anchor under topChrome (indicator dots + Skip) and inside
-        // the lg gutter. Per-page ColumnLayouts add their own lg inset; an
-        // xl gutter here on top of that pushes the scale ladder off-edge.
-        anchors.topMargin: topChrome.height + MSpacing.sm
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
+        anchors.topMargin: topChrome.height + statusBar.height
         anchors.bottomMargin: Math.round(oobeRoot.swipeBottomInset)
         currentIndex: oobeRoot.currentPage
         interactive: false
@@ -159,42 +133,34 @@ Item {
         Item {
             clip: true
 
-            // Welcome page — canonical MarathonMark (teal disc + black M
-            // + "MARATHON" tracked caps) per docs/redesign/marathonos/
-            // project/design-system/ds-foundations.jsx. This is THE
-            // brand mark; the old marathon.png raster is retired.
             Column {
                 anchors.centerIn: parent
-                spacing: Math.round(28 * Constants.scaleFactor)
                 width: parent.width
+                spacing: Silica.Theme.paddingLarge
 
                 MMarathonMark {
                     anchors.horizontalCenter: parent.horizontalCenter
                     size: Math.round((oobeRoot.compactLayout ? 180 : 220) * Constants.scaleFactor)
+                    glow: false
                 }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Silica.Label {
+                    x: Silica.Theme.horizontalPageMargin
+                    width: parent.width - 2 * x
                     text: "Welcome"
-                    font.pixelSize: MTypography.sizeTitle1
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle1
-                    color: MColors.textPrimary
+                    color: Silica.Theme.highlightColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraLarge
                     horizontalAlignment: Text.AlignHCenter
                 }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Silica.Label {
+                    x: Silica.Theme.horizontalPageMargin
+                    width: parent.width - 2 * x
                     text: "A modern, gesture-driven mobile shell.\nLet's get you set up."
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
+                    color: Silica.Theme.secondaryHighlightColor
+                    font.pixelSize: Silica.Theme.fontSizeMedium
                     horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                    // min() against parent.width so any future scaleFactor
-                    // delta can't push the text past the page edge.
-                    width: Math.min(parent.width, Math.round(320 * Constants.scaleFactor))
+                    wrapMode: Text.Wrap
                 }
             }
         }
@@ -208,167 +174,85 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
-                // SwipeView already insets by MSpacing.lg on each side;
-                // additional page-level margins doubled the gutter to ~114 px
-                // and pushed the 7-button scale ladder ~45 px off-edge on
-                // both sides. Drop the duplication.
-                anchors.leftMargin: 0
-                anchors.rightMargin: 0
-                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
-                spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
+                anchors.topMargin: Silica.Theme.paddingLarge
+                spacing: Silica.Theme.paddingMedium
 
-                GlyphIcon {
-                    Layout.alignment: Qt.AlignHCenter
-                    name: "text-aa"
-                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
-                }
-
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
+                StepTitle {
                     text: "Choose display size"
-                    font.pixelSize: MTypography.sizeTitle2
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
-                    horizontalAlignment: Text.AlignHCenter
                 }
 
-                Text {
-                    Layout.fillWidth: true
+                StepBody {
                     text: "Make text and icons easier to read. You can change this anytime."
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
                 }
 
-                MCard {
+                Silica.SectionHeader {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    text: "Preview"
+                }
+
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    elevation: 2
-                    clip: true  // preview text + icons stay inside the card
+                    clip: true
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.lg
-                        spacing: MSpacing.sm
+                    // Silica's tokens don't follow userScaleFactor, so the
+                    // preview applies it.
+                    Column {
+                        x: Silica.Theme.horizontalPageMargin
+                        width: parent.width - 2 * x
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Silica.Theme.paddingSmall
 
-                        Text {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "Preview"
-                            font.pixelSize: MTypography.sizeSmall
-                            font.weight: Font.DemiBold
-                            font.capitalization: Font.AllUppercase
-                            font.letterSpacing: Math.max(1, Math.round(1 * Constants.scaleFactor))
-                            font.family: MTypography.fontFamily
-                            color: MColors.textTertiary
+                        Silica.Label {
+                            width: parent.width
+                            text: "Sample"
+                            color: Silica.Theme.primaryColor
+                            font.pixelSize: Math.round(Silica.Theme.fontSizeExtraLarge * Constants.userScaleFactor)
+                            truncationMode: Silica.TruncationMode.Fade
                         }
 
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-
-                            // Preview "Sample" + body + icons. Sizes use
-                            // MTypography directly: MTypography.sizeTitle2
-                            // already includes Constants.scaleFactor (which
-                            // multiplies by userScaleFactor). Multiplying
-                            // *again* by userScaleFactor as the prior code
-                            // did double-applied the scale — at
-                            // userScaleFactor=1.5 the preview text was
-                            // 2.25× the rest of the OOBE chrome and broke
-                            // out of the card. The new render is "what your
-                            // typography looks like at this scale" — the
-                            // user comparison they actually want.
-                            ColumnLayout {
-                                anchors.centerIn: parent
-                                width: parent.width
-                                spacing: MSpacing.sm
-
-                                Text {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "Sample"
-                                    font.pixelSize: MTypography.sizeTitle2
-                                    font.weight: MTypography.weightExtraLight
-                                    font.family: MTypography.fontFamily
-                                    font.letterSpacing: MTypography.trackingTitle2
-                                    color: MColors.textPrimary
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: "The quick brown fox jumps over the lazy dog."
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textSecondary
-                                    wrapMode: Text.WordWrap
-                                    horizontalAlignment: Text.AlignHCenter
-                                }
-                            }
+                        Silica.Label {
+                            width: parent.width
+                            text: "The quick brown fox jumps over the lazy dog."
+                            color: Silica.Theme.secondaryColor
+                            font.pixelSize: Math.round(Silica.Theme.fontSizeSmall * Constants.userScaleFactor)
+                            wrapMode: Text.Wrap
                         }
                     }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: MSpacing.xs
-
-                    Text {
-                        text: "A"
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                        color: MColors.textTertiary
-                    }
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    spacing: 0
 
                     Repeater {
                         model: scalePage.scaleFactors
 
-                        Rectangle {
+                        Silica.BackgroundItem {
+                            id: scaleChoice
+
                             required property real modelData
 
                             readonly property bool selected: Math.abs(Constants.userScaleFactor - modelData) < 0.001
 
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Math.round(40 * Constants.scaleFactor)
-                            radius: Math.round(8 * Constants.scaleFactor)
-                            color: selected ? MColors.marathonTealBright : "transparent"
-                            border.width: 1
-                            border.color: selected ? MColors.marathonTealBright : MColors.border
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: MMotion.xs
-                                }
+                            Layout.preferredHeight: Silica.Theme.itemSizeSmall
+                            onClicked: {
+                                HapticManager.light();
+                                SettingsManagerCpp.userScaleFactor = scaleChoice.modelData;
                             }
 
-                            Text {
+                            Silica.Label {
                                 anchors.centerIn: parent
-                                text: Math.round(parent.modelData * 100)
-                                font.pixelSize: MTypography.sizeSmall
-                                font.weight: parent.selected ? Font.DemiBold : Font.Medium
-                                font.family: MTypography.fontFamily
-                                color: parent.selected ? "#000000" : MColors.textPrimary
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticManager.light();
-                                    SettingsManagerCpp.userScaleFactor = parent.modelData;
-                                }
+                                text: Math.round(scaleChoice.modelData * 100)
+                                font.pixelSize: Silica.Theme.fontSizeSmall
+                                color: scaleChoice.selected || scaleChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                             }
                         }
-                    }
-
-                    Text {
-                        text: "A"
-                        font.pixelSize: Math.round(MTypography.sizeLarge * Constants.scaleFactor)
-                        font.family: MTypography.fontFamily
-                        color: MColors.textTertiary
                     }
                 }
             }
@@ -405,358 +289,203 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
-                anchors.leftMargin: 0
-                anchors.rightMargin: 0
-                // No bottomMargin — SwipeView.bottomMargin
-                // (swipeBottomMargin) already reserves the Back/Next +
-                // nav-bar zone. Stacking another inset on top here
-                // collapses the WiFi list card.
-                anchors.bottomMargin: 0
-                spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
+                anchors.topMargin: Silica.Theme.paddingLarge
+                spacing: Silica.Theme.paddingMedium
 
-                GlyphIcon {
-                    Layout.alignment: Qt.AlignHCenter
-                    name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-slash"
-                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
-                }
-
-                // Title + subtitle need Layout.fillWidth + WordWrap so the
-                // Text item sizes to the column width rather than its
-                // natural rendered width — at scaleFactor 1.79 a single
-                // long title overflows the SwipeView page and clips.
-                Text {
-                    Layout.fillWidth: true
+                StepTitle {
                     text: "Connect to a network"
-                    font.pixelSize: MTypography.sizeTitle2
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
                 }
 
-                Text {
-                    Layout.fillWidth: true
+                StepBody {
                     text: SystemStatusStore.isWifiOn ? "Pick a network, or continue without one." : "Turn WiFi on to see nearby networks."
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
                 }
 
-                MCard {
+                Silica.TextSwitch {
                     Layout.fillWidth: true
-                    // Fixed sizing — wifiOffRow has anchors.fill: parent so
-                    // its implicitHeight is driven from the OUTSIDE, which
-                    // creates a binding loop if the card's preferredHeight
-                    // is derived from it. The row's content is one Icon
-                    // (24*scale) + label text, so a 72*scale card is the
-                    // natural minimum that always fits without measuring.
-                    Layout.preferredHeight: Math.round(72 * Constants.scaleFactor)
-                    elevation: 2
                     visible: !SystemStatusStore.isWifiOn
-
-                    RowLayout {
-                        id: wifiOffRow
-
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.md
-                        spacing: MSpacing.md
-
-                        GlyphIcon {
-                            name: "wifi"
-                            size: Math.round(24 * Constants.scaleFactor)
-                            color: MColors.textSecondary
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: "WiFi is off"
-                            font.pixelSize: MTypography.sizeBody
-                            font.family: MTypography.fontFamily
-                            color: MColors.textPrimary
-                        }
-
-                        Silica.Switch {
-                            Accessible.name: "Wi-Fi"
-                            checked: SystemStatusStore.isWifiOn
-                            automaticCheck: false
-                            onClicked: SystemControlStore.toggleWifi()
-                        }
-                    }
+                    text: "WiFi"
+                    checked: SystemStatusStore.isWifiOn
+                    automaticCheck: false
+                    onClicked: SystemControlStore.toggleWifi()
                 }
 
-                MCard {
+                Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    // Override MCard.implicitHeight (which sizes the card
-                    // to childrenRect — ~200 px here) so the network list
-                    // has a meaningful floor. fillHeight still grows it
-                    // when the column has leftover.
-                    implicitHeight: Math.round(380 * Constants.scaleFactor)
-                    elevation: 2
+                    Layout.preferredHeight: Silica.Theme.itemSizeSmall
                     visible: SystemStatusStore.isWifiOn
 
-                    ColumnLayout {
+                    Silica.IconButton {
+                        id: rescanButton
+
+                        anchors.left: parent.left
+                        anchors.leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
+                        anchors.verticalCenter: parent.verticalCenter
+                        icon.source: "image://theme/icon-m-refresh"
+                        Accessible.name: "Rescan networks"
+                        onClicked: {
+                            HapticManager.light();
+                            wifiPage.firstScanDone = false;
+                            NetworkManagerCpp.scanWifi();
+                        }
+                    }
+
+                    Silica.SectionHeader {
+                        anchors.left: rescanButton.right
+                        anchors.right: parent.right
+                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Networks"
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: SystemStatusStore.isWifiOn
+
+                    Silica.BusyIndicator {
+                        anchors.centerIn: parent
+                        size: Silica.BusyIndicatorSize.Medium
+                        running: oobeRoot.visible && !wifiPage.firstScanDone
+                        visible: !wifiPage.firstScanDone
+                    }
+
+                    Column {
+                        x: Silica.Theme.horizontalPageMargin
+                        width: parent.width - 2 * x
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Silica.Theme.paddingMedium
+                        visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length === 0
+
+                        Silica.Label {
+                            width: parent.width
+                            text: "No networks found"
+                            color: Silica.Theme.secondaryHighlightColor
+                            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                        }
+
+                        Silica.Label {
+                            width: parent.width
+                            text: "Move closer to a router, or tap refresh."
+                            color: Silica.Theme.secondaryColor
+                            font.pixelSize: Silica.Theme.fontSizeMedium
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    Flickable {
                         anchors.fill: parent
-                        anchors.margins: MSpacing.sm
-                        spacing: 0
+                        contentHeight: networkColumn.height
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length > 0
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: MSpacing.touchTargetMedium
-                            spacing: MSpacing.sm
+                        Column {
+                            id: networkColumn
 
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.leftMargin: MSpacing.md
-                                text: "Networks"
-                                font.pixelSize: MTypography.sizeSmall
-                                font.weight: Font.DemiBold
-                                font.capitalization: Font.AllUppercase
-                                font.letterSpacing: Math.max(1, Math.round(1 * Constants.scaleFactor))
-                                font.family: MTypography.fontFamily
-                                color: MColors.textTertiary
-                                verticalAlignment: Text.AlignVCenter
-                            }
+                            width: parent.width
 
-                            Silica.IconButton {
-                                Layout.preferredWidth: MSpacing.touchTargetMedium
-                                Layout.preferredHeight: MSpacing.touchTargetMedium
-                                Layout.rightMargin: MSpacing.xs
-                                icon.source: "image://theme/icon-m-refresh"
-                                Accessible.name: "Rescan networks"
-                                onClicked: {
-                                    HapticManager.light();
-                                    wifiPage.firstScanDone = false;
-                                    NetworkManagerCpp.scanWifi();
-                                }
-                            }
-                        }
+                            Repeater {
+                                model: NetworkManagerCpp.availableNetworks
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 1
-                            color: MColors.border
-                            opacity: 0.5
-                        }
+                                Silica.BackgroundItem {
+                                    id: networkRow
 
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
+                                    required property var modelData
+                                    required property int index
 
-                            Column {
-                                anchors.fill: parent
-                                anchors.margins: MSpacing.sm
-                                spacing: MSpacing.sm
-                                visible: !wifiPage.firstScanDone
+                                    readonly property bool isPending: wifiPage.pendingSsid === modelData.ssid
+                                    readonly property bool rowEnabled: !modelData.connected && wifiPage.pendingSsid === ""
+                                    readonly property bool lit: modelData.connected || highlighted
 
-                                Repeater {
-                                    model: 4
-
-                                    Rectangle {
-                                        width: parent.width
-                                        height: Math.round(56 * Constants.scaleFactor)
-                                        radius: Math.round(8 * Constants.scaleFactor)
-                                        color: MColors.surface
-
-                                        SequentialAnimation on opacity {
-                                            loops: Animation.Infinite
-                                            // C8: gate on oobeRoot.visible, not just the scan
-                                            // flag. OOBE is instantiated unconditionally in
-                                            // MarathonShell.qml (no Loader) and merely hidden
-                                            // via `visible: !firstRunComplete`, and
-                                            // firstScanDone stays false forever wherever no
-                                            // Wi-Fi networks are ever found (QEMU, or a device
-                                            // with the radio off), so the skeleton shimmer
-                                            // would otherwise run permanently on a hidden item.
-                                            running: oobeRoot.visible && !wifiPage.firstScanDone
-
-                                            NumberAnimation {
-                                                from: 0.25
-                                                to: 0.55
-                                                duration: 800
-                                            }
-
-                                            NumberAnimation {
-                                                from: 0.55
-                                                to: 0.25
-                                                duration: 800
-                                            }
+                                    width: parent.width
+                                    height: Math.max(Silica.Theme.itemSizeSmall, networkText.height + 2 * Silica.Theme.paddingMedium)
+                                    enabled: networkRow.rowEnabled
+                                    onClicked: {
+                                        HapticManager.light();
+                                        if (networkRow.modelData.secured) {
+                                            wifiPasswordDialogLoader.show(networkRow.modelData.ssid, networkRow.modelData.strength, networkRow.modelData.security, networkRow.modelData.secured);
+                                        } else {
+                                            wifiPage.pendingSsid = networkRow.modelData.ssid;
+                                            NetworkManagerCpp.connectToNetwork(networkRow.modelData.ssid, "");
                                         }
                                     }
-                                }
-                            }
 
-                            Column {
-                                anchors.centerIn: parent
-                                width: parent.width - MSpacing.lg * 2
-                                spacing: MSpacing.sm
-                                visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length === 0
+                                    GlyphIcon {
+                                        id: strengthIcon
 
-                                GlyphIcon {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    name: "wifi-slash"
-                                    size: Math.round(32 * Constants.scaleFactor)
-                                    color: MColors.textTertiary
-                                }
+                                        x: Silica.Theme.horizontalPageMargin
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: {
+                                            const s = networkRow.modelData.strength;
+                                            if (s >= 75)
+                                                return "wifi-high";
+                                            if (s >= 50)
+                                                return "wifi-medium";
+                                            if (s >= 25)
+                                                return "wifi-low";
+                                            return "wifi-none";
+                                        }
+                                        size: Silica.Theme.iconSizeSmall
+                                        color: networkRow.lit ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                                    }
 
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "No networks found"
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textSecondary
-                                    horizontalAlignment: Text.AlignHCenter
-                                }
+                                    Column {
+                                        id: networkText
 
-                                Text {
-                                    width: parent.width
-                                    text: "Move closer to a router, or tap refresh."
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textTertiary
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
+                                        anchors.left: strengthIcon.right
+                                        anchors.leftMargin: Silica.Theme.paddingLarge
+                                        anchors.right: networkTrail.left
+                                        anchors.rightMargin: Silica.Theme.paddingMedium
+                                        anchors.verticalCenter: parent.verticalCenter
 
-                            Flickable {
-                                anchors.fill: parent
-                                contentHeight: networkColumn.height
-                                clip: true
-                                boundsBehavior: Flickable.StopAtBounds
-                                visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length > 0
-
-                                Column {
-                                    id: networkColumn
-
-                                    width: parent.width
-                                    spacing: 0
-
-                                    Repeater {
-                                        model: NetworkManagerCpp.availableNetworks
-
-                                        Item {
-                                            id: networkRow
-
-                                            required property var modelData
-                                            required property int index
-
-                                            readonly property bool isPending: wifiPage.pendingSsid === modelData.ssid
-                                            readonly property bool rowEnabled: !modelData.connected && wifiPage.pendingSsid === ""
-
+                                        Silica.Label {
                                             width: parent.width
-                                            height: Math.round(56 * Constants.scaleFactor)
+                                            text: networkRow.modelData.ssid
+                                            color: networkRow.lit ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                                            truncationMode: Silica.TruncationMode.Fade
+                                        }
 
-                                            Rectangle {
-                                                anchors.fill: parent
-                                                color: pressArea.pressed ? MColors.elevated : "transparent"
+                                        Silica.Label {
+                                            visible: networkRow.modelData.connected || networkRow.isPending
+                                            text: networkRow.isPending ? "Connecting…" : "Connected"
+                                            color: networkRow.isPending ? Silica.Theme.secondaryColor : Silica.Theme.secondaryHighlightColor
+                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                        }
+                                    }
 
-                                                Behavior on color {
-                                                    ColorAnimation {
-                                                        duration: MMotion.xs
-                                                    }
-                                                }
-                                            }
+                                    Row {
+                                        id: networkTrail
 
-                                            RowLayout {
-                                                anchors.fill: parent
-                                                anchors.leftMargin: MSpacing.sm
-                                                anchors.rightMargin: MSpacing.sm
-                                                spacing: MSpacing.md
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: Silica.Theme.paddingSmall
 
-                                                GlyphIcon {
-                                                    name: {
-                                                        const s = networkRow.modelData.strength;
-                                                        if (s >= 75)
-                                                            return "wifi-high";
-                                                        if (s >= 50)
-                                                            return "wifi";
-                                                        if (s >= 25)
-                                                            return "wifi-low";
-                                                        return "wifi-zero";
-                                                    }
-                                                    size: Math.round(20 * Constants.scaleFactor)
-                                                    color: networkRow.modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
-                                                }
+                                        Silica.BusyIndicator {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            size: Silica.BusyIndicatorSize.ExtraSmall
+                                            running: networkRow.isPending
+                                            visible: running
+                                        }
 
-                                                ColumnLayout {
-                                                    Layout.fillWidth: true
-                                                    spacing: 2
+                                        GlyphIcon {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.modelData.connected
+                                            name: "lock"
+                                            size: Silica.Theme.iconSizeExtraSmall
+                                            color: Silica.Theme.secondaryColor
+                                        }
 
-                                                    Text {
-                                                        Layout.fillWidth: true
-                                                        text: networkRow.modelData.ssid
-                                                        font.pixelSize: MTypography.sizeBody
-                                                        font.weight: networkRow.modelData.connected ? Font.DemiBold : Font.Medium
-                                                        font.family: MTypography.fontFamily
-                                                        color: networkRow.modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
-                                                        elide: Text.ElideRight
-                                                    }
-
-                                                    Text {
-                                                        visible: networkRow.modelData.connected || networkRow.isPending
-                                                        text: networkRow.isPending ? "Connecting…" : "Connected"
-                                                        font.pixelSize: MTypography.sizeSmall
-                                                        font.family: MTypography.fontFamily
-                                                        color: networkRow.isPending ? MColors.textSecondary : MColors.marathonTealBright
-                                                    }
-                                                }
-
-                                                BusyIndicator {
-                                                    Layout.preferredWidth: Math.round(20 * Constants.scaleFactor)
-                                                    Layout.preferredHeight: Math.round(20 * Constants.scaleFactor)
-                                                    running: networkRow.isPending
-                                                    visible: running
-                                                }
-
-                                                GlyphIcon {
-                                                    visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.modelData.connected
-                                                    name: "lock"
-                                                    size: Math.round(14 * Constants.scaleFactor)
-                                                    color: MColors.textTertiary
-                                                }
-
-                                                GlyphIcon {
-                                                    visible: networkRow.modelData.connected
-                                                    name: "check"
-                                                    size: Math.round(16 * Constants.scaleFactor)
-                                                    color: MColors.marathonTealBright
-                                                }
-                                            }
-
-                                            Rectangle {
-                                                anchors.bottom: parent.bottom
-                                                anchors.left: parent.left
-                                                anchors.leftMargin: MSpacing.xl + MSpacing.md
-                                                anchors.right: parent.right
-                                                anchors.rightMargin: MSpacing.sm
-                                                height: 1
-                                                color: MColors.border
-                                                opacity: 0.3
-                                                visible: networkRow.index < NetworkManagerCpp.availableNetworks.length - 1
-                                            }
-
-                                            MouseArea {
-                                                id: pressArea
-
-                                                anchors.fill: parent
-                                                enabled: networkRow.rowEnabled
-                                                onClicked: {
-                                                    HapticManager.light();
-                                                    if (networkRow.modelData.secured) {
-                                                        wifiPasswordDialogLoader.show(networkRow.modelData.ssid, networkRow.modelData.strength, networkRow.modelData.security, networkRow.modelData.secured);
-                                                    } else {
-                                                        wifiPage.pendingSsid = networkRow.modelData.ssid;
-                                                        NetworkManagerCpp.connectToNetwork(networkRow.modelData.ssid, "");
-                                                    }
-                                                }
-                                            }
+                                        GlyphIcon {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: networkRow.modelData.connected
+                                            name: "check"
+                                            size: Silica.Theme.iconSizeExtraSmall
+                                            color: Silica.Theme.highlightColor
                                         }
                                     }
                                 }
@@ -765,22 +494,24 @@ Item {
                     }
                 }
 
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: MSpacing.xs
-                    text: "Join other network…"
-                    font.pixelSize: MTypography.sizeSmall
-                    font.family: MTypography.fontFamily
-                    font.weight: Font.Medium
-                    color: MColors.marathonTealBright
-                    visible: SystemStatusStore.isWifiOn && wifiPage.firstScanDone
+                Silica.BackgroundItem {
+                    id: joinOther
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticManager.light();
-                            wifiPasswordDialogLoader.show("", 0, "WPA2", true);
-                        }
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Silica.Theme.itemSizeSmall
+                    visible: SystemStatusStore.isWifiOn && wifiPage.firstScanDone
+                    onClicked: {
+                        HapticManager.light();
+                        wifiPasswordDialogLoader.show("", 0, "WPA2", true);
+                    }
+
+                    Silica.Label {
+                        x: Silica.Theme.horizontalPageMargin
+                        width: parent.width - 2 * x
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Join other network…"
+                        color: joinOther.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                        truncationMode: Silica.TruncationMode.Fade
                     }
                 }
             }
@@ -793,153 +524,93 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
-                anchors.leftMargin: 0
-                anchors.rightMargin: 0
-                spacing: oobeRoot.compactLayout ? MSpacing.md : MSpacing.lg
+                anchors.topMargin: Silica.Theme.paddingLarge
+                spacing: Silica.Theme.paddingMedium
 
-                GlyphIcon {
-                    Layout.alignment: Qt.AlignHCenter
-                    name: "clock"
-                    size: Math.round((oobeRoot.compactLayout ? 36 : 48) * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
+                StepTitle {
+                    text: "Time and date"
                 }
 
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "Set Time & Date"
-                    font.pixelSize: MTypography.sizeTitle2
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
-                    horizontalAlignment: Text.AlignHCenter
-                }
-
-                Text {
-                    Layout.fillWidth: true
+                StepBody {
                     text: "Configure your time format preferences."
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
                 }
 
-                MCard {
-                    id: timeCard
-
+                Silica.Label {
                     Layout.fillWidth: true
-                    // Generous card height + anchored centerIn Column gives
-                    // honest vertical centring. Sizing the card to its
-                    // content via implicit Layout collapses the inner space
-                    // and centring becomes a no-op.
-                    Layout.preferredHeight: Math.round(180 * Constants.scaleFactor)
-                    elevation: 2
-
-                    Column {
-                        id: timeColumn
-
-                        anchors.centerIn: parent
-                        spacing: MSpacing.sm
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
-                            font.pixelSize: Math.round(48 * Constants.scaleFactor)
-                            font.weight: Font.Light
-                            font.family: MTypography.fontFamily
-                            color: MColors.text
-                        }
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
-                            font.pixelSize: MTypography.sizeLarge
-                            font.family: MTypography.fontFamily
-                            color: MColors.textSecondary
-                        }
-                    }
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    Layout.topMargin: Silica.Theme.paddingLarge
+                    text: SystemStatusStore.timeString
+                    color: Silica.Theme.primaryColor
+                    font.pixelSize: Silica.Theme.fontSizeHuge
+                    font.family: Silica.Theme.fontFamilyHeading
                 }
 
-                MCard {
-                    id: formatCard
-
+                Silica.Label {
                     Layout.fillWidth: true
-                    // Explicit row height so the Icon, Text, and MButtons
-                    // share an honest geometric centre. RowLayout-implicit
-                    // sizing pinned the row to the tallest child (MButton)
-                    // and visually placed the icon + label above centre.
-                    Layout.preferredHeight: Math.round((45 + MSpacing.md / Constants.scaleFactor * 2) * Constants.scaleFactor)
-                    elevation: 2
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
+                    color: Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeMedium
+                    truncationMode: Silica.TruncationMode.Fade
+                }
 
-                    Item {
-                        anchors.fill: parent
-                        anchors.leftMargin: MSpacing.md
-                        anchors.rightMargin: MSpacing.md
+                Silica.SectionHeader {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    text: "Time format"
+                }
 
-                        GlyphIcon {
-                            id: formatIcon
+                Column {
+                    Layout.fillWidth: true
 
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "clock"
-                            size: Math.round(24 * Constants.scaleFactor)
-                            color: MColors.text
-                        }
+                    Repeater {
+                        model: [
+                            {
+                                "value": "12h",
+                                "label": "12-hour"
+                            },
+                            {
+                                "value": "24h",
+                                "label": "24-hour"
+                            }
+                        ]
 
-                        Text {
-                            anchors.left: formatIcon.right
-                            anchors.leftMargin: MSpacing.md
-                            anchors.right: formatButtonsRow.left
-                            anchors.rightMargin: MSpacing.md
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Time Format"
-                            font.pixelSize: MTypography.sizeLarge
-                            font.family: MTypography.fontFamily
-                            color: MColors.text
-                            elide: Text.ElideRight
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        Silica.BackgroundItem {
+                            id: formatChoice
 
-                        Row {
-                            id: formatButtonsRow
+                            required property var modelData
 
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: MSpacing.sm
+                            readonly property bool selected: SettingsManagerCpp.timeFormat === modelData.value
 
-                            Silica.Button {
-                                text: "12h"
-                                preferredWidth: Silica.Theme.buttonWidthTiny
-                                color: SettingsManagerCpp.timeFormat === "12h" ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                                onClicked: {
-                                    SettingsManagerCpp.timeFormat = "12h";
-                                    HapticManager.light();
-                                }
+                            width: parent.width
+                            height: Silica.Theme.itemSizeSmall
+                            onClicked: {
+                                SettingsManagerCpp.timeFormat = formatChoice.modelData.value;
+                                HapticManager.light();
                             }
 
-                            Silica.Button {
-                                text: "24h"
-                                preferredWidth: Silica.Theme.buttonWidthTiny
-                                color: SettingsManagerCpp.timeFormat === "24h" ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                                onClicked: {
-                                    SettingsManagerCpp.timeFormat = "24h";
-                                    HapticManager.light();
-                                }
+                            Silica.Label {
+                                x: Silica.Theme.horizontalPageMargin
+                                width: parent.width - 2 * x
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: formatChoice.modelData.label
+                                color: formatChoice.selected || formatChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                             }
                         }
                     }
                 }
 
-                Text {
+                Silica.Label {
                     Layout.fillWidth: true
+                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
                     text: "The clock sets itself over the network. Choose your time zone any time in Settings → Date & Time."
-                    font.pixelSize: MTypography.sizeSmall
-                    font.family: MTypography.fontFamily
-                    color: MColors.textTertiary
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
+                    color: Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    wrapMode: Text.Wrap
                 }
 
                 Item {
@@ -953,11 +624,7 @@ Item {
 
             clip: true
 
-            // Interactive coachmark sequence — one gesture per sub-page.
-            // The animated arrow loops to demonstrate direction; the user
-            // performs the matching swipe inside the practice zone, which
-            // marks the coachmark complete and advances. A Skip link is
-            // available for users who cannot or do not want to practise.
+            // One gesture per sub-page; Continue advances.
             property int currentCoachmark: 0
             readonly property var coachmarks: [
                 {
@@ -997,47 +664,38 @@ Item {
                     gesturesPage.currentCoachmark++;
             }
 
-            Column {
+            Silica.Label {
                 id: gesturesHeader
 
                 anchors.top: parent.top
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
-                anchors.left: parent.left
-                anchors.right: parent.right
-                spacing: oobeRoot.compactLayout ? MSpacing.xs : MSpacing.sm
+                anchors.topMargin: Silica.Theme.paddingLarge
+                x: Silica.Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                text: "Learn the gestures"
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                wrapMode: Text.Wrap
+            }
 
-                GlyphIcon {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    name: "hand-pointing"
-                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
-                }
+            Silica.PageIndicator {
+                id: coachmarkDots
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Learn the gestures"
-                    font.pixelSize: MTypography.sizeTitle2
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
-                    horizontalAlignment: Text.AlignHCenter
-                }
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: gesturesHeader.bottom
+                anchors.topMargin: Silica.Theme.paddingMedium
+                count: gesturesPage.coachmarks.length
+                currentIndex: gesturesPage.currentCoachmark
             }
 
             StackLayout {
                 id: coachmarkStack
 
-                // Dots moved to the top — anchor the stack below the dots
-                // instead of above them, and let it run to the bottom of
-                // the page so the per-coachmark Item + Next button has the
-                // full vertical breathing room.
                 anchors.top: coachmarkDots.bottom
-                anchors.topMargin: MSpacing.lg
+                anchors.topMargin: Silica.Theme.paddingLarge
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: MSpacing.lg
+                anchors.bottomMargin: Silica.Theme.paddingLarge
                 currentIndex: gesturesPage.currentCoachmark
 
                 Repeater {
@@ -1052,32 +710,20 @@ Item {
                         Column {
                             anchors.centerIn: parent
                             width: parent.width
-                            spacing: MSpacing.xl
+                            spacing: Silica.Theme.paddingLarge
 
-                            // Animated arrow demo — only loops while this is
-                            // the active coachmark and there is a direction
-                            // to demonstrate.
                             Item {
-                                width: Math.round(120 * Constants.scaleFactor)
-                                height: Math.round(120 * Constants.scaleFactor)
+                                width: Silica.Theme.itemSizeHuge
+                                height: Silica.Theme.itemSizeHuge
                                 anchors.horizontalCenter: parent.horizontalCenter
-
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: parent.width
-                                    height: parent.height
-                                    radius: width / 2
-                                    color: MColors.marathonTealHoverGradient
-                                    opacity: 0.5
-                                }
 
                                 GlyphIcon {
                                     id: coachmarkIcon
 
                                     anchors.centerIn: parent
                                     name: coachmarkDelegate.modelData.icon
-                                    size: Math.round(72 * Constants.scaleFactor)
-                                    color: MColors.accent
+                                    size: Silica.Theme.iconSizeExtraLarge
+                                    color: Silica.Theme.highlightColor
 
                                     transform: Translate {
                                         id: coachmarkNudge
@@ -1088,14 +734,7 @@ Item {
                                 }
 
                                 SequentialAnimation {
-                                    // C8: gate on oobeRoot.visible. OOBE is instantiated unconditionally
-                                    // in MarathonShell.qml (no Loader) and only hidden via
-                                    // `visible: !firstRunComplete`, and a hidden item's
-                                    // animation keeps running and keeps the scene graph
-                                    // dirty. currentCoachmark defaults to 0, so coachmark 0
-                                    // matched immediately and this infinite nudge ran forever
-                                    // on a wizard page that is not on screen, on a device
-                                    // that finished setup long ago.
+                                    // Gated on visibility: the OOBE stays instantiated after setup.
                                     running: oobeRoot.visible && gesturesPage.currentCoachmark === coachmarkDelegate.index && coachmarkDelegate.modelData.direction !== "none"
                                     loops: Animation.Infinite
 
@@ -1104,7 +743,7 @@ Item {
                                         property: (coachmarkDelegate.modelData.direction === "left" || coachmarkDelegate.modelData.direction === "right") ? "x" : "y"
                                         from: 0
                                         to: {
-                                            const amount = Math.round(32 * Constants.scaleFactor);
+                                            const amount = Silica.Theme.paddingLarge * 2;
                                             if (coachmarkDelegate.modelData.direction === "up")
                                                 return -amount;
                                             if (coachmarkDelegate.modelData.direction === "down")
@@ -1134,123 +773,36 @@ Item {
                                 }
                             }
 
-                            Text {
+                            Silica.Label {
+                                x: Silica.Theme.horizontalPageMargin
+                                width: parent.width - 2 * x
                                 text: coachmarkDelegate.modelData.title
-                                font.pixelSize: MTypography.sizeTitle3
-                                font.weight: MTypography.weightExtraLight
-                                font.family: MTypography.fontFamily
-                                font.letterSpacing: MTypography.trackingTitle3
-                                color: MColors.textPrimary
+                                color: Silica.Theme.primaryColor
+                                font.pixelSize: Silica.Theme.fontSizeLarge
                                 horizontalAlignment: Text.AlignHCenter
-                                anchors.horizontalCenter: parent.horizontalCenter
+                                wrapMode: Text.Wrap
                             }
 
-                            Text {
+                            Silica.Label {
+                                x: Silica.Theme.horizontalPageMargin
+                                width: parent.width - 2 * x
                                 text: coachmarkDelegate.modelData.body
-                                font.pixelSize: MTypography.sizeSubhead
-                                font.family: MTypography.fontFamily
-                                color: MColors.textSecondary
+                                color: Silica.Theme.secondaryColor
+                                font.pixelSize: Silica.Theme.fontSizeSmall
                                 horizontalAlignment: Text.AlignHCenter
-                                wrapMode: Text.WordWrap
-                                width: parent.width - MSpacing.xxl
+                                wrapMode: Text.Wrap
+                            }
+
+                            // "Continue", not "Next": the outer row already has a Next.
+                            Silica.Button {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                            }
-
-                            // Tap to advance. The previous practice-zone
-                            // forced the user to swipe inside a centred
-                            // Rectangle, but real Marathon gestures fire on
-                            // the SCREEN EDGES via EdgeGestures.qml — a
-                            // centred MouseArea can't reproduce that input.
-                            // Teaching a fake gesture that bears no relation
-                            // to the real one taught the user the wrong
-                            // muscle memory. Now the coachmark just shows
-                            // the gesture (icon + description); the user
-                            // taps "Next" to advance.
-                            Item {
-                                width: parent.width
-                                height: Math.round(48 * Constants.scaleFactor)
                                 visible: coachmarkDelegate.modelData.direction !== "none"
-
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: Math.round(120 * Constants.scaleFactor)
-                                    height: Math.round(40 * Constants.scaleFactor)
-                                    radius: MRadius.md
-                                    color: nextArea.pressed ? MColors.accent : MColors.elev2
-                                    border.width: 1
-                                    border.color: nextArea.pressed ? MColors.accent : MColors.borderSubtle
-
-                                    Behavior on color {
-                                        ColorAnimation {
-                                            duration: 120
-                                        }
-                                    }
-
-                                    Text {
-                                        // Distinct verb from the outer OOBE
-                                        // primary "Next" — two visible
-                                        // Nexts on the same screen confuse
-                                        // the action.
-                                        anchors.centerIn: parent
-                                        text: "Continue"
-                                        font.pixelSize: MTypography.sizeBody
-                                        font.weight: Font.Medium
-                                        font.family: MTypography.fontFamily
-                                        color: nextArea.pressed ? MColors.elev0 : MColors.textPrimary
-                                    }
+                                text: "Continue"
+                                onClicked: {
+                                    if (typeof HapticManager !== "undefined")
+                                        HapticManager.light();
+                                    gesturesPage.markComplete();
                                 }
-
-                                MouseArea {
-                                    id: nextArea
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        if (typeof HapticManager !== "undefined")
-                                            HapticManager.light();
-                                        gesturesPage.markComplete();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Row {
-                id: coachmarkDots
-
-                // Moved from bottom→top. The OOBE bottom edge gets
-                // crowded with the navigation buttons + the per-page
-                // Next/Skip + footer copy; putting the page-indicator
-                // dots up near the gesturesHeader keeps the bottom
-                // clean and is more iOS-Settings-like anyway.
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: gesturesHeader.bottom
-                anchors.topMargin: MSpacing.sm
-                spacing: MSpacing.sm
-
-                Repeater {
-                    model: gesturesPage.coachmarks.length
-
-                    delegate: Rectangle {
-                        required property int index
-
-                        readonly property bool isActive: index === gesturesPage.currentCoachmark
-
-                        width: isActive ? Math.round(20 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)
-                        height: Math.round(6 * Constants.scaleFactor)
-                        radius: height / 2
-                        color: isActive ? MColors.accent : MColors.whiteOverlay24
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Behavior on width {
-                            NumberAnimation {
-                                duration: 200
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 200
                             }
                         }
                     }
@@ -1258,11 +810,7 @@ Item {
             }
         }
 
-        // Passcode page — keypad-driven PIN setup, two-stage (enter then
-        // confirm). Visual pattern mirrors MarathonPinScreen (the lock-
-        // screen unlock UI) so OOBE and the lock screen feel unified.
-        // iOS / Android quality: 6 progress dots, circular digit keys,
-        // animated stage transition, haptic feedback on every press.
+        // Two-stage PIN setup (enter, then confirm) in the lock screen's style.
         Item {
             id: passcodePage
 
@@ -1278,47 +826,28 @@ Item {
             readonly property string currentPin: stage === "enter" ? enteredPin : confirmedPin
 
             readonly property bool isCompact: oobeRoot.compactLayout
-            readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
-            readonly property real keySpacing: Math.round((isCompact ? 10 : 14) * Constants.scaleFactor)
+            readonly property real dotSize: Silica.Theme.paddingLarge
+            readonly property real keySpacing: isCompact ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
 
-            // Design size at 1x. Only an upper bound — see keyCellFit.
+            // Design size; only an upper bound, see keyCellFit.
             readonly property real keyCellDesign: Math.round(keyCellBase * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-            readonly property real keyCellBase: isCompact ? 44 : 56
+            readonly property real keyCellBase: isCompact ? 56 : 72
 
-            // Height the four keypad rows may actually occupy, taken from
-            // this page's own height (set by SwipeView, so it never depends
-            // on the keypad — no binding loop) minus the header block above.
+            // Height left for the four keypad rows below the header block.
             readonly property real keypadBudget: height - Math.round(216 * Constants.scaleFactor)
             readonly property real keyCellFit: Math.floor((keypadBudget - 3 * keySpacing) / 4)
 
-            // Shrink to fit rather than clip. The keypad is the one thing on
-            // this page that MUST stay fully on screen — a clipped row hides
-            // digits and the backspace key entirely.
-            //
-            // The floor is in DEVICE pixels and deliberately does not scale.
-            // A scaled floor (40 * scaleFactor) defeats the whole mechanism:
-            // at userScaleFactor 1.50 the floor itself grew past the space
-            // available, overrode keyCellFit, and the bottom row clipped
-            // again. 44 px is the standard minimum touch target, so this
-            // still degrades to something thumb-sized rather than unusable.
+            // Shrink to fit rather than clip; the 44 px floor is in device pixels on purpose.
             readonly property real scaledKeyCell: Math.max(44, Math.min(keyCellDesign, keyCellFit))
 
-            // Button chrome and glyph both follow the resolved cell, in the
-            // logical units MCircularIconButton multiplies by scaleFactor —
-            // otherwise a shrunk cell keeps full-size digits and they spill
-            // out of their own circles.
+            // In MCircularIconButton's logical units, so glyphs follow the cell.
             readonly property real keySize: Math.max(20, scaledKeyCell / Constants.scaleFactor - 12)
             readonly property real keyGlyphSize: Math.max(11, Math.round(keySize * 0.5))
 
-            // Cap the header type against the page, not the user scale. The
-            // keypad is the page's job; letting the title and subtitle grow
-            // without limit starves it, and at userScaleFactor 1.50 that left
-            // huge headings above keys shrunk to their 44 px floor. Bounding
-            // the header keeps the keys usable and still honours the scale
-            // setting up to the point where the two compete.
+            // Header type is capped against the page so it can't starve the keypad.
             readonly property real headerTypeCap: Math.max(16, Math.round(height * 0.045))
-            readonly property real titleSize: Math.min(MTypography.sizeTitle2, Math.round(headerTypeCap * 1.35))
-            readonly property real subtitleSize: Math.min(MTypography.sizeSubhead, headerTypeCap)
+            readonly property real titleSize: Math.min(Silica.Theme.fontSizeLarge, Math.round(headerTypeCap * 1.35))
+            readonly property real subtitleSize: Math.min(Silica.Theme.fontSizeSmall, headerTypeCap)
 
             function appendDigit(d) {
                 if (passcodePage.currentPin.length >= passcodePage.maxLength)
@@ -1373,41 +902,32 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: Math.round((passcodePage.isCompact ? 20 : 28) * Constants.scaleFactor)
-                anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
-                anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
-                spacing: Math.round((passcodePage.isCompact ? 8 : 10) * Constants.scaleFactor)
+                anchors.topMargin: Silica.Theme.paddingLarge
+                anchors.leftMargin: Silica.Theme.horizontalPageMargin
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                spacing: passcodePage.isCompact ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
 
-                Text {
-                    // fillWidth + wrap, not alignment alone: with only
-                    // AlignHCenter this Text keeps its implicit single-line
-                    // width and runs past the page gutter, so "Create a
-                    // passcode" lost its last glyph at userScaleFactor 1.10.
+                Silica.Label {
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
+                    color: Silica.Theme.highlightColor
                     font.pixelSize: passcodePage.titleSize
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
                     horizontalAlignment: Text.AlignHCenter
                 }
 
-                Text {
+                Silica.Label {
                     Layout.fillWidth: true
                     text: passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
+                    color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: passcodePage.subtitleSize
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                 }
 
-                // PIN-progress dots — fill teal as digits are entered.
                 RowLayout {
                     Layout.alignment: Qt.AlignHCenter
-                    spacing: Math.round(14 * Constants.scaleFactor)
+                    spacing: Silica.Theme.paddingLarge
 
                     Repeater {
                         model: passcodePage.maxLength
@@ -1415,37 +935,32 @@ Item {
                         Rectangle {
                             required property int index
 
+                            readonly property bool filled: index < passcodePage.currentPin.length
+
                             Layout.preferredWidth: passcodePage.dotSize
                             Layout.preferredHeight: passcodePage.dotSize
                             radius: width / 2
-                            color: index < passcodePage.currentPin.length ? MColors.marathonTealBright : "transparent"
-                            border.width: 1
-                            border.color: index < passcodePage.currentPin.length ? MColors.marathonTealBright : MColors.borderSubtle
-                            scale: (index === passcodePage.currentPin.length - 1 && passcodePage.currentPin.length > 0) ? 1.25 : 1
+                            color: filled ? Silica.Theme.highlightColor : "transparent"
+                            border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                            border.color: filled ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
                             Behavior on color {
                                 ColorAnimation {
                                     duration: 120
                                 }
                             }
-
-                            Behavior on scale {
-                                NumberAnimation {
-                                    duration: 150
-                                    easing.type: Easing.OutBack
-                                }
-                            }
                         }
                     }
                 }
 
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
+                Silica.Label {
+                    Layout.fillWidth: true
                     visible: oobeRoot.passcodeError.length > 0
                     text: oobeRoot.passcodeError
-                    color: MColors.error
-                    font.pixelSize: MTypography.sizeFootnote
-                    font.family: MTypography.fontFamily
+                    color: Silica.Theme.errorColor
+                    font.pixelSize: Silica.Theme.fontSizeSmall
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.Wrap
                 }
 
                 GridLayout {
@@ -1476,7 +991,6 @@ Item {
                                 buttonSize: passcodePage.keySize
                                 iconSize: passcodePage.keyGlyphSize
                                 variant: "secondary"
-                                textColor: MColors.textPrimary
                                 onClicked: passcodePage.appendDigit(keyDelegate.modelData)
                             }
                         }
@@ -1501,7 +1015,6 @@ Item {
                             buttonSize: passcodePage.keySize
                             iconSize: passcodePage.keyGlyphSize
                             variant: "secondary"
-                            textColor: MColors.textPrimary
                             onClicked: passcodePage.appendDigit("0")
                         }
                     }
@@ -1516,11 +1029,11 @@ Item {
                             width: passcodePage.scaledKeyCell
                             height: passcodePage.scaledKeyCell
                             iconName: "delete"
+                            a11yName: "Delete"
                             buttonSize: passcodePage.keySize
                             iconSize: Math.max(10, Math.round(passcodePage.keyGlyphSize * 0.85))
                             variant: "secondary"
-                            iconColor: MColors.textSecondary
-                            enabled: passcodePage.currentPin.length > 0
+                            disabled: passcodePage.currentPin.length === 0
                             onClicked: passcodePage.deleteDigit()
                         }
                     }
@@ -1534,43 +1047,33 @@ Item {
             Column {
                 anchors.centerIn: parent
                 width: parent.width
-                spacing: MSpacing.xxl
+                spacing: Silica.Theme.paddingLarge
 
-                MCard {
-                    width: Math.round(120 * Constants.scaleFactor)
-                    height: Math.round(120 * Constants.scaleFactor)
-                    radius: MRadius.circle
-                    color: MColors.elevated
-                    elevation: 2
+                GlyphIcon {
                     anchors.horizontalCenter: parent.horizontalCenter
-
-                    GlyphIcon {
-                        name: "circle-check"
-                        size: Math.round(48 * Constants.scaleFactor)
-                        color: MColors.accent
-                        anchors.centerIn: parent
-                    }
+                    name: "circle-check"
+                    size: Silica.Theme.iconSizeExtraLarge
+                    color: Silica.Theme.highlightColor
                 }
 
-                Text {
+                Silica.Label {
+                    x: Silica.Theme.horizontalPageMargin
+                    width: parent.width - 2 * x
                     text: "You're all set"
-                    font.pixelSize: MTypography.sizeTitle2
-                    font.weight: MTypography.weightExtraLight
-                    font.family: MTypography.fontFamily
-                    font.letterSpacing: MTypography.trackingTitle2
-                    color: MColors.textPrimary
+                    color: Silica.Theme.highlightColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraLarge
                     horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
+                    wrapMode: Text.Wrap
                 }
 
-                Text {
+                Silica.Label {
+                    x: Silica.Theme.horizontalPageMargin
+                    width: parent.width - 2 * x
                     text: "Marathon is ready. Swipe up from the bottom of the screen to see your apps."
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.family: MTypography.fontFamily
-                    color: MColors.textSecondary
+                    color: Silica.Theme.secondaryHighlightColor
+                    font.pixelSize: Silica.Theme.fontSizeMedium
                     horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                 }
             }
         }
@@ -1581,20 +1084,14 @@ Item {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        // Pin to navBar.top now that pageIndicatorRow lives at the top of
-        // the screen — anchoring to pageIndicatorRow.top pushed this row
-        // off the top edge and hid Back/Next entirely.
         anchors.bottom: navBar.top
-        // lg margins instead of xl. SwipeView uses lg now too — uniform
-        // outer gutter throughout the OOBE chrome makes the back/next row
-        // visually align with page content underneath.
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
-        anchors.bottomMargin: MSpacing.lg
-        spacing: MSpacing.md
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        anchors.bottomMargin: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
         Silica.Button {
-            width: (parent.width - MSpacing.md) / 2
+            width: (parent.width - parent.spacing) / 2
             text: "Back"
             visible: oobeRoot.currentPage > 0
             onClicked: {
@@ -1606,18 +1103,19 @@ Item {
         }
 
         Item {
-            width: (parent.width - MSpacing.md) / 2
-            height: Math.round(50 * Constants.scaleFactor)
+            width: (parent.width - parent.spacing) / 2
+            height: Silica.Theme.itemSizeExtraSmall
             visible: oobeRoot.currentPage === 0
         }
 
         Silica.Button {
-            width: (parent.width - MSpacing.md) / 2
+            width: (parent.width - parent.spacing) / 2
+            color: Silica.Theme.highlightColor
             text: {
                 if (oobeRoot.currentPage === oobeRoot.pages.length - 1)
                     return "Get Started";
                 if (oobeRoot.currentPage === 5)
-                    return passcodePage.stage === "enter" ? "Next" : "Set passcode";
+                    return passcodePage.stage === "enter" ? "Next" : "Done";
                 return "Next";
             }
             enabled: !(oobeRoot.currentPage === 5 && passcodePage.currentPin.length < passcodePage.requiredLength)
@@ -1637,67 +1135,52 @@ Item {
         }
     }
 
-    // Top chrome: page indicators (row 1) + Skip button (row 2, right-aligned).
-    // Stacking them in a Column means the Skip chip never overlaps the
-    // rightmost indicator dot. SwipeView's topMargin anchors below this
-    // entire chrome so page content never collides either.
+    // Step dots, with Skip as a header text action on the right.
     Item {
         id: topChrome
 
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: statusBar.bottom
-        anchors.topMargin: MSpacing.sm
-        height: pageIndicatorRow.height + skipRow.height + MSpacing.sm
+        height: Silica.Theme.itemSizeSmall
         z: 200
 
-        Row {
+        Silica.PageIndicator {
             id: pageIndicatorRow
 
-            // Dots at the top, not the bottom — bottom is busy with the
-            // Back/Next row + per-page action chrome. Same pattern as iOS
-            // Settings OOBE.
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            spacing: MSpacing.md
-            height: Math.round(22 * Constants.scaleFactor)
-
-            Repeater {
-                model: oobeRoot.pages.length
-
-                Rectangle {
-                    required property int index
-
-                    width: oobeRoot.currentPage === index ? Math.round(22 * Constants.scaleFactor) : Math.round(14 * Constants.scaleFactor)
-                    height: oobeRoot.currentPage === index ? Math.round(22 * Constants.scaleFactor) : Math.round(14 * Constants.scaleFactor)
-                    radius: oobeRoot.currentPage === index ? Math.round(11 * Constants.scaleFactor) : Math.round(7 * Constants.scaleFactor)
-                    color: oobeRoot.currentPage === index ? MColors.accent : MColors.textTertiary
-                    opacity: oobeRoot.currentPage === index ? 1 : 0.5
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
+            anchors.centerIn: parent
+            count: oobeRoot.pages.length
+            currentIndex: oobeRoot.currentPage
         }
 
         Item {
             id: skipRow
 
-            anchors.top: pageIndicatorRow.bottom
-            anchors.topMargin: MSpacing.sm
-            anchors.left: parent.left
             anchors.right: parent.right
-            height: skipButton.visible ? skipButton.height : 0
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: skipButton.visible ? skipButton.width : 0
 
-            Silica.Button {
+            Silica.BackgroundItem {
                 id: skipButton
 
-                anchors.right: parent.right
-                anchors.rightMargin: MSpacing.lg
-                text: "Skip"
+                width: skipLabel.implicitWidth + 2 * Silica.Theme.horizontalPageMargin
+                height: parent.height
                 // The passcode can't be skipped: there is no PAM password to fall back on.
                 visible: oobeRoot.currentPage < 5
+                Accessible.role: Accessible.Button
+                Accessible.name: "Skip"
                 onClicked: {
                     HapticManager.light();
                     oobeRoot.currentPage = 5;
+                }
+
+                Silica.Label {
+                    id: skipLabel
+
+                    anchors.centerIn: parent
+                    text: "Skip"
+                    color: skipButton.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                 }
             }
         }
@@ -1771,18 +1254,7 @@ Item {
 
     Connections {
         function onConnectionSuccess() {
-            // hide() runs the slide-down + fade-out animation (~250 ms).
-            // The prior code set `wifiPasswordDialogLoader.active = false`
-            // synchronously on the next line, which destroys the Loader's
-            // content RIGHT AWAY — killing the animation mid-flight and
-            // making the dialog appear to vanish instantly. The user has
-            // no time to see the connection completed.
-            //
-            // Now we just call .hide() — the dialog's own hideAnimation
-            // ScriptAction sets internalVisible=false at the end, the
-            // dialog stays in the scene but invisible. cleanupTimer
-            // destroys the Loader content shortly AFTER the animation
-            // finishes so the next show() rebuilds cleanly.
+            // hide() animates out; wifiCleanupTimer unloads after it finishes.
             if (oobeRoot.activePasswordDialog) {
                 oobeRoot.activePasswordDialog.hide();
                 wifiCleanupTimer.restart();
@@ -1801,8 +1273,7 @@ Item {
     Timer {
         id: wifiCleanupTimer
 
-        // Slightly longer than the dialog's 250 ms hideAnimation so the
-        // animation has completed before we destroy the Loader content.
+        // Just past the dialog's 250 ms hide animation.
         interval: 320
         repeat: false
         onTriggered: wifiPasswordDialogLoader.active = false
