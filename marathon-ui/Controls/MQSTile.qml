@@ -3,6 +3,7 @@ import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 import MarathonOS.Shell
+import Sailfish.Silica 1.0 as Silica
 
 // Marathon DS · Quick Settings tile — 4-col compact (BB10-modern hybrid).
 //
@@ -48,89 +49,35 @@ Rectangle {
     Accessible.checked: on
     Accessible.onPressAction: toggled()
     radius: MRadius.md
-    // Off = elev2 key; On = a dark teal-tinted key. The tile no longer floods
-    // solid teal (that read as a flat 2014-era swatch) — activation is carried
-    // by a teal RADIAL GLOW + brightened glyph + teal border, the same
-    // active-state language the top tab bar uses.
-    color: on ? MColors.tealTintDark : MColors.elev2
-    border.width: 1
-    // Off-state border lifted to whiteOverlay16 so each tile reads as a
-    // raised key against the elev0 panel rather than a faint outline. On-state
-    // gets a brighter teal rim (hover-strength) so the lit key has a crisp edge.
-    border.color: on ? MColors.tealBorderHover : MColors.whiteOverlay16
-    Behavior on border.color {
-        enabled: !MMotion.reduceMotion
-
-        ColorAnimation { duration: MMotion.quick }
-    }
-
-    // Radial "dome" glow — the SAME treatment for BOTH states so on and off
-    // tiles read as one component family. On → a bright teal glow that lights
-    // the key up; off → a faint neutral dome that gives the resting key the
-    // identical glass depth, just unlit. Static Canvas paint (same technique
-    // as the tab bar's active-tab glow), repainted whenever `on` flips.
-    // Behind icon + label.
-    Canvas {
-        id: domeGlow
-        anchors.fill: parent
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.clearRect(0, 0, width, height);
-            const cx = width / 2;
-            const cy = height / 2;
-            const rad = Math.max(width, height) * 0.72;
-            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-            if (tile.on) {
-                g.addColorStop(0.0, "rgba(29, 233, 182, 0.62)");
-                g.addColorStop(0.45, "rgba(29, 233, 182, 0.28)");
-                g.addColorStop(1.0, "rgba(29, 233, 182, 0.0)");
-            } else {
-                // Neutral resting dome — same shape, unlit. A whisper of white
-                // so the key catches light from its centre like the lit ones.
-                g.addColorStop(0.0, "rgba(255, 255, 255, 0.055)");
-                g.addColorStop(0.5, "rgba(255, 255, 255, 0.018)");
-                g.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
-            }
-            ctx.fillStyle = g;
-            ctx.fillRect(0, 0, width, height);
-        }
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-        Component.onCompleted: requestPaint()
-        Connections {
-            target: tile
-            function onOnChanged() { domeGlow.requestPaint(); }
-        }
-    }
-
-    // Sub-pixel inner top hairline — gives the tile physical presence on
-    // glass. Tealified when on, plain whiteOverlay when off.
-    MTopHairline {
-        radius: parent.radius
-        // On → a teal-lit top edge over the dark active key; off → plain white.
-        color: tile.on ? MColors.marathonTealBorderHover : MColors.whiteOverlay08
-        lineWidth: 1
-        z: 1
-    }
-
+    // Sailfish Top Menu switch: no key face, a round icon lit with the
+    // ambience highlight when on.
+    color: "transparent"
     // 1x1 (compact) — icon top-centered, label below
     Column {
         anchors.centerIn: parent
         spacing: MSpacing.sm
         visible: !tile.isWide
 
-        Icon {
+        Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            name: tile.iconName
-            size: 24
-            // On → teal-bright glyph over the halo (lit); off → dim secondary.
-            color: tile.on ? MColors.marathonTealBright : MColors.textSecondary
-            Behavior on color { ColorAnimation { duration: MMotion.quick } }
+            width: Math.round(44 * (Constants.scaleFactor || 1.0))
+            height: width
+            radius: width / 2
+            color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
+                           : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
+
+            Icon {
+                anchors.centerIn: parent
+                name: tile.iconName
+                size: 24
+                color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                Behavior on color { ColorAnimation { duration: MMotion.quick } }
+            }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: tile.label
-            color: tile.on ? MColors.textPrimary : MColors.textSecondary
+            color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeFootnote
             font.weight: MTypography.weightMedium
