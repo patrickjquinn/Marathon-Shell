@@ -122,6 +122,10 @@ Page {
                             stepSize: 1
                             value: Logic.percent(stream.model.volume)
                             valueText: stream.model.muted ? qsTr("Muted") : qsTr("%1%").arg(Math.round(sliderValue))
+                            onValueChanged: {
+                                if (down)
+                                    Audio.setStreamVolume(stream.model.streamId, value / 100);
+                            }
                             onReleased: Audio.setStreamVolume(stream.model.streamId, value / 100)
                         }
                         IconButton {
