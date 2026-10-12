@@ -8,19 +8,62 @@ import QtQuick.Controls
 Page {
     id: editorPage
 
+    required property var app
     property bool isNewNote: true
     property int noteId: -1
     property string initialTitle: ""
     property string initialContent: ""
 
-    signal saveNote(string title, string content)
-    signal deleteNote(int noteId)
+    property string savedTitle: initialTitle
+    property string savedContent: initialContent
+    property bool discarded: false
+    readonly property int backLayers: deleteDialog.showing ? 1 : 0
 
+    function handleBack() {
+        deleteDialog.hide();
+    }
+
+    function commit() {
+        autosaveTimer.stop();
+        if (discarded)
+            return;
+        const title = titleInput.text.trim();
+        const content = contentInput.text;
+        if (title === savedTitle && content === savedContent)
+            return;
+        if (isNewNote) {
+            if (title === "" && content.trim() === "")
+                return;
+            noteId = app.createNote(title, content).id;
+            isNewNote = false;
+        } else {
+            app.updateNote(noteId, title || "Untitled", content);
+        }
+        savedTitle = title;
+        savedContent = content;
+    }
+
+    StackView.onDeactivating: commit()
     Component.onCompleted: {
         titleInput.text = initialTitle;
         contentInput.text = initialContent;
         if (isNewNote)
             titleInput.forceActiveFocus();
+    }
+
+    Timer {
+        id: autosaveTimer
+
+        interval: 800
+        onTriggered: editorPage.commit()
+    }
+
+    Connections {
+        function onAppPaused() {
+            editorPage.commit();
+        }
+
+        target: editorPage.app
     }
 
     Column {
@@ -39,19 +82,8 @@ Page {
                 anchors.rightMargin: MSpacing.md
                 spacing: MSpacing.md
 
-                MButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Cancel"
-                    variant: "secondary"
-                    width: Constants.touchTargetLarge + MSpacing.md
-                    onClicked: {
-                        HapticService.light();
-                        navigationStack.pop();
-                    }
-                }
-
                 Item {
-                    width: parent.width - (Constants.touchTargetLarge + MSpacing.md) * 2 - (deleteBtn.visible ? Constants.touchTargetLarge + MSpacing.lg : 0) - parent.spacing * (deleteBtn.visible ? 3 : 2)
+                    width: parent.width - (Constants.touchTargetLarge + MSpacing.md) - (deleteBtn.visible ? Constants.touchTargetLarge + MSpacing.lg : 0) - parent.spacing * (deleteBtn.visible ? 2 : 1)
                     height: 1
                 }
 
@@ -59,26 +91,24 @@ Page {
                     id: deleteBtn
 
                     anchors.verticalCenter: parent.verticalCenter
-                    text: !editorPage.isNewNote ? "Delete" : ""
+                    text: "Delete"
                     variant: "danger"
                     visible: !editorPage.isNewNote
                     width: Constants.touchTargetLarge + MSpacing.lg
                     onClicked: {
                         HapticService.medium();
-                        deleteDialog.open();
+                        deleteDialog.show();
                     }
                 }
 
                 MButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Save"
+                    text: "Done"
                     variant: "primary"
                     width: Constants.touchTargetLarge + MSpacing.md
                     onClicked: {
                         HapticService.light();
-                        var title = titleInput.text.trim() || "Untitled";
-                        var content = contentInput.text;
-                        editorPage.saveNote(title, content);
+                        editorPage.StackView.view.pop();
                     }
                 }
             }
@@ -122,6 +152,7 @@ Page {
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Bold
                         verticalAlignment: TextInput.AlignVCenter
+                        onTextChanged: autosaveTimer.restart()
 
                         Text {
                             anchors.fill: parent
@@ -141,7 +172,7 @@ Page {
                     width: parent.width - parent.padding * 2
                     height: Math.max(Constants.screenHeight * 0.4, 300)
                     placeholderText: "Start typing..."
-                    text: editorPage.initialContent
+                    onTextChanged: autosaveTimer.restart()
                 }
             }
         }
@@ -150,20 +181,16 @@ Page {
     MConfirmDialog {
         id: deleteDialog
 
-        function open() {
-            show();
-        }
-
-        function close() {
-            hide();
-        }
-
-        title: "Delete Note?"
-        message: "This note will be permanently deleted."
-        confirmText: "Delete"
-        cancelText: "Cancel"
+        title: "Delete this note?"
+        message: "This note will be permanently deleted. This can't be undone."
+        confirmText: "Delete note"
+        cancelText: "Keep"
+        destructive: true
+        onCancelled: hide()
         onConfirmed: {
-            editorPage.deleteNote(editorPage.noteId);
+            editorPage.discarded = true;
+            editorPage.app.deleteNote(editorPage.noteId);
+            editorPage.StackView.view.pop();
         }
     }
 

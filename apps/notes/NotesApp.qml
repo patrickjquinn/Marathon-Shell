@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -11,6 +12,7 @@ MApp {
     property var notes: []
     property int nextId: 1
     property string sortMode: "newest"
+    property var navStack: null
 
     function sortNotes() {
         if (sortMode === "newest")
@@ -33,9 +35,7 @@ MApp {
         try {
             notes = JSON.parse(savedNotes);
             if (notes.length > 0)
-                nextId = Math.max(notes.map(n => {
-                    return n.id;
-                })) + 1;
+                nextId = Math.max(...notes.map(n => n.id)) + 1;
 
             sortNotes();
         } catch (e) {
@@ -117,6 +117,14 @@ MApp {
     appId: "notes"
     appName: "Notes"
     appIcon: "assets/icon.svg"
+    navigationDepth: navStack ? navStack.depth - 1 + (navStack.currentItem ? navStack.currentItem.backLayers || 0 : 0) : 0
+    onBackPressed: {
+        const page = navStack.currentItem;
+        if (page && page.backLayers > 0)
+            page.handleBack();
+        else if (navStack.depth > 1)
+            navStack.pop();
+    }
     Component.onCompleted: {
         loadNotes();
     }
@@ -137,30 +145,16 @@ MApp {
         MStackView {
             id: navigationStack
 
-            property var backConnection: null
-
             anchors.fill: parent
             initialItem: notesListPage
-            onDepthChanged: {
-                notesApp.navigationDepth = depth - 1;
-            }
-            Component.onCompleted: {
-                notesApp.navigationDepth = depth - 1;
-                backConnection = notesApp.backPressed.connect(function () {
-                    if (depth > 1)
-                        pop();
-                });
-            }
-            Component.onDestruction: {
-                if (backConnection)
-                    notesApp.backPressed.disconnect(backConnection);
-            }
+            Component.onCompleted: notesApp.navStack = navigationStack
         }
 
         Component {
             id: notesListPage
 
             NotesListPage {
+                app: notesApp
                 onCreateNewNote: {
                     navigationStack.push(noteEditorPage, {
                         "isNewNote": true
@@ -183,17 +177,7 @@ MApp {
             id: noteEditorPage
 
             NoteEditorPage {
-                onSaveNote: function (title, content) {
-                    if (isNewNote)
-                        notesApp.createNote(title, content);
-                    else
-                        notesApp.updateNote(noteId, title, content);
-                    navigationStack.pop();
-                }
-                onDeleteNote: function (id) {
-                    notesApp.deleteNote(id);
-                    navigationStack.pop();
-                }
+                app: notesApp
             }
         }
     }
