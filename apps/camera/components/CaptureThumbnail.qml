@@ -12,16 +12,13 @@ BackgroundItem {
     height: width
     Accessible.name: source === "" && !video ? qsTr("Open Gallery") : video ? qsTr("Show last video") : qsTr("Show last photo")
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.rgba(Theme.darkPrimaryColor, Theme.opacityLow)
+    Icon {
+        objectName: "thumbnailEmpty"
+        anchors.centerIn: parent
         visible: root.source === ""
-
-        Icon {
-            anchors.centerIn: parent
-            source: root.video ? "image://theme/icon-m-video" : "image://theme/icon-m-image"
-            color: Theme.lightPrimaryColor
-        }
+        source: root.video ? "image://theme/icon-m-video" : "image://theme/icon-m-image"
+        color: Theme.lightPrimaryColor
+        highlighted: root.down
     }
 
     Image {
@@ -47,6 +44,7 @@ BackgroundItem {
 
     Rectangle {
         anchors.fill: parent
+        visible: root.source !== ""
         color: "transparent"
         border.width: Math.max(1, Math.round(Theme.pixelRatio * 2))
         border.color: Theme.lightPrimaryColor
