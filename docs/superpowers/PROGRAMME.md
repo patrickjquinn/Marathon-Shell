@@ -51,3 +51,10 @@ Order (each device-validated with screenshots vs Sailfish references):
 7. Lock screen: Silica clock typography, notification icons, ambience wallpaper.
 8. Portal: xdg-desktop-portal Settings color-scheme + accent from AmbienceService.
 Known shell issue to fold in: OSK pops up while typing on a hardware keyboard.
+
+## Sub-project 5 plan (Sailfish app support)
+Reality check: Harbour/OpenRepos RPMs are Qt 5 + glibc binaries linked to SFOS libs; they cannot run on Alpine (musl, Qt 6) as-is.
+1. QML-only apps (Exec=sailfish-qml <app>): install the RPM payload (/usr/share/<app>/qml, desktop file, icons) and run under marathon-app-runner as a Keel app with Keel's qt5compat import path first (keel/qt5compat). keel-silica must ship qt5compat (KEEL_BUILD_SAILFISHAPP=ON).
+2. C++ SailfishApp apps rebuilt for Qt 6 against Keel's sailfishapp shim: launched on the native path through a small host wrapper (KeelHost + AmbienceClient + CloseRequested on SIGTERM, then exec the app) so they get ambience/covers/close semantics.
+3. [X-Sailjail] Permissions= → bwrap binds + Marathon permissions (reference sailfishos/sailjail-permissions).
+4. Backends: org.sailfishos.share (shell share sheet), Accounts (Alpine signond/libaccounts-qt6), pickers (Keel platform; needs KEEL_BUILD_PLATFORM=ON).
