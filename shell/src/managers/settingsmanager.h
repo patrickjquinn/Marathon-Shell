@@ -52,6 +52,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool dndEnabled READ dndEnabled WRITE setDndEnabled NOTIFY dndEnabledChanged)
     Q_PROPERTY(bool vibrationEnabled READ vibrationEnabled WRITE setVibrationEnabled NOTIFY
                    vibrationEnabledChanged)
+    Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY reduceMotionChanged)
+    Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
@@ -169,6 +171,10 @@ class SettingsManager : public QObject {
     bool vibrationEnabled() const {
         return m_vibrationEnabled;
     }
+    bool reduceMotion() const {
+        return m_reduceMotion;
+    }
+    QString timeZone() const;
     QString audioProfile() const {
         return m_audioProfile;
     }
@@ -272,6 +278,8 @@ class SettingsManager : public QObject {
     void                    setSystemVolume(qreal volume);
     void                    setDndEnabled(bool enabled);
     void                    setVibrationEnabled(bool enabled);
+    void                    setReduceMotion(bool enabled);
+    void                    setTimeZone(const QString &zoneId);
     void                    setAudioProfile(const QString &profile);
 
     void                    setScreenTimeout(int ms);
@@ -342,6 +350,8 @@ class SettingsManager : public QObject {
     void systemVolumeChanged();
     void dndEnabledChanged();
     void vibrationEnabledChanged();
+    void reduceMotionChanged();
+    void timeZoneChanged();
     void audioProfileChanged();
 
     void screenTimeoutChanged();
@@ -404,6 +414,7 @@ class SettingsManager : public QObject {
     qreal               m_systemVolume;
     bool                m_dndEnabled;
     bool                m_vibrationEnabled;
+    bool                m_reduceMotion = false;
     QString             m_audioProfile;
 
     int                 m_screenTimeout;

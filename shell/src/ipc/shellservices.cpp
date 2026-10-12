@@ -221,6 +221,10 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
     });
     QObject::connect(m_settings, &SettingsManager::deviceNameChanged, this,
                      [this, emitProp]() { emitProp("deviceName", m_settings->deviceName()); });
+    QObject::connect(m_settings, &SettingsManager::reduceMotionChanged, this,
+                     [this, emitProp]() { emitProp("reduceMotion", m_settings->reduceMotion()); });
+    QObject::connect(m_settings, &SettingsManager::timeZoneChanged, this,
+                     [this, emitProp]() { emitProp("timeZone", m_settings->timeZone()); });
     QObject::connect(m_settings, &SettingsManager::timeFormatChanged, this,
                      [this, emitProp]() { emitProp("timeFormat", m_settings->timeFormat()); });
     QObject::connect(m_settings, &SettingsManager::dateFormatChanged, this,
@@ -309,6 +313,8 @@ QVariantMap SettingsObject::GetState() {
         {"systemVolume", m_settings->systemVolume()},
         {"dndEnabled", m_settings->dndEnabled()},
         {"vibrationEnabled", m_settings->vibrationEnabled()},
+        {"reduceMotion", m_settings->reduceMotion()},
+        {"timeZone", m_settings->timeZone()},
         {"audioProfile", m_settings->audioProfile()},
         {"screenTimeout", m_settings->screenTimeout()},
         {"autoBrightness", m_settings->autoBrightness()},
@@ -383,6 +389,10 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setDndEnabled(v.toBool());
     else if (name == "vibrationEnabled")
         m_settings->setVibrationEnabled(v.toBool());
+    else if (name == "reduceMotion")
+        m_settings->setReduceMotion(v.toBool());
+    else if (name == "timeZone")
+        m_settings->setTimeZone(v.toString());
     else if (name == "audioProfile")
         m_settings->setAudioProfile(v.toString());
     else if (name == "screenTimeout")

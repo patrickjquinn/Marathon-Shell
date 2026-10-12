@@ -1,4 +1,8 @@
 #include "settingsmanager.h"
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
@@ -9,7 +13,10 @@
 #include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QTimeZone>
 #include <QUrl>
+
+#include <ctime>
 
 SettingsManager *SettingsManager::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new SettingsManager(engine);
@@ -107,6 +114,7 @@ void SettingsManager::onSettingsFileChanged(const QString &path) {
         m_settings.sync();
         const qreal   prevScale = m_userScaleFactor;
         const QString prevWp    = m_wallpaperPath;
+        const bool    prevRm    = m_reduceMotion;
         load();
         // Re-add the path in case the rename invalidated the watch handle.
         if (m_watcher && !m_watcher->files().contains(path) && QFileInfo::exists(path)) {
@@ -121,6 +129,9 @@ void SettingsManager::onSettingsFileChanged(const QString &path) {
         }
         if (prevWp != m_wallpaperPath) {
             emit wallpaperPathChanged();
+        }
+        if (prevRm != m_reduceMotion) {
+            emit reduceMotionChanged();
         }
     });
 }
@@ -252,6 +263,7 @@ void SettingsManager::load() {
     m_systemVolume       = m_settings.value("audio/systemVolume", 0.5).toReal();
     m_dndEnabled         = m_settings.value("audio/dndEnabled", false).toBool();
     m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
+    m_reduceMotion       = m_settings.value("accessibility/reduceMotion", false).toBool();
     m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
     m_screenTimeout = m_settings.value("display/screenTimeout", 300000).toInt();
@@ -372,6 +384,7 @@ void SettingsManager::save() {
     m_settings.setValue("audio/systemVolume", m_systemVolume);
     m_settings.setValue("audio/dndEnabled", m_dndEnabled);
     m_settings.setValue("audio/vibrationEnabled", m_vibrationEnabled);
+    m_settings.setValue("accessibility/reduceMotion", m_reduceMotion);
     m_settings.setValue("audio/audioProfile", m_audioProfile);
 
     m_settings.setValue("display/screenTimeout", m_screenTimeout);
@@ -588,6 +601,47 @@ void SettingsManager::setDndEnabled(bool enabled) {
     save();
     emit dndEnabledChanged();
     qDebug() << "[SettingsManager] DND enabled changed to" << m_dndEnabled;
+}
+
+void SettingsManager::setReduceMotion(bool enabled) {
+    if (m_reduceMotion == enabled)
+        return;
+    m_reduceMotion = enabled;
+    save();
+    emit reduceMotionChanged();
+}
+
+QString SettingsManager::timeZone() const {
+    const QString target = QFileInfo(QStringLiteral("/etc/localtime")).symLinkTarget();
+    const int     idx    = target.indexOf(QLatin1String("zoneinfo/"));
+    if (idx >= 0)
+        return target.mid(idx + 9);
+    return QString::fromUtf8(QTimeZone::systemTimeZoneId());
+}
+
+void SettingsManager::setTimeZone(const QString &zoneId) {
+    if (zoneId.isEmpty() || zoneId == timeZone() || !QTimeZone(zoneId.toUtf8()).isValid())
+        return;
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("/org/freedesktop/timedate1"),
+        QStringLiteral("org.freedesktop.timedate1"), QStringLiteral("SetTimezone"));
+    msg << zoneId << false;
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, zoneId](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                QDBusPendingReply<> reply = *w;
+                if (reply.isError()) {
+                    qWarning() << "[SettingsManager] SetTimezone" << zoneId
+                               << "failed:" << reply.error().message();
+                    return;
+                }
+                // musl caches the zone until TZ changes; children inherit it too.
+                qputenv("TZ", (QStringLiteral(":") + zoneId).toUtf8());
+                tzset();
+                emit timeZoneChanged();
+            });
 }
 
 void SettingsManager::setVibrationEnabled(bool enabled) {

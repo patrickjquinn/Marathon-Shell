@@ -39,6 +39,8 @@ class MarathonInputMethodEngine : public QObject {
     Q_INVOKABLE QString getTextBeforeCursor(int length = 100);
     Q_INVOKABLE QString getTextAfterCursor(int length = 100);
     Q_INVOKABLE QString getCurrentWord();
+    // Qt::InputMethodHints of the focused field (an app's text-input hints arrive through its surface item).
+    Q_INVOKABLE int     focusHints() const;
     Q_INVOKABLE void    showKeyboard(bool show);
 
   signals:

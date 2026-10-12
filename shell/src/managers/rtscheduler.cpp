@@ -5,6 +5,7 @@
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
+#include <sys/resource.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <cerrno>
@@ -54,29 +55,22 @@ void RTScheduler::detectKernelCapabilities() {
                    "PREEMPT_RT is not required for typical phone workloads.";
     }
 
-    // Probe RT-class permission -- the actual requirement.
-    // Use SCHED_RR (the policy the compositor will adopt) so the probe
-    // matches reality. CAP_SYS_NICE / rtprio in limits.conf governs both
-    // SCHED_FIFO and SCHED_RR identically.
-    struct sched_param param;
-    param.sched_priority = 1;
-    if (sched_setscheduler(0, SCHED_RR, &param) == 0) {
-        m_hasRTPermissions   = true;
-        param.sched_priority = 0;
-        sched_setscheduler(0, SCHED_OTHER, &param);
+    // Read-only check: musl's sched_setscheduler() is an ENOSYS stub, and
+    // main() has already put this thread on SCHED_RR.
+    int         policy = SCHED_OTHER;
+    sched_param current{};
+    pthread_getschedparam(pthread_self(), &policy, &current);
+    struct rlimit rtprio{};
+    const bool    rlimitAllows = getrlimit(RLIMIT_RTPRIO, &rtprio) == 0 && rtprio.rlim_cur > 0;
+    m_hasRTPermissions = policy == SCHED_RR || policy == SCHED_FIFO || rlimitAllows;
+    if (m_hasRTPermissions) {
         qInfo() << "[RTScheduler] Real-time scheduling available";
     } else {
-        m_hasRTPermissions = false;
-        const int err      = errno;
         qWarning() << "[RTScheduler] Real-time scheduling not permitted -- compositor and "
                       "input threads will run on SCHED_OTHER. Frame pacing may suffer "
                       "under heavy CPU load (background browsers, app launches, etc.).";
-        qWarning() << "[RTScheduler] Fix: sudo setcap cap_sys_nice+ep "
-                      "/usr/bin/marathon-shell-bin   (or grant rtprio via "
-                      "/etc/security/limits.conf, then re-login).";
-        if (err != EPERM && err != ENOSYS) {
-            qWarning() << "[RTScheduler] System error:" << strerror(err);
-        }
+        qWarning() << "[RTScheduler] Fix: grant rtprio via /etc/security/limits.d/ "
+                      "(file capabilities on the shell break its D-Bus session bus).";
     }
 #else
     qInfo() << "[RTScheduler] Not on Linux, RT scheduling disabled";

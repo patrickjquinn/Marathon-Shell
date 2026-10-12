@@ -159,6 +159,12 @@ QString MarathonInputMethodEngine::getCurrentWord() {
     return m_preeditText;
 }
 
+int MarathonInputMethodEngine::focusHints() const {
+    if (!m_inputMethod)
+        return 0;
+    return m_inputMethod->queryFocusObject(Qt::ImHints, QVariant()).toInt();
+}
+
 void MarathonInputMethodEngine::showKeyboard(bool show) {
     if (!m_inputMethod)
         return;

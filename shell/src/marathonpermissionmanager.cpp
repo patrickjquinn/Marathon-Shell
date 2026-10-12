@@ -29,6 +29,7 @@ MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
         {"calendar", "Read and write calendar events"},
         {"storage", "Read and write files on your device"},
         {"notifications", "Show notifications"},
+        {"alarms", "Set alarms and timers"},
         {"telephony", "Make and receive phone calls"},
         {"sms", "Send and receive SMS messages"},
         {"bluetooth", "Connect to Bluetooth devices"},
