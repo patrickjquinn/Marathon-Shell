@@ -323,6 +323,7 @@ set(QML_FILES
     qml/ui/MTopHairline.qml
     qml/ui/WallpaperSlateAurora.qml
     qml/ui/PhosphorGlyphs.js
+    qml/core/Agenda.js
 )
 
 set(JSON_FILES
@@ -386,8 +387,8 @@ foreach(singleton_file ${SINGLETON_FILES})
         QT_QML_SINGLETON_TYPE TRUE
     )
 endforeach()
-# GlyphIcon imports this by path; a qmldir entry makes the module ambiguous.
-set_source_files_properties(qml/ui/PhosphorGlyphs.js PROPERTIES
+# Imported by path; a qmldir entry makes the module ambiguous.
+set_source_files_properties(qml/ui/PhosphorGlyphs.js qml/core/Agenda.js PROPERTIES
     QT_QML_SKIP_QMLDIR_ENTRY TRUE
 )
 

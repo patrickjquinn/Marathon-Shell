@@ -10,6 +10,8 @@ Item {
 
     property string wallpaper
     property bool light: false
+    // How much the tone dims the wallpaper; lower lets the ambience show.
+    property real toneOpacity: light ? 0.45 : 0.62
     readonly property bool ready: image.status === Image.Ready
 
     layer.enabled: ready
@@ -35,7 +37,7 @@ Item {
         anchors.fill: parent
         visible: root.ready
         color: root.light ? "white" : "black"
-        opacity: root.light ? 0.45 : 0.62
+        opacity: root.toneOpacity
     }
 
     Rectangle {

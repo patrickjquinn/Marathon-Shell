@@ -4,22 +4,30 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
+import "../core/Agenda.js" as Agenda
 
-// Marathon DS · Hub (§09) — unified inbox.
-//
-// Glass-headered list view sourced from NotificationModel. Filter
-// chip row selects an account category (All / Messages / Mail /
-// Work / Calls). Each row is an MHubRow — avatar + name+time /
-// account / snippet, with an unread dot left of the avatar.
-//
-// Per-row tint colour is derived from the appId so contacts read
-// at a glance — Messages blue, Mail rose, Linear violet,
-// missed calls teal.
+// The Hub, as Sailfish's Events view: today's date and calendar agenda,
+// then the notifications, on the lightly frosted ambience.
 Rectangle {
     id: hub
 
     property bool isInPeekMode: false
-    property string selectedCategory: "all"        // "all" | "messages" | "mail" | "work" | "call"
+    property var agenda: []
+
+    function refreshAgenda() {
+        let events = SettingsManagerCpp.get("calendar/events", []);
+        if (typeof events === "string") {
+            try {
+                events = JSON.parse(events);
+            } catch (e) {
+                events = [];
+            }
+        }
+        hub.agenda = Agenda.forDay(events, new Date());
+    }
+
+    onVisibleChanged: if (visible) refreshAgenda()
+    Component.onCompleted: refreshAgenda()
 
     signal closed
     signal notificationTapped(int id, string appId, string title)
@@ -33,130 +41,80 @@ Rectangle {
         width: hub.Window.width
         height: hub.Window.height
         wallpaper: AmbienceService.wallpaperUrl
+        toneOpacity: 0.4
         light: AmbienceService.light
     }
 
-    // ── Header: one title line, then the category chips ─────
-    Item {
+    // ── Today: the date, then the calendar's agenda ─────────
+    Column {
         id: header
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight
-        height: headerColumn.height + Silica.Theme.paddingMedium * 2
+        anchors.topMargin: Constants.statusBarHeight + Silica.Theme.paddingLarge
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+        spacing: Silica.Theme.paddingMedium
+        bottomPadding: Silica.Theme.paddingLarge
 
-        Column {
-            id: headerColumn
+        Silica.Label {
+            width: parent.width
+            text: Qt.formatDate(new Date(), "dddd, d MMMM")
+            color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
+        }
 
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.leftMargin: Silica.Theme.horizontalPageMargin
-            anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.topMargin: Silica.Theme.paddingMedium
-            spacing: Silica.Theme.paddingMedium
+        Repeater {
+            model: hub.agenda
 
-            // A Silica page header: the title right-aligned in the highlight.
-            // The chips below carry the counts.
-            Silica.Label {
-                id: titleText
-                width: parent.width
-                horizontalAlignment: Text.AlignRight
-                text: qsTr("Events")
-                color: Silica.Theme.highlightColor
-                font.pixelSize: Silica.Theme.fontSizeLarge
-            }
+            Item {
+                id: entry
 
-            // Filter chip row — horizontally flickable.
-            //
-            // This was a bare Row of five fixed chips. Nothing clipped it and
-            // nothing scrolled it, so once the chips exceeded the viewport the
-            // last one was simply cut off at the screen edge: at
-            // userScaleFactor 1.50 "Calls" rendered as "Ca" and was
-            // unreachable. Flicking keeps every category reachable at any
-            // scale, and clip stops the overflow bleeding into the pane
-            // beside it.
-            Flickable {
-                width: parent.width
-                height: chipRow.implicitHeight
-                contentWidth: chipRow.implicitWidth
-                contentHeight: chipRow.implicitHeight
-                flickableDirection: Flickable.HorizontalFlick
-                boundsBehavior: Flickable.StopAtBounds
-                clip: true
+                required property var modelData
 
-            Row {
-                id: chipRow
-                spacing: Silica.Theme.paddingSmall
+                width: header.width
+                height: entryTitle.height + Silica.Theme.paddingSmall * 2
 
-                Silica.FilterChip {
-                    text: "All " + (NotificationModel.count || 0)
-                    checked: hub.selectedCategory === "all"
-                    automaticCheck: false
-                    onClicked: hub.selectedCategory = "all"
+                Rectangle {
+                    width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
+                    height: parent.height
+                    color: Silica.Theme.highlightColor
                 }
-                Silica.FilterChip {
-                    text: "Messages " + hub.countForCategory("messages")
-                    checked: hub.selectedCategory === "messages"
-                    automaticCheck: false
-                    onClicked: hub.selectedCategory = "messages"
+                Silica.Label {
+                    id: entryTime
+
+                    x: Silica.Theme.paddingMedium
+                    width: Silica.Theme.itemSizeLarge
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: entry.modelData.allDay ? qsTr("All day") : entry.modelData.time
+                    color: Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 }
-                Silica.FilterChip {
-                    text: "Mail " + hub.countForCategory("mail")
-                    checked: hub.selectedCategory === "mail"
-                    automaticCheck: false
-                    onClicked: hub.selectedCategory = "mail"
+                Silica.Label {
+                    id: entryTitle
+
+                    anchors.left: entryTime.right
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: entry.modelData.title
+                    truncationMode: Silica.TruncationMode.Fade
                 }
-                Silica.FilterChip {
-                    text: "Work " + hub.countForCategory("work")
-                    checked: hub.selectedCategory === "work"
-                    automaticCheck: false
-                    onClicked: hub.selectedCategory = "work"
-                }
-                Silica.FilterChip {
-                    text: "Calls " + hub.countForCategory("call")
-                    checked: hub.selectedCategory === "call"
-                    automaticCheck: false
-                    onClicked: hub.selectedCategory = "call"
-                }
-            }
             }
         }
     }
 
-    // ── List ────────────────────────────────────────────────
-    // JSX HubScreen() shows 'Today' / 'Yesterday' section bands
-    // between rows (HubGroup component). That would require an
-    // ageGroup role on NotificationModel — deferred until the C++
-    // model exposes it. For now the rows render in
-    // newest-first order without grouping.
-    // A quiet empty state just under the chips, not a banner mid-screen.
-    Column {
+    // Only when there is nothing at all: one quiet line.
+    Silica.Label {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
-        anchors.topMargin: Silica.Theme.paddingLarge * 2
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingSmall
-        visible: hub.countForCategory(hub.selectedCategory) === 0
-
-        Silica.Label {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: hub.selectedCategory === "all" ? qsTr("All caught up") : hub.selectedCategory === "messages" ? qsTr("No messages") : hub.selectedCategory === "mail" ? qsTr("No mail") : hub.selectedCategory === "work" ? qsTr("No work items") : hub.selectedCategory === "call" ? qsTr("No call history") : qsTr("Nothing here")
-            color: Silica.Theme.secondaryColor
-        }
-
-        Silica.Label {
-            width: parent.width
-            text: hub.selectedCategory === "all" ? qsTr("Notifications from your apps appear here.") : qsTr("Switch a category above to see other notifications.")
-            wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-            color: Silica.Theme.secondaryColor
-            opacity: 0.7
-        }
+        visible: hub.agenda.length === 0 && NotificationModel.count === 0
+        text: qsTr("Nothing new")
+        color: Silica.Theme.secondaryColor
+        font.pixelSize: Silica.Theme.fontSizeSmall
     }
 
     ListView {
@@ -200,8 +158,6 @@ Rectangle {
             time: hub.relativeTime(timestamp)
             account: hub.accountFor(appId)
             snippet: body
-            visible: hub.appIdInCategory(appKey, hub.selectedCategory)
-            height: visible ? implicitHeight : 0
 
             onActivated: hub.notificationTapped(0, appId, title)
         }
@@ -277,38 +233,6 @@ Rectangle {
         }
     }
 
-
-    // The single membership predicate: it answers both which rows a chip
-    // shows and what each chip counts. These used to be two independently
-    // case-sensitive ladders, so the chips counted one way and the list
-    // filtered another, and both missed real traffic entirely.
-    function appIdInCategory(rawAppId, category) {
-        if (category === "all")
-            return true;
-        const appId = String(rawAppId || "").toLowerCase();
-        if (category === "messages")
-            return appId === "messages" || appId === "imessage";
-        if (category === "mail")
-            return appId === "mail";
-        if (category === "work")
-            return appId === "linear" || appId === "github" || appId === "work";
-        if (category === "call")
-            return appId === "phone" || appId === "call";
-        return false;
-    }
-
-    function countForCategory(category) {
-        if (!NotificationModel.count)
-            return 0;
-        let n = 0;
-        for (let i = 0; i < NotificationModel.count; ++i) {
-            const idx = NotificationModel.index(i, 0);
-            const appId = NotificationModel.data(idx, NotificationModel.roleId("appId"));
-            if (hub.appIdInCategory(appId, category))
-                n += 1;
-        }
-        return n;
-    }
 
     function relativeTime(ts) {
         if (!ts)
