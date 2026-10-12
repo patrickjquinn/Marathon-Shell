@@ -321,11 +321,6 @@ void TerminalEngine::resize(int cols, int rows) {
     }
 }
 
-void TerminalEngine::sendSignal(int signal) const {
-    if (m_pid > 0)
-        kill(m_pid, signal);
-}
-
 QStringList TerminalEngine::recentLines(int count) const {
     QMutexLocker locker(m_screen->mutex());
     QStringList  lines;
