@@ -1446,7 +1446,8 @@ void PermissionsObject::RequestPermission(const QString &appId, const QString &p
 void PermissionsObject::SetPermission(const QString &appId, const QString &permission, bool granted,
                                       bool remember) {
     const QString caller = callerAppIdOrEmpty();
-    if (!authorizePermissionCall(caller, appId, PermissionAuth::Op::Change)) {
+    if (!authorizePermissionCall(caller, appId,
+                                 granted ? PermissionAuth::Op::Grant : PermissionAuth::Op::Revoke)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }

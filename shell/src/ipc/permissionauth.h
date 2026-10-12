@@ -9,7 +9,8 @@ namespace PermissionAuth {
     enum class Op {
         Read,
         Request,
-        Change,
+        Grant,
+        Revoke,
     };
 
     inline bool isPermissionAdmin(const QString &caller) {
@@ -19,9 +20,9 @@ namespace PermissionAuth {
     inline bool allowed(const QString &caller, const QString &targetAppId, Op op) {
         if (caller.isEmpty() || targetAppId.isEmpty())
             return false;
-        if (caller == targetAppId)
-            return true;
-        return op != Op::Request && isPermissionAdmin(caller);
+        if (isPermissionAdmin(caller))
+            return caller == targetAppId || op != Op::Request;
+        return caller == targetAppId && op != Op::Grant;
     }
 
 } // namespace PermissionAuth
