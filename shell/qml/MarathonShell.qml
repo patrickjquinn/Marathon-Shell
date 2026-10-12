@@ -1052,7 +1052,7 @@ Item {
                 onAppLaunched: app => {
                     AppLaunchService.launchApp(app, compositor, appWindow);
                 }
-                onAppLongPressed: (app, scenePos) => appContextMenu.show(app, appContextMenu.mapFromItem(null, scenePos.x, scenePos.y))
+                onAppLongPressed: (app, sceneRect) => appContextMenu.show(app, appContextMenu.mapFromItem(null, sceneRect))
                 Component.onCompleted: {
                     shell.totalPages = pageView.pageCount;
                 }

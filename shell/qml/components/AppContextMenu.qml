@@ -9,10 +9,12 @@ Item {
     readonly property string appId: appData ? (appData.id || "") : ""
     readonly property bool removable: appId !== "" && typeof MarathonAppInstaller !== "undefined" && MarathonAppInstaller.canUninstall(appId)
 
-    function show(app, pos) {
+    // Above the icon when there's room, otherwise below it.
+    function show(app, rect) {
         appData = app;
-        menu.x = Math.min(Math.max(pos.x - menu.width / 2, Silica.Theme.paddingLarge), width - menu.width - Silica.Theme.paddingLarge);
-        menu.y = Math.max(pos.y - menu.height - Silica.Theme.paddingSmall, Constants.statusBarHeight + Silica.Theme.paddingLarge);
+        const above = rect.y - menu.height - Silica.Theme.paddingSmall;
+        menu.x = Math.min(Math.max(rect.x + rect.width / 2 - menu.width / 2, Silica.Theme.paddingLarge), width - menu.width - Silica.Theme.paddingLarge);
+        menu.y = above >= Constants.statusBarHeight + Silica.Theme.paddingSmall ? above : rect.y + rect.height + Silica.Theme.paddingSmall;
         visible = true;
         menu.opacity = 1;
     }
