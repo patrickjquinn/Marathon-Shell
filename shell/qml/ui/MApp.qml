@@ -8,7 +8,6 @@ Item {
     property string appName: ""
     property string appIcon: ""
 
-    property bool isPreviewMode: false
     property bool debugLifecycle: false
 
     property bool isActive: false

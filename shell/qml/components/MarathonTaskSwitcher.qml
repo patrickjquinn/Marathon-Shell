@@ -17,8 +17,6 @@ Item {
     property var compositor: null
 
     signal closed
-    signal taskSelected(var task)
-    signal pullDownToSearch
 
     scale: visible ? 1 : 0.95
 
@@ -156,8 +154,6 @@ Item {
 
     GridView {
         id: taskGrid
-
-        property bool allowHorizontalPassthrough: true
 
         snapMode: GridView.SnapOneRow
         flickDeceleration: 1500

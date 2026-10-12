@@ -56,7 +56,6 @@ Item {
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
     // Measured from the Back/Next row and nav bar so it tracks every scale.
     readonly property real swipeBottomInset: navigationRow.height + navBar.height + Silica.Theme.paddingLarge * 2
-    readonly property real heroImageBlockSize: compactLayout ? 100 : 180
 
     signal setupComplete
 

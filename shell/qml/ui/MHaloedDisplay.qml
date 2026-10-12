@@ -8,9 +8,6 @@ Item {
     implicitWidth: label.implicitWidth
     implicitHeight: label.implicitHeight
 
-    // Kept for API compatibility; nothing is drawn behind the text.
-    property real haloMargin: 0
-
     property alias text: label.text
     property alias color: label.color
     property alias textFormat: label.textFormat

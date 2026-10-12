@@ -9,7 +9,6 @@ import QtQuick
 Item {
     id: keyboardContainer
 
-    property bool keyboardAvailable: true
     property bool active: false
     readonly property real keyboardHeight: marathonKeyboardLoader.item ? (marathonKeyboardLoader.item as MarathonKeyboard).implicitHeight : 0
 

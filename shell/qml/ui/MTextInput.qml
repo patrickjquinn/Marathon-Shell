@@ -18,7 +18,6 @@ Rectangle {
 
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real innerMargin: Math.max(1, Math.round(1 * scaleFactor))
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: Silica.Theme.itemSizeSmall

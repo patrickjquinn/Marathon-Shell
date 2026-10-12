@@ -34,7 +34,6 @@ Item {
     // on items that are scrolled into view later — for those, sets
     // the entrance trigger off and bind it to ListView.add transitions
     // higher up (cheaper than re-running entrances on every recycle).
-    property bool playOnce: true
     property bool _played: false
 
     Component.onCompleted: {

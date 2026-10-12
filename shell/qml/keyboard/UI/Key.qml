@@ -18,8 +18,6 @@ Rectangle {
     property bool pressed: false
     property bool highlighted: false
     property bool showingAlternates: false
-    property real cachedTextWidth: 0
-    property real cachedTextHeight: 0
 
     signal clicked
     signal pressAndHold

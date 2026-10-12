@@ -18,7 +18,6 @@ Rectangle {
     property real lastSpaceTime: 0
     property real lastShiftTime: 0
     readonly property string sentenceEndingPunctuation: "!.?"
-    readonly property string wordSeparators: ",.!?:;"
     property InputContext inputContext
     property bool showLanguageSelector: false
     property string lastCorrectedWord: ""

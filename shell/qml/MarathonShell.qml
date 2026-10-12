@@ -5,9 +5,6 @@ import QtQuick.Window
 
 Item {
     id: shell
-    // Last-frame stills for the switcher; keyed by appId, values are
-    // QQuickItemGrabResult objects (the url dies with the object).
-    property var taskSnapshots: ({})
 
     property var compositor: null
     property alias appWindowContainer: appWindowContainer

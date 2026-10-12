@@ -7,7 +7,6 @@ Item {
     property bool loadAsync: true
     property string source: ""
     property int size: 24
-    property bool isMask: false
     property color color: MColors.textPrimary
 
     readonly property bool isImage: source.indexOf("/") >= 0 || source.indexOf("file:") >= 0 || source.indexOf("qrc:") >= 0
