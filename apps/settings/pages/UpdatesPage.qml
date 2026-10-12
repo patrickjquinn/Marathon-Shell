@@ -20,12 +20,6 @@ Page {
             busy: Updates.checking
 
             MenuItem {
-                objectName: "releaseItem"
-                text: qsTr("View release")
-                visible: Updates.releaseUrl !== ""
-                onClicked: Updates.openInBrowser()
-            }
-            MenuItem {
                 objectName: "checkItem"
                 text: Updates.checking ? qsTr("Checking…") : qsTr("Check now")
                 enabled: !Updates.checking
@@ -46,10 +40,39 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 bottomPadding: Theme.paddingLarge
-                text: Updates.checking ? qsTr("Checking for updates…") : Updates.updateAvailable ? qsTr("Update %1 is available").arg(Updates.latestVersion) : qsTr("Up to date")
+                text: Updates.checking ? qsTr("Checking for updates…") : Updates.updateAvailable ? qsTr("Update %1 is available").arg(Updates.latestVersion) : Updates.lastError !== "" ? qsTr("Couldn't check for updates") : qsTr("Up to date")
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeLarge
                 color: Theme.highlightColor
+            }
+            Label {
+                objectName: "howToUpdate"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingLarge
+                visible: Updates.updateAvailable && !Updates.checking
+                text: qsTr("Updates aren't installed on the device yet. To update, open the release page, download the image for your device and flash it.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+            }
+            Button {
+                objectName: "openReleaseButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: Updates.updateAvailable && !Updates.checking && Updates.releaseUrl !== ""
+                text: qsTr("Open release page")
+                onClicked: Updates.openInBrowser()
+            }
+            Label {
+                objectName: "errorHint"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingLarge
+                visible: Updates.lastError !== "" && !Updates.checking && !Updates.updateAvailable
+                text: qsTr("Check that you're connected to the internet, then pull down to try again.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
             }
             DetailItem {
                 objectName: "currentVersion"
@@ -60,12 +83,6 @@ Page {
                 objectName: "latestVersion"
                 label: qsTr("Latest")
                 value: Updates.latestVersion || "—"
-            }
-            DetailItem {
-                objectName: "lastError"
-                visible: Updates.lastError !== ""
-                label: qsTr("Last error")
-                value: Updates.lastError
             }
             ComboBox {
                 objectName: "channelCombo"

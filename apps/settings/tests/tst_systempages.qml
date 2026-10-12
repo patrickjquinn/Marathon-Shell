@@ -150,8 +150,9 @@ TestCase {
         const s = open("updates");
         compare(child(s.page, "statusLabel").text, "Update r380 is available");
         compare(child(s.page, "currentVersion").value, "r375");
+        verify(child(s.page, "howToUpdate").visible);
         child(s.page, "checkItem").clicked();
-        child(s.page, "releaseItem").clicked();
+        child(s.page, "openReleaseButton").clicked(null);
         compare(Updates.calls, [["check"], ["open"]]);
         const channel = child(s.page, "channelCombo");
         compare(channel.currentIndex, 0);
@@ -159,7 +160,12 @@ TestCase {
         compare(channel.currentIndex, 1);
         Updates.updateAvailable = false;
         compare(child(s.page, "statusLabel").text, "Up to date");
-        verify(!child(s.page, "lastError").visible);
+        verify(!child(s.page, "howToUpdate").visible);
+        verify(!child(s.page, "openReleaseButton").visible);
+        verify(!child(s.page, "errorHint").visible);
+        Updates.lastError = "Host api.github.com not found";
+        compare(child(s.page, "statusLabel").text, "Couldn't check for updates");
+        verify(child(s.page, "errorHint").visible);
     }
 
     function test_aboutAndRename() {
