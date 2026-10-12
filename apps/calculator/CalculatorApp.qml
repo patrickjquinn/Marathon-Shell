@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -6,12 +8,12 @@ import QtQuick
 
 // Marathon DS · Calculator (screens-apps-2.jsx:CalculatorApp).
 //
-// Top bar: Undo · Basic ▼ · menu · close.
+// Top bar: Undo · Basic/Scientific toggle.
 // Display: right-aligned column — prior expression (small / tertiary),
 // "= preview" (teal-bright), final Display-weight result.
-// Scrollable function chip row (C · () · mod · π · √ · x² · sin …).
+// Scientific mode adds a scrollable function chip row (mod · π · √ · x² · sin …).
 // 4 × 5 keypad — rounded-square elev-2 buttons with w-04 border:
-//   row 1 ⬢ C  · ()  · %  · ÷       (ops in teal-bright)
+//   row 1 ⬢ C  · ⌫   · %  · ÷       (ops in teal-bright)
 //   row 2 ⬢ 7  · 8   · 9  · ×
 //   row 3 ⬢ 4  · 5   · 6  · −
 //   row 4 ⬢ 1  · 2   · 3  · +
@@ -25,15 +27,18 @@ MApp {
     property real currentValue: 0
     property string currentOperator: ""
     property bool newNumber: true
+    // Set when the last operation had no real answer; shown in place of the number.
+    property string errorText: ""
+    property bool scientific: true
     // Recent expressions, oldest first. Capped at 8 to bound memory and to
     // keep the on-screen history list short enough to read at a glance.
     property var history: []
+    // Last computed result, kept as a real number (not the formatted
+    // lastResult text) so the "ans" key round-trips exactly.
+    property real lastAnswer: 0
+    property var undoStack: []
 
     function fmt(n) {
-        // Thousands separator. Strip trailing zeros after a decimal so
-        // "0" doesn't render as "0.000000" under the default locale.
-        if (n === undefined || isNaN(n))
-            return "0";
         const fixed = Number(n).toFixed(8);
         const trimmed = fixed.indexOf(".") >= 0 ? fixed.replace(/\.?0+$/, "") : fixed;
         const parts = trimmed.split(".");
@@ -41,7 +46,65 @@ MApp {
         return parts.length > 1 ? intPart + "." + parts[1] : intPart;
     }
 
+    // Formats the number being typed without parsing it, so "0." and "1.50" stay visible.
+    function fmtEntry(s) {
+        const dot = s.indexOf(".");
+        const intPart = (dot >= 0 ? s.substring(0, dot) : s).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return dot >= 0 ? intPart + s.substring(dot) : intPart;
+    }
+
+    function snapshot() {
+        const next = undoStack.slice();
+        next.push({
+            "display": display,
+            "lastExpression": lastExpression,
+            "lastResult": lastResult,
+            "currentValue": currentValue,
+            "currentOperator": currentOperator,
+            "newNumber": newNumber,
+            "errorText": errorText,
+            "history": history,
+            "lastAnswer": lastAnswer
+        });
+        if (next.length > 50)
+            next.shift();
+        undoStack = next;
+    }
+
+    function undo() {
+        if (undoStack.length === 0)
+            return;
+        const next = undoStack.slice();
+        const s = next.pop();
+        undoStack = next;
+        display = s.display;
+        lastExpression = s.lastExpression;
+        lastResult = s.lastResult;
+        currentValue = s.currentValue;
+        currentOperator = s.currentOperator;
+        newNumber = s.newNumber;
+        errorText = s.errorText;
+        history = s.history;
+        lastAnswer = s.lastAnswer;
+    }
+
+    function setResult(expr, r, divideByZero) {
+        lastExpression = expr;
+        newNumber = true;
+        currentOperator = "";
+        if (divideByZero || !isFinite(r)) {
+            errorText = divideByZero ? "Can't divide by 0" : "Error";
+            lastResult = "";
+            display = "0";
+            return;
+        }
+        lastResult = "= " + fmt(r);
+        lastAnswer = r;
+        display = String(r);
+    }
+
     function appendDigit(digit) {
+        errorText = "";
         if (newNumber) {
             display = digit;
             newNumber = false;
@@ -51,6 +114,7 @@ MApp {
     }
 
     function appendDecimal() {
+        errorText = "";
         if (newNumber) {
             display = "0.";
             newNumber = false;
@@ -67,19 +131,24 @@ MApp {
     }
 
     function setOperator(op) {
+        if (currentOperator !== "" && !newNumber)
+            calculate();
+        if (errorText !== "")
+            return;
         currentValue = parseFloat(display);
         currentOperator = op;
         newNumber = true;
     }
 
     function calculate() {
+        if (currentOperator === "")
+            return;
         const value = parseFloat(display);
         let result = currentValue;
         switch (currentOperator) {
         case "+":
             result = currentValue + value;
             break;
-        case "-":
         case "−":
             result = currentValue - value;
             break;
@@ -87,18 +156,17 @@ MApp {
             result = currentValue * value;
             break;
         case "÷":
-            result = value !== 0 ? currentValue / value : 0;
+            result = currentValue / value;
             break;
         case "mod":
-            result = value !== 0 ? currentValue % value : 0;
+            result = currentValue % value;
             break;
         }
-        lastExpression = fmt(currentValue) + " " + currentOperator + " " + fmt(value);
-        lastResult = "= " + fmt(result);
-        lastAnswer = result;
-        // Push to history. Reassigning the array (not .push) is what makes
-        // QML's binding system notice — in-place mutation doesn't trigger
-        // historyChanged.
+        const expr = fmt(currentValue) + " " + currentOperator + " " + fmt(value);
+        setResult(expr, result, value === 0 && (currentOperator === "÷" || currentOperator === "mod"));
+        if (errorText !== "")
+            return;
+        // Reassigning (not .push) is what makes QML notice historyChanged.
         const next = history.slice();
         next.push({
             "expression": lastExpression,
@@ -107,24 +175,18 @@ MApp {
         if (next.length > 8)
             next.shift();
         history = next;
-        display = String(result);
-        currentOperator = "";
-        newNumber = true;
     }
 
     function clear() {
         display = "0";
         lastExpression = "";
         lastResult = "";
+        errorText = "";
         history = [];
         currentValue = 0;
         currentOperator = "";
         newNumber = true;
     }
-
-    // Last computed result, kept as a real number (not the formatted
-    // lastResult text) so the "ans" key round-trips exactly.
-    property real lastAnswer: 0
 
     function factorial(n) {
         if (n < 0 || Math.floor(n) !== n || n > 170)
@@ -135,10 +197,10 @@ MApp {
         return f;
     }
 
-    // Immediate-execution scientific ops: operate on the current display value
-    // and replace it with the result. Trig is in DEGREES (the friendlier phone
-    // default). These chips were previously dead — they only fired a haptic.
+    // Immediate-execution scientific ops on the current display value. Trig is in degrees.
     function applyScientific(name) {
+        if (errorText !== "")
+            return;
         const x = parseFloat(display);
         let r = x;
         let expr = "";
@@ -154,26 +216,24 @@ MApp {
         case "percent": r = x / 100;                     expr = fmt(x) + "%"; break;
         default: return;
         }
-        lastExpression = expr;
-        lastResult = "= " + fmt(r);
-        lastAnswer = r;
-        display = String(r);
-        newNumber = true;
+        const pending = currentOperator;
+        setResult(expr, r, false);
+        if (errorText === "")
+            currentOperator = pending;
     }
 
     function insertConstant(v) {
+        errorText = "";
         display = String(v);
         newNumber = true;
     }
 
     function recallAnswer() {
+        errorText = "";
         display = String(lastAnswer);
         newNumber = true;
     }
 
-    // Backspace — deletes the last entered character. Replaces the old "( )"
-    // key, which can never work in an immediate-execution calculator (no
-    // expression parser) and so was a dead key.
     function backspace() {
         if (newNumber)
             return;
@@ -194,77 +254,91 @@ MApp {
         anchors.fill: parent
         color: MColors.background
 
-        // ── Top bar — Undo · Basic ▼ · menu · close ─────────
+        // ── Top bar — Undo · Basic/Scientific ───────────────
         Item {
             id: topBar
             width: parent.width
-            height: 60
+            height: MSpacing.touchTargetSmall
             anchors.top: parent.top
 
-            Row {
-                id: undoRow
+            Item {
                 anchors.left: parent.left
-                anchors.leftMargin: 16
+                anchors.leftMargin: MSpacing.sm
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "undo-2"
-                    size: 18
-                    color: MColors.textSecondary
+                width: undoRow.implicitWidth + MSpacing.md
+                height: MSpacing.touchTargetMin
+                opacity: calcApp.undoStack.length > 0 ? 1 : 0.4
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "Undo"
+                Accessible.onPressAction: calcApp.undo()
+
+                Row {
+                    id: undoRow
+                    anchors.centerIn: parent
+                    spacing: MSpacing.xs
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "undo-2"
+                        size: 18
+                        color: MColors.textSecondary
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Undo"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        font.weight: Font.Medium
+                    }
                 }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Undo"
-                    color: MColors.textSecondary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeFootnote
-                    font.weight: Font.Medium
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: calcApp.undoStack.length > 0
+                    onClicked: {
+                        HapticService.light();
+                        calcApp.undo();
+                    }
                 }
-            }
-            // Tap target lives OUTSIDE the Row — anchors.fill on a Row child
-            // is illegal and silently breaks the Row's horizontal layout.
-            MouseArea {
-                anchors.fill: undoRow
-                onClicked: HapticService.light()
             }
 
-            Row {
+            Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 4
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Basic"
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeSubhead
-                    font.weight: Font.Medium
-                }
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "chevron-down"
-                    size: 16
-                    color: MColors.textSecondary
-                }
-            }
+                width: modeRow.implicitWidth + MSpacing.md * 2
+                height: MSpacing.touchTargetMin
 
-            Row {
-                anchors.right: parent.right
-                anchors.rightMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 16
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "menu"
-                    size: 20
-                    color: MColors.textSecondary
+                Accessible.role: Accessible.Button
+                Accessible.name: calcApp.scientific ? "Switch to basic mode" : "Switch to scientific mode"
+                Accessible.onPressAction: calcApp.scientific = !calcApp.scientific
+
+                Row {
+                    id: modeRow
+                    anchors.centerIn: parent
+                    spacing: MSpacing.xs
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: calcApp.scientific ? "Scientific" : "Basic"
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.weight: Font.Medium
+                    }
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "arrows-left-right"
+                        size: 16
+                        color: MColors.textSecondary
+                    }
                 }
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "x"
-                    size: 20
-                    color: MColors.textSecondary
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        HapticService.light();
+                        calcApp.scientific = !calcApp.scientific;
+                    }
                 }
             }
 
@@ -299,11 +373,15 @@ MApp {
             model: calcApp.history
 
             delegate: Column {
+                id: historyEntry
+
+                required property var modelData
+
                 width: ListView.view.width
                 spacing: 1
                 Text {
                     anchors.right: parent.right
-                    text: modelData.expression
+                    text: historyEntry.modelData.expression
                     color: MColors.textTertiary
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeFootnote
@@ -313,7 +391,7 @@ MApp {
                 }
                 Text {
                     anchors.right: parent.right
-                    text: modelData.result
+                    text: historyEntry.modelData.result
                     color: MColors.textSecondary
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeSubhead
@@ -372,7 +450,7 @@ MApp {
         // display tracking the keypad's edge instead of floating.
         Column {
             id: displayCol
-            anchors.bottom: fnRow.top
+            anchors.bottom: calcApp.scientific ? fnRow.top : keypad.top
             anchors.bottomMargin: 16
             anchors.left: parent.left
             anchors.right: parent.right
@@ -406,10 +484,10 @@ MApp {
             }
             Text {
                 anchors.right: parent.right
-                text: calcApp.fmt(parseFloat(calcApp.display))
-                color: MColors.textPrimary
+                text: calcApp.errorText !== "" ? calcApp.errorText : calcApp.newNumber ? calcApp.fmt(parseFloat(calcApp.display)) : calcApp.fmtEntry(calcApp.display)
+                color: calcApp.errorText !== "" ? MColors.error : MColors.textPrimary
                 font.family: MTypography.fontFamily
-                font.pixelSize: 64
+                font.pixelSize: calcApp.errorText !== "" ? MTypography.sizeTitle1 : 64
                 font.weight: MTypography.weightExtraLight   // 200 per DS Display
                 font.letterSpacing: -1.5
                 font.features: ({
@@ -430,25 +508,41 @@ MApp {
             anchors.bottomMargin: 12
             anchors.leftMargin: 12
             anchors.rightMargin: 12
-            height: 36
+            height: MSpacing.touchTargetMin
+            visible: calcApp.scientific
             orientation: ListView.Horizontal
             spacing: 6
             clip: true
-            // C and ( ) are dropped here — they're already in the main
-            // keypad below. Scientific row keeps only operators the basic
-            // pad doesn't carry, to avoid the visual stutter of the same
-            // glyph appearing twice 30 px apart.
             model: ["mod", "π", "√", "x²", "sin", "cos", "tan", "log", "ln", "!", "ans"]
             delegate: Rectangle {
-                width: 56
-                height: 36
+                id: chip
+
+                required property var modelData
+
+                width: Math.round(56 * Constants.scaleFactor)
+                height: MSpacing.touchTargetMin
                 radius: MRadius.md
+                Accessible.role: Accessible.Button
+                Accessible.name: ({
+                        "mod": "Modulo",
+                        "π": "Pi",
+                        "√": "Square root",
+                        "x²": "Square",
+                        "sin": "Sine",
+                        "cos": "Cosine",
+                        "tan": "Tangent",
+                        "log": "Logarithm",
+                        "ln": "Natural logarithm",
+                        "!": "Factorial",
+                        "ans": "Last answer"
+                    })[modelData]
+                Accessible.onPressAction: chipArea.clicked(null)
                 color: chipArea.pressed ? MColors.bb10Card : "transparent"
                 border.width: 1
                 border.color: MColors.whiteOverlay08
                 Text {
                     anchors.centerIn: parent
-                    text: modelData
+                    text: chip.modelData
                     color: MColors.textPrimary
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeFootnote
@@ -459,7 +553,8 @@ MApp {
                     anchors.fill: parent
                     onClicked: {
                         HapticService.light();
-                        const k = modelData;
+                        calcApp.snapshot();
+                        const k = chip.modelData;
                         if (k === "mod")
                             calcApp.setOperator("mod");     // binary — completes on "="
                         else if (k === "π")
@@ -585,6 +680,8 @@ MApp {
                 ]
 
                 Rectangle {
+                    id: key
+
                     required property var modelData
 
                     width: keypad.cellW
@@ -633,12 +730,12 @@ MApp {
                         anchors.rightMargin: 2
                         anchors.topMargin: 1
                         height: 1
-                        color: modelData.type === "primary" ? Qt.rgba(1, 1, 1, 0.30) : Qt.rgba(1, 1, 1, 0.06)
+                        color: key.modelData.type === "primary" ? Qt.rgba(1, 1, 1, 0.30) : Qt.rgba(1, 1, 1, 0.06)
                     }
 
                     // Outer halo only on the = pill.
                     Rectangle {
-                        visible: modelData.type === "primary"
+                        visible: key.modelData.type === "primary"
                         anchors.fill: parent
                         anchors.margins: -3
                         radius: parent.radius + 3
@@ -650,24 +747,34 @@ MApp {
 
                     Text {
                         anchors.centerIn: parent
-                        text: modelData.k
+                        text: key.modelData.k
                         color: {
-                            if (modelData.type === "primary")
-                                return "#000000";
-                            if (modelData.type === "op")
+                            if (key.modelData.type === "primary")
+                                return MColors.textOnAccent;
+                            if (key.modelData.type === "op")
                                 return MColors.marathonTealBright;
                             return MColors.textPrimary;
                         }
                         font.family: MTypography.fontFamily
-                        // = on the primary key was rendering as a thin
-                        // single bar at DemiBold 28 px on Sora's hinting,
-                        // visually identical to the `−` operator one row
-                        // up. Bumping the primary key to Bold + 32 px
-                        // gives the equals a heavier visible body so the
-                        // two horizontal strokes register as separate.
-                        font.pixelSize: modelData.type === "primary" ? 32 : 24
-                        font.weight: modelData.type === "primary" ? Font.Bold : Font.Light
+                        // Bold on "=" keeps its two strokes distinct from "−".
+                        font.pixelSize: key.modelData.type === "primary" ? MTypography.sizeTitle1 : MTypography.sizeTitle3
+                        font.weight: key.modelData.type === "primary" ? Font.Bold : Font.Light
                     }
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: ({
+                            "C": "Clear",
+                            "⌫": "Delete",
+                            "%": "Percent",
+                            "÷": "Divide",
+                            "×": "Multiply",
+                            "−": "Minus",
+                            "+": "Plus",
+                            "+/−": "Change sign",
+                            ".": "Decimal point",
+                            "=": "Equals"
+                        })[modelData.k] || modelData.k
+                    Accessible.onPressAction: keyArea.clicked(null)
 
                     scale: keyArea.pressed ? 0.96 : 1.0
                     Behavior on scale {
@@ -687,7 +794,8 @@ MApp {
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
-                            const k = modelData.k;
+                            calcApp.snapshot();
+                            const k = key.modelData.k;
                             if (k === "C")
                                 calcApp.clear();
                             else if (k === "=")
