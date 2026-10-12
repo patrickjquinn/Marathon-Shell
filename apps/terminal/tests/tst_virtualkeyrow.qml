@@ -77,13 +77,14 @@ TestCase {
         mousePress(key(row, "Ctrl"));
         tryCompare(row, "ctrlState", VirtualKeyRow.Locked, 3000);
         mouseRelease(key(row, "Ctrl"));
-        verify(key(row, "Ctrl").highlighted);
+        verify(findChild(key(row, "Ctrl"), "lockMark").visible);
         mouseClick(key(row, "up"));
         mouseClick(key(row, "down"));
         compare(keySpy.signalArguments[1][2], Qt.ControlModifier);
         compare(row.ctrlState, VirtualKeyRow.Locked);
         mouseClick(key(row, "Ctrl"));
         compare(row.ctrlState, VirtualKeyRow.Idle);
+        verify(!findChild(key(row, "Ctrl"), "lockMark").visible);
     }
 
     function test_modifiersCombine() {

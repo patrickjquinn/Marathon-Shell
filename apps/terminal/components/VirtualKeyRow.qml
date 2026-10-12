@@ -73,7 +73,7 @@ Row {
             objectName: "key_" + (modelData.label || modelData.icon)
             width: root.width / root.keys.length
             height: root.height
-            highlighted: down || modState === VirtualKeyRow.Locked
+            highlighted: down
             Accessible.name: modelData.name
             Accessible.description: modelData.alt ? qsTr("Hold for %1").arg(modelData.altName)
                                   : isModifier ? qsTr("Tap for the next key, hold to lock") : ""
@@ -105,8 +105,21 @@ Row {
                 anchors.centerIn: parent
                 text: keyItem.modelData.label || ""
                 font.pixelSize: Theme.fontSizeSmall
-                color: keyItem.highlighted || keyItem.modState === VirtualKeyRow.Armed ? Theme.highlightColor : Theme.primaryColor
+                color: keyItem.highlighted || keyItem.modState !== VirtualKeyRow.Idle ? Theme.highlightColor : Theme.primaryColor
                 font.underline: keyItem.modState === VirtualKeyRow.Armed
+            }
+
+            Icon {
+                objectName: "lockMark"
+                visible: keyItem.modState === VirtualKeyRow.Locked
+                anchors {
+                    top: parent.top
+                    right: parent.right
+                    topMargin: Theme.paddingSmall / 2
+                    rightMargin: Theme.paddingSmall / 2
+                }
+                source: "image://theme/icon-s-lock"
+                highlighted: true
             }
 
             Label {
