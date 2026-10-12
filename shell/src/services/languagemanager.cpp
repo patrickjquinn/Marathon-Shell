@@ -12,10 +12,6 @@ LanguageManager::LanguageManager(SettingsManager *settingsManager, WordEngine *w
     : QObject(parent)
     , m_settingsManager(settingsManager)
     , m_wordEngine(wordEngine) {
-    m_languageFlags = {{"en_US", "🇺🇸"}, {"fr_FR", "🇫🇷"}, {"de_DE", "🇩🇪"}, {"es_ES", "🇪🇸"},
-                       {"pt_BR", "🇧🇷"}, {"it_IT", "🇮🇹"}, {"ru_RU", "🇷🇺"}, {"ar_SA", "🇸🇦"},
-                       {"zh_CN", "🇨🇳"}, {"ja_JP", "🇯🇵"}};
-
     if (m_settingsManager) {
         connect(m_settingsManager, &SettingsManager::keyboardLanguageChanged, this,
                 &LanguageManager::onSettingsLanguageChanged);
@@ -49,11 +45,6 @@ void LanguageManager::loadLanguage(const QString &languageId) {
     }
 
     applyLayout(layout, languageId);
-}
-
-QString LanguageManager::getFlag(const QString &languageId) const {
-    const QVariant flag = m_languageFlags.value(languageId);
-    return flag.isValid() ? flag.toString() : QString();
 }
 
 void LanguageManager::applyLayout(const QVariantMap &layout, const QString &languageId) {

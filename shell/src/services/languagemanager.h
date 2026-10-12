@@ -35,7 +35,6 @@ class LanguageManager : public QObject {
 
     Q_INVOKABLE void    initialize();
     Q_INVOKABLE void    loadLanguage(const QString &languageId);
-    Q_INVOKABLE QString getFlag(const QString &languageId) const;
 
   signals:
     void currentLanguageChanged();
@@ -59,5 +58,4 @@ class LanguageManager : public QObject {
     QString                   m_currentLanguage;
     QVariantMap               m_currentLayout;
     QStringList               m_availableLanguages;
-    QVariantMap               m_languageFlags;
 };
