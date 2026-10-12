@@ -75,3 +75,9 @@ target_include_directories(test_shell_ambienceservice PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/services
 )
 add_test(NAME Shell_AmbienceService COMMAND test_shell_ambienceservice)
+
+# Which keys the compositor keeps for system navigation
+add_executable(test_shell_keyrouting test_keyrouting.cpp)
+target_link_libraries(test_shell_keyrouting Qt6::Test Qt6::Core)
+target_include_directories(test_shell_keyrouting PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
+add_test(NAME Shell_KeyRouting COMMAND test_shell_keyrouting)

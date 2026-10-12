@@ -1,4 +1,6 @@
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/keyrouting.h"
+#include "marathonappregistry.h"
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
 #include "src/wayland/linuxdmabufv1.h"
@@ -833,6 +835,19 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 // so a throttled client never commits again — and a restored view with no
 // current buffer paints nothing, which never resumes the callbacks either.
 // Firing the pending callbacks breaks that deadlock at restore.
+void WaylandCompositor::setAppViewportSize(const QSize &size) {
+    if (size == m_appViewportSize)
+        return;
+    m_appViewportSize = size;
+    emit appViewportSizeChanged();
+}
+
+QSize WaylandCompositor::appConfigureSize() const {
+    if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
+        return m_appViewportSize;
+    return (m_output && m_output->window()) ? m_output->window()->size() : QSize();
+}
+
 void WaylandCompositor::nudgeSurface(int surfaceId) {
     QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
     if (!surface)
@@ -876,6 +891,8 @@ void WaylandCompositor::connectTextInputs() {
                 SLOT(handleTextInputSurfaceEnabled(QWaylandSurface *)), Qt::UniqueConnection);
         connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface *)), this,
                 SLOT(handleTextInputSurfaceDisabled(QWaylandSurface *)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(updateInputMethod(Qt::InputMethodQueries)), this,
+                SLOT(handleTextInputUpdate(Qt::InputMethodQueries)), Qt::UniqueConnection);
     }
 }
 
@@ -954,6 +971,11 @@ void WaylandCompositor::handleTextInputSurfaceEnabled(QWaylandSurface *surface) 
         emit nativeTextInputPanelRequested(true);
 }
 
+void WaylandCompositor::handleTextInputUpdate(Qt::InputMethodQueries queries) {
+    if (queries & Qt::ImHints)
+        emit textInputHintsChanged();
+}
+
 void WaylandCompositor::handleTextInputSurfaceDisabled(QWaylandSurface *surface) {
     m_textInputSurfaces.remove(surface);
     if (defaultSeat() && surface == defaultSeat()->keyboardFocus())
@@ -999,13 +1021,13 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     // client decides "window inexposed" and stops painting. By sending the
     // output size up-front, the client always gets a first configure within
     // milliseconds of mapping and can proceed to attach + commit its buffer.
-    if (m_output && m_output->window()) {
-        const QSize outputSize = m_output->window()->size();
-        if (outputSize.width() > 0 && outputSize.height() > 0) {
+    {
+        const QSize initialSize = appConfigureSize();
+        if (initialSize.width() > 0 && initialSize.height() > 0) {
             QList<QWaylandXdgToplevel::State> states;
             states << QWaylandXdgToplevel::ActivatedState << QWaylandXdgToplevel::MaximizedState;
-            toplevel->sendConfigure(outputSize, states);
-            qInfo() << "[WaylandCompositor] Sent initial configure" << outputSize << "for surfaceId"
+            toplevel->sendConfigure(initialSize, states);
+            qInfo() << "[WaylandCompositor] Sent initial configure" << initialSize << "for surfaceId"
                     << surfaceId;
         }
     }
@@ -1644,6 +1666,14 @@ bool WaylandCompositor::checkIdleInhibitors() {
     return hasInhibitor;
 }
 
+QString WaylandCompositor::focusedToolkit() const {
+    const QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
+    if (!focus || !m_appRegistry)
+        return {};
+    const QString appId = focus->property("appId").toString();
+    return appId.isEmpty() ? QString() : m_appRegistry->getApp(appId).value("toolkit").toString();
+}
+
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
     if (watched == m_window) {
         const auto type = event->type();
@@ -1660,21 +1690,17 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         }
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
-            QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-            int        key      = keyEvent->key();
-
-            if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
-                if (type == QEvent::KeyPress) {
-                    return true;
-                }
+            const auto *keyEvent = static_cast<QKeyEvent *>(event);
+            const KeyRouting::Action action =
+                KeyRouting::systemAction(keyEvent->key(), focusedToolkit());
+            if (action != KeyRouting::None) {
                 if (type == QEvent::KeyRelease) {
-                    if (key == Qt::Key_Escape) {
+                    if (action == KeyRouting::Back)
                         emit systemBackTriggered();
-                    } else {
+                    else
                         emit systemHomeTriggered();
-                    }
-                    return true;
                 }
+                return true;
             }
         }
     }
@@ -1725,7 +1751,12 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
     if (suspended)
         states << kStateSuspended;
 
-    const QSize size = (m_output && m_output->window()) ? m_output->window()->size() : QSize(0, 0);
+    // Keep the size the client already has; a different one would relayout it on every resume.
+    QSize size = toplevel->xdgSurface() && toplevel->xdgSurface()->surface() ?
+        toplevel->xdgSurface()->surface()->destinationSize() :
+        QSize();
+    if (size.isEmpty())
+        size = appConfigureSize();
     toplevel->sendConfigure(size, states);
     qInfo() << "[WaylandCompositor] xdg-suspend appId=" << appId << "suspended=" << suspended
             << "surfaceId=" << foundId;

@@ -22,6 +22,7 @@ WaylandCompositor *WaylandCompositorManager::createCompositor(QQuickWindow *wind
     }
 
     m_compositor = new WaylandCompositor(window);
+    m_compositor->setAppRegistry(m_appRegistry);
     return m_compositor;
 #else
     return nullptr;

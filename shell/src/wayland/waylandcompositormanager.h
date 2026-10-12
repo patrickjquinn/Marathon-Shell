@@ -10,6 +10,8 @@
 
 class WaylandCompositor;
 
+class MarathonAppRegistry;
+
 class WaylandCompositorManager : public QObject {
     Q_OBJECT
 
@@ -18,7 +20,12 @@ class WaylandCompositorManager : public QObject {
 
     Q_INVOKABLE WaylandCompositor *createCompositor(QQuickWindow *window);
 
+    void setAppRegistry(MarathonAppRegistry *registry) {
+        m_appRegistry = registry;
+    }
+
   private:
+    MarathonAppRegistry *m_appRegistry = nullptr;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;
 #endif

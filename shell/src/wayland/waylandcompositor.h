@@ -27,6 +27,8 @@ class LinuxDmabufManagerV1;
 class WlDrmManager;
 struct wl_client;
 
+class MarathonAppRegistry;
+
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
@@ -38,10 +40,18 @@ class WaylandCompositor : public QWaylandCompositor {
     // until the client's next commit. Shortens the double-buffer dependency
     // chain that starves a scrolling client on etnaviv's implicit fencing.
     Q_PROPERTY(bool discardFrontBuffer READ discardFrontBuffer CONSTANT)
+    // Size of the app window area (output minus status/nav chrome). Configures
+    // use it so a client's first frame is already at its final size.
+    Q_PROPERTY(QSize appViewportSize READ appViewportSize WRITE setAppViewportSize NOTIFY
+                   appViewportSizeChanged)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
+
+    void setAppRegistry(MarathonAppRegistry *registry) {
+        m_appRegistry = registry;
+    }
 
     // A client created a text-input object (see watchTextInputBinds()).
     void                      handleTextInputBound(wl_client *client);
@@ -50,6 +60,10 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandQuickOutput      *output() const {
         return m_output;
     }
+    QSize appViewportSize() const {
+        return m_appViewportSize;
+    }
+    void setAppViewportSize(const QSize &size);
 
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
@@ -77,6 +91,7 @@ class WaylandCompositor : public QWaylandCompositor {
     }
 
   signals:
+    void appViewportSizeChanged();
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
@@ -86,10 +101,14 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemHomeTriggered();
     void userActivity();
     void nativeTextInputPanelRequested(bool show);
+    void textInputHintsChanged();
     void hasIdleInhibitingSurfaceChanged();
 
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+  private:
+    QString focusedToolkit() const;
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);
@@ -102,6 +121,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void connectTextInputs();
     void handleTextInputSurfaceEnabled(QWaylandSurface *surface);
     void handleTextInputSurfaceDisabled(QWaylandSurface *surface);
+    void handleTextInputUpdate(Qt::InputMethodQueries queries);
 
   private:
     void watchTextInputBinds();
@@ -153,6 +173,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // client renders concurrently, and free-runs the compositor at vsync
     // while a client is actively committing so its buffer lands next vblank.
     bool                                    m_presentPipeline = false;
+    QSize                                   m_appViewportSize;
+    QSize                                   appConfigureSize() const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.
@@ -166,6 +188,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // flood that backpressures the log pipe and stalls the GUI thread.
     QAtomicInt                              m_frameSwapCount{0};
     QAtomicInt                              m_clientCommitCount{0};
+    MarathonAppRegistry *m_appRegistry = nullptr;
 };
 
 #endif

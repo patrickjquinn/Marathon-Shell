@@ -584,7 +584,8 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<AmbienceService>("MarathonOS.Shell", 1, 0, "AmbienceService",
                                                   ambienceService);
 
-    createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
+    auto *compositorManager =
+        createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
     if (debugEnabled || profileMode) {
         qInfo() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
     }
@@ -632,6 +633,7 @@ int main(int argc, char *argv[]) {
     createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
+    compositorManager->setAppRegistry(appRegistry);
     auto *appStore    = new AppStore(appRegistry, &app);
     qmlRegisterSingletonInstance<AppStore>("MarathonOS.Shell", 1, 0, "AppStore", appStore);
     auto *appScanner =
