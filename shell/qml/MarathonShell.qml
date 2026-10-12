@@ -111,6 +111,17 @@ Item {
         Router.goToFrames();
     }
 
+    // Back on an app's root page: the app recedes and the home grid is underneath.
+    function backOutOfApp() {
+        if (!UIStore.appWindowOpen || backExit.running)
+            return;
+        if (pageView.currentIndex < 2) {
+            pageView.currentIndex = 2;
+            Router.goToAppPage(0);
+        }
+        backExit.start();
+    }
+
     function showPowerMenu() {
         Logger.info("Shell", "Showing power menu from quick settings");
         powerMenu.show();
@@ -542,7 +553,7 @@ Item {
             }
 
             PropertyChanges {
-                mainContent.visible: false
+                mainContent.visible: backExit.running
                 mainContent.enabled: false
             }
 
@@ -857,10 +868,48 @@ Item {
     // closes the app, as an in-process "not handled" does in onSwipeBack.
     Connections {
         function onSystemBackUnhandled() {
-            if (UIStore.appWindowOpen)
-                UIStore.closeApp();
+            shell.backOutOfApp();
         }
         target: AppLifecycleManager
+    }
+
+    Connections {
+        property int warnedAt: 101
+
+        function onBatteryLevelChanged() {
+            const level = SystemStatusStore.batteryLevel;
+            if (SystemStatusStore.isPluggedIn || level <= 0) {
+                warnedAt = 101;
+                return;
+            }
+            const threshold = level <= 5 ? 5 : level <= 10 ? 10 : level <= 20 ? 20 : 101;
+            if (threshold >= warnedAt || threshold === 101)
+                return;
+            warnedAt = threshold;
+            NotificationService.sendNotification("system", "Battery at " + level + "%", SystemControlStore.isLowPowerMode ? "Plug in your phone soon." : "Turn on Battery Saver in Quick Settings to make it last longer, or plug in.", {
+                "category": "system",
+                "priority": threshold <= 10 ? "high" : "normal",
+                "icon": "battery-low"
+            });
+        }
+        function onIsPluggedInChanged() {
+            if (SystemStatusStore.isPluggedIn)
+                warnedAt = 101;
+        }
+
+        target: SystemStatusStore
+    }
+
+    // A field in the previous app can't report losing focus, so switching apps drops the keyboard.
+    Connections {
+        function onCurrentAppIdChanged() {
+            virtualKeyboard.active = false;
+        }
+        function onAppWindowOpenChanged() {
+            if (!UIStore.appWindowOpen)
+                virtualKeyboard.active = false;
+        }
+        target: UIStore
     }
 
     // Single-modal rule (iOS HIG / Material): only one backdropped
@@ -1107,15 +1156,23 @@ Item {
         }
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
+            if (powerMenu.showing) {
+                powerMenu.cancel();
+                return;
+            }
+            // Apps never report a field losing focus, so back closes the keyboard first.
+            if (virtualKeyboard.active) {
+                virtualKeyboard.active = false;
+                return;
+            }
             var handled = AppLifecycleManager.handleSystemBack();
             if (!handled) {
                 Logger.info("NavBar", "App didn't handle back, closing");
-                if (UIStore.appWindowOpen)
-                    UIStore.closeApp();
+                shell.backOutOfApp();
             }
         }
         onShortSwipeUp: {
-            dismissPermissionPrompt();
+            shell.dismissPermissionPrompt();
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
                 HapticManager.light();
@@ -1130,7 +1187,7 @@ Item {
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
-            dismissPermissionPrompt();
+            shell.dismissPermissionPrompt();
             Logger.info("NavBar", "------- LONG SWIPE UP RECEIVED -------");
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
@@ -1230,13 +1287,6 @@ Item {
         property real finalScale: 0.65
         property real currentGestureScale: 1 - (navBar.gestureProgress * 0.35)
         property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
-        // Predictive-back shrink (Material 3 Expressive): 1.0 → 0.9 driven
-        // by navBar.backProgress (0..1) during left-drag on the pill.
-        // Fade-through past MMotion.backFadeThreshold gives the user a
-        // sense the page is "about to leave" — but stays subtle so the
-        // commit (actual pop) still feels like the main visual event.
-        property real backScale: 1.0 + (MMotion.backExitScaleEnd - MMotion.backExitScaleStart) * navBar.backProgress
-        property real backOpacity: navBar.backProgress > MMotion.backFadeThreshold ? 1.0 - ((navBar.backProgress - MMotion.backFadeThreshold) / (1.0 - MMotion.backFadeThreshold)) * 0.15 : 1.0
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
 
         // Apps render full-screen behind the navBar so their content (gradients,
@@ -1248,18 +1298,10 @@ Item {
         // Tab-bar capture is handled at the navBar.MouseArea level instead,
         // where only swipes from the bottom-N px register as gestures.
         anchors.fill: parent
-        anchors.margins: (navBar.gestureProgress > 0 || navBar.backProgress > 0) ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
-        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale * backScale : backScale)
-        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? Math.min(currentGestureOpacity, backOpacity) : backOpacity)
-        // Predictive back signals via scale + opacity only. A horizontal
-        // lean via Item.x would conflict with anchors.fill, and a
-        // `transform: Translate {...}` on this in-process compositor
-        // landed the appWindowContainer in a black-render state on
-        // dmabuf-backed Wayland textures (likely a texture-coord
-        // transform mismatch). scale + opacity carry the signal.
-
+        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)
+        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1)
         // Single entry point for bringing UIStore's current app on screen,
         // shared by the currentAppId and appWindowOpen signal paths.
         function showForegroundApp(reason) {
@@ -1355,6 +1397,8 @@ Item {
 
             MarathonAppWindow {
                 id: appWindow
+
+                onRetryRequested: id => Qt.callLater(() => AppLaunchService.launchApp(id, shell.compositor, appWindow))
 
                 anchors.fill: parent
                 anchors.topMargin: Constants.safeAreaTop
@@ -1512,21 +1556,14 @@ Item {
             shell.isTransitioningToActiveFrames = false;
         }
 
-        // Spring-driven scale — replaces the old 300ms NumberAnimation+
-        // OutCubic. Uses the "panel" role from MMotion (Low stiffness,
-        // underdamped) so the snap settles with the iOS-style "the app
-        // lands in its grid slot" feel rather than the duration-driven
-        // ease curve. Per the world-class-design audit P2.4.
-        SpringAnimation {
+        NumberAnimation {
             id: scaleAnim
 
             target: appWindowContainer
             property: "scale"
             to: appWindowContainer.finalScale
-            velocity: snapIntoGridAnimation.velocity / 1000
-            spring: MMotion.stiffnessSpatialFor("panel")
-            damping: MMotion.dampingSpatialFor("panel")
-            epsilon: MMotion.epsilon
+            duration: 260
+            easing.type: Easing.OutCubic
         }
 
         NumberAnimation {
@@ -1690,6 +1727,7 @@ Item {
 
         anchors.fill: parent
         z: Constants.zIndexLockScreen
+        compositor: shell.compositor
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
@@ -1898,7 +1936,10 @@ Item {
         pullProgress: pageView.searchPullProgress
         onClosed: {
             UIStore.closeSearch();
-            shell.forceActiveFocus();
+            if (UIStore.appWindowOpen)
+                appWindow.focusApp();
+            else
+                shell.forceActiveFocus();
         }
         onResultSelected: result => {
             UnifiedSearchService.executeSearchResult(result);
@@ -2188,6 +2229,11 @@ Item {
     }
 
     Connections {
+        function onTextInputHintsChanged() {
+            if (virtualKeyboard.active)
+                virtualKeyboard.refreshFieldHints();
+        }
+
         function onNativeTextInputPanelRequested(show) {
             if (!Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
@@ -2247,6 +2293,37 @@ Item {
         onTriggered: {
             Logger.info("Shell", "Power button LONG PRESS detected - showing power menu");
             powerMenu.show();
+        }
+    }
+
+    Binding {
+        target: shell.compositor
+        property: "appViewportSize"
+        value: Qt.size(Math.round(appWindow.width), Math.round(appWindow.height + virtualKeyboard.height))
+        when: shell.compositor !== null && appWindow.width > 0
+    }
+
+    ParallelAnimation {
+        id: backExit
+
+        NumberAnimation {
+            target: appWindow
+            property: "opacity"
+            to: 0
+            duration: MMotion.reduceMotion ? 0 : 180
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: appWindow
+            property: "scale"
+            to: 0.9
+            duration: MMotion.reduceMotion ? 0 : 180
+            easing.type: Easing.OutCubic
+        }
+        onFinished: {
+            UIStore.closeApp();
+            appWindow.opacity = 1;
+            appWindow.scale = 1;
         }
     }
 
