@@ -17,7 +17,7 @@ Item {
     signal toggled
 
     implicitWidth: Silica.Theme.itemSizeExtraLarge
-    implicitHeight: circle.height + Silica.Theme.paddingSmall + labelText.height + Silica.Theme.paddingMedium
+    implicitHeight: circle.height + Silica.Theme.paddingSmall + labelText.height
 
     Accessible.role: Accessible.Button
     Accessible.name: label

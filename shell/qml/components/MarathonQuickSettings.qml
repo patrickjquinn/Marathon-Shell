@@ -289,7 +289,7 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingLarge
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingMedium
 
             layer.enabled: true
 
@@ -331,7 +331,7 @@ Item {
                         text: header.timeText
                         color: Silica.Theme.highlightColor
                         font.family: Silica.Theme.fontFamilyHeading
-                        font.pixelSize: Silica.Theme.fontSizeExtraLarge
+                        font.pixelSize: Silica.Theme.fontSizeLarge
                         font.features: ({ "tnum": 1 })
                     }
                     Text {
@@ -370,7 +370,7 @@ Item {
                 id: tileGrid
                 width: parent.width
                 columns: 4
-                rowSpacing: Silica.Theme.paddingLarge
+                rowSpacing: Silica.Theme.paddingMedium
                 readonly property real cellWidth: width / 4
 
                 Repeater {
@@ -431,7 +431,7 @@ Item {
                 id: expandedGrid
                 width: parent.width
                 columns: 4
-                rowSpacing: Silica.Theme.paddingLarge
+                rowSpacing: Silica.Theme.paddingMedium
                 readonly property real cellWidth: width / 4
 
                 Repeater {

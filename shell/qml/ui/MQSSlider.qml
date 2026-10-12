@@ -33,7 +33,7 @@ Item {
 
     signal moved(real value)
 
-    implicitHeight: Silica.Theme.itemSizeSmall
+    implicitHeight: Silica.Theme.itemSizeExtraSmall
 
     Accessible.role: Accessible.Slider
     Accessible.name: a11yName
