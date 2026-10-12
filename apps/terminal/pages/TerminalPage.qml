@@ -67,27 +67,9 @@ Page {
             }
 
             MenuItem {
-                objectName: "restartItem"
-                visible: !!page.app.currentSession && page.app.currentSession.failed
-                text: qsTr("Restart session")
-                onClicked: page.app.currentSession.start()
-            }
-            MenuItem {
                 objectName: "settingsItem"
                 text: qsTr("Settings")
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"), { app: page.app })
-            }
-            MenuItem {
-                objectName: "smallerItem"
-                text: qsTr("Smaller text")
-                enabled: page.app.fontSize.value > page.app.minFontSize
-                onClicked: page.setFontSize(page.app.fontSize.value - 2)
-            }
-            MenuItem {
-                objectName: "largerItem"
-                text: qsTr("Larger text")
-                enabled: page.app.fontSize.value < page.app.maxFontSize
-                onClicked: page.setFontSize(page.app.fontSize.value + 2)
             }
             MenuItem {
                 objectName: "sessionsItem"
@@ -115,6 +97,12 @@ Page {
                 text: qsTr("Copy")
                 onClicked: page.currentView.copySelection()
             }
+            MenuItem {
+                objectName: "restartItem"
+                visible: !!page.app.currentSession && page.app.currentSession.failed
+                text: qsTr("Restart session")
+                onClicked: page.app.currentSession.start()
+            }
         }
 
         Item {
@@ -124,13 +112,19 @@ Page {
             width: flick.width
             height: flick.height
 
-            Item {
+            // Pinch to resize the text; single touches reach the terminal below.
+            PinchArea {
+                property int startSize
+
+                objectName: "pinchArea"
                 anchors {
                     top: parent.top
                     left: parent.left
                     right: parent.right
                     bottom: keyRow.visible ? keyRow.top : parent.bottom
                 }
+                onPinchStarted: startSize = page.app.fontSize.value
+                onPinchUpdated: pinch => page.setFontSize(Math.round(startSize * pinch.scale))
 
                 Repeater {
                     id: views

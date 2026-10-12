@@ -89,15 +89,33 @@ TestCase {
         verify(page.currentView.visible);
     }
 
-    function test_textSizeSteps() {
+    function test_pinchResizesText() {
         const app = makeApp();
-        item(app, "largerItem").clicked();
-        compare(app.fontSize.value, 22);
-        item(app, "smallerItem").clicked();
-        item(app, "smallerItem").clicked();
-        compare(app.fontSize.value, 18);
-        app.fontSize.value = app.maxFontSize;
-        verify(!item(app, "largerItem").enabled);
+        const area = item(app, "pinchArea");
+        const y = area.height / 2;
+        const touch = touchEvent(area);
+        touch.press(0, area, area.width / 2 - 50, y).press(1, area, area.width / 2 + 50, y).commit();
+        for (let d = 60; d <= 100; d += 10)
+            touch.move(0, area, area.width / 2 - d, y).move(1, area, area.width / 2 + d, y).commit();
+        touch.release(0, area, area.width / 2 - 100, y).release(1, area, area.width / 2 + 100, y).commit();
+        verify(app.fontSize.value > 20, "spreading two fingers enlarges the text: " + app.fontSize.value);
+        app.fontSize.value = 20;
+        touch.press(0, area, area.width / 2 - 200, y).press(1, area, area.width / 2 + 200, y).commit();
+        for (let d = 180; d >= 10; d -= 10)
+            touch.move(0, area, area.width / 2 - d, y).move(1, area, area.width / 2 + d, y).commit();
+        touch.release(0, area, area.width / 2 - 10, y).release(1, area, area.width / 2 + 10, y).commit();
+        compare(app.fontSize.value, app.minFontSize);
+    }
+
+    function test_menuOrder() {
+        const app = makeApp();
+        app.newSession();
+        app.pageStack.currentPage.currentView.selection = "x";
+        app.currentSession.failed = true;
+        const menu = openMenu(app);
+        const names = ["settingsItem", "sessionsItem", "newSessionItem", "pasteItem", "copyItem", "restartItem"];
+        const ys = () => names.map(n => item(app, n).mapToItem(menu, 0, 0).y);
+        tryVerify(() => ys().every((y, i, all) => i === 0 || y > all[i - 1]), 3000, JSON.stringify(ys()));
     }
 
     function test_pasteSendsClipboard() {
