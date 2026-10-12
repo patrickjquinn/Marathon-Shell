@@ -4,17 +4,20 @@
 pkgname=device-pine64-pinephone-marathon
 pkgdesc="PINE64 PinePhone device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
 options="!check !archcheck"
-# device-pine64-pinephone (pmaports testing) brings the kernel, DTBs,
-# U-Boot, the modem stack (eg25-manager) and the stock boot.scr; the
-# pipeline's U-Boot boot path (pipeline patch 0022) lays out the disk.
-# This overlay only adds Marathon's settings for the device.
+# device-pine64-pinephone (pmaports testing) brings the DTBs, the modem
+# stack (eg25-manager) and the stock boot.scr; the pipeline's U-Boot boot
+# path (pipeline patch 0022) lays out the disk. The kernel and U-Boot are
+# Marathon's forks of the pmaports ones (watchdog, lockup detection,
+# pstore; TF-A >= 2.14.3), built by scripts/build-image.sh.
 depends="
 	device-pine64-pinephone
+	linux-postmarketos-allwinner-marathon
+	u-boot-pinephone-marathon
 	marathon-shell
 	marathon-base-config
 	marathon-plymouth-theme

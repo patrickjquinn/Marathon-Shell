@@ -35,8 +35,9 @@ makedepends="
 	zstd
 	"
 # Replace pmaports' linux-postmarketos-allwinner so device-pine64-pinephone
-# installs this kernel; module paths stay 6.18.3 as upstream.
-provides="linux-postmarketos-allwinner=$pkgver-r$pkgrel"
+# installs this kernel; module paths stay 6.18.3 as upstream. r99 outranks
+# pmaports' own pkgrel bumps of the same pkgver.
+provides="linux-postmarketos-allwinner=$pkgver-r99"
 replaces="linux-postmarketos-allwinner"
 provider_priority=200
 options="!strip !check !tracedeps
