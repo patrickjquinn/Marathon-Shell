@@ -68,10 +68,6 @@ Item {
         closed();
     }
 
-    function openFully() {
-        openPeek();
-    }
-
     anchors.fill: parent
     clip: true
     Keys.onPressed: event => {
