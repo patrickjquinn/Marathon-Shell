@@ -102,7 +102,7 @@ void ValhallaRoutingClient::onReply() {
 
     QVariantList       maneuvers;
     maneuvers.reserve(manArr.size());
-    for (const QJsonValue &v : manArr) {
+    for (const auto &v : manArr) {
         const QJsonObject m = v.toObject();
         QVariantMap       out;
         out["instruction"] = m.value("instruction").toString();

@@ -1,9 +1,13 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Maps
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Effects
+import MarathonUI.Feedback
 import MarathonUI.Theme
+import QtCore
 import QtPositioning
 import QtQuick
 import QtWebChannel
@@ -15,6 +19,15 @@ MApp {
     property bool showSearch: false
     property var searchResults: []
     property bool isSearching: false
+    property string searchError: ""
+    property string lastSearchQuery: ""
+    property bool showManeuvers: false
+    // Transient message card above the bottom chrome; noticeAction is
+    // optional and runs when the user taps noticeActionText.
+    property string noticeText: ""
+    property string noticeActionText: ""
+    property var noticeAction: null
+    property bool awaitingStartPoint: false
     property bool mapLoaded: false
     // Non-empty when MapLibre failed to construct (no usable WebGL1
     // context). Shown in place of the loading spinner, which would
@@ -111,6 +124,8 @@ MApp {
     readonly property bool bestCoordValid: geoclueValid || (typeof positionSource !== "undefined" && positionSource.position && positionSource.position.coordinate && positionSource.position.coordinate.isValid === true)
 
     function searchLocation(query) {
+        lastSearchQuery = query;
+        searchError = "";
         if (query.length === 0) {
             searchResults = [];
             return;
@@ -122,6 +137,8 @@ MApp {
         xhr.setRequestHeader("User-Agent", "MarathonOS/1.0");
         xhr.onreadystatechange = function () {
             if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (query !== lastSearchQuery)
+                    return;
                 isSearching = false;
                 if (xhr.status === 200) {
                     try {
@@ -139,10 +156,12 @@ MApp {
                     } catch (e) {
                         Logger.error("Maps", "Failed to parse search results: " + e);
                         searchResults = [];
+                        searchError = "The search service sent an answer Maps couldn't read. Try again in a moment.";
                     }
                 } else {
                     Logger.error("Maps", "Search request failed: " + xhr.status);
                     searchResults = [];
+                    searchError = xhr.status === 0 ? "Couldn't reach the search service. Check your internet connection and try again." : "The search service isn't responding right now. Try again in a moment.";
                 }
             }
         };
@@ -152,6 +171,76 @@ MApp {
     function goToLocation(lat, lon) {
         mapCall("setCenter", lat, lon, 15);
         showSearch = false;
+    }
+
+    function showNotice(text, actionText, action) {
+        noticeText = text;
+        noticeActionText = actionText || "";
+        noticeAction = action || null;
+    }
+
+    function clearNotice() {
+        noticeText = "";
+        noticeActionText = "";
+        noticeAction = null;
+        awaitingStartPoint = false;
+    }
+
+    property var routeStart: null
+    function routeFrom(lat, lon) {
+        routeStart = {
+            "lat": lat,
+            "lon": lon
+        };
+        routingService.requestRoute(lat, lon, selectedPlace.lat, selectedPlace.lon, currentMode);
+    }
+
+    function askForStartPoint(message) {
+        showNotice(message, "Try again", requestDirections);
+        awaitingStartPoint = true;
+    }
+
+    property bool directionsPending: false
+    function requestDirections() {
+        if (!selectedPlace)
+            return;
+        clearNotice();
+        directionsPending = true;
+        requireLocation(function () {
+            mapsApp.directionsPending = false;
+            if (mapsApp.bestCoordValid) {
+                mapsApp.routeFrom(mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude);
+                return;
+            }
+            if (typeof LocationService !== "undefined" && LocationService)
+                LocationService.start();
+            mapsApp.askForStartPoint("Your location isn't known yet. Tap the map to choose a start point, or try again once location is found.");
+        });
+    }
+
+    onBestCoordValidChanged: {
+        if (bestCoordValid && awaitingStartPoint)
+            requestDirections();
+    }
+
+    function retryMap() {
+        mapErrorText = "";
+        mapsReady = false;
+        mapsView.reload();
+    }
+
+    navigationDepth: (showManeuvers || noticeText.length > 0 || routingMode === "preview" || (routingMode === "idle" && (selectedPlace !== null || showSearch))) ? 1 : 0
+    onBackPressed: {
+        if (showManeuvers)
+            showManeuvers = false;
+        else if (noticeText.length > 0)
+            clearNotice();
+        else if (routingMode === "preview")
+            endNavigation();
+        else if (selectedPlace !== null)
+            selectedPlace = null;
+        else
+            showSearch = false;
     }
 
     appId: "maps"
@@ -198,6 +287,12 @@ MApp {
                 Logger.warn("Maps", "Location permission denied");
                 mapsApp.hasLocationPermission = false;
                 mapsApp.pendingLocationCallback = null;
+                if (mapsApp.directionsPending) {
+                    mapsApp.directionsPending = false;
+                    mapsApp.askForStartPoint("Maps can't use your location. Tap the map to choose a start point, or allow location access and try again.");
+                } else {
+                    mapsApp.showNotice("Maps can't use your location. Allow location access to see where you are.");
+                }
             }
         }
 
@@ -210,9 +305,9 @@ MApp {
     Connections {
         function onLocationChanged() {
             if (mapsApp.geoclueValid) {
-                mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
+                mapsApp.mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
                 if (!mapsApp.selectedPlace)
-                    mapCall("setCenter", LocationService.latitude, LocationService.longitude);
+                    mapsApp.mapCall("setCenter", LocationService.latitude, LocationService.longitude);
                 Logger.info("Maps", "Geoclue fix → " + LocationService.latitude + "," + LocationService.longitude + " ±" + LocationService.accuracy + "m");
             }
         }
@@ -236,9 +331,9 @@ MApp {
         onPositionChanged: {
             if (position.latitudeValid && position.longitudeValid) {
                 const c = position.coordinate;
-                mapCall("setUserLocation", c.latitude, c.longitude);
+                mapsApp.mapCall("setUserLocation", c.latitude, c.longitude);
                 if (!mapsApp.selectedPlace)
-                    mapCall("setCenter", c.latitude, c.longitude);
+                    mapsApp.mapCall("setCenter", c.latitude, c.longitude);
             }
         }
         onSourceErrorChanged: {
@@ -264,14 +359,20 @@ MApp {
                 "summary": summary
             };
             mapsApp.currentManeuverIndex = 0;
+            mapsApp.clearNotice();
             mapsApp.routingMode = "preview";
-            mapCall("setRouteGeoJSON", geojson);
+            mapsApp.mapCall("setRouteGeoJSON", geojson);
             if (summary)
-                mapCall("fitBounds", summary.minLon, summary.minLat, summary.maxLon, summary.maxLat, 80);
+                mapsApp.mapCall("fitBounds", summary.minLon, summary.minLat, summary.maxLon, summary.maxLat, 80);
             Logger.info("Maps", "Route ready: " + Math.round(distanceM / 1000) + " km, " + Math.round(durationSec / 60) + " min, " + maneuvers.length + " maneuvers");
         }
         onRouteFailed: err => {
             Logger.warn("Maps", "Route failed: " + err);
+            mapsApp.showNotice("Couldn't find a route to this place. Check your internet connection and try again.", "Try again", function () {
+                mapsApp.clearNotice();
+                if (mapsApp.selectedPlace)
+                    mapsApp.routeFrom(mapsApp.routeStart.lat, mapsApp.routeStart.lon);
+            });
         }
     }
 
@@ -335,11 +436,15 @@ MApp {
                 mapsApp.mapsReady = true;
                 mapsApp._flushPending();
                 if (mapsApp.geoclueValid)
-                    mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
-                mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 14);
+                    mapsApp.mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
+                mapsApp.mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 14);
             }
             onMapClicked: (lat, lon) => {
                 Logger.info("Maps", "JS mapClicked " + lat + "," + lon);
+                if (mapsApp.awaitingStartPoint && mapsApp.selectedPlace) {
+                    mapsApp.clearNotice();
+                    mapsApp.routeFrom(lat, lon);
+                }
             }
             onPinTapped: id => {
                 Logger.info("Maps", "JS pinTapped " + id);
@@ -381,7 +486,7 @@ MApp {
                 const root = (typeof MARATHON_APP_PATH !== "undefined" && MARATHON_APP_PATH) ? String(MARATHON_APP_PATH) : "";
                 if (root.length > 0)
                     return "file://" + root + "/web/maps.html";
-                return "file:///home/" + (typeof userName !== "undefined" ? userName : "") + "/.local/share/marathon-apps/maps/web/maps.html";
+                return StandardPaths.writableLocation(StandardPaths.GenericDataLocation) + "/marathon-apps/maps/web/maps.html";
             }
             onJavaScriptConsoleMessage: (level, message, lineNumber, source) => {
                 if (level >= WebEngineView.WarningMessageLevel)
@@ -392,6 +497,8 @@ MApp {
             onCertificateError: error => {
                 Logger.warn("Maps", "TLS cert error for " + error.url + ": " + error.description);
                 error.rejectCertificate();
+                const host = String(error.url).replace(/^\w+:\/\/([^\/:]+).*$/, "$1");
+                mapsApp.showNotice("Couldn't connect securely to " + host + ", so some map data didn't load.");
             }
             onRenderProcessTerminated: function (terminationStatus, exitCode) {
                 if (terminationStatus === WebEngineView.NormalTerminationStatus)
@@ -420,7 +527,7 @@ MApp {
         Rectangle {
             anchors.fill: parent
             color: MColors.background
-            visible: !mapLoaded || mapsApp.mapErrorText.length > 0
+            visible: !mapsApp.mapLoaded || mapsApp.mapErrorText.length > 0
 
             Column {
                 anchors.centerIn: parent
@@ -437,7 +544,7 @@ MApp {
                     // not migrated to MMotion roles (those target
                     // microinteractions, not attention loops).
                     RotationAnimation on rotation {
-                        running: !mapLoaded && mapsApp.mapErrorText.length === 0
+                        running: !mapsApp.mapLoaded && mapsApp.mapErrorText.length === 0
                         loops: Animation.Infinite
                         from: 0
                         to: 360
@@ -447,7 +554,7 @@ MApp {
 
                 MLabel {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: mapsApp.mapErrorText.length > 0 ? "Map unavailable" : "Loading map..."
+                    text: mapsApp.mapErrorText.length > 0 ? "Can't show the map" : "Loading map..."
                     variant: "secondary"
                     font.pixelSize: MTypography.sizeLarge
                 }
@@ -456,11 +563,19 @@ MApp {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: Math.round(260 * Constants.scaleFactor)
                     visible: mapsApp.mapErrorText.length > 0
-                    text: mapsApp.mapErrorText
+                    text: "The map couldn't start its graphics. Try again, or close and reopen Maps."
                     variant: "secondary"
                     wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: MTypography.sizeSubhead
+                }
+
+                MButton {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: mapsApp.mapErrorText.length > 0
+                    text: "Try again"
+                    variant: "primary"
+                    onClicked: mapsApp.retryMap()
                 }
             }
         }
@@ -468,7 +583,7 @@ MApp {
         // ── Floating search bar (JSX ref-maps top chrome) ─────
         // Glass-titlebar fill, 1 px tealBorder outer + w-04 inner. Holds
         // a magnifier, the search input (or selected-place title when a
-        // pin is active), and a 36 px circle avatar/clear toggle.
+        // pin is active), and a 44 px circle clear button.
         Rectangle {
             id: searchBar
 
@@ -499,14 +614,14 @@ MApp {
 
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
-                    name: isSearching ? "loader" : "search"
+                    name: mapsApp.isSearching ? "loader" : "search"
                     size: 20
                     color: MColors.textSecondary
                     // Infinite search spinner — 1 s/revolution is the
                     // intentional cadence; not migrated to MMotion
                     // roles (attention loops, not microinteractions).
                     RotationAnimation on rotation {
-                        running: isSearching
+                        running: mapsApp.isSearching
                         loops: Animation.Infinite
                         from: 0
                         to: 360
@@ -523,7 +638,7 @@ MApp {
                     id: placeLabel
                     visible: mapsApp.selectedPlace !== null
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 20 - 36 - parent.spacing * 2
+                    width: parent.width - 20 - 44 - parent.spacing * 2
                     height: placeCol.height
                     Column {
                         id: placeCol
@@ -547,7 +662,12 @@ MApp {
                             elide: Text.ElideRight
                         }
                     }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Search again"
+                    Accessible.onPressAction: placeLabelArea.clicked(null)
+
                     MouseArea {
+                        id: placeLabelArea
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
@@ -562,30 +682,42 @@ MApp {
 
                     visible: mapsApp.selectedPlace === null
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 20 - 36 - parent.spacing * 2
+                    width: parent.width - 20 - 44 - parent.spacing * 2
                     placeholderText: "Search Maps"
                     onTextChanged: {
-                        showSearch = text.length > 0;
-                        if (text.length > 2)
+                        mapsApp.showSearch = text.length > 0;
+                        if (text.length > 2) {
                             searchTimer.restart();
+                            return;
+                        }
+                        searchTimer.stop();
+                        mapsApp.isSearching = false;
+                        mapsApp.lastSearchQuery = "";
+                        mapsApp.searchError = "";
+                        mapsApp.searchResults = [];
                     }
                 }
 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 36
-                    height: 36
+                    width: 44
+                    height: 44
                     radius: width / 2
                     color: MColors.elev3
                     border.width: 1
                     border.color: MColors.whiteOverlay08
+                    visible: searchInput.text.length > 0 || mapsApp.selectedPlace !== null
+                    Accessible.role: Accessible.Button
+                    Accessible.name: mapsApp.selectedPlace ? "Clear selected place" : "Clear search"
+                    Accessible.onPressAction: clearArea.clicked(null)
                     Icon {
                         anchors.centerIn: parent
-                        name: searchInput.text.length > 0 || mapsApp.selectedPlace ? "x" : "user"
+                        name: "x"
                         size: 16
                         color: MColors.textSecondary
                     }
                     MouseArea {
+                        id: clearArea
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
@@ -594,7 +726,7 @@ MApp {
                                 return;
                             }
                             searchInput.text = "";
-                            showSearch = false;
+                            mapsApp.showSearch = false;
                         }
                     }
                 }
@@ -606,7 +738,7 @@ MApp {
 
             interval: 500
             onTriggered: {
-                searchLocation(searchInput.text);
+                mapsApp.searchLocation(searchInput.text);
             }
         }
 
@@ -618,23 +750,64 @@ MApp {
             anchors.right: parent.right
             anchors.margins: MSpacing.md
             anchors.topMargin: MSpacing.sm
-            height: Math.min(searchResultsList.contentHeight + MSpacing.md * 2, parent.height * 0.5)
+            readonly property bool showStatus: mapsApp.searchError.length > 0 || (!mapsApp.isSearching && mapsApp.lastSearchQuery.length > 0 && mapsApp.searchResults.length === 0)
+            height: showStatus ? searchStatus.implicitHeight + MSpacing.md * 2 : Math.min(searchResultsList.contentHeight + MSpacing.md * 2, parent.height * 0.5)
             color: MColors.surface
             radius: Constants.borderRadiusSharp
             border.width: Constants.borderWidthMedium
             border.color: MColors.border
-            visible: showSearch && searchResults.length > 0
+            visible: mapsApp.showSearch && mapsApp.routingMode === "idle" && (mapsApp.searchResults.length > 0 || showStatus)
             z: 99
+
+            Column {
+                id: searchStatus
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.sm
+                visible: searchResultsPanel.showStatus
+
+                MLabel {
+                    width: parent.width
+                    text: mapsApp.searchError.length > 0 ? "Search didn't work" : "No places found for \u201c" + mapsApp.lastSearchQuery + "\u201d"
+                    variant: "primary"
+                    font.pixelSize: MTypography.sizeBody
+                    font.weight: Font.DemiBold
+                    wrapMode: Text.WordWrap
+                }
+
+                MLabel {
+                    width: parent.width
+                    text: mapsApp.searchError.length > 0 ? mapsApp.searchError : "Check the spelling, or try a street, city or postcode."
+                    variant: "secondary"
+                    font.pixelSize: MTypography.sizeSmall
+                    wrapMode: Text.WordWrap
+                }
+
+                MButton {
+                    visible: mapsApp.searchError.length > 0
+                    text: "Try again"
+                    size: "compact"
+                    onClicked: mapsApp.searchLocation(mapsApp.lastSearchQuery)
+                }
+            }
 
             ListView {
                 id: searchResultsList
 
+                visible: !searchResultsPanel.showStatus
                 anchors.fill: parent
                 anchors.margins: MSpacing.sm
                 clip: true
-                model: searchResults
+                model: mapsApp.searchResults
 
                 delegate: Item {
+                    id: resultDelegate
+
+                    required property var modelData
+
                     width: searchResultsList.width
                     height: Constants.touchTargetLarge + MSpacing.sm
 
@@ -644,10 +817,10 @@ MApp {
                         interactive: true
                         onClicked: {
                             HapticService.light();
-                            Logger.info("Maps", "Selected: " + modelData.name);
-                            mapsApp.selectedPlace = modelData;
-                            showSearch = false;
-                            goToLocation(modelData.lat, modelData.lon);
+                            Logger.info("Maps", "Selected: " + resultDelegate.modelData.name);
+                            mapsApp.selectedPlace = resultDelegate.modelData;
+                            mapsApp.showSearch = false;
+                            mapsApp.goToLocation(resultDelegate.modelData.lat, resultDelegate.modelData.lon);
                         }
 
                         Row {
@@ -668,7 +841,7 @@ MApp {
 
                                 MLabel {
                                     width: parent.width
-                                    text: modelData.name
+                                    text: resultDelegate.modelData.name
                                     variant: "primary"
                                     font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
@@ -677,7 +850,7 @@ MApp {
 
                                 MLabel {
                                     width: parent.width
-                                    text: modelData.address
+                                    text: resultDelegate.modelData.address
                                     variant: "secondary"
                                     font.pixelSize: MTypography.sizeSmall
                                     elide: Text.ElideRight
@@ -700,8 +873,8 @@ MApp {
             anchors.right: parent.right
             anchors.rightMargin: 14
             y: 200
-            width: 42
-            height: 42
+            width: 44
+            height: 44
             radius: MRadius.md
             color: MColors.glassTitlebar
             border.width: 1
@@ -715,17 +888,23 @@ MApp {
                 color: MColors.marathonTeal
             }
 
+            Accessible.role: Accessible.Button
+            Accessible.name: "Show my location"
+            Accessible.onPressAction: locateArea.clicked(null)
+
             MouseArea {
+                id: locateArea
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     HapticService.medium();
                     mapsApp.requireLocation(function () {
                         if (mapsApp.bestCoordValid) {
-                            mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 15);
+                            mapsApp.mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 15);
                             Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
                         } else {
                             Logger.warn("Maps", "Position not available");
+                            mapsApp.showNotice("Finding your location. Make sure location is turned on, then try again.");
                             if (typeof LocationService !== "undefined" && LocationService)
                                 LocationService.start();
                         }
@@ -736,8 +915,8 @@ MApp {
 
         // ── Place card (JSX ref-maps bottom chrome) ───────────
         // Visible only when a search result is selected. 64×64 teal
-        // gradient bay + place name + meta (address) + ★rating +
-        // four-action row: Directions (teal accent) · Call · Share · Save.
+        // gradient bay + place name + address + place type, and a
+        // Directions action.
         Rectangle {
             id: placeCard
             visible: mapsApp.selectedPlace !== null && mapsApp.routingMode === "idle"
@@ -817,9 +996,6 @@ MApp {
                         elide: Text.ElideRight
                         maximumLineCount: 1
                     }
-                    // ★ rating / price line — placeholder until Nominatim
-                    // results include richer business metadata. Empty when
-                    // no data so the row collapses cleanly.
                     Row {
                         spacing: 8
                         visible: mapsApp.selectedPlace && mapsApp.selectedPlace.type
@@ -834,51 +1010,41 @@ MApp {
                 }
             }
 
-            // Action row — Directions (teal accent).
-            Row {
+            Item {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottomMargin: 14
+                height: 48
+                enabled: !routingService.routing
 
-                Repeater {
-                    model: [
-                        {
-                            label: "Directions",
-                            icon: "navigation",
-                            accent: true
-                        }
-                    ]
-                    delegate: Item {
-                        width: parent.width
-                        height: 48
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-                            Icon {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                name: modelData.icon
-                                size: 20
-                                color: modelData.accent ? MColors.marathonTealBright : MColors.textSecondary
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: modelData.label
-                                color: modelData.accent ? MColors.marathonTealBright : MColors.textSecondary
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeEyebrow
-                                font.weight: Font.Medium
-                            }
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                HapticService.light();
-                                if (modelData.label === "Directions" && mapsApp.selectedPlace && mapsApp.bestCoordValid) {
-                                    routingService.requestRoute(mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, mapsApp.selectedPlace.lat, mapsApp.selectedPlace.lon, mapsApp.currentMode);
-                                }
-                            }
-                        }
+                Accessible.role: Accessible.Button
+                Accessible.name: "Directions"
+                Accessible.onPressAction: mapsApp.requestDirections()
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        name: "navigation"
+                        size: 20
+                        color: MColors.marathonTealBright
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Directions"
+                        color: MColors.marathonTealBright
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Medium
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        HapticService.light();
+                        mapsApp.requestDirections();
                     }
                 }
             }
@@ -895,7 +1061,7 @@ MApp {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 12
-            height: 196
+            height: 204
             radius: MRadius.md
             color: MColors.elev2
             border.width: 1
@@ -974,37 +1140,47 @@ MApp {
                             }
                         ]
                         delegate: Rectangle {
+                            id: modeDelegate
+
+                            required property var modelData
+
                             width: 100
-                            height: 36
+                            height: 44
                             radius: MRadius.md
-                            color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealGlow : MColors.glassTitlebar
+                            color: mapsApp.currentMode === modeDelegate.modelData.mode ? MColors.tealHalo : MColors.glassTitlebar
+                            Accessible.role: Accessible.Button
+                            Accessible.name: modeDelegate.modelData.label
+                            Accessible.checkable: true
+                            Accessible.checked: mapsApp.currentMode === modeDelegate.modelData.mode
+                            Accessible.onPressAction: modeArea.clicked(null)
                             border.width: 1
-                            border.color: mapsApp.currentMode === modelData.mode ? MColors.tealBorder : MColors.whiteOverlay08
+                            border.color: mapsApp.currentMode === modeDelegate.modelData.mode ? MColors.tealBorder : MColors.whiteOverlay08
                             Row {
                                 anchors.centerIn: parent
                                 spacing: 6
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: modelData.icon
+                                    name: modeDelegate.modelData.icon
                                     size: 14
-                                    color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
+                                    color: mapsApp.currentMode === modeDelegate.modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
                                 }
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.label
-                                    color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
+                                    text: modeDelegate.modelData.label
+                                    color: mapsApp.currentMode === modeDelegate.modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
                                     font.weight: Font.Medium
                                 }
                             }
                             MouseArea {
+                                id: modeArea
                                 anchors.fill: parent
                                 onClicked: {
                                     HapticService.light();
-                                    mapsApp.currentMode = modelData.mode;
-                                    if (mapsApp.selectedPlace && mapsApp.bestCoordValid)
-                                        routingService.requestRoute(mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, mapsApp.selectedPlace.lat, mapsApp.selectedPlace.lon, mapsApp.currentMode);
+                                    mapsApp.currentMode = modeDelegate.modelData.mode;
+                                    if (mapsApp.selectedPlace && mapsApp.routeStart)
+                                        mapsApp.routeFrom(mapsApp.routeStart.lat, mapsApp.routeStart.lon);
                                 }
                             }
                         }
@@ -1022,32 +1198,36 @@ MApp {
                         gradient: Gradient {
                             GradientStop {
                                 position: 0
-                                color: Qt.rgba(0, 191 / 255, 165 / 255, 1.0)
+                                color: MColors.marathonTeal
                             }
                             GradientStop {
                                 position: 1
-                                color: Qt.rgba(0, 138 / 255, 119 / 255, 1.0)
+                                color: MColors.marathonTealDark
                             }
                         }
                         border.width: 1
                         border.color: MColors.tealBorder
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Start navigation"
+                        Accessible.onPressAction: startArea.clicked(null)
                         Row {
                             anchors.centerIn: parent
                             spacing: 8
                             Icon {
                                 name: "navigation"
                                 size: 18
-                                color: "#040404"
+                                color: MColors.bb10Black
                             }
                             Text {
                                 text: "Start"
-                                color: "#040404"
+                                color: MColors.bb10Black
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeBody
                                 font.weight: Font.Medium
                             }
                         }
                         MouseArea {
+                            id: startArea
                             anchors.fill: parent
                             onClicked: {
                                 HapticService.medium();
@@ -1064,6 +1244,9 @@ MApp {
                         color: MColors.glassTitlebar
                         border.width: 1
                         border.color: MColors.whiteOverlay08
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Cancel route"
+                        Accessible.onPressAction: cancelArea.clicked(null)
                         Text {
                             anchors.centerIn: parent
                             text: "Cancel"
@@ -1073,6 +1256,7 @@ MApp {
                             font.weight: Font.Medium
                         }
                         MouseArea {
+                            id: cancelArea
                             anchors.fill: parent
                             onClicked: {
                                 HapticService.light();
@@ -1174,9 +1358,13 @@ MApp {
                     }
                 }
             }
+            Accessible.role: Accessible.Button
+            Accessible.name: "Show all directions"
+            Accessible.onPressAction: mapsApp.showManeuvers = true
+
             MouseArea {
                 anchors.fill: parent
-                onClicked: maneuverSheet.visible = true
+                onClicked: mapsApp.showManeuvers = true
             }
         }
 
@@ -1189,14 +1377,17 @@ MApp {
             width: 88
             height: 44
             radius: MRadius.md
-            color: Qt.rgba(0.95, 0.25, 0.25, 0.85)
+            color: MColors.error
             border.width: 1
-            border.color: Qt.rgba(1, 0.4, 0.4, 0.5)
+            border.color: MColors.errorDim
             z: 105
+            Accessible.role: Accessible.Button
+            Accessible.name: "End navigation"
+            Accessible.onPressAction: mapsApp.endNavigation()
             Text {
                 anchors.centerIn: parent
                 text: "End"
-                color: "white"
+                color: MColors.textPrimary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeBody
                 font.weight: Font.Medium
@@ -1210,12 +1401,86 @@ MApp {
             }
         }
 
+        Rectangle {
+            id: noticeCard
+
+            readonly property bool routing: routingService.routing
+            visible: routing || mapsApp.noticeText.length > 0
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: placeCard.visible ? placeCard.top : previewCard.visible ? previewCard.top : parent.bottom
+            anchors.margins: 12
+            anchors.bottomMargin: (placeCard.visible || previewCard.visible) ? MSpacing.sm : (mapsApp.routingMode === "active" ? 72 : 12)
+            height: noticeRow.implicitHeight + MSpacing.md * 2
+            radius: MRadius.md
+            color: MColors.elev3
+            border.width: 1
+            border.color: MColors.whiteOverlay08
+            z: 120
+
+            Accessible.role: Accessible.AlertMessage
+            Accessible.name: noticeLabel.text
+
+            MouseArea {
+                anchors.fill: parent
+            }
+
+            Row {
+                id: noticeRow
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.xs
+                spacing: MSpacing.sm
+
+                MActivityIndicator {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: noticeCard.routing
+                    running: visible
+                    size: 20
+                }
+
+                MLabel {
+                    id: noticeLabel
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - (noticeCard.routing ? 20 + parent.spacing : 0) - (noticeActionButton.visible ? noticeActionButton.width + parent.spacing : 0) - dismissButton.width - parent.spacing
+                    text: noticeCard.routing ? "Finding a route\u2026" : mapsApp.noticeText
+                    variant: "primary"
+                    font.pixelSize: MTypography.sizeSubhead
+                    wrapMode: Text.WordWrap
+                }
+
+                MButton {
+                    id: noticeActionButton
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: !noticeCard.routing && mapsApp.noticeActionText.length > 0
+                    text: mapsApp.noticeActionText
+                    size: "compact"
+                    onClicked: mapsApp.noticeAction() // qmllint disable use-proper-function
+                }
+
+                MIconButton {
+                    id: dismissButton
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: !noticeCard.routing
+                    iconName: "x"
+                    a11yName: "Dismiss"
+                    onClicked: mapsApp.clearNotice()
+                }
+            }
+        }
+
         // Full maneuver list sheet — tap the nav banner to bring up.
         Rectangle {
             id: maneuverSheet
-            visible: false
+            visible: mapsApp.showManeuvers
             anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.85)
+            color: MColors.overlay
             z: 200
 
             Rectangle {
@@ -1227,6 +1492,10 @@ MApp {
                 color: MColors.elev2
                 border.width: 1
                 border.color: MColors.whiteOverlay08
+
+                MouseArea {
+                    anchors.fill: parent
+                }
 
                 Column {
                     anchors.fill: parent
@@ -1244,9 +1513,12 @@ MApp {
                         }
                         Rectangle {
                             width: 60
-                            height: 32
+                            height: 44
                             radius: MRadius.md
                             color: "transparent"
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Close directions"
+                            Accessible.onPressAction: mapsApp.showManeuvers = false
                             Text {
                                 anchors.centerIn: parent
                                 text: "Close"
@@ -1256,16 +1528,21 @@ MApp {
                             }
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: maneuverSheet.visible = false
+                                onClicked: mapsApp.showManeuvers = false
                             }
                         }
                     }
                     ListView {
                         width: parent.width
-                        height: parent.height - 48
+                        height: parent.height - 52
                         clip: true
                         model: mapsApp.currentRoute ? mapsApp.currentRoute.maneuvers : []
                         delegate: Item {
+                            id: maneuverDelegate
+
+                            required property var modelData
+                            required property int index
+
                             width: parent.width
                             height: 56
                             Row {
@@ -1274,7 +1551,7 @@ MApp {
                                 spacing: 12
                                 Text {
                                     width: 60
-                                    text: modelData.length < 1 ? Math.round(modelData.length * 1000) + " m" : modelData.length.toFixed(1) + " km"
+                                    text: maneuverDelegate.modelData.length < 1 ? Math.round(maneuverDelegate.modelData.length * 1000) + " m" : maneuverDelegate.modelData.length.toFixed(1) + " km"
                                     color: MColors.marathonTealBright
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
@@ -1284,11 +1561,11 @@ MApp {
                                 }
                                 Text {
                                     width: parent.width - 60 - parent.spacing
-                                    text: modelData.instruction
-                                    color: index === mapsApp.currentManeuverIndex ? MColors.textPrimary : MColors.textSecondary
+                                    text: maneuverDelegate.modelData.instruction
+                                    color: maneuverDelegate.index === mapsApp.currentManeuverIndex ? MColors.textPrimary : MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeBody
-                                    font.weight: index === mapsApp.currentManeuverIndex ? Font.Medium : Font.Normal
+                                    font.weight: maneuverDelegate.index === mapsApp.currentManeuverIndex ? Font.Medium : Font.Normal
                                     wrapMode: Text.WordWrap
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -1300,7 +1577,7 @@ MApp {
             MouseArea {
                 anchors.fill: parent
                 z: -1
-                onClicked: maneuverSheet.visible = false
+                onClicked: mapsApp.showManeuvers = false
             }
         }
     }
