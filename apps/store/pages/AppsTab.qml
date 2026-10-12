@@ -61,7 +61,18 @@ TabItem {
 
             SectionHeader {
                 text: qsTr("Top charts")
-                visible: root.store.topApps.length > 0
+                visible: root.store.topApps.length > 0 || !root.store.catalogLoading
+            }
+            Label {
+                objectName: "chartsNote"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                visible: text !== ""
+                text: root.store.showingSavedCatalog ? qsTr("Offline. Showing apps saved %1.").arg(root.store.timeAgo(root.store.catalogSavedAt)) : root.store.topApps.length === 0 && !root.store.catalogLoading ? qsTr("Couldn't reach Flathub. Check your connection.") : ""
+                color: Theme.secondaryHighlightColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
             }
             Repeater {
                 objectName: "topCharts"

@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import "../models"
 
@@ -10,5 +11,6 @@ StoreBackend {
     flathubApi: "http://127.0.0.1:9/flathub"
     odrsApi: "http://127.0.0.1:9/odrs"
     stateDir: Qt.resolvedUrl("data").toString().replace("file://", "")
+    cacheFile: StandardPaths.writableLocation(StandardPaths.TempLocation) + "/marathon-store-test-" + Qt.md5(String(Math.random())) + ".ini"
     openExternally: url => root.opened = root.opened.concat([url])
 }

@@ -20,6 +20,7 @@ QtObject {
     // Same directory the store handler scripts write to ($XDG_RUNTIME_DIR).
     property string stateDir: String(StandardPaths.writableLocation(StandardPaths.RuntimeLocation)).replace("file://", "") + "/marathon-store-state"
     property var openExternally: url => Qt.openUrlExternally(url)
+    property url cacheFile: StandardPaths.writableLocation(StandardPaths.CacheLocation) + "/catalog.ini"
     // How long a request may go unanswered by the handler, in seconds.
     property int helperTimeout: 30
 
@@ -36,6 +37,9 @@ QtObject {
     property int catalogFetchesInFlight: 0
     readonly property bool catalogLoading: catalogFetchesInFlight > 0 || startupTimer.running
     property string lastError: ""
+    // When the catalogue on screen was saved, if it came from the cache and
+    // nothing fresher has loaded since; 0 otherwise.
+    property real catalogSavedAt: 0
     // Collections can come back with keys but no entries once the aarch64
     // filter has run, so "loaded" means apps were counted, not keys.
     readonly property int catalogAppCount: {
@@ -121,6 +125,7 @@ QtObject {
     readonly property var newApps: take(collections["recently-added"], [heroApp].concat(trendingApps, mobileApps), 5)
     readonly property var topApps: take(collections["popular"], [], 24)
     readonly property var updateApps: pendingUpdates.map(u => installedEntry(u.app_id) || u)
+    readonly property bool showingSavedCatalog: catalogSavedAt > 0 && !catalogLoading
 
     signal pushRequested(url page, var properties)
     // A job left the running states: done, removed or failed.
@@ -285,6 +290,8 @@ QtObject {
 
     function loadCatalog() {
         lastError = "";
+        if (catalogAppCount === 0)
+            restoreCatalog();
         startupTimer.queue = [() => loadAppOfTheDay(), () => loadCollection("verified"), () => loadCollection("trending"), () => loadCollection("popular"), () => loadCollection("mobile"), () => loadCollection("recently-added"), () => refreshState()];
         startupTimer.running = true;
     }
@@ -301,6 +308,8 @@ QtObject {
             next[name] = pickAarch64(data.hits || []);
             root.collections = next;
             root.lastError = "";
+            root.catalogSavedAt = 0;
+            root.saveCatalog();
         });
     }
 
@@ -309,7 +318,10 @@ QtObject {
             if (err || !data || !data.app_id)
                 return;
             loadAppstream(data.app_id, function (full) {
+                if (!full)
+                    return;
                 root.appOfTheDay = full;
+                root.saveCatalog();
             });
         });
     }
@@ -359,10 +371,73 @@ QtObject {
 
     // A whole Flathub collection for a list page, e.g.
     // "collection/category/game" or "collection/mobile".
+    // Offline, the last copy of the list comes back with the error and the
+    // time it was saved.
     function loadList(source, cb) {
         fetchJson(flathubApi + "/" + source + "?page=1&per_page=60&locale=en", null, function (data, err) {
-            cb(err ? [] : pickAarch64(data.hits || []), err);
+            if (err) {
+                const saved = root.savedJson("list/" + source);
+                cb(saved ? saved.apps : [], err, saved ? saved.ts : 0);
+                return;
+            }
+            const list = pickAarch64(data.hits || []);
+            root.saveJson("list/" + source, {
+                "ts": Math.floor(Date.now() / 1000),
+                "apps": list.map(root.slim)
+            });
+            cb(list, "", 0);
         });
+    }
+
+    // ── Offline cache ─────────────────────────────────────────
+    //
+    // The last catalogue and lists, so a launch without a network still has
+    // something to browse. Hits are cut down to the fields the lists show.
+
+    readonly property var _slimKeys: ["app_id", "id", "name", "summary", "icon", "developer_name", "main_categories", "categories", "installs_last_month", "verification_verified", "version"]
+
+    function slim(app) {
+        const out = {};
+        _slimKeys.forEach(k => {
+            if (app[k] !== undefined)
+                out[k] = app[k];
+        });
+        return out;
+    }
+
+    function savedJson(key) {
+        try {
+            const raw = _cache.value(key, "");
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveJson(key, value) {
+        _cache.setValue(key, JSON.stringify(value));
+        _cache.sync();
+    }
+
+    function saveCatalog() {
+        const slimmed = {};
+        for (const k in collections)
+            slimmed[k] = collections[k].map(slim);
+        saveJson("catalog", {
+            "ts": Math.floor(Date.now() / 1000),
+            "collections": slimmed,
+            "appOfTheDay": appOfTheDay
+        });
+    }
+
+    function restoreCatalog() {
+        const saved = savedJson("catalog");
+        if (!saved || !saved.collections)
+            return;
+        collections = saved.collections;
+        if (saved.appOfTheDay)
+            appOfTheDay = saved.appOfTheDay;
+        catalogSavedAt = saved.ts || 0;
     }
 
     function searchApps(query, cb) {
@@ -944,6 +1019,10 @@ QtObject {
             "screenshots": shots,
             "startIndex": index
         });
+    }
+
+    property Settings _cache: Settings {
+        location: root.cacheFile
     }
 
     property FolderListModel _progressFiles: FolderListModel {

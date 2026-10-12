@@ -17,13 +17,15 @@ Page {
     property var apps: []
     property bool loading: true
     property string error: ""
+    property real savedAt: 0
 
     function load() {
         root.loading = true;
         root.error = "";
-        store.loadList(source, function (list, err) {
+        store.loadList(source, function (list, err, savedAt) {
             root.loading = false;
             root.error = err || "";
+            root.savedAt = savedAt;
             root.apps = list;
         });
     }
@@ -38,6 +40,7 @@ Page {
         model: root.apps
         header: PageHeader {
             title: root.title
+            description: root.savedAt > 0 ? qsTr("Offline. Saved %1").arg(root.store.timeAgo(root.savedAt)) : ""
         }
 
         PullDownMenu {

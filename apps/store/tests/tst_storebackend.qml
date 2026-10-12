@@ -188,6 +188,31 @@ TestCase {
         compare(b.jobFor("org.example.Gone"), null);
     }
 
+    function test_catalogSurvivesGoingOffline() {
+        const first = makeBackend();
+        first.collections = Fixtures.collections();
+        first.saveCatalog();
+        first.saveJson("list/collection/mobile", { "ts": 1000, "apps": [{ "app_id": "org.example.M1" }] });
+        const b = createTemporaryObject(backendComponent, testCase, { "cacheFile": first.cacheFile });
+        b.loadCatalog();
+        compare(b.catalogAppCount, 12);
+        verify(b.catalogSavedAt > 0);
+        tryCompare(b, "catalogLoading", false, 10000);
+        compare(b.catalogAppCount, 12);
+        verify(b.showingSavedCatalog);
+        let got = null;
+        b.loadList("collection/mobile", (list, err, savedAt) => got = { list, err, savedAt });
+        tryVerify(() => got !== null, 10000);
+        compare(got.list.map(a => a.app_id), ["org.example.M1"]);
+        verify(got.err !== "");
+        compare(got.savedAt, 1000);
+    }
+
+    function test_slimKeepsListFields() {
+        const b = makeBackend();
+        compare(b.slim({ "app_id": "a.b.C", "name": "C", "description": "long", "screenshots": [] }), { "app_id": "a.b.C", "name": "C" });
+    }
+
     function test_cachedLookupsSkipTheNetwork() {
         const b = makeBackend();
         const cache = {};

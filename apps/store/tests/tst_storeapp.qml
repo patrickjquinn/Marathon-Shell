@@ -155,6 +155,17 @@ TestCase {
         verify(!findChild(action, "cancelButton").visible);
     }
 
+    function test_savedCatalogExplained() {
+        const app = makeApp();
+        const tab = showTab(app, 0);
+        tryCompare(app.store, "catalogLoading", false, 10000);
+        app.store.collections = Fixtures.collections();
+        app.store.catalogSavedAt = Math.floor(Date.now() / 1000);
+        verify(findChild(tab, "savedNote").visible);
+        compare(findChild(tab, "savedNote").text, "Offline. Showing apps saved today. Pull down to refresh.");
+        verify(!findChild(tab, "discoverPlaceholder").enabled);
+    }
+
     function test_uninstallWithRemorse() {
         const app = makeApp();
         seedMaps(app);

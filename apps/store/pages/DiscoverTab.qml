@@ -106,6 +106,18 @@ TabItem {
                 }
             }
 
+            Label {
+                objectName: "savedNote"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                visible: root.query === "" && root.store.showingSavedCatalog
+                text: qsTr("Offline. Showing apps saved %1. Pull down to refresh.").arg(root.store.timeAgo(root.store.catalogSavedAt))
+                color: Theme.secondaryHighlightColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+            }
+
             // ── Search results ────────────────────────────
             Column {
                 width: parent.width
