@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonUI.Theme
 import QtQuick
 
@@ -45,6 +47,8 @@ Item {
         Repeater {
             model: Math.min(root.framesPerPage, root.frames.length)
             delegate: MActiveFrame {
+                id: frameTile
+
                 required property int index
                 readonly property var frame: root.frames[index] || {}
                 width: grid.cellWidth
@@ -59,7 +63,7 @@ Item {
 
                 Loader {
                     anchors.fill: parent
-                    sourceComponent: root.mode === "switcher" ? frame.preview : frame.widget
+                    sourceComponent: root.mode === "switcher" ? frameTile.frame.preview : frameTile.frame.widget
                     active: sourceComponent !== null && sourceComponent !== undefined
                 }
             }

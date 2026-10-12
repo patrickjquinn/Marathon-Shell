@@ -57,6 +57,10 @@ Rectangle {
                     color: MColors.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
 
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Back"
+                    Accessible.onPressAction: root.backClicked()
+
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -Math.round(12 * root.scaleFactor)

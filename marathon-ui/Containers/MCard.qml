@@ -13,6 +13,10 @@ Rectangle {
 
     signal clicked
 
+    Accessible.role: interactive ? Accessible.Button : Accessible.Grouping
+    Accessible.onPressAction: if (interactive)
+        clicked()
+
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real shadowMargin1: Math.max(1, Math.round(1 * scaleFactor))

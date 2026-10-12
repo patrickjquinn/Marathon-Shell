@@ -163,6 +163,7 @@ Rectangle {
 
                 visible: root.showToggle
                 checked: root.toggleValue
+                a11yName: root.title
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 onToggled: {

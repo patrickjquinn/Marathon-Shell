@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonUI.Theme
 import MarathonOS.Shell
@@ -36,14 +38,19 @@ Item {
             model: root.leftActions
 
             Rectangle {
-                width: Math.round(80 * scaleFactor)
+                id: leftAction
+
+                required property var modelData
+                required property int index
+
+                width: Math.round(80 * root.scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.success
 
                 Icon {
                     anchors.centerIn: parent
-                    name: modelData.icon || ""
-                    size: Math.round(24 * scaleFactor)
+                    name: leftAction.modelData.icon || ""
+                    size: Math.round(24 * root.scaleFactor)
                     color: MColors.textOnAccent
                 }
 
@@ -52,8 +59,8 @@ Item {
                     onClicked: {
                         if (root.hapticEnabled)
                             MHaptics.medium();
-                        root.leftActionTriggered(index);
-                        resetPosition();
+                        root.leftActionTriggered(leftAction.index);
+                        root.resetPosition();
                     }
                 }
             }
@@ -73,14 +80,19 @@ Item {
             model: root.rightActions
 
             Rectangle {
-                width: Math.round(80 * scaleFactor)
+                id: rightAction
+
+                required property var modelData
+                required property int index
+
+                width: Math.round(80 * root.scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.error
 
                 Icon {
                     anchors.centerIn: parent
-                    name: modelData.icon || ""
-                    size: Math.round(24 * scaleFactor)
+                    name: rightAction.modelData.icon || ""
+                    size: Math.round(24 * root.scaleFactor)
                     color: MColors.textOnAccent
                 }
 
@@ -89,8 +101,8 @@ Item {
                     onClicked: {
                         if (root.hapticEnabled)
                             MHaptics.medium();
-                        root.rightActionTriggered(index);
-                        resetPosition();
+                        root.rightActionTriggered(rightAction.index);
+                        root.resetPosition();
                     }
                 }
             }
@@ -143,17 +155,17 @@ Item {
                         if (root.hapticEnabled)
                             MHaptics.light();
                     } else {
-                        resetPosition();
+                        root.resetPosition();
                     }
                 } else {
-                    resetPosition();
+                    root.resetPosition();
                 }
 
                 root.swipeFinished();
             }
 
             onCanceled: {
-                resetPosition();
+                root.resetPosition();
                 root.swipeFinished();
             }
         }

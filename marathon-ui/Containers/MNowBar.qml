@@ -115,7 +115,7 @@ Item {
 
                 SequentialAnimation on opacity {
                     loops: Animation.Infinite
-                    running: root.pulsing && root.visible
+                    running: root.pulsing && root.visible && !MMotion.reduceMotion
                     NumberAnimation {
                         from: 0.5
                         to: 0.0
@@ -200,7 +200,7 @@ Item {
                         // runs while the bar is actually visible.
                         SequentialAnimation on height {
                             loops: Animation.Infinite
-                            running: root.playing && root.visible
+                            running: root.playing && root.visible && !MMotion.reduceMotion
                             NumberAnimation {
                                 from: bar.fullHeight
                                 to: visualiser.unit
