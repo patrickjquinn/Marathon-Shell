@@ -84,11 +84,6 @@ class ModemManagerCpp : public QObject {
     Q_INVOKABLE void        enableData();
     Q_INVOKABLE void        disableData();
 
-    Q_INVOKABLE void        setApn(const QString &apn, const QString &username = QString(),
-                                   const QString &password = QString());
-    Q_INVOKABLE QString     getApn() const;
-    Q_INVOKABLE QVariantMap getApnSettings() const;
-
   signals:
     void availableChanged();
     void modemAvailableChanged();
@@ -139,10 +134,6 @@ class ModemManagerCpp : public QObject {
     bool            m_dataEnabled;
     bool            m_dataConnected;
     QString         m_modemPath;
-
-    QString         m_apn;
-    QString         m_apnUsername;
-    QString         m_apnPassword;
 
     bool            m_emergencyOnly = false;
     QStringList     m_simEmergencyNumbers;
