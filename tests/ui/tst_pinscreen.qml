@@ -96,4 +96,15 @@ TestCase {
         compare(pinScreen.error, "");
         verify(!findChild(pinScreen, "key1").disabled);
     }
+
+    function test_errorDoesNotMoveKeypad() {
+        const key = findChild(pinScreen, "key1");
+        const before = key.mapToItem(null, 0, 0).y;
+        SecurityManagerCpp.authenticationFailed("Incorrect PIN (3 attempts remaining)");
+        waitForRendering(pinScreen);
+        compare(key.mapToItem(null, 0, 0).y, before);
+        type("1");
+        waitForRendering(pinScreen);
+        compare(key.mapToItem(null, 0, 0).y, before);
+    }
 }

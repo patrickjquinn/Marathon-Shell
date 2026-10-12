@@ -393,16 +393,25 @@ Item {
             }
         }
 
-        Rectangle {
+        // Two lines reserved, so an error never shifts the keypad.
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: pinScreen.width - 2 * Silica.Theme.horizontalPageMargin
-            height: Math.round(40 * Constants.scaleFactor)
-            color: "transparent"
-            visible: pinScreen.error !== ""
+            height: Math.ceil(errorMetrics.height * 2)
             opacity: pinScreen.error !== "" ? 1 : 0
 
+            FontMetrics {
+                id: errorMetrics
+
+                font: errorText.font
+            }
+
             Text {
+                id: errorText
+
                 anchors.centerIn: parent
+                maximumLineCount: 2
+                elide: Text.ElideRight
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
