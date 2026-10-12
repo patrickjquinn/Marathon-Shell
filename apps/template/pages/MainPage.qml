@@ -36,15 +36,17 @@ Page {
         delegate: ListItem {
             id: item
 
-            required property string modelData
-            required property int index
+            required property var modelData
 
-            Accessible.name: modelData
+            Accessible.name: modelData.text
             menu: ContextMenu {
                 MenuItem {
                     objectName: "deleteItem"
                     text: qsTr("Delete")
-                    onClicked: item.remorseDelete(() => page.app.removeItem(item.index))
+                    onClicked: {
+                        const id = item.modelData.id;
+                        item.remorseDelete(() => page.app.removeItem(id));
+                    }
                 }
             }
 
@@ -52,7 +54,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: item.modelData
+                text: item.modelData.text
                 truncationMode: TruncationMode.Fade
                 color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
             }

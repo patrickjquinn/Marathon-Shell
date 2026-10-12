@@ -57,23 +57,41 @@ TestCase {
     function test_pulleyAddsItem() {
         const app = makeApp([]);
         findChild(app.pageStack.currentPage, "addItem").clicked();
-        compare(app.items, ["Item 1"]);
-        compare(JSON.parse(app.store.value), ["Item 1"]);
-        tryCompare(view(app), "count", 1);
+        findChild(app.pageStack.currentPage, "addItem").clicked();
+        compare(texts(app), ["Item 1", "Item 2"]);
+        verify(app.items[0].id !== app.items[1].id);
+        compare(JSON.parse(app.store.value), app.items);
+        tryCompare(view(app), "count", 2);
         verify(!findChild(app.pageStack.currentPage, "placeholder").enabled);
     }
 
     function test_contextMenuRemorseDelete() {
-        const app = makeApp(["A", "B"]);
+        const app = makeApp([{ id: 1, text: "A" }, { id: 2, text: "B" }]);
+        openDelete(app, 0);
+        compare(app.items.length, 2);
+        tryVerify(() => app.items.length === 1, 10000);
+        compare(texts(app), ["B"]);
+    }
+
+    function test_remorseDeletesTheRightItemWhenTheListChanges() {
+        const app = makeApp([{ id: 1, text: "A" }, { id: 2, text: "B" }, { id: 3, text: "C" }]);
+        openDelete(app, 1);
+        app.removeItem(1);
+        tryVerify(() => app.items.length === 1, 10000);
+        compare(texts(app), ["C"]);
+    }
+
+    function openDelete(app, index) {
         let delegate = null;
-        tryVerify(() => (delegate = view(app).itemAtIndex(0)) !== null);
+        tryVerify(() => (delegate = view(app).itemAtIndex(index)) !== null);
         const menu = delegate.openMenu();
         tryVerify(() => menu._open && menu.height > 0);
         wait(300);
         mouseClick(findChild(menu, "deleteItem"));
-        compare(app.items.length, 2);
-        tryVerify(() => app.items.length === 1, 10000);
-        compare(app.items, ["B"]);
+    }
+
+    function texts(app) {
+        return app.items.map(i => i.text);
     }
 
     function test_coverShowsCountAndAdds() {
