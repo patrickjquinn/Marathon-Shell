@@ -866,16 +866,8 @@ Item {
 
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            var appInfo = MarathonAppRegistry.getApp(appId);
-            if (appInfo && appInfo.id) {
-                UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon);
-                if (appWindow)
-                    appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type);
-
-                AppLifecycleManager.bringToForeground(appInfo.id);
-            } else {
-                Logger.warn("Shell", "App not found for deep link: " + appId);
-            }
+            if (!AppLaunchService.launchAppWithRoute(appId, route, JSON.stringify(params || {}), shell.compositor, appWindow))
+                Logger.warn("Shell", "Deep link not opened: " + appId + " " + route);
         }
 
         target: NavigationRouter
