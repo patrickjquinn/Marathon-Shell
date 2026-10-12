@@ -247,10 +247,6 @@ set(QML_FILES
     qml/components/ui/Button.qml
     qml/components/ui/Input.qml
     qml/components/ui/PageIndicator.qml
-    qml/components/ui/Modal.qml
-    qml/components/ui/TextInputModal.qml
-    qml/components/ui/ListPickerModal.qml
-    qml/components/ui/StorageDetailsModal.qml
     qml/components/ui/ConfirmDialog.qml
     qml/components/navigation/InertiaNavBar.qml
     qml/components/NotificationToast.qml
