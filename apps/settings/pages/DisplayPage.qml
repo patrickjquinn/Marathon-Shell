@@ -92,7 +92,7 @@ Page {
                 objectName: "scaleCombo"
                 width: parent.width
                 label: qsTr("Interface size")
-                description: qsTr("Size of text and controls")
+                description: qsTr("Size of text and controls. Open apps change size when you reopen them.")
                 Binding on currentIndex {
                     value: Logic.nearestIndex(Logic.scales.map(s => s.factor), Settings.userScaleFactor)
                 }
