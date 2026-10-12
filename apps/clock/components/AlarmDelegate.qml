@@ -18,6 +18,11 @@ ListItem {
     Accessible.name: [timeText, modelData.label || qsTr("Alarm"), repeatText].filter(s => s).join(", ")
     menu: ContextMenu {
         MenuItem {
+            objectName: "editAlarm"
+            text: qsTr("Edit")
+            onClicked: root.app.editAlarm(root.modelData)
+        }
+        MenuItem {
             text: qsTr("Delete")
             onClicked: {
                 const app = root.app;
@@ -26,7 +31,7 @@ ListItem {
             }
         }
     }
-    onClicked: app.editAlarm(modelData)
+    onClicked: app.toggleAlarm(modelData.id)
 
     Switch {
         id: toggle
@@ -52,14 +57,14 @@ ListItem {
         Label {
             text: root.timeText
             font.pixelSize: Theme.fontSizeExtraLarge
-            color: root.highlighted ? Theme.highlightColor : (root.modelData.enabled ? Theme.primaryColor : Theme.secondaryColor)
+            color: root.highlighted || root.modelData.enabled ? Theme.highlightColor : Theme.primaryColor
         }
         Label {
             width: parent.width
             text: [root.modelData.label || qsTr("Alarm"), root.repeatText].filter(s => s).join(" · ")
             font.pixelSize: Theme.fontSizeSmall
             truncationMode: TruncationMode.Fade
-            color: root.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+            color: root.highlighted || root.modelData.enabled ? Theme.secondaryHighlightColor : Theme.secondaryColor
         }
     }
 }

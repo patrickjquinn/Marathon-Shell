@@ -83,12 +83,24 @@ TestCase {
         verify(sw.checked, "the backend, not the click, flips the switch");
     }
 
-    function test_clickEdits() {
+    function test_clickToggles() {
         const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
         tryCompare(t.list, "count", 1);
         let item = null;
         tryVerify(() => (item = findChild(t.list, "alarmItem")) !== null);
         item.clicked(null);
+        tryCompare(t.app, "calls", [["toggle", "a"]]);
+    }
+
+    function test_menuEdits() {
+        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
+        tryCompare(t.list, "count", 1);
+        let item = null;
+        tryVerify(() => (item = findChild(t.list, "alarmItem")) !== null);
+        item.openMenu();
+        let edit = null;
+        tryVerify(() => (edit = findChild(item, "editAlarm")) !== null);
+        edit.clicked();
         tryCompare(t.app, "calls", [["edit", "a"]]);
     }
 
