@@ -73,7 +73,7 @@ Dialog {
                 width: parent.width
                 visible: dialog.mode === "pin"
                 label: qsTr("PIN")
-                placeholderText: qsTr("Usually 0000 or 1234")
+                placeholderText: qsTr("PIN")
                 inputMethodHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                 // Legacy pairing PINs are up to 16 characters and may contain letters.
                 validator: RegularExpressionValidator {
