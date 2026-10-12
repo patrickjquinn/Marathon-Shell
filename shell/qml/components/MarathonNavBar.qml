@@ -1,5 +1,6 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 Rectangle {
     id: navBar
@@ -28,19 +29,13 @@ Rectangle {
     // Tunable: how far the finger must travel (px) to reach progress=1.
     readonly property real backProgressTravel: width * 0.55
 
-    // Snap-back spring when backProgress drops to 0 on cancel. On
-    // commit we just let the page-pop transition take over (MStackView
-    // handles the actual visual pop).
+    // Eased settle on cancel only; tracks the finger 1:1 while pressed.
     Behavior on backProgress {
-        // Only animate during the spring-back / cancel path. During
-        // active drag we want backProgress to track the finger 1:1
-        // (so the foreground shrink feels physical, not lagged).
         enabled: !navMouseArea.pressed
 
-        SpringAnimation {
-            spring: 4
-            damping: 0.5
-            epsilon: MMotion.epsilon
+        NumberAnimation {
+            duration: MMotion.moderate
+            easing.type: Easing.OutCubic
         }
     }
 
@@ -55,13 +50,13 @@ Rectangle {
     signal toggleSearch
 
     height: Constants.navBarHeight
-    color: MColors.background
+    color: Silica.Theme.overlayBackgroundColor
 
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: Constants.borderWidthThin
-        color: MColors.border
+        color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
     }
 
     Rectangle {
@@ -75,7 +70,7 @@ Rectangle {
         width: Constants.cardBannerHeight
         height: Constants.spacingXSmall
         radius: Constants.borderRadiusSharp
-        color: MColors.text
+        color: Silica.Theme.primaryColor
         opacity: navBar.pinScreenMode ? 0 : 0.9
         visible: !navBar.pinScreenMode
         antialiasing: Constants.enableAntialiasing
@@ -85,20 +80,18 @@ Rectangle {
         Behavior on x {
             enabled: !navMouseArea.pressed
 
-            SpringAnimation {
-                spring: 3
-                damping: 0.3
-                epsilon: 0.25
+            NumberAnimation {
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
             }
         }
 
         Behavior on y {
             enabled: !navMouseArea.pressed
 
-            SpringAnimation {
-                spring: 3
-                damping: 0.3
-                epsilon: 0.25
+            NumberAnimation {
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
             }
         }
     }
@@ -107,31 +100,18 @@ Rectangle {
         id: searchButton
 
         anchors.left: parent.left
-        anchors.leftMargin: MSpacing.sm
+        anchors.leftMargin: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.round(16 * Constants.scaleFactor)
-        height: Math.round(16 * Constants.scaleFactor)
+        width: Silica.Theme.iconSizeExtraSmall
+        height: Silica.Theme.iconSizeExtraSmall
         z: 300
         visible: !navBar.pinScreenMode
         opacity: navBar.pinScreenMode ? 0 : 1
 
-        Rectangle {
-            anchors.fill: parent
-            radius: MRadius.sm
-            color: navBar.searchActive ? MColors.accent : MColors.surface
-            opacity: navBar.searchActive ? 0.3 : 0.15
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
-        }
-
         GlyphIcon {
             name: "search"
-            size: Math.round(12 * Constants.scaleFactor)
-            color: navBar.searchActive ? MColors.accentBright : MColors.text
+            size: Silica.Theme.iconSizeExtraSmall
+            color: navBar.searchActive ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             anchors.centerIn: parent
             opacity: navBar.searchActive ? 1 : 0.6
 
@@ -154,7 +134,7 @@ Rectangle {
 
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -Math.round(14 * Constants.scaleFactor)
+            anchors.margins: -Silica.Theme.paddingMedium
             onClicked: {
                 HapticManager.light();
                 navBar.toggleSearch();
@@ -166,29 +146,16 @@ Rectangle {
         id: keyboardButton
 
         anchors.right: parent.right
-        anchors.rightMargin: MSpacing.sm
+        anchors.rightMargin: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.round(16 * Constants.scaleFactor)
-        height: Math.round(16 * Constants.scaleFactor)
+        width: Silica.Theme.iconSizeExtraSmall
+        height: Silica.Theme.iconSizeExtraSmall
         z: 300
-
-        Rectangle {
-            anchors.fill: parent
-            radius: MRadius.sm
-            color: navBar.keyboardVisible ? MColors.accent : MColors.surface
-            opacity: navBar.keyboardVisible ? 0.3 : 0.15
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
-        }
 
         GlyphIcon {
             name: "keyboard"
-            size: Math.round(12 * Constants.scaleFactor)
-            color: navBar.keyboardVisible ? MColors.accentBright : MColors.text
+            size: Silica.Theme.iconSizeExtraSmall
+            color: navBar.keyboardVisible ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             anchors.centerIn: parent
             opacity: navBar.keyboardVisible ? 1 : 0.6
 
@@ -211,7 +178,7 @@ Rectangle {
 
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -Math.round(14 * Constants.scaleFactor)
+            anchors.margins: -Silica.Theme.paddingMedium
             onClicked: {
                 HapticManager.light();
                 navBar.toggleKeyboard();
@@ -494,10 +461,9 @@ Rectangle {
     Behavior on gestureProgress {
         enabled: !navMouseArea.pressed && !gestureProgressResetTimer.running
 
-        SpringAnimation {
-            spring: 2.5
-            damping: 0.5
-            epsilon: 0.01
+        NumberAnimation {
+            duration: MMotion.moderate
+            easing.type: Easing.OutCubic
         }
     }
 }
