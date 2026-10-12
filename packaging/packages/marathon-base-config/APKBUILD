@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=40
+pkgrel=41
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -70,6 +70,7 @@ source="
 	marathon.slice
 	marathon-session.target
 	marathon-portals.conf
+	50-marathon-timedate.rules
 "
 package() {
 	install -Dm644 "$srcdir/99-marathon.conf" \
@@ -128,6 +129,8 @@ package() {
 		"$pkgdir/usr/lib/systemd/user/marathon-session.target"
 	install -Dm644 "$srcdir/marathon-portals.conf" \
 		"$pkgdir/usr/share/xdg-desktop-portal/marathon-portals.conf"
+	install -Dm644 "$srcdir/50-marathon-timedate.rules" \
+		"$pkgdir/usr/share/polkit-1/rules.d/50-marathon-timedate.rules"
 	install -Dm644 "$srcdir/greetd-marathon.toml" \
 		"$pkgdir/etc/greetd/config.toml"
 	install -d "$pkgdir"/etc/systemd/system/graphical.target.wants
@@ -185,18 +188,8 @@ PRESET
 	install -d "$pkgdir/etc/systemd/user"
 	ln -sf /dev/null "$pkgdir/etc/systemd/user/xdg-desktop-portal-wlr.service"
 
-	# Ship a placeholder /etc/resolv.conf so avahi-daemon (Type=dbus
-	# activated, can start before NM has written its own file) has
-	# something to read on boot. Without this we see one-shot
-	# "avahi-daemon: Failed to open /etc/resolv.conf: Invalid argument"
-	# at boot until NetworkManager overwrites the file ~1s later.
-	# 127.0.0.1 is a safe placeholder — NM will replace it.
-	install -Dm644 /dev/stdin "$pkgdir/etc/resolv.conf" <<'EOF'
-# Placeholder for early-boot resolvers. NetworkManager overwrites this
-# as soon as a connection is up; the file just needs to exist + be a
-# valid resolv.conf shape so avahi/glibc don't log a failure at start.
-nameserver 127.0.0.1
-EOF
+	# A foreign resolv.conf at boot gets imported by resolved as a global DNS server.
+	ln -sf ../run/systemd/resolve/stub-resolv.conf "$pkgdir/etc/resolv.conf"
 
 	# wireplumber drop-in: disable the BlueZ + BLE-MIDI monitors. The CM5
 	# uses dtoverlay=disable-bt (the on-SoC bluetooth is wired to the GPIO
@@ -306,4 +299,5 @@ a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb
 4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
 c02b29a3a33e11c1d9605ff96f272c5026d7958dd7acf6fff79a3826e5a83960c815707485e93259b8e47a813c91a9c5ac2cbe55e7eeb678c5c0968a1274ad41  marathon-session.target
 3c49d678793a67b2a96313d9ec1d2511ac9349b9f90fa72d4d454271c5b37c91efd98f6cf975f3e51ad1d851a9cdbb5558448ac578cb8eebe50b294c183497a7  marathon-portals.conf
+1e39a3388046f760a23b9722803184e84210b99c97c2a0d42b72fd2e8380e6e85b148f379d8326ee2fb24f4c454a90c606bfb0a32afd5f3fce0828c7d02f0794  50-marathon-timedate.rules
 "

@@ -1,0 +1,8 @@
+// The phone's owner can set the time zone and NTP from Settings without a password prompt.
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.timedate1.set-timezone" ||
+         action.id == "org.freedesktop.timedate1.set-ntp") &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
