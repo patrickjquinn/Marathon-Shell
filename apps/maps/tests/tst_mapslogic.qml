@@ -1,0 +1,92 @@
+import QtQuick
+import QtTest
+import "../MapsLogic.js" as Logic
+
+TestCase {
+    name: "MapsLogic"
+
+    // Three points ~111 m apart going north.
+    readonly property var coords: [[0, 0], [0, 0.001], [0, 0.002]]
+    readonly property var maneuvers: [
+        { type: 1, beginShapeIndex: 0, instruction: "Head north." },
+        { type: 10, beginShapeIndex: 1, instruction: "Turn right." },
+        { type: 4, beginShapeIndex: 2, instruction: "You have arrived." }
+    ]
+
+    function test_parseResults() {
+        const r = Logic.parseResults(JSON.stringify([
+            { display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge_x" },
+            { display_name: "Nowhere", lat: "x", lon: "1" }
+        ]));
+        compare(r.length, 1);
+        compare(r[0].name, "Tower Bridge");
+        compare(r[0].address, "Tower Bridge, London, UK");
+        compare(r[0].lat, 51.5055);
+        compare(r[0].type, "bridge x");
+    }
+
+    function test_parseResultsBad() {
+        compare(Logic.parseResults("{oops"), null);
+        compare(Logic.parseResults("{}"), null);
+        compare(Logic.parseResults("[]"), []);
+    }
+
+    function test_formatDistance() {
+        compare(Logic.formatDistance(42.4), "42 m");
+        compare(Logic.formatDistance(456), "460 m");
+        compare(Logic.formatDistance(1234), "1.2 km");
+        compare(Logic.formatDistance(-5), "0 m");
+    }
+
+    function test_formatDuration() {
+        compare(Logic.formatDuration(20), "1 min");
+        compare(Logic.formatDuration(25 * 60), "25 min");
+        compare(Logic.formatDuration(125 * 60), "2 h 5 min");
+    }
+
+    function test_maneuverIcon() {
+        compare(Logic.maneuverIcon(10), "image://theme/icon-m-maneuver-right");
+        compare(Logic.maneuverIcon(15), "image://theme/icon-m-maneuver-left");
+        compare(Logic.maneuverIcon(4), "image://theme/icon-m-maneuver-arrive");
+        compare(Logic.maneuverIcon(8), "image://theme/icon-m-maneuver-straight");
+        verify(Logic.isArrival({ type: 5 }));
+        verify(!Logic.isArrival({ type: 10 }));
+        verify(!Logic.isArrival(null));
+    }
+
+    function test_routeCoords() {
+        const fc = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: coords } }] };
+        compare(Logic.routeCoords(JSON.stringify(fc)), coords);
+        compare(Logic.routeCoords(fc), coords);
+        compare(Logic.routeCoords("nope"), []);
+    }
+
+    function test_distance() {
+        fuzzyCompare(Logic.distanceMeters(0, 0, 0.001, 0), 111.2, 0.5);
+    }
+
+    function test_trackApproaching() {
+        const t = Logic.track(coords, maneuvers, 0, 0.0005, 0);
+        compare(t.index, 0);
+        fuzzyCompare(t.distance, 55.6, 0.5);
+    }
+
+    function test_trackAdvances() {
+        const t = Logic.track(coords, maneuvers, 0, 0.00095, 0);
+        compare(t.index, 1);
+        fuzzyCompare(t.distance, 116.8, 0.5);
+        const end = Logic.track(coords, maneuvers, 1, 0.002, 0);
+        compare(end.index, 2);
+        compare(end.distance, -1);
+    }
+
+    function test_trackNeverGoesBack() {
+        compare(Logic.track(coords, maneuvers, 1, 0, 0).index, 1);
+    }
+
+    function test_via() {
+        compare(Logic.via([{}, { streetNames: ["High St", "A1"] }]), "High St, A1");
+        compare(Logic.via([{}]), "");
+        compare(Logic.via(null), "");
+    }
+}

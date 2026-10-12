@@ -4,7 +4,9 @@ set(APP_NAME maps)
 
 file(GLOB_RECURSE QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
 )
+list(FILTER QML_FILES EXCLUDE REGEX "/(tests|web)/")
 
 set(SOURCES
     src/mapsbridge.cpp
