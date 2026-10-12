@@ -106,7 +106,7 @@ TabItem {
                 }
                 Label {
                     text: item.info.diff
-                    font.pixelSize: Theme.fontSizeExtraSmall
+                    font.pixelSize: Theme.fontSizeSmall
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                 }
             }
@@ -129,7 +129,7 @@ TabItem {
                 Label {
                     anchors.right: parent.right
                     text: item.info.weekday
-                    font.pixelSize: Theme.fontSizeExtraSmall
+                    font.pixelSize: Theme.fontSizeSmall
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                 }
             }
