@@ -147,8 +147,9 @@ Page {
     Item {
         id: grid
 
+        objectName: "grid"
         anchors.fill: parent
-        visible: page.camera.active
+        visible: page.camera.active && page.app.showGrid
 
         Repeater {
             model: 2
@@ -472,5 +473,6 @@ Page {
 
         objectName: "settingsPanel"
         camera: page.camera
+        gridStore: page.app.gridStore
     }
 }

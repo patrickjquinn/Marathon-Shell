@@ -7,6 +7,7 @@ DockedPanel {
     id: panel
 
     property QtObject camera
+    property QtObject gridStore
     readonly property var timers: [0, 3, 10]
 
     function resolutionIndex() {
@@ -65,6 +66,14 @@ DockedPanel {
             automaticCheck: false
             checked: panel.camera.flashEnabled
             onClicked: panel.camera.flashEnabled = !panel.camera.flashEnabled
+        }
+
+        TextSwitch {
+            objectName: "gridSwitch"
+            text: qsTr("Viewfinder grid")
+            automaticCheck: false
+            checked: panel.gridStore.value === true
+            onClicked: panel.gridStore.value = !checked
         }
 
         ComboBox {

@@ -15,6 +15,11 @@ TestCase {
     height: 1440
 
     Component {
+        id: storeStub
+        QtObject { property var value: true }
+    }
+
+    Component {
         id: appComponent
         CameraApp { width: 720; height: 1440 }
     }
@@ -22,7 +27,7 @@ TestCase {
     function makeApp() {
         Navigation.reset();
         Permissions.reset();
-        const app = createTemporaryObject(appComponent, testCase);
+        const app = createTemporaryObject(appComponent, testCase, { gridStore: createTemporaryObject(storeStub, testCase) });
         tryVerify(function () { return app.pageStack.currentPage !== null && !app.pageStack.busy; });
         tryVerify(function () { return app.camera.active; });
         return app;
@@ -223,6 +228,20 @@ TestCase {
         verify(!app.camera.flashEnabled);
         app.camera.flashAvailable = false;
         verify(!flash.enabled);
+    }
+
+    function test_gridSwitch() {
+        const app = makeApp();
+        const grid = child(app, "grid");
+        verify(grid.visible);
+        openSettings(app);
+        const gridSwitch = child(app, "gridSwitch");
+        verify(gridSwitch.checked);
+        mouseClick(gridSwitch);
+        compare(app.gridStore.value, false);
+        verify(!grid.visible);
+        mouseClick(gridSwitch);
+        verify(grid.visible);
     }
 
     function test_timerAndResolution() {
