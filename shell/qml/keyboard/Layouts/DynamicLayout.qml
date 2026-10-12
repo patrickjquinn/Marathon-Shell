@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import MarathonOS.Shell
 
@@ -163,9 +165,8 @@ Item {
             Key {
                 width: row4.availableWidth * 0.08
                 text: "emoji"
-                displayText: ""
+                iconName: "smiley"
                 isSpecial: true
-                fontFamily: "Noto Color Emoji"
                 onClicked: {
                     dynamicLayout.layoutSwitchClicked("emoji");
                 }

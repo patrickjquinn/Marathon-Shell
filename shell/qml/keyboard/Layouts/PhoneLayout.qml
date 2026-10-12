@@ -1,4 +1,7 @@
+pragma ComponentBehavior: Bound
+
 import "../UI"
+import MarathonOS.Shell
 import QtQuick
 
 Item {

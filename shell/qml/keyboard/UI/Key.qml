@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -192,6 +194,10 @@ Rectangle {
                     model: key.alternateChars
 
                     Rectangle {
+                        id: altKey
+
+                        required property var modelData
+
                         width: Math.round(50 * Constants.scaleFactor)
                         height: Math.round(40 * Constants.scaleFactor)
                         radius: Constants.borderRadiusSmall
@@ -199,7 +205,7 @@ Rectangle {
 
                         Text {
                             anchors.centerIn: parent
-                            text: modelData
+                            text: altKey.modelData
                             color: MColors.textPrimary
                             font.pixelSize: Math.round(20 * Constants.scaleFactor)
                         }
@@ -210,7 +216,7 @@ Rectangle {
                             anchors.fill: parent
                             onClicked: {
                                 HapticManager.light();
-                                key.alternateSelected(modelData);
+                                key.alternateSelected(altKey.modelData);
                                 key.showingAlternates = false;
                             }
                         }

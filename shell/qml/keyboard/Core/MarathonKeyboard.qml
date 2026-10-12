@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import QtQuick
 
@@ -9,6 +11,9 @@ Rectangle {
     property bool shifted: false
     property bool capsLock: false
     property string currentWord: ""
+    // Hints of the field being typed into; search, password, URL and number fields opt out of composing.
+    property int fieldHints: 0
+    readonly property bool fieldWantsPlainInput: (fieldHints & (Qt.ImhNoPredictiveText | Qt.ImhSensitiveData | Qt.ImhHiddenText | Qt.ImhUrlCharactersOnly | Qt.ImhEmailCharactersOnly | Qt.ImhDigitsOnly | Qt.ImhFormattedNumbersOnly | Qt.ImhDialableCharactersOnly)) !== 0
     property var currentPredictions: []
     property real lastSpaceTime: 0
     property real lastShiftTime: 0
@@ -212,6 +217,14 @@ Rectangle {
             keyboard.shifted = false;
     }
 
+    // App fields commit their hints after the keyboard opens, and switching fields keeps it open.
+    function refreshFieldHints() {
+        keyboard.fieldHints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
+        inputContextInstance.detectInputMode();
+        if (!keyboard.capsLock && keyboard.currentWord === "")
+            keyboard.shifted = inputContextInstance.shouldAutoCapitalize;
+    }
+
     function hide() {
         keyboard.active = false;
         keyboard.currentWord = "";
@@ -239,6 +252,7 @@ Rectangle {
     layer.smooth: true
     onActiveChanged: {
         if (active) {
+            keyboard.fieldHints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
             show();
         } else {
             keyboard.currentWord = "";
@@ -588,9 +602,9 @@ Rectangle {
     inputContext: InputContext {
         id: inputContextInstance
         keyboard: keyboard
-        autoCapitalizeEnabled: SettingsManagerCpp.keyboardAutoCapitalize
-        autoCorrectEnabled: SettingsManagerCpp.keyboardAutoCorrection
-        predictionsEnabled: SettingsManagerCpp.keyboardPredictiveText
+        autoCapitalizeEnabled: SettingsManagerCpp.keyboardAutoCapitalize && !(keyboard.fieldHints & Qt.ImhNoAutoUppercase) && !keyboard.fieldWantsPlainInput
+        autoCorrectEnabled: SettingsManagerCpp.keyboardAutoCorrection && !keyboard.fieldWantsPlainInput
+        predictionsEnabled: SettingsManagerCpp.keyboardPredictiveText && !keyboard.fieldWantsPlainInput
 
         onTextInserted: function (text) {
             if (text === " " || text === "\n")

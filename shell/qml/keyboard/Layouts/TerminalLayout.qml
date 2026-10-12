@@ -1,4 +1,7 @@
+pragma ComponentBehavior: Bound
+
 import "../UI"
+import MarathonOS.Shell
 import QtQuick
 
 Item {
@@ -145,6 +148,8 @@ Item {
                 model: layout.row1Keys
 
                 Key {
+                    required property var modelData
+
                     width: row1.keyWidth
                     text: modelData.char
                     displayText: layout.shifted || layout.capsLock ? modelData.char.toUpperCase() : modelData.char
@@ -176,6 +181,8 @@ Item {
                 model: layout.row2Keys
 
                 Key {
+                    required property var modelData
+
                     width: row2.keyWidth
                     text: modelData.char
                     displayText: layout.shifted || layout.capsLock ? modelData.char.toUpperCase() : modelData.char
@@ -219,6 +226,8 @@ Item {
                 model: layout.row3Keys
 
                 Key {
+                    required property var modelData
+
                     width: row3.availableWidth * 0.1
                     text: modelData.char
                     displayText: layout.shifted || layout.capsLock ? modelData.char.toUpperCase() : modelData.char

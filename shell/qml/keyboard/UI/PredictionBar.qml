@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Effects
 import QtQuick
@@ -18,16 +20,28 @@ Rectangle {
     border.color: "transparent"
 
     Row {
-        anchors.centerIn: parent
-        spacing: Math.round(12 * Constants.scaleFactor)
+        id: chipRow
+
+        readonly property var shown: predictionBar.predictions.slice(0, 3)
+
+        anchors.fill: parent
+        anchors.leftMargin: spacing
+        anchors.rightMargin: spacing
+        spacing: Math.round(6 * Constants.scaleFactor)
         visible: predictionBar.predictions.length > 0
 
         Repeater {
-            model: predictionBar.predictions
+            model: chipRow.shown
 
             Rectangle {
-                width: Math.round(100 * Constants.scaleFactor)
-                height: Math.round(44 * Constants.scaleFactor)
+                id: predictionChip
+
+                required property var modelData
+                required property int index
+
+                width: (chipRow.width - chipRow.spacing * (chipRow.shown.length - 1)) / chipRow.shown.length
+                height: Math.round(40 * Constants.scaleFactor)
+                anchors.verticalCenter: parent.verticalCenter
                 radius: Constants.borderRadiusSmall
                 color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.accent : "#00bfa5") : (typeof MColors !== 'undefined' ? MColors.elevated : "#161718")
                 border.width: Constants.borderWidthMedium
@@ -39,16 +53,19 @@ Rectangle {
 
                 MTopHairline {
                     radius: parent.radius
-                    color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
+                    color: predictionChip.index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
                     lineWidth: Constants.borderWidthThin
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    text: modelData
+                    width: parent.width - Math.round(12 * Constants.scaleFactor)
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    text: predictionChip.modelData
                     color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.textOnAccent : "#ffffff") : (typeof MColors !== 'undefined' ? MColors.text : "#f5f5f5")
                     font.pixelSize: Math.round(15 * Constants.scaleFactor)
-                    font.weight: index === 0 ? Font.DemiBold : Font.Normal
+                    font.weight: predictionChip.index === 0 ? Font.DemiBold : Font.Normal
                 }
 
                 MouseArea {
@@ -57,7 +74,7 @@ Rectangle {
                     anchors.fill: parent
                     onClicked: {
                         HapticManager.light();
-                        predictionBar.predictionSelected(modelData);
+                        predictionBar.predictionSelected(predictionChip.modelData);
                     }
                 }
 

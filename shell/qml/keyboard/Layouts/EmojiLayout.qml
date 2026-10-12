@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../UI"
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
@@ -204,12 +206,16 @@ Item {
             model: layout.displayedEmojis
 
             delegate: Item {
+                id: emojiCell
+
+                required property var modelData
+
                 width: emojiGrid.cellWidth
                 height: emojiGrid.cellHeight
 
                 Text {
                     anchors.centerIn: parent
-                    text: modelData
+                    text: emojiCell.modelData
                     font.family: "Noto Color Emoji"
                     font.pixelSize: 28
                     renderType: Text.NativeRendering
@@ -218,7 +224,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        layout.keyClicked(modelData);
+                        layout.keyClicked(emojiCell.modelData);
                         HapticManager.light();
                         if (layout.searchText.length > 0) {}
                     }
@@ -275,7 +281,7 @@ Item {
                             }
                             return t;
                         }
-                        activeTab: getCategoryIndex(layout.currentCategoryId)
+                        activeTab: layout.getCategoryIndex(layout.currentCategoryId)
                         onTabSelected: index => {
                             layout.currentCategoryId = layout.categoryList[index].id;
                         }
