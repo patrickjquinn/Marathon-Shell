@@ -13,7 +13,6 @@ set(SOURCES
     src/mapsbridge.h
     src/valhallaroutingclient.cpp
     src/valhallaroutingclient.h
-    # Future: src/geocoder.cpp
 )
 
 # Voice (Piper / QTextToSpeech) is optional. If qt6-qtspeech-devel
