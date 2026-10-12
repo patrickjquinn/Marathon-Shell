@@ -172,6 +172,18 @@ function batterySummary(level, charging) {
     return charging ? qsTr("%1% · charging").arg(level) : qsTr("%1%").arg(level);
 }
 
+function batteryStatus(charging, pluggedIn, secondsLeft) {
+    if (charging)
+        return qsTr("Charging");
+    if (pluggedIn)
+        return qsTr("Plugged in, not charging");
+    if (!(secondsLeft > 0))
+        return qsTr("Discharging");
+    const hours = Math.floor(secondsLeft / 3600);
+    const minutes = Math.floor(secondsLeft % 3600 / 60);
+    return hours > 0 ? qsTr("%1 h %2 min left").arg(hours).arg(minutes) : qsTr("%1 min left").arg(minutes);
+}
+
 function percent(fraction) {
     return Math.round(Math.max(0, Math.min(1, fraction || 0)) * 100);
 }

@@ -55,6 +55,14 @@ TestCase {
         compare(Logic.signalQuality(5), "Weak");
     }
 
+    function test_batteryStatus() {
+        compare(Logic.batteryStatus(true, true, 0), "Charging");
+        compare(Logic.batteryStatus(false, true, 0), "Plugged in, not charging");
+        compare(Logic.batteryStatus(false, false, 0), "Discharging");
+        compare(Logic.batteryStatus(false, false, 2 * 3600 + 5 * 60), "2 h 5 min left");
+        compare(Logic.batteryStatus(false, false, 40 * 60), "40 min left");
+    }
+
     function test_networkSubtitle() {
         compare(Logic.networkSubtitle({ ssid: "Cafe", strength: 55, security: "Open", secured: false }), "Open · Good signal");
         compare(Logic.networkSubtitle({ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }), "Saved · Secured · Excellent signal");

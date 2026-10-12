@@ -166,13 +166,6 @@ QtObject {
         return mode === "passkey" && passkey.length === 6;
     }
 
-    function batteryStatusText(charging, plugged, seconds) {
-        if (charging)
-            return "Charging";
-        if (plugged)
-            return "Plugged In, Not Charging";
-        return seconds > 0 ? Math.floor(seconds / 3600) + "h remaining" : "Discharging";
-    }
     function lockoutStatusText(locked, seconds) {
         return locked ? "Locked (" + seconds + "s remaining)" : "Active";
     }

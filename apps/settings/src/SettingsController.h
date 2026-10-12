@@ -84,8 +84,6 @@ class SettingsController : public QObject {
     Q_INVOKABLE QString bluetoothHelpText(const QString &mode) const;
     Q_INVOKABLE bool    bluetoothCanPair(const QString &mode, const QString &pin,
                                          const QString &passkey) const;
-    Q_INVOKABLE QString batteryStatusText(bool isCharging, bool isPluggedIn,
-                                          int estimatedSeconds) const;
     Q_INVOKABLE QString lockoutStatusText(bool lockedOut, int secondsRemaining) const;
     Q_INVOKABLE QString quickPinValidationError(const QString &pin, const QString &password) const;
     Q_INVOKABLE QString soundTypeLabel(const QString &soundType) const;

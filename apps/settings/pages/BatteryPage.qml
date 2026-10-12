@@ -3,7 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
-import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -50,7 +50,7 @@ Page {
                 width: parent.width
                 visible: page.hasBattery
                 horizontalAlignment: Text.AlignHCenter
-                text: SettingsController.batteryStatusText(Power.isCharging, Power.isPluggedIn, Power.estimatedBatteryTime)
+                text: Logic.batteryStatus(Power.isCharging, Power.isPluggedIn, Power.estimatedBatteryTime)
                 color: Theme.secondaryHighlightColor
             }
             Item {

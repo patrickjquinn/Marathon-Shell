@@ -276,25 +276,6 @@ bool SettingsController::bluetoothCanPair(const QString &mode, const QString &pi
     return false;
 }
 
-QString SettingsController::batteryStatusText(bool isCharging, bool isPluggedIn,
-                                              int estimatedSeconds) const {
-    if (isCharging) {
-        return QStringLiteral("Charging");
-    }
-    if (isPluggedIn) {
-        return QStringLiteral("Plugged In, Not Charging");
-    }
-    if (estimatedSeconds <= 0) {
-        return QStringLiteral("Discharging");
-    }
-    const int hours   = estimatedSeconds / 3600;
-    const int minutes = (estimatedSeconds % 3600) / 60;
-    if (hours > 0) {
-        return QStringLiteral("%1h %2m remaining").arg(hours).arg(minutes);
-    }
-    return QStringLiteral("%1m remaining").arg(minutes);
-}
-
 QString SettingsController::lockoutStatusText(bool lockedOut, int secondsRemaining) const {
     if (lockedOut) {
         return QStringLiteral("Locked (%1s remaining)").arg(std::max(0, secondsRemaining));
