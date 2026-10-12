@@ -104,27 +104,22 @@ Rectangle {
         objectName: "searchButton"
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: Silica.Theme.itemSizeExtraSmall
+        width: Math.max(Silica.Theme.itemSizeExtraSmall, Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeExtraSmall + Silica.Theme.paddingMedium)
         height: parent.height
         visible: !navBar.pinScreenMode
         opacity: navBar.pinScreenMode ? 0 : 1
 
+        // On the page margin, in line with the status bar and the dock.
         GlyphIcon {
             name: "search"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.searchActive ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-            anchors.centerIn: parent
-            opacity: navBar.searchActive ? 1 : 0.6
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
+            color: navBar.searchActive ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+            x: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
 
             Behavior on color {
                 ColorAnimation {
-                    duration: 150
+                    duration: MMotion.quick
                 }
             }
         }
@@ -140,25 +135,20 @@ Rectangle {
         objectName: "keyboardButton"
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: Silica.Theme.itemSizeExtraSmall
+        width: searchButton.width
         height: parent.height
 
         GlyphIcon {
             name: "keyboard"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.keyboardVisible ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-            anchors.centerIn: parent
-            opacity: navBar.keyboardVisible ? 1 : 0.6
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
+            color: navBar.keyboardVisible ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+            anchors.right: parent.right
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
 
             Behavior on color {
                 ColorAnimation {
-                    duration: 150
+                    duration: MMotion.quick
                 }
             }
         }
