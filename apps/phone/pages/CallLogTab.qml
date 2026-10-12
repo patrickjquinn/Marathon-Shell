@@ -9,6 +9,7 @@ TabItem {
     id: root
 
     property var phone
+    property real headerOffset
 
     signal openInDialer(string number)
 
@@ -20,6 +21,25 @@ TabItem {
         objectName: "callLog"
         anchors.fill: parent
         model: Phone.groupCalls(root.phone.callHistory)
+        // With a pulley menu the tab spans the tab bar too.
+        header: Item {
+            width: list.width
+            height: root.headerOffset
+        }
+
+        PullDownMenu {
+            visible: list.count > 0
+
+            MenuItem {
+                objectName: "clearMenuItem"
+                text: qsTr("Clear call log")
+                onClicked: clearRemorse.execute(qsTr("Cleared call log"), () => CallHistory.clearHistory())
+            }
+        }
+
+        RemorsePopup {
+            id: clearRemorse
+        }
 
         ViewPlaceholder {
             enabled: list.count === 0

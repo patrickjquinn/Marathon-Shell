@@ -57,6 +57,7 @@ Page {
             }
             CallLogTab {
                 phone: root.phone
+                headerOffset: tabs.tabBarHeight
                 onOpenInDialer: number => root.openDialer(number)
             }
             PeopleTab {

@@ -125,4 +125,11 @@ TestCase {
         tryCompare(CallHistory, "deleted", [7, 8], 8000);
         tryCompare(list, "count", 1);
     }
+
+    function test_clearCallLogAfterRemorse() {
+        const t = openLog();
+        findChild(t.list, "clearMenuItem").clicked();
+        compare(CallHistory.history.length, 2);
+        tryCompare(t.list, "count", 0, 8000);
+    }
 }
