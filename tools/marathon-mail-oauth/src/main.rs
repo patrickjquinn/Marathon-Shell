@@ -223,6 +223,8 @@ enum Cmd {
         #[arg(long)]
         account_id: String,
     },
+    /// List the providers this build has an OAuth client id for.
+    Providers,
 }
 
 // ── JSON envelope for IPC with the SASL plugin ────────────────────────
@@ -235,6 +237,7 @@ enum Reply<'a> {
     Added       { account_id: &'a str, provider: &'a str, email: Option<&'a str> },
     ClassicAdded { account_id: &'a str, username: &'a str },
     Removed     { account_id: &'a str },
+    Providers   { configured: Vec<&'a str> },
     Error       { code: &'a str, message: String },
 }
 
@@ -525,6 +528,16 @@ async fn mint_access_token(account_id: &str) -> Result<(String, u64, Option<Stri
 fn main() {
     let cli = Cli::parse();
 
+    if let Cmd::Providers = cli.cmd {
+        let configured = [Provider::Gmail, Provider::Outlook]
+            .into_iter()
+            .filter(|p| resolve_client_id(*p).is_ok())
+            .map(|p| p.id())
+            .collect();
+        emit(&Reply::Providers { configured });
+        return;
+    }
+
     // Permission gate. AppLaunchService sets MARATHON_PERM_SECRET_SERVICE=1
     // for apps whose manifest declares the `secret-service` permission.
     // We require it for every code path here (Add stores a refresh token,
@@ -598,6 +611,7 @@ fn main() {
                 emit(&Reply::Removed { account_id: &account_id });
                 Ok(())
             }
+            Cmd::Providers => unreachable!(),
         }
     });
 
