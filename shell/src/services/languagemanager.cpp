@@ -51,26 +51,9 @@ void LanguageManager::loadLanguage(const QString &languageId) {
     applyLayout(layout, languageId);
 }
 
-void LanguageManager::nextLanguage() {
-    if (m_availableLanguages.isEmpty()) {
-        return;
-    }
-    const int currentIndex = m_availableLanguages.indexOf(m_currentLanguage);
-    const int nextIndex    = (currentIndex + 1) % m_availableLanguages.size();
-    loadLanguage(m_availableLanguages.at(nextIndex));
-}
-
 QString LanguageManager::getFlag(const QString &languageId) const {
     const QVariant flag = m_languageFlags.value(languageId);
     return flag.isValid() ? flag.toString() : QString();
-}
-
-QString LanguageManager::getName(const QString &languageId) const {
-    if (m_currentLayout.value("id").toString() != languageId) {
-        return languageId;
-    }
-    const QString name = m_currentLayout.value("name").toString();
-    return name.isEmpty() ? languageId : name;
 }
 
 void LanguageManager::applyLayout(const QVariantMap &layout, const QString &languageId) {

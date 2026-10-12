@@ -18,7 +18,6 @@ class LanguageManager : public QObject {
     Q_PROPERTY(QVariantMap currentLayout READ currentLayout NOTIFY currentLayoutChanged)
     Q_PROPERTY(
         QStringList availableLanguages READ availableLanguages NOTIFY availableLanguagesChanged)
-    Q_PROPERTY(QVariantMap languageFlags READ languageFlags CONSTANT)
 
   public:
     explicit LanguageManager(SettingsManager *settingsManager, WordEngine *wordEngine,
@@ -33,15 +32,10 @@ class LanguageManager : public QObject {
     QStringList availableLanguages() const {
         return m_availableLanguages;
     }
-    QVariantMap languageFlags() const {
-        return m_languageFlags;
-    }
 
     Q_INVOKABLE void    initialize();
     Q_INVOKABLE void    loadLanguage(const QString &languageId);
-    Q_INVOKABLE void    nextLanguage();
     Q_INVOKABLE QString getFlag(const QString &languageId) const;
-    Q_INVOKABLE QString getName(const QString &languageId) const;
 
   signals:
     void currentLanguageChanged();
