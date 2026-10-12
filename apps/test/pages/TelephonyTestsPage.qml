@@ -1,310 +1,112 @@
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "../components"
 
-Item {
-    id: root
+Page {
+    id: page
 
-    // Outer TestApp.qml hands this in so the .qml-file scope here can
-    // touch its passedTests / failedTests / totalTests counters; QML ids
-    // don't bubble across separately-compiled .qml component files.
-    property var testApp
+    property var app
+    readonly property var telephony: typeof Telephony !== "undefined" ? Telephony : null
+    readonly property var sms: typeof Sms !== "undefined" ? Sms : null
+    readonly property var contacts: typeof Contacts !== "undefined" ? Contacts : null
 
-    Flickable {
+    SilicaFlickable {
         anchors.fill: parent
-        contentHeight: telephonyColumn.height
-        clip: true
+        contentHeight: column.height + Theme.paddingLarge
 
         Column {
-            id: telephonyColumn
+            id: column
 
             width: parent.width
-            spacing: MSpacing.md
-            padding: MSpacing.lg
+            spacing: Theme.paddingMedium
 
-            Row {
-                spacing: MSpacing.sm
+            PageHeader {
+                title: qsTr("Telephony & SMS")
+                description: page.app.summary
+            }
 
-                Icon {
-                    name: "phone"
-                    size: 24
-                    color: MColors.accent
-                    anchors.verticalCenter: parent.verticalCenter
+            SectionHeader {
+                text: qsTr("Incoming call")
+            }
+            HintLabel {
+                text: qsTr("Simulates an incoming phone call")
+            }
+            Actions {
+                TestItem {
+                    objectName: "callUnknown"
+                    text: qsTr("Unknown number")
+                    onClicked: page.app.run("Incoming call", () => page.telephony.simulateIncomingCall("+1234567890"))
                 }
-
-                MLabel {
-                    text: "Telephony & SMS"
-                    variant: "headline"
-                    anchors.verticalCenter: parent.verticalCenter
+                TestItem {
+                    objectName: "callContact"
+                    text: qsTr("Known contact")
+                    onClicked: page.app.run("Incoming call from contact", () => {
+                        if (page.contacts)
+                            page.contacts.addContact("John Doe", "+1555123456", "john@example.com");
+                        page.telephony.simulateIncomingCall("+1555123456");
+                    })
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Incoming Call Test"
-                        variant: "title"
-                    }
-
-                    MLabel {
-                        text: "Simulates an incoming phone call"
-                        variant: "secondary"
-                        wrapMode: Text.WordWrap
-                        width: parent.width
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Unknown Number"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateIncomingCall === 'function') {
-                                    TelephonyService.simulateIncomingCall("+1234567890");
-                                    Logger.info("TestApp", "Simulated incoming call");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "TelephonyService.simulateIncomingCall not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Known Contact"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateIncomingCall === 'function') {
-                                    if (typeof ContactsManager !== 'undefined' && typeof ContactsManager.addContact === 'function') {
-                                        ContactsManager.addContact("John Doe", "+1555123456", "john@example.com");
-                                        Logger.info("TestApp", "Added test contact");
-                                    }
-                                    TelephonyService.simulateIncomingCall("+1555123456");
-                                    Logger.info("TestApp", "Simulated incoming call from contact");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "TelephonyService.simulateIncomingCall not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-                    }
+            SectionHeader {
+                text: qsTr("SMS")
+            }
+            HintLabel {
+                text: qsTr("Simulates receiving text messages")
+            }
+            Actions {
+                TestItem {
+                    objectName: "smsSingle"
+                    text: qsTr("Single SMS")
+                    onClicked: page.app.run("Incoming SMS", () => page.sms.simulateIncomingSMS("+1234567890", "Hey! This is a test message from the Marathon Test Suite."))
+                }
+                TestItem {
+                    objectName: "smsMultiple"
+                    text: qsTr("Multiple SMS")
+                    onClicked: page.app.run("3 incoming SMS", () => {
+                        for (let i = 0; i < 3; i++)
+                            page.sms.simulateIncomingSMS("+1555987654" + i, "Message " + (i + 1) + " from test suite");
+                    })
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "SMS Test"
-                        variant: "title"
-                    }
-
-                    MLabel {
-                        text: "Simulates receiving text messages"
-                        variant: "secondary"
-                        wrapMode: Text.WordWrap
-                        width: parent.width
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Single SMS"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof SMSService !== 'undefined' && typeof SMSService.simulateIncomingSMS === 'function') {
-                                    SMSService.simulateIncomingSMS("+1234567890", "Hey! This is a test message from the Marathon Test Suite.");
-                                    Logger.info("TestApp", "Simulated incoming SMS");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "SMSService.simulateIncomingSMS not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Multiple SMS"
-                            variant: "accent"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof SMSService !== 'undefined' && typeof SMSService.simulateIncomingSMS === 'function') {
-                                    for (var i = 0; i < 3; i++) {
-                                        SMSService.simulateIncomingSMS("+1555987654" + i, "Message " + (i + 1) + " from test suite");
-                                    }
-                                    Logger.info("TestApp", "Simulated 3 incoming SMS");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "SMSService.simulateIncomingSMS not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            SectionHeader {
+                text: qsTr("Call state")
             }
-
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Call State Tests"
-                        variant: "title"
-                    }
-
-                    MLabel {
-                        text: "Test different call states and transitions"
-                        variant: "secondary"
-                        wrapMode: Text.WordWrap
-                        width: parent.width
-                    }
-
-                    Flow {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MButton {
-                            text: "Active Call"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
-                                    TelephonyService.simulateCallStateChange("active");
-                                    Logger.info("TestApp", "Call state: active");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Ringing"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
-                                    TelephonyService.simulateCallStateChange("ringing");
-                                    Logger.info("TestApp", "Call state: ringing");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "End Call"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateCallStateChange === 'function') {
-                                    TelephonyService.simulateCallStateChange("idle");
-                                    Logger.info("TestApp", "Call state: idle");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "simulateCallStateChange not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Missed Call"
-                            variant: "danger"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof TelephonyService !== 'undefined' && typeof TelephonyService.simulateIncomingCall === 'function') {
-                                    TelephonyService.simulateIncomingCall("+1555111222");
-                                    Qt.callLater(function () {
-                                        if (typeof TelephonyService.simulateCallStateChange === 'function')
-                                            TelephonyService.simulateCallStateChange("terminated");
-                                    });
-                                    Logger.info("TestApp", "Simulated missed call");
-                                    if (root.testApp) {
-                                        root.testApp.passedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                } else {
-                                    Logger.warn("TestApp", "simulateIncomingCall not available (shell-only)");
-                                    if (root.testApp) {
-                                        root.testApp.failedTests++;
-                                        root.testApp.totalTests++;
-                                    }
-                                }
-                            }
-                        }
-                    }
+            HintLabel {
+                text: qsTr("Test different call states and transitions")
+            }
+            Actions {
+                TestItem {
+                    objectName: "stateActive"
+                    text: qsTr("Active call")
+                    onClicked: page.app.run("Call state: active", () => page.telephony.simulateCallStateChange("active"))
+                }
+                TestItem {
+                    objectName: "stateRinging"
+                    text: qsTr("Ringing")
+                    onClicked: page.app.run("Call state: ringing", () => page.telephony.simulateCallStateChange("ringing"))
+                }
+                TestItem {
+                    objectName: "stateIdle"
+                    text: qsTr("End call")
+                    onClicked: page.app.run("Call state: idle", () => page.telephony.simulateCallStateChange("idle"))
+                }
+                TestItem {
+                    objectName: "missedCall"
+                    text: qsTr("Missed call")
+                    onClicked: page.app.run("Missed call", () => {
+                        const telephony = page.telephony;
+                        telephony.simulateIncomingCall("+1555111222");
+                        Qt.callLater(() => telephony.simulateCallStateChange("terminated"));
+                    })
                 }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

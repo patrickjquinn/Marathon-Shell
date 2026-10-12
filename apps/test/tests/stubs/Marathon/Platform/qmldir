@@ -1,0 +1,12 @@
+module Marathon.Platform
+singleton Telephony 1.0 Telephony.qml
+singleton Sms 1.0 Sms.qml
+singleton Contacts 1.0 Contacts.qml
+singleton Alarms 1.0 Alarms.qml
+singleton Audio 1.0 Audio.qml
+singleton Power 1.0 Power.qml
+singleton Network 1.0 Network.qml
+singleton Display 1.0 Display.qml
+singleton Sensors 1.0 Sensors.qml
+singleton Location 1.0 Location.qml
+singleton Bluetooth 1.0 Bluetooth.qml

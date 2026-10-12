@@ -1,254 +1,125 @@
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "../components"
 
-Item {
-    id: root
+Page {
+    id: page
 
-    property var testApp
+    property var app
+    readonly property var sensors: typeof Sensors !== "undefined" ? Sensors : null
+    readonly property var location: typeof Location !== "undefined" ? Location : null
+    // Shell-only; absent in the app runner.
+    readonly property var flashlight: typeof FlashlightManagerCpp !== "undefined" ? FlashlightManagerCpp : null
 
-    Flickable {
+    function yesNo(yes) {
+        return yes ? qsTr("Yes") : qsTr("No");
+    }
+
+    SilicaFlickable {
         anchors.fill: parent
-        contentHeight: sensorColumn.height
-        clip: true
+        contentHeight: column.height + Theme.paddingLarge
 
         Column {
-            id: sensorColumn
+            id: column
 
             width: parent.width
-            spacing: MSpacing.md
-            padding: MSpacing.lg
+            spacing: Theme.paddingMedium
 
-            Row {
-                spacing: MSpacing.sm
+            PageHeader {
+                title: qsTr("Sensors & location")
+                description: page.app.summary
+            }
 
-                Icon {
-                    name: "activity"
-                    size: 24
-                    color: MColors.accent
-                    anchors.verticalCenter: parent.verticalCenter
+            SectionHeader {
+                text: qsTr("Ambient light sensor")
+            }
+            Column {
+                width: parent.width
+
+                DetailItem {
+                    label: qsTr("Available")
+                    value: page.yesNo(page.sensors && page.sensors.available)
                 }
-
-                MLabel {
-                    text: "Sensors"
-                    variant: "headline"
-                    anchors.verticalCenter: parent.verticalCenter
+                DetailItem {
+                    objectName: "light"
+                    label: qsTr("Light level")
+                    value: qsTr("%1 lux").arg(page.sensors ? page.sensors.ambientLight : 0)
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
+            SectionHeader {
+                text: qsTr("Proximity sensor")
+            }
+            Column {
+                width: parent.width
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Ambient Light Sensor"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "Available: " + (SensorService.available ? "Yes" : "No")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Light Level: " + SensorService.ambientLight + " lux"
-                            variant: "secondary"
-                        }
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Enable"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Enabled ambient light sensor (noop)");
-                            }
-                        }
-
-                        MButton {
-                            text: "Disable"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Disabled ambient light sensor (noop)");
-                            }
-                        }
-                    }
+                DetailItem {
+                    label: qsTr("Available")
+                    value: page.yesNo(page.sensors && page.sensors.available)
+                }
+                DetailItem {
+                    objectName: "near"
+                    label: qsTr("Near")
+                    value: page.yesNo(page.sensors && page.sensors.proximityNear)
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
+            SectionHeader {
+                text: qsTr("Location service")
+            }
+            Column {
+                width: parent.width
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Proximity Sensor"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "Available: " + (SensorService.available ? "Yes" : "No")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Near: " + (SensorService.proximityNear ? "Yes" : "No")
-                            variant: "secondary"
-                        }
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Enable"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Enabled proximity sensor (noop)");
-                            }
-                        }
-
-                        MButton {
-                            text: "Disable"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Disabled proximity sensor (noop)");
-                            }
-                        }
-                    }
+                DetailItem {
+                    objectName: "locationActive"
+                    label: qsTr("Active")
+                    value: page.yesNo(page.location && page.location.active)
+                }
+                DetailItem {
+                    label: qsTr("Latitude")
+                    value: page.location ? page.location.latitude.toFixed(6) : "-"
+                }
+                DetailItem {
+                    label: qsTr("Longitude")
+                    value: page.location ? page.location.longitude.toFixed(6) : "-"
+                }
+                DetailItem {
+                    label: qsTr("Accuracy")
+                    value: page.location ? qsTr("%1 m").arg(page.location.accuracy) : "-"
+                }
+            }
+            Actions {
+                TestItem {
+                    objectName: "locationStart"
+                    text: qsTr("Start")
+                    onClicked: page.app.run("Start location", () => page.location.start())
+                }
+                TestItem {
+                    objectName: "locationStop"
+                    text: qsTr("Stop")
+                    onClicked: page.app.run("Stop location", () => page.location.stop())
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Location Service"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "Active: " + (LocationService.active ? "Yes" : "No")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Lat: " + LocationService.latitude.toFixed(6)
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Lon: " + LocationService.longitude.toFixed(6)
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Accuracy: " + LocationService.accuracy + "m"
-                            variant: "secondary"
-                        }
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Start"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                LocationService.start();
-                                Logger.info("TestApp", "Enabled location service");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Stop"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                LocationService.stop();
-                                Logger.info("TestApp", "Stopped location service");
-                            }
-                        }
-                    }
-                }
+            SectionHeader {
+                text: qsTr("Flashlight")
             }
-
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Flashlight"
-                        variant: "title"
-                    }
-
-                    MLabel {
-                        text: "Status: " + (((typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp) ? FlashlightManagerCpp.enabled : false) ? "On" : "Off")
-                        variant: "secondary"
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Toggle"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp)
-                                    FlashlightManagerCpp.toggle();
-
-                                Logger.info("TestApp", "Toggled flashlight");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+            DetailItem {
+                label: qsTr("Status")
+                value: page.flashlight && page.flashlight.enabled ? qsTr("On") : qsTr("Off")
+            }
+            Actions {
+                TestItem {
+                    objectName: "flashlight"
+                    text: qsTr("Toggle")
+                    onClicked: page.app.run("Toggle flashlight", () => page.flashlight.toggle())
                 }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

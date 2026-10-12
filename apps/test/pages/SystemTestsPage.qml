@@ -1,364 +1,190 @@
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "../components"
 
-Item {
-    id: root
+Page {
+    id: page
 
-    property var testApp
+    property var app
+    readonly property var power: typeof Power !== "undefined" ? Power : null
+    readonly property var network: typeof Network !== "undefined" ? Network : null
+    readonly property var display: typeof Display !== "undefined" ? Display : null
+    // Shell-only; absent in the app runner.
+    readonly property var modem: typeof ModemManagerCpp !== "undefined" ? ModemManagerCpp : null
 
-    Flickable {
+    function onOff(on) {
+        return on ? qsTr("On") : qsTr("Off");
+    }
+
+    SilicaFlickable {
         anchors.fill: parent
-        contentHeight: systemColumn.height
-        clip: true
+        contentHeight: column.height + Theme.paddingLarge
 
         Column {
-            id: systemColumn
+            id: column
 
             width: parent.width
-            spacing: MSpacing.md
-            padding: MSpacing.lg
+            spacing: Theme.paddingMedium
 
-            Row {
-                spacing: MSpacing.sm
+            PageHeader {
+                title: qsTr("System services")
+                description: page.app.summary
+            }
 
-                Icon {
-                    name: "cpu"
-                    size: 24
-                    color: MColors.accent
-                    anchors.verticalCenter: parent.verticalCenter
+            SectionHeader {
+                text: qsTr("Power & battery")
+            }
+            Column {
+                width: parent.width
+
+                DetailItem {
+                    objectName: "battery"
+                    label: qsTr("Battery")
+                    value: (page.power ? page.power.batteryLevel : 0) + "%"
                 }
-
-                MLabel {
-                    text: "System Services"
-                    variant: "headline"
-                    anchors.verticalCenter: parent.verticalCenter
+                DetailItem {
+                    label: qsTr("Charging")
+                    value: page.power && page.power.isCharging ? qsTr("Yes") : qsTr("No")
+                }
+                DetailItem {
+                    objectName: "powerSave"
+                    label: qsTr("Power save")
+                    value: page.onOff(page.power && page.power.isPowerSaveMode)
+                }
+            }
+            Actions {
+                TestItem {
+                    objectName: "togglePowerSave"
+                    text: qsTr("Toggle power save")
+                    onClicked: page.app.run("Toggle power save", () => page.power.setPowerSaveMode(!page.power.isPowerSaveMode))
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
+            SectionHeader {
+                text: qsTr("Network")
+            }
+            Column {
+                width: parent.width
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Power & Battery"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "Battery: " + ((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.batteryLevel : 0) + "%"
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Charging: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isCharging : false) ? "Yes" : "No")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Power Save: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPowerSaveMode : false) ? "On" : "Off")
-                            variant: "secondary"
-                        }
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Toggle Power Save"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof PowerManagerService !== "undefined" && PowerManagerService)
-                                    PowerManagerService.setPowerSaveMode(!PowerManagerService.isPowerSaveMode);
-
-                                Logger.info("TestApp", "Toggled power save mode");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+                DetailItem {
+                    label: qsTr("WiFi")
+                    value: page.network && page.network.wifiConnected ? qsTr("Connected (%1)").arg(page.network.wifiSsid) : qsTr("Disconnected")
+                }
+                DetailItem {
+                    label: qsTr("Signal")
+                    value: (page.network ? page.network.wifiSignalStrength : 0) + "%"
+                    visible: page.network !== null && page.network.wifiConnected
+                }
+                DetailItem {
+                    label: qsTr("Cellular")
+                    value: page.modem && page.modem.registered ? page.modem.operatorName : qsTr("Disconnected")
+                }
+                DetailItem {
+                    objectName: "airplane"
+                    label: qsTr("Airplane mode")
+                    value: page.onOff(page.network && page.network.airplaneModeEnabled)
+                }
+            }
+            Actions {
+                TestItem {
+                    objectName: "scanWifi"
+                    text: qsTr("Scan WiFi")
+                    onClicked: page.app.run("WiFi scan", () => page.network.scanWifi())
+                }
+                TestItem {
+                    objectName: "toggleAirplane"
+                    text: qsTr("Toggle airplane")
+                    onClicked: page.app.run("Toggle airplane mode", () => page.network.setAirplaneMode(!page.network.airplaneModeEnabled))
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
+            SectionHeader {
+                text: qsTr("Display")
+            }
+            Column {
+                width: parent.width
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Network Status"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "WiFi: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected) ? ("Connected (" + NetworkManagerCpp.wifiSsid + ")") : "Disconnected")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Signal: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0) + "%"
-                            variant: "secondary"
-                            visible: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected
-                        }
-
-                        MLabel {
-                            text: "Cellular: " + ((typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.registered) ? ModemManagerCpp.operatorName : "Disconnected")
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Airplane Mode: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.airplaneModeEnabled) ? "On" : "Off")
-                            variant: "secondary"
-                        }
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Scan WiFi"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                                    NetworkManagerCpp.scanWifi();
-
-                                Logger.info("TestApp", "WiFi scan initiated");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Toggle Airplane"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                                    NetworkManagerCpp.setAirplaneMode(!NetworkManagerCpp.airplaneModeEnabled);
-
-                                Logger.info("TestApp", "Toggled airplane mode");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+                DetailItem {
+                    objectName: "brightness"
+                    label: qsTr("Brightness")
+                    value: (page.display ? Math.round(page.display.brightness * 100) : 0) + "%"
+                }
+                DetailItem {
+                    objectName: "autoBrightness"
+                    label: qsTr("Auto-brightness")
+                    value: page.onOff(page.display && page.display.autoBrightnessEnabled)
+                }
+            }
+            Actions {
+                TestItem {
+                    objectName: "brightnessUp"
+                    text: qsTr("Increase")
+                    onClicked: page.app.run("Increase brightness", () => {
+                        page.display.brightness = Math.min(1, page.display.brightness + 0.1);
+                    })
+                }
+                TestItem {
+                    objectName: "brightnessDown"
+                    text: qsTr("Decrease")
+                    onClicked: page.app.run("Decrease brightness", () => {
+                        page.display.brightness = Math.max(0, page.display.brightness - 0.1);
+                    })
+                }
+                TestItem {
+                    objectName: "toggleAuto"
+                    text: qsTr("Toggle auto")
+                    onClicked: page.app.run("Toggle auto-brightness", () => {
+                        page.display.autoBrightnessEnabled = !page.display.autoBrightnessEnabled;
+                    })
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Display"
-                        variant: "title"
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.xs
-
-                        MLabel {
-                            text: "Brightness: " + ((typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? Math.round(DisplayManagerCpp.brightness * 100) : 0) + "%"
-                            variant: "secondary"
-                        }
-
-                        MLabel {
-                            text: "Auto-brightness: " + (((typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.autoBrightnessEnabled : false) ? "On" : "Off")
-                            variant: "secondary"
-                        }
-                    }
-
-                    Flow {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MButton {
-                            text: "Increase"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.brightness = Math.min(1, DisplayManagerCpp.brightness + 0.1);
-
-                                Logger.info("TestApp", "Increased brightness");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Decrease"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.brightness = Math.max(0, DisplayManagerCpp.brightness - 0.1);
-
-                                Logger.info("TestApp", "Decreased brightness");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Toggle Auto"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
-                                    DisplayPolicyControllerCpp.autoBrightnessEnabled = !DisplayPolicyControllerCpp.autoBrightnessEnabled;
-
-                                Logger.info("TestApp", "Toggled auto-brightness");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
-
-                    // Power-key wake regression is the live P0; this card
-                    // exercises the same DisplayManagerCpp.setScreenState path
-                    // the PowerKeyListener lambda hits, so we can verify the
-                    // wake side without a hardware press.
-                    MLabel {
-                        text: "Display Power (P0)"
-                        variant: "title"
-                    }
-
-                    Flow {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MButton {
-                            text: "Blank"
-                            variant: "danger"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Display Power: BLANK");
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.setScreenState(false);
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Wake"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                Logger.info("TestApp", "Display Power: WAKE");
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.setScreenState(true);
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Brightness 50%"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.brightness = 0.5;
-                                Logger.info("TestApp", "Brightness set to 50%");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Brightness 100%"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                                    DisplayManagerCpp.brightness = 1.0;
-                                Logger.info("TestApp", "Brightness set to 100%");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+            // Drives the same setScreenState path as the power key.
+            SectionHeader {
+                text: qsTr("Display power")
+            }
+            Actions {
+                TestItem {
+                    objectName: "blank"
+                    text: qsTr("Blank")
+                    onClicked: page.app.run("Display power: blank", () => page.display.setScreenState(false))
+                }
+                TestItem {
+                    objectName: "wake"
+                    text: qsTr("Wake")
+                    onClicked: page.app.run("Display power: wake", () => page.display.setScreenState(true))
+                }
+                TestItem {
+                    objectName: "brightness50"
+                    text: qsTr("Brightness 50%")
+                    onClicked: page.app.run("Brightness 50%", () => {
+                        page.display.brightness = 0.5;
+                    })
+                }
+                TestItem {
+                    objectName: "brightness100"
+                    text: qsTr("Brightness 100%")
+                    onClicked: page.app.run("Brightness 100%", () => {
+                        page.display.brightness = 1.0;
+                    })
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Screenshot Service"
-                        variant: "title"
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Take Screenshot"
-                            variant: "accent"
-                            onClicked: {
-                                HapticService.medium();
-                                ScreenshotService.takeScreenshot();
-                                Logger.info("TestApp", "Screenshot taken");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+            SectionHeader {
+                text: qsTr("Screenshot")
+            }
+            Actions {
+                TestItem {
+                    objectName: "screenshot"
+                    text: qsTr("Take screenshot")
+                    onClicked: page.app.run("Screenshot", () => ScreenshotService.takeScreenshot())
                 }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

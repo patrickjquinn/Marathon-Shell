@@ -1,264 +1,126 @@
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Nemo.Notifications 1.0
+import "../components"
 
-Item {
-    id: root
+Page {
+    id: page
 
-    property var testApp
+    property var app
+    property Component notification: Component {
+        Notification {}
+    }
 
-    Flickable {
+    function post(appName, summary, body, options) {
+        const o = options || {};
+        const n = notification.createObject(page.app, {
+            appName: appName,
+            summary: summary,
+            body: body,
+            appIcon: o.icon || "",
+            category: o.category || "",
+            urgency: o.urgent ? Notification.Critical : Notification.Normal,
+            expireTimeout: o.persistent ? 0 : 5000,
+            remoteActions: (o.actions || []).map(a => ({ name: a, displayName: a }))
+        });
+        n.publish();
+        page.app.notifications = page.app.notifications.concat([n]);
+    }
+
+    function closeAll() {
+        page.app.notifications.forEach(n => n.close());
+        page.app.notifications = [];
+    }
+
+    SilicaFlickable {
         anchors.fill: parent
-        contentHeight: notifColumn.height
-        clip: true
+        contentHeight: column.height + Theme.paddingLarge
 
         Column {
-            id: notifColumn
+            id: column
 
             width: parent.width
-            spacing: MSpacing.md
-            padding: MSpacing.lg
+            spacing: Theme.paddingMedium
 
-            Row {
-                spacing: MSpacing.sm
+            PageHeader {
+                title: qsTr("Notifications")
+                description: page.app.summary
+            }
 
-                Icon {
-                    name: "bell"
-                    size: 24
-                    color: MColors.accent
-                    anchors.verticalCenter: parent.verticalCenter
+            SectionHeader {
+                text: qsTr("Basic notifications")
+            }
+            Actions {
+                TestItem {
+                    objectName: "simple"
+                    text: qsTr("Simple")
+                    onClicked: page.app.run("Simple notification", () => page.post("test", "Test Notification", "This is a simple test notification"))
                 }
-
-                MLabel {
-                    text: "Notifications"
-                    variant: "headline"
-                    anchors.verticalCenter: parent.verticalCenter
+                TestItem {
+                    objectName: "withIcon"
+                    text: qsTr("With icon")
+                    onClicked: page.app.run("Notification with icon", () => page.post("test", "Marathon Test", "Notification with custom icon", { icon: "bell", category: "test" }))
+                }
+                TestItem {
+                    objectName: "highPriority"
+                    text: qsTr("High priority")
+                    onClicked: page.app.run("High priority notification", () => page.post("test", "Important", "This is a high priority notification", { urgent: true, persistent: true, icon: "alert-triangle" }))
+                }
+                TestItem {
+                    objectName: "withActions"
+                    text: qsTr("With actions")
+                    onClicked: page.app.run("Notification with actions", () => page.post("test", "Interactive", "Tap an action below", { actions: ["reply", "dismiss", "snooze"], category: "message", icon: "message-circle" }))
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Basic Notifications"
-                        variant: "title"
-                    }
-
-                    Flow {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MButton {
-                            text: "Simple"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("test", "Test Notification", "This is a simple test notification");
-                                Logger.info("TestApp", "Sent simple notification");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "With Icon"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("test", "Marathon Test", "Notification with custom icon", {
-                                    "icon": "bell",
-                                    "category": "test"
-                                });
-                                Logger.info("TestApp", "Sent notification with icon");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "High Priority"
-                            variant: "accent"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("test", "Important", "This is a high priority notification", {
-                                    "priority": "high",
-                                    "persistent": true,
-                                    "icon": "alert-triangle"
-                                });
-                                Logger.info("TestApp", "Sent high priority notification");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "With Actions"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("test", "Interactive", "Tap an action below", {
-                                    "actions": ["reply", "dismiss", "snooze"],
-                                    "category": "message",
-                                    "icon": "message-circle"
-                                });
-                                Logger.info("TestApp", "Sent notification with actions");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+            SectionHeader {
+                text: qsTr("Categories")
+            }
+            Actions {
+                TestItem {
+                    objectName: "message"
+                    text: qsTr("Message")
+                    onClicked: page.app.run("Message notification", () => page.post("messages", "John Doe", "Hey, how are you doing?", { category: "message", icon: "message-circle" }))
+                }
+                TestItem {
+                    objectName: "email"
+                    text: qsTr("Email")
+                    onClicked: page.app.run("Email notification", () => page.post("mail", "New Email", "You have 3 new emails", { category: "email", icon: "mail" }))
+                }
+                TestItem {
+                    objectName: "social"
+                    text: qsTr("Social")
+                    onClicked: page.app.run("Social notification", () => page.post("social", "Friend Request", "Jane wants to connect with you", { category: "social", icon: "users" }))
+                }
+                TestItem {
+                    objectName: "system"
+                    text: qsTr("System")
+                    onClicked: page.app.run("System notification", () => page.post("system", "System Update", "A new system update is available", { category: "system", icon: "download" }))
                 }
             }
 
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Category Tests"
-                        variant: "title"
-                    }
-
-                    Flow {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MButton {
-                            text: "Message"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("messages", "John Doe", "Hey, how are you doing?", {
-                                    "category": "message",
-                                    "icon": "message-circle"
-                                });
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Email"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("mail", "New Email", "You have 3 new emails", {
-                                    "category": "email",
-                                    "icon": "mail"
-                                });
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Social"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("social", "Friend Request", "Jane wants to connect with you", {
-                                    "category": "social",
-                                    "icon": "users"
-                                });
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "System"
-                            variant: "primary"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.sendNotification("system", "System Update", "A new system update is available", {
-                                    "category": "system",
-                                    "icon": "download"
-                                });
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
-                }
+            SectionHeader {
+                text: qsTr("Stress")
             }
-
-            MCard {
-                width: parent.width - parent.padding * 2
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    padding: MSpacing.lg
-
-                    MLabel {
-                        text: "Stress Tests"
-                        variant: "title"
-                    }
-
-                    Row {
-                        spacing: MSpacing.md
-
-                        MButton {
-                            text: "Burst (10)"
-                            variant: "accent"
-                            onClicked: {
-                                HapticService.medium();
-                                for (var i = 0; i < 10; i++) {
-                                    NotificationService.sendNotification("test", "Burst Test " + (i + 1), "Testing notification system under load", {
-                                        "icon": "lightning"
-                                    });
-                                }
-                                Logger.info("TestApp", "Sent 10 burst notifications");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-
-                        MButton {
-                            text: "Clear All"
-                            variant: "danger"
-                            onClicked: {
-                                HapticService.light();
-                                NotificationService.dismissAllNotifications();
-                                Logger.info("TestApp", "Cleared all notifications");
-                                if (root.testApp) {
-                                    root.testApp.passedTests++;
-                                    root.testApp.totalTests++;
-                                }
-                            }
-                        }
-                    }
+            Actions {
+                TestItem {
+                    objectName: "burst"
+                    text: qsTr("Burst (10)")
+                    onClicked: page.app.run("10 burst notifications", () => {
+                        for (let i = 0; i < 10; i++)
+                            page.post("test", "Burst Test " + (i + 1), "Testing notification system under load", { icon: "lightning" });
+                    })
+                }
+                TestItem {
+                    objectName: "clearAll"
+                    text: qsTr("Clear all")
+                    onClicked: page.app.run("Clear notifications", () => page.closeAll())
                 }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

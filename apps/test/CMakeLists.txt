@@ -6,6 +6,7 @@ set(APP_NAME test)
 file(GLOB_RECURSE QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
 )
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 # Pure QML app
 add_marathon_app(${APP_NAME}
