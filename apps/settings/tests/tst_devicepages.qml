@@ -128,6 +128,11 @@ TestCase {
         muteSwitch.clicked(null);
         verify(!Audio.muted);
         compare(child(s.page, "ringtoneButton").value, "Classic");
+        const vibration = child(s.page, "vibrationSwitch");
+        verify(vibration.checked);
+        vibration.clicked(null);
+        verify(!Settings.vibrationEnabled);
+        verify(!vibration.checked);
 
         Audio.streams.append({ streamId: 7, appName: "Music", volume: 0.5, muted: false });
         const mute = child(s.page, "muteButton");

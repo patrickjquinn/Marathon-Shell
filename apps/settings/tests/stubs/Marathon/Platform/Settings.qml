@@ -22,6 +22,7 @@ QtObject {
     property int autoLockTimeout: 0
     property bool automaticTime: true
     property var systemTimes: []
+    property bool vibrationEnabled: true
 
     signal dateTimeChangeFailed(string reason)
 
@@ -50,6 +51,7 @@ QtObject {
         autoLockTimeout = 0;
         automaticTime = true;
         systemTimes = [];
+        vibrationEnabled = true;
     }
     function availableRingtones() {
         return ["/sounds/ring_classic.wav", "/sounds/ring_bright.wav"];

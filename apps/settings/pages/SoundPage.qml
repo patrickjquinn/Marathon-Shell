@@ -75,6 +75,18 @@ Page {
                 onClicked: page.pickSound("alarm")
             }
 
+            SectionHeader {
+                text: qsTr("Feedback")
+            }
+            TextSwitch {
+                objectName: "vibrationSwitch"
+                text: qsTr("Vibration")
+                description: qsTr("Turn off to stop all vibration, including key presses")
+                automaticCheck: false
+                checked: Settings.vibrationEnabled
+                onClicked: Settings.vibrationEnabled = !checked
+            }
+
             Column {
                 width: parent.width
                 visible: Audio.perAppVolumeSupported
