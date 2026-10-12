@@ -1,184 +1,74 @@
 pragma ComponentBehavior: Bound
-import MarathonApp.Notes
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import Nemo.Configuration 1.0
+import "NotesStore.js" as Store
+import "pages"
+import "cover"
 
-MApp {
-    id: notesApp
+ApplicationWindow {
+    id: app
 
-    property var notes: []
-    property int nextId: 1
-    property string sortMode: "newest"
-    property var navStack: null
+    property QtObject store: ConfigurationValue {
+        key: "/apps/notes/data"
+        defaultValue: "[]"
+    }
+    property QtObject imported: ConfigurationValue {
+        key: "/apps/notes/legacyImported"
+        defaultValue: false
+    }
+    // The MarathonUI app kept its notes in the shell's settings store.
+    property var legacySettings: typeof Settings !== "undefined" ? Settings : null
+    property var permissions: typeof Permissions !== "undefined" ? Permissions : null
+    readonly property var notes: Store.parse(store.value)
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
 
-    function sortNotes() {
-        if (sortMode === "newest")
-            notes.sort(function (a, b) {
-                return b.timestamp - a.timestamp;
-            });
-        else if (sortMode === "oldest")
-            notes.sort(function (a, b) {
-                return a.timestamp - b.timestamp;
-            });
-        else if (sortMode === "alphabetical")
-            notes.sort(function (a, b) {
-                return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
-            });
-        notesChanged();
+    function save(next) {
+        store.value = JSON.stringify(next);
     }
 
-    function loadNotes() {
-        var savedNotes = SettingsManagerCpp.get("notes/data", "[]");
-        try {
-            notes = JSON.parse(savedNotes);
-            if (notes.length > 0)
-                nextId = Math.max(...notes.map(n => n.id)) + 1;
-
-            sortNotes();
-        } catch (e) {
-            Logger.error("NotesApp", "Failed to load notes: " + e);
-            notes = [];
-        }
-    }
-
-    property bool savePending: false
-
-    function saveNotes() {
-        if (typeof PermissionManager !== "undefined" && !PermissionManager.hasPermission(appId, "storage")) {
-            notesApp.savePending = true;
-            PermissionManager.requestPermission(appId, "storage");
+    // Asking without the storage grant would prompt for it, and without it
+    // the old app could not have saved anything.
+    function importLegacy() {
+        if (imported.value || !legacySettings || !permissions || !permissions.hasPermission(appId, "storage"))
             return;
-        }
-        var data = JSON.stringify(notes);
-        SettingsManagerCpp.set("notes/data", data);
-        notesApp.savePending = false;
+        const old = Store.parse(legacySettings.get("notes/data", "[]"));
+        if (old.length > 0)
+            save(Store.merge(notes, old));
+        imported.value = true;
     }
 
-    function createNote(title, content) {
-        var note = {
-            "id": nextId++,
-            "title": title || "Untitled",
-            "content": content || "",
-            "timestamp": Date.now()
-        };
-        notes.push(note);
-        notesChanged();
-        saveNotes();
-        return note;
-    }
-
-    function updateNote(id, title, content) {
-        for (var i = 0; i < notes.length; i++) {
-            if (notes[i].id === id) {
-                notes[i].title = title;
-                notes[i].content = content;
-                notes[i].timestamp = Date.now();
-                notesChanged();
-                saveNotes();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function deleteNote(id) {
-        for (var i = 0; i < notes.length; i++) {
-            if (notes[i].id === id) {
-                notes.splice(i, 1);
-                notesChanged();
-                saveNotes();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function getNote(id) {
-        for (var i = 0; i < notes.length; i++) {
-            if (notes[i].id === id)
-                return notes[i];
-        }
-        return null;
-    }
-
-    function searchNotes(query) {
-        if (!query || query.length === 0)
-            return notes;
-
-        var lowerQuery = query.toLowerCase();
-        return notes.filter(function (note) {
-            return note.title.toLowerCase().indexOf(lowerQuery) !== -1 || note.content.toLowerCase().indexOf(lowerQuery) !== -1;
-        });
+    function newNote() {
+        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: -1 });
     }
 
     appId: "notes"
-    appName: "Notes"
-    appIcon: "assets/icon.svg"
-    navigationDepth: navStack ? navStack.depth - 1 + (navStack.currentItem ? navStack.currentItem.backLayers || 0 : 0) : 0
-    onBackPressed: {
-        const page = navStack.currentItem;
-        if (page && page.backLayers > 0)
-            page.handleBack();
-        else if (navStack.depth > 1)
-            navStack.pop();
+    onApplicationActiveChanged: {
+        const page = pageStack.currentPage;
+        if (!applicationActive && page && page.commit)
+            page.commit();
     }
     Component.onCompleted: {
-        loadNotes();
+        importLegacy();
+        if (route === "/folders" || route === "/tasks")
+            pageStack.push(Qt.resolvedUrl(route === "/folders" ? "pages/FoldersPage.qml" : "pages/TasksPage.qml"), { store: app }, PageStackAction.Immediate);
     }
 
-    Connections {
-        function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === notesApp.appId && permission === "storage" && notesApp.savePending)
-                notesApp.saveNotes();
+    cover: Component {
+        NotesCover {
+            notes: Store.sorted(app.notes)
+            onNewNoteRequested: {
+                app.activate();
+                app.newNote();
+            }
         }
-
-        target: typeof PermissionManager !== "undefined" ? PermissionManager : null
     }
 
-    content: Rectangle {
-        anchors.fill: parent
-        color: MColors.background
-
-        MStackView {
-            id: navigationStack
-
-            anchors.fill: parent
-            initialItem: notesListPage
-            Component.onCompleted: notesApp.navStack = navigationStack
-        }
-
-        Component {
-            id: notesListPage
-
-            NotesListPage {
-                app: notesApp
-                onCreateNewNote: {
-                    navigationStack.push(noteEditorPage, {
-                        "isNewNote": true
-                    });
-                }
-                onOpenNote: function (noteId) {
-                    var note = notesApp.getNote(noteId);
-                    if (note)
-                        navigationStack.push(noteEditorPage, {
-                            "isNewNote": false,
-                            "noteId": noteId,
-                            "initialTitle": note.title,
-                            "initialContent": note.content
-                        });
-                }
-            }
-        }
-
-        Component {
-            id: noteEditorPage
-
-            NoteEditorPage {
-                app: notesApp
-            }
+    initialPage: Component {
+        NotesPage {
+            store: app
         }
     }
 }

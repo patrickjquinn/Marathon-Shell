@@ -1,200 +1,116 @@
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Modals
-import MarathonUI.Theme
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../NotesStore.js" as Store
 
 Page {
-    id: editorPage
+    id: page
 
-    required property var app
-    property bool isNewNote: true
+    property var store
     property int noteId: -1
-    property string initialTitle: ""
-    property string initialContent: ""
-
-    property string savedTitle: initialTitle
-    property string savedContent: initialContent
     property bool discarded: false
-    readonly property int backLayers: deleteDialog.showing ? 1 : 0
 
-    function handleBack() {
-        deleteDialog.hide();
-    }
+    readonly property var note: store.notes.find(n => n.id === noteId)
 
     function commit() {
         autosaveTimer.stop();
         if (discarded)
             return;
-        const title = titleInput.text.trim();
-        const content = contentInput.text;
-        if (title === savedTitle && content === savedContent)
-            return;
-        if (isNewNote) {
-            if (title === "" && content.trim() === "")
+        const title = titleField.text.trim();
+        const body = bodyArea.text;
+        if (noteId < 0) {
+            if (title === "" && body.trim() === "")
                 return;
-            noteId = app.createNote(title, content).id;
-            isNewNote = false;
-        } else {
-            app.updateNote(noteId, title || "Untitled", content);
+            store.save(Store.create(store.notes, title, body, Date.now()));
+            noteId = store.notes[0].id;
+        } else if (note && ((title || "Untitled") !== note.title || body !== note.content)) {
+            store.save(Store.update(store.notes, noteId, title, body, Date.now()));
         }
-        savedTitle = title;
-        savedContent = content;
     }
 
-    StackView.onDeactivating: commit()
+    function deleteNote() {
+        remorse.execute(qsTr("Deleting"), function () {
+            page.discarded = true;
+            page.store.save(Store.remove(page.store.notes, page.noteId));
+            page.pageContainer.pop();
+        });
+    }
+
+    onStatusChanged: if (status === PageStatus.Deactivating) commit()
+    // Loaded once: rebinding to the saved note would rewrite the text mid-typing.
     Component.onCompleted: {
-        titleInput.text = initialTitle;
-        contentInput.text = initialContent;
-        if (isNewNote)
-            titleInput.forceActiveFocus();
+        if (note) {
+            titleField.text = note.title;
+            bodyArea.text = note.content;
+            autosaveTimer.stop();
+        } else {
+            titleField.forceActiveFocus();
+        }
     }
 
     Timer {
         id: autosaveTimer
 
         interval: 800
-        onTriggered: editorPage.commit()
+        onTriggered: page.commit()
     }
 
-    Connections {
-        function onAppPaused() {
-            editorPage.commit();
-        }
-
-        target: editorPage.app
+    RemorsePopup {
+        id: remorse
     }
 
-    Column {
+    SilicaFlickable {
         anchors.fill: parent
-        spacing: 0
+        contentHeight: column.height
 
-        Rectangle {
+        PullDownMenu {
+            visible: page.note !== undefined
+            MenuItem {
+                objectName: "deleteNoteItem"
+                text: qsTr("Delete")
+                onClicked: page.deleteNote()
+            }
+            MenuItem {
+                objectName: "pinNoteItem"
+                text: page.note && page.note.pinned ? qsTr("Unpin") : qsTr("Pin to top")
+                onClicked: {
+                    page.commit();
+                    page.store.save(Store.setPinned(page.store.notes, page.noteId, !page.note.pinned));
+                }
+            }
+        }
+
+        Column {
+            id: column
+
             width: parent.width
-            height: Constants.actionBarHeight
-            color: MColors.surface
-            z: 10
 
-            Row {
-                anchors.fill: parent
-                anchors.leftMargin: MSpacing.md
-                anchors.rightMargin: MSpacing.md
-                spacing: MSpacing.md
-
-                Item {
-                    width: parent.width - (Constants.touchTargetLarge + MSpacing.md) - (deleteBtn.visible ? Constants.touchTargetLarge + MSpacing.lg : 0) - parent.spacing * (deleteBtn.visible ? 2 : 1)
-                    height: 1
-                }
-
-                MButton {
-                    id: deleteBtn
-
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Delete"
-                    variant: "danger"
-                    visible: !editorPage.isNewNote
-                    width: Constants.touchTargetLarge + MSpacing.lg
-                    onClicked: {
-                        HapticService.medium();
-                        deleteDialog.show();
-                    }
-                }
-
-                MButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Done"
-                    variant: "primary"
-                    width: Constants.touchTargetLarge + MSpacing.md
-                    onClicked: {
-                        HapticService.light();
-                        editorPage.StackView.view.pop();
-                    }
-                }
+            PageHeader {
+                title: page.note ? page.note.title : qsTr("New note")
             }
+            TextField {
+                id: titleField
 
-            Rectangle {
-                anchors.bottom: parent.bottom
+                objectName: "titleField"
                 width: parent.width
-                height: Constants.borderWidthThin
-                color: MColors.border
+                label: qsTr("Title")
+                placeholderText: qsTr("Title")
+                font.pixelSize: Theme.fontSizeLarge
+                onTextChanged: autosaveTimer.restart()
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: bodyArea.focus = true
             }
-        }
+            TextArea {
+                id: bodyArea
 
-        Flickable {
-            width: parent.width
-            height: parent.height - Constants.actionBarHeight
-            contentHeight: editorContent.height
-            clip: true
-
-            Column {
-                id: editorContent
-
+                objectName: "bodyField"
                 width: parent.width
-                padding: MSpacing.lg
-                spacing: MSpacing.md
-
-                Rectangle {
-                    width: parent.width - parent.padding * 2
-                    height: Constants.touchTargetMedium
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.surface
-                    border.width: Constants.borderWidthMedium
-                    border.color: MColors.border
-                    antialiasing: Constants.enableAntialiasing
-
-                    TextInput {
-                        id: titleInput
-
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.md
-                        color: MColors.text
-                        font.pixelSize: MTypography.sizeLarge
-                        font.weight: Font.Bold
-                        verticalAlignment: TextInput.AlignVCenter
-                        onTextChanged: autosaveTimer.restart()
-
-                        Text {
-                            anchors.fill: parent
-                            text: "Title"
-                            color: MColors.textSecondary
-                            font.pixelSize: MTypography.sizeLarge
-                            font.weight: Font.Bold
-                            verticalAlignment: Text.AlignVCenter
-                            visible: titleInput.text.length === 0
-                        }
-                    }
-                }
-
-                MTextArea {
-                    id: contentInput
-
-                    width: parent.width - parent.padding * 2
-                    height: Math.max(Constants.screenHeight * 0.4, 300)
-                    placeholderText: "Start typing..."
-                    onTextChanged: autosaveTimer.restart()
-                }
+                placeholderText: qsTr("Note")
+                onTextChanged: autosaveTimer.restart()
             }
         }
-    }
 
-    MConfirmDialog {
-        id: deleteDialog
-
-        title: "Delete this note?"
-        message: "This note will be permanently deleted. This can't be undone."
-        confirmText: "Delete note"
-        cancelText: "Keep"
-        destructive: true
-        onCancelled: hide()
-        onConfirmed: {
-            editorPage.discarded = true;
-            editorPage.app.deleteNote(editorPage.noteId);
-            editorPage.StackView.view.pop();
-        }
-    }
-
-    background: Rectangle {
-        color: MColors.background
+        VerticalScrollDecorator {}
     }
 }

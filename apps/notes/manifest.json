@@ -3,7 +3,6 @@
   "name": "Notes",
   "version": "1.0.0",
   "entryPoint": "NotesApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],
