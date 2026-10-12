@@ -20,16 +20,15 @@ Page {
     function rowTitle(row) {
         if (row.kind === "all")
             return qsTr("Photos");
+        if (row.kind === "videos")
+            return qsTr("Videos");
         if (row.kind === "memory")
             return row.years === 1 ? qsTr("A year ago") : qsTr("%1 years ago").arg(row.years);
         return row.name;
     }
 
     function rowDetail(row) {
-        const parts = [row.count === 1 ? qsTr("1 photo") : qsTr("%1 photos").arg(row.count)];
-        if (row.videoCount > 0)
-            parts.push(row.videoCount === 1 ? qsTr("1 video") : qsTr("%1 videos").arg(row.videoCount));
-        return parts.join(" · ");
+        return Model.countText(row.count, row.videoCount || 0);
     }
 
     SilicaListView {
@@ -37,7 +36,7 @@ Page {
 
         objectName: "collections"
         anchors.fill: parent
-        model: Model.collections(root.store.photos, root.store.albums, root.store.memories)
+        model: Model.collections(root.store.photos, root.store.videos, root.store.albums, root.store.memories)
         header: PageHeader { title: qsTr("Gallery") }
         section.property: "section"
         section.delegate: SectionHeader {
@@ -54,7 +53,7 @@ Page {
             required property var modelData
 
             contentHeight: Theme.itemSizeExtraLarge
-            enabled: modelData.count > 0
+            enabled: modelData.count > 0 || modelData.videoCount > 0
             Accessible.name: root.rowTitle(modelData) + ", " + root.rowDetail(modelData)
             onClicked: root.open(modelData)
 
@@ -74,6 +73,12 @@ Page {
                     anchors.fill: parent
                     visible: thumb.status !== Image.Ready
                     color: Theme.rgba(Theme.primaryColor, 0.1)
+                }
+
+                Icon {
+                    anchors.centerIn: parent
+                    visible: !row.modelData.cover
+                    source: "image://theme/icon-l-video"
                 }
             }
 

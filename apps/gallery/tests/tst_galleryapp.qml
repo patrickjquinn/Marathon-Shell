@@ -24,8 +24,14 @@ TestCase {
                  album: album, width: 48, height: 36, timestamp: new Date(2026, 0, id).getTime() };
     }
 
-    function makeApp(photos) {
+    function video(id) {
+        return { id: id, path: "file:///videos/VID_" + id + ".mp4", thumbnailPath: "",
+                 timestamp: new Date(2026, 0, id).getTime() };
+    }
+
+    function makeApp(photos, videos) {
         MediaLibrary.photos = photos;
+        MediaLibrary.videos = videos || [];
         MediaLibrary.albums = [{ id: "Trip", name: "Trip", photoCount: 2 }, { id: "Camera Roll", name: "Camera Roll", photoCount: 1 }];
         MediaLibrary.deleted = [];
         const app = createTemporaryObject(appComponent, testCase);
@@ -128,5 +134,84 @@ TestCase {
         app.deletePhoto(2);
         compare(MediaLibrary.deleted, [2]);
         tryCompare(app.pageStack, "depth", 1);
+    }
+
+    function openGrid(app, kind) {
+        app.pageStack.currentPage.open({ kind: kind });
+        tryCompare(app.pageStack, "busy", false);
+        return app.pageStack.currentPage;
+    }
+
+    function test_mainPageHasAVideosRow() {
+        const app = makeApp(threePhotos(), [video(2)]);
+        const list = findChild(app.pageStack.currentPage, "collections");
+        tryCompare(list, "count", 4);
+        compare(app.pageStack.currentPage.rowDetail(list.model[0]), "3 photos · 1 video");
+        compare(app.pageStack.currentPage.rowTitle(list.model[1]), "Videos");
+        compare(app.pageStack.currentPage.rowDetail(list.model[1]), "1 video");
+    }
+
+    function test_photosGridIncludesVideosNewestFirst() {
+        const app = makeApp(threePhotos(), [video(2)]);
+        const page = openGrid(app, "all");
+        compare(page.shown.map(m => m.id), [3, 2, 2, 1]);
+        verify(findChild(page, "grid"));
+        tryCompare(findChild(page, "grid"), "count", 4);
+    }
+
+    function test_videosGridShowsOnlyVideos() {
+        const app = makeApp(threePhotos(), [video(4), video(5)]);
+        const page = openGrid(app, "videos");
+        compare(page.shown.map(m => m.id), [4, 5]);
+    }
+
+    function test_tappingAVideoPlaysIt() {
+        const app = makeApp(threePhotos(), [video(9)]);
+        const grid = findChild(openGrid(app, "all"), "grid");
+        tryCompare(grid, "count", 4);
+        mouseClick(grid.itemAtIndex(0));
+        tryCompare(app.pageStack, "busy", false);
+        const player = app.pageStack.currentPage;
+        compare(player.video.id, 9);
+        compare(String(findChild(player, "player").source), "file:///videos/VID_9.mp4");
+        verify(findChild(player, "playButton").visible);
+        verify(findChild(player, "positionSlider").visible);
+    }
+
+    function test_tappingAPhotoBesideVideosOpensThatPhoto() {
+        const app = makeApp(threePhotos(), [video(9)]);
+        const grid = findChild(openGrid(app, "all"), "grid");
+        tryCompare(grid, "count", 4);
+        mouseClick(grid.itemAtIndex(2));
+        tryCompare(app.pageStack, "busy", false);
+        const viewer = app.pageStack.currentPage;
+        compare(viewer.photos.length, 3);
+        compare(viewer.photo.id, 2);
+    }
+
+    function test_deletingAVideoFromThePlayer() {
+        const app = makeApp(threePhotos(), [video(9)]);
+        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), { store: app, video: app.videos[0] });
+        tryCompare(app.pageStack, "busy", false);
+        const player = app.pageStack.currentPage;
+        findChild(player, "deleteAction").clicked();
+        findChild(player, "remorse").trigger();
+        compare(MediaLibrary.deleted, [9]);
+        tryCompare(app.pageStack, "depth", 1);
+        compare(app.videos.length, 0);
+    }
+
+    function test_playerPlaysAndPauses() {
+        const app = makeApp(threePhotos());
+        const clip = { id: 1, path: Qt.resolvedUrl("data/clip.mp4").toString(), timestamp: 0 };
+        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), { store: app, video: clip });
+        tryCompare(app.pageStack, "busy", false);
+        const page = app.pageStack.currentPage;
+        mouseClick(findChild(page, "playButton"));
+        tryVerify(function () { return page.playing; }, 5000);
+        tryVerify(function () { return findChild(page, "player").position > 0; }, 5000);
+        compare(findChild(page, "player").duration, 2000);
+        mouseClick(findChild(page, "playButton"));
+        tryVerify(function () { return !page.playing; });
     }
 }

@@ -8,7 +8,7 @@ Page {
     id: root
 
     property var store
-    // "all", "album" or "memory"
+    // "all", "videos", "album" or "memory"
     property string kind: "all"
     property string albumId
     property int memoryYears
@@ -18,13 +18,21 @@ Page {
 
     readonly property var photos: kind === "album" ? Model.albumPhotos(store.photos, albumId)
                                 : kind === "memory" ? Model.memoryPhotos(store.memories, memoryYears)
-                                : store.photos
+                                : kind === "videos" ? store.videos
+                                : Model.merged(store.photos, store.videos)
     readonly property var shown: searching ? Model.filter(photos, query) : photos
 
     function openPhoto(index) {
+        const item = shown[index];
+        if (Model.isVideo(item)) {
+            pageStack.push(Qt.resolvedUrl("VideoPlayerPage.qml"), { store: root.store, video: item });
+            return;
+        }
+        const stills = shown.filter(p => !Model.isVideo(p));
         pageStack.push(Qt.resolvedUrl("PhotoViewerPage.qml"),
-                       { store: root.store, photos: root.shown, currentIndex: index });
+                       { store: root.store, photos: stills, currentIndex: stills.indexOf(item) });
     }
+
 
     // Deleting the last photo of an album or memory leaves nothing to show.
     onPhotosChanged: if (photos.length === 0 && kind !== "all" && status === PageStatus.Active) pageStack.pop()
@@ -44,7 +52,10 @@ Page {
 
             PageHeader {
                 title: root.title
-                description: root.photos.length === 1 ? qsTr("1 photo") : qsTr("%1 photos").arg(root.photos.length)
+                description: {
+                    const videos = root.photos.filter(Model.isVideo).length;
+                    return Model.countText(root.photos.length - videos, videos);
+                }
             }
             SearchField {
                 id: search
@@ -79,7 +90,7 @@ Page {
             source: modelData.thumbnailPath || modelData.path
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
-            Accessible.name: Model.fileName(modelData)
+            Accessible.name: (Model.isVideo(modelData) ? qsTr("Video %1") : "%1").arg(Model.fileName(modelData))
             Accessible.onPressAction: root.openPhoto(index)
             Keys.onReturnPressed: root.openPhoto(index)
             Keys.onEnterPressed: root.openPhoto(index)
@@ -91,7 +102,8 @@ Page {
 
         ViewPlaceholder {
             enabled: grid.count === 0
-            text: root.searching && root.photos.length > 0 ? qsTr("No matching photos") : qsTr("No photos")
+            text: root.searching && root.photos.length > 0 ? qsTr("No matching photos")
+                : root.kind === "videos" ? qsTr("No videos") : qsTr("No photos")
             hintText: root.searching && root.photos.length > 0 ? qsTr("Try a different name, album or date") : ""
         }
 

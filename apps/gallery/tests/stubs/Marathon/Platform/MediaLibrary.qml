@@ -18,6 +18,7 @@ QtObject {
     function deleteMedia(id) {
         deleted = deleted.concat([id]);
         photos = photos.filter(p => p.id !== id);
+        videos = videos.filter(v => v.id !== id);
         libraryChanged();
     }
 }

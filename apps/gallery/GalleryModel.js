@@ -57,11 +57,31 @@ function memoryPhotos(memories, years) {
     return m ? m.photos : [];
 }
 
-// The main page's rows: all photos, then memories, then albums.
-function collections(photos, albums, memories) {
-    if (photos.length === 0)
+function isVideo(item) {
+    return !!item && /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(String(item.path));
+}
+
+// "3 photos · 1 video"; "0 photos" when there is nothing.
+function countText(photoCount, videoCount) {
+    const parts = [];
+    if (photoCount > 0 || videoCount === 0)
+        parts.push(photoCount === 1 ? qsTr("1 photo") : qsTr("%1 photos").arg(photoCount));
+    if (videoCount > 0)
+        parts.push(videoCount === 1 ? qsTr("1 video") : qsTr("%1 videos").arg(videoCount));
+    return parts.join(" · ");
+}
+
+function merged(photos, videos) {
+    return photos.concat(videos).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
+// The main page's rows: everything, videos, then memories, then albums.
+function collections(photos, videos, albums, memories) {
+    if (photos.length === 0 && videos.length === 0)
         return [];
-    const rows = [{ kind: "all", section: "", count: photos.length, cover: photos[0] }];
+    const rows = [{ kind: "all", section: "", count: photos.length, videoCount: videos.length, cover: photos[0] || null }];
+    if (videos.length > 0)
+        rows.push({ kind: "videos", section: "", count: 0, videoCount: videos.length, cover: null });
     memories.forEach(m => rows.push({
         kind: "memory", section: "memories", years: m.years,
         count: m.photos.length, videoCount: m.videoCount, cover: m.photos[0] || null
