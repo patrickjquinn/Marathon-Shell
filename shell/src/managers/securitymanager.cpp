@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <sys/types.h>
+#include <algorithm>
 #include <utility>   // std::as_const
 
 SecurityManager *SecurityManager::create(QQmlEngine *engine, QJSEngine *) {
@@ -609,7 +610,8 @@ void SecurityManager::onFingerprintVerifyStatus(const QString &result, bool done
 }
 
 void SecurityManager::updateLockoutStatus() {
-    int attempts = queryFaillockAttempts();
+    // faillock only sees PAM (password) failures; quick PIN failures are counted here.
+    const int attempts = std::max(queryFaillockAttempts(), m_failedAttempts);
 
     if (attempts != m_failedAttempts) {
         m_failedAttempts = attempts;

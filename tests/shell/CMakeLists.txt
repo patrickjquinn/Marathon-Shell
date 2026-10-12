@@ -165,3 +165,13 @@ target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6:
 target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_AlarmManager COMMAND test_shell_alarmmanager)
 set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# SecurityManager: quick PIN failures count towards the lockout
+find_package(Qt6 REQUIRED COMPONENTS Concurrent)
+add_executable(test_shell_securitymanager
+    test_securitymanager.cpp
+    ../../shell/src/managers/securitymanager.cpp
+)
+target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Concurrent ${PAM_LIBRARY})
+target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
