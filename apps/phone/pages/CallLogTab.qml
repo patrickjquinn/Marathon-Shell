@@ -92,7 +92,7 @@ TabItem {
                         return item.count > 1 ? qsTr("%1 (%2)").arg(who).arg(item.count) : who;
                     }
                     truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.highlightColor : item.missed ? Theme.errorColor : Theme.primaryColor
+                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
                 Label {
                     width: parent.width
