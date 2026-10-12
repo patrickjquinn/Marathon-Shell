@@ -174,15 +174,20 @@ Page {
             width: parent.width
             height: Math.max(input.height, sendButton.height)
 
-            TextField {
+            TextArea {
                 id: input
+
+                readonly property var sms: Logic.smsLength(text)
+
                 objectName: "messageField"
                 anchors {
                     left: parent.left
                     right: sendButton.left
                     verticalCenter: parent.verticalCenter
                 }
-                placeholderText: qsTr("Message")
+                height: Math.min(implicitHeight, root.height / 3)
+                placeholderText: qsTr("Type message")
+                label: text === "" ? qsTr("SMS") : sms.parts > 1 ? qsTr("SMS (%1) · %2/%3").arg(sms.parts).arg(sms.used).arg(sms.limit) : qsTr("SMS · %1/%2").arg(sms.used).arg(sms.limit)
                 EnterKey.enabled: root.canSend
                 EnterKey.iconSource: "image://theme/icon-m-send"
                 EnterKey.onClicked: root.send()
@@ -195,7 +200,8 @@ Page {
                 anchors {
                     right: parent.right
                     rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
-                    verticalCenter: parent.verticalCenter
+                    bottom: parent.bottom
+                    bottomMargin: Theme.paddingLarge
                 }
                 enabled: root.canSend
                 icon.source: "image://theme/icon-m-send"

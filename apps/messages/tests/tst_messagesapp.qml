@@ -330,4 +330,16 @@ TestCase {
         compare(app.drafts.a, undefined);
         compare(findChild(page(app), "conversationList").count, 1);
     }
+
+    function test_composerCountsSmsParts() {
+        const app = makeApp();
+        app.openConversation(sample()[0]);
+        const conv = waitForPage(app, "conversation");
+        const field = findChild(conv, "messageField");
+        compare(field.label, "SMS");
+        field.text = "Hello";
+        compare(field.label, "SMS · 5/160");
+        field.text = "x".repeat(200);
+        compare(field.label, "SMS (2) · 200/306");
+    }
 }

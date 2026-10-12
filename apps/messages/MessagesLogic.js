@@ -131,3 +131,32 @@ function messageRows(messages) {
         });
     });
 }
+
+const gsmBasic = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
+const gsmExtended = "^{}\\[~]|€";
+
+// GSM 7-bit fits 160 (153 per part); any other character forces UCS-2 at 70 (67).
+function smsLength(text) {
+    let units = 0;
+    for (const ch of String(text || "")) {
+        if (gsmBasic.indexOf(ch) !== -1)
+            units += 1;
+        else if (gsmExtended.indexOf(ch) !== -1)
+            units += 2;
+        else
+            return smsUcs2(text);
+    }
+    return smsParts(units, 160, 153);
+}
+
+function smsUcs2(text) {
+    let units = 0;
+    for (const ch of String(text))
+        units += ch.length;
+    return smsParts(units, 70, 67);
+}
+
+function smsParts(units, single, part) {
+    const parts = units <= single ? 1 : Math.ceil(units / part);
+    return { used: units, limit: parts === 1 ? single : parts * part, parts: parts };
+}

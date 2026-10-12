@@ -98,4 +98,14 @@ TestCase {
         compare(Logic.withSections(list, ["p"], now).map(c => c.section), ["pinned", String(new Date(2026, 9, 12).getTime()), String(new Date(2026, 9, 11).getTime())]);
         compare(Logic.withSections(list, ["p"], now)[1].id, "t");
     }
+
+    function test_smsLength() {
+        compare(Logic.smsLength(""), { used: 0, limit: 160, parts: 1 });
+        compare(Logic.smsLength("Hello, world"), { used: 12, limit: 160, parts: 1 });
+        compare(Logic.smsLength("x".repeat(160)).parts, 1);
+        compare(Logic.smsLength("x".repeat(161)), { used: 161, limit: 306, parts: 2 });
+        compare(Logic.smsLength("€5").used, 3);
+        compare(Logic.smsLength("Cześć"), { used: 5, limit: 70, parts: 1 });
+        compare(Logic.smsLength("ż".repeat(71)), { used: 71, limit: 134, parts: 2 });
+    }
 }
