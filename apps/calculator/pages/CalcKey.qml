@@ -35,14 +35,6 @@ BackgroundItem {
     objectName: "key_" + key
     Accessible.name: _names[key] || key
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: Theme.paddingSmall
-        radius: Theme.paddingSmall
-        visible: root.kind === "equals"
-        color: Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
-    }
-
     Label {
         anchors.centerIn: parent
         visible: root.key !== "⌫"
