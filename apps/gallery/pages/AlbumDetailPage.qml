@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -14,6 +16,7 @@ Rectangle {
     property string albumId: ""
     property string albumName: ""
     property var photos: []
+    property var app: null
 
     function findParentApp(item) {
         var parent = item.parent;
@@ -23,7 +26,7 @@ Rectangle {
 
             parent = parent.parent;
         }
-        return galleryApp;
+        return root.app;
     }
 
     color: MColors.background
@@ -57,6 +60,9 @@ Rectangle {
                     size: 24
                     color: MColors.textPrimary
                     Layout.alignment: Qt.AlignVCenter
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Back to albums"
+                    Accessible.onPressAction: root.StackView.view.pop()
 
                     MouseArea {
                         anchors.fill: parent
@@ -88,23 +94,23 @@ Rectangle {
             cacheBuffer: cellHeight * 2
 
             delegate: MCard {
+                id: photoCard
+
+                required property var modelData
+
                 width: GridView.view.cellWidth - MSpacing.xs
                 height: GridView.view.cellHeight - MSpacing.xs
                 elevation: 1
                 interactive: true
                 onClicked: {
                     Logger.info("Gallery", "View photo: " + modelData.id);
-                    var app = findParentApp(root);
-                    if (app && app.photoViewerLoader) {
-                        app.photoViewerLoader.active = true;
-                        app.photoViewerLoader.item.show(modelData);
-                    }
+                    root.findParentApp(root).openPhoto(modelData);
                 }
 
                 Image {
                     anchors.fill: parent
                     anchors.margins: Constants.borderWidthThin
-                    source: modelData.thumbnailPath || modelData.path
+                    source: photoCard.modelData.thumbnailPath || photoCard.modelData.path
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     cache: true

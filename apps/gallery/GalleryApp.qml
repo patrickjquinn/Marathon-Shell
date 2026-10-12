@@ -1,6 +1,9 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Gallery
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
@@ -12,20 +15,48 @@ import QtQuick.Layouts
 
 // Marathon DS · Gallery (screens-apps-2.jsx:GalleryApp).
 //
-// Display-weight "Gallery" title + search + more. Photos pane is a
+// Display-weight "Gallery" title + search. Photos pane is a
 // vertical scroll of section bands: each band has an eyebrow
 // "DATE · LOCATION" followed by a 3-col thumbnail grid. Memories
 // appear as 2-up large cards beneath. Tabs:
-// Albums · Photos · Memories · Search.
+// Albums · Photos · Memories.
 MApp {
     id: galleryApp
+
+    property var albumsStackRef: null
+
+    property var searchFieldRef: null
 
     property var albums: MediaLibraryManager.albums
     property var photos: []
     property var videos: []
     property string selectedAlbum: ""
     property int currentView: 1            // start on Photos per JSX
-    property alias photoViewerLoader: photoViewerLoader
+    property bool searchActive: false
+    property string searchQuery: ""
+    property int albumDepth: 0
+    readonly property bool viewerOpen: photoViewerLoader.item !== null && (photoViewerLoader.item as PhotoViewerPage).visible
+    readonly property var filteredPhotos: {
+        const q = searchQuery.trim().toLowerCase();
+        if (!searchActive || q.length === 0)
+            return photos;
+        return photos.filter(p => {
+            var name = decodeURIComponent((p.path || "").split("/").pop());
+            var date = p.timestamp ? Qt.formatDate(new Date(p.timestamp), "d MMMM yyyy") : "";
+            return (name + " " + (p.album || "") + " " + date).toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    function openPhoto(photo) {
+        photoViewerLoader.active = true;
+        (photoViewerLoader.item as PhotoViewerPage).show(photo);
+    }
+
+    function closeSearch() {
+        searchActive = false;
+        if (searchFieldRef)
+            searchFieldRef.clear();
+    }
 
     function refreshAllPhotos() {
         Qt.callLater(function () {
@@ -46,21 +77,21 @@ MApp {
         const now = new Date();
         const buckets = {};
         const order = [];
-        const consider = (item, isVideo) => {
+        var consider = (item, isVideo) => {
             if (!item || !item.timestamp)
                 return;
-            const ts = new Date(item.timestamp);
-            const yearsDiff = now.getFullYear() - ts.getFullYear();
+            var ts = new Date(item.timestamp);
+            var yearsDiff = now.getFullYear() - ts.getFullYear();
             if (yearsDiff < 1)
                 return;
             // ±3-day window around today's calendar date in any prior
             // year. Sufficient for "took photos all weekend last
             // year" without bleeding into adjacent weeks.
-            const sameYearProbe = new Date(now.getFullYear(), ts.getMonth(), ts.getDate());
-            const dayDiff = Math.abs((sameYearProbe - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+            var sameYearProbe = new Date(now.getFullYear(), ts.getMonth(), ts.getDate());
+            var dayDiff = Math.abs((sameYearProbe - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
             if (dayDiff > 3)
                 return;
-            const key = "y" + yearsDiff;
+            var key = "y" + yearsDiff;
             if (!buckets[key]) {
                 buckets[key] = {
                     "yearsDiff": yearsDiff,
@@ -72,7 +103,7 @@ MApp {
                 };
                 order.push(key);
             }
-            const bucket = buckets[key];
+            var bucket = buckets[key];
             bucket.items.push(item);
             if (isVideo)
                 bucket.videoCount++;
@@ -105,8 +136,8 @@ MApp {
     function sectionedPhotos() {
         const sections = {};
         const order = [];
-        for (let i = 0; i < photos.length; ++i) {
-            const p = photos[i];
+        for (let i = 0; i < filteredPhotos.length; ++i) {
+            const p = filteredPhotos[i];
             const ts = p && p.timestamp ? new Date(p.timestamp) : new Date();
             const now = new Date();
             const diff = now - ts;
@@ -134,6 +165,21 @@ MApp {
     appId: "gallery"
     appName: "Gallery"
     appIcon: "assets/icon.svg"
+    navigationDepth: albumDepth + (searchActive ? 1 : 0) + (viewerOpen ? 1 : 0)
+    onBackPressed: {
+        if (viewerOpen) {
+            if ((photoViewerLoader.item as PhotoViewerPage).deleteConfirm.showing)
+                (photoViewerLoader.item as PhotoViewerPage).deleteConfirm.hide();
+            else
+                (photoViewerLoader.item as PhotoViewerPage).hide();
+        } else if (currentView === 0 && albumDepth > 0) {
+            albumsStackRef.pop();
+        } else if (searchActive) {
+            closeSearch();
+        } else if (albumDepth > 0) {
+            albumsStackRef.pop();
+        }
+    }
     Component.onCompleted: {
         if (MediaLibraryManager.scanLibraryAsync)
             MediaLibraryManager.scanLibraryAsync();
@@ -145,6 +191,9 @@ MApp {
     Connections {
         function onScanComplete(photoCount, videoCount) {
             Logger.info("Gallery", "Library scan complete: " + photoCount + " photos, " + videoCount + " videos");
+            galleryApp.refreshAllPhotos();
+        }
+        function onLibraryChanged() {
             galleryApp.refreshAllPhotos();
         }
         target: MediaLibraryManager
@@ -171,57 +220,65 @@ MApp {
                 width: parent.width
                 title: "Gallery"
                 actions: [
-                    Icon {
-                        name: "search"
-                        size: 22
-                        color: MColors.textSecondary
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -10
-                            onClicked: HapticService.light()
-                        }
-                    },
-                    Icon {
-                        name: "ellipsis-vertical"
-                        size: 22
-                        color: MColors.textSecondary
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -10
-                            onClicked: HapticService.light()
+                    MIconButton {
+                        iconName: galleryApp.searchActive ? "x" : "search"
+                        iconColor: MColors.textSecondary
+                        a11yName: galleryApp.searchActive ? "Close search" : "Search photos"
+                        onClicked: {
+                            if (galleryApp.searchActive) {
+                                galleryApp.closeSearch();
+                            } else {
+                                galleryApp.searchActive = true;
+                                galleryApp.currentView = 1;
+                                searchField.focusInput();
+                            }
                         }
                     }
                 ]
             }
 
+            Item {
+                width: parent.width
+                height: galleryApp.searchActive ? searchField.implicitHeight + MSpacing.md * 2 : 0
+                visible: galleryApp.searchActive
+
+                MSearchField {
+                    id: searchField
+                    Component.onCompleted: galleryApp.searchFieldRef = searchField
+
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: MSpacing.md
+                    anchors.rightMargin: MSpacing.md
+                    placeholder: "Search by name, album or date"
+                    onTextChanged: galleryApp.searchQuery = text
+                }
+            }
+
             StackLayout {
                 width: parent.width
-                height: parent.height - topBar.height - tabBar.height
+                height: parent.height - topBar.height - tabBar.height - (galleryApp.searchActive ? searchField.implicitHeight + MSpacing.md * 2 : 0)
                 currentIndex: galleryApp.currentView
 
                 // ── 0: Albums (kept the existing list pattern) ─
                 MStackView {
                     id: albumsStackView
+                    Component.onCompleted: galleryApp.albumsStackRef = albumsStackView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    onDepthChanged: {
-                        galleryApp.navigationDepth = depth - 1;
-                    }
-
-                    Connections {
-                        function onBackPressed() {
-                            if (albumsStackView.depth > 1)
-                                albumsStackView.pop();
-                        }
-                        target: galleryApp
-                    }
+                    onDepthChanged: galleryApp.albumDepth = depth - 1
 
                     initialItem: ListView {
                         clip: true
                         model: galleryApp.albums
                         spacing: 0
                         delegate: Item {
+                            id: albumRow
+
+                            required property var modelData
+
                             width: ListView.view.width
                             height: 70
                             Row {
@@ -251,14 +308,14 @@ MApp {
                                     width: parent.width - 42 - 24 - parent.spacing * 2
                                     spacing: 2
                                     Text {
-                                        text: modelData.name
+                                        text: albumRow.modelData.name
                                         color: MColors.textPrimary
                                         font.family: MTypography.fontFamily
                                         font.pixelSize: MTypography.sizeSubhead
                                         font.weight: Font.Medium
                                     }
                                     Text {
-                                        text: modelData.photoCount + " photos"
+                                        text: albumRow.modelData.photoCount + " photos"
                                         color: MColors.textSecondary
                                         font.family: MTypography.fontFamily
                                         font.pixelSize: MTypography.sizeFootnote
@@ -285,8 +342,9 @@ MApp {
                                 onClicked: {
                                     HapticService.light();
                                     albumsStackView.push("pages/AlbumDetailPage.qml", {
-                                        "albumId": modelData.id,
-                                        "albumName": modelData.name
+                                        "albumId": albumRow.modelData.id,
+                                        "albumName": albumRow.modelData.name,
+                                        "app": galleryApp
                                     });
                                 }
                             }
@@ -297,8 +355,8 @@ MApp {
                             visible: galleryApp.albums.length === 0
                             iconName: "folder"
                             iconSize: 64
-                            title: "No albums yet"
-                            message: "Your photo library is empty."
+                            title: MediaLibraryManager.isScanning ? "Looking for photos…" : "No albums yet"
+                            message: MediaLibraryManager.isScanning ? "Scanning your Pictures and DCIM folders." : "Folders inside Pictures or DCIM show up here as albums. Photos you take with Camera are added automatically."
                         }
                     }
                 }
@@ -314,13 +372,17 @@ MApp {
                     model: galleryApp.sectionedPhotos()
 
                     delegate: Column {
+                        id: photoSection
+
+                        required property var modelData
+
                         width: ListView.view.width
                         spacing: 8
 
                         Text {
                             anchors.left: parent.left
                             anchors.leftMargin: 20
-                            text: modelData.label
+                            text: photoSection.modelData.label
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeEyebrow
@@ -329,6 +391,7 @@ MApp {
                         }
 
                         Grid {
+                            id: photoGrid
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: 16
@@ -339,9 +402,13 @@ MApp {
                             property real cellW: (parent.width - 32 - 8) / 3
 
                             Repeater {
-                                model: modelData.items
+                                model: photoSection.modelData.items
                                 delegate: Rectangle {
-                                    width: parent.cellW
+                                    id: thumb
+
+                                    required property var modelData
+
+                                    width: photoGrid.cellW
                                     height: width
                                     color: MColors.elev2
                                     radius: 2
@@ -352,7 +419,7 @@ MApp {
                                     Image {
                                         anchors.fill: parent
                                         anchors.margins: 1
-                                        source: modelData.thumbnailPath || modelData.path
+                                        source: thumb.modelData.thumbnailPath || thumb.modelData.path
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
                                         cache: true
@@ -362,7 +429,7 @@ MApp {
 
                                     // Video duration badge — top-right when a clip.
                                     Rectangle {
-                                        visible: modelData.duration && modelData.duration > 0
+                                        visible: thumb.modelData.duration && thumb.modelData.duration > 0
                                         anchors.top: parent.top
                                         anchors.right: parent.right
                                         anchors.topMargin: 6
@@ -375,7 +442,7 @@ MApp {
                                             id: durationText
                                             anchors.centerIn: parent
                                             text: {
-                                                const s = Math.max(0, modelData.duration || 0);
+                                                const s = Math.max(0, thumb.modelData.duration || 0);
                                                 const m = Math.floor(s / 60);
                                                 const ss = Math.floor(s % 60);
                                                 return m + ":" + (ss < 10 ? "0" + ss : ss);
@@ -394,9 +461,7 @@ MApp {
                                         anchors.fill: parent
                                         onClicked: {
                                             HapticService.light();
-                                            photoViewerLoader.active = true;
-                                            if (photoViewerLoader.item)
-                                                photoViewerLoader.item.show(modelData);
+                                            galleryApp.openPhoto(thumb.modelData);
                                         }
                                     }
                                 }
@@ -407,11 +472,11 @@ MApp {
                     MEmptyState {
                         anchors.centerIn: parent
                         width: parent.width - 48
-                        visible: galleryApp.photos.length === 0
-                        iconName: "image"
+                        visible: galleryApp.filteredPhotos.length === 0
+                        iconName: galleryApp.photos.length > 0 ? "search" : "image"
                         iconSize: 64
-                        title: "No photos"
-                        message: "Your photo library is empty."
+                        title: galleryApp.photos.length > 0 ? "No matching photos" : MediaLibraryManager.isScanning ? "Looking for photos…" : "No photos yet"
+                        message: galleryApp.photos.length > 0 ? "Try a different name, album or date." : MediaLibraryManager.isScanning ? "Scanning your Pictures and DCIM folders." : "Take photos with Camera, or copy images into your Pictures folder, and they will appear here."
                     }
                 }
 
@@ -448,6 +513,10 @@ MApp {
                     }
 
                     delegate: Item {
+                        id: memoryCard
+
+                        required property var modelData
+
                         width: ListView.view.width
                         height: cardWidth / 2 + 4
 
@@ -471,7 +540,7 @@ MApp {
                             Image {
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                source: modelData.cover ? (modelData.cover.thumbnailPath || modelData.cover.path || "") : ""
+                                source: memoryCard.modelData.cover ? (memoryCard.modelData.cover.thumbnailPath || memoryCard.modelData.cover.path || "") : ""
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
                                 cache: true
@@ -482,7 +551,7 @@ MApp {
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                visible: !modelData.cover
+                                visible: !memoryCard.modelData.cover
                                 gradient: Gradient {
                                     orientation: Gradient.Vertical
                                     GradientStop {
@@ -523,7 +592,7 @@ MApp {
                                 anchors.bottomMargin: 10
                                 spacing: 2
                                 Text {
-                                    text: modelData.title
+                                    text: memoryCard.modelData.title
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: 18
@@ -531,7 +600,7 @@ MApp {
                                     font.letterSpacing: -0.2
                                 }
                                 Text {
-                                    text: galleryApp.memorySubtitle(modelData)
+                                    text: galleryApp.memorySubtitle(memoryCard.modelData)
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeEyebrow
@@ -546,12 +615,10 @@ MApp {
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
-                                    if (!modelData.cover)
+                                    if (!memoryCard.modelData.cover)
                                         return;
                                     HapticService.light();
-                                    photoViewerLoader.active = true;
-                                    if (photoViewerLoader.item)
-                                        photoViewerLoader.item.show(modelData.cover);
+                                    galleryApp.openPhoto(memoryCard.modelData.cover);
                                 }
                             }
                         }
@@ -594,6 +661,8 @@ MApp {
                 onTabSelected: index => {
                     HapticService.light();
                     galleryApp.currentView = index;
+                    if (index !== 1)
+                        galleryApp.closeSearch();
                     if (index === 1 && galleryApp.photos.length === 0)
                         galleryApp.refreshAllPhotos();
                 }
