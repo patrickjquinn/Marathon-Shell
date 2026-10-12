@@ -1,0 +1,6 @@
+module Marathon.Platform
+singleton Telephony 1.0 Telephony.qml
+singleton CallHistory 1.0 CallHistory.qml
+singleton Contacts 1.0 Contacts.qml
+singleton Permissions 1.0 Permissions.qml
+singleton Navigation 1.0 Navigation.qml

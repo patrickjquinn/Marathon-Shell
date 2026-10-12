@@ -1,1206 +1,169 @@
 pragma ComponentBehavior: Bound
-import MarathonApp.Phone
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Feedback
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import Nemo.Configuration 1.0
+import "Phone.js" as Phone
+import "pages"
 
-MApp {
-    id: phoneApp
+ApplicationWindow {
+    id: root
 
-    property var contactEditorLoaderRef: null
-
-    property var callErrorSnackbarRef: null
+    // "/emergency" comes from the lock screen's Emergency affordance: dialer only.
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
+    readonly property bool emergencyOnly: route === "/emergency"
 
     property bool hasContactsPermission: false
-    property string contactsQuery: ""
-    property var contacts: hasContactsPermission ? ContactsManager.contacts : []
-    property var callHistory: CallHistoryManager.history
+    readonly property var contacts: hasContactsPermission ? Contacts.contacts : []
+    readonly property var callHistory: CallHistory.history
+
     property string dialedNumber: ""
-    property bool inCall: TelephonyService.callState !== "idle"
-    property int editingContactId: -1
-    property string editingContactName: ""
-    property string editingContactPhone: ""
-    property string editingContactEmail: ""
-    property var activeCallPageRef: null
-    property var incomingCallScreenRef: null
-    // True when launched from the lock screen via the "Emergency" affordance
-    // (route="/emergency"). The UI hides contacts/history and only exposes a
-    // dialer; the actual emergency-number gate is enforced by the modem.
-    readonly property bool emergencyOnly: (typeof MARATHON_APP_ROUTE !== "undefined") && (MARATHON_APP_ROUTE === "/emergency")
+    property string callNumber: ""
+    property string callName: ""
+    property real callStartedAt: 0
+    readonly property string callState: Telephony.callState
+    readonly property bool inCall: callState !== "idle" && callState !== "terminated"
 
-    function resolveContactName(number) {
-        for (var i = 0; i < contacts.length; i++) {
-            if (MPhoneNumber.sameNumber(contacts[i].phone, number))
-                return contacts[i].name;
+    property var callLogSeen: ConfigurationValue {
+        key: "/apps/phone/callLogSeen"
+        defaultValue: 0
+    }
+    readonly property int missedCount: Phone.missedSince(callHistory, Number(callLogSeen.value) || 0)
+
+    property Item callPage: null
+    property Item incomingPage: null
+
+    property Component mainPage: Component {
+        MainPage {
+            phone: root
         }
-        return "Unknown";
     }
-
-    function formatTimestamp(timestamp) {
-        var now = Date.now();
-        var ts = Number(timestamp);
-        if (Number.isFinite(ts) && ts > 0 && ts < 1e+11)
-            ts = ts * 1000;
-
-        if (!Number.isFinite(ts) || ts <= 0)
-            return "";
-
-        var diff = now - ts;
-        var minutes = Math.floor(diff / (1000 * 60));
-        var hours = Math.floor(diff / (1000 * 60 * 60));
-        var days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        if (minutes < 60)
-            return minutes + "m";
-
-        if (hours < 24)
-            return hours + "h";
-
-        return days + "d";
-    }
-
-    function formatDuration(seconds) {
-        var s = Number(seconds);
-        if (!Number.isFinite(s) || s <= 0)
-            return "";
-
-        var minutes = Math.floor(s / 60);
-        var remainingSeconds = Math.floor(s % 60);
-        return minutes + ":" + (remainingSeconds < 10 ? "0" : "") + remainingSeconds;
-    }
-
-    function historyField(row, key, fallbackValue) {
-        if (!row)
-            return fallbackValue;
-
-        var v = row[key];
-        if (v === undefined || v === null || v === "")
-            return fallbackValue;
-
-        return v;
-    }
-
-    function addDigit(digit) {
-        dialedNumber += digit;
-        HapticService.light();
-    }
-
-    function deleteDigit() {
-        if (dialedNumber.length > 0) {
-            dialedNumber = dialedNumber.slice(0, -1);
-            HapticService.light();
+    property Component emergencyPage: Component {
+        EmergencyPage {
+            phone: root
         }
     }
 
-    function clearNumber() {
-        dialedNumber = "";
-        HapticService.light();
+    function contactName(number) {
+        const match = contacts.find(c => Phone.sameNumber(c.phone, number));
+        return match ? match.name : "";
     }
 
-    function makeCall() {
-        if (dialedNumber.length > 0) {
-            Logger.info("Phone", "Calling: " + dialedNumber);
-            // Emergency mode routes through dialEmergency() so the audit
-            // trail captures the attempt with metadata (operator, modem
-            // path) regardless of whether the modem accepts the number.
-            if (emergencyOnly)
-                TelephonyService.dialEmergency(dialedNumber);
-            else
-                TelephonyService.dial(dialedNumber);
-            var contactName = emergencyOnly ? "Emergency" : resolveContactName(dialedNumber);
-            if (activeCallPageRef)
-                activeCallPageRef.show(dialedNumber, contactName);
+    function call(number) {
+        number = String(number || "").trim();
+        if (number.length === 0)
+            return;
+        const emergency = emergencyOnly || Phone.isEmergency(number);
+        // dialEmergency leaves an audit record before dialling.
+        if (emergency)
+            Telephony.dialEmergency(number);
+        else
+            Telephony.dial(number);
+        callNumber = number;
+        callName = emergency ? qsTr("Emergency call") : contactName(number);
+        callStartedAt = 0;
+        showCallPage();
+    }
 
-            HapticService.medium();
+    function showCallPage() {
+        if (callPage)
+            return;
+        if (incomingPage && pageStack.currentPage === incomingPage) {
+            callPage = pageStack.replace(Qt.resolvedUrl("pages/ActiveCallPage.qml"), { phone: root });
+            incomingPage = null;
+        } else {
+            callPage = pageStack.push(Qt.resolvedUrl("pages/ActiveCallPage.qml"), { phone: root });
         }
+    }
+
+    function showIncoming(number) {
+        callNumber = number;
+        callName = contactName(number);
+        callStartedAt = 0;
+        if (!incomingPage && !callPage)
+            incomingPage = pageStack.push(Qt.resolvedUrl("pages/IncomingCallPage.qml"), { phone: root });
+    }
+
+    function closeCallPages() {
+        const lowest = incomingPage || callPage;
+        callPage = null;
+        incomingPage = null;
+        if (lowest)
+            pageStack.pop(pageStack.previousPage(lowest));
+    }
+
+    function requestContacts() {
+        if (emergencyOnly || hasContactsPermission)
+            return;
+        if (Permissions.hasPermission(appId, "contacts"))
+            hasContactsPermission = true;
+        else
+            Permissions.requestPermission(appId, "contacts");
+    }
+
+    function markCallLogSeen() {
+        callLogSeen.value = Date.now();
+    }
+
+    function sendMessage(number) {
+        Navigation.launchAppWithRoute("messages", "conversation", JSON.stringify({ number: number }));
     }
 
     appId: "phone"
-    appName: "Phone"
-    appIcon: "assets/icon.svg"
-    navigationDepth: activeCallPageRef && activeCallPageRef.visible ? (activeCallPageRef.keypadOpen ? 1 : 0) : (contactEditorLoaderRef && contactEditorLoaderRef.active ? 1 : 0)
-    onBackPressed: {
-        if (activeCallPageRef && activeCallPageRef.visible)
-            activeCallPageRef.keypadOpen = false;
-        else if (contactEditorLoaderRef && contactEditorLoaderRef.item)
-            contactEditorLoaderRef.item.goBack();
+
+    initialPage: emergencyOnly ? emergencyPage : mainPage
+
+    Connections {
+        target: Telephony
+
+        function onIncomingCall(number) {
+            root.showIncoming(number);
+        }
+        function onCallStateChanged() {
+            const state = Telephony.callState;
+            if (state === "idle" || state === "terminated") {
+                root.dialedNumber = "";
+                root.callNumber = "";
+                root.callName = "";
+                root.closeCallPages();
+            } else if (state === "active") {
+                if (root.callStartedAt === 0)
+                    root.callStartedAt = Date.now();
+                if (root.callNumber === "" && Telephony.activeNumber !== "") {
+                    root.callNumber = Telephony.activeNumber;
+                    root.callName = root.contactName(root.callNumber);
+                }
+                root.showCallPage();
+            }
+        }
+        function onCallFailed(reason) {
+            root.closeCallPages();
+            Notices.show(reason === "No modem available" ? qsTr("Calls aren't available: no SIM or modem was found.") : qsTr("The call couldn't be connected. Check your signal and try again."));
+        }
     }
 
-    // First-use gate: prompt the moment the user opens a contacts-backed
-    // tab (Contacts / Favorites) or the contacts shortcut, not on app
-    // launch. The Dialer + Recents tabs render fine without contacts.
-    function ensureContactsPermission() {
-        if (emergencyOnly)
-            return;
-        if (hasContactsPermission)
-            return;
-        if (typeof PermissionManager === "undefined")
-            return;
-        if (PermissionManager.hasPermission(appId, "contacts")) {
-            hasContactsPermission = true;
-            return;
+    Connections {
+        target: Permissions
+
+        function onPermissionGranted(appId, permission) {
+            if (appId === root.appId && permission === "contacts")
+                root.hasContactsPermission = true;
         }
-        PermissionManager.requestPermission(appId, "contacts");
+        function onPermissionDenied(appId, permission) {
+            if (appId === root.appId && permission === "contacts")
+                root.hasContactsPermission = false;
+        }
     }
 
     Component.onCompleted: {
-        if (emergencyOnly)
-            Logger.warn("Phone", "Launched in EMERGENCY ONLY mode -- contacts/history disabled");
-
-        if (TelephonyService.callState === "active") {
-            var number = TelephonyService.activeNumber;
-            var contactName = resolveContactName(number);
-            if (activeCallPageRef)
-                activeCallPageRef.show(number, contactName);
-
-            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
-        }
-        if (emergencyOnly)
-            return;
-
-        if (PermissionManager.hasPermission(appId, "contacts"))
+        if (!emergencyOnly && Permissions.hasPermission(appId, "contacts"))
             hasContactsPermission = true;
-    }
-
-    Connections {
-        function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === phoneApp.appId && permission === "contacts") {
-                Logger.info("Phone", "Contacts permission granted");
-                phoneApp.hasContactsPermission = true;
-            }
-        }
-
-        function onPermissionDenied(deniedAppId, permission) {
-            if (deniedAppId === phoneApp.appId && permission === "contacts") {
-                Logger.warn("Phone", "Contacts permission denied");
-                phoneApp.hasContactsPermission = false;
-            }
-        }
-
-        target: PermissionManager
-    }
-
-    Connections {
-        function onIncomingCall(number) {
-            Logger.info("Phone", "Incoming call from: " + number);
-            var contactName = phoneApp.resolveContactName(number);
-            if (phoneApp.incomingCallScreenRef)
-                phoneApp.incomingCallScreenRef.show(number, contactName);
-        }
-
-        function onCallStateChanged(state) {
-            Logger.info("Phone", "Call state changed: " + state);
-            if (state === "idle") {
-                if (phoneApp.dialedNumber.length > 0)
-                    phoneApp.dialedNumber = "";
-
-                if (phoneApp.activeCallPageRef && phoneApp.activeCallPageRef.visible)
-                    phoneApp.activeCallPageRef.hide();
-
-                if (phoneApp.incomingCallScreenRef && phoneApp.incomingCallScreenRef.visible)
-                    phoneApp.incomingCallScreenRef.hide();
-            } else if (state === "active") {
-                if (phoneApp.incomingCallScreenRef && phoneApp.incomingCallScreenRef.visible)
-                    phoneApp.incomingCallScreenRef.hide();
-
-                if (phoneApp.activeCallPageRef && !phoneApp.activeCallPageRef.visible) {
-                    var number = TelephonyService.activeNumber;
-                    var contactName = phoneApp.resolveContactName(number);
-                    phoneApp.activeCallPageRef.show(number, contactName);
-                }
-            }
-        }
-
-        function onCallFailed(reason) {
-            Logger.warn("Phone", "Call failed: " + reason);
-            if (phoneApp.activeCallPageRef && phoneApp.activeCallPageRef.visible)
-                phoneApp.activeCallPageRef.hide();
-            if (phoneApp.callErrorSnackbarRef)
-                phoneApp.callErrorSnackbarRef.show(reason === "No modem available" ? qsTr("Calls aren't available: no SIM or modem was found.") : qsTr("The call couldn't be connected. Check your signal and try again."));
-        }
-
-        target: TelephonyService
-    }
-
-    content: Rectangle {
-        anchors.fill: parent
-        color: MColors.background
-
-        Column {
-            property int currentIndex: 0
-            onCurrentIndexChanged: {
-                // Contacts (2) + Favorites (3) read ContactsManager; this is
-                // where the first-use prompt belongs, not on app launch.
-                if (currentIndex === 2 || currentIndex === 3)
-                    phoneApp.ensureContactsPermission();
-            }
-
-            anchors.fill: parent
-            spacing: 0
-
-            // App header — "Phone" title per JSX
-            // screens-apps-1.jsx:PhoneDialer (TopBar).
-            MTopBar {
-                id: topBar
-                width: parent.width
-                title: "Phone"
-            }
-
-            StackLayout {
-                width: parent.width
-                // Was `parent.height - tabBar.height - 88`. The magic 88
-                // (action-row 76 + 12 margin) was already accounted for
-                // INSIDE dialerPane via the spacer at the bottom of the
-                // dial-pad Column — subtracting it here too pushed the
-                // bottom tab bar (Dial / Recents / Contacts / Favorites)
-                // off the canvas by ~22 px and only the top of each
-                // tab icon remained visible as a ghost fragment.
-                height: parent.height - topBar.height - tabBar.height
-                currentIndex: parent.currentIndex
-
-                // DS Phone · Dialer (screens-apps-1.jsx:171).
-                // 36/Light dialed number + teal contact-match subtitle.
-                // 3×4 grid of 68 px elev-2 circles. Bottom action row:
-                // user-icon · 64 px teal-gradient call circle · backspace x.
-                Rectangle {
-                    id: dialerPane
-                    color: MColors.background
-
-                    // Action row height plus the margin that clears the tab
-                    // bar. The dial pad sizes itself against this, so both have
-                    // to read the same number.
-                    readonly property real actionRowReserve: 96 + 56
-                    readonly property real dialPadTopMargin: 20
-                    readonly property real dialPadBottomMargin: 16
-                    // Fits a 36 px digit row over the 14 px contact-match
-                    // subtitle; taller reads as dead air before a number is
-                    // entered.
-                    readonly property real numberDisplayHeight: 70
-
-                    // Resolve a contact from the dialed number via the
-                    // ContactsManager IPC client. Falls back to empty when
-                    // no contact matches or the client isn't available.
-                    function lookupContact(num) {
-                        if (!num || num.length < 3)
-                            return "";
-                        if (typeof ContactsManager === "undefined")
-                            return "";
-                        const c = ContactsManager.getContactByNumber(num);
-                        if (!c || !c.name)
-                            return "";
-                        // Default label is "Mobile" — when the contact model
-                        // grows to support multiple labelled numbers per
-                        // entry, this should use the matched number's label.
-                        return c.name + " · Mobile";
-                    }
-                    readonly property string contactMatch: lookupContact(phoneApp.dialedNumber)
-
-                    // Action row is anchored as a sibling of this ColumnLayout
-                    // (below) — anchored directly to dialerPane.bottom with
-                    // an explicit 56 px margin so the call FAB sits clearly
-                    // above the tab bar. Nesting it INSIDE the ColumnLayout
-                    // made Layout.bottomMargin / anchors.bottomMargin both no-op
-                    // on this surface (Qt 6.10 ColumnLayout vs. fillHeight
-                    // sibling interaction).
-                    ColumnLayout {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: actionRow.top
-                        anchors.leftMargin: 24
-                        anchors.rightMargin: 24
-                        anchors.topMargin: dialerPane.dialPadTopMargin
-                        anchors.bottomMargin: dialerPane.dialPadBottomMargin
-                        spacing: 0
-
-                        // Display: dialed number + contact match.
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: dialerPane.numberDisplayHeight
-
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 6
-
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    // Empty-state placeholder: the JSX canvas
-                                    // hides this region when no number is
-                                    // entered, but on a 720×1480 device that
-                                    // leaves ~70 px of dead air above the dial
-                                    // pad and the user has no anchor for where
-                                    // their digits will land. A dimmed
-                                    // placeholder keeps the visual rhythm and
-                                    // hints at the input affordance.
-                                    width: Math.min(implicitWidth, dialerPane.width - MSpacing.lg * 2)
-                                    text: phoneApp.dialedNumber.length > 0 ? MPhoneNumber.format(phoneApp.dialedNumber) : qsTr("Enter number")
-                                    color: phoneApp.dialedNumber.length > 0 ? MColors.textPrimary : MColors.textTertiary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: phoneApp.dialedNumber.length > 0 ? 36 : 24
-                                    font.weight: MTypography.weightExtraLight   // 200 per JSX
-                                    font.letterSpacing: 1
-                                    elide: Text.ElideLeft
-                                    Accessible.role: Accessible.StaticText
-                                    Accessible.name: phoneApp.dialedNumber.length > 0 ? phoneApp.dialedNumber.split("").join(" ") : text
-                                }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: dialerPane.contactMatch
-                                    color: MColors.marathonTealBright
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: 14
-                                    font.weight: Font.Medium
-                                    visible: text.length > 0
-                                }
-                            }
-                        }
-
-                        Grid {
-                            id: dialPadGrid
-
-                            Layout.alignment: Qt.AlignHCenter
-
-                            // Constrained on both axes. A ColumnLayout whose
-                            // children do not fit overflows past its own bottom
-                            // anchor rather than shrinking them, so a grid sized
-                            // on width alone lands under the action row. The
-                            // height budget comes from dialerPane, not from this
-                            // Layout, whose height this grid feeds.
-                            readonly property real widthCap: Math.floor((parent.width - columnSpacing * 2) / 3)
-                            // Clamped at 0: dialerPane has no height until the
-                            // first layout pass, and a negative cell size reaches
-                            // font.pixelSize.
-                            readonly property real heightCap: Math.max(0, Math.floor((dialerPane.height - dialerPane.actionRowReserve - dialerPane.dialPadTopMargin - dialerPane.dialPadBottomMargin - dialerPane.numberDisplayHeight - rowSpacing * 3 - topPadding - bottomPadding) / 4))
-                            readonly property real cellSize: Math.min(widthCap, heightCap, 180)
-
-                            columns: 3
-                            rowSpacing: 14
-                            columnSpacing: 18
-                            topPadding: 8
-                            bottomPadding: 8
-
-                            Repeater {
-                                model: [
-                                    {
-                                        "digit": "1",
-                                        "letters": ""
-                                    },
-                                    {
-                                        "digit": "2",
-                                        "letters": "ABC"
-                                    },
-                                    {
-                                        "digit": "3",
-                                        "letters": "DEF"
-                                    },
-                                    {
-                                        "digit": "4",
-                                        "letters": "GHI"
-                                    },
-                                    {
-                                        "digit": "5",
-                                        "letters": "JKL"
-                                    },
-                                    {
-                                        "digit": "6",
-                                        "letters": "MNO"
-                                    },
-                                    {
-                                        "digit": "7",
-                                        "letters": "PQRS"
-                                    },
-                                    {
-                                        "digit": "8",
-                                        "letters": "TUV"
-                                    },
-                                    {
-                                        "digit": "9",
-                                        "letters": "WXYZ"
-                                    },
-                                    {
-                                        "digit": "*",
-                                        "letters": ""
-                                    },
-                                    {
-                                        "digit": "0",
-                                        "letters": "+"
-                                    },
-                                    {
-                                        "digit": "#",
-                                        "letters": ""
-                                    }
-                                ]
-
-                                Rectangle {
-                                    id: dialKey
-
-                                    required property var modelData
-
-                                    width: dialPadGrid.cellSize
-                                    height: dialPadGrid.cellSize
-                                    radius: width / 2
-                                    // elev-1 over bb10Black was visually
-                                    // invisible — 6 brightness units of
-                                    // separation. Bumped to elev-2 with a
-                                    // brighter border so the chip silhouette
-                                    // is actually legible at a glance.
-                                    color: keyArea.pressed ? MColors.bb10Card : MColors.elev2
-                                    border.width: 1
-                                    border.color: MColors.whiteOverlay08
-
-                                    Accessible.role: Accessible.Button
-                                    Accessible.name: modelData.digit === "0" ? qsTr("0, hold for plus") : modelData.digit
-                                    Accessible.onPressAction: phoneApp.addDigit(modelData.digit)
-
-                                    // The original "lit from above" highlight
-                                    // was a 1 px straight horizontal Rectangle
-                                    // sitting 2 px from the top of the circle.
-                                    // On a round button the straight line
-                                    // reads as a horizontal SLICE through the
-                                    // top of the circle, not a curved
-                                    // highlight — the chord doesn't follow
-                                    // the silhouette. Removed; the elev-2
-                                    // fill + whiteOverlay08 border already
-                                    // gives enough visual separation.
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        spacing: 2
-
-                                        Text {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: dialKey.modelData.digit
-                                            color: MColors.textPrimary
-                                            font.family: MTypography.fontFamily
-                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.32)
-                                            font.weight: MTypography.weightLight    // 300
-                                        }
-                                        Text {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: dialKey.modelData.letters
-                                            color: MColors.textSecondary
-                                            font.family: MTypography.fontFamily
-                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.11)
-                                            font.weight: Font.Medium
-                                            font.letterSpacing: 1.5
-                                            visible: text.length > 0
-                                        }
-                                    }
-
-                                    Behavior on color {
-                                        ColorAnimation {
-                                            duration: 80
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: keyArea
-                                        anchors.fill: parent
-                                        onClicked: phoneApp.addDigit(dialKey.modelData.digit)
-                                        onPressAndHold: {
-                                            if (dialKey.modelData.digit === "0")
-                                                phoneApp.addDigit("+");
-                                            else
-                                                phoneApp.addDigit(dialKey.modelData.digit);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Spacer pushes the action row to the bottom.
-                        // Layout.fillHeight on this empty Item makes
-                        // ColumnLayout grant it every leftover pixel.
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                        }
-                    }
-
-                    // Action row — contacts shortcut · call · backspace.
-                    // Anchored directly to dialerPane.bottom with a hard 56 px
-                    // margin so the call FAB clears the bottom MTabBar; making
-                    // it a sibling of the ColumnLayout means its position is
-                    // not subject to ColumnLayout's fillHeight redistribution.
-                    Item {
-                        id: actionRow
-
-                        // Match the keypad's grid exactly rather than insetting
-                        // by a separate margin. This anchored left/right with a
-                        // 24 px inset and split into thirds, while dialPadGrid
-                        // uses an 18 px gutter and caps cellSize at 180 and is
-                        // centre-aligned — two different column geometries. The
-                        // contacts and backspace buttons landed 27 px left and
-                        // 25 px right of the keys directly above them.
-                        width: dialPadGrid.width
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 56
-                        height: dialerPane.actionRowReserve - anchors.bottomMargin
-
-                        Row {
-                            anchors.fill: parent
-                            // Mirror the Grid's cell + columnSpacing model.
-                            // Splitting into thirds gives each slot
-                            // cellSize + 12 instead of cellSize + 18, which
-                            // left the outer two icons ~6 px inside the keys
-                            // above them even after the width was matched.
-                            spacing: dialPadGrid.columnSpacing
-
-                            Item {
-                                width: dialPadGrid.cellSize
-                                height: parent.height
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: 56
-                                    height: 56
-                                    radius: width / 2
-                                    visible: !phoneApp.emergencyOnly
-                                    color: contactsArea.pressed ? MColors.surface : "transparent"
-                                    border.width: 1
-                                    border.color: MColors.borderGlass
-
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "user"
-                                        size: 28
-                                        color: MColors.textSecondary
-                                    }
-                                }
-                                MouseArea {
-                                    id: contactsArea
-                                    anchors.fill: parent
-                                    visible: !phoneApp.emergencyOnly
-                                    Accessible.role: Accessible.Button
-                                    Accessible.name: qsTr("Contacts")
-                                    Accessible.onPressAction: clicked(null)
-                                    onClicked: dialerPane.parent.parent.currentIndex = 2
-                                }
-                            }
-
-                            Item {
-                                width: dialPadGrid.cellSize
-                                height: parent.height
-                                Rectangle {
-                                    id: callButton
-                                    anchors.centerIn: parent
-                                    width: 84
-                                    height: 84
-                                    radius: width / 2
-                                    border.width: 1
-                                    border.color: MColors.tealBorder
-                                    gradient: Gradient {
-                                        GradientStop {
-                                            position: 0
-                                            color: MColors.marathonTealBright
-                                        }
-                                        GradientStop {
-                                            position: 1
-                                            color: MColors.marathonTealDark
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        anchors.margins: 1
-                                        radius: width / 2
-                                        color: "transparent"
-                                        border.width: 1
-                                        border.color: Qt.rgba(1, 1, 1, 0.3)
-                                    }
-
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "phone"
-                                        size: 36
-                                        color: MColors.textOnAccent
-                                    }
-
-                                    scale: callArea.pressed ? 0.94 : 1.0
-                                    Behavior on scale {
-                                        NumberAnimation {
-                                            duration: 120
-                                            easing.type: Easing.OutBack
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: callArea
-                                        anchors.fill: parent
-                                        enabled: phoneApp.dialedNumber.length > 0
-                                        Accessible.role: Accessible.Button
-                                        Accessible.name: qsTr("Call")
-                                        Accessible.onPressAction: phoneApp.makeCall()
-                                        onClicked: {
-                                            HapticService.medium();
-                                            phoneApp.makeCall();
-                                        }
-                                    }
-                                }
-                            }
-
-                            Item {
-                                width: dialPadGrid.cellSize
-                                height: parent.height
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: 56
-                                    height: 56
-                                    radius: width / 2
-                                    color: backspaceArea.pressed ? MColors.surface : "transparent"
-                                    border.width: 1
-                                    border.color: phoneApp.dialedNumber.length > 0 ? MColors.borderGlass : "transparent"
-                                    opacity: phoneApp.dialedNumber.length > 0 ? 1 : 0.35
-
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "delete"
-                                        size: 28
-                                        color: MColors.textSecondary
-                                    }
-                                }
-                                MouseArea {
-                                    id: backspaceArea
-                                    anchors.fill: parent
-                                    enabled: phoneApp.dialedNumber.length > 0
-                                    Accessible.role: Accessible.Button
-                                    Accessible.name: qsTr("Delete digit")
-                                    Accessible.onPressAction: phoneApp.deleteDigit()
-                                    onClicked: {
-                                        HapticService.light();
-                                        phoneApp.deleteDigit();
-                                    }
-                                    onPressAndHold: {
-                                        HapticService.medium();
-                                        phoneApp.dialedNumber = "";
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    color: MColors.background
-
-                    MEmptyState {
-                        anchors.centerIn: parent
-                        width: parent.width - MSpacing.xl * 2
-                        visible: !phoneApp.callHistory || phoneApp.callHistory.length === 0
-                        iconName: "clock"
-                        title: "No recent calls"
-                        message: "Calls you make or receive will appear here."
-                    }
-
-                    ListView {
-                        anchors.fill: parent
-                        clip: true
-                        topMargin: MSpacing.md
-                        visible: phoneApp.callHistory && phoneApp.callHistory.length > 0
-                        model: phoneApp.callHistory
-
-                        delegate: Item {
-                            id: historyDelegate
-
-                            required property var modelData
-
-                            width: ListView.view.width
-                            height: card.height + MSpacing.md
-
-                            MCard {
-                                id: card
-
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: MSpacing.md
-                                anchors.rightMargin: MSpacing.md
-                                elevation: 1
-                                interactive: true
-                                onClicked: {
-                                    phoneApp.dialedNumber = phoneApp.historyField(historyDelegate.modelData, "number", "");
-                                    parent.parent.parent.parent.currentIndex = 0;
-                                }
-
-                                Row {
-                                    // MSpacing.touchTargetLarge does not exist --
-                                    // MSpacing only carries spacing tokens (xs, sm,
-                                    // md, lg, xl). The undefined value collapsed
-                                    // the row to height 0, which is why the recents
-                                    // card rendered as a bare "Unknown" label with
-                                    // no icon, number, duration, or timestamp.
-                                    width: parent.parent.width - MSpacing.md * 2
-                                    height: Constants.touchTargetLarge
-                                    spacing: MSpacing.md
-
-                                    Icon {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        name: phoneApp.historyField(historyDelegate.modelData, "type", "") === "outgoing" ? "phone-outgoing" : phoneApp.historyField(historyDelegate.modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
-                                        size: 20
-                                        color: phoneApp.historyField(historyDelegate.modelData, "type", "") === "missed" ? MColors.error : MColors.accent
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - parent.spacing * 2 - 20 * 2
-                                        spacing: MSpacing.xs
-
-                                        Text {
-                                            width: parent.width
-                                            text: phoneApp.historyField(historyDelegate.modelData, "contactName", "Unknown")
-                                            font.pixelSize: MTypography.sizeBody
-                                            font.weight: MTypography.weightDemiBold
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.text
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Row {
-                                            spacing: MSpacing.sm
-
-                                            Text {
-                                                text: MPhoneNumber.format(phoneApp.historyField(historyDelegate.modelData, "number", ""))
-                                                font.pixelSize: MTypography.sizeSmall
-                                                font.family: MTypography.fontFamily
-                                                color: MColors.textSecondary
-                                            }
-
-                                            Text {
-                                                text: "•"
-                                                font.pixelSize: MTypography.sizeSmall
-                                                font.family: MTypography.fontFamily
-                                                color: MColors.textSecondary
-                                                visible: phoneApp.formatDuration(phoneApp.historyField(historyDelegate.modelData, "duration", 0)) !== ""
-                                            }
-
-                                            Text {
-                                                text: phoneApp.formatDuration(phoneApp.historyField(historyDelegate.modelData, "duration", 0))
-                                                font.pixelSize: MTypography.sizeSmall
-                                                font.family: MTypography.fontFamily
-                                                color: MColors.textSecondary
-                                                visible: text !== ""
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: phoneApp.formatTimestamp(phoneApp.historyField(historyDelegate.modelData, "timestamp", 0))
-                                        font.pixelSize: MTypography.sizeSmall
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.textTertiary
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    id: contactsPane
-
-                    readonly property var filteredContacts: {
-                        const q = phoneApp.contactsQuery.trim().toLowerCase();
-                        if (q.length === 0)
-                            return phoneApp.contacts;
-                        const qDigits = MPhoneNumber.digits(q);
-                        return phoneApp.contacts.filter(c => c && ((c.name || "").toLowerCase().indexOf(q) !== -1 || (qDigits.length > 0 && MPhoneNumber.digits(c.phone).indexOf(qDigits) !== -1)));
-                    }
-
-                    color: MColors.background
-
-                    MEmptyState {
-                        anchors.centerIn: parent
-                        width: parent.width - MSpacing.xl * 2
-                        visible: !phoneApp.hasContactsPermission
-                        iconName: "lock"
-                        title: qsTr("Contacts access is off")
-                        message: qsTr("Allow Phone to use your contacts to show them here and put names to incoming calls.")
-                        actionText: qsTr("Allow access")
-                        onActionClicked: PermissionManager.requestPermission(phoneApp.appId, "contacts")
-                    }
-
-                    MEmptyState {
-                        anchors.centerIn: parent
-                        width: parent.width - MSpacing.xl * 2
-                        visible: phoneApp.hasContactsPermission && phoneApp.contacts.length === 0
-                        iconName: "user"
-                        title: qsTr("No contacts yet")
-                        message: qsTr("Tap New contact to add your first one.")
-                    }
-
-                    MSearchField {
-                        id: contactsSearch
-
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.margins: MSpacing.md
-                        visible: phoneApp.hasContactsPermission && phoneApp.contacts.length > 0
-                        placeholder: qsTr("Search contacts")
-                        onTextChanged: phoneApp.contactsQuery = text
-                    }
-
-                    MEmptyState {
-                        anchors.top: contactsSearch.bottom
-                        anchors.topMargin: MSpacing.xl
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - MSpacing.xl * 2
-                        visible: contactsSearch.visible && contactsPane.filteredContacts.length === 0
-                        iconName: "magnifying-glass"
-                        title: qsTr("No matches")
-                        message: qsTr("No contact matches \"%1\".").arg(phoneApp.contactsQuery)
-                    }
-
-                    ListView {
-                        id: contactsList
-
-                        anchors.top: contactsSearch.bottom
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        clip: true
-                        topMargin: MSpacing.md
-                        visible: contactsSearch.visible
-                        model: contactsPane.filteredContacts
-
-                        delegate: Item {
-                            id: contactDelegate
-
-                            required property var modelData
-
-                            width: contactsList.width
-                            height: contactCard.height + MSpacing.md
-
-                            MCard {
-                                id: contactCard
-
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: MSpacing.md
-                                anchors.rightMargin: MSpacing.md
-                                elevation: 1
-                                interactive: true
-                                onClicked: {
-                                    phoneApp.editingContactId = contactDelegate.modelData.id || -1;
-                                    phoneApp.editingContactName = contactDelegate.modelData.name || "";
-                                    phoneApp.editingContactPhone = contactDelegate.modelData.phone || "";
-                                    phoneApp.editingContactEmail = contactDelegate.modelData.email || "";
-                                    contactEditorLoader.active = true;
-                                }
-
-                                Row {
-                                    id: contactRow
-
-                                    width: parent.parent.width - MSpacing.md * 2
-                                    height: Constants.touchTargetLarge
-                                    spacing: MSpacing.md
-
-                                    Icon {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        name: "user"
-                                        size: 20
-                                        color: MColors.accent
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: contactRow.width - contactRow.spacing * 2 - 20 - starButton.width
-                                        spacing: MSpacing.xs
-
-                                        Text {
-                                            width: parent.width
-                                            text: contactDelegate.modelData.name || ""
-                                            font.pixelSize: MTypography.sizeBody
-                                            font.weight: MTypography.weightDemiBold
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.text
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            text: MPhoneNumber.format(contactDelegate.modelData.phone)
-                                            font.pixelSize: MTypography.sizeSmall
-                                            font.family: MTypography.fontFamily
-                                            color: MColors.textSecondary
-                                        }
-                                    }
-
-                                    Item {
-                                        id: starButton
-
-                                        width: MSpacing.touchTargetMin
-                                        height: MSpacing.touchTargetMin
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        Accessible.role: Accessible.CheckBox
-                                        Accessible.name: qsTr("Favorite")
-                                        Accessible.checkable: true
-                                        Accessible.checked: contactDelegate.modelData.favorite === true
-                                        Accessible.onPressAction: starArea.clicked(null)
-
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            name: "star"
-                                            size: 20
-                                            color: contactDelegate.modelData.favorite ? MColors.marathonTealBright : MColors.textTertiary
-                                        }
-
-                                        MouseArea {
-                                            id: starArea
-
-                                            anchors.fill: parent
-                                            onClicked: {
-                                                HapticService.light();
-                                                ContactsManager.updateContact(contactDelegate.modelData.id, {
-                                                    "favorite": !contactDelegate.modelData.favorite
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    MFloatingActionButton {
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.margins: MSpacing.lg
-                        visible: phoneApp.hasContactsPermission
-                        label: qsTr("New contact")
-                        onClicked: {
-                            phoneApp.editingContactId = -1;
-                            phoneApp.editingContactName = "";
-                            phoneApp.editingContactPhone = "";
-                            phoneApp.editingContactEmail = "";
-                            contactEditorLoader.active = true;
-                        }
-                    }
-                }
-
-                // Favorites — 3-col grid of starred contacts. Tap-to-call.
-                // The empty state holds the line until at least one contact
-                // is starred via the Contacts list star toggle.
-                Rectangle {
-                    id: favoritesPane
-                    color: MColors.background
-
-                    readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
-
-                    MEmptyState {
-                        anchors.centerIn: parent
-                        width: parent.width - MSpacing.xl * 2
-                        visible: favoritesPane.favoriteContacts.length === 0
-                        iconName: phoneApp.hasContactsPermission ? "star" : "lock"
-                        title: phoneApp.hasContactsPermission ? qsTr("No favorites yet") : qsTr("Contacts access is off")
-                        message: phoneApp.hasContactsPermission ? qsTr("Star a contact in Contacts to pin it here. Favorites give you one-tap calling.") : qsTr("Allow Phone to use your contacts to pin favorites here.")
-                        actionText: phoneApp.hasContactsPermission ? "" : qsTr("Allow access")
-                        onActionClicked: PermissionManager.requestPermission(phoneApp.appId, "contacts")
-                    }
-
-                    GridView {
-                        anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        anchors.topMargin: 16
-                        visible: favoritesPane.favoriteContacts.length > 0
-                        clip: true
-                        cellWidth: width / 3
-                        cellHeight: cellWidth + 18
-                        model: favoritesPane.favoriteContacts
-
-                        delegate: Item {
-                            id: favoriteDelegate
-
-                            required property var modelData
-
-                            width: GridView.view.cellWidth
-                            height: GridView.view.cellHeight
-
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 6
-
-                                Rectangle {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.parent.width * 0.78
-                                    height: width
-                                    radius: width / 2
-                                    color: MColors.elev3
-                                    border.width: 1
-                                    border.color: MColors.tealBorder
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: {
-                                            const n = favoriteDelegate.modelData.name || "?";
-                                            const parts = n.split(/\s+/).filter(p => p.length > 0);
-                                            if (parts.length === 0)
-                                                return "·";
-                                            if (parts.length === 1)
-                                                return parts[0].substring(0, 2).toUpperCase();
-                                            return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-                                        }
-                                        color: MColors.textPrimary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: 20
-                                        font.weight: Font.DemiBold
-                                    }
-
-                                    Rectangle {
-                                        anchors.top: parent.top
-                                        anchors.right: parent.right
-                                        anchors.topMargin: 2
-                                        anchors.rightMargin: 2
-                                        width: 18
-                                        height: 18
-                                        radius: width / 2
-                                        color: MColors.marathonTealBright
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            name: "star"
-                                            size: 10
-                                            color: MColors.textOnAccent
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: favoriteDelegate.modelData.name || ""
-                                    color: MColors.textPrimary
-                                    font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeFootnote
-                                    font.weight: Font.Medium
-                                    elide: Text.ElideRight
-                                    width: parent.parent.width - 8
-                                    horizontalAlignment: Text.AlignHCenter
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                Accessible.role: Accessible.Button
-                                Accessible.name: qsTr("Call %1").arg(favoriteDelegate.modelData.name || "")
-                                Accessible.onPressAction: clicked(null)
-                                onClicked: {
-                                    HapticService.medium();
-                                    if (favoriteDelegate.modelData.phone) {
-                                        phoneApp.dialedNumber = favoriteDelegate.modelData.phone;
-                                        TelephonyService.dial(favoriteDelegate.modelData.phone);
-                                        if (phoneApp.activeCallPageRef)
-                                            phoneApp.activeCallPageRef.show(favoriteDelegate.modelData.phone, favoriteDelegate.modelData.name);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            MTabBar {
-                id: tabBar
-
-                width: parent.width
-                activeTab: parent.currentIndex
-                // Emergency mode hides History/Contacts tabs entirely -- only the
-                // dialer is reachable. The bar remains so the layout dimension
-                // is consistent with non-emergency launch.
-                visible: !phoneApp.emergencyOnly
-                tabs: phoneApp.emergencyOnly ? [
-                    {
-                        "label": "Emergency",
-                        "icon": "phone"
-                    }
-                ] : [
-                    {
-                        "label": "Dial",
-                        "icon": "phone"
-                    },
-                    {
-                        "label": "Recents",
-                        "icon": "clock"
-                    },
-                    {
-                        "label": "Contacts",
-                        "icon": "user"
-                    },
-                    {
-                        "label": "Favorites",
-                        "icon": "star"
-                    }
-                ]
-                onTabSelected: index => {
-                    HapticService.light();
-                    if (phoneApp.emergencyOnly) {
-                        tabBar.parent.currentIndex = 0;
-                        return;
-                    }
-                    tabBar.parent.currentIndex = index;
-                }
-            }
-        }
-
-        Loader {
-            id: contactEditorLoader
-            Component.onCompleted: phoneApp.contactEditorLoaderRef = contactEditorLoader
-
-            anchors.fill: parent
-            active: false
-            z: 999
-
-            sourceComponent: Component {
-                ContactEditorPage {
-                    contactId: phoneApp.editingContactId
-                    contactName: phoneApp.editingContactName
-                    contactPhone: phoneApp.editingContactPhone
-                    contactEmail: phoneApp.editingContactEmail
-                    onContactSaved: {
-                        contactEditorLoader.active = false;
-                    }
-                    onCancelled: {
-                        contactEditorLoader.active = false;
-                    }
-                }
-            }
-        }
-
-        IncomingCallScreen {
-            id: incomingCallScreen
-
-            anchors.fill: parent
-            Component.onCompleted: phoneApp.incomingCallScreenRef = incomingCallScreen
-            Component.onDestruction: {
-                if (phoneApp.incomingCallScreenRef === incomingCallScreen)
-                    phoneApp.incomingCallScreenRef = null;
-            }
-        }
-
-        ActiveCallPage {
-            id: activeCallPage
-
-            anchors.fill: parent
-            Component.onCompleted: phoneApp.activeCallPageRef = activeCallPage
-            Component.onDestruction: {
-                if (phoneApp.activeCallPageRef === activeCallPage)
-                    phoneApp.activeCallPageRef = null;
-            }
-        }
-
-        MSnackbar {
-            id: callErrorSnackbar
-            Component.onCompleted: phoneApp.callErrorSnackbarRef = callErrorSnackbar
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: MSpacing.md
-            anchors.bottomMargin: tabBar.height + MSpacing.md
-            z: 1001
+        if (Telephony.callState === "active") {
+            callNumber = Telephony.activeNumber;
+            callName = contactName(callNumber);
+            callStartedAt = Date.now();
+            showCallPage();
         }
     }
 }
