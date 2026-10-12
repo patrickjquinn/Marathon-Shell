@@ -118,7 +118,8 @@ TestCase {
         let list = null;
         tryVerify(() => (list = findChild(app.pageStack.currentPage, "callLog")) !== null && list.count === 2);
         const item = itemAt(list, 0);
-        compare(findChild(item, "callerLabel").text, "+1 555 123 4567 (2)");
+        compare(findChild(item, "callerLabel").text, "+1 555 123 4567");
+        compare(findChild(item, "countLabel").text, "(2)");
         menuItem(item, "deleteMenuItem").clicked();
         item.closeMenu();
         tryCompare(CallHistory, "deleted", [7, 8], 8000);

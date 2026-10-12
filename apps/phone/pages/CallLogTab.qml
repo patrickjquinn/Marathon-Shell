@@ -84,18 +84,29 @@ TabItem {
                     verticalCenter: parent.verticalCenter
                 }
 
-                Label {
-                    objectName: "callerLabel"
+                Row {
                     width: parent.width
-                    text: {
-                        const who = item.name || Phone.format(item.number) || qsTr("Unknown number");
-                        return item.count > 1 ? qsTr("%1 (%2)").arg(who).arg(item.count) : who;
+                    spacing: Theme.paddingSmall
+
+                    Label {
+                        objectName: "callerLabel"
+                        width: Math.min(implicitWidth, parent.width - (countLabel.visible ? countLabel.width + parent.spacing : 0))
+                        text: item.name || Phone.format(item.number) || qsTr("Unknown number")
+                        truncationMode: TruncationMode.Fade
+                        color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                     }
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    Label {
+                        id: countLabel
+
+                        objectName: "countLabel"
+                        visible: item.count > 1
+                        text: "(" + item.count + ")"
+                        color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                    }
                 }
                 Label {
                     width: parent.width
+                    visible: text.length > 0
                     text: [item.name ? Phone.format(item.number) : "", item.modelData.duration > 0 ? Phone.duration(item.modelData.duration) : ""].filter(s => s.length > 0).join(" · ")
                     font.pixelSize: Theme.fontSizeExtraSmall
                     truncationMode: TruncationMode.Fade
