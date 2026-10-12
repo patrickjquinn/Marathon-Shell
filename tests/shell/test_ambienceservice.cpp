@@ -60,6 +60,29 @@ class TestAmbienceService : public QObject {
         QVERIFY(!spy.wait(500));
         QCOMPARE(spy.count(), 1);
     }
+
+    void pixelRatioFollowsDensityAndUserScale() {
+        QCOMPARE(AmbienceService::sailfishPixelRatio(235, 1.0), 1.0);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(294, 1.0), 1.25); // Jolla C
+        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.0), 1.25); // PinePhone, Librem 5
+        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.1), 1.25);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.5), 1.75);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 0.85), 1.0);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(470, 1.0), 2.0);
+    }
+
+    void pixelRatioIsPublishedForKeel() {
+        AmbienceService svc;
+        QSignalSpy      spy(&svc, &AmbienceService::ambienceChanged);
+        svc.setPixelRatio(1.25);
+        svc.publish({{"/desktop/jolla/theme/color_scheme", "lightondark"}});
+        QVERIFY(spy.wait(1000));
+        QCOMPARE(svc.ambience().value("/desktop/sailfish/silica/theme_pixel_ratio").toReal(), 1.25);
+        svc.setPixelRatio(1.5);
+        QVERIFY(spy.wait(1000));
+        QCOMPARE(svc.ambience().value("/desktop/sailfish/silica/theme_pixel_ratio").toReal(), 1.5);
+        QCOMPARE(svc.ambience().value("/desktop/jolla/theme/color_scheme").toString(), QString("lightondark"));
+    }
 };
 
 QTEST_MAIN(TestAmbienceService)

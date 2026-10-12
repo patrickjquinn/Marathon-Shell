@@ -34,7 +34,20 @@ void AmbienceService::setWallpaper(const QString &path) {
     emit seedChanged();
 }
 
+qreal AmbienceService::sailfishPixelRatio(qreal dpi, qreal userScale) {
+    return qMax(0.75, qRound(dpi / 235.0 * userScale * 4) / 4.0);
+}
+
+void AmbienceService::setPixelRatio(qreal ratio) {
+    if (qFuzzyCompare(ratio, m_pixelRatio))
+        return;
+    m_pixelRatio = ratio;
+    publish(m_pending.isEmpty() ? m_ambience : m_pending);
+}
+
 void AmbienceService::publish(const QVariantMap &map) {
     m_pending = map;
+    if (m_pixelRatio > 0)
+        m_pending.insert(QStringLiteral("/desktop/sailfish/silica/theme_pixel_ratio"), m_pixelRatio);
     m_debounce.start();
 }

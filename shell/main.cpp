@@ -558,7 +558,7 @@ int main(int argc, char *argv[]) {
 
     auto *ctx = engine.rootContext();
 
-    createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
+    auto *screenMetrics = createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
     // DeviceProfile is a process-lifetime singleton (already loaded early for
     // the surface format); expose the same instance to QML so the UI can key
@@ -585,6 +585,17 @@ int main(int argc, char *argv[]) {
                      });
     qmlRegisterSingletonInstance<AmbienceService>("MarathonOS.Shell", 1, 0, "AmbienceService",
                                                   ambienceService);
+    // Keel apps and the shell's Silica take their size from this ratio, so
+    // the interface-size setting scales them with the rest of the shell.
+    {
+        auto update = [ambienceService, settingsManager, screenMetrics]() {
+            ambienceService->setPixelRatio(AmbienceService::sailfishPixelRatio(
+                screenMetrics->dpi(), settingsManager->userScaleFactor()));
+        };
+        update();
+        QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, ambienceService, update);
+        QObject::connect(screenMetrics, &ScreenMetrics::metricsChanged, ambienceService, update);
+    }
 
     auto *compositorManager =
         createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
