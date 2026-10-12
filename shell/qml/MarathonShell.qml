@@ -230,6 +230,9 @@ Item {
             screenshotTimer.start();
         }
     }
+    AmbienceController {
+        service: AmbienceService
+    }
     Timer {
         id: screenshotTimer
         property string path: ""

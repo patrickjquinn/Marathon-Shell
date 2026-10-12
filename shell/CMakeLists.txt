@@ -290,6 +290,7 @@ set(QML_FILES
     qml/apps/native/NativeAppWindow.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
+    qml/core/AmbienceController.qml
     qml/models/FilteredAppModel.qml
 )
 

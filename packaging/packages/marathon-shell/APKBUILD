@@ -66,6 +66,7 @@ depends="
 	py3-evdev
 	iw
 	libcap-utils
+	keel-silica
 	"
 makedepends="
 	cmake
