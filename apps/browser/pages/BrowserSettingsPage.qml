@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -15,6 +17,13 @@ Rectangle {
 
     signal clearHistoryRequested
     signal clearCookiesRequested
+
+    function goBack() {
+        if (settingsStack.depth <= 1)
+            return false;
+        settingsStack.currentItem.requestBack(); // qmllint disable missing-property
+        return true;
+    }
 
     color: MColors.background
 
@@ -65,25 +74,29 @@ Rectangle {
                 ]
 
                 delegate: MSettingsListItem {
-                    title: modelData.title
-                    subtitle: modelData.subtitle
-                    iconName: modelData.iconName
-                    showChevron: modelData.type === "chevron"
-                    showToggle: modelData.type === "toggle"
-                    toggleValue: modelData.type === "toggle" ? modelData.value : false
+                    id: settingDelegate
+
+                    required property var modelData
+
+                    title: settingDelegate.modelData.title
+                    subtitle: settingDelegate.modelData.subtitle
+                    iconName: settingDelegate.modelData.iconName
+                    showChevron: settingDelegate.modelData.type === "chevron"
+                    showToggle: settingDelegate.modelData.type === "toggle"
+                    toggleValue: settingDelegate.modelData.type === "toggle" ? settingDelegate.modelData.value : false
                     onSettingClicked: {
-                        Logger.info("BrowserSettings", "Clicked: " + modelData.title);
-                        if (modelData.title === "Clear History")
+                        Logger.info("BrowserSettings", "Clicked: " + settingDelegate.modelData.title);
+                        if (settingDelegate.modelData.title === "Clear History")
                             settingsPage.clearHistoryRequested();
-                        else if (modelData.title === "Clear Cookies")
+                        else if (settingDelegate.modelData.title === "Clear Cookies")
                             settingsPage.clearCookiesRequested();
-                        else if (modelData.title === "Search Engine")
+                        else if (settingDelegate.modelData.title === "Search Engine")
                             settingsStack.push(searchEngineComponent);
-                        else if (modelData.title === "Homepage")
+                        else if (settingDelegate.modelData.title === "Homepage")
                             settingsStack.push(homepageComponent);
                     }
                     onToggleChanged: value => {
-                        if (modelData.title === "Private Browsing") {
+                        if (settingDelegate.modelData.title === "Private Browsing") {
                             settingsPage.isPrivateMode = value;
                             Logger.info("BrowserSettings", "Private mode: " + value);
                         }

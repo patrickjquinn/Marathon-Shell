@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -45,6 +47,16 @@ Rectangle {
 
     color: MColors.background
 
+    // Outside the ListView: its children are reparented onto the unbounded contentItem.
+    MEmptyState {
+        anchors.centerIn: parent
+        width: parent.width - MSpacing.lg * 2
+        visible: historyPage.history.length === 0
+        iconName: "clock"
+        title: "No history yet"
+        message: "Pages you visit show up here."
+    }
+
     Column {
         anchors.fill: parent
 
@@ -76,37 +88,33 @@ Rectangle {
                 return result;
             }
 
-            Text {
-                visible: historyPage.history.length === 0
-                anchors.centerIn: parent
-                text: "No history yet"
-                font.pixelSize: MTypography.sizeLarge
-                color: MColors.textTertiary
-            }
-
             delegate: Item {
+                id: historyDelegate
+
+                required property var modelData
+
                 width: historyList.width
-                height: modelData.type === "header" ? Constants.touchTargetSmall : (Constants.touchTargetLarge + MSpacing.xs)
+                height: historyDelegate.modelData.type === "header" ? Constants.touchTargetSmall : (Constants.touchTargetLarge + MSpacing.xs)
 
                 MSectionHeader {
-                    visible: modelData.type === "header"
+                    visible: historyDelegate.modelData.type === "header"
                     anchors.fill: parent
-                    text: modelData.title || ""
+                    text: historyDelegate.modelData.title || ""
                 }
 
                 MSettingsListItem {
-                    visible: modelData.type === "item"
+                    visible: historyDelegate.modelData.type === "item"
                     width: parent.width
                     height: parent.height
-                    title: modelData.data ? (modelData.data.title || modelData.data.url) : ""
-                    subtitle: modelData.data ? modelData.data.url : ""
+                    title: historyDelegate.modelData.data ? (historyDelegate.modelData.data.title || historyDelegate.modelData.data.url) : ""
+                    subtitle: historyDelegate.modelData.data ? historyDelegate.modelData.data.url : ""
                     iconName: "clock"
                     showChevron: true
-                    value: modelData.data ? (modelData.data.visitCount > 1 ? modelData.data.visitCount + " visits" : "") : ""
+                    value: historyDelegate.modelData.data ? (historyDelegate.modelData.data.visitCount > 1 ? historyDelegate.modelData.data.visitCount + " visits" : "") : ""
                     onSettingClicked: {
-                        if (modelData.data) {
-                            Logger.info("HistoryPage", "History clicked: " + modelData.data.url);
-                            historyPage.historySelected(modelData.data.url);
+                        if (historyDelegate.modelData.data) {
+                            Logger.info("HistoryPage", "History clicked: " + historyDelegate.modelData.data.url);
+                            historyPage.historySelected(historyDelegate.modelData.data.url);
                         }
                     }
                 }
@@ -120,6 +128,10 @@ Rectangle {
             height: Constants.touchTargetMedium + MSpacing.md * 2
             color: MColors.surface
             visible: historyPage.history.length > 0
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "Clear History"
+            Accessible.onPressAction: historyPage.clearHistory()
 
             Rectangle {
                 anchors.top: parent.top

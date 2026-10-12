@@ -21,6 +21,10 @@ MCard {
         tabCard.tabClicked();
     }
 
+    Accessible.role: Accessible.Button
+    Accessible.name: (tabData && tabData.title ? tabData.title : "New Tab") + (isCurrentTab ? ", current tab" : "")
+    Accessible.onPressAction: tabCard.tabClicked()
+
     MouseArea {
         anchors.fill: parent
         z: 0
@@ -104,6 +108,10 @@ MCard {
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
         z: 1000
+
+        Accessible.role: Accessible.Button
+        Accessible.name: "Close tab"
+        Accessible.onPressAction: tabCard.closeRequested()
 
         MIconButton {
             anchors.centerIn: parent

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -10,6 +12,21 @@ Rectangle {
 
     signal homepageChanged(string url)
     signal backRequested
+
+    function commitCustom() {
+        var url = customUrlInput.text.trim();
+        if (url.length === 0 || url === currentHomepage)
+            return false;
+        if (!/^(https?|about):/i.test(url))
+            url = "https://" + url;
+        homepageChanged(url);
+        return true;
+    }
+
+    function requestBack() {
+        if (!commitCustom())
+            backRequested();
+    }
 
     color: MColors.background
 
@@ -42,6 +59,10 @@ Rectangle {
                     radius: Constants.borderRadiusSmall
                     color: backMouseArea.pressed ? MColors.highlightSubtle : "transparent"
 
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Back"
+                    Accessible.onPressAction: homepagePage.requestBack()
+
                     Icon {
                         anchors.centerIn: parent
                         name: "chevron-left"
@@ -55,7 +76,7 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
-                            homepagePage.backRequested();
+                            homepagePage.requestBack();
                         }
                     }
                 }
@@ -103,9 +124,19 @@ Rectangle {
                 }
 
                 delegate: Rectangle {
+                    id: homepageDelegate
+
+                    required property string name
+                    required property string url
+
                     width: parent.width
                     height: Constants.touchTargetLarge
                     color: delegateMouseArea.pressed ? MColors.highlightSubtle : "transparent"
+
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: homepageDelegate.name
+                    Accessible.checked: homepageDelegate.url === homepagePage.currentHomepage
+                    Accessible.onPressAction: homepagePage.homepageChanged(homepageDelegate.url)
 
                     Rectangle {
                         anchors.bottom: parent.bottom
@@ -134,7 +165,7 @@ Rectangle {
 
                             Text {
                                 width: parent.width
-                                text: model.name
+                                text: homepageDelegate.name
                                 font.pixelSize: MTypography.sizeBody
                                 color: MColors.text
                                 elide: Text.ElideRight
@@ -142,7 +173,7 @@ Rectangle {
 
                             Text {
                                 width: parent.width
-                                text: model.url
+                                text: homepageDelegate.url
                                 font.pixelSize: MTypography.sizeSmall
                                 color: MColors.textTertiary
                                 elide: Text.ElideMiddle
@@ -154,7 +185,7 @@ Rectangle {
                             name: "check"
                             size: Constants.iconSizeSmall
                             color: MColors.accent
-                            visible: model.url === homepagePage.currentHomepage
+                            visible: homepageDelegate.url === homepagePage.currentHomepage
                         }
                     }
 
@@ -164,7 +195,7 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: {
                             HapticService.medium();
-                            homepagePage.homepageChanged(model.url);
+                            homepagePage.homepageChanged(homepageDelegate.url);
                         }
                     }
                 }
@@ -217,11 +248,11 @@ Rectangle {
                             selectionColor: MColors.accent
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                             text: homepagePage.currentHomepage
+                            Accessible.role: Accessible.EditableText
+                            Accessible.name: "Custom homepage address"
                             onAccepted: {
                                 HapticService.medium();
-                                if (text.length > 0)
-                                    homepagePage.homepageChanged(text);
-
+                                homepagePage.commitCustom();
                                 focus = false;
                             }
 

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -77,15 +79,18 @@ Rectangle {
         model: bookmarksPage.bookmarks
 
         delegate: MSettingsListItem {
+            id: bookmarkDelegate
+
+            required property var modelData
             property real swipeX: 0
 
-            title: modelData.title || modelData.url
-            subtitle: modelData.url
+            title: bookmarkDelegate.modelData.title || bookmarkDelegate.modelData.url
+            subtitle: bookmarkDelegate.modelData.url
             iconName: "star"
             showChevron: true
             onSettingClicked: {
-                Logger.info("BookmarksPage", "Bookmark clicked: " + modelData.url);
-                bookmarksPage.bookmarkSelected(modelData.url);
+                Logger.info("BookmarksPage", "Bookmark clicked: " + bookmarkDelegate.modelData.url);
+                bookmarksPage.bookmarkSelected(bookmarkDelegate.modelData.url);
             }
 
             Rectangle {
@@ -124,7 +129,7 @@ Rectangle {
                 }
                 onReleased: {
                     if (parent.swipeX < -Constants.touchTargetMedium)
-                        bookmarksPage.deleteBookmark(modelData.url);
+                        bookmarksPage.deleteBookmark(bookmarkDelegate.modelData.url);
 
                     parent.swipeX = 0;
                 }
@@ -137,7 +142,7 @@ Rectangle {
             }
 
             transform: Translate {
-                x: swipeX
+                x: bookmarkDelegate.swipeX
             }
 
             Behavior on swipeX {

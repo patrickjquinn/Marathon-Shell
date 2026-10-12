@@ -42,25 +42,34 @@ WebEngineView {
     settings.webRTCPublicInterfacesOnly: true
     settings.dnsPrefetchEnabled: false
     settings.showScrollBars: false
+    // BrowserApp draws its own error page from loadingChanged.
+    settings.errorPageEnabled: false
 
     Rectangle {
         anchors.fill: parent
         visible: webView.crashed
-        color: Qt.rgba(0, 0, 0, 0.6)
+        color: MColors.overlay
         z: 10000
 
         Column {
             anchors.centerIn: parent
-            spacing: 12
+            width: parent.width - MSpacing.xl * 2
+            spacing: MSpacing.md
 
             Text {
-                text: "Tab crashed"
-                color: "white"
-                font.pixelSize: 20
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: "This page stopped working"
+                color: MColors.textPrimary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeTitle3
+                wrapMode: Text.Wrap
             }
 
             MButton {
+                anchors.horizontalCenter: parent.horizontalCenter
                 text: "Reload"
+                variant: "primary"
                 onClicked: {
                     webView.crashed = false;
                     webView.reload();

@@ -22,6 +22,10 @@ Rectangle {
     signal historySelected(string url)
     signal toggleCurrentBookmark
 
+    function goBack() {
+        return selectedTabIndex === 3 && settingsPage.goBack();
+    }
+
     anchors.fill: parent
     color: MColors.background
 

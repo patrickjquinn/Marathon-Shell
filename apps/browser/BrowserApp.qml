@@ -1,8 +1,12 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Effects
+import MarathonUI.Feedback
+import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
@@ -35,6 +39,7 @@ MApp {
     readonly property bool drawerVisible: drawerProgress > 0 || isDragging
     property bool isDragging: false
     property var drawerRef: null
+    property var confirmDialogRef: null
     property var webView: null
     property bool updatingTabUrl: false
     property var urlInputRef: null
@@ -99,8 +104,17 @@ MApp {
     }
 
     function handleBack() {
+        if (confirmDialogRef && confirmDialogRef.showing) {
+            confirmDialogRef.hide();
+            return true;
+        }
         if (isDrawerOpen) {
-            closeDrawer();
+            if (!(drawerRef && drawerRef.goBack()))
+                closeDrawer();
+            return true;
+        }
+        if (urlInputRef && urlInputRef.activeFocus) {
+            urlInputRef.focus = false;
             return true;
         }
         var view = currentWebView();
@@ -212,6 +226,21 @@ MApp {
             transientMessageTimer.restart();
     }
 
+    function loadErrorMessage(loadRequest) {
+        switch (loadRequest.errorDomain) {
+        case WebEngineView.CertificateErrorDomain:
+            return "This site's security certificate isn't valid, so the connection isn't private. Browser blocked it to protect your data.";
+        case WebEngineView.DnsErrorDomain:
+            return "The address couldn't be found. Check the spelling, or check that you're online.";
+        case WebEngineView.ConnectionErrorDomain:
+            if (loadRequest.errorCode === -106)
+                return "You're offline. Connect to Wi-Fi or mobile data and try again.";
+            return "The site didn't respond. It may be down, or your connection may be unstable.";
+        default:
+            return loadRequest.errorString || "Something went wrong while loading this page.";
+        }
+    }
+
     function addToHistory(url, title) {
         if (isPrivateMode)
             return;
@@ -284,7 +313,9 @@ MApp {
                             "isCrashed": false,
                             "isNewTab": false,
                             "crashCount": 0,
-                            "lastCrashAt": 0
+                            "lastCrashAt": 0,
+                            "loadError": "",
+                            "failedUrl": ""
                         });
                         if (tab.id > maxId)
                             maxId = tab.id;
@@ -316,6 +347,7 @@ MApp {
     function createNewTab(url, focusAddress) {
         if (tabs.count >= maxTabs) {
             Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached");
+            showTransientMessage("You can have up to " + maxTabs + " tabs open. Close one to open another.");
             return -1;
         }
         var newTab = {
@@ -332,7 +364,9 @@ MApp {
             "isCrashed": false,
             "isNewTab": true,
             "crashCount": 0,
-            "lastCrashAt": 0
+            "lastCrashAt": 0,
+            "loadError": "",
+            "failedUrl": ""
         };
         tabs.append(newTab);
         if (!isPrivateMode)
@@ -493,6 +527,7 @@ MApp {
         var lowerUrl = url.toLowerCase().trim();
         if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:") || lowerUrl.startsWith("file:")) {
             Logger.warn("BrowserApp", "Blocked dangerous URI scheme: " + lowerUrl.split(":")[0]);
+            showTransientMessage("Browser can't open " + lowerUrl.split(":")[0] + ": addresses");
             return;
         }
         var finalUrl = url;
@@ -505,6 +540,7 @@ MApp {
         var finalLower = finalUrl.toLowerCase();
         if (!(finalLower.startsWith("http://") || finalLower.startsWith("https://") || finalLower.startsWith("about:"))) {
             Logger.warn("BrowserApp", "Blocked unsupported URL: " + finalUrl);
+            showTransientMessage("Browser can't open this address");
             return;
         }
         updatingTabUrl = true;
@@ -828,7 +864,7 @@ MApp {
                 Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params));
                 if (params && params.url) {
                     Logger.info("BrowserApp", "Opening URL from deep link: " + params.url);
-                    navigateTo(params.url);
+                    browserApp.navigateTo(params.url);
                 }
             }
         }
@@ -841,6 +877,46 @@ MApp {
 
         anchors.fill: parent
         color: MColors.background
+
+        function confirmClear(kind) {
+            confirmDialog.pendingAction = kind;
+            if (kind === "history") {
+                confirmDialog.title = "Clear browsing history?";
+                confirmDialog.message = "Every page in your history will be removed. This can't be undone.";
+                confirmDialog.confirmText = "Clear History";
+            } else {
+                confirmDialog.title = "Clear cookies and site data?";
+                confirmDialog.message = "You'll be signed out of most websites, and saved site data will be removed. This can't be undone.";
+                confirmDialog.confirmText = "Clear Cookies";
+            }
+            confirmDialog.show();
+        }
+
+        function deleteBookmarkWithUndo(url) {
+            var index = -1;
+            for (var i = 0; i < browserApp.bookmarks.length; i++) {
+                if (browserApp.bookmarks[i].url === url) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0)
+                return;
+            bookmarkSnackbar.removed = browserApp.bookmarks[index];
+            bookmarkSnackbar.removedIndex = index;
+            browserApp.removeBookmark(url);
+            bookmarkSnackbar.show("Bookmark removed", "Undo");
+        }
+
+        function restoreRemovedBookmark() {
+            var b = bookmarkSnackbar.removed;
+            if (!b || browserApp.isBookmarked(b.url))
+                return;
+            var newBookmarks = browserApp.bookmarks.slice();
+            newBookmarks.splice(Math.min(bookmarkSnackbar.removedIndex, newBookmarks.length), 0, b);
+            browserApp.bookmarks = newBookmarks;
+            browserApp.saveBookmarks();
+        }
 
         Column {
             anchors.fill: parent
@@ -857,7 +933,7 @@ MApp {
                     id: webViewStack
 
                     anchors.fill: parent
-                    currentIndex: currentTabIndex
+                    currentIndex: browserApp.currentTabIndex
 
                     Repeater {
                         id: tabsRepeater
@@ -871,6 +947,8 @@ MApp {
                             required property int tabId
                             required property string url
                             required property bool isCrashed
+                            required property string loadError
+                            required property string failedUrl
 
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -881,8 +959,8 @@ MApp {
                                 anchors.fill: parent
                                 focus: !urlInput.activeFocus
                                 url: tabDelegate.url
-                                profile: isPrivateMode ? privateProfile : normalProfile
-                                active: isAppActive && (tabDelegate.index === currentTabIndex)
+                                profile: browserApp.isPrivateMode ? privateProfile : normalProfile
+                                active: browserApp.isAppActive && (tabDelegate.index === browserApp.currentTabIndex)
                                 crashed: !!tabDelegate.isCrashed
                                 Component.onCompleted: {
                                     browserApp.tabViewsById["" + tabDelegate.tabId] = webView;
@@ -932,9 +1010,9 @@ MApp {
 
                                     var reqUrl = request.requestedUrl ? request.requestedUrl.toString() : "";
                                     if (reqUrl)
-                                        createNewTab(reqUrl);
+                                        browserApp.createNewTab(reqUrl);
                                     else
-                                        createNewTab("about:blank");
+                                        browserApp.createNewTab("about:blank");
                                 }
                                 onNavigationRequested: request => {
                                     if (!request)
@@ -952,6 +1030,9 @@ MApp {
                                 onCertificateError: error => {
                                     Logger.warn("BrowserApp", "TLS certificate error for " + error.url + " (" + error.type + "): " + error.description);
                                     error.rejectCertificate();
+                                    // Main-frame rejections surface as a LoadFailed error page.
+                                    if (error.isMainFrame === false && tabDelegate.index === browserApp.currentTabIndex)
+                                        browserApp.showTransientMessage("Some content was blocked: its security certificate isn't valid");
                                 }
                                 onFeaturePermissionRequested: (securityOrigin, feature) => {
                                     Logger.info("BrowserApp", "Feature permission requested (" + feature + ") for " + securityOrigin);
@@ -975,8 +1056,8 @@ MApp {
                                     if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
                                         if (browserApp.tabs.get(tabDelegate.index).title !== title) {
                                             browserApp.tabs.setProperty(tabDelegate.index, "title", title);
-                                            if (!isPrivateMode)
-                                                updateHistoryTitle(url.toString(), title);
+                                            if (!browserApp.isPrivateMode)
+                                                browserApp.updateHistoryTitle(url.toString(), title);
                                         }
                                     }
                                 }
@@ -984,15 +1065,22 @@ MApp {
                                     if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
                                         var isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
                                         browserApp.tabs.setProperty(tabDelegate.index, "isLoading", isLoading);
+                                        if (isLoading && tabDelegate.loadError !== "")
+                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", "");
                                         if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
                                             browserApp.tabs.setProperty(tabDelegate.index, "title", title);
-                                            if (!isPrivateMode)
-                                                addToHistory(url.toString(), title);
+                                            if (!browserApp.isPrivateMode)
+                                                browserApp.addToHistory(url.toString(), title);
 
                                             if (browserApp.tabs.get(tabDelegate.index).isCrashed)
                                                 browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", false);
                                         }
-                                        if (loadRequest.status === WebEngineView.LoadFailedStatus) {}
+                                        // -3 is net::ERR_ABORTED: superseded by another navigation, not a failure.
+                                        if (loadRequest.status === WebEngineView.LoadFailedStatus && loadRequest.errorCode !== -3) {
+                                            Logger.warn("BrowserApp", "Load failed for " + loadRequest.url + ": " + loadRequest.errorString + " (" + loadRequest.errorCode + ")");
+                                            browserApp.tabs.setProperty(tabDelegate.index, "failedUrl", loadRequest.url.toString());
+                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", browserApp.loadErrorMessage(loadRequest));
+                                        }
                                     }
                                 }
                                 onCanGoBackChanged: {
@@ -1014,6 +1102,69 @@ MApp {
                                     }
                                 }
                             }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: tabDelegate.loadError !== ""
+                                color: MColors.background
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    width: parent.width - MSpacing.xl * 2
+                                    spacing: MSpacing.md
+
+                                    Icon {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        name: "warning"
+                                        size: Constants.iconSizeLarge
+                                        color: MColors.warning
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: "Can't open this page"
+                                        color: MColors.textPrimary
+                                        font.family: MTypography.fontFamily
+                                        font.pixelSize: MTypography.sizeTitle3
+                                        font.weight: MTypography.weightMedium
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: tabDelegate.loadError
+                                        color: MColors.textSecondary
+                                        font.family: MTypography.fontFamily
+                                        font.pixelSize: MTypography.sizeBody
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: browserApp.displayHostFor(tabDelegate.failedUrl)
+                                        color: MColors.textTertiary
+                                        font.family: MTypography.fontFamily
+                                        font.pixelSize: MTypography.sizeFootnote
+                                        elide: Text.ElideMiddle
+                                    }
+
+                                    MButton {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "Try again"
+                                        variant: "primary"
+                                        onClicked: {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", "");
+                                            if (tabDelegate.url === tabDelegate.failedUrl || tabDelegate.failedUrl === "")
+                                                webView.reload();
+                                            else
+                                                browserApp.navigateTo(tabDelegate.failedUrl);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1032,16 +1183,16 @@ MApp {
 
                 width: parent.width
                 height: Constants.touchTargetSmall + MSpacing.sm
-                color: isPrivateMode ? Qt.rgba(0.45, 0, 0.45, 0.6) : MColors.glassTitlebar
+                color: browserApp.isPrivateMode ? MColors.secViolet : MColors.glassTitlebar
 
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.top
                     anchors.bottomMargin: MSpacing.sm
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(0, 0, 0, 0.72)
+                    color: MColors.overlayLight
                     border.width: Constants.borderWidthThin
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
+                    border.color: MColors.whiteOverlay08
                     visible: browserApp.transientMessage !== ""
                     opacity: visible ? 1 : 0
                     z: 5000
@@ -1052,7 +1203,7 @@ MApp {
                         id: toastText
 
                         text: browserApp.transientMessage
-                        color: "white"
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         anchors.centerIn: parent
@@ -1094,7 +1245,7 @@ MApp {
                         if (browserApp.updatingTabUrl)
                             return parent.width * 0.2;
 
-                        var currentTab = getCurrentTab();
+                        var currentTab = browserApp.getCurrentTab();
                         if (currentTab && currentTab.isLoading && currentTab.loadProgress)
                             return parent.width * (currentTab.loadProgress / 100);
 
@@ -1102,7 +1253,7 @@ MApp {
                     }
                     color: MColors.accent
                     visible: {
-                        var currentTab = getCurrentTab();
+                        var currentTab = browserApp.getCurrentTab();
                         return (currentTab && currentTab.isLoading === true) || browserApp.updatingTabUrl;
                     }
 
@@ -1186,7 +1337,7 @@ MApp {
                             return Math.max(-64, Math.min(64, t));
                         }
 
-                        Behavior on x {
+                        Behavior on x { // qmllint disable Quick.layout-positioning
                             enabled: !barSwipe.active
                             NumberAnimation {
                                 duration: MMotion.quick
@@ -1206,20 +1357,28 @@ MApp {
                             name: "arrow-left"
                             size: Constants.iconSizeSmall
                             color: {
-                                var currentTab = getCurrentTab();
+                                var currentTab = browserApp.getCurrentTab();
                                 return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textSecondary;
                             }
                             opacity: {
-                                var currentTab = getCurrentTab();
+                                var currentTab = browserApp.getCurrentTab();
                                 return (currentTab && currentTab.canGoBack) ? 1.0 : 0.35;
                             }
+                        }
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Back"
+                        Accessible.onPressAction: {
+                            var view = browserApp.currentWebView();
+                            if (view && view.canGoBack)
+                                view.goBack();
                         }
 
                         MouseArea {
                             anchors.fill: parent
                             enabled: {
-                                if (currentTabIndex >= 0 && currentTabIndex < tabs.count) {
-                                    var tab = tabs.get(currentTabIndex);
+                                if (browserApp.currentTabIndex >= 0 && browserApp.currentTabIndex < browserApp.tabs.count) {
+                                    var tab = browserApp.tabs.get(browserApp.currentTabIndex);
                                     return tab && tab.canGoBack === true;
                                 }
                                 return false;
@@ -1262,6 +1421,10 @@ MApp {
                             z: 10
                             visible: !urlInput.activeFocus
                             onClicked: urlInput.forceActiveFocus()
+
+                            Accessible.role: Accessible.EditableText
+                            Accessible.name: "Address: " + (urlInput.text || "Search or enter URL")
+                            Accessible.onPressAction: urlInput.forceActiveFocus()
                         }
 
                         // Badge and host travel together as one centred
@@ -1284,7 +1447,7 @@ MApp {
                                 id: schemeBadge
 
                                 readonly property string badgeState: {
-                                    var t = getCurrentTab();
+                                    var t = browserApp.getCurrentTab();
                                     return browserApp.schemeBadgeFor(t ? t.url : "");
                                 }
 
@@ -1364,7 +1527,7 @@ MApp {
                                 if (activeFocus) {
                                     browserApp.isEditingAddress = true;
                                     urlInput.userTypedSinceFocus = false;
-                                    var currentTab = getCurrentTab();
+                                    var currentTab = browserApp.getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
                                     // selectAll and STOP. Setting cursorPosition
                                     // afterwards clears the selection, so the
@@ -1373,13 +1536,13 @@ MApp {
                                     // "en.wikipedia.org" typed over the DDG url
                                     // navigated to "en.wikipedia.orghttps...".
                                     selectAll();
-                                    _clearAddressSuggestions();
+                                    browserApp._clearAddressSuggestions();
                                 } else {
                                     browserApp.isEditingAddress = false;
                                     urlInput.inlineCompletionActive = false;
                                     urlInput.inlineTypedPrefix = "";
                                     urlInput.userTypedSinceFocus = false;
-                                    _clearAddressSuggestions();
+                                    browserApp._clearAddressSuggestions();
                                     urlInput.cursorPosition = 0;
                                     // Focusing swaps in the full URL for
                                     // editing; blurring has to put the host
@@ -1415,7 +1578,7 @@ MApp {
                                             urlInput.deselect();
                                             urlInput.inlineCompletionActive = false;
                                             urlInput.applyingAutocomplete = false;
-                                            _rebuildAddressSuggestions(urlInput.text);
+                                            browserApp._rebuildAddressSuggestions(urlInput.text);
                                             return;
                                         }
                                     }
@@ -1441,7 +1604,7 @@ MApp {
                                         urlInput.inlineCompletionActive = false;
                                         urlInput.inlineTypedPrefix = "";
                                         urlInput.applyingAutocomplete = false;
-                                        _rebuildAddressSuggestions(urlInput.text);
+                                        browserApp._rebuildAddressSuggestions(urlInput.text);
                                         return;
                                     }
                                 }
@@ -1451,7 +1614,7 @@ MApp {
                                     return;
 
                                 urlInput.userTypedSinceFocus = true;
-                                _rebuildAddressSuggestions(text);
+                                browserApp._rebuildAddressSuggestions(text);
                                 if (urlInput.suppressAutocompleteOnce) {
                                     urlInput.suppressAutocompleteOnce = false;
                                     return;
@@ -1468,7 +1631,7 @@ MApp {
                                 if (text.length < 2)
                                     return;
 
-                                var match = findBestMatch(text);
+                                var match = browserApp.findBestMatch(text);
                                 if (match && match.length > text.length) {
                                     var currentPos = cursorPosition;
                                     urlInput.inlineTypedPrefix = text;
@@ -1484,14 +1647,14 @@ MApp {
                                 urlInput.inlineCompletionActive = false;
                                 urlInput.inlineTypedPrefix = "";
                                 urlInput.userTypedSinceFocus = false;
-                                _clearAddressSuggestions();
-                                navigateTo(text);
+                                browserApp._clearAddressSuggestions();
+                                browserApp.navigateTo(text);
                             }
 
                             Connections {
                                 function onCurrentTabIndexChanged() {
                                     browserApp._syncAddressBarFromCurrentTab();
-                                    var currentTab = getCurrentTab();
+                                    var currentTab = browserApp.getCurrentTab();
                                     if (currentTab && currentTab.isNewTab)
                                         browserApp.ensureAddressBarFocus(true);
                                 }
@@ -1503,7 +1666,7 @@ MApp {
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter
                                 visible: !urlInput.text && !urlInput.activeFocus
-                                text: isPrivateMode ? "Private Browsing" : "Search or enter URL"
+                                text: browserApp.isPrivateMode ? "Private Browsing" : "Search or enter URL"
                                 color: MColors.textTertiary
                                 font.pixelSize: MTypography.sizeBody
                                 font.family: MTypography.fontFamily
@@ -1530,7 +1693,7 @@ MApp {
                                     width: Constants.touchTargetSmall * 0.6
                                     height: Constants.touchTargetSmall * 0.6
                                     radius: width / 2
-                                    color: clearMouseArea.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.3) : Qt.rgba(0.5, 0.5, 0.5, 0.15)
+                                    color: clearMouseArea.pressed ? MColors.whiteOverlay24 : MColors.whiteOverlay12
 
                                     Icon {
                                         anchors.centerIn: parent
@@ -1538,6 +1701,13 @@ MApp {
                                         size: Constants.iconSizeSmall * 0.6
                                         color: MColors.textSecondary
                                     }
+                                }
+
+                                Accessible.role: Accessible.Button
+                                Accessible.name: "Clear address"
+                                Accessible.onPressAction: {
+                                    urlInput.text = "";
+                                    urlInput.forceActiveFocus();
                                 }
 
                                 MouseArea {
@@ -1576,10 +1746,17 @@ MApp {
                         color: "transparent"
                         visible: !urlInput.activeFocus
 
+                        Accessible.role: Accessible.Button
+                        Accessible.name: {
+                            var currentTab = browserApp.getCurrentTab();
+                            return (currentTab && currentTab.isLoading) ? "Stop loading" : "Reload";
+                        }
+                        Accessible.onPressAction: reloadArea.clicked(null)
+
                         Icon {
                             anchors.centerIn: parent
                             name: {
-                                var currentTab = getCurrentTab();
+                                var currentTab = browserApp.getCurrentTab();
                                 return (currentTab && currentTab.isLoading) ? "square" : "refresh-cw";
                             }
                             size: Constants.iconSizeSmall
@@ -1587,17 +1764,19 @@ MApp {
                         }
 
                         MouseArea {
+                            id: reloadArea
+
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 HapticService.light();
                                 var view = browserApp.currentWebView();
                                 if (!view) {
-                                    Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
-                                    Qt.callLater(updateCurrentWebView);
+                                    Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + browserApp.currentTabIndex + ", tabs=" + browserApp.tabs.count + ")");
+                                    Qt.callLater(browserApp.updateCurrentWebView);
                                     return;
                                 }
-                                var currentTab = getCurrentTab();
+                                var currentTab = browserApp.getCurrentTab();
                                 if (currentTab && currentTab.isLoading) {
                                     view.triggerWebAction(WebEngineView.Stop);
                                 } else {
@@ -1618,6 +1797,10 @@ MApp {
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
 
+                        Accessible.role: Accessible.Button
+                        Accessible.name: browserApp.tabs.count === 1 ? "1 tab open. Show tabs" : browserApp.tabs.count + " tabs open. Show tabs"
+                        Accessible.onPressAction: browserApp.isDrawerOpen ? browserApp.closeDrawer() : browserApp.openDrawer()
+
                         Rectangle {
                             anchors.centerIn: parent
                             width: Math.round(parent.width * 0.62)
@@ -1629,7 +1812,7 @@ MApp {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: tabs.count > 99 ? ":D" : tabs.count
+                                text: browserApp.tabs.count > 99 ? ":D" : browserApp.tabs.count
                                 font.pixelSize: Math.round(parent.height * 0.52)
                                 font.weight: Font.DemiBold
                                 font.family: MTypography.fontFamily
@@ -1642,10 +1825,10 @@ MApp {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 HapticService.light();
-                                if (isDrawerOpen)
-                                    closeDrawer();
+                                if (browserApp.isDrawerOpen)
+                                    browserApp.closeDrawer();
                                 else
-                                    openDrawer();
+                                    browserApp.openDrawer();
                             }
                         }
                     }
@@ -1687,19 +1870,19 @@ MApp {
             onPressed: mouse => {
                 startX = mouse.x + rightEdgeGesture.x;
                 currentX = startX;
-                isDragging = true;
+                browserApp.isDragging = true;
             }
             onPositionChanged: mouse => {
                 currentX = mouse.x + rightEdgeGesture.x;
                 var deltaX = startX - currentX;
-                drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
+                browserApp.drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
             }
             onReleased: {
-                isDragging = false;
-                if (drawerProgress > 0.3)
-                    openDrawer();
+                browserApp.isDragging = false;
+                if (browserApp.drawerProgress > 0.3)
+                    browserApp.openDrawer();
                 else
-                    closeDrawer();
+                    browserApp.closeDrawer();
             }
         }
 
@@ -1711,7 +1894,7 @@ MApp {
 
             parent: rootContent
             z: 9000
-            visible: urlInput.activeFocus && urlInput.userTypedSinceFocus && addressSuggestions.count > 0 && !isDrawerOpen && drawerProgress === 0
+            visible: urlInput.activeFocus && urlInput.userTypedSinceFocus && addressSuggestions.count > 0 && !browserApp.isDrawerOpen && browserApp.drawerProgress === 0
             color: MColors.bb10Elevated
             border.width: 1
             border.color: MColors.borderGlass
@@ -1741,6 +1924,13 @@ MApp {
                 boundsBehavior: Flickable.StopAtBounds
 
                 delegate: Rectangle {
+                    id: suggestionDelegate
+
+                    required property int index
+                    required property string kind
+                    required property string display
+                    required property string value
+
                     width: ListView.view.width
                     height: addressSuggestionsPopup.rowHeight
                     radius: MRadius.sm
@@ -1765,13 +1955,13 @@ MApp {
                             size: Constants.iconSizeSmall
                             color: MColors.textSecondary
                             name: {
-                                if (model.kind === "search")
+                                if (suggestionDelegate.kind === "search")
                                     return "search";
 
-                                if (model.kind === "bookmark")
+                                if (suggestionDelegate.kind === "bookmark")
                                     return "star";
 
-                                if (model.kind === "history")
+                                if (suggestionDelegate.kind === "history")
                                     return "history";
 
                                 return "arrow-right";
@@ -1779,9 +1969,9 @@ MApp {
                         }
 
                         Column {
-                            readonly property var _parts: (model.display || "").split(" — ")
-                            readonly property string primaryText: _parts.length > 0 ? _parts[0] : (model.display || "")
-                            readonly property string secondaryText: _parts.length > 1 ? _parts.slice(1).join(" — ") : (model.kind === "search" ? "" : (model.value || ""))
+                            readonly property var _parts: (suggestionDelegate.display || "").split(" — ")
+                            readonly property string primaryText: _parts.length > 0 ? _parts[0] : (suggestionDelegate.display || "")
+                            readonly property string secondaryText: _parts.length > 1 ? _parts.slice(1).join(" — ") : (suggestionDelegate.kind === "search" ? "" : (suggestionDelegate.value || ""))
 
                             anchors.verticalCenter: parent.verticalCenter
                             width: parent.width - (Constants.iconSizeSmall + MSpacing.sm)
@@ -1812,9 +2002,13 @@ MApp {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         height: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
-                        visible: index < (addressSuggestions.count - 1)
+                        color: MColors.whiteOverlay08
+                        visible: suggestionDelegate.index < (addressSuggestions.count - 1)
                     }
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: suggestionDelegate.display
+                    Accessible.onPressAction: suggestionMouseArea.clicked(null)
 
                     MouseArea {
                         id: suggestionMouseArea
@@ -1826,14 +2020,14 @@ MApp {
                             urlInput.suppressAutocompleteOnce = true;
                             urlInput.inlineCompletionActive = false;
                             urlInput.inlineTypedPrefix = "";
-                            var selectedValue = value;
-                            var selectedKind = kind;
+                            var selectedValue = suggestionDelegate.value;
+                            var selectedKind = suggestionDelegate.kind;
                             urlInput.text = selectedValue;
                             urlInput.cursorPosition = urlInput.text.length;
                             urlInput.focus = false;
                             urlInput.userTypedSinceFocus = false;
-                            _clearAddressSuggestions();
-                            navigateTo(selectedValue);
+                            browserApp._clearAddressSuggestions();
+                            browserApp.navigateTo(selectedValue);
                         }
                     }
 
@@ -1868,22 +2062,22 @@ MApp {
                 shadowHorizontalOffset: 0
                 shadowVerticalOffset: 4
                 shadowBlur: 16.0 / 32.0
-                shadowColor: Qt.rgba(0, 0, 0, 0.6)
+                shadowColor: MColors.shadowStrong
                 shadowOpacity: 1.0
             }
         }
 
         Rectangle {
             anchors.fill: parent
-            color: "#000000"
-            opacity: drawerProgress * 0.6
-            visible: drawerProgress > 0
+            color: MColors.background
+            opacity: browserApp.drawerProgress * 0.6
+            visible: browserApp.drawerProgress > 0
 
             MouseArea {
                 anchors.fill: parent
-                enabled: drawerProgress > 0
+                enabled: browserApp.drawerProgress > 0
                 onClicked: {
-                    closeDrawer();
+                    browserApp.closeDrawer();
                 }
             }
         }
@@ -1893,7 +2087,7 @@ MApp {
 
             width: parent.width * 0.85
             height: parent.height
-            x: parent.width - (width * drawerProgress)
+            x: parent.width - (width * browserApp.drawerProgress)
             visible: browserApp.drawerVisible
             clip: true
 
@@ -1906,6 +2100,9 @@ MApp {
                     if (drawer.tabsPage) {
                         drawer.tabsPage.tabs = Qt.binding(function () {
                             return browserApp.tabs;
+                        });
+                        drawer.tabsPage.maxTabs = Qt.binding(function () {
+                            return browserApp.maxTabs;
                         });
                         drawer.tabsPage.currentTabId = Qt.binding(function () {
                             var currentTab = browserApp.getCurrentTab();
@@ -1973,29 +2170,29 @@ MApp {
                         drawer.settingsPage.searchEngineChanged.connect(function () {
                             if (browserApp.searchEngineName !== drawer.settingsPage.searchEngine) {
                                 browserApp.searchEngineName = drawer.settingsPage.searchEngine;
-                                saveSettings();
+                                browserApp.saveSettings();
                             }
                         });
                         drawer.settingsPage.searchEngineUrlChanged.connect(function () {
                             if (browserApp.searchEngineUrl !== drawer.settingsPage.searchEngineUrl) {
                                 browserApp.searchEngineUrl = drawer.settingsPage.searchEngineUrl;
-                                saveSettings();
+                                browserApp.saveSettings();
                             }
                         });
                         drawer.settingsPage.homepageChanged.connect(function () {
                             if (browserApp.homepageUrl !== drawer.settingsPage.homepage) {
                                 browserApp.homepageUrl = drawer.settingsPage.homepage;
-                                saveSettings();
+                                browserApp.saveSettings();
                             }
                         });
                     }
                 }
                 onClosed: {
-                    closeDrawer();
+                    browserApp.closeDrawer();
                 }
                 onTabSelected: tabId => {
-                    switchToTab(tabId);
-                    closeDrawer();
+                    browserApp.switchToTab(tabId);
+                    browserApp.closeDrawer();
                 }
                 onToggleCurrentBookmark: {
                     if (browserApp.isPrivateMode) {
@@ -2005,21 +2202,21 @@ MApp {
                     var t = browserApp.getCurrentTab();
                     if (!t)
                         return;
-                    if (isBookmarked(t.url))
-                        removeBookmark(t.url);
+                    if (browserApp.isBookmarked(t.url))
+                        browserApp.removeBookmark(t.url);
                     else
-                        addBookmark(t.url, t.title);
+                        browserApp.addBookmark(t.url, t.title);
                 }
                 onNewTabRequested: {
-                    var tabId = createNewTab();
+                    var tabId = browserApp.createNewTab();
                     if (tabId >= 0)
-                        closeDrawer();
+                        browserApp.closeDrawer();
                 }
                 onBookmarkSelected: url => {
-                    navigateTo(url);
+                    browserApp.navigateTo(url);
                 }
                 onHistorySelected: url => {
-                    navigateTo(url);
+                    browserApp.navigateTo(url);
                 }
 
                 Connections {
@@ -2032,7 +2229,7 @@ MApp {
 
                 Connections {
                     function onDeleteBookmark(url) {
-                        browserApp.removeBookmark(url);
+                        rootContent.deleteBookmarkWithUndo(url);
                     }
 
                     target: drawer.bookmarksPage
@@ -2040,7 +2237,7 @@ MApp {
 
                 Connections {
                     function onClearHistory() {
-                        browserApp.clearHistory();
+                        rootContent.confirmClear("history");
                     }
 
                     target: drawer.historyPage
@@ -2048,21 +2245,11 @@ MApp {
 
                 Connections {
                     function onClearHistoryRequested() {
-                        if (!browserApp.isPrivateMode)
-                            browserApp.clearHistory();
+                        rootContent.confirmClear("history");
                     }
 
                     function onClearCookiesRequested() {
-                        var view = browserApp.currentWebView();
-                        if (view && view.profile) {
-                            var ok = BrowserData.clearCookiesAndCache(view.profile);
-                            if (ok)
-                                Logger.info("BrowserApp", "Cleared cookies and HTTP cache");
-                            else
-                                Logger.warn("BrowserApp", "Failed to clear cookies/cache (invalid profile object)");
-                        } else {
-                            Logger.warn("BrowserApp", "No active web profile to clear");
-                        }
+                        rootContent.confirmClear("cookies");
                     }
 
                     target: drawer.settingsPage
@@ -2073,13 +2260,56 @@ MApp {
             // the panel role so flings feel velocity-aware and short
             // drags feel decisive.
             Behavior on x {
-                enabled: !isDragging
+                enabled: !browserApp.isDragging
 
                 SpringAnimation {
                     spring: MMotion.stiffnessSpatialFor("panel")
                     damping: MMotion.dampingSpatialFor("panel")
                     epsilon: MMotion.epsilonSpatial
                 }
+            }
+        }
+
+        MSnackbar {
+            id: bookmarkSnackbar
+
+            property var removed: null
+            property int removedIndex: -1
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: MSpacing.md
+            anchors.bottomMargin: urlBar.height + MSpacing.sm
+            onActionTriggered: rootContent.restoreRemovedBookmark()
+        }
+
+        MConfirmDialog {
+            id: confirmDialog
+
+            property string pendingAction: ""
+
+            destructive: true
+            Component.onCompleted: browserApp.confirmDialogRef = confirmDialog
+            onConfirmed: {
+                if (pendingAction === "history") {
+                    browserApp.clearHistory();
+                    browserApp.showTransientMessage("History cleared");
+                } else if (pendingAction === "cookies") {
+                    var ok = BrowserData.clearCookiesAndCache(normalProfile) && BrowserData.clearCookiesAndCache(privateProfile);
+                    if (ok) {
+                        Logger.info("BrowserApp", "Cleared cookies and HTTP cache");
+                        browserApp.showTransientMessage("Cookies and site data cleared");
+                    } else {
+                        Logger.warn("BrowserApp", "Failed to clear cookies/cache");
+                        browserApp.showTransientMessage("Couldn't clear cookies. Try again.");
+                    }
+                }
+                pendingAction = "";
+            }
+            onCancelled: {
+                pendingAction = "";
+                hide();
             }
         }
     }

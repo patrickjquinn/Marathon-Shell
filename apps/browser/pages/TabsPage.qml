@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -34,21 +36,25 @@ Rectangle {
                 model: tabsPage.tabs
 
                 delegate: Item {
+                    id: tabDelegate
+
+                    required property var model
+
                     width: tabsList.width
                     height: Constants.cardHeight + MSpacing.md
 
                     TabCard {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width - MSpacing.lg * 2
-                        tabData: model
-                        isCurrentTab: model.tabId === tabsPage.currentTabId
+                        tabData: tabDelegate.model
+                        isCurrentTab: tabDelegate.model.tabId === tabsPage.currentTabId
                         onTabClicked: {
                             HapticService.light();
-                            tabsPage.tabSelected(model.tabId);
+                            tabsPage.tabSelected(tabDelegate.model.tabId);
                         }
                         onCloseRequested: {
                             HapticService.light();
-                            tabsPage.closeTab(model.tabId);
+                            tabsPage.closeTab(tabDelegate.model.tabId);
                         }
                     }
                 }

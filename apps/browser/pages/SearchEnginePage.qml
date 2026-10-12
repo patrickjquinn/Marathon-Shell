@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -11,6 +13,10 @@ Rectangle {
 
     signal searchEngineSelected(string name, string url)
     signal backRequested
+
+    function requestBack() {
+        backRequested();
+    }
 
     color: MColors.background
 
@@ -41,7 +47,11 @@ Rectangle {
                     width: Constants.touchTargetSmall
                     height: Constants.touchTargetSmall
                     radius: Constants.borderRadiusSmall
-                    color: backMouseArea.pressed ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    color: backMouseArea.pressed ? MColors.whiteOverlay10 : "transparent"
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Back"
+                    Accessible.onPressAction: searchEnginePage.requestBack()
 
                     Icon {
                         anchors.centerIn: parent
@@ -56,7 +66,7 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
-                            searchEnginePage.backRequested();
+                            searchEnginePage.requestBack();
                         }
                     }
                 }
@@ -105,9 +115,19 @@ Rectangle {
             }
 
             delegate: Rectangle {
+                id: engineDelegate
+
+                required property string name
+                required property string url
+
                 width: parent.width
                 height: Constants.touchTargetLarge
-                color: delegateMouseArea.pressed ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                color: delegateMouseArea.pressed ? MColors.whiteOverlay05 : "transparent"
+
+                Accessible.role: Accessible.RadioButton
+                Accessible.name: engineDelegate.name
+                Accessible.checked: engineDelegate.name === searchEnginePage.currentSearchEngine
+                Accessible.onPressAction: searchEnginePage.searchEngineSelected(engineDelegate.name, engineDelegate.url)
 
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -131,7 +151,7 @@ Rectangle {
 
                     Text {
                         Layout.alignment: Qt.AlignVCenter
-                        text: model.name
+                        text: engineDelegate.name
                         font.pixelSize: MTypography.sizeBody
                         color: MColors.text
                     }
@@ -146,7 +166,7 @@ Rectangle {
                         name: "check"
                         size: Constants.iconSizeSmall
                         color: MColors.accent
-                        visible: model.name === searchEnginePage.currentSearchEngine
+                        visible: engineDelegate.name === searchEnginePage.currentSearchEngine
                     }
                 }
 
@@ -156,7 +176,7 @@ Rectangle {
                     anchors.fill: parent
                     onClicked: {
                         HapticService.medium();
-                        searchEnginePage.searchEngineSelected(model.name, model.url);
+                        searchEnginePage.searchEngineSelected(engineDelegate.name, engineDelegate.url);
                     }
                 }
             }
