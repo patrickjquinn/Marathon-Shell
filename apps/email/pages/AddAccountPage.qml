@@ -9,15 +9,15 @@ Page {
 
     property var app
     readonly property var mail: app.mail
-    property string status: ""
+    property string statusText: ""
     property bool failed: false
 
     function signIn(provider) {
         failed = false;
-        status = qsTr("Starting sign-in");
+        statusText = qsTr("Starting sign-in");
         if (!mail.startOAuthLogin(provider) && !failed) {
             failed = true;
-            status = qsTr("Sign-in couldn't start. Try again, or use Other (IMAP).");
+            statusText = qsTr("Sign-in couldn't start. Try again, or use Other (IMAP).");
         }
     }
 
@@ -26,17 +26,17 @@ Page {
         ignoreUnknownSignals: true
         function onOauthAuthUrlReady(url) {
             page.failed = false;
-            page.status = qsTr("Continue in your browser");
+            page.statusText = qsTr("Continue in your browser");
             Qt.openUrlExternally(url);
         }
         function onOauthLoginSucceeded(accountId) {
-            page.status = "";
+            page.statusText = "";
             page.app.showInbox();
         }
         function onOauthLoginFailed(code, message) {
             console.warn("Mail: OAuth login failed [" + code + "]: " + message);
             page.failed = true;
-            page.status = Logic.oauthErrorText(code, message);
+            page.statusText = Logic.oauthErrorText(code, message);
         }
     }
 
@@ -90,7 +90,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 topPadding: Theme.paddingLarge
                 visible: text !== ""
-                text: page.status
+                text: page.statusText
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: page.failed ? Theme.errorColor : Theme.highlightColor
