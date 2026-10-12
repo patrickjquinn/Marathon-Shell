@@ -408,29 +408,8 @@ qt_add_resources(marathon-shell "shell_images"
     PREFIX "/images"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/images"
     FILES
-        resources/images/marathon.png
-        resources/images/phone.svg
-        resources/images/messages.svg
-        resources/images/mail.svg
-        resources/images/browser.svg
         resources/images/camera.svg
-        resources/images/settings.svg
         resources/images/calendar.svg
-        resources/images/clock.svg
-        resources/images/music.svg
-        resources/images/gallery.svg
-        resources/images/maps.svg
-        resources/images/calculator.svg
-        resources/images/notes.svg
-        resources/images/store.svg
-        resources/images/marathon.svg
-        resources/images/wallet.svg
-        resources/images/health.svg
-        resources/images/weather.svg
-        resources/images/voice.svg
-        resources/images/contacts.svg
-        resources/images/files.svg
-        resources/images/disconnect.svg
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
