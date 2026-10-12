@@ -2190,8 +2190,10 @@ Item {
     MarathonOOBE {
         id: oobeWizard
 
+        // The passcode was just entered twice; land on the home screen.
         onSetupComplete: {
             Logger.info("Shell", "OOBE setup completed");
+            SessionStore.unlock();
         }
     }
 
