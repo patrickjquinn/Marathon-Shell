@@ -22,7 +22,6 @@ class SystemStatusStore : public QObject {
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY isChargingChanged)
     Q_PROPERTY(bool isPluggedIn READ isPluggedIn NOTIFY isPluggedInChanged)
-    Q_PROPERTY(QString chargingType READ chargingType NOTIFY chargingTypeChanged)
 
     Q_PROPERTY(bool isWifiOn READ isWifiOn NOTIFY isWifiOnChanged)
     Q_PROPERTY(int wifiStrength READ wifiStrength NOTIFY wifiStrengthChanged)
@@ -31,9 +30,6 @@ class SystemStatusStore : public QObject {
     Q_PROPERTY(bool ethernetConnected READ ethernetConnected NOTIFY ethernetConnectedChanged)
 
     Q_PROPERTY(bool isBluetoothOn READ isBluetoothOn NOTIFY isBluetoothOnChanged)
-    Q_PROPERTY(QVariantList bluetoothDevices READ bluetoothDevices NOTIFY bluetoothDevicesChanged)
-    Q_PROPERTY(int bluetoothConnectedDevicesCount READ bluetoothConnectedDevicesCount NOTIFY
-                   bluetoothConnectedDevicesCountChanged)
     Q_PROPERTY(
         bool isBluetoothConnected READ isBluetoothConnected NOTIFY isBluetoothConnectedChanged)
 
@@ -49,7 +45,6 @@ class SystemStatusStore : public QObject {
     Q_PROPERTY(QString dateString READ dateString NOTIFY dateStringChanged)
 
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY notificationsChanged)
-    Q_PROPERTY(int notificationCount READ notificationCount NOTIFY notificationCountChanged)
 
   public:
     explicit SystemStatusStore(PowerManagerCpp *powerManager, NetworkManagerCpp *networkManager,
@@ -65,9 +60,6 @@ class SystemStatusStore : public QObject {
     }
     bool isPluggedIn() const {
         return m_isPluggedIn;
-    }
-    QString chargingType() const {
-        return m_chargingType;
     }
 
     bool isWifiOn() const {
@@ -86,13 +78,7 @@ class SystemStatusStore : public QObject {
         return m_ethernetConnected;
     }
 
-    bool         isBluetoothOn() const;
-    QVariantList bluetoothDevices() const {
-        return m_bluetoothDevices;
-    }
-    int bluetoothConnectedDevicesCount() const {
-        return m_bluetoothConnectedDevicesCount;
-    }
+    bool isBluetoothOn() const;
     bool isBluetoothConnected() const {
         return m_isBluetoothConnected;
     }
@@ -127,9 +113,6 @@ class SystemStatusStore : public QObject {
     QVariantList notifications() const {
         return m_notifications;
     }
-    int notificationCount() const {
-        return m_notificationCount;
-    }
 
     Q_INVOKABLE void updateTime();
     void             scheduleNextMinute();
@@ -140,7 +123,6 @@ class SystemStatusStore : public QObject {
     void batteryLevelChanged();
     void isChargingChanged();
     void isPluggedInChanged();
-    void chargingTypeChanged();
 
     void isWifiOnChanged();
     void wifiStrengthChanged();
@@ -149,8 +131,6 @@ class SystemStatusStore : public QObject {
     void ethernetConnectedChanged();
 
     void isBluetoothOnChanged();
-    void bluetoothDevicesChanged();
-    void bluetoothConnectedDevicesCountChanged();
     void isBluetoothConnectedChanged();
 
     void isAirplaneModeChanged();
@@ -165,24 +145,19 @@ class SystemStatusStore : public QObject {
     void dateStringChanged();
 
     void notificationsChanged();
-    void notificationCountChanged();
 
   private:
-    void                    updateChargingType();
     void                    updateBluetoothDevices();
     void                    updateNotifications();
 
     void                    setBatteryLevel(int level);
     void                    setIsCharging(bool charging);
     void                    setIsPluggedIn(bool pluggedIn);
-    void                    setChargingType(const QString &type);
     void                    setIsWifiOn(bool enabled);
     void                    setWifiStrength(int strength);
     void                    setWifiNetwork(const QString &network);
     void                    setWifiConnected(bool connected);
     void                    setEthernetConnected(bool connected);
-    void                    setBluetoothDevices(const QVariantList &devices);
-    void                    setBluetoothConnectedDevicesCount(int count);
     void                    setIsBluetoothConnected(bool connected);
     void                    setIsAirplaneMode(bool enabled);
     void                    setIsDndMode(bool enabled);
@@ -193,7 +168,6 @@ class SystemStatusStore : public QObject {
     void                    setTimeString(const QString &timeString);
     void                    setDateString(const QString &dateString);
     void                    setNotifications(const QVariantList &notifications);
-    void                    setNotificationCount(int count);
 
     PowerManagerCpp        *m_powerManager;
     NetworkManagerCpp      *m_networkManager;
@@ -205,7 +179,6 @@ class SystemStatusStore : public QObject {
     int                     m_batteryLevel = 0;
     bool                    m_isCharging   = false;
     bool                    m_isPluggedIn  = false;
-    QString                 m_chargingType = "none";
 
     bool                    m_isWifiOn     = true;
     int                     m_wifiStrength = 0;
@@ -213,9 +186,7 @@ class SystemStatusStore : public QObject {
     bool                    m_wifiConnected     = false;
     bool                    m_ethernetConnected = false;
 
-    QVariantList            m_bluetoothDevices;
-    int                     m_bluetoothConnectedDevicesCount = 0;
-    bool                    m_isBluetoothConnected           = false;
+    bool                    m_isBluetoothConnected = false;
 
     bool                    m_isAirplaneMode = false;
     bool                    m_isDndMode      = false;
@@ -229,7 +200,6 @@ class SystemStatusStore : public QObject {
     QString                 m_dateString;
 
     QVariantList            m_notifications;
-    int                     m_notificationCount = 0;
 
     QTimer                  m_timeTimer;
 };

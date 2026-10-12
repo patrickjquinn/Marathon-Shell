@@ -25,13 +25,10 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
         setBatteryLevel(m_powerManager->batteryLevel());
         setIsCharging(m_powerManager->isCharging());
         setIsPluggedIn(m_powerManager->isPluggedIn());
-        updateChargingType();
         connect(m_powerManager, &PowerManagerCpp::batteryLevelChanged, this,
                 [this]() { setBatteryLevel(m_powerManager->batteryLevel()); });
-        connect(m_powerManager, &PowerManagerCpp::isChargingChanged, this, [this]() {
-            setIsCharging(m_powerManager->isCharging());
-            updateChargingType();
-        });
+        connect(m_powerManager, &PowerManagerCpp::isChargingChanged, this,
+                [this]() { setIsCharging(m_powerManager->isCharging()); });
         connect(m_powerManager, &PowerManagerCpp::isPluggedInChanged, this,
                 [this]() { setIsPluggedIn(m_powerManager->isPluggedIn()); });
     }
@@ -79,12 +76,9 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
 
     if (m_notificationService) {
         updateNotifications();
-        setNotificationCount(m_notificationService->unreadCount());
         setIsDndMode(m_notificationService->isDndEnabled());
         connect(m_notificationService, &NotificationServiceCpp::notificationsChanged, this,
                 [this]() { updateNotifications(); });
-        connect(m_notificationService, &NotificationServiceCpp::unreadCountChanged, this,
-                [this]() { setNotificationCount(m_notificationService->unreadCount()); });
         connect(m_notificationService, &NotificationServiceCpp::isDndEnabledChanged, this,
                 [this]() { setIsDndMode(m_notificationService->isDndEnabled()); });
     }
@@ -138,25 +132,18 @@ void SystemStatusStore::addNotification(const QString &title, const QString &mes
     }
 }
 
-void SystemStatusStore::updateChargingType() {
-    setChargingType(m_isCharging ? "usb" : "none");
-}
-
 void SystemStatusStore::updateBluetoothDevices() {
-    QVariantList devices;
-    int          connectedCount = 0;
+    bool connected = false;
     if (m_bluetoothManager) {
         const QList<QObject *> paired = m_bluetoothManager->pairedDevices();
         for (QObject *device : paired) {
-            devices.append(QVariant::fromValue(device));
             if (device && device->property("connected").toBool()) {
-                connectedCount++;
+                connected = true;
+                break;
             }
         }
     }
-    setBluetoothDevices(devices);
-    setBluetoothConnectedDevicesCount(connectedCount);
-    setIsBluetoothConnected(connectedCount > 0);
+    setIsBluetoothConnected(connected);
 }
 
 void SystemStatusStore::updateNotifications() {
@@ -164,7 +151,6 @@ void SystemStatusStore::updateNotifications() {
         return;
     }
     setNotifications(m_notificationService->notifications());
-    setNotificationCount(m_notificationService->unreadCount());
 }
 
 void SystemStatusStore::setBatteryLevel(int level) {
@@ -189,14 +175,6 @@ void SystemStatusStore::setIsPluggedIn(bool pluggedIn) {
     }
     m_isPluggedIn = pluggedIn;
     emit isPluggedInChanged();
-}
-
-void SystemStatusStore::setChargingType(const QString &type) {
-    if (m_chargingType == type) {
-        return;
-    }
-    m_chargingType = type;
-    emit chargingTypeChanged();
 }
 
 void SystemStatusStore::setIsWifiOn(bool enabled) {
@@ -241,22 +219,6 @@ void SystemStatusStore::setEthernetConnected(bool connected) {
 
 bool SystemStatusStore::isBluetoothOn() const {
     return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
-}
-
-void SystemStatusStore::setBluetoothDevices(const QVariantList &devices) {
-    if (m_bluetoothDevices == devices) {
-        return;
-    }
-    m_bluetoothDevices = devices;
-    emit bluetoothDevicesChanged();
-}
-
-void SystemStatusStore::setBluetoothConnectedDevicesCount(int count) {
-    if (m_bluetoothConnectedDevicesCount == count) {
-        return;
-    }
-    m_bluetoothConnectedDevicesCount = count;
-    emit bluetoothConnectedDevicesCountChanged();
 }
 
 void SystemStatusStore::setIsBluetoothConnected(bool connected) {
@@ -337,12 +299,4 @@ void SystemStatusStore::setNotifications(const QVariantList &notifications) {
     }
     m_notifications = notifications;
     emit notificationsChanged();
-}
-
-void SystemStatusStore::setNotificationCount(int count) {
-    if (m_notificationCount == count) {
-        return;
-    }
-    m_notificationCount = count;
-    emit notificationCountChanged();
 }
