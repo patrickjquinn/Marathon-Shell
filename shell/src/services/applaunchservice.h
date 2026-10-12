@@ -62,7 +62,6 @@ class AppLaunchService : public QObject {
     Q_INVOKABLE void closeNativeApp(int surfaceId);
 
     Q_INVOKABLE bool isAppLaunching(const QString &appId) const;
-    Q_INVOKABLE bool cancelLaunch(const QString &appId);
 
     // Request the shell's Quick Settings shade to open/close/toggle.
     // Called from the D-Bus NavigationObject (marathon CLI `qs` verb) so a

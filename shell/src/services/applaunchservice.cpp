@@ -309,14 +309,6 @@ bool AppLaunchService::isAppLaunching(const QString &appId) const {
     return m_launchingApps.contains(appId);
 }
 
-bool AppLaunchService::cancelLaunch(const QString &appId) {
-    if (!m_launchingApps.contains(appId))
-        return false;
-    m_launchingApps.remove(appId);
-    qInfo() << "[AppLaunchService] Cancelled launch for:" << appId;
-    return true;
-}
-
 void AppLaunchService::closeNativeApp(int surfaceId) {
     QObject *comp = m_compositor.data();
     if (!comp) {
