@@ -202,6 +202,7 @@ Dialog {
                 objectName: "bodyArea"
                 width: parent.width
                 enabled: dialog.serviceReady
+                backgroundStyle: TextEditor.NoBackground
                 placeholderText: qsTr("Message")
                 text: dialog.defaultBody
             }
