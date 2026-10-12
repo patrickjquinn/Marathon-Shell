@@ -1,5 +1,6 @@
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 // The ambience behind a Keel app. Under a host, Keel's ApplicationWindow
 // leaves its background transparent and the host draws this, as Lipstick

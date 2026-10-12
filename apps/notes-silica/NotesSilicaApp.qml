@@ -1,9 +1,10 @@
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 import "NotesStore.js" as Store
 import "pages"
 
-SilicaApp {
+ApplicationWindow {
     id: app
     appId: "notes-silica"
 
