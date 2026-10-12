@@ -204,10 +204,15 @@ TestCase {
     function test_previewHasOnePrimaryAction() {
         const app = makeApp();
         routed(app);
-        const page = findChild(app, "mapPage");
-        verify(Qt.colorEqual(findChild(page, "previewDirections").backgroundColor, "transparent"));
-        verify(!Qt.colorEqual(findChild(page, "previewStart").backgroundColor, "transparent"));
+        app.handleBack();
+        settle(app);
+        const page = current(app);
+        compare(page.objectName, "mapPage");
         compare(findChild(page, "previewStart").text, "Start navigation");
+        verify(findChild(page, "previewDirections").text === undefined);
+        mouseClick(findChild(page, "previewDirections"));
+        settle(app);
+        compare(current(app).objectName, "routePage");
     }
 
     function test_routePage() {
@@ -269,12 +274,50 @@ TestCase {
         Location.moveTo(10.002, 1);
         verify(app.arrived);
         compare(app.voice.spoken[app.voice.spoken.length - 1], "You have arrived.");
-        compare(findChild(page, "navRemaining").text, "Arrived");
-
-        mouseClick(findChild(page, "endButton"));
+        verify(findChild(page, "arrivedLabel").visible);
+        compare(findChild(page, "arrivedLabel").text, "You've arrived at Tower Bridge");
+        verify(!findChild(page, "endButton").visible);
+        waitForRendering(page);
+        mouseClick(findChild(page, "doneButton"));
         compare(app.routingMode, "idle");
         compare(app.currentRoute, null);
         compare(Lifecycle.held, 0);
+    }
+
+    function test_arrivalEndsNavigationByItself() {
+        const app = makeApp();
+        app.arrivalLinger = 50;
+        Location.moveTo(10, 1);
+        routed(app);
+        app.startNavigation();
+        settle(app);
+        Location.moveTo(10.0005, 1);
+        Location.moveTo(10.00098, 1);
+        Location.moveTo(10.002, 1);
+        verify(app.arrived);
+        tryCompare(app, "routingMode", "idle", 2000);
+        compare(Lifecycle.held, 0);
+        verify(app.selectedPlace !== null);
+    }
+
+    function test_placeCardActions() {
+        const app = makeApp();
+        Location.moveTo(10, 1);
+        app.selectPlace(place);
+        const page = current(app);
+        verify(findChild(page, "bottomPanel").visible);
+        waitForRendering(page);
+        mouseClick(findChild(page, "detailsAction"));
+        settle(app);
+        compare(current(app).objectName, "placePage");
+        app.handleBack();
+        settle(app);
+        mouseClick(findChild(page, "directionsAction"));
+        compare(app.router.requests.length, 1);
+        app.router.routing = false;
+        mouseClick(findChild(page, "clearAction"));
+        compare(app.selectedPlace, null);
+        verify(!findChild(page, "bottomPanel").visible);
     }
 
     function test_mute() {

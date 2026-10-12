@@ -61,6 +61,8 @@ ApplicationWindow {
     property bool hasLocationPermission: permissions !== null && permissions.hasPermission(appId, "location")
     property var _pendingLocation: null
     property int _navTask: 0
+    // How long a finished route stays up before navigation ends itself.
+    property int arrivalLinger: 60000
 
     readonly property bool geoclueValid: location !== null && location.available === true && location.latitude !== 0 && location.longitude !== 0
     readonly property bool fixValid: geoclueValid || positionSource.position.coordinate.isValid
@@ -361,6 +363,12 @@ ApplicationWindow {
         }
 
         target: root.location
+    }
+
+    Timer {
+        interval: root.arrivalLinger
+        running: root.arrived
+        onTriggered: root.endNavigation()
     }
 
     QP.PositionSource {
