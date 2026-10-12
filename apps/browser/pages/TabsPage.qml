@@ -1,110 +1,161 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Browser
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../BrowserLogic.js" as Logic
 
-Rectangle {
-    id: tabsPage
+Page {
+    id: root
 
-    property var tabs: null
-    property int currentTabId: -1
-    property int maxTabs: 12
+    property var browser
 
-    signal tabSelected(int tabId)
-    signal newTabRequested
-    signal closeTab(int tabId)
+    function openTab(tabId) {
+        browser.switchToTab(tabId);
+        pageStack.pop();
+    }
 
-    color: MColors.background
+    function newTab() {
+        pageStack.pop();
+        browser.createNewTab();
+    }
 
-    Column {
+    objectName: "tabsPage"
+
+    RemorsePopup {
+        id: remorse
+    }
+
+    SilicaGridView {
+        id: grid
+
+        objectName: "tabsGrid"
         anchors.fill: parent
-        spacing: 0
+        cellWidth: width / 2
+        cellHeight: Math.round(cellWidth * 4 / 3)
+        model: root.browser.tabs
 
-        Item {
-            width: parent.width
-            height: parent.height - (Constants.touchTargetSmall + MSpacing.md)
+        header: PageHeader {
+            title: root.browser.isPrivateMode ? qsTr("Private tabs") : qsTr("Tabs")
+        }
 
-            ListView {
-                id: tabsList
-
-                anchors.fill: parent
-                clip: true
-                spacing: MSpacing.md
-                model: tabsPage.tabs
-
-                delegate: Item {
-                    id: tabDelegate
-
-                    required property var model
-
-                    width: tabsList.width
-                    height: Constants.cardHeight + MSpacing.md
-
-                    TabCard {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - MSpacing.lg * 2
-                        tabData: tabDelegate.model
-                        isCurrentTab: tabDelegate.model.tabId === tabsPage.currentTabId
-                        onTabClicked: {
-                            HapticService.light();
-                            tabsPage.tabSelected(tabDelegate.model.tabId);
-                        }
-                        onCloseRequested: {
-                            HapticService.light();
-                            tabsPage.closeTab(tabDelegate.model.tabId);
-                        }
-                    }
-                }
-
-                header: Item {
-                    height: MSpacing.md
-                }
-
-                footer: Item {
-                    height: MSpacing.md
-                }
+        PullDownMenu {
+            MenuItem {
+                objectName: "closeAllItem"
+                text: qsTr("Close all tabs")
+                onClicked: remorse.execute(qsTr("Closing all tabs"), function () {
+                    root.browser.closeAllTabs();
+                })
             }
-
-            MEmptyState {
-                visible: tabsPage.tabs ? tabsPage.tabs.count === 0 : true
-                anchors.centerIn: parent
-                title: "No open tabs"
-                message: "Tap the button below to create a new tab."
+            MenuItem {
+                objectName: "newTabItem"
+                text: root.browser.tabs.count >= root.browser.maxTabs ? qsTr("Tab limit reached") : qsTr("New tab")
+                enabled: root.browser.tabs.count < root.browser.maxTabs
+                onClicked: root.newTab()
             }
         }
 
-        Rectangle {
-            width: parent.width
-            height: Constants.touchTargetSmall + MSpacing.md
-            color: MColors.surface
-            opacity: (tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs) ? 0.5 : 1
+        delegate: GridItem {
+            id: cell
+
+            required property var model
+            required property int index
+            required property int tabId
+            required property string title
+            required property string url
+            required property string thumbnail
+
+            readonly property bool current: index === root.browser.currentTabIndex
+
+            width: grid.cellWidth
+            contentHeight: grid.cellHeight
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Button
+            Accessible.name: (title || qsTr("New tab")) + (current ? ", " + qsTr("current tab") : "")
+            Accessible.onPressAction: root.openTab(tabId)
+            Keys.onReturnPressed: root.openTab(tabId)
+            Keys.onSpacePressed: root.openTab(tabId)
+            onClicked: root.openTab(tabId)
 
             Rectangle {
-                anchors.top: parent.top
-                width: parent.width
-                height: Constants.borderWidthThin
-                color: MColors.border
-            }
+                id: frame
 
-            MButton {
-                anchors.centerIn: parent
-                text: (tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs) ? "Tab Limit Reached" : "New Tab"
-                iconName: "plus"
-                variant: "primary"
-                disabled: tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs
-                onClicked: {
-                    tabsPage.newTabRequested();
+                anchors {
+                    fill: parent
+                    margins: Theme.paddingSmall
+                }
+                radius: Theme.paddingSmall
+                color: Theme.rgba(Theme.highlightDimmerColor, Theme.opacityHigh)
+                border.width: cell.current ? Math.max(2, Math.round(Theme.pixelRatio * 2)) : 0
+                border.color: Theme.highlightColor
+                clip: true
+
+                Icon {
+                    anchors.centerIn: parent
+                    visible: cell.thumbnail === ""
+                    source: "image://theme/icon-l-browser"
+                    color: Theme.secondaryColor
+                }
+                Image {
+                    objectName: "thumbnail"
+                    anchors {
+                        fill: parent
+                        margins: frame.border.width
+                    }
+                    source: cell.thumbnail
+                    fillMode: Image.PreserveAspectCrop
+                    verticalAlignment: Image.AlignTop
+                    asynchronous: true
+                }
+                Rectangle {
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        bottom: parent.bottom
+                        margins: frame.border.width
+                    }
+                    height: Theme.itemSizeSmall
+                    color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
+
+                    Label {
+                        anchors {
+                            left: parent.left
+                            leftMargin: Theme.paddingMedium
+                            right: parent.right
+                            rightMargin: Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: cell.title || Logic.displayHost(cell.url) || qsTr("New tab")
+                        font.pixelSize: Theme.fontSizeSmall
+                        truncationMode: TruncationMode.Fade
+                        color: cell.current || cell.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
                 }
             }
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 200
+            IconButton {
+                objectName: "closeTabButton"
+                anchors {
+                    top: frame.top
+                    right: frame.right
                 }
+                icon.source: "image://theme/icon-m-close"
+                Accessible.name: qsTr("Close tab")
+                onClicked: root.browser.closeTab(cell.tabId)
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    z: -1
+                    width: Theme.iconSizeMedium
+                    height: width
+                    radius: width / 2
+                    color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
+                }
+            }
+            FocusFrame {
+                parent: cell
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

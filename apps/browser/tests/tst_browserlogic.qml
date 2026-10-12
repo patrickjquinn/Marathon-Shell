@@ -40,6 +40,13 @@ TestCase {
         compare(Logic.resolveInput("  ", engine).url, undefined);
     }
 
+    function test_homepageFromInput() {
+        compare(Logic.homepageFromInput(" mine.org "), "https://mine.org");
+        compare(Logic.homepageFromInput("http://a.org"), "http://a.org");
+        compare(Logic.homepageFromInput("about:blank"), "about:blank");
+        compare(Logic.homepageFromInput(""), "");
+    }
+
     function test_suggestions() {
         const bookmarks = [{ url: "https://kde.org", title: "KDE" }];
         const history = [{ url: "https://kde.org", title: "KDE" }, { url: "https://qt.io", title: "Qt docs" }];

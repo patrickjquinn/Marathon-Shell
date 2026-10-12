@@ -1,2316 +1,342 @@
 pragma ComponentBehavior: Bound
-
-import MarathonApp.Browser
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Effects
-import MarathonUI.Feedback
-import MarathonUI.Modals
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Effects
-import QtQuick.Layouts
-import QtWebEngine
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import Nemo.Configuration 1.0
+import "BrowserLogic.js" as Logic
+import "pages"
+import "cover"
 
-MApp {
-    id: browserApp
+ApplicationWindow {
+    id: app
 
-    property alias tabs: tabsModel
+    property QtObject bookmarkStore: ConfigurationValue {
+        key: "/apps/browser/bookmarks"
+        defaultValue: "[]"
+    }
+    property QtObject historyStore: ConfigurationValue {
+        key: "/apps/browser/history"
+        defaultValue: "[]"
+    }
+    property QtObject tabStore: ConfigurationValue {
+        key: "/apps/browser/tabs"
+        defaultValue: "[]"
+    }
+    property QtObject engineStore: ConfigurationValue {
+        key: "/apps/browser/searchEngine"
+        defaultValue: "DuckDuckGo"
+    }
+    property QtObject engineUrlStore: ConfigurationValue {
+        key: "/apps/browser/searchEngineUrl"
+        defaultValue: "https://duckduckgo.com/?q="
+    }
+    property QtObject homepageStore: ConfigurationValue {
+        key: "/apps/browser/homepage"
+        defaultValue: "https://duckduckgo.com"
+    }
+    property QtObject maxTabsStore: ConfigurationValue {
+        key: "/apps/browser/maxTabs"
+        defaultValue: 12
+    }
+    property QtObject imported: ConfigurationValue {
+        key: "/apps/browser/legacyImported"
+        defaultValue: false
+    }
+    // The MarathonUI app kept its data in the shell's settings store.
+    property var legacySettings: typeof Settings !== "undefined" ? Settings : null
+    property var permissions: typeof Permissions !== "undefined" ? Permissions : null
+
+    // Tests swap in a stub; WebEngine needs a GPU context.
+    property url webLayerSource: Qt.resolvedUrl("components/WebLayer.qml")
+    property Item webLayer: null
+
+    readonly property alias tabs: tabsModel
     property int currentTabIndex: 0
     property int nextTabId: 1
-    readonly property int maxTabs: {
-        var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
-        if (!isNaN(v) && v > 0)
-            return v;
-        return 12;
-    }
-    property var bookmarks: []
-    property var history: []
+    readonly property var currentTab: currentTabIndex >= 0 && currentTabIndex < tabs.count ? tabs.get(currentTabIndex) : null
+    readonly property int maxTabs: parseInt(maxTabsStore.value) > 0 ? parseInt(maxTabsStore.value) : 12
+    readonly property var bookmarks: Logic.parseList(bookmarkStore.value)
+    readonly property var history: Logic.parseList(historyStore.value)
+    readonly property string searchEngineName: engineStore.value
+    readonly property string searchEngineUrl: engineUrlStore.value
+    readonly property string homepageUrl: homepageStore.value
     property bool isPrivateMode: false
-    property bool isAppActive: true
-    property var tabViewsById: ({})
-    property real drawerProgress: 0
-    property bool isDrawerOpen: false
-    // On screen, as opposed to settled open: true from the first pixel of the
-    // drag-in until the close animation ends. drawerContainer's own visible
-    // binding is this expression; anything gated on drawer visibility should
-    // use this rather than isDrawerOpen, which only flips on release.
-    readonly property bool drawerVisible: drawerProgress > 0 || isDragging
-    property bool isDragging: false
-    property var drawerRef: null
-    property var confirmDialogRef: null
-    property var webView: null
+    property bool editingAddress: false
     property bool updatingTabUrl: false
-    property var urlInputRef: null
-    property bool isEditingAddress: false
-    property string addressEditText: ""
-    property string searchEngineName: "DuckDuckGo"
-    property string searchEngineUrl: "https://duckduckgo.com/?q="
-    property string homepageUrl: "https://duckduckgo.com"
-    property string transientMessage: ""
-    property var _focusRetryItem: null
-    property bool _focusRetrySelectAll: false
-    property int _focusRetryAttempts: 0
-    property bool _pendingAddressBarFocus: false
-    property bool _pendingAddressBarSelectAll: false
-    property int _pendingAddressBarAttempts: 0
+    property var _thumbnails: ({})
 
-    function updateCurrentWebView() {
-        var currentTab = getCurrentTab();
-        if (currentTab) {
-            var key = "" + currentTab.tabId;
-            var view = tabViewsById[key];
-            if (view) {
-                webView = view;
-                return;
-            }
-        }
-        webView = null;
-    }
+    signal addressRequested
 
-    function currentWebView() {
-        if (webView)
-            return webView;
-
-        var currentTab = getCurrentTab();
-        if (!currentTab)
-            return null;
-
-        return tabViewsById["" + currentTab.tabId] || null;
-    }
-
-    function setPrivateMode(enabled) {
-        if (isPrivateMode === enabled)
+    function importLegacy() {
+        if (imported.value || !legacySettings || !permissions || !permissions.hasPermission(appId, "storage"))
             return;
+        const oldBookmarks = Logic.parseList(legacySettings.get("browser/bookmarks", "[]"));
+        let nextBookmarks = bookmarks;
+        for (const b of oldBookmarks)
+            nextBookmarks = Logic.addBookmark(nextBookmarks, b.url, b.title, b.timestamp);
+        bookmarkStore.value = JSON.stringify(nextBookmarks);
+        const known = history.map(h => h.url);
+        historyStore.value = JSON.stringify(history.concat(Logic.parseList(legacySettings.get("browser/history", "[]")).filter(h => known.indexOf(h.url) === -1)).slice(0, 100));
+        if (Logic.parseList(tabStore.value).length === 0)
+            tabStore.value = legacySettings.get("browser/tabs", "[]");
+        engineStore.value = legacySettings.get("browser/searchEngine", engineStore.value);
+        engineUrlStore.value = legacySettings.get("browser/searchEngineUrl", engineUrlStore.value);
+        homepageStore.value = legacySettings.get("browser/homepage", homepageStore.value);
+        maxTabsStore.value = parseInt(legacySettings.get("browser/maxTabs", maxTabsStore.value));
+        imported.value = true;
+    }
 
-        var wasPrivate = isPrivateMode;
-        if (!wasPrivate && enabled)
-            saveTabs();
-
-        closeDrawer();
+    function restoreTabs() {
+        const rows = Logic.restoreTabs(tabStore.value, homepageUrl);
         tabs.clear();
-        nextTabId = 1;
+        for (const row of rows)
+            tabs.append(row);
+        nextTabId = Logic.nextTabId(rows);
         currentTabIndex = 0;
-        isPrivateMode = enabled;
-        if (enabled) {
-            createNewTab(homepageUrl);
-        } else {
-            loadTabs();
-            if (tabs.count === 0)
-                createNewTab(homepageUrl);
-        }
-        Qt.callLater(updateCurrentWebView);
-    }
-
-    function handleBack() {
-        if (confirmDialogRef && confirmDialogRef.showing) {
-            confirmDialogRef.hide();
-            return true;
-        }
-        if (isDrawerOpen) {
-            if (!(drawerRef && drawerRef.goBack()))
-                closeDrawer();
-            return true;
-        }
-        if (urlInputRef && urlInputRef.activeFocus) {
-            urlInputRef.focus = false;
-            return true;
-        }
-        var view = currentWebView();
-        if (view && view.canGoBack) {
-            view.goBack();
-            return true;
-        }
-        minimizeRequested();
-        return true;
-    }
-
-    function loadBookmarks() {
-        var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
-        try {
-            bookmarks = JSON.parse(savedBookmarks);
-        } catch (e) {
-            Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
-            bookmarks = [];
-        }
-    }
-
-    function saveBookmarks() {
-        var data = JSON.stringify(bookmarks);
-        SettingsManagerCpp.set("browser/bookmarks", data);
-    }
-
-    function addBookmark(url, title) {
-        for (var i = 0; i < bookmarks.length; i++) {
-            if (bookmarks[i].url === url) {
-                Logger.info("BrowserApp", "Bookmark already exists");
-                return false;
-            }
-        }
-        var bookmark = {
-            "url": url,
-            "title": title || url,
-            "timestamp": Date.now()
-        };
-        var newBookmarks = bookmarks.slice();
-        newBookmarks.push(bookmark);
-        bookmarks = newBookmarks;
-        bookmarksChanged();
-        saveBookmarks();
-        Logger.info("BrowserApp", "Added bookmark: " + title);
-        return true;
-    }
-
-    function removeBookmark(url) {
-        for (var i = 0; i < bookmarks.length; i++) {
-            if (bookmarks[i].url === url) {
-                var newBookmarks = bookmarks.slice();
-                newBookmarks.splice(i, 1);
-                bookmarks = newBookmarks;
-                bookmarksChanged();
-                saveBookmarks();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function isBookmarked(url) {
-        for (var i = 0; i < bookmarks.length; i++) {
-            if (bookmarks[i].url === url)
-                return true;
-        }
-        return false;
-    }
-
-    function loadHistory() {
-        var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
-        try {
-            history = JSON.parse(savedHistory);
-        } catch (e) {
-            Logger.error("BrowserApp", "Failed to load history: " + e);
-            history = [];
-        }
-    }
-
-    function saveHistory() {
-        var data = JSON.stringify(history);
-        SettingsManagerCpp.set("browser/history", data);
-    }
-
-    function updateHistoryTitle(url, title) {
-        if (isPrivateMode)
-            return;
-
-        if (!url)
-            return;
-
-        var newHistory = history.slice();
-        for (var i = 0; i < newHistory.length; i++) {
-            if (newHistory[i].url === url) {
-                if (title && newHistory[i].title !== title) {
-                    newHistory[i].title = title;
-                    history = newHistory;
-                    historyChanged();
-                    saveHistory();
-                }
-                return;
-            }
-        }
-    }
-
-    function showTransientMessage(msg) {
-        browserApp.transientMessage = msg || "";
-        if (browserApp.transientMessage)
-            transientMessageTimer.restart();
-    }
-
-    function loadErrorMessage(loadRequest) {
-        switch (loadRequest.errorDomain) {
-        case WebEngineView.CertificateErrorDomain:
-            return "This site's security certificate isn't valid, so the connection isn't private. Browser blocked it to protect your data.";
-        case WebEngineView.DnsErrorDomain:
-            return "The address couldn't be found. Check the spelling, or check that you're online.";
-        case WebEngineView.ConnectionErrorDomain:
-            if (loadRequest.errorCode === -106)
-                return "You're offline. Connect to Wi-Fi or mobile data and try again.";
-            return "The site didn't respond. It may be down, or your connection may be unstable.";
-        default:
-            return loadRequest.errorString || "Something went wrong while loading this page.";
-        }
-    }
-
-    function addToHistory(url, title) {
-        if (isPrivateMode)
-            return;
-
-        var now = Date.now();
-        var newHistory = history.slice();
-        for (var i = 0; i < newHistory.length; i++) {
-            if (newHistory[i].url === url) {
-                newHistory[i].timestamp = now;
-                newHistory[i].visitCount = (newHistory[i].visitCount || 1) + 1;
-                newHistory[i].title = title || newHistory[i].title;
-                history = newHistory;
-                historyChanged();
-                saveHistory();
-                return;
-            }
-        }
-        var historyItem = {
-            "url": url,
-            "title": title || url,
-            "timestamp": now,
-            "visitCount": 1
-        };
-        newHistory.unshift(historyItem);
-        if (newHistory.length > 100)
-            newHistory = newHistory.slice(0, 100);
-
-        history = newHistory;
-        historyChanged();
-        saveHistory();
-    }
-
-    function clearHistory() {
-        history = [];
-        historyChanged();
-        saveHistory();
-        Logger.info("BrowserApp", "History cleared");
-    }
-
-    function loadSettings() {
-        searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
-        searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
-        homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
-    }
-
-    function saveSettings() {
-        SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
-        SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
-        SettingsManagerCpp.set("browser/homepage", homepageUrl);
-    }
-
-    function loadTabs() {
-        var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
-        if (savedTabs) {
-            try {
-                var parsedTabs = JSON.parse(savedTabs);
-                tabs.clear();
-                if (Array.isArray(parsedTabs)) {
-                    var maxId = 0;
-                    for (var i = 0; i < parsedTabs.length; i++) {
-                        var tab = parsedTabs[i];
-                        tabs.append({
-                            "tabId": tab.id,
-                            "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
-                            "title": tab.title || "New Tab",
-                            "isLoading": false,
-                            "canGoBack": false,
-                            "canGoForward": false,
-                            "loadProgress": 0,
-                            "isCrashed": false,
-                            "isNewTab": false,
-                            "crashCount": 0,
-                            "lastCrashAt": 0,
-                            "loadError": "",
-                            "failedUrl": ""
-                        });
-                        if (tab.id > maxId)
-                            maxId = tab.id;
-                    }
-                    nextTabId = maxId + 1;
-                }
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load tabs: " + e);
-            }
-        }
     }
 
     function saveTabs() {
         if (isPrivateMode)
             return;
-
-        var tabsArray = [];
-        for (var i = 0; i < tabs.count; i++) {
-            var tab = tabs.get(i);
-            tabsArray.push({
-                "id": tab.tabId,
-                "url": tab.url,
-                "title": tab.title
-            });
-        }
-        SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
+        const rows = [];
+        for (let i = 0; i < tabs.count; i++)
+            rows.push(tabs.get(i));
+        tabStore.value = Logic.saveTabs(rows);
     }
 
     function createNewTab(url, focusAddress) {
         if (tabs.count >= maxTabs) {
-            Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached");
-            showTransientMessage("You can have up to " + maxTabs + " tabs open. Close one to open another.");
+            Notices.show(qsTr("You can have up to %1 tabs open. Close one to open another.").arg(maxTabs));
             return -1;
         }
-        var newTab = {
-            "tabId": nextTabId++,
-            "url": url || homepageUrl,
-            "title": "New Tab",
-            // #412: WebEngineView spawn on L5 takes seconds — flag the tab as
-            // loading from t=0 so the chrome progress bar appears immediately,
-            // not when WebEngine first emits loadingChanged.
-            "isLoading": true,
-            "canGoBack": false,
-            "canGoForward": false,
-            "loadProgress": 5,
-            "isCrashed": false,
-            "isNewTab": true,
-            "crashCount": 0,
-            "lastCrashAt": 0,
-            "loadError": "",
-            "failedUrl": ""
-        };
-        tabs.append(newTab);
-        if (!isPrivateMode)
-            saveTabs();
+        const id = nextTabId++;
+        tabs.append(Logic.tabRow(id, url || homepageUrl, "", true));
+        saveTabs();
+        currentTabIndex = tabs.count - 1;
+        if (focusAddress !== false)
+            addressRequested();
+        return id;
+    }
 
-        Logger.info("BrowserApp", "Created new tab: " + newTab.tabId);
-        switchToTab(newTab.tabId);
-        if (focusAddress !== false) {
-            Qt.callLater(function () {
-                browserApp.ensureAddressBarFocus(true);
-            });
+    function indexOfTab(tabId) {
+        for (let i = 0; i < tabs.count; i++) {
+            if (tabs.get(i).tabId === tabId)
+                return i;
         }
-        return newTab.tabId;
+        return -1;
     }
 
     function closeTab(tabId) {
-        for (var i = 0; i < tabs.count; i++) {
-            if (tabs.get(i).tabId === tabId) {
-                var wasCurrent = (i === currentTabIndex);
-                var viewToRemove = browserApp.tabViewsById["" + tabId];
-                if (viewToRemove) {
-                    try {
-                        try {
-                            viewToRemove.lifecycleState = WebEngineView.LifecycleState.Discarded;
-                        } catch (e) {}
-                        viewToRemove.stop();
-                    } catch (e) {
-                        Logger.warn("BrowserApp", "Error stopping view: " + e);
-                    }
-                }
-                if (wasCurrent)
-                    webView = null;
-
-                tabs.remove(i);
-                if (tabs.count === 0) {
-                    createNewTab();
-                } else {
-                    if (i < currentTabIndex)
-                        currentTabIndex--;
-
-                    if (currentTabIndex >= tabs.count)
-                        currentTabIndex = tabs.count - 1;
-
-                    if (wasCurrent)
-                        Qt.callLater(updateCurrentWebView);
-                }
-                if (!isPrivateMode)
-                    saveTabs();
-
-                Logger.info("BrowserApp", "Closed tab: " + tabId);
-                return;
-            }
+        const i = indexOfTab(tabId);
+        if (i < 0)
+            return;
+        if (webLayer)
+            webLayer.discard(i);
+        delete _thumbnails[tabId];
+        tabs.remove(i);
+        if (tabs.count === 0) {
+            createNewTab(undefined, false);
+            return;
         }
+        if (i < currentTabIndex || currentTabIndex >= tabs.count)
+            currentTabIndex--;
+        saveTabs();
     }
 
     function closeAllTabs() {
+        for (let i = 0; webLayer && i < tabs.count; i++)
+            webLayer.discard(i);
+        _thumbnails = {};
         tabs.clear();
-        createNewTab();
+        createNewTab(undefined, false);
     }
 
     function switchToTab(tabId) {
-        for (var i = 0; i < tabs.count; i++) {
-            if (tabs.get(i).tabId === tabId) {
-                currentTabIndex = i;
-                Logger.info("BrowserApp", "Switched to tab: " + tabId);
-                return;
-            }
-        }
+        const i = indexOfTab(tabId);
+        if (i >= 0)
+            currentTabIndex = i;
     }
 
-    function getCurrentTab() {
-        if (currentTabIndex >= 0 && currentTabIndex < tabs.count)
-            return tabs.get(currentTabIndex);
-
-        return null;
-    }
-
-    function findBestMatch(partialText) {
-        if (!partialText || partialText.length < 2)
-            return "";
-
-        partialText = partialText.toLowerCase();
-        for (var i = 0; i < bookmarks.length; i++) {
-            var url = bookmarks[i].url.toLowerCase();
-            var hostOnly = displayHostFor(url);
-            if (hostOnly.startsWith(partialText))
-                return hostOnly;
-        }
-        for (var j = 0; j < history.length; j++) {
-            var hUrl = history[j].url.toLowerCase();
-            var hHostOnly = displayHostFor(hUrl);
-            if (hHostOnly.startsWith(partialText))
-                return hHostOnly;
-        }
-        return "";
-    }
-
-    function _clearAddressSuggestions() {
-        addressSuggestions.clear();
-    }
-
-    function _addSuggestion(kind, display, value) {
-        addressSuggestions.append({
-            "kind": kind,
-            "display": display,
-            "value": value
-        });
-    }
-
-    function _rebuildAddressSuggestions(queryText) {
-        addressSuggestions.clear();
-        var q = (queryText || "").trim();
-        if (!q)
+    function setPrivateMode(enabled) {
+        if (isPrivateMode === enabled)
             return;
-
-        var lower = q.toLowerCase();
-        var looksLikeUrl = (q.indexOf(".") !== -1 && q.indexOf(" ") === -1) || lower.startsWith("http://") || lower.startsWith("https://");
-        if (looksLikeUrl) {
-            var goUrl = q;
-            if (!(lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("about:")))
-                goUrl = "https://" + q;
-
-            _addSuggestion("go", "Go to " + goUrl, goUrl);
-        }
-        _addSuggestion("search", "Search " + searchEngineName + " for \"" + q + "\"", q);
-        var seen = {};
-        for (var i = 0; i < bookmarks.length; i++) {
-            var bUrl = bookmarks[i].url || "";
-            var bTitle = bookmarks[i].title || "";
-            if (bUrl.toLowerCase().indexOf(lower) !== -1 || bTitle.toLowerCase().indexOf(lower) !== -1) {
-                if (bUrl && !seen[bUrl]) {
-                    seen[bUrl] = true;
-                    _addSuggestion("bookmark", bTitle ? (bTitle + " — " + bUrl) : bUrl, bUrl);
-                    if (addressSuggestions.count >= 8)
-                        return;
-                }
-            }
-        }
-        for (var j = 0; j < history.length; j++) {
-            var hUrl = history[j].url || "";
-            var hTitle = history[j].title || "";
-            if (hUrl.toLowerCase().indexOf(lower) !== -1 || hTitle.toLowerCase().indexOf(lower) !== -1) {
-                if (hUrl && !seen[hUrl]) {
-                    seen[hUrl] = true;
-                    _addSuggestion("history", hTitle ? (hTitle + " — " + hUrl) : hUrl, hUrl);
-                    if (addressSuggestions.count >= 8)
-                        return;
-                }
-            }
-        }
+        if (enabled)
+            saveTabs();
+        _thumbnails = {};
+        tabs.clear();
+        nextTabId = 1;
+        currentTabIndex = 0;
+        isPrivateMode = enabled;
+        if (!enabled)
+            restoreTabs();
+        if (tabs.count === 0)
+            createNewTab(homepageUrl, false);
     }
 
-    function navigateTo(url) {
-        Logger.debug("Browser", "navigateTo called with: " + url);
-        if (!url)
-            return;
-
-        var lowerUrl = url.toLowerCase().trim();
-        if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:") || lowerUrl.startsWith("file:")) {
-            Logger.warn("BrowserApp", "Blocked dangerous URI scheme: " + lowerUrl.split(":")[0]);
-            showTransientMessage("Browser can't open " + lowerUrl.split(":")[0] + ": addresses");
+    function navigateTo(text) {
+        const target = Logic.resolveInput(text, searchEngineUrl);
+        if (!target.url) {
+            if (target.error)
+                Notices.show(target.error);
             return;
         }
-        var finalUrl = url;
-        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:")) {
-            if (url.includes(".") && !url.includes(" "))
-                finalUrl = "https://" + url;
-            else
-                finalUrl = searchEngineUrl + encodeURIComponent(url);
-        }
-        var finalLower = finalUrl.toLowerCase();
-        if (!(finalLower.startsWith("http://") || finalLower.startsWith("https://") || finalLower.startsWith("about:"))) {
-            Logger.warn("BrowserApp", "Blocked unsupported URL: " + finalUrl);
-            showTransientMessage("Browser can't open this address");
+        if (!currentTab)
             return;
-        }
         updatingTabUrl = true;
-        tabs.setProperty(currentTabIndex, "url", finalUrl);
+        tabs.setProperty(currentTabIndex, "url", target.url);
         tabs.setProperty(currentTabIndex, "isLoading", true);
         tabs.setProperty(currentTabIndex, "loadProgress", 10);
         tabs.setProperty(currentTabIndex, "isNewTab", false);
         updatingTabUrl = false;
     }
 
-    // What the address bar shows while you are NOT editing: the host, and
-    // only the host. It used to hold the raw URL, and a TextInput narrower
-    // than its contents shows whichever fragment the cursor last left in
-    // view -- users saw "https", "ckgo.com/", "e_website", never the one
-    // thing an address bar exists to answer. Tapping the bar still swaps in
-    // the full URL, selected, for editing.
-    // http and https render identically once the scheme is hidden, so the bar
-    // has to say which it is. "insecure" only for plaintext http on a real
-    // host -- about:blank and friends get no badge rather than a wrong one.
-    function schemeBadgeFor(url) {
-        var u = (url || "").toString();
-        if (/^https:\/\//i.test(u))
-            return "secure";
-        if (/^http:\/\//i.test(u))
-            return "insecure";
-        return "none";
-    }
-
-    function displayHostFor(url) {
-        var u = (url || "").toString();
-        // The authority ends at the first / ? or #. Matching [^/]+ alone let
-        // a query string into the capture, and the greedy userinfo strip then
-        // turned "https://evil.com?x=@paypal.com" into a bar reading
-        // "paypal.com" -- an address bar naming the attacker's choice of site
-        // is worse than one showing nothing.
-        var m = u.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^\/?#]+)/);
-        if (!m)
-            return u;
-        // The port stays. Autocomplete feeds navigateTo, so dropping it sent
-        // "192.168.1.5:8080" to :443 instead; and in the bar a non-default
-        // port is part of where you actually are.
-        return m[1].replace(/^.*@/, "").replace(/^www\./, "");
-    }
-
-    function _syncAddressBarFromCurrentTab() {
-        var u = browserApp.urlInputRef;
-        if (!u)
+    function setThumbnail(tabId, grab) {
+        const i = indexOfTab(tabId);
+        if (i < 0)
             return;
-
-        if (u.activeFocus)
-            return;
-
-        var currentTab = getCurrentTab();
-        u.text = currentTab ? displayHostFor(currentTab.url) : "";
-        u.cursorPosition = 0;
+        // The grab's url lives only as long as the result object.
+        _thumbnails[tabId] = grab;
+        tabs.setProperty(i, "thumbnail", grab.url.toString());
     }
 
-    function openDrawer() {
-        isDrawerOpen = true;
-        drawerProgress = 1;
+    function goBack() {
+        if (webLayer)
+            webLayer.goBack();
     }
 
-    function closeDrawer() {
-        isDrawerOpen = false;
-        drawerProgress = 0;
+    function goForward() {
+        if (webLayer)
+            webLayer.goForward();
     }
 
-    function ensureAddressBarFocus(selectAllText) {
-        var u = browserApp.urlInputRef;
-        Logger.debug("BrowserApp", "ensureAddressBarFocus called, urlInputRef=" + (u ? "exists" : "null") + " selectAll=" + selectAllText);
-        if (!u) {
-            browserApp._pendingAddressBarFocus = true;
-            browserApp._pendingAddressBarSelectAll = !!selectAllText;
-            browserApp._pendingAddressBarAttempts = 0;
-            addressBarPendingFocusTimer.restart();
-            Logger.debug("BrowserApp", "urlInputRef not ready, starting pending timer");
+    function reloadOrStop() {
+        if (webLayer)
+            webLayer.reloadOrStop();
+    }
+
+    function toggleBookmark() {
+        if (isPrivateMode) {
+            Notices.show(qsTr("Bookmarks are off in private browsing"));
             return;
         }
-        browserApp._pendingAddressBarFocus = false;
-        browserApp._focusRetryItem = u;
-        browserApp._focusRetrySelectAll = !!selectAllText;
-        browserApp._focusRetryAttempts = 0;
-        Qt.callLater(function () {
-            if (!browserApp._focusRetryItem)
-                return;
-
-            browserApp._focusRetryItem.forceActiveFocus();
-            if (browserApp._focusRetrySelectAll)
-                browserApp._focusRetryItem.selectAll();
-
-            // Qt.inputMethod is QInputMethod; .show() is its documented public
-            // API. The lint tool sees Qt.inputMethod as bare QObject and can't
-            // resolve the method.
-            if (Qt.inputMethod)
-                Qt.inputMethod.show();  // qmllint disable missing-property
-
-            focusRetryTimer.restart();
-        });
+        if (!currentTab || Logic.schemeBadge(currentTab.url) === "none")
+            return;
+        if (Logic.isBookmarked(bookmarks, currentTab.url))
+            removeBookmark(currentTab.url);
+        else
+            bookmarkStore.value = JSON.stringify(Logic.addBookmark(bookmarks, currentTab.url, currentTab.title, Date.now()));
     }
 
-    focus: true
+    function removeBookmark(url) {
+        bookmarkStore.value = JSON.stringify(Logic.removeBookmark(bookmarks, url));
+    }
+
+    function addToHistory(url, title) {
+        if (!isPrivateMode)
+            historyStore.value = JSON.stringify(Logic.addHistory(history, url, title, Date.now()));
+    }
+
+    function retitleHistory(url, title) {
+        if (isPrivateMode)
+            return;
+        const next = Logic.retitleHistory(history, url, title);
+        if (next !== history)
+            historyStore.value = JSON.stringify(next);
+    }
+
+    function removeHistory(url) {
+        historyStore.value = JSON.stringify(Logic.removeHistory(history, url));
+    }
+
+    function clearHistory() {
+        historyStore.value = "[]";
+    }
+
+    function clearSiteData() {
+        if (webLayer && webLayer.clearSiteData())
+            Notices.show(qsTr("Cookies and site data cleared"));
+        else
+            Notices.show(qsTr("Couldn't clear cookies. Try again."));
+    }
+
+    function setSearchEngine(name, url) {
+        engineStore.value = name;
+        engineUrlStore.value = url;
+    }
+
+    function setHomepage(url) {
+        homepageStore.value = url;
+    }
+
+    function handleBack() {
+        if (pageStack.depth > 1) {
+            pageStack.pop();
+            return true;
+        }
+        const page = pageStack.currentPage;
+        if (page && page.closeOverlays && page.closeOverlays())
+            return true;
+        if (currentTab && currentTab.canGoBack) {
+            goBack();
+            return true;
+        }
+        minimizeRequested();
+        return true;
+    }
+
+    function handleForward() {
+        if (!currentTab || !currentTab.canGoForward)
+            return false;
+        goForward();
+        return true;
+    }
+
     appId: "browser"
-    appName: "Browser"
-    appIcon: "assets/icon.svg"
-    canNavigateBack: {
-        var t = getCurrentTab();
-        return t ? (t.canGoBack === true) : false;
+    onApplicationActiveChanged: {
+        if (applicationActive)
+            return;
+        saveTabs();
+        if (webLayer)
+            webLayer.capture();
     }
-    canNavigateForward: {
-        var t = getCurrentTab();
-        return t ? (t.canGoForward === true) : false;
-    }
-    onCurrentTabIndexChanged: {
-        Qt.callLater(updateCurrentWebView);
-    }
-    onAppLaunched: {
-        isAppActive = true;
-    }
-    onAppResumed: {
-        isAppActive = true;
-    }
-    // Launch does NOT claim the address bar. It used to -- here, again from
-    // a 900ms post-launch timer, and once more on every resume -- so the app
-    // opened with the keyboard covering a third of the page (and, before the
-    // shell learned to retract it, covering the permission dialog's buttons).
-    // A browser opens showing the page; the keyboard appears when the user
-    // asks for it. Only an explicit new tab still focuses the bar.
     Component.onCompleted: {
-        Logger.info("BrowserApp", "Initializing browser...");
-        loadSettings();
-        loadBookmarks();
-        loadHistory();
-        loadTabs();
-        if (tabs.count === 0) {
-            Logger.info("BrowserApp", "No tabs found, creating default tab");
+        importLegacy();
+        restoreTabs();
+        if (tabs.count === 0)
             createNewTab(undefined, false);
-        }
-        Qt.callLater(updateCurrentWebView);
-        Qt.callLater(browserApp._syncAddressBarFromCurrentTab);
     }
-    onAppPaused: {
-        isAppActive = false;
-        saveTabs();
-        saveBookmarks();
-        saveHistory();
-    }
-    onAppMinimized: {
-        isAppActive = false;
-        try {
-            var keys = Object.keys(tabViewsById);
-            for (var i = 0; i < keys.length; i++) {
-                var v = tabViewsById[keys[i]];
-                if (v)
-                    v.forceDiscarded = true;
-            }
-        } catch (e) {
-            Logger.warn("BrowserApp", "Failed to discard tabs on minimize: " + e);
-        }
-        _clearAddressSuggestions();
-    }
-    onAppRestored: {
-        isAppActive = true;
-        try {
-            var keys = Object.keys(tabViewsById);
-            for (var i = 0; i < keys.length; i++) {
-                var v = tabViewsById[keys[i]];
-                if (v)
-                    v.forceDiscarded = false;
-            }
-        } catch (e) {
-            Logger.warn("BrowserApp", "Failed to restore tabs after minimize: " + e);
-        }
-    }
-    onAppClosed: {
-        if (webView) {
-            webView.stop();
-            webView.url = "about:blank";
-            webView = null;
-        }
-        saveTabs();
-        saveBookmarks();
-        saveHistory();
-    }
-    Component.onDestruction: {
-        if (webView) {
-            webView.stop();
-            webView.url = "about:blank";
-            webView = null;
-        }
-    }
+    Component.onDestruction: saveTabs()
 
     ListModel {
         id: tabsModel
     }
 
-    WebEngineProfile {
-        id: normalProfile
-
-        httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        Component.onCompleted: {
-            storageName = "normal";
-            offTheRecord = false;
-            httpCacheType = WebEngineProfile.DiskHttpCache;
-            persistentCookiesPolicy = WebEngineProfile.AllowPersistentCookies;
-        }
-    }
-
-    WebEngineProfile {
-        id: privateProfile
-
-        httpUserAgent: normalProfile.httpUserAgent
-        Component.onCompleted: {
-            offTheRecord = true;
-            httpCacheType = WebEngineProfile.MemoryHttpCache;
-            persistentCookiesPolicy = WebEngineProfile.NoPersistentCookies;
-        }
-    }
-
-    ListModel {
-        id: addressSuggestions
-    }
-
-    Timer {
-        id: transientMessageTimer
-
-        interval: 2000
-        repeat: false
-        onTriggered: browserApp.transientMessage = ""
-    }
-
-    Timer {
-        id: focusRetryTimer
-
-        interval: 16
-        repeat: true
-        // 30 retries × 16 ms ≈ 480 ms — enough for the URL input's Loader
-        // to come up and the scene graph to mount it on a cold launch.
-        // Beyond that, focus isn't landing because something else owns
-        // it (modal, focus scope, hidden surface) and burning frames at
-        // 60 fps polling forceActiveFocus() won't unstick that. The
-        // earlier 100-retry budget (1.6 s) just delayed the warning
-        // without ever recovering — same dead end, slower.
-        readonly property int maxAttempts: 30
-        onTriggered: {
-            var item = browserApp._focusRetryItem;
-            if (!item) {
-                stop();
-                return;
-            }
-            // Bail early when the target can't possibly take focus —
-            // forceActiveFocus on an invisible item is a guaranteed no-op
-            // and just keeps the timer spinning until the budget runs out.
-            if (!item.visible) {
-                Logger.debug("BrowserApp", "focus target invisible — abandoning retry");
-                stop();
-                return;
-            }
-            if (item.activeFocus) {
-                if (browserApp._focusRetrySelectAll)
-                    item.selectAll();
-
-                stop();
-                return;
-            }
-            item.forceActiveFocus();
-            browserApp._focusRetryAttempts++;
-            if (browserApp._focusRetryAttempts >= focusRetryTimer.maxAttempts) {
-                if (browserApp._focusRetrySelectAll)
-                    item.selectAll();
-
-                Logger.info("BrowserApp", "address-bar focus didn't land in " + focusRetryTimer.maxAttempts + " frames — leaving for user tap");
-                stop();
-            }
-        }
-    }
-
-
-    Timer {
-        id: addressBarPendingFocusTimer
-
-        interval: 16
-        repeat: true
-        onTriggered: {
-            if (!browserApp._pendingAddressBarFocus) {
-                stop();
-                return;
-            }
-            if (browserApp.urlInputRef) {
-                var selectAllText = browserApp._pendingAddressBarSelectAll;
-                browserApp._pendingAddressBarFocus = false;
-                stop();
-                browserApp.ensureAddressBarFocus(selectAllText);
-                return;
-            }
-            browserApp._pendingAddressBarAttempts++;
-            if (browserApp._pendingAddressBarAttempts > 60) {
-                Logger.warn("BrowserApp", "URL bar focus requested before urlInput was ready");
-                browserApp._pendingAddressBarFocus = false;
-                stop();
-            }
-        }
-    }
-
     Connections {
-        function onBackPressed() {
-            browserApp.handleBack();
-        }
-
-        function onForwardPressed() {
-            var view = browserApp.currentWebView();
-            if (view && view.canGoForward)
-                view.goForward();
-        }
-
-        target: browserApp
-    }
-
-    Connections {
+        target: Navigation
         function onDeepLinkRequested(appId, route, params) {
-            if (appId === "browser") {
-                Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params));
-                if (params && params.url) {
-                    Logger.info("BrowserApp", "Opening URL from deep link: " + params.url);
-                    browserApp.navigateTo(params.url);
-                }
-            }
+            if (appId === "browser" && params && params.url)
+                app.navigateTo(params.url);
         }
-
-        target: NavigationRouter
     }
 
-    content: Rectangle {
-        id: rootContent
-
-        anchors.fill: parent
-        color: MColors.background
-
-        function confirmClear(kind) {
-            confirmDialog.pendingAction = kind;
-            if (kind === "history") {
-                confirmDialog.title = "Clear browsing history?";
-                confirmDialog.message = "Every page in your history will be removed. This can't be undone.";
-                confirmDialog.confirmText = "Clear History";
-            } else {
-                confirmDialog.title = "Clear cookies and site data?";
-                confirmDialog.message = "You'll be signed out of most websites, and saved site data will be removed. This can't be undone.";
-                confirmDialog.confirmText = "Clear Cookies";
-            }
-            confirmDialog.show();
-        }
-
-        function deleteBookmarkWithUndo(url) {
-            var index = -1;
-            for (var i = 0; i < browserApp.bookmarks.length; i++) {
-                if (browserApp.bookmarks[i].url === url) {
-                    index = i;
-                    break;
-                }
-            }
-            if (index < 0)
-                return;
-            bookmarkSnackbar.removed = browserApp.bookmarks[index];
-            bookmarkSnackbar.removedIndex = index;
-            browserApp.removeBookmark(url);
-            bookmarkSnackbar.show("Bookmark removed", "Undo");
-        }
-
-        function restoreRemovedBookmark() {
-            var b = bookmarkSnackbar.removed;
-            if (!b || browserApp.isBookmarked(b.url))
-                return;
-            var newBookmarks = browserApp.bookmarks.slice();
-            newBookmarks.splice(Math.min(bookmarkSnackbar.removedIndex, newBookmarks.length), 0, b);
-            browserApp.bookmarks = newBookmarks;
-            browserApp.saveBookmarks();
-        }
-
-        Column {
-            anchors.fill: parent
-            spacing: 0
-
-            Rectangle {
-                id: contentArea
-
-                width: parent.width
-                height: parent.height - urlBar.height
-                color: MColors.background
-
-                StackLayout {
-                    id: webViewStack
-
-                    anchors.fill: parent
-                    currentIndex: browserApp.currentTabIndex
-
-                    Repeater {
-                        id: tabsRepeater
-
-                        model: browserApp.tabs
-
-                        Item {
-                            id: tabDelegate
-
-                            required property int index
-                            required property int tabId
-                            required property string url
-                            required property bool isCrashed
-                            required property string loadError
-                            required property string failedUrl
-
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
-                            WebView {
-                                id: webView
-
-                                anchors.fill: parent
-                                focus: !urlInput.activeFocus
-                                url: tabDelegate.url
-                                profile: browserApp.isPrivateMode ? privateProfile : normalProfile
-                                active: browserApp.isAppActive && (tabDelegate.index === browserApp.currentTabIndex)
-                                crashed: !!tabDelegate.isCrashed
-                                Component.onCompleted: {
-                                    browserApp.tabViewsById["" + tabDelegate.tabId] = webView;
-                                    if (tabDelegate.index === browserApp.currentTabIndex)
-                                        browserApp.webView = webView;
-                                }
-                                Component.onDestruction: {
-                                    delete browserApp.tabViewsById["" + tabDelegate.tabId];
-                                    if (browserApp.webView === webView)
-                                        browserApp.webView = null;
-                                }
-                                onCrashedChanged: {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).isCrashed !== crashed)
-                                            browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", crashed);
-                                    }
-                                }
-                                onRenderProcessTerminated: function (terminationStatus, exitCode) {
-                                    var status = "";
-                                    switch (terminationStatus) {
-                                    case WebEngineView.NormalTerminationStatus:
-                                        status = "Normal";
-                                        break;
-                                    case WebEngineView.AbnormalTerminationStatus:
-                                        status = "Abnormal";
-                                        break;
-                                    case WebEngineView.CrashedTerminationStatus:
-                                        status = "Crashed";
-                                        break;
-                                    case WebEngineView.KilledTerminationStatus:
-                                        status = "Killed";
-                                        break;
-                                    }
-                                    Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
-                                    if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
-                                        if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                            browserApp.tabs.setProperty(tabDelegate.index, "crashCount", (browserApp.tabs.get(tabDelegate.index).crashCount || 0) + 1);
-                                            browserApp.tabs.setProperty(tabDelegate.index, "lastCrashAt", Date.now());
-                                            browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", true);
-                                        }
-                                        crashed = true;
-                                    }
-                                }
-                                onNewWindowRequested: request => {
-                                    if (!request)
-                                        return;
-
-                                    var reqUrl = request.requestedUrl ? request.requestedUrl.toString() : "";
-                                    if (reqUrl)
-                                        browserApp.createNewTab(reqUrl);
-                                    else
-                                        browserApp.createNewTab("about:blank");
-                                }
-                                onNavigationRequested: request => {
-                                    if (!request)
-                                        return;
-
-                                    var u = request.url.toString();
-                                    var lu = u.toLowerCase();
-                                    if (!(lu.startsWith("http://") || lu.startsWith("https://") || lu.startsWith("about:"))) {
-                                        Logger.warn("BrowserApp", "Blocked navigation to unsupported scheme: " + u);
-                                        request.reject();
-                                        return;
-                                    }
-                                    request.accept();
-                                }
-                                onCertificateError: error => {
-                                    Logger.warn("BrowserApp", "TLS certificate error for " + error.url + " (" + error.type + "): " + error.description);
-                                    error.rejectCertificate();
-                                    // Main-frame rejections surface as a LoadFailed error page.
-                                    if (error.isMainFrame === false && tabDelegate.index === browserApp.currentTabIndex)
-                                        browserApp.showTransientMessage("Some content was blocked: its security certificate isn't valid");
-                                }
-                                onFeaturePermissionRequested: (securityOrigin, feature) => {
-                                    Logger.info("BrowserApp", "Feature permission requested (" + feature + ") for " + securityOrigin);
-                                    webView.grantFeaturePermission(securityOrigin, feature, false);
-                                }
-                                onFullScreenRequested: request => {
-                                    request.accept();
-                                }
-                                onUrlChanged: {
-                                    if (updatingTabUrl)
-                                        return;
-
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).url !== url.toString())
-                                            browserApp.tabs.setProperty(tabDelegate.index, "url", url.toString());
-                                    }
-                                    if (tabDelegate.index === browserApp.currentTabIndex)
-                                        browserApp._syncAddressBarFromCurrentTab();
-                                }
-                                onTitleChanged: {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).title !== title) {
-                                            browserApp.tabs.setProperty(tabDelegate.index, "title", title);
-                                            if (!browserApp.isPrivateMode)
-                                                browserApp.updateHistoryTitle(url.toString(), title);
-                                        }
-                                    }
-                                }
-                                onLoadingChanged: function (loadRequest) {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        var isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
-                                        browserApp.tabs.setProperty(tabDelegate.index, "isLoading", isLoading);
-                                        if (isLoading && tabDelegate.loadError !== "")
-                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", "");
-                                        if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                                            browserApp.tabs.setProperty(tabDelegate.index, "title", title);
-                                            if (!browserApp.isPrivateMode)
-                                                browserApp.addToHistory(url.toString(), title);
-
-                                            if (browserApp.tabs.get(tabDelegate.index).isCrashed)
-                                                browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", false);
-                                        }
-                                        // -3 is net::ERR_ABORTED: superseded by another navigation, not a failure.
-                                        if (loadRequest.status === WebEngineView.LoadFailedStatus && loadRequest.errorCode !== -3) {
-                                            Logger.warn("BrowserApp", "Load failed for " + loadRequest.url + ": " + loadRequest.errorString + " (" + loadRequest.errorCode + ")");
-                                            browserApp.tabs.setProperty(tabDelegate.index, "failedUrl", loadRequest.url.toString());
-                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", browserApp.loadErrorMessage(loadRequest));
-                                        }
-                                    }
-                                }
-                                onCanGoBackChanged: {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).canGoBack !== canGoBack)
-                                            browserApp.tabs.setProperty(tabDelegate.index, "canGoBack", canGoBack);
-                                    }
-                                }
-                                onCanGoForwardChanged: {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).canGoForward !== canGoForward)
-                                            browserApp.tabs.setProperty(tabDelegate.index, "canGoForward", canGoForward);
-                                    }
-                                }
-                                onLoadProgressChanged: {
-                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
-                                        if (browserApp.tabs.get(tabDelegate.index).loadProgress !== loadProgress)
-                                            browserApp.tabs.setProperty(tabDelegate.index, "loadProgress", loadProgress);
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent
-                                visible: tabDelegate.loadError !== ""
-                                color: MColors.background
-
-                                Column {
-                                    anchors.centerIn: parent
-                                    width: parent.width - MSpacing.xl * 2
-                                    spacing: MSpacing.md
-
-                                    Icon {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        name: "warning"
-                                        size: Constants.iconSizeLarge
-                                        color: MColors.warning
-                                    }
-
-                                    Text {
-                                        width: parent.width
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: "Can't open this page"
-                                        color: MColors.textPrimary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeTitle3
-                                        font.weight: MTypography.weightMedium
-                                        wrapMode: Text.Wrap
-                                    }
-
-                                    Text {
-                                        width: parent.width
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: tabDelegate.loadError
-                                        color: MColors.textSecondary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeBody
-                                        wrapMode: Text.Wrap
-                                    }
-
-                                    Text {
-                                        width: parent.width
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: browserApp.displayHostFor(tabDelegate.failedUrl)
-                                        color: MColors.textTertiary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeFootnote
-                                        elide: Text.ElideMiddle
-                                    }
-
-                                    MButton {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: "Try again"
-                                        variant: "primary"
-                                        onClicked: {
-                                            browserApp.tabs.setProperty(tabDelegate.index, "loadError", "");
-                                            if (tabDelegate.url === tabDelegate.failedUrl || tabDelegate.failedUrl === "")
-                                                webView.reload();
-                                            else
-                                                browserApp.navigateTo(tabDelegate.failedUrl);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-            }
-
-
-            // URL + control combo (Safari-style, anchored to the bottom
-            // edge per product direction — JSX shows top URL bar but we
-            // stay bottom-attached for thumb reach). Re-tokened to the DS
-            // chrome: glass-titlebar fill, w-04 border, top inset highlight.
-            // Loading progress bar still renders as a teal hairline along
-            // the bottom edge.
-            Rectangle {
-                id: urlBar
-
-                width: parent.width
-                height: Constants.touchTargetSmall + MSpacing.sm
-                color: browserApp.isPrivateMode ? MColors.secViolet : MColors.glassTitlebar
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.top
-                    anchors.bottomMargin: MSpacing.sm
-                    radius: Constants.borderRadiusSmall
-                    color: MColors.overlayLight
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.whiteOverlay08
-                    visible: browserApp.transientMessage !== ""
-                    opacity: visible ? 1 : 0
-                    z: 5000
-                    implicitWidth: toastText.implicitWidth + MSpacing.sm * 2
-                    implicitHeight: toastText.implicitHeight + MSpacing.sm * 2
-
-                    Text {
-                        id: toastText
-
-                        text: browserApp.transientMessage
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                        anchors.centerIn: parent
-                    }
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: MMotion.durationFor("hover")
-                        }
-                    }
-                }
-
-                // Top divider — w-04 hairline, the DS standard for
-                // glass-bar attachments. Then a 1 px lighter inset
-                // highlight just below it so the bar reads "lit from
-                // above" matching every other bar in the system.
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: 1
-                    color: MColors.borderGlass
-                }
-                Rectangle {
-                    anchors.top: parent.top
-                    anchors.topMargin: 1
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 1
-                    color: MColors.whiteOverlay06
-                }
-
-                Rectangle {
-                    id: loadingProgress
-
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    height: Constants.borderWidthThick
-                    width: {
-                        if (browserApp.updatingTabUrl)
-                            return parent.width * 0.2;
-
-                        var currentTab = browserApp.getCurrentTab();
-                        if (currentTab && currentTab.isLoading && currentTab.loadProgress)
-                            return parent.width * (currentTab.loadProgress / 100);
-
-                        return 0;
-                    }
-                    color: MColors.accent
-                    visible: {
-                        var currentTab = browserApp.getCurrentTab();
-                        return (currentTab && currentTab.isLoading === true) || browserApp.updatingTabUrl;
-                    }
-
-                    Behavior on width {
-                        NumberAnimation {
-                            duration: MMotion.micro
-                        }
-                    }
-                }
-
-                // Swipe the bar horizontally to move through history --
-                // right for back, left for forward -- with the row tracking
-                // the finger at reduced ratio and springing home on release.
-                // A DragHandler with target:null takes the grab from the
-                // buttons' MouseAreas only once the drag threshold is
-                // crossed, so taps on back / pill / reload / tabs behave
-                // exactly as before. Disabled while editing: a horizontal
-                // drag in a focused field is text selection.
-                DragHandler {
-                    id: barSwipe
-
-                    // Captured during the drag: activeTranslation resets to
-                    // zero BEFORE onActiveChanged fires on release, so a
-                    // release handler that reads it directly always sees 0
-                    // and the gesture silently never navigates.
-                    property real dragX: 0
-                    // Latched at grab. History cannot change mid-drag, and the
-                    // Translate below runs every frame -- it used to do a
-                    // currentWebView() lookup and two Chromium property reads
-                    // per frame, on the one path that must not stutter.
-                    property bool canBack: false
-                    property bool canFwd: false
-
-                    target: null
-                    xAxis.enabled: true
-                    yAxis.enabled: false
-                    enabled: !urlInput.activeFocus
-                    grabPermissions: PointerHandler.CanTakeOverFromAnything
-                    onActiveTranslationChanged: {
-                        if (active)
-                            dragX = activeTranslation.x;
-                    }
-                    onActiveChanged: {
-                        var view = browserApp.currentWebView();
-                        if (active) {
-                            canBack = !!(view && view.canGoBack);
-                            canFwd = !!(view && view.canGoForward);
-                            return;
-                        }
-                        var dx = dragX;
-                        dragX = 0;
-                        if (!view)
-                            return;
-                        if (dx > 70 && view.canGoBack) {
-                            HapticService.light();
-                            view.goBack();
-                        } else if (dx < -70 && view.canGoForward) {
-                            HapticService.light();
-                            view.goForward();
-                        }
-                    }
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: MSpacing.xs
-                    anchors.rightMargin: MSpacing.xs
-                    spacing: MSpacing.xs
-
-                    transform: Translate {
-                        // A third of the finger's travel, capped, and only in
-                        // directions history can actually go -- the bar
-                        // resists rather than slides when there is nothing
-                        // to pop.
-                        x: {
-                            var t = barSwipe.dragX * 0.35;
-                            if (t > 0 && !barSwipe.canBack)
-                                t = t * 0.25;
-                            if (t < 0 && !barSwipe.canFwd)
-                                t = t * 0.25;
-                            return Math.max(-64, Math.min(64, t));
-                        }
-
-                        Behavior on x { // qmllint disable Quick.layout-positioning
-                            enabled: !barSwipe.active
-                            NumberAnimation {
-                                duration: MMotion.quick
-                                easing.type: Easing.OutBack
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetMinimum
-                        Layout.preferredHeight: Constants.touchTargetMinimum
-                        Layout.alignment: Qt.AlignVCenter
-                        color: "transparent"
-
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "arrow-left"
-                            size: Constants.iconSizeSmall
-                            color: {
-                                var currentTab = browserApp.getCurrentTab();
-                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textSecondary;
-                            }
-                            opacity: {
-                                var currentTab = browserApp.getCurrentTab();
-                                return (currentTab && currentTab.canGoBack) ? 1.0 : 0.35;
-                            }
-                        }
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: "Back"
-                        Accessible.onPressAction: {
-                            var view = browserApp.currentWebView();
-                            if (view && view.canGoBack)
-                                view.goBack();
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: {
-                                if (browserApp.currentTabIndex >= 0 && browserApp.currentTabIndex < browserApp.tabs.count) {
-                                    var tab = browserApp.tabs.get(browserApp.currentTabIndex);
-                                    return tab && tab.canGoBack === true;
-                                }
-                                return false;
-                            }
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: {
-                                HapticService.light();
-                                var view = browserApp.currentWebView();
-                                if (view && view.canGoBack)
-                                    view.goBack();
-                            }
-                        }
-                    }
-
-                    // No forward button. When it popped in the bar held five
-                    // controls and the host collapsed to "en....". Forward is
-                    // the bar's left-swipe (back is the right-swipe); the
-                    // back button stays because it is the discoverable half.
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: parent.height - MSpacing.sm * 2
-                        Layout.alignment: Qt.AlignVCenter
-                        radius: MRadius.md
-                        color: MColors.elev2
-                        border.width: 1
-                        border.color: urlInput.activeFocus ? MColors.marathonTealBright : MColors.whiteOverlay08
-                        clip: true
-
-                        // Idle tap cover, above the input (z), gone while
-                        // editing. Focusing used to happen ON PRESS -- which
-                        // meant the bar's back/forward swipe could never
-                        // start over the pill: the keyboard was already
-                        // rising before any drag threshold was crossed. A
-                        // drag now cancels the press (the DragHandler takes
-                        // the grab), no click fires, and no keyboard rises;
-                        // a real tap still focuses and selects the URL.
-                        MouseArea {
-                            anchors.fill: parent
-                            z: 10
-                            visible: !urlInput.activeFocus
-                            onClicked: urlInput.forceActiveFocus()
-
-                            Accessible.role: Accessible.EditableText
-                            Accessible.name: "Address: " + (urlInput.text || "Search or enter URL")
-                            Accessible.onPressAction: urlInput.forceActiveFocus()
-                        }
-
-                        // Badge and host travel together as one centred
-                        // group. Anchoring the badge to hostLabel.left put it
-                        // outside the pill and the clip ate it -- hostLabel
-                        // spans the full width and merely centres its own
-                        // glyphs, so its left edge is the pill's, not the
-                        // text's.
-                        Row {
-                            id: hostRow
-
-                            readonly property real avail: actionRow.x - MSpacing.xs * 2
-
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: MSpacing.xs
-                            visible: !urlInput.activeFocus
-
-                            Icon {
-                                id: schemeBadge
-
-                                readonly property string badgeState: {
-                                    var t = browserApp.getCurrentTab();
-                                    return browserApp.schemeBadgeFor(t ? t.url : "");
-                                }
-
-                                anchors.verticalCenter: parent.verticalCenter
-                                visible: badgeState !== "none"
-                                width: visible ? implicitWidth : 0
-                                name: badgeState === "secure" ? "lock-simple" : "warning"
-                                size: Math.round(MTypography.sizeBody * 0.85)
-                                color: badgeState === "secure" ? MColors.textSecondary : MColors.warning
-                            }
-
-                            Text {
-                                id: hostLabel
-
-                                // Only as wide as it needs, so the pair stays
-                                // centred; capped at what the pill has spare
-                                // after the badge, then elides.
-                                anchors.verticalCenter: parent.verticalCenter
-                                // implicitWidth here is a plain metric of the
-                                // text, so capping width by it does not feed
-                                // back. It did under fontSizeMode:
-                                // HorizontalFit, which derives implicitWidth
-                                // from the fitted size -- width and
-                                // implicitWidth then drove each other through
-                                // repeated layout passes on every navigation.
-                                width: Math.min(implicitWidth, hostRow.avail
-                                                - (schemeBadge.visible ? schemeBadge.width + hostRow.spacing : 0))
-                                text: urlInput.text
-                                color: MColors.text
-                                font.family: MTypography.fontFamily
-                                font.pixelSize: MTypography.sizeBody
-                                elide: Text.ElideRight
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-
-                        TextInput {
-                            id: urlInput
-
-                            property bool inlineCompletionActive: false
-                            property string inlineTypedPrefix: ""
-                            property bool suppressAutocompleteOnce: false
-                            property bool lastEditWasDeletion: false
-                            property bool applyingAutocomplete: false
-                            property bool userTypedSinceFocus: false
-
-                            anchors.left: parent.left
-                            anchors.right: actionRow.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: MSpacing.md
-                            anchors.rightMargin: MSpacing.xs
-                            verticalAlignment: TextInput.AlignVCenter
-                            // While idle the glyphs are drawn by hostLabel
-                            // below -- a Text can elide, a TextInput can only
-                            // clip, which turned the host into "duck<half a
-                            // glyph>". Hidden by opacity, not visible:false:
-                            // forceActiveFocus on an invisible item is a
-                            // no-op, while an opacity-0 item still takes
-                            // focus and IS culled by the scene graph, unlike
-                            // a transparent colour which still lays the text
-                            // out and uploads its glyphs.
-                            color: MColors.text
-                            opacity: activeFocus ? 1 : 0
-                            font.pixelSize: MTypography.sizeBody
-                            font.family: MTypography.fontFamily
-                            selectByMouse: true
-                            selectedTextColor: MColors.background
-                            selectionColor: MColors.accent
-                            clip: true
-                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
-                            // Focus arrives via the idle cover's click, never
-                            // the raw press -- see the MouseArea above.
-                            activeFocusOnPress: false
-                            onActiveFocusChanged: {
-                                if (activeFocus) {
-                                    browserApp.isEditingAddress = true;
-                                    urlInput.userTypedSinceFocus = false;
-                                    var currentTab = browserApp.getCurrentTab();
-                                    urlInput.text = currentTab ? currentTab.url : "";
-                                    // selectAll and STOP. Setting cursorPosition
-                                    // afterwards clears the selection, so the
-                                    // first character typed was prepended into
-                                    // the old URL instead of replacing it --
-                                    // "en.wikipedia.org" typed over the DDG url
-                                    // navigated to "en.wikipedia.orghttps...".
-                                    selectAll();
-                                    browserApp._clearAddressSuggestions();
-                                } else {
-                                    browserApp.isEditingAddress = false;
-                                    urlInput.inlineCompletionActive = false;
-                                    urlInput.inlineTypedPrefix = "";
-                                    urlInput.userTypedSinceFocus = false;
-                                    browserApp._clearAddressSuggestions();
-                                    urlInput.cursorPosition = 0;
-                                    // Focusing swaps in the full URL for
-                                    // editing; blurring has to put the host
-                                    // back. Without this, tapping the bar then
-                                    // tapping the page away left the raw URL
-                                    // shrunk and elided in the pill until the
-                                    // next navigation -- the exact state the
-                                    // host-only display exists to avoid.
-                                    browserApp._syncAddressBarFromCurrentTab();
-                                }
-                            }
-                            Component.onCompleted: {
-                                browserApp.urlInputRef = urlInput;
-                                browserApp._syncAddressBarFromCurrentTab();
-                                if (browserApp._pendingAddressBarFocus)
-                                    browserApp.ensureAddressBarFocus(browserApp._pendingAddressBarSelectAll);
-                            }
-                            Component.onDestruction: {
-                                if (browserApp.urlInputRef === urlInput)
-                                    browserApp.urlInputRef = null;
-                            }
-                            Keys.onPressed: event => {
-                                if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
-                                    urlInput.lastEditWasDeletion = true;
-                                    if (urlInput.inlineCompletionActive && urlInput.text.startsWith(urlInput.inlineTypedPrefix)) {
-                                        var expectedStart = urlInput.inlineTypedPrefix.length;
-                                        if (selectionStart === expectedStart && selectionEnd === urlInput.text.length) {
-                                            event.accepted = true;
-                                            urlInput.suppressAutocompleteOnce = true;
-                                            urlInput.applyingAutocomplete = true;
-                                            urlInput.text = urlInput.inlineTypedPrefix;
-                                            urlInput.cursorPosition = urlInput.inlineTypedPrefix.length;
-                                            urlInput.deselect();
-                                            urlInput.inlineCompletionActive = false;
-                                            urlInput.applyingAutocomplete = false;
-                                            browserApp._rebuildAddressSuggestions(urlInput.text);
-                                            return;
-                                        }
-                                    }
-                                    return;
-                                }
-                                urlInput.lastEditWasDeletion = false;
-                                if (urlInput.inlineCompletionActive) {
-                                    if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
-                                        event.accepted = true;
-                                        urlInput.cursorPosition = urlInput.text.length;
-                                        urlInput.deselect();
-                                        urlInput.inlineCompletionActive = false;
-                                        urlInput.inlineTypedPrefix = "";
-                                        return;
-                                    }
-                                    if (event.key === Qt.Key_Left || event.key === Qt.Key_Escape) {
-                                        event.accepted = true;
-                                        urlInput.suppressAutocompleteOnce = true;
-                                        urlInput.applyingAutocomplete = true;
-                                        urlInput.text = urlInput.inlineTypedPrefix;
-                                        urlInput.cursorPosition = urlInput.inlineTypedPrefix.length;
-                                        urlInput.deselect();
-                                        urlInput.inlineCompletionActive = false;
-                                        urlInput.inlineTypedPrefix = "";
-                                        urlInput.applyingAutocomplete = false;
-                                        browserApp._rebuildAddressSuggestions(urlInput.text);
-                                        return;
-                                    }
-                                }
-                            }
-                            onTextEdited: {
-                                if (urlInput.applyingAutocomplete)
-                                    return;
-
-                                urlInput.userTypedSinceFocus = true;
-                                browserApp._rebuildAddressSuggestions(text);
-                                if (urlInput.suppressAutocompleteOnce) {
-                                    urlInput.suppressAutocompleteOnce = false;
-                                    return;
-                                }
-                                if (!activeFocus)
-                                    return;
-
-                                if (urlInput.lastEditWasDeletion)
-                                    return;
-
-                                if (cursorPosition !== text.length)
-                                    return;
-
-                                if (text.length < 2)
-                                    return;
-
-                                var match = browserApp.findBestMatch(text);
-                                if (match && match.length > text.length) {
-                                    var currentPos = cursorPosition;
-                                    urlInput.inlineTypedPrefix = text;
-                                    urlInput.inlineCompletionActive = true;
-                                    urlInput.applyingAutocomplete = true;
-                                    urlInput.text = match;
-                                    urlInput.select(currentPos, urlInput.text.length);
-                                    urlInput.applyingAutocomplete = false;
-                                }
-                            }
-                            onAccepted: {
-                                focus = false;
-                                urlInput.inlineCompletionActive = false;
-                                urlInput.inlineTypedPrefix = "";
-                                urlInput.userTypedSinceFocus = false;
-                                browserApp._clearAddressSuggestions();
-                                browserApp.navigateTo(text);
-                            }
-
-                            Connections {
-                                function onCurrentTabIndexChanged() {
-                                    browserApp._syncAddressBarFromCurrentTab();
-                                    var currentTab = browserApp.getCurrentTab();
-                                    if (currentTab && currentTab.isNewTab)
-                                        browserApp.ensureAddressBarFocus(true);
-                                }
-
-                                target: browserApp
-                            }
-
-                            Text {
-                                anchors.fill: parent
-                                verticalAlignment: Text.AlignVCenter
-                                visible: !urlInput.text && !urlInput.activeFocus
-                                text: browserApp.isPrivateMode ? "Private Browsing" : "Search or enter URL"
-                                color: MColors.textTertiary
-                                font.pixelSize: MTypography.sizeBody
-                                font.family: MTypography.fontFamily
-                            }
-                        }
-
-                        Row {
-                            id: actionRow
-
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.rightMargin: MSpacing.xs
-                            spacing: 0
-
-                            Rectangle {
-                                width: Constants.touchTargetSmall * 0.8
-                                height: parent.height
-                                color: "transparent"
-                                visible: urlInput.text && urlInput.text.length > 0 && urlInput.activeFocus
-
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: Constants.touchTargetSmall * 0.6
-                                    height: Constants.touchTargetSmall * 0.6
-                                    radius: width / 2
-                                    color: clearMouseArea.pressed ? MColors.whiteOverlay24 : MColors.whiteOverlay12
-
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "x"
-                                        size: Constants.iconSizeSmall * 0.6
-                                        color: MColors.textSecondary
-                                    }
-                                }
-
-                                Accessible.role: Accessible.Button
-                                Accessible.name: "Clear address"
-                                Accessible.onPressAction: {
-                                    urlInput.text = "";
-                                    urlInput.forceActiveFocus();
-                                }
-
-                                MouseArea {
-                                    id: clearMouseArea
-
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.light();
-                                        urlInput.text = "";
-                                        urlInput.forceActiveFocus();
-                                    }
-                                }
-                            }
-
-                            // The bookmark star used to live here, always
-                            // visible. Together with reload the two buttons
-                            // ate half the pill, so the host the bar exists
-                            // to display got ~140px and always elided.
-                            // Bookmarking now lives at the top of the
-                            // drawer's Bookmarks page; reload keeps the
-                            // in-pill slot, as Safari does.
-
-                        }
-                    }
-
-                    // Reload sits in the bar, not the pill. Inside the pill
-                    // it competed with the host for the one stretch of space
-                    // whose whole job is showing what site you are on; out
-                    // here it fills the dead zone beside the field, at full
-                    // control size instead of 0.8x. Hidden while editing so
-                    // the field takes the room instead.
-                    Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetMinimum
-                        Layout.preferredHeight: Constants.touchTargetMinimum
-                        Layout.alignment: Qt.AlignVCenter
-                        color: "transparent"
-                        visible: !urlInput.activeFocus
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: {
-                            var currentTab = browserApp.getCurrentTab();
-                            return (currentTab && currentTab.isLoading) ? "Stop loading" : "Reload";
-                        }
-                        Accessible.onPressAction: reloadArea.clicked(null)
-
-                        Icon {
-                            anchors.centerIn: parent
-                            name: {
-                                var currentTab = browserApp.getCurrentTab();
-                                return (currentTab && currentTab.isLoading) ? "square" : "refresh-cw";
-                            }
-                            size: Constants.iconSizeSmall
-                            color: MColors.text
-                        }
-
-                        MouseArea {
-                            id: reloadArea
-
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light();
-                                var view = browserApp.currentWebView();
-                                if (!view) {
-                                    Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + browserApp.currentTabIndex + ", tabs=" + browserApp.tabs.count + ")");
-                                    Qt.callLater(browserApp.updateCurrentWebView);
-                                    return;
-                                }
-                                var currentTab = browserApp.getCurrentTab();
-                                if (currentTab && currentTab.isLoading) {
-                                    view.triggerWebAction(WebEngineView.Stop);
-                                } else {
-                                    view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
-                                    view.reload();
-                                }
-                            }
-                        }
-                    }
-
-                    // Safari's tab affordance: the count inside a rounded
-                    // square. The old icon-plus-"(1)" pairing was the widest
-                    // control in the bar -- 1.6x a touch target for one
-                    // glyph and three characters of tertiary text.
-                    Rectangle {
-                        Layout.preferredWidth: Constants.touchTargetMinimum
-                        Layout.preferredHeight: Constants.touchTargetMinimum
-                        Layout.alignment: Qt.AlignVCenter
-                        color: "transparent"
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: browserApp.tabs.count === 1 ? "1 tab open. Show tabs" : browserApp.tabs.count + " tabs open. Show tabs"
-                        Accessible.onPressAction: browserApp.isDrawerOpen ? browserApp.closeDrawer() : browserApp.openDrawer()
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: Math.round(parent.width * 0.62)
-                            height: width
-                            radius: Math.round(width * 0.28)
-                            color: "transparent"
-                            border.width: Math.max(2, Math.round(width * 0.07))
-                            border.color: MColors.text
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: browserApp.tabs.count > 99 ? ":D" : browserApp.tabs.count
-                                font.pixelSize: Math.round(parent.height * 0.52)
-                                font.weight: Font.DemiBold
-                                font.family: MTypography.fontFamily
-                                color: MColors.text
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light();
-                                if (browserApp.isDrawerOpen)
-                                    browserApp.closeDrawer();
-                                else
-                                    browserApp.openDrawer();
-                            }
-                        }
-                    }
-                }
+    cover: Component {
+        BrowserCover {
+            title: app.currentTab ? app.currentTab.title : ""
+            url: app.currentTab ? app.currentTab.url : ""
+            thumbnail: app.currentTab ? app.currentTab.thumbnail : ""
+            onNewTabRequested: {
+                app.activate();
+                if (app.pageStack.depth > 1)
+                    app.pageStack.pop(app.pageStack.find(p => p.objectName === "mainPage"), PageStackAction.Immediate);
+                app.createNewTab();
             }
         }
+    }
 
-        // Right-edge drawer gesture. Kept as an overlay MouseArea above the
-        // web view ON PURPOSE. Re-expressing it as a DragHandler on
-        // contentArea -- so its bounds came from ordinary stacking instead of
-        // the two explicit exclusions below -- was tried and reverted:
-        // WebEngineView consumes the drag before a QML handler on its parent
-        // sees it, and the swipe stopped opening the drawer at all. An
-        // overlay is what puts the gesture above web content; the exclusions
-        // are that decision's price, not a bandaid.
-        MouseArea {
-            id: rightEdgeGesture
-
-            property real startX: 0
-            property real currentX: 0
-
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            // Stop short of urlBar. Moving this out of the Column gave it the
-            // full screen height at z:1000, and the bar's rightmost control --
-            // the tab button, freshly shrunk to the 44px floor -- was left
-            // with 1px of itself outside the strip. Tapping the tab count did
-            // nothing: this handler took the press and released at progress 0.
-            anchors.bottomMargin: urlBar.height
-            width: Constants.gestureEdgeWidth
-            // ...and it must yield to the drawer it opens. At z:1000 it also
-            // outranked drawerContainer, eating the right edge of everything
-            // inside: half of each TabCard's close button, the bookmark row's
-            // right end. Gated on isDrawerOpen, not drawerProgress, which
-            // this handler drives itself mid-drag.
-            enabled: !browserApp.isDrawerOpen
-            z: 1000
-            onPressed: mouse => {
-                startX = mouse.x + rightEdgeGesture.x;
-                currentX = startX;
-                browserApp.isDragging = true;
-            }
-            onPositionChanged: mouse => {
-                currentX = mouse.x + rightEdgeGesture.x;
-                var deltaX = startX - currentX;
-                browserApp.drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
-            }
-            onReleased: {
-                browserApp.isDragging = false;
-                if (browserApp.drawerProgress > 0.3)
-                    browserApp.openDrawer();
-                else
-                    browserApp.closeDrawer();
-            }
-        }
-
-        Rectangle {
-            id: addressSuggestionsPopup
-
-            readonly property int rowHeight: Constants.touchTargetMedium
-            readonly property int maxHeight: Math.min((parent.height - urlBar.height) * 0.45, rowHeight * 8)
-
-            parent: rootContent
-            z: 9000
-            visible: urlInput.activeFocus && urlInput.userTypedSinceFocus && addressSuggestions.count > 0 && !browserApp.isDrawerOpen && browserApp.drawerProgress === 0
-            color: MColors.bb10Elevated
-            border.width: 1
-            border.color: MColors.borderGlass
-            radius: MRadius.md
-            clip: true
-            opacity: 0.98
-            x: 0
-            width: rootContent.width
-            anchors.bottom: rootContent.bottom
-            anchors.bottomMargin: urlBar.height
-            height: Math.min(maxHeight, rowHeight * addressSuggestions.count)
-            scale: visible ? 1 : 0.97
-            layer.enabled: true
-
-            MTopHairline {
-                radius: parent.radius
-                color: MColors.highlightSubtle
-                lineWidth: 1
-            }
-
-            ListView {
-                anchors.fill: parent
-                anchors.margins: 2
-                model: addressSuggestions
-                interactive: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-
-                delegate: Rectangle {
-                    id: suggestionDelegate
-
-                    required property int index
-                    required property string kind
-                    required property string display
-                    required property string value
-
-                    width: ListView.view.width
-                    height: addressSuggestionsPopup.rowHeight
-                    radius: MRadius.sm
-                    color: {
-                        if (suggestionMouseArea.pressed)
-                            return MColors.highlightMedium;
-
-                        if (suggestionMouseArea.containsMouse)
-                            return MColors.highlightSubtle;
-
-                        return "transparent";
-                    }
-
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: MSpacing.md
-                        anchors.rightMargin: MSpacing.md
-                        spacing: MSpacing.sm
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            size: Constants.iconSizeSmall
-                            color: MColors.textSecondary
-                            name: {
-                                if (suggestionDelegate.kind === "search")
-                                    return "search";
-
-                                if (suggestionDelegate.kind === "bookmark")
-                                    return "star";
-
-                                if (suggestionDelegate.kind === "history")
-                                    return "history";
-
-                                return "arrow-right";
-                            }
-                        }
-
-                        Column {
-                            readonly property var _parts: (suggestionDelegate.display || "").split(" — ")
-                            readonly property string primaryText: _parts.length > 0 ? _parts[0] : (suggestionDelegate.display || "")
-                            readonly property string secondaryText: _parts.length > 1 ? _parts.slice(1).join(" — ") : (suggestionDelegate.kind === "search" ? "" : (suggestionDelegate.value || ""))
-
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - (Constants.iconSizeSmall + MSpacing.sm)
-                            spacing: 2
-
-                            Text {
-                                width: parent.width
-                                text: parent.primaryText
-                                color: MColors.textPrimary
-                                font.pixelSize: MTypography.sizeBody
-                                font.weight: MTypography.weightDemiBold
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                width: parent.width
-                                visible: text.length > 0
-                                text: parent.secondaryText
-                                color: MColors.textSecondary
-                                font.pixelSize: MTypography.sizeSmall * 0.92
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
-                        color: MColors.whiteOverlay08
-                        visible: suggestionDelegate.index < (addressSuggestions.count - 1)
-                    }
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: suggestionDelegate.display
-                    Accessible.onPressAction: suggestionMouseArea.clicked(null)
-
-                    MouseArea {
-                        id: suggestionMouseArea
-
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            HapticService.light();
-                            urlInput.suppressAutocompleteOnce = true;
-                            urlInput.inlineCompletionActive = false;
-                            urlInput.inlineTypedPrefix = "";
-                            var selectedValue = suggestionDelegate.value;
-                            var selectedKind = suggestionDelegate.kind;
-                            urlInput.text = selectedValue;
-                            urlInput.cursorPosition = urlInput.text.length;
-                            urlInput.focus = false;
-                            urlInput.userTypedSinceFocus = false;
-                            browserApp._clearAddressSuggestions();
-                            browserApp.navigateTo(selectedValue);
-                        }
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: MMotion.xs
-                        }
-                    }
-                }
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: MMotion.sm
-                }
-            }
-
-            Behavior on scale {
-                SpringAnimation {
-                    spring: MMotion.springMedium
-                    damping: MMotion.dampingMedium
-                    epsilon: MMotion.epsilon
-                }
-            }
-
-            // Swapped from Qt5Compat DropShadow to MultiEffect — same
-            // visual (16 px blur @ 4 px down, 60% black) but uses the
-            // shipped QtQuick.Effects path and stays consistent with
-            // MShadow's own internal MultiEffect calls.
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowHorizontalOffset: 0
-                shadowVerticalOffset: 4
-                shadowBlur: 16.0 / 32.0
-                shadowColor: MColors.shadowStrong
-                shadowOpacity: 1.0
-            }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            color: MColors.background
-            opacity: browserApp.drawerProgress * 0.6
-            visible: browserApp.drawerProgress > 0
-
-            MouseArea {
-                anchors.fill: parent
-                enabled: browserApp.drawerProgress > 0
-                onClicked: {
-                    browserApp.closeDrawer();
-                }
-            }
-        }
-
-        Item {
-            id: drawerContainer
-
-            width: parent.width * 0.85
-            height: parent.height
-            x: parent.width - (width * browserApp.drawerProgress)
-            visible: browserApp.drawerVisible
-            clip: true
-
-            BrowserDrawer {
-                id: drawer
-
-                anchors.fill: parent
-                Component.onCompleted: {
-                    browserApp.drawerRef = drawer;
-                    if (drawer.tabsPage) {
-                        drawer.tabsPage.tabs = Qt.binding(function () {
-                            return browserApp.tabs;
-                        });
-                        drawer.tabsPage.maxTabs = Qt.binding(function () {
-                            return browserApp.maxTabs;
-                        });
-                        drawer.tabsPage.currentTabId = Qt.binding(function () {
-                            var currentTab = browserApp.getCurrentTab();
-                            return currentTab ? currentTab.tabId : -1;
-                        });
-                    }
-                    if (drawer.bookmarksPage) {
-                        drawer.bookmarksPage.bookmarks = Qt.binding(function () {
-                            return browserApp.bookmarks;
-                        });
-                        // Gated on drawerVisible, which is what
-                        // drawerContainer itself uses: the drawer is on screen
-                        // from the first pixel of the drag, while isDrawerOpen
-                        // does not flip until release -- gating on that left
-                        // the bookmark row collapsed for the whole slide, then
-                        // popping in and shoving the list down. Still skips
-                        // the work while the drawer is closed, which is the
-                        // point: ungated these re-ran on every Chromium
-                        // titleChanged and rescanned the bookmarks per
-                        // navigation, for a panel nobody was looking at.
-                        drawer.bookmarksPage.currentPageUrl = Qt.binding(function () {
-                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
-                            return t ? (t.url || "") : "";
-                        });
-                        drawer.bookmarksPage.currentPageTitle = Qt.binding(function () {
-                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
-                            return t ? (t.title || "") : "";
-                        });
-                        // Referencing browserApp.bookmarks inside the binding
-                        // is what re-evaluates it when a bookmark is added or
-                        // removed -- isBookmarked() alone notifies nothing.
-                        drawer.bookmarksPage.currentPageBookmarked = Qt.binding(function () {
-                            var t = browserApp.drawerVisible ? browserApp.getCurrentTab() : null;
-                            return !!t && browserApp.bookmarks.some(function (b) {
-                                return b.url === t.url;
-                            });
-                        });
-                        drawer.bookmarksPage.bookmarksDisabled = Qt.binding(function () {
-                            return browserApp.isPrivateMode;
-                        });
-                        drawer.bookmarksPage.schemeOf = browserApp.schemeBadgeFor;
-                    }
-
-                    if (drawer.historyPage)
-                        drawer.historyPage.history = Qt.binding(function () {
-                            return browserApp.history;
-                        });
-
-                    if (drawer.settingsPage) {
-                        drawer.settingsPage.searchEngine = Qt.binding(function () {
-                            return browserApp.searchEngineName;
-                        });
-                        drawer.settingsPage.searchEngineUrl = Qt.binding(function () {
-                            return browserApp.searchEngineUrl;
-                        });
-                        drawer.settingsPage.homepage = Qt.binding(function () {
-                            return browserApp.homepageUrl;
-                        });
-                        drawer.settingsPage.isPrivateMode = Qt.binding(function () {
-                            return browserApp.isPrivateMode;
-                        });
-                        drawer.settingsPage.isPrivateModeChanged.connect(function () {
-                            browserApp.setPrivateMode(drawer.settingsPage.isPrivateMode);
-                        });
-                        drawer.settingsPage.searchEngineChanged.connect(function () {
-                            if (browserApp.searchEngineName !== drawer.settingsPage.searchEngine) {
-                                browserApp.searchEngineName = drawer.settingsPage.searchEngine;
-                                browserApp.saveSettings();
-                            }
-                        });
-                        drawer.settingsPage.searchEngineUrlChanged.connect(function () {
-                            if (browserApp.searchEngineUrl !== drawer.settingsPage.searchEngineUrl) {
-                                browserApp.searchEngineUrl = drawer.settingsPage.searchEngineUrl;
-                                browserApp.saveSettings();
-                            }
-                        });
-                        drawer.settingsPage.homepageChanged.connect(function () {
-                            if (browserApp.homepageUrl !== drawer.settingsPage.homepage) {
-                                browserApp.homepageUrl = drawer.settingsPage.homepage;
-                                browserApp.saveSettings();
-                            }
-                        });
-                    }
-                }
-                onClosed: {
-                    browserApp.closeDrawer();
-                }
-                onTabSelected: tabId => {
-                    browserApp.switchToTab(tabId);
-                    browserApp.closeDrawer();
-                }
-                onToggleCurrentBookmark: {
-                    if (browserApp.isPrivateMode) {
-                        browserApp.showTransientMessage("Bookmarks are disabled in Private Browsing");
-                        return;
-                    }
-                    var t = browserApp.getCurrentTab();
-                    if (!t)
-                        return;
-                    if (browserApp.isBookmarked(t.url))
-                        browserApp.removeBookmark(t.url);
-                    else
-                        browserApp.addBookmark(t.url, t.title);
-                }
-                onNewTabRequested: {
-                    var tabId = browserApp.createNewTab();
-                    if (tabId >= 0)
-                        browserApp.closeDrawer();
-                }
-                onBookmarkSelected: url => {
-                    browserApp.navigateTo(url);
-                }
-                onHistorySelected: url => {
-                    browserApp.navigateTo(url);
-                }
-
-                Connections {
-                    function onCloseTab(tabId) {
-                        browserApp.closeTab(tabId);
-                    }
-
-                    target: drawer.tabsPage
-                }
-
-                Connections {
-                    function onDeleteBookmark(url) {
-                        rootContent.deleteBookmarkWithUndo(url);
-                    }
-
-                    target: drawer.bookmarksPage
-                }
-
-                Connections {
-                    function onClearHistory() {
-                        rootContent.confirmClear("history");
-                    }
-
-                    target: drawer.historyPage
-                }
-
-                Connections {
-                    function onClearHistoryRequested() {
-                        rootContent.confirmClear("history");
-                    }
-
-                    function onClearCookiesRequested() {
-                        rootContent.confirmClear("cookies");
-                    }
-
-                    target: drawer.settingsPage
-                }
-            }
-
-            // Tab/page x slide — was 350ms OutCubic. Spring-driven on
-            // the panel role so flings feel velocity-aware and short
-            // drags feel decisive.
-            Behavior on x {
-                enabled: !browserApp.isDragging
-
-                SpringAnimation {
-                    spring: MMotion.stiffnessSpatialFor("panel")
-                    damping: MMotion.dampingSpatialFor("panel")
-                    epsilon: MMotion.epsilonSpatial
-                }
-            }
-        }
-
-        MSnackbar {
-            id: bookmarkSnackbar
-
-            property var removed: null
-            property int removedIndex: -1
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: MSpacing.md
-            anchors.bottomMargin: urlBar.height + MSpacing.sm
-            onActionTriggered: rootContent.restoreRemovedBookmark()
-        }
-
-        MConfirmDialog {
-            id: confirmDialog
-
-            property string pendingAction: ""
-
-            destructive: true
-            Component.onCompleted: browserApp.confirmDialogRef = confirmDialog
-            onConfirmed: {
-                if (pendingAction === "history") {
-                    browserApp.clearHistory();
-                    browserApp.showTransientMessage("History cleared");
-                } else if (pendingAction === "cookies") {
-                    var ok = BrowserData.clearCookiesAndCache(normalProfile) && BrowserData.clearCookiesAndCache(privateProfile);
-                    if (ok) {
-                        Logger.info("BrowserApp", "Cleared cookies and HTTP cache");
-                        browserApp.showTransientMessage("Cookies and site data cleared");
-                    } else {
-                        Logger.warn("BrowserApp", "Failed to clear cookies/cache");
-                        browserApp.showTransientMessage("Couldn't clear cookies. Try again.");
-                    }
-                }
-                pendingAction = "";
-            }
-            onCancelled: {
-                pendingAction = "";
-                hide();
-            }
+    initialPage: Component {
+        MainPage {
+            browser: app
         }
     }
 }

@@ -2,7 +2,11 @@
 
 set(APP_NAME browser)
 
-file(GLOB_RECURSE QML_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.qml")
+file(GLOB_RECURSE QML_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
+)
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 # C++ sources for browser plugin (future)
 set(SOURCES src/BrowserData.cpp src/BrowserData.h)

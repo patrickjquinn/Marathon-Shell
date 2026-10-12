@@ -1,8 +1,7 @@
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
 import QtWebEngine
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 WebEngineView {
     id: webView
@@ -13,14 +12,8 @@ WebEngineView {
     property bool forceDiscarded: false
 
     zoomFactor: 1
-    // Default WebEngineView backgroundColor is white — visible as a
-    // jarring white flash between navigation start and first paint, and
-    // as a persistent white viewport while the homepage is still
-    // loading. The shell renders against a dark wallpaper / dark Browser
-    // chrome, so the cold-start period reads as a wrong-theme strobe.
-    // Match the shell background; pages that set their own body
-    // background paint over this immediately on first paint.
-    backgroundColor: MColors.background
+    // The default white flashes between navigation start and first paint.
+    backgroundColor: Theme.overlayBackgroundColor
     lifecycleState: forceDiscarded ? WebEngineView.LifecycleState.Discarded : (active ? WebEngineView.LifecycleState.Active : WebEngineView.LifecycleState.Frozen)
     settings.accelerated2dCanvasEnabled: true
     settings.webGLEnabled: true
@@ -48,28 +41,21 @@ WebEngineView {
     Rectangle {
         anchors.fill: parent
         visible: webView.crashed
-        color: MColors.overlay
+        color: Theme.overlayBackgroundColor
         z: 10000
 
         Column {
             anchors.centerIn: parent
-            width: parent.width - MSpacing.xl * 2
-            spacing: MSpacing.md
+            width: parent.width - 2 * Theme.horizontalPageMargin
+            spacing: Theme.paddingLarge
 
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: "This page stopped working"
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeTitle3
-                wrapMode: Text.Wrap
+            InfoLabel {
+                text: qsTr("This page stopped working")
             }
 
-            MButton {
+            Button {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Reload"
-                variant: "primary"
+                text: qsTr("Reload")
                 onClicked: {
                     webView.crashed = false;
                     webView.reload();

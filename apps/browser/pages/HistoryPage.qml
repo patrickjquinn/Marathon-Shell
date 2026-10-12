@@ -1,172 +1,150 @@
 pragma ComponentBehavior: Bound
-
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Core
-import MarathonUI.Theme
 import QtQuick
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../BrowserLogic.js" as Logic
 
-Rectangle {
-    id: historyPage
+Page {
+    id: root
 
-    property var history: []
+    property var browser
+    property string searchText: ""
 
-    signal historySelected(string url)
-    signal clearHistory
+    readonly property var shown: Logic.matches(browser.history, searchText)
 
-    function getDateGroup(timestamp) {
-        var now = Date.now();
-        var diff = now - timestamp;
-        var dayMs = 24 * 60 * 60 * 1000;
-        if (diff < dayMs)
-            return "Today";
-
-        if (diff < dayMs * 2)
-            return "Yesterday";
-
-        if (diff < dayMs * 7)
-            return "This Week";
-
-        return "Older";
+    function open(url) {
+        browser.navigateTo(url);
+        pageStack.pop();
     }
 
-    function groupHistoryByDate() {
-        var groups = {
-            "Today": [],
-            "Yesterday": [],
-            "This Week": [],
-            "Older": []
-        };
-        for (var i = 0; i < history.length; i++) {
-            var item = history[i];
-            var group = getDateGroup(item.timestamp);
-            groups[group].push(item);
-        }
-        return groups;
+    // A ListModel, since ListView sections need model roles.
+    function rebuild() {
+        const now = Date.now();
+        entries.clear();
+        for (const h of shown)
+            entries.append({ url: h.url, title: h.title || h.url, visits: h.visitCount || 1, group: Logic.dateGroup(h.timestamp, now) });
     }
 
-    color: MColors.background
+    objectName: "historyPage"
+    onShownChanged: rebuild()
+    Component.onCompleted: rebuild()
 
-    // Outside the ListView: its children are reparented onto the unbounded contentItem.
-    MEmptyState {
-        anchors.centerIn: parent
-        width: parent.width - MSpacing.lg * 2
-        visible: historyPage.history.length === 0
-        iconName: "clock"
-        title: "No history yet"
-        message: "Pages you visit show up here."
+    ListModel {
+        id: entries
     }
 
-    Column {
+    RemorsePopup {
+        id: remorse
+    }
+
+    SilicaListView {
+        id: view
+
+        objectName: "historyView"
         anchors.fill: parent
+        model: entries
+        section.property: "group"
+        section.delegate: SectionHeader {
+            required property string section
 
-        ListView {
-            id: historyList
-
-            width: parent.width
-            height: parent.height - clearButton.height
-            clip: true
-            model: {
-                var groups = historyPage.groupHistoryByDate();
-                var result = [];
-                var order = ["Today", "Yesterday", "This Week", "Older"];
-                for (var i = 0; i < order.length; i++) {
-                    var groupName = order[i];
-                    if (groups[groupName].length > 0) {
-                        result.push({
-                            "type": "header",
-                            "title": groupName
-                        });
-                        for (var j = 0; j < groups[groupName].length; j++) {
-                            result.push({
-                                "type": "item",
-                                "data": groups[groupName][j]
-                            });
-                        }
-                    }
-                }
-                return result;
-            }
-
-            delegate: Item {
-                id: historyDelegate
-
-                required property var modelData
-
-                width: historyList.width
-                height: historyDelegate.modelData.type === "header" ? Constants.touchTargetSmall : (Constants.touchTargetLarge + MSpacing.xs)
-
-                MSectionHeader {
-                    visible: historyDelegate.modelData.type === "header"
-                    anchors.fill: parent
-                    text: historyDelegate.modelData.title || ""
-                }
-
-                MSettingsListItem {
-                    visible: historyDelegate.modelData.type === "item"
-                    width: parent.width
-                    height: parent.height
-                    title: historyDelegate.modelData.data ? (historyDelegate.modelData.data.title || historyDelegate.modelData.data.url) : ""
-                    subtitle: historyDelegate.modelData.data ? historyDelegate.modelData.data.url : ""
-                    iconName: "clock"
-                    showChevron: true
-                    value: historyDelegate.modelData.data ? (historyDelegate.modelData.data.visitCount > 1 ? historyDelegate.modelData.data.visitCount + " visits" : "") : ""
-                    onSettingClicked: {
-                        if (historyDelegate.modelData.data) {
-                            Logger.info("HistoryPage", "History clicked: " + historyDelegate.modelData.data.url);
-                            historyPage.historySelected(historyDelegate.modelData.data.url);
-                        }
-                    }
-                }
-            }
+            text: ({ "Today": qsTr("Today"), "Yesterday": qsTr("Yesterday"), "This week": qsTr("This week") })[section] || qsTr("Older")
         }
 
-        Rectangle {
-            id: clearButton
+        header: Column {
+            width: view.width
 
-            width: parent.width
-            height: Constants.touchTargetMedium + MSpacing.md * 2
-            color: MColors.surface
-            visible: historyPage.history.length > 0
-
-            Accessible.role: Accessible.Button
-            Accessible.name: "Clear History"
-            Accessible.onPressAction: historyPage.clearHistory()
-
-            Rectangle {
-                anchors.top: parent.top
+            PageHeader {
+                title: qsTr("History")
+            }
+            SearchField {
+                objectName: "searchField"
                 width: parent.width
-                height: Constants.borderWidthThin
-                color: MColors.border
-            }
-
-            Row {
-                anchors.centerIn: parent
-                spacing: MSpacing.sm
-
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "trash-2"
-                    size: Constants.iconSizeSmall
-                    color: MColors.error
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Clear History"
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.DemiBold
-                    color: MColors.error
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    HapticService.light();
-                    historyPage.clearHistory();
-                }
+                placeholderText: qsTr("Search history")
+                visible: root.browser.history.length > 0
+                onTextChanged: root.searchText = text
+                EnterKey.iconSource: "image://theme/icon-m-enter-close"
+                EnterKey.onClicked: focus = false
             }
         }
+
+        PullDownMenu {
+            visible: root.browser.history.length > 0
+
+            MenuItem {
+                objectName: "clearHistoryItem"
+                text: qsTr("Clear history")
+                onClicked: remorse.execute(qsTr("Clearing history"), function () {
+                    root.browser.clearHistory();
+                })
+            }
+        }
+
+        ViewPlaceholder {
+            objectName: "placeholder"
+            enabled: entries.count === 0
+            text: root.browser.history.length === 0 ? qsTr("No history yet") : qsTr("No matching pages")
+            hintText: root.browser.history.length === 0 ? (root.browser.isPrivateMode ? qsTr("Private browsing doesn't keep history") : qsTr("Pages you visit show up here")) : qsTr("Try a different word")
+        }
+
+        delegate: ListItem {
+            id: item
+
+            required property string url
+            required property string title
+            required property int visits
+
+            contentHeight: Theme.itemSizeMedium
+            Accessible.name: title
+            menu: ContextMenu {
+                MenuItem {
+                    objectName: "deleteItem"
+                    text: qsTr("Delete")
+                    onClicked: item.remorseDelete(function () {
+                        root.browser.removeHistory(item.url);
+                    })
+                }
+            }
+            onClicked: root.open(url)
+
+            Column {
+                anchors {
+                    left: parent.left
+                    leftMargin: Theme.horizontalPageMargin
+                    right: visitsLabel.left
+                    rightMargin: Theme.paddingMedium
+                    verticalCenter: parent.verticalCenter
+                }
+
+                Label {
+                    width: parent.width
+                    text: item.title
+                    truncationMode: TruncationMode.Fade
+                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
+                }
+                Label {
+                    width: parent.width
+                    text: Logic.displayHost(item.url)
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    truncationMode: TruncationMode.Fade
+                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                }
+            }
+            Label {
+                id: visitsLabel
+
+                anchors {
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
+                }
+                visible: item.visits > 1
+                width: visible ? implicitWidth : 0
+                text: qsTr("%1 visits").arg(item.visits)
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+            }
+        }
+
+        VerticalScrollDecorator {}
     }
 }

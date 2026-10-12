@@ -67,6 +67,13 @@ function resolveInput(text, searchEngineUrl) {
     return { url: url };
 }
 
+function homepageFromInput(text) {
+    const url = String(text || "").trim();
+    if (!url)
+        return "";
+    return /^(https?|about):/i.test(url) ? url : "https://" + url;
+}
+
 function suggestions(query, bookmarks, history, engineName) {
     const q = String(query || "").trim();
     if (!q)

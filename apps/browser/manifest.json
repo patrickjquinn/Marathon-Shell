@@ -3,7 +3,6 @@
   "name": "Browser",
   "version": "1.0.0",
   "entryPoint": "BrowserApp.qml",
-  "toolkit": "marathonui",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["network", "storage"],
