@@ -1033,7 +1033,7 @@ int main(int argc, char *argv[]) {
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
-                                         navigationRouter, telephonyService, smsService, &app);
+                                         navigationRouter, telephonyService, &app);
     createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,
