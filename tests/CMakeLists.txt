@@ -30,3 +30,9 @@ endif()
 
 # Every theme icon name used by Keel's Silica or our QML has a Marathon icon
 add_test(NAME Lint_IconMap COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-icon-map.sh ${CMAKE_SOURCE_DIR} ${_SILICA_QMLDIR}/Sailfish/Silica)
+
+# Sailfish RPM installer (needs rpmbuild to build its fixture; skips without)
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+    add_test(NAME Sailfish_Install COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/sailfish-install/test_install.py)
+endif()

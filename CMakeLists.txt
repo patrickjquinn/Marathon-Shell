@@ -231,6 +231,7 @@ add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
 add_subdirectory(tools/marathon-sandbox)
 add_subdirectory(tools/sailfish-qml)
+add_subdirectory(tools/sailfish-install)
 
 # Optional WPE WebKit runner. Phase 2 of project_wpe_webview_plan —
 # only built if wpe-webkit-2.0 + wpebackend-fdo-1.0 are available

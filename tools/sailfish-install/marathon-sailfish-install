@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+"""Install a Sailfish OS app RPM on Marathon, or remove one.
+
+  marathon-sailfish-install [--root DIR] APP.rpm
+  marathon-sailfish-install [--root DIR] --uninstall NAME
+
+Sailfish RPMs carry Qt 5 binaries linked against glibc and Sailfish's
+libraries, which cannot run here. QML-only apps (Exec=sailfish-qml APP) and
+apps rebuilt against Keel's sailfishapp for this system can: they are
+installed as they are and run under marathon-keel-host. Anything else is
+refused before a file is written.
+"""
+import argparse
+import gzip
+import lzma
+import os
+import shutil
+import struct
+import subprocess
+import sys
+from pathlib import Path
+
+RPMTAG_NAME = 1000
+
+
+def read_header(data, offset):
+    if data[offset:offset + 3] != b"\x8e\xad\xe8":
+        raise ValueError("not an RPM header")
+    nindex, hsize = struct.unpack(">II", data[offset + 8:offset + 16])
+    index = offset + 16
+    store = index + 16 * nindex
+    tags = {}
+    for i in range(nindex):
+        tag, typ, off, count = struct.unpack(">IIII", data[index + 16 * i:index + 16 * i + 16])
+        if typ == 6:  # string
+            end = data.index(b"\0", store + off)
+            tags[tag] = data[store + off:end].decode()
+    return tags, store + hsize
+
+
+def decompress(payload):
+    if payload[:2] == b"\x1f\x8b":
+        return gzip.decompress(payload)
+    if payload[:6] == b"\xfd7zXZ\x00":
+        return lzma.decompress(payload)
+    if payload[:4] == b"\x28\xb5\x2f\xfd":
+        try:
+            from compression import zstd
+            return zstd.decompress(payload)
+        except ImportError:
+            return subprocess.run(["zstd", "-dc"], input=payload, capture_output=True, check=True).stdout
+    raise ValueError("unsupported payload compression")
+
+
+def cpio_entries(archive):
+    pos = 0
+    while True:
+        if archive[pos:pos + 6] not in (b"070701", b"070702"):
+            raise ValueError("unsupported cpio format")
+        fields = [int(archive[pos + 6 + 8 * i:pos + 14 + 8 * i], 16) for i in range(13)]
+        mode, filesize, namesize = fields[1], fields[6], fields[11]
+        name_start = pos + 110
+        name = archive[name_start:name_start + namesize - 1].decode()
+        data_start = (name_start + namesize + 3) & ~3
+        if name == "TRAILER!!!":
+            return
+        yield name.lstrip("./").lstrip("/"), mode, archive[data_start:data_start + filesize]
+        pos = (data_start + filesize + 3) & ~3
+
+
+def read_rpm(path):
+    data = Path(path).read_bytes()
+    if data[:4] != b"\xed\xab\xee\xdb":
+        raise ValueError(f"{path} is not an RPM")
+    _, end = read_header(data, 96)
+    end = (end + 7) & ~7
+    tags, payload_start = read_header(data, end)
+    return tags[RPMTAG_NAME], list(cpio_entries(decompress(data[payload_start:])))
+
+
+def elf_interpreter(blob):
+    if blob[:4] != b"\x7fELF" or blob[4] != 2:
+        return None
+    phoff, = struct.unpack("<Q", blob[32:40])
+    phentsize, phnum = struct.unpack("<HH", blob[54:58])
+    for i in range(phnum):
+        p = phoff + i * phentsize
+        ptype, = struct.unpack("<I", blob[p:p + 4])
+        if ptype == 3:  # PT_INTERP
+            off, = struct.unpack("<Q", blob[p + 8:p + 16])
+            size, = struct.unpack("<Q", blob[p + 32:p + 40])
+            return blob[off:off + size].rstrip(b"\0").decode()
+    return None
+
+
+def check_runnable(entries):
+    files = {name: data for name, mode, data in entries}
+    desktops = [n for n in files if n.startswith("usr/share/applications/") and n.endswith(".desktop")]
+    if not desktops:
+        raise SystemExit("no desktop file: not an app")
+    for desktop in desktops:
+        exec_line = next((l[5:] for l in files[desktop].decode().splitlines() if l.startswith("Exec=")), "")
+        program = exec_line.split()[0] if exec_line.split() else ""
+        if program == "sailfish-qml":
+            continue
+        binary = files.get("usr/bin/" + os.path.basename(program))
+        interp = elf_interpreter(binary) if binary else None
+        if not interp or "musl" not in interp:
+            raise SystemExit(f"{program or desktop}: a Sailfish OS binary; it must be rebuilt against "
+                             "Keel's sailfishapp for Marathon before it can be installed")
+
+
+def install(rpm, root):
+    name, entries = read_rpm(rpm)
+    check_runnable(entries)
+    written = []
+    for path, mode, data in entries:
+        target = root / path
+        kind = mode & 0o170000
+        if kind == 0o040000:
+            target.mkdir(parents=True, exist_ok=True)
+            written.append(path + "/")
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if kind == 0o120000:
+            if target.is_symlink() or target.exists():
+                target.unlink()
+            target.symlink_to(data.decode())
+        else:
+            target.write_bytes(data)
+            target.chmod(mode & 0o7777)
+        written.append(path)
+    record = root / "var/lib/marathon/sailfish-apps" / (name + ".files")
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text("\n".join(written) + "\n")
+    print(f"installed {name}")
+
+
+def uninstall(name, root):
+    record = root / "var/lib/marathon/sailfish-apps" / (name + ".files")
+    if not record.exists():
+        raise SystemExit(f"{name} is not installed")
+    entries = [p for p in record.read_text().splitlines() if p]
+    for path in (p for p in entries if not p.endswith("/")):
+        (root / path).unlink(missing_ok=True)
+    # The directories the package owned, deepest first, once empty.
+    dirs = sorted((p.rstrip("/") for p in entries if p.endswith("/")), key=len, reverse=True)
+    for d in dirs:
+        try:
+            (root / d).rmdir()
+        except OSError:
+            pass
+    record.unlink()
+    print(f"removed {name}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--root", default="/", type=Path)
+    parser.add_argument("--uninstall", metavar="NAME")
+    parser.add_argument("rpm", nargs="?")
+    args = parser.parse_args()
+    if args.uninstall:
+        uninstall(args.uninstall, args.root)
+    elif args.rpm:
+        install(args.rpm, args.root)
+    else:
+        parser.error("an RPM or --uninstall NAME is required")
+
+
+if __name__ == "__main__":
+    main()

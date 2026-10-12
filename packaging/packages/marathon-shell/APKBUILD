@@ -68,6 +68,7 @@ depends="
 	libcap-utils
 	keel-silica
 	marathon-icon-theme
+	zstd
 	"
 makedepends="
 	cmake

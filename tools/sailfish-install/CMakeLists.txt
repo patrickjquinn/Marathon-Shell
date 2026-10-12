@@ -1,0 +1,2 @@
+install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/marathon-sailfish-install
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
