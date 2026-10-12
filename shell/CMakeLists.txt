@@ -263,7 +263,6 @@ set(QML_FILES
     qml/components/MarathonLockScreenNetworkAgent.qml
     qml/components/MarathonOOBE.qml
     qml/components/WiFiPasswordDialog.qml
-    qml/components/BluetoothPairDialog.qml
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml
     qml/components/VirtualKeyboard.qml
