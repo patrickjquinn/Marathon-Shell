@@ -4,6 +4,7 @@ import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import "GalleryModel.js" as Model
 import "pages"
+import "cover"
 
 ApplicationWindow {
     id: root
@@ -13,6 +14,8 @@ ApplicationWindow {
     property var videos: []
     readonly property var memories: Model.memoryClusters(photos, videos, new Date())
     readonly property bool scanning: MediaLibrary.isScanning
+    // The photo open full screen, shown on the cover.
+    property var viewerPhoto: null
 
     function refresh() {
         photos = MediaLibrary.getAllPhotos();
@@ -24,6 +27,12 @@ ApplicationWindow {
     }
 
     appId: "gallery"
+    cover: Component {
+        GalleryCover {
+            photos: root.photos
+            photo: root.viewerPhoto
+        }
+    }
     initialPage: Component {
         GalleryPage {
             store: root

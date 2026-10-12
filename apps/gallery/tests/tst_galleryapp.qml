@@ -107,6 +107,17 @@ TestCase {
         const viewer = app.pageStack.currentPage;
         compare(viewer.currentIndex, 1);
         compare(viewer.photo.id, 2);
+        compare(app.viewerPhoto.id, 2);
+    }
+
+    function test_closingViewerClearsCoverPhoto() {
+        const app = makeApp(threePhotos());
+        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), { store: app, photos: app.photos, currentIndex: 0 });
+        tryCompare(app.pageStack, "busy", false);
+        compare(app.viewerPhoto.id, 1);
+        app.pageStack.pop();
+        tryCompare(app.pageStack, "busy", false);
+        tryCompare(app, "viewerPhoto", null);
     }
 
     function test_deletingLastAlbumPhotoReturnsToMain() {

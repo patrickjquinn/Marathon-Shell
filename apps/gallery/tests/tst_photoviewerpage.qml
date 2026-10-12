@@ -40,6 +40,7 @@ TestCase {
         const t = openViewer(2);
         compare(t.page.currentIndex, 2);
         compare(t.page.photo.id, 3);
+        compare(t.app.viewerPhoto.id, 3);
     }
 
     function test_keysStepThroughPhotos() {
@@ -47,6 +48,7 @@ TestCase {
         tryVerify(function () { return t.page.activeFocus; });
         keyClick(Qt.Key_Right);
         compare(t.page.photo.id, 2);
+        compare(t.app.viewerPhoto.id, 2);
         keyClick(Qt.Key_Left);
         keyClick(Qt.Key_Left);
         compare(t.page.photo.id, 3);
@@ -128,5 +130,6 @@ TestCase {
         compare(findChild(details, "resolutionDetail").value, "48 × 36");
         verify(findChild(details, "dateDetail").visible);
         verify(findChild(details, "locationDetail").value.indexOf("/tests/data") > 0);
+        compare(t.app.viewerPhoto.id, 1);
     }
 }

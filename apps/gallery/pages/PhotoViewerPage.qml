@@ -29,10 +29,12 @@ FullscreenContentPage {
 
     // Vertical drags open the pulley, so the page goes back sideways.
     navigationStyle: PageNavigation.Horizontal
+    onPhotoChanged: store.viewerPhoto = photo
     onStatusChanged: if (status === PageStatus.Active) forceActiveFocus()
     Keys.onLeftPressed: slideshow.decrementCurrentIndex()
     Keys.onRightPressed: slideshow.incrementCurrentIndex()
     Keys.onEscapePressed: pageStack.pop()
+    Component.onDestruction: store.viewerPhoto = null
 
     Rectangle {
         anchors.fill: parent
