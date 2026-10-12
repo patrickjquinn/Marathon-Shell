@@ -41,6 +41,10 @@ Item {
             }
         }
 
+        Accessible.role: Accessible.Button
+        Accessible.name: "Phone"
+        Accessible.onPressAction: root.phoneActivated()
+
         MouseArea {
             id: phoneArea
             anchors.fill: parent
@@ -70,6 +74,10 @@ Item {
                 }
             }
         }
+
+        Accessible.role: Accessible.Button
+        Accessible.name: "Camera"
+        Accessible.onPressAction: root.cameraActivated()
 
         MouseArea {
             id: cameraArea

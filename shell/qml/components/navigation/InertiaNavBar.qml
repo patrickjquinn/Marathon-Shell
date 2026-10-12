@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Rectangle {
@@ -136,16 +137,16 @@ Rectangle {
             if (absY > absX) {
                 if (navBar.dragCurrentY < -navBar.swipeThreshold || navBar.dragVelocityY < -500) {
                     console.log("⬆ SWIPE UP detected!");
-                    swipeUp();
-                    swipeUpRelease(Math.abs(navBar.dragVelocityY));
+                    navBar.swipeUp();
+                    navBar.swipeUpRelease(Math.abs(navBar.dragVelocityY));
                 }
             } else {
                 if (navBar.dragCurrentX > navBar.swipeThreshold || navBar.dragVelocityX > 500) {
                     console.log("SWIPE RIGHT detected!");
-                    swipeRight();
+                    navBar.swipeRight();
                 } else if (navBar.dragCurrentX < -navBar.swipeThreshold || navBar.dragVelocityX < -500) {
                     console.log("⬅ SWIPE LEFT detected!");
-                    swipeLeft();
+                    navBar.swipeLeft();
                 }
             }
             navBar.dragCurrentX = 0;

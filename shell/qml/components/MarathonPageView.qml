@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import QtQuick
 
@@ -38,11 +40,16 @@ Item {
             pageViewContainer.internalAppGridPage = page;
             pageView.currentIndex = page + 2;
             Qt.callLater(function () {
-                let loader = pageView.itemAtIndex(page + 2) as Loader;
-                if (loader && loader.item && typeof loader.item.navigateToPage === 'function')
-                    loader.item.navigateToPage(page);
+                var loader = pageView.itemAtIndex(page + 2) as Loader;
+                if (loader && loader.item)
+                    pageViewContainer._navigateGridToPage(loader.item, page);
             });
         }
+    }
+
+    function _navigateGridToPage(grid, page) {
+        if (typeof grid.navigateToPage === 'function')
+            grid.navigateToPage(page);
     }
 
     // Head-shake feedback for discrete-swipe events that hit a boundary.
@@ -237,6 +244,9 @@ Item {
         //
         // i.e. page 2 is the FIRST app-grid page (the home).
         delegate: Loader {
+            id: pageLoader
+
+            required property int index
             property int pageNumber: index - 2
 
             width: pageView.width
@@ -249,10 +259,10 @@ Item {
                 return appGridComponent;
             }
             Binding {
-                target: item
+                target: pageLoader.item
                 property: "pageIndex"
-                value: pageNumber
-                when: index >= 2
+                value: pageLoader.pageNumber
+                when: pageLoader.index >= 2
             }
         }
     }

@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -136,7 +137,7 @@ Item {
         id: autoHideTimer
 
         interval: 2000
-        onTriggered: hide()
+        onTriggered: hudContainer.hide()
     }
 
     NumberAnimation {

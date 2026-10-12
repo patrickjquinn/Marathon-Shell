@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
@@ -142,7 +144,7 @@ Item {
         z: -1
         onClicked: mouse => {
             mouse.accepted = false;
-            closed();
+            taskSwitcher.closed();
         }
     }
 

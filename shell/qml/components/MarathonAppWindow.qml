@@ -1,5 +1,8 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
+import MarathonUI.Feedback
 import MarathonUI.Theme
 import QtQuick
 
@@ -23,6 +26,7 @@ Rectangle {
     property Component dialogOverlayComponent
 
     signal closed
+    signal retryRequested(string appId)
     signal minimized
 
     function _finishNativeCreation(component, id, name, icon, surface, sid) {
@@ -67,13 +71,13 @@ Rectangle {
                 appWindow.isLoadingComponent = false;
                 Logger.error("AppWindow", "Failed to create native app instance: " + id);
                 appWindow.hasError = true;
-                appWindow.loadError = "Failed to create native app instance.";
+                appWindow.loadError = "Something went wrong while starting it.";
             }
         } else if (component.status === Component.Error) {
             appWindow.isLoadingComponent = false;
             Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
             appWindow.hasError = true;
-            appWindow.loadError = component.errorString();
+            appWindow.loadError = "Something went wrong while starting it.";
         }
     }
 
@@ -98,7 +102,7 @@ Rectangle {
             appWindow.appContainer["appInstance"].waylandSurface = surface;
             appWindow.appContainer["appInstance"].surfaceId = sid;
             appWindow.visible = true;
-            appWindow.forceActiveFocus();
+            appWindow.focusApp();
             if (appWindow.opacity < 1)
                 slideIn.start();
 
@@ -185,7 +189,7 @@ Rectangle {
             appWindow.isLoadingComponent = true;
         }
         visible = true;
-        forceActiveFocus();
+        focusApp();
         slideIn.start();
         var totalTime = Date.now() - launchStartTime;
         Logger.info("AppWindow", " " + name + " launched in " + totalTime + "ms");
@@ -202,6 +206,16 @@ Rectangle {
             }
         }
         return null;
+    }
+
+    // Keyboard focus must end on the app's surface, or its window stays inactive and no field can focus.
+    function focusApp() {
+        forceActiveFocus();
+        Qt.callLater(() => {
+            var instance = appWindow.appContainer ? appWindow.appContainer["appInstance"] : null;
+            if (instance && instance.surfaceItemRef)
+                instance.surfaceItemRef.takeFocusForKeyboard();
+        });
     }
 
     function hide() {
@@ -259,7 +273,7 @@ Rectangle {
         }
         instance.visible = true;
         appWindow.visible = true;
-        appWindow.forceActiveFocus();
+        appWindow.focusApp();
         slideIn.start();
         Logger.info("AppWindow", "Instance re-attached successfully: " + id);
     }
@@ -289,7 +303,7 @@ Rectangle {
             Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
             appWindow.isLoadingComponent = false;
             appWindow.hasError = true;
-            appWindow.loadError = "The app didn't open in time. It may require X11 (which Marathon doesn't ship), or its runtime failed to start.";
+            appWindow.loadError = "It didn't respond in time.";
         }
     }
 
@@ -308,6 +322,7 @@ Rectangle {
             MAppIcon {
                 id: splashIconImage
 
+                loadAsync: false
                 size: Math.round(128 * Constants.scaleFactor)
                 source: appWindow.appIcon || ""
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -328,13 +343,24 @@ Rectangle {
                 visible: !splashIconImage.visible
             }
 
-            Text {
-                text: "Loading " + (appWindow.appName || "app") + "..."
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
+            MActivityIndicator {
                 anchors.horizontalCenter: parent.horizontalCenter
+                size: Math.round(28 * Constants.scaleFactor)
+                running: loadingSplash.visible && slowLaunch.fired
+                opacity: running ? 1 : 0
             }
+        }
+
+        Timer {
+            id: slowLaunch
+
+            property bool fired: false
+
+            interval: 1000
+            running: loadingSplash.visible
+            onRunningChanged: if (running)
+                fired = false
+            onTriggered: fired = true
         }
     }
 
@@ -353,22 +379,24 @@ Rectangle {
 
             Icon {
                 name: "alert-triangle"
-                size: 80
-                color: MColors.error
+                size: Math.round(56 * Constants.scaleFactor)
+                color: MColors.textSecondary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
             Text {
-                text: "Failed to Launch"
+                text: (appWindow.appName || "The app") + " couldn't open"
                 font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.DemiBold
                 font.family: MTypography.fontFamily
                 color: MColors.textPrimary
-                anchors.horizontalCenter: parent.horizontalCenter
+                wrapMode: Text.WordWrap
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
             }
 
             Text {
-                text: appWindow.appName + " failed to start.\n\n" + (appWindow.loadError || "Unknown error occurred.")
+                text: (appWindow.loadError ? appWindow.loadError + " " : "") + "Try again. If it keeps happening, restart your phone."
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 color: MColors.textSecondary
@@ -377,12 +405,26 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
             }
 
-            MButton {
-                text: "Close"
-                variant: "primary"
-                anchors.horizontalCenter: parent.horizontalCenter
-                onClicked: {
-                    appWindow.hide();
+            Column {
+                width: parent.width
+                spacing: MSpacing.sm
+
+                MButton {
+                    text: "Try again"
+                    variant: "primary"
+                    width: parent.width
+                    onClicked: {
+                        const id = appWindow.appId;
+                        appWindow.hide();
+                        appWindow.retryRequested(id);
+                    }
+                }
+
+                MButton {
+                    text: "Close"
+                    variant: "ghost"
+                    width: parent.width
+                    onClicked: appWindow.hide()
                 }
             }
         }
@@ -440,7 +482,7 @@ Rectangle {
             appWindow.scale = 1.0;
             if (appWindow.isClosing) {
                 appWindow.isClosing = false;
-                closed();
+                appWindow.closed();
             }
         }
     }
@@ -522,7 +564,7 @@ Rectangle {
             if (status === Loader.Error) {
                 Logger.error("AppWindow", "Failed to load app content for: " + appWindow.appId);
                 appWindow.hasError = true;
-                appWindow.loadError = "Failed to load app content";
+                appWindow.loadError = "Its files couldn't be loaded.";
                 appWindow.isLoadingComponent = false;
             } else if (status === Loader.Ready) {
                 Logger.info("AppWindow", "App content loaded successfully for: " + appWindow.appId);

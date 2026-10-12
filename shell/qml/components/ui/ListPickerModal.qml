@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell 1.0
 import MarathonUI.Theme
 import QtQuick
 
@@ -17,6 +20,8 @@ Modal {
             model: listPickerModal.options
 
             Rectangle {
+                id: optionRow
+
                 required property int index
                 required property var modelData
 
@@ -60,17 +65,17 @@ Modal {
                     spacing: Constants.spacingMedium
 
                     Text {
-                        text: modelData
+                        text: optionRow.modelData
                         color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
-                        font.weight: index === selectedIndex ? Font.DemiBold : Font.Normal
+                        font.weight: optionRow.index === listPickerModal.selectedIndex ? Font.DemiBold : Font.Normal
                         font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 28
                     }
 
                     Rectangle {
-                        visible: index === selectedIndex
+                        visible: optionRow.index === listPickerModal.selectedIndex
                         width: Constants.iconButtonSize
                         height: Constants.iconButtonSize
                         radius: Constants.borderRadiusSmall
@@ -88,7 +93,7 @@ Modal {
                 }
 
                 Rectangle {
-                    visible: index < options.length - 1
+                    visible: optionRow.index < listPickerModal.options.length - 1
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -102,8 +107,8 @@ Modal {
 
                     anchors.fill: parent
                     onClicked: {
-                        selectedIndex = index;
-                        listPickerModal.selected(index, modelData);
+                        listPickerModal.selectedIndex = optionRow.index;
+                        listPickerModal.selected(optionRow.index, optionRow.modelData);
                         listPickerModal.close();
                     }
                 }

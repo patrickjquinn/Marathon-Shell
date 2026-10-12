@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -621,6 +623,9 @@ Item {
                         color: closeButtonArea.pressed ? MColors.elevated : MColors.surface
                         scale: closeButtonArea.pressed ? 0.92 : 1
 
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Close " + taskCard.title
+
                         Behavior on color {
                             ColorAnimation {
                                 duration: MMotion.xs
@@ -689,12 +694,12 @@ Item {
     Connections {
         function onSurfaceRegistered(surfaceId) {
             if (surfaceId === taskCard.surfaceId)
-                updateRegisteredSurface();
+                taskCard.updateRegisteredSurface();
         }
 
         function onSurfaceUnregistered(surfaceId) {
             if (surfaceId === taskCard.surfaceId)
-                updateRegisteredSurface();
+                taskCard.updateRegisteredSurface();
         }
 
         target: SurfaceRegistry

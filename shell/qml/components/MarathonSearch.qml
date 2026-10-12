@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -159,7 +162,7 @@ Item {
                         Keys.onDownPressed: resultsList.forceActiveFocus()
                         onTextChanged: {
                             searchOverlay.searchQuery = text;
-                            performSearch();
+                            searchOverlay.performSearch();
                         }
 
                         Text {
@@ -167,7 +170,7 @@ Item {
                             text: "Search apps, settings..."
                             color: MColors.textSecondary
                             font: parent.font
-                            visible: !searchInput.text && !searchInput.activeFocus
+                            visible: !searchInput.text && !searchInput.preeditText
                         }
                     }
 
@@ -184,9 +187,12 @@ Item {
                             color: MColors.textSecondary
                         }
 
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Clear search"
+
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -6
+                            anchors.margins: -12
                             onClicked: {
                                 searchInput.text = "";
                                 searchInput.forceActiveFocus();
@@ -222,24 +228,121 @@ Item {
             Keys.onReturnPressed: {
                 if (currentItem) {
                     var result = searchOverlay.searchResults[currentIndex];
-                    selectResult(result);
+                    searchOverlay.selectResult(result);
                 }
             }
             Keys.onEscapePressed: searchOverlay.close()
 
             Text {
                 anchors.centerIn: parent
-                text: searchInput.text.length === 0 ? "Start typing to search" : "No results found"
+                text: searchInput.text.length === 0 ? "Search apps, settings and more" : "No results for \u201c" + searchInput.text + "\u201d"
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
-                visible: resultsList.count === 0
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                visible: resultsList.count === 0 && !recentColumn.visible
+            }
+
+            Column {
+                id: recentColumn
+
+                width: parent.width
+                visible: searchInput.text.length === 0 && UnifiedSearchService.recentSearches.length > 0
+
+                Item {
+                    width: parent.width
+                    height: Math.round(44 * Constants.scaleFactor)
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "RECENT"
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: MTypography.weightBold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                        font.family: MTypography.fontFamily
+                    }
+
+                    Text {
+                        id: clearRecent
+
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Clear"
+                        color: MColors.accentBright
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.family: MTypography.fontFamily
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Clear recent searches"
+                        Accessible.onPressAction: UnifiedSearchService.clearRecentSearches()
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -12
+                            onClicked: UnifiedSearchService.clearRecentSearches()
+                        }
+                    }
+                }
+
+                Repeater {
+                    model: UnifiedSearchService.recentSearches
+
+                    Item {
+                        id: recentItem
+
+                        required property string modelData
+
+                        width: recentColumn.width
+                        height: Math.round(48 * Constants.scaleFactor)
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Search for " + modelData
+                        Accessible.onPressAction: searchInput.text = modelData
+
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: MSpacing.md
+
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "clock-counter-clockwise"
+                                size: Math.round(18 * Constants.scaleFactor)
+                                color: MColors.textSecondary
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: recentItem.modelData
+                                color: MColors.textPrimary
+                                font.pixelSize: MTypography.sizeBody
+                                font.family: MTypography.fontFamily
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                searchInput.text = recentItem.modelData;
+                                searchInput.forceActiveFocus();
+                            }
+                        }
+                    }
+                }
             }
 
             delegate: Rectangle {
+                id: resultDelegate
+
+                required property var modelData
+                required property int index
+
                 width: resultsList.width
                 height: Constants.appIconSize
-                color: resultMouseArea.pressed ? MColors.pressed : (resultsList.currentIndex === index ? MColors.highlightSubtle : "transparent")
+                color: resultMouseArea.pressed ? MColors.pressed : (resultsList.currentIndex === resultDelegate.index ? MColors.highlightSubtle : "transparent")
                 radius: MRadius.md
                 antialiasing: true
 
@@ -252,14 +355,14 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 48
                         height: 48
-                        radius: modelData.type === "app" ? MRadius.sm : 24
+                        radius: resultDelegate.modelData.type === "app" ? MRadius.sm : 24
                         color: MColors.elevated
                         antialiasing: true
 
                         MAppIcon {
                             anchors.centerIn: parent
-                            source: modelData.icon
-                            size: modelData.type === "app" ? 40 : 24
+                            source: resultDelegate.modelData.icon
+                            size: resultDelegate.modelData.type === "app" ? 40 : 24
                         }
                     }
 
@@ -270,7 +373,7 @@ Item {
 
                         Text {
                             width: parent.width
-                            text: modelData.title
+                            text: resultDelegate.modelData.title
                             color: MColors.text
                             font.pixelSize: MTypography.sizeBody
                             font.weight: MTypography.weightDemiBold
@@ -287,10 +390,10 @@ Item {
                                 height: 20
                                 radius: MRadius.sm
                                 color: {
-                                    if (modelData.type === "app")
+                                    if (resultDelegate.modelData.type === "app")
                                         return MColors.elevated;
 
-                                    if (modelData.type === "deeplink")
+                                    if (resultDelegate.modelData.type === "deeplink")
                                         return Qt.rgba(139 / 255, 92 / 255, 246 / 255, 0.15);
 
                                     return Qt.rgba(59 / 255, 130 / 255, 246 / 255, 0.15);
@@ -302,19 +405,19 @@ Item {
 
                                     anchors.centerIn: parent
                                     text: {
-                                        if (modelData.type === "app")
+                                        if (resultDelegate.modelData.type === "app")
                                             return "App";
 
-                                        if (modelData.type === "deeplink")
+                                        if (resultDelegate.modelData.type === "deeplink")
                                             return "Page";
 
                                         return "Setting";
                                     }
                                     color: {
-                                        if (modelData.type === "app")
+                                        if (resultDelegate.modelData.type === "app")
                                             return MColors.accentBright;
 
-                                        if (modelData.type === "deeplink")
+                                        if (resultDelegate.modelData.type === "deeplink")
                                             return Qt.rgba(167 / 255, 139 / 255, 250 / 255, 1);
 
                                         return Qt.rgba(96 / 255, 165 / 255, 250 / 255, 1);
@@ -327,7 +430,7 @@ Item {
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: modelData.subtitle
+                                text: resultDelegate.modelData.subtitle
                                 color: MColors.textSecondary
                                 font.pixelSize: MTypography.sizeSmall
                                 font.family: MTypography.fontFamily
@@ -341,8 +444,8 @@ Item {
 
                     anchors.fill: parent
                     onClicked: {
-                        resultsList.currentIndex = index;
-                        selectResult(modelData);
+                        resultsList.currentIndex = resultDelegate.index;
+                        searchOverlay.selectResult(resultDelegate.modelData);
                     }
                 }
 

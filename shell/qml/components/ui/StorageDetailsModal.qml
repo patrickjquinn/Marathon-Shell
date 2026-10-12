@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell 1.0
 import MarathonUI.Theme
 import QtQuick
 
@@ -89,6 +92,10 @@ Modal {
                 ]
 
                 Item {
+                    id: storageRow
+
+                    required property var modelData
+
                     width: parent.width
                     height: Constants.statusBarHeight
 
@@ -100,12 +107,12 @@ Modal {
                             width: Constants.mediumIndicatorSize
                             height: Constants.mediumIndicatorSize
                             radius: Math.round(2 * Constants.scaleFactor)
-                            color: modelData.color
+                            color: storageRow.modelData.color
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
-                            text: modelData.name
+                            text: storageRow.modelData.name
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
@@ -114,7 +121,7 @@ Modal {
                         }
 
                         Text {
-                            text: modelData.size
+                            text: storageRow.modelData.size
                             color: MColors.textSecondary
                             font.pixelSize: MTypography.sizeSmall
                             font.family: MTypography.fontFamily

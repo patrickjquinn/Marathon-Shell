@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Containers
 import MarathonUI.Controls
@@ -300,6 +302,8 @@ Item {
             width: shadeScroll.width - MSpacing.lg * 2
             spacing: MSpacing.md
 
+            layer.enabled: true
+
             // Gesture-coupled reveal: fade + a small settle-up as the shade
             // opens; both collapse to a no-op under reduceMotion. Anchored to
             // the top and clip:true on the shade, so translating down just
@@ -313,7 +317,7 @@ Item {
             Item {
                 id: header
                 width: parent.width
-                height: 52
+                height: headerText.implicitHeight
 
                 property string dateText: Qt.formatDateTime(new Date(), "dddd, MMMM d")
                 property string timeText: Qt.formatDateTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
@@ -330,6 +334,7 @@ Item {
                 }
 
                 Column {
+                    id: headerText
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 4
@@ -388,6 +393,7 @@ Item {
                         id: brightness
                         width: parent.width
                         iconName: "sun"
+                        a11yName: "Brightness"
                         value: SystemControlStore.brightness
                         onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                     }
@@ -400,6 +406,7 @@ Item {
                         id: volume
                         width: parent.width
                         iconName: "speaker-high"
+                        a11yName: "Volume"
                         value: SystemControlStore.volume
                         onMoved: v => SystemControlStore.setVolume(v)
                     }

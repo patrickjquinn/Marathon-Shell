@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -86,6 +88,11 @@ Rectangle {
             }
 
             delegate: Rectangle {
+                id: clipItem
+
+                required property int index
+                required property var modelData
+
                 width: ListView.view.width
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSmall
@@ -111,7 +118,7 @@ Rectangle {
                         spacing: Math.round(6 * Constants.scaleFactor)
 
                         Text {
-                            text: modelData.text
+                            text: clipItem.modelData.text
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
@@ -123,7 +130,7 @@ Rectangle {
 
                         Text {
                             text: {
-                                var date = new Date(modelData.timestamp);
+                                var date = new Date(clipItem.modelData.timestamp);
                                 return Qt.formatDateTime(date, "hh:mm AP");
                             }
                             color: MColors.textTertiary
@@ -151,7 +158,7 @@ Rectangle {
 
                             anchors.fill: parent
                             onClicked: {
-                                ClipboardManagerCpp.deleteItem(index);
+                                ClipboardManagerCpp.deleteItem(clipItem.index);
                                 HapticManager.light();
                             }
                         }
@@ -170,8 +177,8 @@ Rectangle {
                     anchors.fill: parent
                     anchors.rightMargin: Math.round(52 * Constants.scaleFactor)
                     onClicked: {
-                        Logger.info("ClipboardManager", "Selected item: " + modelData.text.substring(0, 30));
-                        ClipboardManagerCpp.copyToClipboard(modelData.text);
+                        Logger.info("ClipboardManager", "Selected item: " + clipItem.modelData.text.substring(0, 30));
+                        ClipboardManagerCpp.copyToClipboard(clipItem.modelData.text);
                         HapticManager.light();
                         UIStore.closeClipboardManager();
                     }

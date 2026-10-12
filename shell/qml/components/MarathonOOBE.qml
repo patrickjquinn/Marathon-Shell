@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Containers
 import MarathonUI.Controls
@@ -482,6 +484,7 @@ Item {
                         }
 
                         MToggle {
+                            a11yName: "Wi-Fi"
                             checked: SystemStatusStore.isWifiOn
                             onToggled: SystemControlStore.toggleWifi()
                         }
@@ -540,7 +543,7 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 1
+                            Layout.preferredHeight: 1
                             color: MColors.border
                             opacity: 0.5
                         }
@@ -937,7 +940,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Automatic timezone detection and network time sync will be enabled."
+                    text: "The clock sets itself over the network. Choose your time zone any time in Settings → Date & Time."
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
                     color: MColors.textTertiary
@@ -1047,6 +1050,8 @@ Item {
                     model: gesturesPage.coachmarks
 
                     delegate: Item {
+                        id: coachmarkDelegate
+
                         required property var modelData
                         required property int index
 
@@ -1076,7 +1081,7 @@ Item {
                                     id: coachmarkIcon
 
                                     anchors.centerIn: parent
-                                    name: modelData.icon
+                                    name: coachmarkDelegate.modelData.icon
                                     size: Math.round(72 * Constants.scaleFactor)
                                     color: MColors.accent
 
@@ -1097,22 +1102,22 @@ Item {
                                     // matched immediately and this infinite nudge ran forever
                                     // on a wizard page that is not on screen, on a device
                                     // that finished setup long ago.
-                                    running: oobeRoot.visible && gesturesPage.currentCoachmark === index && modelData.direction !== "none"
+                                    running: oobeRoot.visible && gesturesPage.currentCoachmark === coachmarkDelegate.index && coachmarkDelegate.modelData.direction !== "none"
                                     loops: Animation.Infinite
 
                                     NumberAnimation {
                                         target: coachmarkNudge
-                                        property: (modelData.direction === "left" || modelData.direction === "right") ? "x" : "y"
+                                        property: (coachmarkDelegate.modelData.direction === "left" || coachmarkDelegate.modelData.direction === "right") ? "x" : "y"
                                         from: 0
                                         to: {
                                             const amount = Math.round(32 * Constants.scaleFactor);
-                                            if (modelData.direction === "up")
+                                            if (coachmarkDelegate.modelData.direction === "up")
                                                 return -amount;
-                                            if (modelData.direction === "down")
+                                            if (coachmarkDelegate.modelData.direction === "down")
                                                 return amount;
-                                            if (modelData.direction === "left")
+                                            if (coachmarkDelegate.modelData.direction === "left")
                                                 return -amount;
-                                            if (modelData.direction === "right")
+                                            if (coachmarkDelegate.modelData.direction === "right")
                                                 return amount;
                                             return 0;
                                         }
@@ -1124,7 +1129,7 @@ Item {
                                     }
                                     NumberAnimation {
                                         target: coachmarkNudge
-                                        property: (modelData.direction === "left" || modelData.direction === "right") ? "x" : "y"
+                                        property: (coachmarkDelegate.modelData.direction === "left" || coachmarkDelegate.modelData.direction === "right") ? "x" : "y"
                                         to: 0
                                         duration: 500
                                         easing.type: Easing.OutCubic
@@ -1136,7 +1141,7 @@ Item {
                             }
 
                             Text {
-                                text: modelData.title
+                                text: coachmarkDelegate.modelData.title
                                 font.pixelSize: MTypography.sizeTitle3
                                 font.weight: MTypography.weightExtraLight
                                 font.family: MTypography.fontFamily
@@ -1147,7 +1152,7 @@ Item {
                             }
 
                             Text {
-                                text: modelData.body
+                                text: coachmarkDelegate.modelData.body
                                 font.pixelSize: MTypography.sizeSubhead
                                 font.family: MTypography.fontFamily
                                 color: MColors.textSecondary
@@ -1170,7 +1175,7 @@ Item {
                             Item {
                                 width: parent.width
                                 height: Math.round(48 * Constants.scaleFactor)
-                                visible: modelData.direction !== "none"
+                                visible: coachmarkDelegate.modelData.direction !== "none"
 
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -1461,6 +1466,8 @@ Item {
                         model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
                         Item {
+                            id: keyDelegate
+
                             required property string modelData
 
                             Layout.alignment: Qt.AlignCenter
@@ -1471,12 +1478,12 @@ Item {
                                 anchors.centerIn: parent
                                 width: passcodePage.scaledKeyCell
                                 height: passcodePage.scaledKeyCell
-                                text: modelData
+                                text: keyDelegate.modelData
                                 buttonSize: passcodePage.keySize
                                 iconSize: passcodePage.keyGlyphSize
                                 variant: "secondary"
                                 textColor: MColors.textPrimary
-                                onClicked: passcodePage.appendDigit(modelData)
+                                onClicked: passcodePage.appendDigit(keyDelegate.modelData)
                             }
                         }
                     }
@@ -1697,17 +1704,11 @@ Item {
                 anchors.rightMargin: MSpacing.lg
                 text: "Skip"
                 variant: "default"
-                // Skip is only meaningful for early informational steps. The
-                // Passcode page needs to complete (the user has no PAM
-                // password to fall back on — pmOS_root /etc/shadow ships
-                // with the account locked '!'), so hide Skip from page 5
-                // (Passcode) onward. Also hide on page 6 (Done) since that
-                // has its own Get Started action.
+                // The passcode can't be skipped: there is no PAM password to fall back on.
                 visible: oobeRoot.currentPage < 5
                 onClicked: {
-                    SettingsManagerCpp.firstRunComplete = true;
                     HapticManager.light();
-                    oobeRoot.setupComplete();
+                    oobeRoot.currentPage = 5;
                 }
             }
         }
@@ -1727,6 +1728,8 @@ Item {
             }
         }
         onSwipeRight: {
+            if (oobeRoot.currentPage === 5 && oobeRoot.newPasscode === "")
+                return;
             if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
                 HapticManager.light();
                 oobeRoot.currentPage++;

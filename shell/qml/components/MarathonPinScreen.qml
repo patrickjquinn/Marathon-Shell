@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Feedback
@@ -311,20 +313,29 @@ Item {
 
                 spacing: Math.round(16 * Constants.scaleFactor)
 
+                Accessible.role: Accessible.StaticText
+                Accessible.name: pinScreen.pin.length + " of 6 digits entered"
+
                 Repeater {
                     model: 6
 
                     Rectangle {
+                        id: pinDot
+
                         required property int index
 
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
+                        // Visual 3+3 grouping.
+                        transform: Translate {
+                            x: Math.round((pinDot.index >= 3 ? 6 : -6) * Constants.scaleFactor)
+                        }
                         radius: Math.round(7 * Constants.scaleFactor)
-                        color: index < pin.length ? MColors.accentBright : "transparent"
+                        color: pinDot.index < pinScreen.pin.length ? MColors.accentBright : "transparent"
                         border.width: 2
-                        border.color: index < pin.length ? MColors.accentBright : MColors.borderSubtle
+                        border.color: pinDot.index < pinScreen.pin.length ? MColors.accentBright : MColors.borderSubtle
                         antialiasing: true
-                        scale: (index === pin.length - 1 && pin.length > 0) ? 1.3 : 1
+                        scale: (pinDot.index === pinScreen.pin.length - 1 && pinScreen.pin.length > 0) ? 1.3 : 1
 
                         Behavior on color {
                             ColorAnimation {
@@ -442,6 +453,8 @@ Item {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
                     delegate: Item {
+                        id: pinKey
+
                         required property string modelData
                         property string digit: modelData
 
@@ -450,14 +463,14 @@ Item {
 
                         MCircularIconButton {
                             anchors.centerIn: parent
-                            text: digit
+                            text: pinKey.digit
                             iconSize: pinScreen.compactLayout ? 22 : 28
                             buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
                                 HapticManager.light();
-                                handleInput(parent.digit);
+                                pinScreen.handleInput(pinKey.digit);
                             }
                         }
                     }
@@ -481,7 +494,7 @@ Item {
                         visible: !pinScreen.passwordMode
                         onClicked: {
                             HapticManager.light();
-                            switchToPasswordMode();
+                            pinScreen.switchToPasswordMode();
                         }
                     }
                 }
@@ -499,7 +512,7 @@ Item {
                         textColor: MColors.textPrimary
                         onClicked: {
                             HapticManager.light();
-                            handleInput("0");
+                            pinScreen.handleInput("0");
                         }
                     }
                 }
@@ -515,9 +528,10 @@ Item {
                         buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         iconColor: MColors.textSecondary
+                        a11yName: "Delete"
                         onClicked: {
                             HapticManager.light();
-                            pinScreen.pin = "";
+                            pinScreen.pin = pinScreen.pin.slice(0, -1);
                             pinScreen.error = "";
                         }
                     }
@@ -576,7 +590,7 @@ Item {
                         font.family: MTypography.fontFamily
                         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                         echoMode: TextInput.Password
-                        onAccepted: verifyPasswordInput()
+                        onAccepted: pinScreen.verifyPasswordInput()
                         onTextChanged: {
                             pinScreen.password = text;
                             pinScreen.error = "";
@@ -617,7 +631,7 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     text: "Use PIN"
                     variant: "secondary"
-                    onClicked: switchToPINMode()
+                    onClicked: pinScreen.switchToPINMode()
                 }
 
                 MButton {
@@ -625,7 +639,7 @@ Item {
                     text: "Unlock"
                     variant: "primary"
                     enabled: !pinScreen.authenticating
-                    onClicked: verifyPasswordInput()
+                    onClicked: pinScreen.verifyPasswordInput()
                 }
             }
         }
@@ -640,7 +654,7 @@ Item {
             enabled: !SecurityManagerCpp.isLockedOut
             onClicked: {
                 HapticManager.light();
-                startBiometric();
+                pinScreen.startBiometric();
             }
         }
 
@@ -651,7 +665,7 @@ Item {
             textColor: MColors.textSecondary
             onClicked: {
                 HapticManager.light();
-                cancelled();
+                pinScreen.cancelled();
             }
         }
 
@@ -676,7 +690,7 @@ Item {
         id: verifyTimer
 
         interval: 100
-        onTriggered: verifyPin()
+        onTriggered: pinScreen.verifyPin()
     }
 
     Timer {
@@ -694,7 +708,7 @@ Item {
 
         interval: 350
         onTriggered: {
-            pinCorrect();
+            pinScreen.pinCorrect();
         }
     }
 }

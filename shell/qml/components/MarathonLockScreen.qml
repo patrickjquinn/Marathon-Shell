@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -11,6 +13,7 @@ Item {
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (the wallpaper renders through normally).
     property Item appBackdrop: null
+    property var compositor: null
 
     property real swipeProgress: 0
     // Honour Settings → Display & Brightness → Screen Timeout for the
@@ -137,7 +140,7 @@ Item {
         running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
         repeat: false
         onTriggered: {
-            if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
+            if (lockScreen.compositor && lockScreen.compositor.hasIdleInhibitingSurface) {
                 Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
                 idleTimer.restart();
                 return;
@@ -158,7 +161,7 @@ Item {
                 if (!NotificationService.isDndEnabled) {
                     if (!DisplayPolicyControllerCpp.screenOn)
                         DisplayPolicyControllerCpp.turnScreenOn();
-                    resetIdleTimer();
+                    lockScreen.resetIdleTimer();
                 }
                 lockScreen.refreshNotifications();
             }
@@ -173,7 +176,7 @@ Item {
                 SessionStore.showLock();
                 if (lockScreen.visible) {
                     Logger.info("LockScreen", "Screen turned on - starting idle timer");
-                    resetIdleTimer();
+                    lockScreen.resetIdleTimer();
                 }
             }
         }
@@ -244,8 +247,7 @@ Item {
         // shows a teal-bright phone avatar, an eyebrow with caller
         // name + call duration, and a red end-call button.
         //
-        // Caller name resolves through ContactsService when granted,
-        // falling back to the raw activeNumber otherwise.
+        // Caller name resolves through ContactsManager, falling back to the raw number.
         Item {
             id: lockNowBar
 
@@ -267,10 +269,7 @@ Item {
                 const num = TelephonyService.activeNumber || "";
                 if (!num)
                     return "Unknown";
-                // Shell-process callers use ContactsManager directly;
-                // app-runner clients see the same data via ContactsService
-                // (the IPC wrapper). Try both — whichever is defined wins.
-                const svc = (typeof ContactsService !== "undefined" && ContactsService) ? ContactsService : (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
+                const svc = (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
                 if (svc && svc.getContactByNumber) {
                     const c = svc.getContactByNumber(num);
                     if (c && c.name)
@@ -667,6 +666,8 @@ Item {
                 model: unreadModel
 
                 delegate: Rectangle {
+                    id: notifCard
+
                     required property int index
                     required property int notifId
                     required property string appId
@@ -715,13 +716,13 @@ Item {
                             height: 32
                             radius: MRadius.md
                             border.width: 1
-                            border.color: appId === "calendar" ? MColors.tealBorder : MColors.whiteOverlay08
+                            border.color: notifCard.appId === "calendar" ? MColors.tealBorder : MColors.whiteOverlay08
                             anchors.verticalCenter: parent.verticalCenter
 
                             gradient: Gradient {
                                 GradientStop {
                                     position: 0
-                                    color: appId === "calendar" ? MColors.bb10Surface : MColors.bb10Elevated
+                                    color: notifCard.appId === "calendar" ? MColors.bb10Surface : MColors.bb10Elevated
                                 }
                                 GradientStop {
                                     position: 1
@@ -731,9 +732,9 @@ Item {
 
                             Icon {
                                 anchors.centerIn: parent
-                                name: icon
+                                name: notifCard.icon
                                 size: 16
-                                color: appId === "calendar" ? MColors.marathonTealBright : MColors.textPrimary
+                                color: notifCard.appId === "calendar" ? MColors.marathonTealBright : MColors.textPrimary
                             }
                         }
 
@@ -755,7 +756,7 @@ Item {
                                     anchors.left: parent.left
                                     anchors.right: timeText.left
                                     anchors.rightMargin: 8
-                                    text: title
+                                    text: notifCard.title
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
@@ -766,7 +767,7 @@ Item {
                                     id: timeText
                                     anchors.right: parent.right
                                     anchors.verticalCenter: nameText.verticalCenter
-                                    text: lockScreen.relativeTime(timestamp)
+                                    text: lockScreen.relativeTime(notifCard.timestamp)
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeEyebrow
@@ -779,7 +780,7 @@ Item {
 
                             Text {
                                 width: parent.width
-                                text: body
+                                text: notifCard.body
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
@@ -796,7 +797,7 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             HapticManager.light();
-                            lockScreen.notificationTapped(notifId, appId, title);
+                            lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
                         }
                     }
                 }
@@ -888,12 +889,12 @@ Item {
             onPhoneActivated: {
                 HapticManager.medium();
                 Logger.info("LockScreen", "Phone quick action tapped");
-                phoneLaunched();
+                lockScreen.phoneLaunched();
             }
             onCameraActivated: {
                 HapticManager.medium();
                 Logger.info("LockScreen", "Camera quick action tapped");
-                cameraLaunched();
+                lockScreen.cameraLaunched();
             }
         }
 
@@ -973,7 +974,7 @@ Item {
             velocity = 0;
             isDragging = false;
             lastTime = Date.now();
-            resetIdleTimer();
+            lockScreen.resetIdleTimer();
         }
         onPositionChanged: mouse => {
             const deltaY = lastY - mouse.y;
@@ -1019,7 +1020,7 @@ Item {
         interval: 100
         onTriggered: {
             Logger.state("LockScreen", "unlocked", "dissolve complete");
-            unlockRequested();
+            lockScreen.unlockRequested();
         }
     }
 

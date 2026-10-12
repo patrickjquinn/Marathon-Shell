@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
@@ -7,7 +9,7 @@ Rectangle {
     id: callOverlay
 
     property string callerNumber: ""
-    property string callerName: "Unknown"
+    property string callerName: ""
     property bool isRinging: false
 
     signal answered
@@ -15,7 +17,7 @@ Rectangle {
 
     function show(number, name) {
         callerNumber = number;
-        callerName = name || "Unknown";
+        callerName = name || "";
         isRinging = true;
         visible = true;
         AudioPolicyControllerCpp.playRingtone();
@@ -71,6 +73,10 @@ Rectangle {
                     model: 3
 
                     Rectangle {
+                        id: ringPulse
+
+                        required property int index
+
                         anchors.centerIn: parent
                         width: parent.width
                         height: parent.height
@@ -85,7 +91,7 @@ Rectangle {
                             loops: Animation.Infinite
 
                             PauseAnimation {
-                                duration: index * 700
+                                duration: ringPulse.index * 700
                             }
 
                             ParallelAnimation {
@@ -97,7 +103,7 @@ Rectangle {
                                 }
 
                                 NumberAnimation {
-                                    target: parent
+                                    target: ringPulse
                                     property: "opacity"
                                     from: 0.6
                                     to: 0
@@ -144,7 +150,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callOverlay.callerName
+                    text: callOverlay.callerName || MPhoneNumber.format(callOverlay.callerNumber) || "Unknown caller"
                     font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
@@ -153,7 +159,8 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: callOverlay.callerNumber
+                    text: MPhoneNumber.format(callOverlay.callerNumber)
+                    visible: callOverlay.callerName !== ""
                     font.pixelSize: MTypography.sizeLarge
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
@@ -178,6 +185,9 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     scale: declineMouseArea.pressed ? 0.95 : 1
 
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Decline"
+
                     Icon {
                         anchors.centerIn: parent
                         name: "phone"
@@ -195,8 +205,8 @@ Rectangle {
                             Logger.info("IncomingCallOverlay", "Call declined");
                             HapticManager.medium();
                             TelephonyService.hangup();
-                            declined();
-                            hide();
+                            callOverlay.declined();
+                            callOverlay.hide();
                         }
                     }
 
@@ -230,6 +240,9 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     scale: answerMouseArea.pressed ? 0.95 : 1
 
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Answer"
+
                     Icon {
                         anchors.centerIn: parent
                         name: "phone"
@@ -246,8 +259,8 @@ Rectangle {
                             Logger.info("IncomingCallOverlay", "Call answered");
                             HapticManager.heavy();
                             TelephonyService.answer();
-                            answered();
-                            hide();
+                            callOverlay.answered();
+                            callOverlay.hide();
                             UIStore.openApp("phone", "Phone", "");
                         }
                     }

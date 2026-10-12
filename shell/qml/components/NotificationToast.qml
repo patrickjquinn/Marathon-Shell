@@ -141,7 +141,7 @@ Item {
                             FreedesktopNotifications.InvokeReply(toastContainer.currentToast.id, text);
                             text = "";
                             toastContainer.showInlineReply = false;
-                            dismissToast();
+                            toastContainer.dismissToast();
                         }
                     }
                     Keys.onEscapePressed: {
@@ -180,7 +180,7 @@ Item {
             }
             onReleased: mouse => {
                 if (dragY < -30) {
-                    dismissToast();
+                    toastContainer.dismissToast();
                 } else {
                     toast.y = Constants.statusBarHeight;
                     autoHideTimer.restart();
@@ -207,7 +207,7 @@ Item {
                         });
                     else
                         Router.goToHub();
-                    dismissToast();
+                    toastContainer.dismissToast();
                 }
             }
         }
@@ -265,6 +265,6 @@ Item {
         id: autoHideTimer
 
         interval: 5000
-        onTriggered: dismissToast()
+        onTriggered: toastContainer.dismissToast()
     }
 }

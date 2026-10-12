@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
@@ -25,6 +26,10 @@ Item {
             clip: true
 
             delegate: Rectangle {
+                id: messageDelegate
+
+                required property var modelData
+
                 width: ListView.view.width
                 height: Constants.touchTargetSmall
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -49,14 +54,14 @@ Item {
                         spacing: Constants.spacingXSmall
 
                         Text {
-                            text: modelData.title
+                            text: messageDelegate.modelData.title
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Bold
                         }
 
                         Text {
-                            text: modelData.content
+                            text: messageDelegate.modelData.content
                             color: MColors.textSecondary
                             font.pixelSize: MTypography.sizeSmall
                         }

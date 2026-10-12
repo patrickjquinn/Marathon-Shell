@@ -126,6 +126,10 @@ Rectangle {
                     }
                 }
 
+                Accessible.role: Accessible.Button
+                Accessible.name: "Snooze"
+                Accessible.onPressAction: alarmOverlay.snooze()
+
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
@@ -160,6 +164,10 @@ Rectangle {
                         font.family: MTypography.fontFamily
                     }
                 }
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "Dismiss"
+                Accessible.onPressAction: alarmOverlay.dismiss()
 
                 MouseArea {
                     anchors.fill: parent

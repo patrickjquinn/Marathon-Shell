@@ -150,9 +150,13 @@ Rectangle {
             }
         }
 
+        Accessible.role: Accessible.Button
+        Accessible.name: "Search"
+        Accessible.onPressAction: navBar.toggleSearch()
+
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -4
+            anchors.margins: -Math.round(14 * Constants.scaleFactor)
             onClicked: {
                 HapticManager.light();
                 navBar.toggleSearch();
@@ -203,9 +207,13 @@ Rectangle {
             }
         }
 
+        Accessible.role: Accessible.Button
+        Accessible.name: "Keyboard"
+        Accessible.onPressAction: navBar.toggleKeyboard()
+
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -4
+            anchors.margins: -Math.round(14 * Constants.scaleFactor)
             onClicked: {
                 HapticManager.light();
                 navBar.toggleKeyboard();
@@ -222,6 +230,7 @@ Rectangle {
         property real lastY: 0
         property real lastTime: 0
         property bool isVerticalGesture: false
+        property bool isHorizontalGesture: false
         property bool isLeftZone: false
         property bool isRightZone: false
         // Previous-frame cumulative diffY. Lets the QS-drag path compute
@@ -242,6 +251,7 @@ Rectangle {
             navBar.startY = 0;
             velocityX = 0;
             isVerticalGesture = false;
+            isHorizontalGesture = false;
             isLeftZone = false;
             isRightZone = false;
             prevDiffY = 0;
@@ -258,6 +268,7 @@ Rectangle {
             velocityX = 0;
             velocityY = 0;
             isVerticalGesture = false;
+            isHorizontalGesture = false;
             prevDiffY = 0;
             var leftBoundary = parent.width * 0.15;
             var rightBoundary = parent.width * 0.85;
@@ -280,9 +291,12 @@ Rectangle {
             lastTime = now;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
-            if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
-                if (!isVerticalGesture) {}
-                isVerticalGesture = true;
+            // Lock the axis once; a thumb arcs upward during a back swipe.
+            if (!isVerticalGesture && !isHorizontalGesture && Math.max(Math.abs(diffX), Math.abs(diffY)) > 10) {
+                if (Math.abs(diffY) > Math.abs(diffX))
+                    isVerticalGesture = true;
+                else
+                    isHorizontalGesture = true;
             }
             if (isVerticalGesture) {
                 navBar.currentY = Math.max(0, diffY);
@@ -308,7 +322,7 @@ Rectangle {
                     var progressThreshold = Constants.screenHeight * 0.25;
                     navBar.gestureProgress = Math.min(1, diffY / progressThreshold);
                     if (oldProgress <= 0.15 && navBar.gestureProgress > 0.15)
-                        startPageTransition();
+                        navBar.startPageTransition();
                 }
             } else {
                 navBar.currentX = diffX;
@@ -409,7 +423,7 @@ Rectangle {
                     Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                    longSwipeUp();
+                    navBar.longSwipeUp();
                     navBar.currentX = 0;
                     navBar.currentY = 0;
                     navBar.gestureProgress = 0;
@@ -419,13 +433,13 @@ Rectangle {
                     Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                    minimizeApp(velocityY);
+                    navBar.minimizeApp(velocityY);
                     navBar.currentX = 0;
                     navBar.currentY = 0;
                     navBar.gestureProgress = 0;
                 } else if (diffY > navBar.shortSwipeThreshold) {
                     Logger.info("NavBar", "Short swipe up - Go home");
-                    shortSwipeUp();
+                    navBar.shortSwipeUp();
                     navBar.currentX = 0;
                     navBar.currentY = 0;
                     navBar.gestureProgress = 0;
@@ -438,16 +452,16 @@ Rectangle {
                         "backProgress": navBar.backProgress
                     });
                     if (navBar.isAppOpen)
-                        swipeBack();
+                        navBar.swipeBack();
                     else
-                        swipeLeft();
+                        navBar.swipeLeft();
                 } else {
                     Logger.gesture("NavBar", "swipeRight", {
                         "velocity": velocityX,
                         "isAppOpen": navBar.isAppOpen,
                         "diffX": diffX
                     });
-                    swipeRight();
+                    navBar.swipeRight();
                 }
                 navBar.currentX = 0;
                 navBar.currentY = 0;

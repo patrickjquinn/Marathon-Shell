@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell 1.0
 import MarathonUI.Theme
 import QtQuick
 
@@ -26,6 +29,7 @@ Column {
         Rectangle {
             id: dot
 
+            required property int index
             property bool isActive: index === pageIndicator.currentPage
 
             width: 6

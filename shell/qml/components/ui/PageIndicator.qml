@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import QtQuick
 
@@ -30,7 +33,7 @@ Row {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: hubClicked()
+            onClicked: pageIndicator.hubClicked()
         }
     }
 
@@ -50,7 +53,7 @@ Row {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: taskSwitcherClicked()
+            onClicked: pageIndicator.taskSwitcherClicked()
         }
     }
 
@@ -58,10 +61,12 @@ Row {
         model: pageIndicator.totalPages
 
         Rectangle {
+            required property int index
+
             width: Constants.pageIndicatorSizeInactive / 2
             height: Constants.pageIndicatorSizeInactive / 2
             radius: Constants.pageIndicatorSizeInactive / 4
-            color: index === currentPage ? "#FFFFFF" : "#666666"
+            color: index === pageIndicator.currentPage ? "#FFFFFF" : "#666666"
             anchors.verticalCenter: parent.verticalCenter
 
             Behavior on color {

@@ -72,7 +72,7 @@ Item {
                 else
                     snapBackAnimation.start();
             }
-            onClicked: mouse.accepted = true
+            onClicked: mouse => mouse.accepted = true
         }
 
         Column {

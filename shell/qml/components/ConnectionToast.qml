@@ -98,18 +98,18 @@ Item {
         id: autoHideTimer
 
         interval: 3000
-        onTriggered: hide()
+        onTriggered: connectionToast.hide()
     }
 
     Connections {
         function onIsWifiOnChanged() {
             if (connectionToast.initialized && SystemStatusStore.isWifiOn)
-                show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
+                connectionToast.show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
         }
 
         function onIsBluetoothOnChanged() {
             if (connectionToast.initialized && SystemStatusStore.isBluetoothOn)
-                show("Bluetooth enabled", "bluetooth");
+                connectionToast.show("Bluetooth enabled", "bluetooth");
         }
 
         function onIsAirplaneModeChanged() {
@@ -117,9 +117,9 @@ Item {
                 return;
 
             if (SystemStatusStore.isAirplaneMode)
-                show("Airplane mode enabled", "plane");
+                connectionToast.show("Airplane mode enabled", "plane");
             else
-                show("Airplane mode disabled", "plane");
+                connectionToast.show("Airplane mode disabled", "plane");
         }
 
         target: SystemStatusStore

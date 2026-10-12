@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
@@ -85,7 +86,7 @@ Item {
             anchors.fill: parent
             onClicked: {
                 Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + screenshotPreview.filePath);
-                hide();
+                screenshotPreview.hide();
                 NavigationRouter.navigateToDeepLink("gallery", "/image", {
                     "path": screenshotPreview.filePath
                 });
@@ -95,7 +96,7 @@ Item {
             }
             onPositionChanged: mouse => {
                 if (mouse.x - startX > 50)
-                    hide();
+                    screenshotPreview.hide();
             }
         }
     }
@@ -128,7 +129,7 @@ Item {
         id: autoHideTimer
 
         interval: 3000
-        onTriggered: hide()
+        onTriggered: screenshotPreview.hide()
     }
 
     Rectangle {

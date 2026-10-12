@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -26,15 +27,15 @@ Item {
             gestureHandler.startY = mouse.y;
             if (mouse.y > height - Constants.peekThreshold) {
                 gestureHandler.activeGesture = "bottom";
-                bottomSwipeStarted();
+                gestureHandler.bottomSwipeStarted();
                 mouse.accepted = true;
             } else if (mouse.x < Constants.gestureEdgeWidth) {
                 gestureHandler.activeGesture = "left";
-                leftSwipeStarted();
+                gestureHandler.leftSwipeStarted();
                 mouse.accepted = true;
             } else if (mouse.x > width - Constants.gestureEdgeWidth) {
                 gestureHandler.activeGesture = "right";
-                rightSwipeStarted();
+                gestureHandler.rightSwipeStarted();
                 mouse.accepted = true;
             } else {
                 gestureHandler.activeGesture = "";
@@ -45,17 +46,17 @@ Item {
             if (gestureHandler.activeGesture === "bottom") {
                 var dragY = gestureHandler.startY - mouse.y;
                 var progress = Math.max(0, Math.min(1, dragY / Constants.commitThreshold));
-                bottomSwipeProgress(progress);
+                gestureHandler.bottomSwipeProgress(progress);
                 mouse.accepted = true;
             } else if (gestureHandler.activeGesture === "left") {
                 var dragX = mouse.x - gestureHandler.startX;
                 var progress = Math.max(0, Math.min(1, dragX / 300));
-                leftSwipeProgress(progress);
+                gestureHandler.leftSwipeProgress(progress);
                 mouse.accepted = true;
             } else if (gestureHandler.activeGesture === "right") {
                 var dragX = gestureHandler.startX - mouse.x;
                 var progress = Math.max(0, Math.min(1, dragX / 200));
-                rightSwipeProgress(progress);
+                gestureHandler.rightSwipeProgress(progress);
                 mouse.accepted = true;
             }
         }
@@ -63,15 +64,15 @@ Item {
             if (gestureHandler.activeGesture === "bottom") {
                 var dragY = gestureHandler.startY - mouse.y;
                 var committed = dragY > Constants.commitThreshold;
-                bottomSwipeReleased(committed);
+                gestureHandler.bottomSwipeReleased(committed);
             } else if (gestureHandler.activeGesture === "left") {
                 var dragX = mouse.x - gestureHandler.startX;
                 var committed = dragX > 150;
-                leftSwipeReleased(committed);
+                gestureHandler.leftSwipeReleased(committed);
             } else if (gestureHandler.activeGesture === "right") {
                 var dragX = gestureHandler.startX - mouse.x;
                 var committed = dragX > 100;
-                rightSwipeReleased(committed);
+                gestureHandler.rightSwipeReleased(committed);
             }
             gestureHandler.activeGesture = "";
             mouse.accepted = true;

@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Theme
 import QtQuick
 import QtWayland.Compositor
@@ -15,6 +16,8 @@ ShellSurfaceItem {
     // buffer yet, and a locked empty view can never take one — the lock
     // exists to hold the detached foreground item's last frame, not this.
     property bool isPreview: false
+    // Typed QObject in C++; the members used here are WaylandCompositor's.
+    readonly property var launchCompositor: AppLaunchService.compositor
     readonly property bool hasFirstFrame: {
         var s = _surfaceFromObj(surfaceObj);
         return s ? s.hasContent : false;
@@ -116,8 +119,8 @@ ShellSurfaceItem {
         // surface steal focus whenever the keyboard resized the app area,
         // and the keyboard toggling that caused bounced focus between apps
         // hundreds of times a second.
-        if (firstConfigure && AppLaunchService.compositor) {
-            AppLaunchService.compositor.activateSurface(surfaceId);
+        if (firstConfigure && surfaceItem.launchCompositor) {
+            surfaceItem.launchCompositor.activateSurface(surfaceId);
             Qt.callLater(takeFocusForKeyboard);
         }
     }
@@ -140,8 +143,8 @@ ShellSurfaceItem {
     // etnaviv's implicit fence. Never on preview views or a locked (minimized)
     // view -- those intentionally retain their last frame.
     allowDiscardFrontBuffer: !isPreview && !bufferLocked
-                             && AppLaunchService.compositor
-                             && AppLaunchService.compositor.discardFrontBuffer
+                             && surfaceItem.launchCompositor
+                             && surfaceItem.launchCompositor.discardFrontBuffer
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)
@@ -151,7 +154,7 @@ ShellSurfaceItem {
     }
     touchEventsEnabled: true
     focusOnClick: true
-    output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
+    output: surfaceItem.launchCompositor ? surfaceItem.launchCompositor.output : null
     onShellSurfaceChanged: {
         if (shellSurface) {
             if (autoResize)
@@ -173,8 +176,8 @@ ShellSurfaceItem {
     // commits: on foreground (re)attach after re-asserting primary, and
     // once at preview attach so an idle client fills the second view.
     function _nudge() {
-        if (surfaceId !== -1 && AppLaunchService.compositor)
-            AppLaunchService.compositor.nudgeSurface(surfaceId);
+        if (surfaceId !== -1 && surfaceItem.launchCompositor)
+            surfaceItem.launchCompositor.nudgeSurface(surfaceId);
     }
     function _assertPrimary() {
         if (!isMinimized && surface) {
@@ -224,20 +227,10 @@ ShellSurfaceItem {
             SurfaceRegistry.unregisterSurface(surfaceId);
     }
 
-    Item {
+    // Until the client's first buffer lands, show the app background rather than nothing.
+    Rectangle {
         anchors.fill: parent
-
-        Rectangle {
-            anchors.fill: parent
-            color: MColors.elevated
-            visible: !surfaceItem.hasFirstFrame
-
-            Text {
-                anchors.centerIn: parent
-                text: "Connecting..."
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeSmall
-            }
-        }
+        color: MColors.background
+        visible: !surfaceItem.hasFirstFrame
     }
 }

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -89,7 +91,7 @@ Item {
                         "name": "Phone",
                         "icon": "phone"
                     };
-                    appLaunched(app);
+                    bottomBar.appLaunched(app);
                 } else {
                     mouse.accepted = false;
                 }
@@ -364,7 +366,7 @@ Item {
                         "name": "Camera",
                         "icon": "qrc:/images/camera.svg"
                     };
-                    appLaunched(app);
+                    bottomBar.appLaunched(app);
                 } else {
                     mouse.accepted = false;
                 }

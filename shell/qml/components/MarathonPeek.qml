@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -51,7 +53,7 @@ Item {
         if (shouldOpen)
             openPeek();
         else
-            closePeek();
+            peekComponent.closePeek();
         Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)");
     }
 
@@ -75,7 +77,7 @@ Item {
     clip: true
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape && peekProgress > 0) {
-            closePeek();
+            peekComponent.closePeek();
             event.accepted = true;
         }
     }
@@ -99,7 +101,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: peekComponent.peekProgress > 0
-            onClicked: closePeek()
+            onClicked: peekComponent.closePeek()
         }
     }
 
@@ -155,6 +157,11 @@ Item {
                         }
 
                         delegate: Item {
+                            id: notifDelegate
+
+                            required property int index
+                            required property var model
+
                             width: 48
                             height: 48
                             visible: index < 5
@@ -173,7 +180,7 @@ Item {
                                 scale: notifMouseArea.pressed ? 0.9 : 1
 
                                 Icon {
-                                    name: model.icon || "bell"
+                                    name: notifDelegate.model.icon || "bell"
                                     size: 24
                                     color: MColors.textPrimary
                                     anchors.centerIn: parent
@@ -183,7 +190,7 @@ Item {
                                 // Badges · 'unread indicator'): teal-bright
                                 // dot with a teal-glow halo, no number.
                                 Rectangle {
-                                    visible: !model.isRead
+                                    visible: !notifDelegate.model.isRead
                                     anchors.right: parent.right
                                     anchors.top: parent.top
                                     anchors.rightMargin: -2
@@ -217,13 +224,13 @@ Item {
                                 anchors.fill: parent
                                 onClicked: {
                                     HapticManager.light();
-                                    Logger.info("Peek", "Notification tapped: " + model.title);
+                                    Logger.info("Peek", "Notification tapped: " + notifDelegate.model.title);
                                     peekComponent.notificationTapped({
-                                        "id": model.id,
-                                        "title": model.title,
-                                        "body": model.body,
-                                        "icon": model.icon,
-                                        "appId": model.appId
+                                        "id": notifDelegate.model.id,
+                                        "title": notifDelegate.model.title,
+                                        "body": notifDelegate.model.body,
+                                        "icon": notifDelegate.model.icon,
+                                        "appId": notifDelegate.model.appId
                                     });
                                 }
                             }
@@ -256,7 +263,7 @@ Item {
             visible: peekComponent.peekProgress >= 0.3
             opacity: peekComponent.peekProgress < 0.3 ? 0 : Math.min(1, (peekComponent.peekProgress - 0.3) / 0.05)
             onClosed: {
-                closePeek();
+                peekComponent.closePeek();
             }
             Component.onCompleted: {
                 Logger.info("Hub", "Initialized in peek panel, width: " + hubPanelContainer.width);
@@ -321,7 +328,7 @@ Item {
                     peekComponent.isPeeking = false;
                     if (peekComponent.peekProgress < 0.65 || velocity < -500) {
                         Logger.info("Peek", "Closing from drag (progress: " + peekComponent.peekProgress + ", velocity: " + velocity + ")");
-                        closePeek();
+                        peekComponent.closePeek();
                     } else {
                         Logger.info("Peek", "Snapping back open");
                         peekComponent.peekProgress = 1;
@@ -390,14 +397,14 @@ Item {
             if (peekComponent.peekProgress > peekComponent.peekThreshold || velocity > 500) {
                 peekComponent.peekProgress = 1;
                 peekComponent.isFullyOpen = true;
-                fullyOpened();
+                peekComponent.fullyOpened();
             } else {
-                closePeek();
+                peekComponent.closePeek();
             }
         }
         onCanceled: {
             peekComponent.isPeeking = false;
-            closePeek();
+            peekComponent.closePeek();
         }
     }
 }

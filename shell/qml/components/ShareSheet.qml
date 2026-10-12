@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -126,6 +128,10 @@ Item {
                 ]
 
                 delegate: Item {
+                    id: shareTarget
+
+                    required property var modelData
+
                     width: GridView.view.cellWidth
                     height: GridView.view.cellHeight
 
@@ -143,7 +149,7 @@ Item {
                             border.color: targetMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
 
                             Icon {
-                                name: modelData.icon
+                                name: shareTarget.modelData.icon
                                 size: Constants.iconSizeMedium
                                 color: MColors.textPrimary
                                 anchors.centerIn: parent
@@ -157,7 +163,7 @@ Item {
                         }
 
                         Text {
-                            text: modelData.name
+                            text: shareTarget.modelData.name
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeSmall
                             font.family: MTypography.fontFamily
@@ -170,7 +176,7 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            Logger.info("ShareSheet", "Share to: " + modelData.name);
+                            Logger.info("ShareSheet", "Share to: " + shareTarget.modelData.name);
                             HapticManager.light();
                             UIStore.closeShareSheet();
                         }

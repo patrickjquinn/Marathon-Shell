@@ -190,7 +190,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
-                        name: getDeviceIcon(bluetoothPairDialog.deviceType)
+                        name: bluetoothPairDialog.getDeviceIcon(bluetoothPairDialog.deviceType)
                         size: Constants.iconSizeMedium
                         color: MColors.accent
                         anchors.centerIn: parent
@@ -213,7 +213,7 @@ Item {
                     }
 
                     Text {
-                        text: getPairingModeText(bluetoothPairDialog.pairingMode)
+                        text: bluetoothPairDialog.getPairingModeText(bluetoothPairDialog.pairingMode)
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
@@ -443,8 +443,8 @@ Item {
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: canPair() ? MColors.accent : Qt.darker(MColors.accent, 1.5)
-                    opacity: canPair() ? 1 : 0.5
+                    color: bluetoothPairDialog.canPair() ? MColors.accent : Qt.darker(MColors.accent, 1.5)
+                    opacity: bluetoothPairDialog.canPair() ? 1 : 0.5
 
                     Text {
                         text: bluetoothPairDialog.pairingMode === "confirm" ? "Accept" : "Pair"
@@ -457,7 +457,7 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
-                        enabled: canPair()
+                        enabled: bluetoothPairDialog.canPair()
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
                             HapticManager.medium();
@@ -476,7 +476,7 @@ Item {
             }
 
             Text {
-                text: getHelpText(bluetoothPairDialog.pairingMode)
+                text: bluetoothPairDialog.getHelpText(bluetoothPairDialog.pairingMode)
                 font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary

@@ -42,11 +42,12 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                cancelled();
-                if (confirmDialog.onCancel)
-                    confirmDialog.onCancel();
+                confirmDialog.cancelled();
+                var callback = confirmDialog.onCancel;
+                if (callback)
+                    callback();
 
-                hide();
+                confirmDialog.hide();
             }
         }
     }
@@ -111,11 +112,12 @@ Item {
                     variant: "secondary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
-                        cancelled();
-                        if (confirmDialog.onCancel)
-                            confirmDialog.onCancel();
+                        confirmDialog.cancelled();
+                        var callback = confirmDialog.onCancel;
+                        if (callback)
+                            callback();
 
-                        hide();
+                        confirmDialog.hide();
                     }
                 }
 
@@ -124,11 +126,12 @@ Item {
                     variant: "primary"
                     width: (parent.width - MSpacing.md) / 2
                     onClicked: {
-                        confirmed();
-                        if (confirmDialog.onConfirm)
-                            confirmDialog.onConfirm();
+                        confirmDialog.confirmed();
+                        var callback = confirmDialog.onConfirm;
+                        if (callback)
+                            callback();
 
-                        hide();
+                        confirmDialog.hide();
                     }
                 }
             }

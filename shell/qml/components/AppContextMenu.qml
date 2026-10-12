@@ -33,7 +33,7 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: hide()
+        onClicked: contextMenu.hide()
     }
 
     Rectangle {
@@ -97,8 +97,8 @@ Item {
                     onClicked: {
                         Logger.info("AppContextMenu", "App info for: " + contextMenu.appData.name);
                         HapticManager.light();
-                        appInfo();
-                        hide();
+                        contextMenu.appInfo();
+                        contextMenu.hide();
                     }
                 }
 
@@ -150,8 +150,8 @@ Item {
                     onClicked: {
                         Logger.info("AppContextMenu", "Uninstall: " + contextMenu.appData.name);
                         HapticManager.medium();
-                        uninstall();
-                        hide();
+                        contextMenu.uninstall();
+                        contextMenu.hide();
                         UIStore.showConfirmDialog("Uninstall " + contextMenu.appData.name + "?", "This app will be removed from your device.", function () {
                             Logger.info("AppContextMenu", "Confirmed uninstall");
                         });
