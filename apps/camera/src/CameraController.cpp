@@ -68,6 +68,7 @@ void CameraController::initialize() {
     m_captureSession->setRecorder(m_mediaRecorder);
     m_captureSession->setVideoOutput(m_videoSink);
 
+    connect(m_imageCapture, &QImageCapture::imageExposed, this, &CameraController::photoExposed);
     connect(m_imageCapture, &QImageCapture::imageSaved, this, &CameraController::onImageSaved);
     connect(m_imageCapture, &QImageCapture::errorOccurred, this, &CameraController::onImageError);
     connect(m_mediaRecorder, &QMediaRecorder::recorderStateChanged, this,

@@ -281,6 +281,18 @@ TestCase {
         verify(calls.lastIndexOf("stopRecording") >= 0 && calls.lastIndexOf("stopRecording") < calls.lastIndexOf("stop"));
     }
 
+    function test_flashOnExposureNotSave() {
+        const app = makeApp();
+        const overlay = child(app, "flashOverlay");
+        app.camera.photoExposed();
+        verify(overlay.visible);
+        tryVerify(() => !overlay.visible);
+        app.camera.photoSaved("file:///pictures/IMG_1.jpg");
+        verify(!overlay.visible, "no second flash when the photo is written");
+        app.camera.photoSaved("file:///pictures/IMG_2.jpg");
+        verify(overlay.visible, "a backend without exposure still flashes");
+    }
+
     function test_shutterWaitsForAFlip() {
         const app = makeApp();
         const shutter = child(app, "shutter");

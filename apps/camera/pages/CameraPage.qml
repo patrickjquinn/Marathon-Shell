@@ -18,6 +18,14 @@ Page {
     // The camera restarts during a flip; a capture then fails with "not ready".
     property bool flipping: false
     readonly property bool canShoot: camera.active && !flipping
+    property bool flashed: false
+
+    function flash() {
+        flashed = true;
+        feedback.play();
+        flashOverlay.opacity = 1;
+        flashFade.restart();
+    }
 
     function openSettings() {
         settings.show();
@@ -67,10 +75,14 @@ Page {
 
     Connections {
         target: page.camera
+        function onPhotoExposed() {
+            page.flash();
+        }
+        // Backends that never report exposure still flash, later.
         function onPhotoSaved(path) {
-            feedback.play();
-            flashOverlay.opacity = 1;
-            flashFade.restart();
+            if (!page.flashed)
+                page.flash();
+            page.flashed = false;
         }
         function onCameraFlipStarted() {
             page.flipping = true;
@@ -463,6 +475,7 @@ Page {
     Rectangle {
         id: flashOverlay
 
+        objectName: "flashOverlay"
         anchors.fill: parent
         color: Theme.lightPrimaryColor
         opacity: 0

@@ -26,6 +26,7 @@ QtObject {
     property var calls: []
 
     signal errorOccurred(string message)
+    signal photoExposed
     signal photoSaved(string path)
     signal cameraFlipStarted
     signal cameraFlipCompleted

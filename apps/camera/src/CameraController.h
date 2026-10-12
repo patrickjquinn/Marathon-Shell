@@ -120,6 +120,7 @@ class CameraController : public QObject {
     void recordingDurationChanged();
     void latestCaptureChanged();
     void errorOccurred(const QString &message);
+    void photoExposed();
     void photoSaved(const QString &path);
     void cameraFlipStarted();
     void cameraFlipCompleted();
