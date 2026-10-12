@@ -96,15 +96,16 @@ Rectangle {
         }
     }
 
+    // Taps on the buttons are read by navMouseArea, so a swipe that starts
+    // on one still navigates.
     Item {
         id: searchButton
 
+        objectName: "searchButton"
         anchors.left: parent.left
-        anchors.leftMargin: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Silica.Theme.iconSizeExtraSmall
-        height: Silica.Theme.iconSizeExtraSmall
-        z: 300
+        width: Silica.Theme.itemSizeExtraSmall
+        height: parent.height
         visible: !navBar.pinScreenMode
         opacity: navBar.pinScreenMode ? 0 : 1
 
@@ -131,26 +132,16 @@ Rectangle {
         Accessible.role: Accessible.Button
         Accessible.name: "Search"
         Accessible.onPressAction: navBar.toggleSearch()
-
-        MouseArea {
-            anchors.fill: parent
-            anchors.margins: -Silica.Theme.paddingMedium
-            onClicked: {
-                HapticManager.light();
-                navBar.toggleSearch();
-            }
-        }
     }
 
     Item {
         id: keyboardButton
 
+        objectName: "keyboardButton"
         anchors.right: parent.right
-        anchors.rightMargin: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Silica.Theme.iconSizeExtraSmall
-        height: Silica.Theme.iconSizeExtraSmall
-        z: 300
+        width: Silica.Theme.itemSizeExtraSmall
+        height: parent.height
 
         GlyphIcon {
             name: "keyboard"
@@ -175,15 +166,6 @@ Rectangle {
         Accessible.role: Accessible.Button
         Accessible.name: "Keyboard"
         Accessible.onPressAction: navBar.toggleKeyboard()
-
-        MouseArea {
-            anchors.fill: parent
-            anchors.margins: -Silica.Theme.paddingMedium
-            onClicked: {
-                HapticManager.light();
-                navBar.toggleKeyboard();
-            }
-        }
     }
 
     MouseArea {
@@ -196,8 +178,6 @@ Rectangle {
         property real lastTime: 0
         property bool isVerticalGesture: false
         property bool isHorizontalGesture: false
-        property bool isLeftZone: false
-        property bool isRightZone: false
         // Previous-frame cumulative diffY. Lets the QS-drag path compute
         // a per-frame height delta without resetting startY — preserving
         // a true cumulative diffY for isVerticalGesture detection and
@@ -217,9 +197,11 @@ Rectangle {
             velocityX = 0;
             isVerticalGesture = false;
             isHorizontalGesture = false;
-            isLeftZone = false;
-            isRightZone = false;
             prevDiffY = 0;
+        }
+
+        function pressedOn(button) {
+            return button.visible && button.contains(button.mapFromItem(navBar, navBar.startX, navBar.startY));
         }
 
         // A grab stolen mid-drag ends here instead of in onReleased.
@@ -235,14 +217,6 @@ Rectangle {
             isVerticalGesture = false;
             isHorizontalGesture = false;
             prevDiffY = 0;
-            var leftBoundary = parent.width * 0.15;
-            var rightBoundary = parent.width * 0.85;
-            isLeftZone = !navBar.pinScreenMode && mouse.x < leftBoundary;
-            isRightZone = mouse.x > rightBoundary;
-            if (isLeftZone)
-                Logger.info("NavBar", "Touch in LEFT ZONE (x=" + mouse.x + ")");
-            else if (isRightZone)
-                Logger.info("NavBar", "Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + navBar.pinScreenMode + ")");
         }
         onPositionChanged: mouse => {
             var now = Date.now();
@@ -264,7 +238,7 @@ Rectangle {
                     isHorizontalGesture = true;
             }
             if (isVerticalGesture) {
-                navBar.currentY = Math.max(0, diffY);
+                navBar.currentY = diffY;
                 navBar.currentX = 0;
                 if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
                     if (!UIStore.quickSettingsDragging)
@@ -282,7 +256,7 @@ Rectangle {
                     // runtime.
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
-                } else if (navBar.isAppOpen) {
+                } else if (navBar.isAppOpen && diffY > 0) {
                     var oldProgress = navBar.gestureProgress;
                     var progressThreshold = Constants.screenHeight * 0.25;
                     navBar.gestureProgress = Math.min(1, diffY / progressThreshold);
@@ -315,27 +289,14 @@ Rectangle {
                 "isAppOpen": navBar.isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
-            if ((isLeftZone || isRightZone) && diffY > 50) {
-                if (isLeftZone) {
-                    Logger.info("NavBar", "LEFT ZONE SWIPE-UP → Toggle Search (diffY: " + diffY + ")");
-                    HapticManager.medium();
+            if (!isVerticalGesture && !isHorizontalGesture) {
+                if (pressedOn(searchButton)) {
+                    HapticManager.light();
                     navBar.toggleSearch();
-                } else if (isRightZone) {
-                    Logger.info("NavBar", "RIGHT ZONE SWIPE-UP → Toggle Keyboard (diffY: " + diffY + ")");
-                    HapticManager.medium();
+                } else if (pressedOn(keyboardButton)) {
+                    HapticManager.light();
                     navBar.toggleKeyboard();
                 }
-                navBar.startX = 0;
-                navBar.startY = 0;
-                navBar.currentX = 0;
-                navBar.currentY = 0;
-                velocityX = 0;
-                velocityY = 0;
-                isVerticalGesture = false;
-                isLeftZone = false;
-                isRightZone = false;
-                navBar.gestureProgress = 0;
-                return;
             }
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
@@ -367,6 +328,14 @@ Rectangle {
                 navBar.currentX = 0;
                 navBar.currentY = 0;
                 navBar.gestureProgress = 0;
+                return;
+            }
+            // Pull down on the pill: quick settings. The bar sits at the
+            // screen edge, so any locked downward drag commits.
+            if (isVerticalGesture && diffY < 0) {
+                if (!navBar.pinScreenMode && !SessionStore.isLocked)
+                    UIStore.openQuickSettings();
+                resetGesture();
                 return;
             }
             if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
