@@ -1,297 +1,159 @@
 pragma ComponentBehavior: Bound
-
-import MarathonOS.Shell
-import MarathonOS.Services
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../MailLogic.js" as Logic
 
-// Day 9 — compose sheet pushed onto the Mail stack from inbox "compose"
-// action or message-view "reply" action.
-//
-// Wires the QML fields → MailService.send(to, cc, subject, body, attachments).
-// MailService.send constructs a multipart QMailMessage, persists via
-// QMailStore::addMessage, and kicks off QMailTransmitAction — which
-// dispatches through QMF's SMTP plugin using XOAUTH2 credentials via
-// our marathon-mail-oauth Rust helper (Day 4) / SASL plugin (Day 5).
-//
-// No-placeholder rules:
-//   • Empty body / empty To stays empty — never inject a default.
-//   • Send button is disabled until To is non-empty AND a current
-//     account is configured. If MailService is unavailable we show
-//     a service-down banner instead of letting the user type into
-//     a void.
-//   • Attachment list starts empty; attachments are picked via the
-//     XDG-portal file picker (Day 10 wires the portal call).
-//
-// Layout: MTopBar with a primary Send button, header column for the
-// recipient fields, wrap-text body. Leaving with edits saves a draft.
-Page {
-    id: page
+Dialog {
+    id: dialog
 
-    // ── In ────────────────────────────────────────────────────────
-    // Optional pre-fill for replies / "share to mail" flows.
+    property var mail
+    property QtObject draftStore
     property string defaultTo: ""
     property string defaultCc: ""
     property string defaultSubject: ""
     property string defaultBody: ""
-
-    // FAB-opened compose restores the saved draft; replies start from their prefill.
+    // A new message picks up the saved draft; replies start from their prefill.
     property bool restoreDraft: false
 
-    // ── Out / signals ─────────────────────────────────────────────
-    signal back
-    signal sent
-    signal draftSaved
-
-    // ── Derived ───────────────────────────────────────────────────
-    readonly property var mail: typeof MailService !== "undefined" ? MailService : null
-    readonly property bool serviceReady: mail !== null && mail.currentAccountId !== ""
-    readonly property bool canSend: serviceReady && toField.text.trim() !== ""
-    readonly property string draftKey: "email/composeDraft"
-    property var initialFields: ({})
+    readonly property bool serviceReady: mail.accounts !== null && mail.currentAccountId !== ""
     readonly property var fields: ({
-            "to": toField.text,
-            "cc": ccField.text,
-            "subject": subjectField.text,
-            "body": bodyArea.text
+            to: toField.text,
+            cc: ccField.text,
+            subject: subjectField.text,
+            body: bodyArea.text
         })
-    readonly property bool dirty: JSON.stringify(fields) !== JSON.stringify(initialFields)
-    property string sendError: ""
+    property bool ready: false
+    property bool edited: false
 
     function persistDraft() {
-        const empty = String(fields.to + fields.cc + fields.subject + fields.body).trim() === "";
-        SettingsManagerCpp.set(draftKey, empty ? "" : JSON.stringify(fields));
-        initialFields = fields;
-        return !empty;
+        draftStore.value = Logic.draft(fields);
     }
 
-    function send() {
-        if (!canSend)
+    canAccept: serviceReady && toField.text.trim() !== ""
+    onFieldsChanged: {
+        if (!ready)
             return;
-        sendError = "";
+        edited = true;
+        autosave.restart();
+    }
+    onAcceptBlocked: Notices.show(serviceReady ? qsTr("Add a recipient first") : qsTr("Add a mail account before sending"))
+    onAccepted: {
+        autosave.stop();
         if (mail.send(toField.text.trim(), ccField.text.trim(), subjectField.text, bodyArea.text, [])) {
-            SettingsManagerCpp.set(draftKey, "");
-            sent();
+            draftStore.value = "";
+            Notices.show(qsTr("Sending message"));
         } else {
-            sendError = "Your message wasn't sent. Check the email address and your connection, then try again.";
+            persistDraft();
+            Notices.show(qsTr("Your message wasn't sent. It's saved as a draft."));
         }
     }
-
-    background: Rectangle {
-        color: MColors.background
-    }
-
-    onBack: {
+    onRejected: {
         autosave.stop();
-        if (dirty && persistDraft())
-            draftSaved();
+        if (!edited)
+            return;
+        persistDraft();
+        if (draftStore.value !== "")
+            Notices.show(qsTr("Draft saved"));
     }
-    onFieldsChanged: if (dirty)
-        autosave.restart()
     Component.onCompleted: {
-        const saved = restoreDraft ? SettingsManagerCpp.get(draftKey, "") : "";
-        if (saved !== "") {
-            const d = JSON.parse(saved);
+        const d = restoreDraft ? Logic.parseDraft(draftStore.value) : null;
+        if (d) {
             toField.text = d.to;
             ccField.text = d.cc;
             subjectField.text = d.subject;
             bodyArea.text = d.body;
         }
-        initialFields = fields;
+        ready = true;
     }
 
     Timer {
         id: autosave
+
         interval: 2000
-        onTriggered: page.persistDraft()
+        onTriggered: dialog.persistDraft()
     }
 
-    MTopBar {
-        id: actionBar
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        title: page.defaultSubject !== "" ? "Reply" : "New message"
-        showBack: true
-        onBackClicked: page.back()
+    SilicaFlickable {
+        anchors.fill: parent
+        contentHeight: column.height + Theme.paddingLarge
 
-        actions: [
-            MButton {
-                text: "Send"
-                variant: "primary"
-                size: "compact"
-                iconName: "paper-plane-right"
-                disabled: !page.canSend
-                onClicked: page.send()
-            }
-        ]
-    }
+        Column {
+            id: column
 
-    // ── Service-unavailable banner ────────────────────────────────
-    Rectangle {
-        id: serviceBanner
-        visible: !page.serviceReady
-        anchors.top: actionBar.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: MSpacing.md
-        height: serviceBannerText.implicitHeight + MSpacing.lg
-        radius: MRadius.md
-        color: MColors.bb10Elevated
-        border.width: 1
-        border.color: MColors.borderDark
-        Text {
-            id: serviceBannerText
-            anchors.fill: parent
-            anchors.margins: MSpacing.sm
-            text: page.mail === null ? "Mail isn't available right now. Close Mail and open it again." : "Add a mail account before sending. Go back to the inbox to sign in."
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-            wrapMode: Text.WordWrap
-            verticalAlignment: Text.AlignVCenter
-        }
-    }
-
-    // ── Recipient fields ──────────────────────────────────────────
-    Column {
-        id: headerCol
-        anchors.top: serviceBanner.visible ? serviceBanner.bottom : actionBar.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.topMargin: MSpacing.md
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
-        spacing: MSpacing.sm
-
-        // From row — read-only display of current account's address.
-        Row {
             width: parent.width
-            spacing: MSpacing.sm
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "From"
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                width: 60
+
+            DialogHeader {
+                acceptText: qsTr("Send")
+                title: /^fwd:/i.test(dialog.defaultSubject) ? qsTr("Forward") : /^re:/i.test(dialog.defaultSubject) ? qsTr("Reply") : qsTr("New message")
             }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - 60 - MSpacing.sm
-                text: page.mail ? page.mail.currentAccountName || "—" : "—"
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                font.weight: MTypography.weightMedium
-                elide: Text.ElideRight
+            Label {
+                objectName: "serviceNotice"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingLarge
+                visible: !dialog.serviceReady
+                text: dialog.mail.accounts === null ? qsTr("Mail isn't available right now. Close Mail and open it again.") : qsTr("Add a mail account before sending. Go back to the inbox to sign in.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.errorColor
+            }
+            DetailItem {
+                objectName: "fromItem"
+                visible: dialog.serviceReady
+                label: qsTr("From")
+                value: dialog.mail.currentAccountName
+                alignment: Qt.AlignLeft
+            }
+            TextField {
+                id: toField
+
+                objectName: "toField"
+                width: parent.width
+                enabled: dialog.serviceReady
+                label: qsTr("To")
+                placeholderText: qsTr("To")
+                text: dialog.defaultTo
+                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: ccField.focus = true
+            }
+            TextField {
+                id: ccField
+
+                objectName: "ccField"
+                width: parent.width
+                enabled: dialog.serviceReady
+                label: qsTr("Cc")
+                placeholderText: qsTr("Cc")
+                text: dialog.defaultCc
+                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: subjectField.focus = true
+            }
+            TextField {
+                id: subjectField
+
+                objectName: "subjectField"
+                width: parent.width
+                enabled: dialog.serviceReady
+                label: qsTr("Subject")
+                placeholderText: qsTr("Subject")
+                text: dialog.defaultSubject
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: bodyArea.focus = true
+            }
+            TextArea {
+                id: bodyArea
+
+                objectName: "bodyArea"
+                width: parent.width
+                enabled: dialog.serviceReady
+                placeholderText: qsTr("Message")
+                text: dialog.defaultBody
             }
         }
 
-        MTextField {
-            id: toField
-            label: "To"
-            width: parent.width
-            text: page.defaultTo
-            placeholder: "email@example.com"
-            enabled: page.serviceReady
-        }
-
-        MTextField {
-            id: ccField
-            label: "Cc"
-            width: parent.width
-            text: page.defaultCc
-            placeholder: "(optional)"
-            enabled: page.serviceReady
-        }
-
-        MTextField {
-            id: subjectField
-            label: "Subject"
-            width: parent.width
-            text: page.defaultSubject
-            enabled: page.serviceReady
-        }
-    }
-
-    // Divider between header + body.
-    Rectangle {
-        id: headerDivider
-        anchors.top: headerCol.bottom
-        anchors.topMargin: MSpacing.md
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 1
-        color: MColors.whiteOverlay04
-    }
-
-    // ── Body — wrap text input ────────────────────────────────────
-    Flickable {
-        anchors.top: headerDivider.bottom
-        anchors.bottom: errorBanner.visible ? errorBanner.top : parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: MSpacing.md
-        contentWidth: width
-        contentHeight: bodyArea.implicitHeight + MSpacing.md
-        clip: true
-
-        TextArea {
-            id: bodyArea
-            width: parent.width
-            text: page.defaultBody
-            wrapMode: TextArea.Wrap
-            enabled: page.serviceReady
-            placeholderText: "Compose…"
-            color: MColors.textPrimary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeBody
-            background: null
-        }
-    }
-
-    // ── Error banner (post-send failure) ──────────────────────────
-    Rectangle {
-        id: errorBanner
-        visible: page.sendError !== ""
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: MSpacing.md
-        height: errorRow.implicitHeight + MSpacing.md
-        radius: MRadius.md
-        color: MColors.bb10Elevated
-        border.width: 1
-        border.color: MColors.errorDim
-
-        Row {
-            id: errorRow
-            anchors.fill: parent
-            anchors.leftMargin: MSpacing.md
-            anchors.rightMargin: MSpacing.sm
-            spacing: MSpacing.sm
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - retryButton.width - parent.spacing
-                text: page.sendError
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                wrapMode: Text.WordWrap
-            }
-            MButton {
-                id: retryButton
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Retry"
-                size: "compact"
-                onClicked: page.send()
-            }
-        }
+        VerticalScrollDecorator {}
     }
 }

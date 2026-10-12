@@ -1,82 +1,31 @@
 pragma ComponentBehavior: Bound
-
-import MarathonOS.Shell
-import MarathonOS.Services
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import "../MailLogic.js" as Logic
 
-// Classic-password IMAP/SMTP account setup. Reached from the no-account
-// state on EmailApp.qml's inbox via "Sign in with IMAP". This is the
-// shipping path for any provider that doesn't speak OAuth (Fastmail,
-// self-hosted IMAP, work mail behind app-passwords).
-//
-// Known providers fill the server settings from the email domain or a
-// provider chip, so the user only enters email + app password. Server
-// settings stay collapsed unless the provider is unknown.
+// Classic-password IMAP/SMTP account for providers without OAuth.
 Page {
     id: page
 
-    signal back
-    signal accountCreated(string accountId)
-
-    readonly property var mail: typeof MailService !== "undefined" ? MailService : null
-
-    readonly property var presets: ({
-            "fastmail": {
-                "imapHost": "imap.fastmail.com",
-                "imapPort": 993,
-                "imapEnc": 1,
-                "smtpHost": "smtp.fastmail.com",
-                "smtpPort": 465,
-                "smtpEnc": 1
-            },
-            "icloud": {
-                "imapHost": "imap.mail.me.com",
-                "imapPort": 993,
-                "imapEnc": 1,
-                "smtpHost": "smtp.mail.me.com",
-                "smtpPort": 587,
-                "smtpEnc": 2
-            },
-            "yahoo": {
-                "imapHost": "imap.mail.yahoo.com",
-                "imapPort": 993,
-                "imapEnc": 1,
-                "smtpHost": "smtp.mail.yahoo.com",
-                "smtpPort": 465,
-                "smtpEnc": 1
-            }
-        })
-    readonly property var domainPresets: ({
-            "fastmail.com": "fastmail",
-            "fastmail.fm": "fastmail",
-            "icloud.com": "icloud",
-            "me.com": "icloud",
-            "mac.com": "icloud",
-            "yahoo.com": "yahoo",
-            "ymail.com": "yahoo"
-        })
-
+    property var app
+    readonly property var mail: app.mail
     property string provider: ""
-    property bool showServerSettings: false
-    property int imapEnc: 1  // 0=none, 1=SSL, 2=STARTTLS
+    property int imapEnc: 1
     property int smtpEnc: 1
     property bool busy: false
     property string lastError: ""
 
     readonly property string email: emailField.text.trim()
-    readonly property bool emailValid: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
+    readonly property bool emailValid: Logic.emailValid(email)
     readonly property bool canSubmit: !busy && emailValid && passwordField.text.length > 0
 
-    function applyPreset(presetId) {
-        provider = presetId;
-        const p = presets[presetId];
+    function applyPreset(id) {
+        provider = id;
+        providerBox.currentIndex = Logic.providers.indexOf(id);
+        const p = Logic.presets[id];
         if (!p) {
-            showServerSettings = true;
+            serverSwitch.checked = true;
             return;
         }
         imapHostField.text = p.imapHost;
@@ -90,327 +39,265 @@ Page {
     function submit() {
         lastError = "";
         if (imapHostField.text.trim() === "" || smtpHostField.text.trim() === "") {
-            showServerSettings = true;
-            lastError = "Enter your provider's incoming and outgoing server names. Their help pages list them.";
+            serverSwitch.checked = true;
+            lastError = qsTr("Enter your provider's incoming and outgoing server names. Their help pages list them.");
             return;
         }
         busy = true;
-        // Defer so the busy state paints before the blocking add call.
+        // Lets the busy state paint before the blocking add call.
         addTimer.start();
     }
 
-    background: Rectangle {
-        color: MColors.background
+    function add() {
+        const name = nameField.text.trim();
+        const user = usernameField.text.trim();
+        const id = mail.addImapAccount(name || email, email, imapHostField.text.trim(), parseInt(imapPortField.text) || 0, imapEnc, smtpHostField.text.trim(), parseInt(smtpPortField.text) || 0, smtpEnc, user || email, passwordField.text);
+        busy = false;
+        if (id === "") {
+            lastError = qsTr("Couldn't sign in. Check your email address and password (many providers need an app password here) and the server settings, then try again.");
+            return;
+        }
+        passwordField.text = "";
+        app.showInbox();
     }
 
     Timer {
         id: addTimer
+
         interval: 50
-        onTriggered: {
-            const id = page.mail ? page.mail.addImapAccount(nameField.text.trim() !== "" ? nameField.text.trim() : page.email, page.email, imapHostField.text.trim(), parseInt(imapPortField.text) || 0, page.imapEnc, smtpHostField.text.trim(), parseInt(smtpPortField.text) || 0, page.smtpEnc, usernameField.text.trim() !== "" ? usernameField.text.trim() : page.email, passwordField.text) : "";
-            page.busy = false;
-            if (id !== "") {
-                passwordField.text = "";
-                page.accountCreated(id);
-            } else if (!page.mail) {
-                page.lastError = "Mail isn't available right now. Close Mail and open it again.";
-            } else {
-                page.lastError = "Couldn't sign in. Check your email address and password — many providers need an app password here — and the server settings, then try again.";
-            }
-        }
+        onTriggered: page.add()
     }
 
-    MTopBar {
-        id: topBar
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        title: "Add account"
-        showBack: true
-        onBackClicked: page.back()
-    }
-
-    Flickable {
-        anchors.top: topBar.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        contentHeight: col.implicitHeight + MSpacing.xl * 2
-        clip: true
+    SilicaFlickable {
+        anchors.fill: parent
+        contentHeight: column.height + Theme.paddingLarge
 
         Column {
-            id: col
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.leftMargin: MSpacing.lg
-            anchors.rightMargin: MSpacing.lg
-            anchors.topMargin: MSpacing.md
-            spacing: MSpacing.md
+            id: column
 
-            Text {
-                width: parent.width
-                text: "For Fastmail, iCloud, Yahoo and other providers. If your provider uses two-step sign-in, create an app password on their website and use it here."
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                wrapMode: Text.WordWrap
+            width: parent.width
+
+            PageHeader {
+                title: qsTr("Other (IMAP)")
             }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingLarge
+                text: qsTr("If your provider uses two-step sign-in, create an app password on their website and use it here.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.highlightColor
+            }
+            ComboBox {
+                id: providerBox
 
-            Flow {
-                width: parent.width
-                spacing: MSpacing.sm
+                objectName: "providerBox"
+                label: qsTr("Provider")
+                currentIndex: Logic.providers.indexOf("other")
+                menu: ContextMenu {
+                    Repeater {
+                        model: [qsTr("Fastmail"), qsTr("iCloud"), qsTr("Yahoo"), qsTr("Other")]
 
-                Repeater {
-                    model: [
-                        {
-                            "id": "fastmail",
-                            "label": "Fastmail"
-                        },
-                        {
-                            "id": "icloud",
-                            "label": "iCloud"
-                        },
-                        {
-                            "id": "yahoo",
-                            "label": "Yahoo"
-                        },
-                        {
-                            "id": "other",
-                            "label": "Other"
+                        MenuItem {
+                            required property string modelData
+                            required property int index
+
+                            text: modelData
+                            onClicked: page.applyPreset(Logic.providers[index])
                         }
-                    ]
-
-                    MButton {
-                        required property var modelData
-                        text: modelData.label
-                        size: "compact"
-                        variant: page.provider === modelData.id ? "primary" : "secondary"
-                        onClicked: page.applyPreset(modelData.id)
                     }
                 }
             }
-
-            MTextField {
+            TextField {
                 id: emailField
+
+                objectName: "emailField"
                 width: parent.width
-                label: "Email address"
-                placeholder: "you@example.com"
-                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase
-                errorText: page.email !== "" && !page.emailValid && !emailField.focused ? "Enter a full email address, like name@example.com." : ""
+                label: qsTr("Email address")
+                placeholderText: qsTr("you@example.com")
+                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                errorHighlight: page.email !== "" && !page.emailValid && !activeFocus
+                description: errorHighlight ? qsTr("Enter a full email address, like name@example.com") : ""
                 onTextChanged: {
-                    const domain = text.split("@")[1] || "";
-                    const preset = page.domainPresets[domain.trim().toLowerCase()];
-                    if (preset && preset !== page.provider)
+                    const preset = Logic.presetForEmail(text);
+                    if (preset !== "" && preset !== page.provider)
                         page.applyPreset(preset);
                 }
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: passwordField.focus = true
             }
-
-            MTextField {
+            PasswordField {
                 id: passwordField
-                width: parent.width
-                label: "Password or app password"
-                echoMode: TextInput.Password
-            }
 
-            MTextField {
+                objectName: "passwordField"
+                width: parent.width
+                label: qsTr("Password")
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: nameField.focus = true
+            }
+            TextField {
                 id: nameField
+
+                objectName: "nameField"
                 width: parent.width
-                label: "Your name (shown to recipients)"
-                placeholder: "Optional"
+                label: qsTr("Your name")
+                placeholderText: qsTr("Your name (optional)")
+                description: qsTr("Shown to people you write to")
+                EnterKey.iconSource: "image://theme/icon-m-enter-close"
+                EnterKey.onClicked: focus = false
             }
+            TextSwitch {
+                id: serverSwitch
 
-            Item {
-                width: parent.width
-                height: Math.round(44 * Constants.scaleFactor)
-
-                Accessible.role: Accessible.Button
-                Accessible.name: page.showServerSettings ? "Hide server settings" : "Show server settings"
-                Accessible.onPressAction: page.showServerSettings = !page.showServerSettings
-
-                Text {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Server settings"
-                    color: MColors.textPrimary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: MTypography.weightMedium
-                }
-                Icon {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: page.showServerSettings ? "caret-up" : "caret-down"
-                    size: 18
-                    color: MColors.textSecondary
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: page.showServerSettings = !page.showServerSettings
-                }
+                objectName: "serverSwitch"
+                text: qsTr("Server settings")
+                description: qsTr("Filled in for you for Fastmail, iCloud and Yahoo")
             }
 
             Column {
+                objectName: "serverSettings"
                 width: parent.width
-                spacing: MSpacing.md
-                visible: page.showServerSettings
+                visible: serverSwitch.checked
 
-                Text {
-                    text: "INCOMING (IMAP)"
-                    color: MColors.textTertiary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeEyebrow
-                    font.weight: MTypography.weightBold
-                    font.letterSpacing: MTypography.trackingEyebrow
+                SectionHeader {
+                    text: qsTr("Incoming server (IMAP)")
                 }
-                MTextField {
+                TextField {
                     id: imapHostField
+
+                    objectName: "imapHostField"
                     width: parent.width
-                    label: "Server"
-                    placeholder: "imap.example.com"
+                    label: qsTr("Server")
+                    placeholderText: qsTr("imap.example.com")
                     inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                 }
-                Row {
+                TextField {
+                    id: imapPortField
+
+                    objectName: "imapPortField"
                     width: parent.width
-                    spacing: MSpacing.sm
+                    label: qsTr("Port")
+                    text: "993"
+                    inputMethodHints: Qt.ImhDigitsOnly
+                }
+                ComboBox {
+                    objectName: "imapEncBox"
+                    label: qsTr("Encryption")
+                    currentIndex: Logic.encryptions.indexOf(page.imapEnc)
+                    menu: ContextMenu {
+                        Repeater {
+                            model: [qsTr("SSL"), qsTr("STARTTLS"), qsTr("None")]
 
-                    MTextField {
-                        id: imapPortField
-                        width: Math.round(96 * Constants.scaleFactor)
-                        label: "Port"
-                        text: "993"
-                        inputMethodHints: Qt.ImhDigitsOnly
-                    }
-                    Repeater {
-                        model: [
-                            {
-                                "enc": 1,
-                                "label": "SSL",
-                                "port": 993
-                            },
-                            {
-                                "enc": 2,
-                                "label": "STARTTLS",
-                                "port": 143
-                            },
-                            {
-                                "enc": 0,
-                                "label": "None",
-                                "port": 143
-                            }
-                        ]
+                            MenuItem {
+                                required property string modelData
+                                required property int index
 
-                        MButton {
-                            required property var modelData
-                            anchors.bottom: parent.bottom
-                            text: modelData.label
-                            size: "compact"
-                            variant: page.imapEnc === modelData.enc ? "primary" : "secondary"
-                            onClicked: {
-                                page.imapEnc = modelData.enc;
-                                imapPortField.text = String(modelData.port);
+                                text: modelData
+                                onClicked: {
+                                    page.imapEnc = Logic.encryptions[index];
+                                    imapPortField.text = String(Logic.imapPorts[page.imapEnc]);
+                                }
                             }
                         }
                     }
                 }
 
-                Text {
-                    text: "OUTGOING (SMTP)"
-                    color: MColors.textTertiary
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: MTypography.sizeEyebrow
-                    font.weight: MTypography.weightBold
-                    font.letterSpacing: MTypography.trackingEyebrow
+                SectionHeader {
+                    text: qsTr("Outgoing server (SMTP)")
                 }
-                MTextField {
+                TextField {
                     id: smtpHostField
+
+                    objectName: "smtpHostField"
                     width: parent.width
-                    label: "Server"
-                    placeholder: "smtp.example.com"
+                    label: qsTr("Server")
+                    placeholderText: qsTr("smtp.example.com")
                     inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                 }
-                Row {
+                TextField {
+                    id: smtpPortField
+
+                    objectName: "smtpPortField"
                     width: parent.width
-                    spacing: MSpacing.sm
+                    label: qsTr("Port")
+                    text: "465"
+                    inputMethodHints: Qt.ImhDigitsOnly
+                }
+                ComboBox {
+                    objectName: "smtpEncBox"
+                    label: qsTr("Encryption")
+                    currentIndex: Logic.encryptions.indexOf(page.smtpEnc)
+                    menu: ContextMenu {
+                        Repeater {
+                            model: [qsTr("SSL"), qsTr("STARTTLS"), qsTr("None")]
 
-                    MTextField {
-                        id: smtpPortField
-                        width: Math.round(96 * Constants.scaleFactor)
-                        label: "Port"
-                        text: "465"
-                        inputMethodHints: Qt.ImhDigitsOnly
-                    }
-                    Repeater {
-                        model: [
-                            {
-                                "enc": 1,
-                                "label": "SSL",
-                                "port": 465
-                            },
-                            {
-                                "enc": 2,
-                                "label": "STARTTLS",
-                                "port": 587
-                            },
-                            {
-                                "enc": 0,
-                                "label": "None",
-                                "port": 25
-                            }
-                        ]
+                            MenuItem {
+                                required property string modelData
+                                required property int index
 
-                        MButton {
-                            required property var modelData
-                            anchors.bottom: parent.bottom
-                            text: modelData.label
-                            size: "compact"
-                            variant: page.smtpEnc === modelData.enc ? "primary" : "secondary"
-                            onClicked: {
-                                page.smtpEnc = modelData.enc;
-                                smtpPortField.text = String(modelData.port);
+                                text: modelData
+                                onClicked: {
+                                    page.smtpEnc = Logic.encryptions[index];
+                                    smtpPortField.text = String(Logic.smtpPorts[page.smtpEnc]);
+                                }
                             }
                         }
                     }
                 }
-
-                MTextField {
+                TextField {
                     id: usernameField
+
+                    objectName: "usernameField"
                     width: parent.width
-                    label: "Username"
-                    placeholder: "Same as email address"
-                    inputMethodHints: Qt.ImhNoAutoUppercase
+                    label: qsTr("Username")
+                    placeholderText: qsTr("Username (same as email address)")
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                 }
             }
 
-            Text {
-                width: parent.width
+            Label {
+                objectName: "error"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                topPadding: Theme.paddingLarge
                 visible: page.lastError !== ""
                 text: page.lastError
-                color: MColors.error
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                wrapMode: Text.WordWrap
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.errorColor
             }
-
-            MButton {
+            Item {
                 width: parent.width
-                text: page.busy ? "Signing in…" : "Add account"
-                variant: "primary"
-                controlState: page.busy ? "loading" : "default"
-                disabled: !page.canSubmit
+                height: Theme.paddingLarge
+            }
+            Button {
+                objectName: "signInButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Sign in")
+                enabled: page.canSubmit
+                visible: !page.busy
                 onClicked: page.submit()
             }
-
-            Text {
-                width: parent.width
+            BusyIndicator {
+                anchors.horizontalCenter: parent.horizontalCenter
+                size: BusyIndicatorSize.Medium
+                running: page.busy
+                visible: running
+            }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                topPadding: Theme.paddingMedium
                 visible: page.busy
-                text: "Checking your account. This can take a few seconds."
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
+                text: qsTr("Checking your account. This can take a few seconds.")
                 horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.highlightColor
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

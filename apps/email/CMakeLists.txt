@@ -1,6 +1,10 @@
 set(APP_NAME email)
 
-file(GLOB_RECURSE QML_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.qml")
+file(GLOB_RECURSE QML_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.js"
+)
+list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Email"

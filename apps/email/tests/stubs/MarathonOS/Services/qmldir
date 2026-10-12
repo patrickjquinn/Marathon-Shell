@@ -1,0 +1,2 @@
+module MarathonOS.Services
+singleton MailService 1.0 MailService.qml
