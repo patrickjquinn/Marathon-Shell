@@ -34,14 +34,6 @@ TestCase {
         tryCompare(a.pageStack, "depth", 1);
     }
 
-    // Marathon's pill is the back control: no Silica back glow on pages.
-    function test_noPageStackBackGlow() {
-        const a = createTemporaryObject(app, testCase);
-        a.pageStack.push(page, {}, PageStackAction.Immediate);
-        tryVerify(function () { return a.pageStack._pageStackIndicator !== null; });
-        verify(!a.pageStack._pageStackIndicator.visible);
-    }
-
     function test_backOnFirstPageMinimises() {
         const a = createTemporaryObject(app, testCase);
         minimizeSpy.target = a;

@@ -18,12 +18,4 @@ S.ApplicationWindow {
         return true;
     }
 
-    // Marathon's pill is the back control; Silica's back glow on the page
-    // edge would only duplicate it.
-    Binding {
-        target: root.pageStack ? root.pageStack._pageStackIndicator : null
-        property: "visible"
-        value: false
-        when: root.pageStack !== null && root.pageStack._pageStackIndicator !== null
-    }
 }
