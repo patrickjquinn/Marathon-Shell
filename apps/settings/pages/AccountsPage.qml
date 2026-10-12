@@ -29,9 +29,22 @@ Page {
             checkingId = id;
     }
 
+    onCheckingIdChanged: checkingId !== "" ? checkTimeout.restart() : checkTimeout.stop()
+
     function openAddDialog(error) {
         const dialog = pageStack.push(Qt.resolvedUrl("AddAccountDialog.qml"), Object.assign({ error: error || "" }, error ? entered : {}));
         dialog.accepted.connect(() => page.addAccount(dialog.displayName, dialog.baseUrl, dialog.username, dialog.secret));
+    }
+
+    // Discovery sends nothing for a server with no address book.
+    Timer {
+        id: checkTimeout
+
+        interval: 30000
+        onTriggered: {
+            page.checkingId = "";
+            Notices.show(qsTr("Account added, but the server didn't confirm it yet"));
+        }
     }
 
     Connections {
