@@ -10,6 +10,7 @@ Dialog {
     property var contact: null
 
     canAccept: nameField.text.trim().length > 0 && Phone.digits(phoneField.text).length > 0
+    onAcceptBlocked: Notices.show(nameField.text.trim().length === 0 ? qsTr("Add a name first") : qsTr("Add a phone number first"))
     onAccepted: {
         const name = nameField.text.trim();
         const email = emailField.text.trim();

@@ -28,6 +28,12 @@ TestCase {
         }
     }
 
+    SignalSpy {
+        id: blockedSpy
+
+        signalName: "acceptBlocked"
+    }
+
     function init() {
         Telephony.reset();
         Contacts.reset();
@@ -131,6 +137,11 @@ TestCase {
         waitIdle(app);
         const dialog = app.pageStack.currentPage;
         verify(!dialog.canAccept);
+        blockedSpy.target = dialog;
+        blockedSpy.clear();
+        dialog.accept();
+        compare(blockedSpy.count, 1);
+        verify(app.pageStack.currentPage === dialog);
         findChild(dialog, "nameField").text = "  Edsger ";
         verify(!dialog.canAccept);
         findChild(dialog, "phoneField").text = "+31 20 555 0000";
