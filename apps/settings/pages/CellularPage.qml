@@ -44,7 +44,7 @@ Page {
                 objectName: "modeCombo"
                 width: parent.width
                 visible: page.ready && Modem.supportedModes.length > 1
-                label: qsTr("Preferred network type")
+                label: qsTr("Network mode")
                 Binding on currentIndex {
                     value: Modem.supportedModes.indexOf(Modem.allowedModes)
                 }
