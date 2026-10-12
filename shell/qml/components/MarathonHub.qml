@@ -27,8 +27,11 @@ Rectangle {
     // Sailfish's Events view: the blurred ambience, opaque even over an app.
     color: "transparent"
 
+    // The window's size, not the hub's: the peek animates the hub's width,
+    // and each new size would reload the blurred wallpaper mid-animation.
     KeelAmbienceBackground {
-        anchors.fill: parent
+        width: hub.Window.width
+        height: hub.Window.height
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
     }
