@@ -93,11 +93,21 @@ ApplicationWindow {
     }
 
     function showIncoming(number) {
+        if (endedTimer.running) {
+            endedTimer.stop();
+            closeCallPages();
+        }
         callNumber = number;
         callName = contactName(number);
         callStartedAt = 0;
         if (!incomingPage && !callPage)
             incomingPage = pageStack.push(Qt.resolvedUrl("pages/IncomingCallPage.qml"), { phone: root });
+    }
+
+    function finishCall() {
+        callNumber = "";
+        callName = "";
+        closeCallPages();
     }
 
     function closeCallPages() {
@@ -136,6 +146,13 @@ ApplicationWindow {
 
     initialPage: emergencyOnly ? emergencyPage : mainPage
 
+    Timer {
+        id: endedTimer
+
+        interval: 1500
+        onTriggered: root.finishCall()
+    }
+
     Connections {
         target: Telephony
 
@@ -146,9 +163,15 @@ ApplicationWindow {
             const state = Telephony.callState;
             if (state === "idle" || state === "terminated") {
                 root.dialedNumber = "";
-                root.callNumber = "";
-                root.callName = "";
-                root.closeCallPages();
+                // The other side hung up: leave "Call ended" and the length on screen briefly.
+                if (root.callPage && root.callStartedAt > 0) {
+                    if (!endedTimer.running) {
+                        root.callPage.endedAt = Date.now();
+                        endedTimer.start();
+                    }
+                } else {
+                    root.finishCall();
+                }
             } else if (state === "active") {
                 if (root.callStartedAt === 0)
                     root.callStartedAt = Date.now();

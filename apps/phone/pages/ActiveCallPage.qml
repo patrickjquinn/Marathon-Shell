@@ -13,9 +13,12 @@ Page {
     property bool keypadOpen: false
     property string tones: ""
     property real now: Date.now()
+    property real endedAt: 0
 
     readonly property bool connected: phone.callState === "active"
     readonly property string callStatus: {
+        if (endedAt > 0)
+            return Phone.duration((endedAt - phone.callStartedAt) / 1000);
         if (connected && phone.callStartedAt > 0)
             return Phone.duration((now - phone.callStartedAt) / 1000);
         if (phone.callState === "held")
@@ -77,11 +80,21 @@ Page {
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeHuge
             font.weight: Font.ExtraLight
-            Accessible.name: root.connected ? qsTr("Call duration %1").arg(text) : text
+            Accessible.name: root.connected || root.endedAt > 0 ? qsTr("Call duration %1").arg(text) : text
+        }
+        Label {
+            objectName: "endedLabel"
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            visible: root.endedAt > 0
+            text: qsTr("Call ended")
+            color: Theme.highlightColor
+            font.pixelSize: Theme.fontSizeLarge
         }
     }
 
     Row {
+        visible: root.endedAt === 0
         anchors {
             top: info.bottom
             topMargin: Theme.paddingLarge
@@ -139,6 +152,7 @@ Page {
             bottomMargin: 2 * Theme.paddingLarge
         }
         preferredWidth: Theme.buttonWidthLarge
+        enabled: root.endedAt === 0
         icon.source: "image://theme/icon-m-end-call"
         text: qsTr("End call")
         onClicked: {

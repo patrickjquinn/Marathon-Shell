@@ -146,6 +146,47 @@ TestCase {
         compare(findChild(app.callPage, "statusLabel").text, "1:05");
     }
 
+    function test_remoteHangupShowsCallEnded() {
+        const app = makeApp();
+        app.call("5551234567");
+        Telephony.setState("active");
+        tryVerify(() => app.callPage !== null);
+        waitIdle(app);
+        app.callStartedAt = Date.now() - 222000;
+        Telephony.setState("idle");
+        const page = app.callPage;
+        verify(page !== null);
+        verify(findChild(page, "endedLabel").visible);
+        compare(findChild(page, "statusLabel").text, "3:42");
+        compare(findChild(page, "nameLabel").text, "Grace Hopper");
+        verify(!findChild(page, "endCallButton").enabled);
+        tryVerify(() => app.callPage === null && app.pageStack.depth === 1 && !app.pageStack.busy, 4000);
+        compare(app.callNumber, "");
+    }
+
+    function test_ownHangupClosesAtOnce() {
+        const app = makeApp();
+        app.call("5551234567");
+        Telephony.setState("active");
+        tryVerify(() => app.callPage !== null);
+        waitIdle(app);
+        findChild(app.callPage, "endCallButton").clicked(null);
+        verify(app.callPage === null);
+        Telephony.setState("idle");
+        tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
+    }
+
+    function test_incomingDuringCallEndedShowsIncoming() {
+        const app = makeApp();
+        app.call("5551234567");
+        Telephony.setState("active");
+        tryVerify(() => app.callPage !== null);
+        waitIdle(app);
+        Telephony.setState("idle");
+        Telephony.incomingCall("0871234567");
+        tryVerify(() => app.incomingPage !== null && app.callPage === null);
+    }
+
     function test_returnToCallAfterLeavingPage() {
         const app = makeApp();
         app.call("5551234567");
