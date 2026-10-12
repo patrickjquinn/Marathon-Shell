@@ -138,11 +138,7 @@ void SettingsManager::onSettingsFileChanged(const QString &path) {
 
 namespace {
     QString defaultSystemDataDir() {
-#ifdef Q_OS_MACOS
-        return "/usr/local/share/marathon-shell";
-#else
         return "/usr/share/marathon-shell";
-#endif
     }
 
     QString dataDirFromEnvOrDefault() {
