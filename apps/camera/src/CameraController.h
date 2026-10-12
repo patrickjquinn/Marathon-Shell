@@ -44,7 +44,6 @@ class CameraController : public QObject {
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
     Q_PROPERTY(int recordingDuration READ recordingDuration NOTIFY recordingDurationChanged)
 
-    Q_PROPERTY(QString savePath READ savePath WRITE setSavePath NOTIFY savePathChanged)
     Q_PROPERTY(QString latestPhotoPath READ latestPhotoPath NOTIFY latestPhotoPathChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorOccurred)
 
@@ -83,8 +82,6 @@ class CameraController : public QObject {
     bool             isRecording() const;
     int              recordingDuration() const;
 
-    QString          savePath() const;
-    void             setSavePath(const QString &path);
     QString          latestPhotoPath() const;
     QString          errorMessage() const;
 
@@ -114,7 +111,6 @@ class CameraController : public QObject {
     void timerActiveChanged();
     void recordingChanged();
     void recordingDurationChanged();
-    void savePathChanged();
     void latestPhotoPathChanged();
     void errorOccurred(const QString &message);
     void photoSaved(const QString &path);

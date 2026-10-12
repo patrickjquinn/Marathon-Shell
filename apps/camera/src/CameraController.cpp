@@ -349,20 +349,6 @@ int CameraController::recordingDuration() const {
     return m_recordingDuration;
 }
 
-QString CameraController::savePath() const {
-    return m_savePath;
-}
-
-void CameraController::setSavePath(const QString &path) {
-    if (m_savePath == path)
-        return;
-
-    m_savePath = path;
-    QDir().mkpath(m_savePath);
-    emit savePathChanged();
-    scanForLatestPhoto();
-}
-
 QString CameraController::latestPhotoPath() const {
     return m_latestPhotoPath;
 }
