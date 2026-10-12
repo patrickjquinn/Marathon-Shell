@@ -32,4 +32,8 @@ QtObject {
     function disconnectDevice(address) {
         record(["disconnect", address]);
     }
+    function unpairDevice(address) {
+        record(["unpair", address]);
+        pairedDevices = pairedDevices.filter(d => d.address !== address);
+    }
 }

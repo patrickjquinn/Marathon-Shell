@@ -523,16 +523,11 @@ void SettingsController::resolveDependencies() {
         m_bluetoothManager = context->contextProperty("BluetoothManagerCpp").value<QObject *>();
         if (m_bluetoothManager) {
             const QMetaObject *meta    = m_bluetoothManager->metaObject();
-            const int          enabled = meta->indexOfSignal("enabledChanged()");
             const int          paired  = meta->indexOfSignal("pairingSucceeded(QString)");
             const int          failed  = meta->indexOfSignal("pairingFailed(QString,QString)");
             const int          pin     = meta->indexOfSignal("pinRequested(QString,QString)");
             const int          passkey = meta->indexOfSignal("passkeyRequested(QString,QString)");
             const int confirm = meta->indexOfSignal("passkeyConfirmation(QString,QString,quint32)");
-            if (enabled != -1) {
-                QMetaObject::connect(m_bluetoothManager, enabled, this,
-                                     metaObject()->indexOfSlot("handleBluetoothEnabledChanged()"));
-            }
             if (paired != -1) {
                 QMetaObject::connect(
                     m_bluetoothManager, paired, this,
@@ -559,7 +554,6 @@ void SettingsController::resolveDependencies() {
                     metaObject()->indexOfSlot(
                         "handleBluetoothPasskeyConfirmation(QString,QString,quint32)"));
             }
-            handleBluetoothEnabledChanged();
         }
     }
 
@@ -643,21 +637,6 @@ void SettingsController::handleWifiConnectionSuccess() {
 void SettingsController::handleWifiConnectionFailed(const QString &message) {
     m_wifiDialogConnecting = false;
     setWifiDialogError(message);
-}
-
-void SettingsController::handleBluetoothEnabledChanged() {
-    if (!m_bluetoothManager) {
-        return;
-    }
-    const QVariant enabled = m_bluetoothManager->property("enabled");
-    if (!enabled.isValid()) {
-        return;
-    }
-    if (enabled.toBool()) {
-        QMetaObject::invokeMethod(m_bluetoothManager, "startScan");
-    } else {
-        QMetaObject::invokeMethod(m_bluetoothManager, "stopScan");
-    }
 }
 
 void SettingsController::handleBluetoothPairingSucceeded(const QString &) {

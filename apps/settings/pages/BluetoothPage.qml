@@ -25,8 +25,32 @@ Page {
             Bluetooth.connectDevice(device.address);
     }
 
+    // Scans only while the page is in front, like Jolla Settings.
+    function updateScan() {
+        const wanted = status === PageStatus.Active && Bluetooth.enabled;
+        if (wanted && !Bluetooth.scanning)
+            Bluetooth.startScan();
+        else if (!wanted && Bluetooth.scanning)
+            Bluetooth.stopScan();
+    }
+
     onDialogWantedChanged: Qt.callLater(showDialog)
-    onStatusChanged: Qt.callLater(showDialog)
+    onStatusChanged: {
+        updateScan();
+        Qt.callLater(showDialog);
+    }
+    Component.onDestruction: {
+        if (Bluetooth.scanning)
+            Bluetooth.stopScan();
+    }
+
+    Connections {
+        target: Bluetooth
+
+        function onEnabledChanged() {
+            page.updateScan();
+        }
+    }
 
     component DeviceItem: ListItem {
         id: item
@@ -136,6 +160,14 @@ Page {
                         MenuItem {
                             text: paired.modelData.connected ? qsTr("Disconnect") : qsTr("Connect")
                             onClicked: page.toggleConnection(paired.modelData)
+                        }
+                        MenuItem {
+                            objectName: "removeItem"
+                            text: qsTr("Remove")
+                            onClicked: {
+                                const address = paired.modelData.address;
+                                paired.remorseDelete(() => Bluetooth.unpairDevice(address));
+                            }
                         }
                     }
                     onClicked: page.toggleConnection(modelData)

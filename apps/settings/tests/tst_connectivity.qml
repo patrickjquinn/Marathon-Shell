@@ -138,14 +138,37 @@ TestCase {
         verify(Bluetooth.enabled);
         Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: true, paired: true }, { name: "Keys", address: "BB", connected: false, paired: true }];
         compare(child(s.page, "pairedDevices").count, 2);
+        verify(Bluetooth.scanning);
+        Bluetooth.calls = [];
         child(s.page, "paired-AA").clicked(null);
         child(s.page, "paired-BB").clicked(null);
         compare(Bluetooth.calls, [["disconnect", "AA"], ["connect", "BB"]]);
         verify(child(s.page, "noDevices").visible);
         child(s.page, "scanItem").clicked();
-        verify(Bluetooth.scanning);
-        child(s.page, "scanItem").clicked();
         verify(!Bluetooth.scanning);
+        child(s.page, "scanItem").clicked();
+        verify(Bluetooth.scanning);
+    }
+
+    function test_bluetoothScansWhileOpen() {
+        Bluetooth.enabled = true;
+        const s = open("bluetooth");
+        tryVerify(() => Bluetooth.scanning);
+        s.app.pageStack.pop(null, PageStackAction.Immediate);
+        tryVerify(() => !Bluetooth.scanning);
+    }
+
+    function test_bluetoothRemovePaired() {
+        Bluetooth.enabled = true;
+        Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: false, paired: true }];
+        const s = open("bluetooth");
+        const menu = child(s.page, "paired-AA").openMenu();
+        tryVerify(() => menu._open && menu.height > 0);
+        wait(300);
+        mouseClick(findChild(menu, "removeItem"));
+        verify(!Bluetooth.calls.some(c => c[0] === "unpair"));
+        tryVerify(() => Bluetooth.calls.some(c => c[0] === "unpair" && c[1] === "AA"), 10000);
+        compare(child(s.page, "pairedDevices").count, 0);
     }
 
     function test_bluetoothPairJustWorks() {

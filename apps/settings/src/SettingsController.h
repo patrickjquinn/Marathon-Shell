@@ -128,7 +128,6 @@ class SettingsController : public QObject {
     void                updateSystemInfo();
     void                handleWifiConnectionSuccess();
     void                handleWifiConnectionFailed(const QString &message);
-    void                handleBluetoothEnabledChanged();
     void                handleBluetoothPairingSucceeded(const QString &address);
     void                handleBluetoothPairingFailed(const QString &address, const QString &error);
     void                handleBluetoothPinRequested(const QString &address, const QString &name);
