@@ -1258,6 +1258,26 @@ int main(int argc, char *argv[]) {
         appScanner->scanApplications();
 #endif
 
+            // "Hide desktop apps" applies as soon as it is switched.
+            QObject::connect(
+                settingsManager, &SettingsManager::filterMobileFriendlyAppsChanged, &app,
+                [appModel, settingsManager, searchPaths]() {
+                    DesktopFileParser  parser;
+                    const QVariantList apps = parser.scanApplications(
+                        searchPaths, settingsManager->filterMobileFriendlyApps());
+                    QSet<QString> seen;
+                    for (const QVariant &v : apps)
+                        seen.insert(v.toMap().value(QStringLiteral("id")).toString());
+                    for (const QString &type : {QStringLiteral("native"), QStringLiteral("flatpak")}) {
+                        const QStringList existing = appModel->appIdsByType(type);
+                        for (const QString &id : existing) {
+                            if (!seen.contains(id))
+                                appModel->removeApp(id);
+                        }
+                    }
+                    appModel->addApps(apps);
+                });
+
             // The user directory only appears with the first flatpak install,
             // which is exactly the change this watch exists to catch, so
             // create it rather than skip it.
@@ -1279,10 +1299,10 @@ int main(int argc, char *argv[]) {
                                  qOverload<>(&QTimer::start));
 
                 QObject::connect(
-                    debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, filterMobile]() {
+                    debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, settingsManager]() {
                         DesktopFileParser  parser;
-                        const QVariantList apps =
-                            parser.scanApplications(flatpakDirs, filterMobile);
+                        const QVariantList apps = parser.scanApplications(
+                            flatpakDirs, settingsManager->filterMobileFriendlyApps());
 
                         QSet<QString> seen;
                         for (const QVariant &v : apps)
