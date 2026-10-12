@@ -9,14 +9,8 @@ file(GLOB_RECURSE QML_FILES
 )
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
-set(SOURCES
-    # Future: src/notesmanager.cpp
-    # Future: src/notessync.cpp
-)
-
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Notes"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES ${SOURCES}
 )
