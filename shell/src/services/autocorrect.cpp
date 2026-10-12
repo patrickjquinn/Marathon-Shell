@@ -83,24 +83,6 @@ QString AutoCorrect::correct(const QString &word) {
     return word;
 }
 
-QString AutoCorrect::shouldCorrect(const QString &word) {
-    if (!m_enabled || word.size() < 3) {
-        return {};
-    }
-    QString corrected = correct(word);
-    if (corrected != word) {
-        return corrected;
-    }
-    return {};
-}
-
-void AutoCorrect::learnCorrection(const QString &typo, const QString &correction) {
-    if (typo.isEmpty() || correction.isEmpty()) {
-        return;
-    }
-    m_commonTypos.insert(typo.toLower(), correction);
-}
-
 int AutoCorrect::levenshteinDistance(const QString &first, const QString &second) const {
     if (first.isEmpty()) {
         return second.size();

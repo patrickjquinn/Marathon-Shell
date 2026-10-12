@@ -23,8 +23,6 @@ class AutoCorrect : public QObject {
     void                setEnabled(bool enabled);
 
     Q_INVOKABLE QString correct(const QString &word);
-    Q_INVOKABLE QString shouldCorrect(const QString &word);
-    Q_INVOKABLE void    learnCorrection(const QString &typo, const QString &correction);
 
   signals:
     void enabledChanged();
