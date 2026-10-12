@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=39
+pkgrel=40
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -305,5 +305,5 @@ a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb
 962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
 4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
 c02b29a3a33e11c1d9605ff96f272c5026d7958dd7acf6fff79a3826e5a83960c815707485e93259b8e47a813c91a9c5ac2cbe55e7eeb678c5c0968a1274ad41  marathon-session.target
-2fb2c1e9b5d47ce35765a5df82847735c5d105bdecf1a2fc59d4a482c8d4f68e6957ff7d0b52c8a7ed1226172696ca5f5af6900394e5ba6e82b32646d1458f49  marathon-portals.conf
+3c49d678793a67b2a96313d9ec1d2511ac9349b9f90fa72d4d454271c5b37c91efd98f6cf975f3e51ad1d851a9cdbb5558448ac578cb8eebe50b294c183497a7  marathon-portals.conf
 "

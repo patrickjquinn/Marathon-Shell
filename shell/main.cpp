@@ -63,6 +63,7 @@
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
 #include "src/services/ngfservice.h"
+#include "src/dbus/portalsettings.h"
 #include "src/managers/bluetoothmanager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -1087,6 +1088,17 @@ int main(int argc, char *argv[]) {
             davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
+        auto *portalSettings = new PortalSettings(&app);
+        portalSettings->setAmbience(ambienceService->ambience());
+        QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,
+                         &PortalSettings::setAmbience);
+        if (!QDBusConnection::sessionBus().registerObject(
+                QStringLiteral("/org/freedesktop/portal/desktop"), portalSettings,
+                QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
+                    QDBusConnection::ExportAllProperties) ||
+            !QDBusConnection::sessionBus().registerService(
+                QStringLiteral("org.freedesktop.impl.portal.desktop.marathon")))
+            qWarning() << "[MarathonShell] Portal settings backend not registered";
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

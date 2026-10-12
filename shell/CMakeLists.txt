@@ -137,6 +137,7 @@ set(SOURCES
     src/services/ambiencederivation.cpp
     src/services/ambienceservice.cpp
     src/services/ngfservice.cpp
+    src/dbus/portalsettings.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
     src/services/domainsuggestions.h
@@ -459,6 +460,8 @@ qt6_add_qml_module(marathon-shell
         src/services/ambienceservice.h
         src/services/ngfservice.cpp
         src/services/ngfservice.h
+        src/dbus/portalsettings.cpp
+        src/dbus/portalsettings.h
         src/services/surfaceregistry.cpp
         src/services/surfaceregistry.h
         src/services/domainsuggestions.cpp
@@ -689,3 +692,5 @@ endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon.portal
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xdg-desktop-portal/portals)
