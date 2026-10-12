@@ -1,11 +1,10 @@
 #include "marathonappverifier.h"
-#include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QTemporaryDir>
+#include "marathon-core-native/src/lib.rs.h"
 #include <syslog.h>
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
@@ -48,97 +47,53 @@ bool MarathonAppVerifier::isGPGAvailable() {
 MarathonAppVerifier::VerificationResult
 MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
                                          const QString &signaturePath) {
-    if (!isGPGAvailable()) {
-        m_lastError = "GPG is not installed or not available";
-        return GPGNotAvailable;
-    }
+    const QByteArray                         manifest  = manifestPath.toUtf8();
+    const QByteArray                         signature = signaturePath.toUtf8();
+    const QByteArray                         keysDir   = getTrustedKeysDir().toUtf8();
+    const marathon::native::SignatureVerdict verdict = marathon::native::verify_manifest_signature(
+        rust::Str(manifest.constData(), manifest.size()),
+        rust::Str(signature.constData(), signature.size()),
+        rust::Str(keysDir.constData(), keysDir.size()));
+    const QString detail = QString::fromUtf8(verdict.detail.data(), verdict.detail.size());
 
-    QDir              keysDir(getTrustedKeysDir());
-    const QStringList keyFiles =
-        keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
-    const bool    strictMode = qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES");
-
-    QStringList   args{"--batch", "--status-fd", "1"};
-    QTemporaryDir keyring;
-    if (keyFiles.isEmpty()) {
-        if (strictMode) {
-            m_lastError = "No trusted keys configured (strict mode requires trusted keys)";
-            qWarning() << "[MarathonAppVerifier] Rejected: no trusted keys in strict mode";
-            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] App rejected - no trusted keys: manifest=%s",
-                   manifestPath.toUtf8().constData());
-            return UntrustedKey;
-        }
-        qWarning() << "[MarathonAppVerifier] No trusted keys configured, using the default keyring";
-    } else {
-        // Verify against a keyring holding only the trusted keys, so a key that
-        // merely sits in the user's keyring does not count.
-        if (!keyring.isValid()) {
-            m_lastError = "Failed to create temporary keyring";
-            return VerificationFailed;
-        }
-        args << "--homedir" << keyring.path() << "--no-autostart";
-        QProcess    gpgImport;
-        QStringList importArgs = args;
-        importArgs << "--import";
-        for (const QString &keyFile : keyFiles)
-            importArgs << keysDir.filePath(keyFile);
-        gpgImport.start("gpg", importArgs);
-        if (!gpgImport.waitForFinished(10000) || gpgImport.exitCode() != 0) {
-            m_lastError = "Failed to import trusted keys: " +
-                QString::fromUtf8(gpgImport.readAllStandardError());
-            return VerificationFailed;
-        }
-    }
-
-    QProcess gpgVerify;
-    gpgVerify.start("gpg", args << "--verify" << signaturePath << manifestPath);
-
-    if (!gpgVerify.waitForStarted(3000)) {
-        m_lastError = "Failed to start GPG verification process";
-        return VerificationFailed;
-    }
-
-    if (!gpgVerify.waitForFinished(10000)) {
-        m_lastError = "GPG verification process timed out";
-        return VerificationFailed;
-    }
-
-    const QString status = QString::fromUtf8(gpgVerify.readAllStandardOutput());
-
-    if (gpgVerify.exitCode() == 0 && status.contains("[GNUPG:] VALIDSIG ")) {
-        qDebug() << "[MarathonAppVerifier] Signature verification successful";
-        if (keyFiles.isEmpty())
+    switch (verdict.check) {
+        case marathon::native::SignatureCheck::Valid:
+            syslog(LOG_AUTH | LOG_INFO, "[SECURITY] App signature verified: manifest=%s",
+                   manifest.constData());
+            return Valid;
+        case marathon::native::SignatureCheck::NoTrustedKeys:
+            if (qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES")) {
+                m_lastError = "No trusted keys configured (strict mode requires trusted keys)";
+                qWarning() << "[MarathonAppVerifier] Rejected: no trusted keys in strict mode";
+                syslog(LOG_AUTH | LOG_ALERT,
+                       "[SECURITY] App rejected - no trusted keys: manifest=%s",
+                       manifest.constData());
+                return UntrustedKey;
+            }
+            qWarning() << "[MarathonAppVerifier] No trusted keys configured, signature not checked";
             syslog(LOG_AUTH | LOG_WARNING,
                    "[SECURITY] App accepted without trusted key (dev mode): manifest=%s",
-                   manifestPath.toUtf8().constData());
-        else
-            syslog(LOG_AUTH | LOG_INFO, "[SECURITY] App signature verified: manifest=%s",
-                   manifestPath.toUtf8().constData());
-        return Valid;
+                   manifest.constData());
+            return Valid;
+        case marathon::native::SignatureCheck::UntrustedKey:
+            m_lastError = "Package is signed by a key that is not trusted";
+            qWarning() << "[MarathonAppVerifier] Signature from untrusted key";
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] App signed by untrusted key: manifest=%s",
+                   manifest.constData());
+            return UntrustedKey;
+        case marathon::native::SignatureCheck::InvalidSignature:
+            m_lastError = "Invalid signature: " + detail;
+            qWarning() << "[MarathonAppVerifier] BAD signature detected:" << detail;
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Invalid app signature: manifest=%s",
+                   manifest.constData());
+            return InvalidSignature;
+        case marathon::native::SignatureCheck::Failed: break;
     }
-
-    if (status.contains("[GNUPG:] BADSIG ")) {
-        m_lastError = "Invalid GPG signature detected";
-        qWarning() << "[MarathonAppVerifier] BAD signature detected";
-        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Invalid app signature: manifest=%s",
-               manifestPath.toUtf8().constData());
-        return InvalidSignature;
-    }
-
-    if (status.contains("[GNUPG:] NO_PUBKEY ")) {
-        m_lastError = "Package is signed by a key that is not trusted";
-        qWarning() << "[MarathonAppVerifier] Signature from untrusted key";
-        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] App signed by untrusted key: manifest=%s",
-               manifestPath.toUtf8().constData());
-        return UntrustedKey;
-    }
-
-    const QString output = QString::fromUtf8(gpgVerify.readAllStandardError());
-    m_lastError          = "GPG verification failed: " + output;
-    qWarning() << "[MarathonAppVerifier] Verification failed:" << output;
+    m_lastError = "Signature verification failed: " + detail;
+    qWarning() << "[MarathonAppVerifier] Verification failed:" << detail;
     syslog(LOG_AUTH | LOG_WARNING, "[SECURITY] App signature verification failed: manifest=%s",
-           manifestPath.toUtf8().constData());
-    return InvalidSignature;
+           manifest.constData());
+    return VerificationFailed;
 }
 
 MarathonAppVerifier::VerificationResult

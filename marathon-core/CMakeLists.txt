@@ -31,6 +31,8 @@ target_include_directories(MarathonCore PUBLIC
 target_link_libraries(MarathonCore PUBLIC
     Qt6::Core
 )
+target_link_libraries(MarathonCore PRIVATE marathon_core_native)
+target_link_options(MarathonCore PRIVATE "LINKER:--exclude-libs,libmarathon_core_native.a")
 
 # Export for use by other targets
 set_target_properties(MarathonCore PROPERTIES

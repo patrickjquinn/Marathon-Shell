@@ -77,7 +77,7 @@ if [ -n "$ALPINE_MIRROR" ]; then
 fi
 apk add --no-cache --quiet \
     abuild rsync curl ca-certificates git \
-    cmake samurai build-base \
+    cargo cmake samurai build-base \
     qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
     qt6-qtwebengine-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \

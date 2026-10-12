@@ -1,0 +1,49 @@
+# Marathon's Rust platform code (docs/superpowers/specs/2026-10-13-rust-platform-migration.md).
+# Built by crates/CMakeLists.txt; tools/marathon-mail-oauth stays its own crate.
+[workspace]
+resolver = "2"
+members = ["marathon-core-native"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# Shipwright's lint set: pedantic minus three boilerplate lints, plus the
+# restriction lints keel/silica/plugin adds. CI-equivalent: clippy -D warnings.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "warn"
+expect_used = "warn"
+unwrap_in_result = "warn"
+get_unwrap = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+map_err_ignore = "warn"
+clone_on_ref_ptr = "warn"
+let_underscore_must_use = "warn"
+undocumented_unsafe_blocks = "warn"
+allow_attributes_without_reason = "warn"
+redundant_clone = "warn"
+needless_collect = "warn"
+or_fun_call = "warn"
+
+# Dependencies' debug info made libMarathonCore.so ~60 MB in dev builds.
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = false
+codegen-units = 16
+debug = false

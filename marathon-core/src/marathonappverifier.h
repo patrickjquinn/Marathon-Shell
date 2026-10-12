@@ -14,7 +14,6 @@ class MarathonAppVerifier : public QObject {
         TamperedManifest,
         SignatureFileMissing,
         ManifestMissing,
-        GPGNotAvailable,
         VerificationFailed
     };
     Q_ENUM(VerificationResult)

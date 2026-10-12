@@ -89,6 +89,21 @@ class TestAppVerifier : public QObject {
         QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::InvalidSignature);
     }
 
+    // Without trusted keys, dev mode treats a signed package like an unsigned
+    // one and strict mode refuses it.
+    void noTrustedKeysFollowsStrictMode() {
+        const QString dir = signedApp("mallory@test");
+        QVERIFY(!dir.isEmpty());
+        const QByteArray config = qgetenv("XDG_CONFIG_HOME");
+        qputenv("XDG_CONFIG_HOME", (m_root.path() + "/empty-config").toUtf8());
+        MarathonAppVerifier verifier;
+        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::Valid);
+        qputenv("MARATHON_REQUIRE_SIGNATURES", "1");
+        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::UntrustedKey);
+        qunsetenv("MARATHON_REQUIRE_SIGNATURES");
+        qputenv("XDG_CONFIG_HOME", config);
+    }
+
     void cleanupTestCase() {
         QProcess::execute("gpgconf", {"--homedir", m_gnupgHome, "--kill", "all"});
     }

@@ -71,6 +71,7 @@ depends="
 	zstd
 	"
 makedepends="
+	cargo
 	cmake
 	samurai
 	keel-silica
@@ -124,10 +125,12 @@ source="
 	marathon-shell-tmpfiles.conf
 	"
 builddir="$srcdir/Marathon-Shell-main"
-options="!check"
+# cargo fetch reaches crates.io for crates/ (libMarathonCore's Rust half).
+options="net !check"
 
 prepare() {
 	default_prepare
+	cargo fetch --manifest-path "$builddir/crates/Cargo.toml" --locked
 
 	# Extract asyncfuture submodule.
 	# When pmbootstrap --src copies the host repo, third-party/asyncfuture/

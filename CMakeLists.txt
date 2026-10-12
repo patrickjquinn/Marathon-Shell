@@ -216,6 +216,9 @@ endif()
 # Vendored third-party libraries (Oxford step counter, maplibre, etc.)
 add_subdirectory(thirdparty)
 
+# Rust crates (marathon-core-native and later components)
+add_subdirectory(crates)
+
 # Marathon Core library (shared app management logic)
 add_subdirectory(marathon-core)
 message(STATUS "Marathon Core library added for app management")
