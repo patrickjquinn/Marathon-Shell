@@ -11,9 +11,13 @@ TestCase {
     width: 720; height: 1440
 
     Component { id: appComponent; CalculatorApp { width: 720; height: 1440 } }
+    Component { id: valueStub; QtObject { property var value } }
 
     function make() {
-        const app = createTemporaryObject(appComponent, this);
+        const app = createTemporaryObject(appComponent, this, {
+            modeStore: createTemporaryObject(valueStub, this, { value: true }),
+            historyStore: createTemporaryObject(valueStub, this, { value: "[]" })
+        });
         tryVerify(function () { return app.pageStack.currentPage !== null; });
         const page = app.pageStack.currentPage;
         tryVerify(function () { return page.activeFocus; });
