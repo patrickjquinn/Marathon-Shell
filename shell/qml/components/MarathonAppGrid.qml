@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: appGrid
@@ -176,18 +178,14 @@ Item {
                 }
             }
 
-            // App label — Footnote 13 / 500 per user direction
-            // ("make icons and text bigger"). textPrimary on dark
-            // wallpapers; Text.Outline dropped since the DS dark-
-            // first surface doesn't need it.
+            // Silica's launcher label size, as on Sailfish's home.
             Text {
                 width: parent.parent.width
                 horizontalAlignment: Text.AlignHCenter
                 text: iconCell.appData ? iconCell.appData.name : ""
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeFootnote
-                font.weight: MTypography.weightMedium
+                color: Silica.Theme.primaryColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeTiny
                 // iOS Home Screen + Android launchers wrap to 2 lines
                 // before truncating. At ≥1.25× canvas the cell width
                 // can't hold "Calculator" / "App Store" / "Messages"
