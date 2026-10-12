@@ -82,10 +82,14 @@ ApplicationWindow {
     }
 
     function updateCamera() {
-        if (firstFrameShown && applicationActive && pageStack.depth === 1)
+        if (firstFrameShown && applicationActive && pageStack.depth === 1) {
             camera.start();
-        else
-            camera.stop();
+            return;
+        }
+        // Finishes the file; stopping the camera alone would cut it off unsaved.
+        if (camera.isRecording)
+            camera.stopRecording();
+        camera.stop();
     }
 
     appId: "camera"

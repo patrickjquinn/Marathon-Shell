@@ -269,6 +269,18 @@ TestCase {
         verify(!flip.enabled);
     }
 
+    function test_leavingTheViewfinderFinishesARecording() {
+        const app = makeApp();
+        app.setMode("video");
+        app.shoot();
+        verify(app.camera.isRecording);
+        app.pageStack.push(Qt.resolvedUrl("../pages/CaptureReviewPage.qml"), { app: app });
+        tryCompare(app.pageStack, "depth", 2);
+        verify(!app.camera.isRecording);
+        const calls = app.camera.calls;
+        verify(calls.lastIndexOf("stopRecording") >= 0 && calls.lastIndexOf("stopRecording") < calls.lastIndexOf("stop"));
+    }
+
     function test_shutterWaitsForAFlip() {
         const app = makeApp();
         const shutter = child(app, "shutter");
