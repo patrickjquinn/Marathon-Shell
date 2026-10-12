@@ -1,5 +1,7 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: root
@@ -45,81 +47,61 @@ Item {
     Accessible.role: Accessible.Dialog
     Accessible.name: "Power"
 
-    component PowerRow: Rectangle {
-        id: row
+    // A choice in Sailfish's style: a glass ring with its label beneath.
+    component PowerAction: Item {
+        id: action
 
         property string iconName
         property string label
-        property bool primary: false
-        property bool destructive: false
+        property bool emphasised: false
 
         signal activated
 
-        width: parent.width
-        height: Math.round(56 * Constants.scaleFactor)
-        radius: MRadius.md
-        color: {
-            if (primary)
-                return rowMouse.pressed ? MColors.marathonTealDark : MColors.marathonTeal;
-            if (destructive)
-                return rowMouse.pressed ? MColors.errorDim : MColors.error;
-            return rowMouse.pressed ? MColors.bb10Elevated : MColors.bb10Card;
-        }
-        border.width: primary || destructive ? 0 : Math.max(1, Math.round(Constants.scaleFactor))
-        border.color: MColors.border
-        scale: rowMouse.pressed && !MMotion.reduceMotion ? 0.97 : 1
+        width: Silica.Theme.itemSizeExtraLarge
+        height: ring.height + Silica.Theme.paddingMedium + actionLabel.height
 
         Accessible.role: Accessible.Button
         Accessible.name: label
         Accessible.onPressAction: activated()
 
-        Row {
-            anchors.left: parent.left
-            anchors.leftMargin: MSpacing.md
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: MSpacing.md
+        MCircularIconButton {
+            id: ring
 
-            GlyphIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                name: row.iconName
-                size: Math.round(24 * Constants.scaleFactor)
-                color: row.primary ? MColors.textOnAccent : MColors.textPrimary
-            }
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: row.label
-                font.pixelSize: MTypography.sizeBody
-                font.weight: row.primary || row.destructive ? MTypography.weightDemiBold : MTypography.weightMedium
-                font.family: MTypography.fontFamily
-                color: row.primary ? MColors.textOnAccent : MColors.textPrimary
-            }
-        }
-
-        MouseArea {
-            id: rowMouse
-
-            anchors.fill: parent
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Silica.Theme.itemSizeLarge
+            height: width
+            iconName: action.iconName
+            iconSize: 24
+            variant: action.emphasised ? "primary" : "secondary"
             onClicked: {
                 HapticManager.medium();
-                row.activated();
+                action.activated();
             }
         }
+        Silica.Label {
+            id: actionLabel
 
-        Behavior on scale {
-            NumberAnimation {
-                duration: MMotion.micro
-            }
+            anchors.top: ring.bottom
+            anchors.topMargin: Silica.Theme.paddingMedium
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: action.label
+            font.pixelSize: Silica.Theme.fontSizeSmall
+            color: action.emphasised ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
         }
     }
 
-    Rectangle {
+    // The frosted ambience behind the choices; a tap on it cancels.
+    Item {
         id: backdrop
 
         anchors.fill: parent
-        color: MColors.bb10Black
         opacity: 0
 
+        KeelAmbienceBackground {
+            anchors.fill: parent
+            wallpaper: AmbienceService.wallpaperUrl
+            light: AmbienceService.light
+        }
         MouseArea {
             anchors.fill: parent
             onClicked: {
@@ -129,87 +111,68 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         id: dialog
 
-        anchors.centerIn: parent
-        width: Math.min(parent.width * 0.85, Math.round(360 * Constants.scaleFactor))
-        height: contentColumn.height + MSpacing.lg * 2
-        radius: MRadius.lg
-        color: MColors.elev2
-        border.width: Math.max(1, Math.round(Constants.scaleFactor))
-        border.color: MColors.border
-        layer.enabled: true
+        anchors.fill: parent
         opacity: 0
         scale: 0.9
 
-        MouseArea {
-            anchors.fill: parent
-        }
-
         Column {
-            id: contentColumn
-
             anchors.centerIn: parent
-            width: parent.width - MSpacing.lg * 2
-            spacing: MSpacing.sm
+            width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+            spacing: Silica.Theme.paddingLarge
 
-            Text {
+            Silica.Label {
                 width: parent.width
-                text: root.pending === "reboot" ? "Restart phone?" : root.pending === "shutdown" ? "Power off phone?" : "Power"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: MTypography.weightDemiBold
-                font.family: MTypography.fontFamily
-                color: MColors.textPrimary
                 horizontalAlignment: Text.AlignHCenter
+                text: root.pending === "reboot" ? qsTr("Restart phone?") : root.pending === "shutdown" ? qsTr("Power off phone?") : qsTr("Power")
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
             }
 
-            Text {
+            Silica.Label {
                 width: parent.width
                 visible: root.pending !== ""
-                text: root.pending === "reboot" ? "Open apps will close." : "You'll need to hold the power button to turn it back on."
-                wrapMode: Text.Wrap
-                font.pixelSize: MTypography.sizeSubhead
-                font.family: MTypography.fontFamily
-                color: MColors.textSecondary
                 horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: root.pending === "reboot" ? qsTr("Open apps will close.") : qsTr("You'll need to hold the power button to turn it back on.")
+                color: Silica.Theme.secondaryHighlightColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
             }
 
-            Item {
-                width: 1
-                height: MSpacing.sm
-            }
-
-            PowerRow {
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                topPadding: Silica.Theme.paddingLarge
                 visible: root.pending === ""
-                iconName: "moon"
-                label: "Sleep"
-                primary: true
-                onActivated: {
-                    root.sleepRequested();
-                    root.hide();
+
+                PowerAction {
+                    iconName: "moon"
+                    label: qsTr("Sleep")
+                    emphasised: true
+                    onActivated: {
+                        root.sleepRequested();
+                        root.hide();
+                    }
+                }
+                PowerAction {
+                    iconName: "rotate-ccw"
+                    label: qsTr("Restart")
+                    onActivated: root.pending = "reboot"
+                }
+                PowerAction {
+                    iconName: "power"
+                    label: qsTr("Power off")
+                    onActivated: root.pending = "shutdown"
                 }
             }
 
-            PowerRow {
-                visible: root.pending === ""
-                iconName: "rotate-ccw"
-                label: "Restart"
-                onActivated: root.pending = "reboot"
-            }
-
-            PowerRow {
-                visible: root.pending === ""
-                iconName: "power"
-                label: "Power off"
-                onActivated: root.pending = "shutdown"
-            }
-
-            PowerRow {
+            PowerAction {
+                anchors.horizontalCenter: parent.horizontalCenter
                 visible: root.pending !== ""
                 iconName: root.pending === "reboot" ? "rotate-ccw" : "power"
-                label: root.pending === "reboot" ? "Restart" : "Power off"
-                destructive: true
+                label: root.pending === "reboot" ? qsTr("Restart") : qsTr("Power off")
+                emphasised: true
                 onActivated: {
                     const action = root.pending;
                     root.hide();
@@ -220,36 +183,13 @@ Item {
                 }
             }
 
-            Item {
-                width: 1
-                height: MSpacing.sm
-            }
-
-            Item {
-                width: parent.width
-                height: Math.round(44 * Constants.scaleFactor)
-
-                Accessible.role: Accessible.Button
-                Accessible.name: "Cancel"
-                Accessible.onPressAction: root.cancel()
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "Cancel"
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: MTypography.weightMedium
-                    font.family: MTypography.fontFamily
-                    color: cancelMouse.pressed ? MColors.textPrimary : MColors.textSecondary
-                }
-
-                MouseArea {
-                    id: cancelMouse
-
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticManager.light();
-                        root.cancel();
-                    }
+            Silica.Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Cancel")
+                backgroundColor: "transparent"
+                onClicked: {
+                    HapticManager.light();
+                    root.cancel();
                 }
             }
         }
@@ -261,7 +201,7 @@ Item {
         NumberAnimation {
             target: backdrop
             property: "opacity"
-            to: 0.7
+            to: 1
             duration: MMotion.quick
             easing.type: Easing.OutCubic
         }
