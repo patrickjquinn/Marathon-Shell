@@ -93,3 +93,10 @@ add_executable(test_shell_ngfservice test_ngfservice.cpp ../../shell/src/service
 target_link_libraries(test_shell_ngfservice Qt6::Test Qt6::Core)
 target_include_directories(test_shell_ngfservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_NgfService COMMAND test_shell_ngfservice)
+
+# Nemo.Notifications remote actions (x-nemo-remote-action-*)
+find_package(Qt6 REQUIRED COMPONENTS DBus)
+add_executable(test_shell_nemoremoteaction test_nemoremoteaction.cpp)
+target_link_libraries(test_shell_nemoremoteaction Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_shell_nemoremoteaction PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
+add_test(NAME Shell_NemoRemoteAction COMMAND test_shell_nemoremoteaction)

@@ -1,4 +1,5 @@
 #include "freedesktopnotifications.h"
+#include "nemoremoteaction.h"
 #include "notificationmodel.h"
 #include "powermanagercpp.h"
 #include <QDBusConnection>
@@ -54,6 +55,21 @@ bool FreedesktopNotifications::registerService() {
 
     qInfo() << "[FreedesktopNotifications] Registered org.freedesktop.Notifications on D-Bus";
     return true;
+}
+
+void FreedesktopNotifications::activate(uint id, const QString &action) {
+    emit ActionInvoked(id, action);
+    const auto records = m_database->getNotifications();
+    for (const auto &record : records) {
+        if (record.id != id)
+            continue;
+        const QString hint = record.metadata.value(NemoRemoteAction::hintName(action)).toString();
+        bool          ok   = false;
+        const QDBusMessage call = NemoRemoteAction::decode(hint, &ok);
+        if (ok)
+            QDBusConnection::sessionBus().asyncCall(call);
+        return;
+    }
 }
 
 uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,

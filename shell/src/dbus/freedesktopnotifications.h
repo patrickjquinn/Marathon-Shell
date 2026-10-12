@@ -22,6 +22,10 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
 
     bool registerService();
 
+    // A tap ("default") or an action button: tells the client, and makes the
+    // D-Bus call a Nemo.Notifications client attached to that action.
+    void activate(uint id, const QString &action);
+
   public slots:
     uint        Notify(const QString &app_name, uint replaces_id, const QString &app_icon,
                        const QString &summary, const QString &body, const QStringList &actions,
