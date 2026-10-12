@@ -35,92 +35,67 @@ Item {
     anchors.fill: parent
     z: 2900
 
+    // A strip across the top with a highlight bar, as Sailfish shows volume.
     Rectangle {
         id: hud
 
-        anchors.centerIn: parent
-        // Box scales with the same factor as its contents (Icon/MText scale off
-        // Constants.scaleFactor). A fixed 200 px square let the scaled contents
-        // break out on high-DPI panels; clip is a belt-and-braces guard.
-        width: Math.round(200 * (Constants.scaleFactor || 1))
-        height: Math.round(200 * (Constants.scaleFactor || 1))
-        clip: true
-        // DS says 4 px corners on every chrome surface. Previously
-        // Constants.borderRadiusSharp (= 0) made this a flat box,
-        // breaking continuity with the rest of the shell language.
-        radius: MRadius.md
-        color: MElevation.getSurface(4)
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Constants.statusBarHeight
+        anchors.margins: Silica.Theme.paddingSmall
+        height: Silica.Theme.itemSizeSmall
+        radius: Silica.Theme.paddingMedium
+        color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
-        border.color: MElevation.getBorderOuter(4)
-        antialiasing: true
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         opacity: 0
         visible: hudContainer.hudVisible
 
-        // Inner hairline highlight — same role as MTopHairline elsewhere,
-        // but a HUD only ever sits as a free-floating overlay so the
-        // simpler all-around inset hairline is fine.
-        Rectangle {
+        Row {
             anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: MColors.whiteOverlay04
-        }
-
-        Column {
-            anchors.centerIn: parent
-            spacing: MSpacing.lg
-            width: parent.width - Math.round(40 * (Constants.scaleFactor || 1))
+            anchors.leftMargin: Silica.Theme.paddingLarge
+            anchors.rightMargin: Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingLarge
 
             GlyphIcon {
-                name: hudContainer.hudType === "volume" ? "volume-2" : "sun"
-                size: Constants.iconSizeXLarge
-                color: MColors.textPrimary
-                anchors.horizontalCenter: parent.horizontalCenter
+                id: hudIcon
+                name: hudContainer.hudType === "volume" ? (hudContainer.hudValue === 0 ? "speaker-x" : "speaker-high") : "sun"
+                size: Silica.Theme.iconSizeSmall
+                color: Silica.Theme.highlightColor
+                anchors.verticalCenter: parent.verticalCenter
             }
 
-            Column {
-                width: parent.width
-                spacing: MSpacing.sm
+            Rectangle {
+                width: parent.width - hudIcon.width - percent.width - parent.spacing * 2
+                height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+                radius: height / 2
+                color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.2)
+                anchors.verticalCenter: parent.verticalCenter
 
                 Rectangle {
-                    width: parent.width
-                    height: Math.round(8 * (Constants.scaleFactor || 1))
-                    radius: MRadius.md
-                    color: MColors.whiteOverlay04
-                    border.width: 1
-                    border.color: MColors.whiteOverlay04
+                    width: parent.width * hudContainer.hudValue
+                    height: parent.height
+                    radius: parent.radius
+                    color: Silica.Theme.highlightColor
 
-                    Rectangle {
-                        width: parent.width * hudContainer.hudValue
-                        height: parent.height
-                        radius: parent.radius
-                        // DS teal accent — was an inline RGB literal duplicating
-                        // MColors.marathonTeal at ~0.9 opacity.
-                        color: Qt.rgba(0, 191 / 255, 165 / 255, 0.9)
-
-                        Behavior on width {
-                            NumberAnimation {
-                                duration: 150
-                                easing.type: Easing.OutCubic
-                            }
-                        }
+                    Behavior on width {
+                        NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
                     }
                 }
+            }
 
-                Silica.Label {
-                    text: Math.round(hudContainer.hudValue * 100) + "%"
-                    color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeHeadline
-                    font.weight: MTypography.weightDemiBold
-                    font.letterSpacing: MTypography.trackingHeadline
-                    // Tabular figures so the percentage digits don't jitter.
-                    font.features: {
-                        "tnum": 1
-                    }
-                    anchors.horizontalCenter: parent.horizontalCenter
+            Silica.Label {
+                id: percent
+                width: Silica.Theme.itemSizeExtraSmall
+                horizontalAlignment: Text.AlignRight
+                text: Math.round(hudContainer.hudValue * 100) + "%"
+                color: Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+                font.features: {
+                    "tnum": 1
                 }
+                anchors.verticalCenter: parent.verticalCenter
             }
         }
 
