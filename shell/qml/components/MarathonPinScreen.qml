@@ -42,7 +42,17 @@ Item {
         }
     }
 
+    // A quick PIN is 4-6 digits; only the 6th submits by itself.
+    function submitPin() {
+        if (pin.length < 4)
+            return;
+        verifyTimer.stop();
+        verifyPin();
+    }
+
     function verifyPin() {
+        if (authenticating)
+            return;
         if (SecurityManagerCpp.isLockedOut) {
             var secs = SecurityManagerCpp.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
@@ -154,6 +164,9 @@ Item {
         if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
             var digit = String.fromCharCode(event.key);
             handleInput(digit);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            submitPin();
             event.accepted = true;
         } else if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
             pin = "";
@@ -304,20 +317,24 @@ Item {
             }
         }
 
-        Row {
+        // Sailfish's code field: a dot per digit, backspace at its end.
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(16 * Constants.scaleFactor)
+            // Six dots centred, clear of a key-sized cell either side.
+            width: Math.max(keypad.width, Math.round((6 * 14 + 5 * 16 + 2 * (pinScreen.keyButtonSize + pinScreen.keyCellPadding)) * Constants.scaleFactor))
+            height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
 
             Row {
                 id: pinCircles
 
+                anchors.centerIn: parent
                 spacing: Math.round(16 * Constants.scaleFactor)
 
                 Accessible.role: Accessible.StaticText
-                Accessible.name: pinScreen.pin.length + " of 6 digits entered"
+                Accessible.name: pinScreen.pin.length + " digits entered"
 
                 Repeater {
-                    model: 6
+                    model: pinScreen.pin.length
 
                     Rectangle {
                         id: pinDot
@@ -326,28 +343,10 @@ Item {
 
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
-                        // Visual 3+3 grouping.
-                        transform: Translate {
-                            x: Math.round((pinDot.index >= 3 ? 6 : -6) * Constants.scaleFactor)
-                        }
                         radius: Math.round(7 * Constants.scaleFactor)
-                        color: pinDot.index < pinScreen.pin.length ? Silica.Theme.highlightColor : "transparent"
-                        border.width: 2
-                        border.color: pinDot.index < pinScreen.pin.length ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+                        color: Silica.Theme.highlightColor
                         antialiasing: true
-                        scale: (pinDot.index === pinScreen.pin.length - 1 && pinScreen.pin.length > 0) ? 1.3 : 1
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 100
-                            }
-                        }
-
-                        Behavior on border.color {
-                            ColorAnimation {
-                                duration: 100
-                            }
-                        }
+                        scale: pinDot.index === pinScreen.pin.length - 1 ? 1.3 : 1
 
                         Behavior on scale {
                             NumberAnimation {
@@ -360,7 +359,8 @@ Item {
             }
 
             Silica.BusyIndicator {
-                anchors.verticalCenter: pinCircles.verticalCenter
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
                 size: Silica.BusyIndicatorSize.Small
                 running: pinScreen.authenticating && !pinScreen.passwordMode
                 visible: pinScreen.authenticating && !pinScreen.passwordMode
@@ -370,6 +370,23 @@ Item {
                     NumberAnimation {
                         duration: 150
                     }
+                }
+            }
+
+            MCircularIconButton {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: "backspace"
+                iconSize: pinScreen.compactLayout ? 20 : 24
+                buttonSize: pinScreen.keyButtonSize
+                variant: "secondary"
+                iconColor: MColors.textSecondary
+                a11yName: "Delete"
+                visible: pinScreen.pin.length > 0 && !pinScreen.authenticating
+                onClicked: {
+                    HapticManager.light();
+                    pinScreen.pin = pinScreen.pin.slice(0, -1);
+                    pinScreen.error = "";
                 }
             }
         }
@@ -438,6 +455,8 @@ Item {
             // sf × sf (≈ 2.5×) and overflow the cells, producing the
             // overlapping-circles pin-pad bug.
             Grid {
+                id: keypad
+
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
                 columnSpacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
@@ -520,17 +539,17 @@ Item {
                     height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
+                        objectName: "acceptKey"
                         anchors.centerIn: parent
-                        iconName: "delete"
+                        iconName: "check"
                         iconSize: pinScreen.compactLayout ? 20 : 24
                         buttonSize: pinScreen.keyButtonSize
-                        variant: "secondary"
-                        iconColor: MColors.textSecondary
-                        a11yName: "Delete"
+                        variant: disabled ? "secondary" : "primary"
+                        disabled: pinScreen.pin.length < 4 || pinScreen.authenticating
+                        a11yName: "Unlock"
                         onClicked: {
                             HapticManager.light();
-                            pinScreen.pin = pinScreen.pin.slice(0, -1);
-                            pinScreen.error = "";
+                            pinScreen.submitPin();
                         }
                     }
                 }

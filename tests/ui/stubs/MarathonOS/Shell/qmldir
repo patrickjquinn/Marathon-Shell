@@ -1,6 +1,16 @@
 module MarathonOS.Shell
 ShellStub 1.0 ShellStub.qml
 singleton MTypography 1.0 ../../../../../shell/qml/theme/MTypography.qml
+singleton MColors 1.0 ../../../../../shell/qml/theme/MColors.qml
+singleton MBlur 1.0 ../../../../../shell/qml/theme/MBlur.qml
+singleton MHaptics 1.0 ../../../../../shell/qml/ui/MHaptics.qml
+singleton MMotion 1.0 MMotion.qml
 singleton Constants 1.0 Constants.qml
 singleton HapticManager 1.0 HapticManager.qml
+singleton SecurityManagerCpp 1.0 SecurityManagerCpp.qml
+singleton SessionStore 1.0 SessionStore.qml
+singleton Logger 1.0 Logger.qml
+singleton WallpaperStore 1.0 WallpaperStore.qml
+singleton AppLifecycleManager 1.0 AppLifecycleManager.qml
 GlyphIcon 1.0 GlyphIcon.qml
+MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
