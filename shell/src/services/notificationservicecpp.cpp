@@ -177,13 +177,6 @@ void NotificationServiceCpp::setVibrationEnabled(bool enabled) {
     emit vibrationEnabledChanged();
 }
 
-void NotificationServiceCpp::setLedEnabled(bool enabled) {
-    if (m_ledEnabled == enabled)
-        return;
-    m_ledEnabled = enabled;
-    emit ledEnabledChanged();
-}
-
 void NotificationServiceCpp::onNotificationAdded(int id) {
     if (!m_model)
         return;

@@ -23,7 +23,6 @@ class NotificationServiceCpp : public QObject {
     Q_PROPERTY(bool soundEnabled READ soundEnabled WRITE setSoundEnabled NOTIFY soundEnabledChanged)
     Q_PROPERTY(bool vibrationEnabled READ vibrationEnabled WRITE setVibrationEnabled NOTIFY
                    vibrationEnabledChanged)
-    Q_PROPERTY(bool ledEnabled READ ledEnabled WRITE setLedEnabled NOTIFY ledEnabledChanged)
     Q_PROPERTY(bool isDndEnabled READ isDndEnabled NOTIFY isDndEnabledChanged)
 
   public:
@@ -44,9 +43,6 @@ class NotificationServiceCpp : public QObject {
     bool vibrationEnabled() const {
         return m_vibrationEnabled;
     }
-    bool ledEnabled() const {
-        return m_ledEnabled;
-    }
     bool                     isDndEnabled() const;
 
     Q_INVOKABLE int          sendNotification(const QString &appId, const QString &title,
@@ -64,7 +60,6 @@ class NotificationServiceCpp : public QObject {
     void                     setNotificationsEnabled(bool enabled);
     void                     setSoundEnabled(bool enabled);
     void                     setVibrationEnabled(bool enabled);
-    void                     setLedEnabled(bool enabled);
 
   signals:
     void notificationsChanged();
@@ -72,7 +67,6 @@ class NotificationServiceCpp : public QObject {
     void notificationsEnabledChanged();
     void soundEnabledChanged();
     void vibrationEnabledChanged();
-    void ledEnabledChanged();
     void isDndEnabledChanged();
 
     void notificationReceived(const QVariantMap &notification);
@@ -102,7 +96,6 @@ class NotificationServiceCpp : public QObject {
     bool                            m_notificationsEnabled = true;
     bool                            m_soundEnabled         = true;
     bool                            m_vibrationEnabled     = true;
-    bool                            m_ledEnabled           = true;
 };
 
 #endif
