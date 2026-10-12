@@ -30,7 +30,7 @@ CoverBackground {
                 required property var modelData
 
                 width: parent.width
-                text: modelData.title
+                text: modelData.title || qsTr("Untitled")
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeMedium
             }

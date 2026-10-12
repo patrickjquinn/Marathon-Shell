@@ -34,21 +34,22 @@ TestCase {
     function test_typingSavesWithoutLeavingPage() {
         const store = createTemporaryObject(storeStub, this);
         const page = createTemporaryObject(pageComponent, this, { store: store, noteId: -1 });
-        findChild(page, "titleField").text = "A";
+        findChild(page, "bodyField").text = "A";
         tryCompare(store, "saves", 1, 3000);
         compare(store.notes.length, 1);
         compare(page.noteId, store.notes[0].id);
 
-        findChild(page, "bodyField").text = "more";
+        findChild(page, "bodyField").text = "A\nmore";
         tryCompare(store, "saves", 2, 3000);
         compare(store.notes.length, 1);
-        compare(store.notes[0].content, "more");
+        compare(store.notes[0].title, "A");
+        compare(store.notes[0].content, "A\nmore");
     }
 
     function test_emptyNewNoteIsNotSaved() {
         const store = createTemporaryObject(storeStub, this);
         const page = createTemporaryObject(pageComponent, this, { store: store, noteId: -1 });
-        findChild(page, "titleField").text = "  ";
+        findChild(page, "bodyField").text = "  \n ";
         page.commit();
         compare(store.saves, 0);
     }
@@ -56,8 +57,7 @@ TestCase {
     function test_openingDoesNotSave() {
         const store = createTemporaryObject(storeStub, this, { notes: [{ id: 3, title: "T", content: "B", timestamp: 1 }] });
         const page = createTemporaryObject(pageComponent, this, { store: store, noteId: 3 });
-        compare(findChild(page, "titleField").text, "T");
-        compare(findChild(page, "bodyField").text, "B");
+        compare(findChild(page, "bodyField").text, "T\nB");
         wait(1000);
         page.commit();
         compare(store.saves, 0);
@@ -66,19 +66,26 @@ TestCase {
     function test_savingDoesNotRewriteTheField() {
         const store = createTemporaryObject(storeStub, this);
         const page = createTemporaryObject(pageComponent, this, { store: store, noteId: -1 });
-        const title = findChild(page, "titleField");
-        title.text = "Hello ";
+        const body = findChild(page, "bodyField");
+        body.text = "Hello ";
         page.commit();
         compare(store.notes[0].title, "Hello");
-        compare(title.text, "Hello ");
+        compare(body.text, "Hello ");
+    }
+
+    function test_headerShowsDateNotTitle() {
+        const store = createTemporaryObject(storeStub, this, { notes: [{ id: 3, title: "T", content: "T", timestamp: new Date(2025, 8, 7).getTime() }] });
+        const page = createTemporaryObject(pageComponent, this, { store: store, noteId: 3 });
+        compare(findChild(page, "header").title, "7 Sep 2025");
+        verify(!findChild(page, "titleField"));
     }
 
     function test_editKeepsPin() {
         const store = createTemporaryObject(storeStub, this, { notes: [{ id: 3, title: "T", content: "", timestamp: 1, pinned: true }] });
         const page = createTemporaryObject(pageComponent, this, { store: store, noteId: 3 });
-        findChild(page, "bodyField").text = "x";
+        findChild(page, "bodyField").text = "T\nx";
         page.commit();
-        compare(store.notes[0].content, "x");
+        compare(store.notes[0].content, "T\nx");
         verify(store.notes[0].pinned);
     }
 

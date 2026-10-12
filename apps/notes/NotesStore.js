@@ -15,8 +15,37 @@ function nextId(notes) {
     return notes.reduce((m, n) => Math.max(m, n.id), 0) + 1;
 }
 
-function create(notes, title, content, now) {
-    const note = { id: nextId(notes), title: title || "Untitled", content: content || "", timestamp: now };
+// The first non-blank line names the note.
+function titleOf(content) {
+    const line = String(content || "").split("\n").find(l => l.trim() !== "");
+    return line ? line.trim() : "";
+}
+
+// Older notes kept the title apart from the body, and stored "Untitled" for none.
+function text(note) {
+    const body = String(note.content || "");
+    const title = String(note.title || "");
+    return title === "" || title === "Untitled" || titleOf(body) === title ? body : title + (body ? "\n" + body : "");
+}
+
+// The text after the title line, on one line.
+function preview(note) {
+    const lines = text(note).split("\n");
+    const first = lines.findIndex(l => l.trim() !== "");
+    return lines.slice(first + 1).join(" ").replace(/\s+/g, " ").trim();
+}
+
+// Today's notes by time; older ones by day and month ("5 Oct"), with the
+// year once it is not this one.
+function when(timestamp, now) {
+    const d = new Date(timestamp);
+    if (d.toDateString() === now.toDateString())
+        return d.toLocaleTimeString(Qt.locale(), 1); // Locale.ShortFormat; the enum isn't visible here
+    return Qt.formatDate(d, d.getFullYear() === now.getFullYear() ? "d MMM" : "d MMM yyyy");
+}
+
+function create(notes, content, now) {
+    const note = { id: nextId(notes), title: titleOf(content), content: content || "", timestamp: now };
     return [note].concat(notes);
 }
 
@@ -26,8 +55,8 @@ function edit(notes, id, change) {
     return notes.map(n => n.id === id ? Object.assign({}, n, change) : n);
 }
 
-function update(notes, id, title, content, now) {
-    return edit(notes, id, { title: title || "Untitled", content: content, timestamp: now });
+function update(notes, id, content, now) {
+    return edit(notes, id, { title: titleOf(content), content: content, timestamp: now });
 }
 
 function remove(notes, id) {
@@ -77,7 +106,7 @@ function tasks(notes) {
         for (let i = 0; i < lines.length; i++) {
             const m = lines[i].match(taskLine);
             if (m)
-                out.push({ noteId: n.id, noteTitle: n.title || "Untitled", line: i, checked: m[2] !== " ", text: m[4].trim() });
+                out.push({ noteId: n.id, noteTitle: n.title || "", line: i, checked: m[2] !== " ", text: m[4].trim() });
         }
     }
     return out;
@@ -103,7 +132,7 @@ function merge(current, legacy) {
         if (!old || typeof old !== "object")
             continue;
         const note = Object.assign({}, old, {
-            title: old.title || "Untitled",
+            title: old.title || "",
             content: old.content ? String(old.content) : "",
             timestamp: Number(old.timestamp) || 0
         });

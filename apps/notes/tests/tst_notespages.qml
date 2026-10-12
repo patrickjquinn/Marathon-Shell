@@ -87,7 +87,7 @@ TestCase {
         mouseClick(delegateAt(view(app, "notesView"), 0));
         const editor = pushed(app, 2);
         compare(editor.noteId, 2);
-        compare(findChild(editor, "titleField").text, "Note 2");
+        compare(findChild(editor, "bodyField").text, "Note 2");
     }
 
     function test_pulleyNewNote() {

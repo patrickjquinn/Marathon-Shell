@@ -16,20 +16,6 @@ Page {
     readonly property var scope: inFolder ? Store.inFolder(store.notes, folder) : store.notes
     readonly property var shown: Store.sorted(Store.search(scope, searchText))
 
-    // Today's notes by time; older ones by day and month ("5 Oct"), with
-    // the year once it is not this one.
-    function when(timestamp) {
-        const d = new Date(timestamp);
-        const now = new Date();
-        if (d.toDateString() === now.toDateString())
-            return d.toLocaleTimeString(Qt.locale(), Locale.ShortFormat);
-        return Qt.formatDate(d, d.getFullYear() === now.getFullYear() ? "d MMM" : "d MMM yyyy");
-    }
-
-    function snippet(text) {
-        return String(text || "").replace(/\s+/g, " ").trim();
-    }
-
     SilicaListView {
         id: view
 
@@ -85,7 +71,7 @@ Page {
             required property var modelData
 
             contentHeight: Theme.itemSizeLarge
-            Accessible.name: (modelData.pinned ? qsTr("Pinned") + ", " : "") + modelData.title
+            Accessible.name: (modelData.pinned ? qsTr("Pinned") + ", " : "") + titleLabel.text
             menu: ContextMenu {
                 MenuItem {
                     objectName: "pinItem"
@@ -121,7 +107,7 @@ Page {
                     rightMargin: Theme.paddingMedium
                     bottom: parent.verticalCenter
                 }
-                text: item.modelData.title
+                text: item.modelData.title || qsTr("Untitled")
                 truncationMode: TruncationMode.Fade
                 color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
             }
@@ -133,7 +119,7 @@ Page {
                     rightMargin: Theme.horizontalPageMargin
                     baseline: titleLabel.baseline
                 }
-                text: page.when(item.modelData.timestamp)
+                text: Store.when(item.modelData.timestamp, new Date())
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
             }
@@ -145,7 +131,7 @@ Page {
                     rightMargin: Theme.horizontalPageMargin
                     top: parent.verticalCenter
                 }
-                text: page.snippet(item.modelData.content)
+                text: Store.preview(item.modelData)
                 font.pixelSize: Theme.fontSizeSmall
                 truncationMode: TruncationMode.Fade
                 color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

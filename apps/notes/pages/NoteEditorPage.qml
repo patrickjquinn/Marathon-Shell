@@ -17,15 +17,14 @@ Page {
         autosaveTimer.stop();
         if (discarded)
             return;
-        const title = titleField.text.trim();
         const body = bodyArea.text;
         if (noteId < 0) {
-            if (title === "" && body.trim() === "")
+            if (body.trim() === "")
                 return;
-            store.save(Store.create(store.notes, title, body, Date.now()));
+            store.save(Store.create(store.notes, body, Date.now()));
             noteId = store.notes[0].id;
-        } else if (note && ((title || "Untitled") !== note.title || body !== note.content)) {
-            store.save(Store.update(store.notes, noteId, title, body, Date.now()));
+        } else if (note && body !== Store.text(note)) {
+            store.save(Store.update(store.notes, noteId, body, Date.now()));
         }
     }
 
@@ -41,11 +40,10 @@ Page {
     // Loaded once: rebinding to the saved note would rewrite the text mid-typing.
     Component.onCompleted: {
         if (note) {
-            titleField.text = note.title;
-            bodyArea.text = note.content;
+            bodyArea.text = Store.text(note);
             autosaveTimer.stop();
         } else {
-            titleField.forceActiveFocus();
+            bodyArea.forceActiveFocus();
         }
     }
 
@@ -86,27 +84,18 @@ Page {
 
             width: parent.width
 
+            // The first line is the title, so the header carries the date instead.
             PageHeader {
-                title: page.note ? page.note.title : qsTr("New note")
-            }
-            TextField {
-                id: titleField
-
-                objectName: "titleField"
-                width: parent.width
-                label: qsTr("Title")
-                placeholderText: qsTr("Title")
-                font.pixelSize: Theme.fontSizeLarge
-                onTextChanged: autosaveTimer.restart()
-                EnterKey.iconSource: "image://theme/icon-m-enter-next"
-                EnterKey.onClicked: bodyArea.focus = true
+                objectName: "header"
+                title: page.note ? Store.when(page.note.timestamp, new Date()) : qsTr("New note")
             }
             TextArea {
                 id: bodyArea
 
                 objectName: "bodyField"
                 width: parent.width
-                placeholderText: qsTr("Note")
+                backgroundStyle: TextEditor.NoBackground
+                placeholderText: qsTr("Write a note")
                 onTextChanged: autosaveTimer.restart()
             }
         }

@@ -17,19 +17,20 @@ TestCase {
     }
 
     function test_create() {
-        const n = Store.create([], "", "body", 1000);
+        const n = Store.create([], "", 1000);
         compare(n.length, 1);
         compare(n[0].id, 1);
-        compare(n[0].title, "Untitled");
-        const m = Store.create(n, "B", "", 2000);
+        compare(n[0].title, "");
+        const m = Store.create(n, "\n  Shopping \nmilk", 2000);
         compare(m[0].id, 2);
-        compare(m[0].title, "B");
+        compare(m[0].title, "Shopping");
+        compare(m[0].content, "\n  Shopping \nmilk");
     }
 
     function test_updateKeepsPinAndTag() {
-        const n = Store.update([note(1, { pinned: true, tag: "work" })], 1, "", "x", 5);
-        compare(n[0].title, "Untitled");
-        compare(n[0].content, "x");
+        const n = Store.update([note(1, { pinned: true, tag: "work" })], 1, "x\ny", 5);
+        compare(n[0].title, "x");
+        compare(n[0].content, "x\ny");
         compare(n[0].timestamp, 5);
         verify(n[0].pinned);
         compare(n[0].tag, "work");
@@ -37,7 +38,28 @@ TestCase {
 
     function test_updateMissingIsNoop() {
         const n = [note(1)];
-        compare(Store.update(n, 99, "z", "z", 6), n);
+        compare(Store.update(n, 99, "z", 6), n);
+    }
+
+    function test_textJoinsSeparateLegacyTitle() {
+        compare(Store.text(note(1, { title: "Shop", content: "milk" })), "Shop\nmilk");
+        compare(Store.text(note(1, { title: "Shop", content: "Shop\nmilk" })), "Shop\nmilk");
+        compare(Store.text(note(1, { title: "Untitled", content: "milk" })), "milk");
+        compare(Store.text(note(1, { title: "", content: "milk" })), "milk");
+        compare(Store.text(note(1, { title: "Shop", content: "" })), "Shop");
+    }
+
+    function test_previewSkipsTitleLine() {
+        compare(Store.preview(note(1, { title: "Shop", content: "Shop\nmilk\n  eggs" })), "milk eggs");
+        compare(Store.preview(note(1, { title: "Shop", content: "milk" })), "milk");
+        compare(Store.preview(note(1, { title: "", content: "only" })), "");
+    }
+
+    function test_whenTodayIsATime() {
+        const now = new Date(2026, 9, 12, 18, 0);
+        verify(Store.when(new Date(2026, 9, 12, 9, 5).getTime(), now).indexOf("9") >= 0);
+        compare(Store.when(new Date(2026, 9, 5, 9, 5).getTime(), now), "5 Oct");
+        compare(Store.when(new Date(2025, 8, 7).getTime(), now), "7 Sep 2025");
     }
 
     function test_remove() {
@@ -111,7 +133,7 @@ TestCase {
     function test_mergeNormalisesLegacyNotes() {
         const m = Store.merge([], [{ id: 1, title: "", content: null, timestamp: 3 }, "junk", { title: "no id" }]);
         compare(m.length, 2);
-        compare(m[0].title, "Untitled");
+        compare(m[0].title, "");
         compare(m[0].content, "");
         compare(m[1].id, 2);
         compare(typeof m[1].timestamp, "number");
