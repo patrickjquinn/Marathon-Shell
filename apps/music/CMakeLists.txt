@@ -8,17 +8,8 @@ file(GLOB_RECURSE QML_FILES
 )
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
-set(SOURCES
-    # Future: src/musicplayer.cpp
-    # Future: src/playlistmanager.cpp
-    # Future: src/metadatareader.cpp
-)
-
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Music"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES ${SOURCES}
 )
-
-#target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::Multimedia)
