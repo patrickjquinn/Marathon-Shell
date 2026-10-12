@@ -30,7 +30,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_logindInterface(nullptr)
     , m_batteryLevel(75)
     , m_warningLevel(0)
-    , m_batteryLevelCoarse(0)
     , m_isCharging(false)
     , m_isPluggedIn(false)
     , m_isPowerSaveMode(false)
@@ -44,7 +43,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_autoSuspendEnabled(true)
     , m_isIdle(false)
     , m_lastActivityTime(QDateTime::currentMSecsSinceEpoch())
-    , m_systemSuspended(false)
     , m_wakelockSupported(false)
     , m_fallbackMode("none")
     , m_rtcAlarmSupported(false)
@@ -155,10 +153,8 @@ void PowerManagerCpp::updateAggregateState() {
             m_isCharging         = false;
             m_isPluggedIn        = true;
             m_warningLevel       = 1;
-            m_batteryLevelCoarse = 1;
             emit batteryLevelChanged();
             emit warningLevelChanged();
-            emit batteryLevelCoarseChanged();
             emit isChargingChanged();
             emit isPluggedInChanged();
         }
@@ -168,7 +164,6 @@ void PowerManagerCpp::updateAggregateState() {
     int          newLevel     = qRound(m_displayDeviceInterface->property("Percentage").toDouble());
     uint         state        = m_displayDeviceInterface->property("State").toUInt();
     const uint   warningLevel = m_displayDeviceInterface->property("WarningLevel").toUInt();
-    const uint   coarseLevel  = m_displayDeviceInterface->property("BatteryLevel").toUInt();
     const qint64 timeToEmptySeconds =
         m_displayDeviceInterface->property("TimeToEmpty").toLongLong();
     const qint64 timeToFullSeconds = m_displayDeviceInterface->property("TimeToFull").toLongLong();
@@ -189,11 +184,6 @@ void PowerManagerCpp::updateAggregateState() {
         if (m_warningLevel >= 4) {
             emit criticalBattery();
         }
-    }
-
-    if (m_batteryLevelCoarse != coarseLevel) {
-        m_batteryLevelCoarse = coarseLevel;
-        emit batteryLevelCoarseChanged();
     }
 
     if (m_isCharging != newCharging) {
@@ -227,17 +217,9 @@ void PowerManagerCpp::updateAggregateState() {
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
     if (beforeSleep) {
         qInfo() << "[PowerManagerCpp] System preparing for sleep";
-        m_systemSuspended = true;
-        emit systemSuspendedChanged();
-        emit aboutToSleep();
-        emit prepareForSuspend();
-
         releaseInhibitor();
     } else {
         qInfo() << "[PowerManagerCpp] System resumed from sleep";
-        m_systemSuspended = false;
-        emit systemSuspendedChanged();
-        emit resumedFromSleep();
         emit resumedFromSuspend();
 
         for (auto it = m_activeWakelocks.begin(); it != m_activeWakelocks.end(); ++it) {
@@ -251,25 +233,6 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
         // gives us another window to handle radio events.
         if (m_hasLogind && !m_inhibitorFd.isValid())
             inhibitSuspend("marathon-shell", "Handle wake events");
-    }
-}
-
-void PowerManagerCpp::simulateBatteryUpdate() {
-
-    if (m_isCharging) {
-        if (m_batteryLevel < 100) {
-            m_batteryLevel = qMin(100, m_batteryLevel + 1);
-            emit batteryLevelChanged();
-        }
-    } else {
-        if (m_batteryLevel > 0) {
-            m_batteryLevel = qMax(0, m_batteryLevel - 1);
-            emit batteryLevelChanged();
-
-            if (m_batteryLevel <= 5) {
-                emit criticalBattery();
-            }
-        }
     }
 }
 
@@ -377,15 +340,6 @@ void PowerManagerCpp::setPowerSaveMode(bool enabled) {
     }
 
     emit isPowerSaveModeChanged();
-}
-
-void PowerManagerCpp::refreshBatteryInfo() {
-    qDebug() << "[PowerManagerCpp] Refreshing battery info";
-    if (m_hasUPower) {
-        updateAggregateState();
-    } else {
-        simulateBatteryUpdate();
-    }
 }
 
 void PowerManagerCpp::setPowerProfile(const QString &profile) {
@@ -588,10 +542,6 @@ bool PowerManagerCpp::releaseWakelock(const QString &name) {
     }
 
     return success;
-}
-
-bool PowerManagerCpp::hasWakelock(const QString &name) const {
-    return m_activeWakelocks.value(name, false);
 }
 
 bool PowerManagerCpp::inhibitSuspend(const QString &who, const QString &why) {

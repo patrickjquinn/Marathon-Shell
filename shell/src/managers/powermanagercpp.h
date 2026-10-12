@@ -28,7 +28,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
     Q_PROPERTY(uint warningLevel READ warningLevel NOTIFY warningLevelChanged)
 
-    Q_PROPERTY(uint batteryLevelCoarse READ batteryLevelCoarse NOTIFY batteryLevelCoarseChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY isChargingChanged)
     Q_PROPERTY(bool isPluggedIn READ isPluggedIn NOTIFY isPluggedInChanged)
     Q_PROPERTY(bool isPowerSaveMode READ isPowerSaveMode NOTIFY isPowerSaveModeChanged)
@@ -39,9 +38,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(int idleTimeout READ idleTimeout WRITE setIdleTimeout NOTIFY idleTimeoutChanged)
     Q_PROPERTY(bool autoSuspendEnabled READ autoSuspendEnabled WRITE setAutoSuspendEnabled NOTIFY
                    autoSuspendEnabledChanged)
-    Q_PROPERTY(bool systemSuspended READ isSystemSuspended NOTIFY systemSuspendedChanged)
-    Q_PROPERTY(bool wakelockSupported READ wakelockSupported CONSTANT)
-    Q_PROPERTY(bool rtcAlarmSupported READ rtcAlarmSupported CONSTANT)
     Q_PROPERTY(QStringList activeWakelocks READ activeWakelocks NOTIFY activeWakelocksChanged)
     Q_PROPERTY(int wakeLockCount READ wakeLockCount NOTIFY activeWakelocksChanged)
 
@@ -63,9 +59,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     }
     uint warningLevel() const {
         return m_warningLevel;
-    }
-    uint batteryLevelCoarse() const {
-        return m_batteryLevelCoarse;
     }
     bool isCharging() const {
         return m_isCharging;
@@ -94,15 +87,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     bool autoSuspendEnabled() const {
         return m_autoSuspendEnabled;
     }
-    bool isSystemSuspended() const {
-        return m_systemSuspended;
-    }
-    bool wakelockSupported() const {
-        return m_wakelockSupported;
-    }
-    bool rtcAlarmSupported() const {
-        return m_rtcAlarmSupported;
-    }
 
     QStringList activeWakelocks() const;
     int         wakeLockCount() const {
@@ -115,14 +99,12 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_INVOKABLE void shutdown();
     Q_INVOKABLE void restart();
     Q_INVOKABLE void setPowerSaveMode(bool enabled);
-    Q_INVOKABLE void refreshBatteryInfo();
     Q_INVOKABLE void setPowerProfile(const QString &profile);
     Q_INVOKABLE void setIdleTimeout(int seconds);
     Q_INVOKABLE void setAutoSuspendEnabled(bool enabled);
 
     Q_INVOKABLE bool acquireWakelock(const QString &name);
     Q_INVOKABLE bool releaseWakelock(const QString &name);
-    Q_INVOKABLE bool hasWakelock(const QString &name) const;
     Q_INVOKABLE bool inhibitSuspend(const QString &who, const QString &why);
     Q_INVOKABLE void releaseInhibitor();
 
@@ -134,7 +116,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
   signals:
     void batteryLevelChanged();
     void warningLevelChanged();
-    void batteryLevelCoarseChanged();
     void isChargingChanged();
     void isPluggedInChanged();
     void isPowerSaveModeChanged();
@@ -143,12 +124,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     void criticalActionChanged();
     void idleTimeoutChanged();
     void autoSuspendEnabledChanged();
-    void systemSuspendedChanged();
     void criticalBattery();
     void powerError(const QString &message);
-    void aboutToSleep();
-    void resumedFromSleep();
-    void prepareForSuspend();
     void resumedFromSuspend();
     void idleStateChanged(bool idle);
     void activeWakelocksChanged();
@@ -160,7 +137,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
   private:
     void                    setupDBusConnections();
-    void                    simulateBatteryUpdate();
     void                    applyCPUGovernor(PowerProfile profile) const;
     void                    checkCPUGovernorSupport();
     void                    checkWakelockSupport();
@@ -177,7 +153,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
     int                     m_batteryLevel;
     uint                    m_warningLevel;
-    uint                    m_batteryLevelCoarse;
     bool                    m_isCharging;
     bool                    m_isPluggedIn;
     bool                    m_isPowerSaveMode;
@@ -198,7 +173,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
     QMap<QString, bool>     m_activeWakelocks;
     QDBusUnixFileDescriptor m_inhibitorFd;
-    bool                    m_systemSuspended;
     bool                    m_wakelockSupported;
     QString                 m_fallbackMode;
 
