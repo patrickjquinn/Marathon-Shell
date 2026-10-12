@@ -31,7 +31,6 @@ class SettingsController : public QObject {
     Q_PROPERTY(
         int notificationAppsRevision READ notificationAppsRevision NOTIFY notificationAppsChanged)
     Q_PROPERTY(QString osVersion READ osVersion NOTIFY systemInfoChanged)
-    Q_PROPERTY(QString buildType READ buildType NOTIFY systemInfoChanged)
     Q_PROPERTY(QString kernelVersion READ kernelVersion NOTIFY systemInfoChanged)
     Q_PROPERTY(QString deviceModel READ deviceModel NOTIFY systemInfoChanged)
     Q_PROPERTY(QString displayResolution READ displayResolution NOTIFY systemInfoChanged)
@@ -90,7 +89,6 @@ class SettingsController : public QObject {
     int                 notificationAppsRevision() const;
     QVariantList        notificationApps() const;
     QString             osVersion() const;
-    QString             buildType() const;
     QString             kernelVersion() const;
     QString             deviceModel() const;
     QString             displayResolution() const;
@@ -162,7 +160,6 @@ class SettingsController : public QObject {
     bool                   m_bluetoothDialogPairing = false;
     QString                m_bluetoothDialogError;
     QString                m_osVersion;
-    QString                m_buildType;
     QString                m_kernelVersion;
     QString                m_deviceModel;
     QString                m_displayResolution;

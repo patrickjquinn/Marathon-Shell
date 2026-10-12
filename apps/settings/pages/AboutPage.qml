@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -62,12 +63,14 @@ Page {
                 value: SettingsController.deviceModel
             }
             DetailItem {
-                label: qsTr("OS version")
-                value: SettingsController.osVersion
+                objectName: "versionItem"
+                label: qsTr("Marathon OS version")
+                value: Updates.currentVersion || qsTr("Unknown")
             }
             DetailItem {
-                label: qsTr("Build")
-                value: SettingsController.buildType
+                objectName: "baseItem"
+                label: qsTr("OS base")
+                value: SettingsController.osVersion
             }
             DetailItem {
                 label: qsTr("Kernel")
@@ -101,7 +104,7 @@ Page {
             DetailItem {
                 objectName: "batteryItem"
                 label: qsTr("Battery")
-                value: qsTr("%1%").arg(Power.batteryLevel)
+                value: Logic.batterySummary(Power.batteryLevel, Power.isCharging) || qsTr("No battery")
             }
 
             SectionHeader {

@@ -378,10 +378,6 @@ QString SettingsController::osVersion() const {
     return m_osVersion;
 }
 
-QString SettingsController::buildType() const {
-    return m_buildType;
-}
-
 QString SettingsController::kernelVersion() const {
     return m_kernelVersion;
 }
@@ -590,7 +586,6 @@ void SettingsController::updateSystemInfo() {
     const QString osVer  = QOperatingSystemVersion::current().name() + " " +
         QOperatingSystemVersion::current().version().toString();
     m_osVersion = pretty.isEmpty() ? osVer : pretty;
-    m_buildType = QSysInfo::buildAbi();
     m_kernelVersion =
         QStringLiteral("%1 %2").arg(QSysInfo::kernelType(), QSysInfo::kernelVersion());
 

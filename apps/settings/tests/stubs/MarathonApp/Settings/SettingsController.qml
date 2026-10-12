@@ -4,8 +4,7 @@ import QtQml
 // Mirrors src/SettingsController's dialog state and text helpers.
 QtObject {
     property var notificationApps: [{ id: "notes", name: "Notes", enabled: true }, { id: "weather", name: "Weather", enabled: false }]
-    property string osVersion: "Marathon OS r375"
-    property string buildType: "arm64-little_endian-lp64"
+    property string osVersion: "postmarketOS edge"
     property string kernelVersion: "linux 6.12"
     property string deviceModel: "Purism Librem 5"
     property string displayResolution: "720x1440"
