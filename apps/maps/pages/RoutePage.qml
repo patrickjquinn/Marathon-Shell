@@ -45,28 +45,33 @@ Page {
                 label: qsTr("Via")
                 value: Logic.via(root.app.maneuvers)
             }
-            Flow {
+            ComboBox {
+                id: modeBox
+
+                readonly property var modes: ["auto", "pedestrian", "bicycle"]
+
                 objectName: "modes"
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * x
                 visible: !root.active
-                spacing: Theme.paddingSmall
-
-                Repeater {
-                    model: [
-                        { mode: "auto", label: qsTr("Drive") },
-                        { mode: "pedestrian", label: qsTr("Walk") },
-                        { mode: "bicycle", label: qsTr("Cycle") }
-                    ]
-
-                    FilterChip {
-                        required property var modelData
-
-                        text: modelData.label
-                        checked: root.app.currentMode === modelData.mode
-                        automaticCheck: false
-                        enabled: !root.app.router.routing
-                        onClicked: root.app.setMode(modelData.mode)
+                enabled: !root.app.router.routing
+                label: qsTr("Travel by")
+                // The combo writes its own index on load, which would drop a
+                // plain binding.
+                Binding on currentIndex {
+                    value: modeBox.modes.indexOf(root.app.currentMode)
+                }
+                menu: ContextMenu {
+                    MenuItem {
+                        text: qsTr("Drive")
+                        onClicked: root.app.setMode("auto")
+                    }
+                    MenuItem {
+                        objectName: "walkMode"
+                        text: qsTr("Walk")
+                        onClicked: root.app.setMode("pedestrian")
+                    }
+                    MenuItem {
+                        text: qsTr("Cycle")
+                        onClicked: root.app.setMode("bicycle")
                     }
                 }
             }

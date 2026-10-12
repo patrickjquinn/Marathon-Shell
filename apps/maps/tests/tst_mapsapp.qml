@@ -229,8 +229,10 @@ TestCase {
         app.requestDirections();
         routed(app);
         const modes = findChild(current(app), "modes");
-        mouseClick(modes.children[1]);
+        compare(modes.value, "Drive");
+        findChild(modes.menu, "walkMode").clicked();
         compare(app.currentMode, "pedestrian");
+        compare(modes.value, "Walk");
         compare(app.router.requests.length, 2);
         compare(app.router.requests[1].mode, "pedestrian");
         app.router.routing = false;
