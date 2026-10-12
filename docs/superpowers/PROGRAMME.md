@@ -11,12 +11,15 @@ Branch: feat/keel-framework-1a (continue on it).
 | 1c TabBar/TabView, PageIndicator, FilterChip; icon theme | built (marathon-icon-theme subpkg, lint) | icons installed r367; visual check pending |
 | 1d Marathon.Platform; Ngf/Configuration/Notifications backends | committed | Ngf Play/Status on system bus OK; Configuration persists via dconf across restart; remote actions host-tested only |
 | 1e pool pre-compiles framework; notes-silica on framework | committed | first frame 1.28-1.44 s (target <=1.87) |
-| 2 shell redesign | done for covers, switcher cards, lock clock, QS switches, Hub, theme->Silica, Source Sans 3 font, portal Settings | r374-r376 screenshots |
+| 2 shell redesign | done for covers, switcher cards, lock clock, QS switches, Hub, theme->Silica, Source Sans 3 font, portal Settings; UX audit pass (type scale = Silica, shell pixel ratio, QS fit, opaque Hub, pill back closes overlays, peek crash, Hub/lock privacy) | r374-r376; audit r378-r384 |
 | 3 app migration | all 17 apps on Keel (agents, merged) | r375/r376: notes, clock, calculator, gallery, phone, messages, music on device; rest in r377 |
-| 4 remove MarathonUI | agent running (theme->shell-private, components->Silica/shell ui, delete marathon-ui) | |
-| 5 Sailfish app support | keel-silica r4 (platform, sailfishapp, qt5compat), marathon-keel-host, Sailjail->bwrap, sailfish-qml, marathon-sailfish-install | host-tested; device pending |
+| 4 remove MarathonUI | done (theme->shell qml/theme, components->Silica or shell qml/ui, marathon-ui deleted) | r379+ (needed the PhosphorGlyphs qmldir fix; Shell_Loads test guards it) |
+| 5 Sailfish app support (parked by user 2026-10-12) | keel-silica r4 (platform, sailfishapp, qt5compat), marathon-keel-host, Sailjail->bwrap, sailfish-qml, marathon-sailfish-install | host-tested; device pending |
 
 ## Rulings
+- UX direction (user, 2026-10-12): a modern Sailfish with the best of BB10 and Marathon's own twist; Marathon's pill navigation stays (left back, up home/switcher, right forward, down shade). Keep/drop list: docs/superpowers/specs/2026-10-12-sailfish-ux-keep-drop.md.
+- Shell type scale: body = Silica fontSizeMedium, other roles keep their ratio. Cost if wrong: shell text is larger than the old Marathon design everywhere.
+- QS Lock action dropped (power key locks; forum reports it as dead weight). Cost if wrong: one more tap path to lock is gone.
 - 1b: Escape. The compositor turned every Esc key into system back before apps saw it. Ruling: for Keel apps the compositor passes Esc through (KeyRouting); Silica controls use it (menus, dialogs, remorse) and Page turns an unused Esc into handleBack. MarathonUI apps unchanged. Cost if wrong: a Keel app that swallows Esc can't be backed out of by keyboard (back gesture still works).
 - 1b: Page Esc on depth 1 calls handleBack (minimise) — keyboard back parity with the gesture.
 
@@ -33,6 +36,10 @@ Keel ships the Qt 6 client side of every API; Marathon supplies services:
 - Recipes: github.com/nemomobile-ux/nemo-packaging; lipstick Qt6 port at nemomobile-ux/lipstick (reference only).
 
 ## Deferred minors
+- Launching an app over the open Quick Settings shade leaves the shade up.
+- The shell's info/debug logs are not written anywhere on device (crash.log carries warnings only).
+- Store pipeline patch 0001 still writes a MarathonUI StoreApp.qml into marathon-extras (0019 stops it shadowing); remove when the patch series is next regenerated.
+- Docs (README, APP_DEVELOPMENT, MAPP_GUIDE, UI_DESIGN_SYSTEM...) still describe MarathonUI.
 - TextField/TextArea expose an extra unnamed inner editor node in AT-SPI.
 - Nemo Notifications GetNotifications/GetNotificationsByCategory not implemented (apps can't list their own posted notifications).
 - keys.py on device: /var/tmp/keys.py (uinput); a11y dump: /var/tmp/a11ytree.py (run as user).
