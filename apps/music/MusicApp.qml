@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import MarathonOS.Shell
 import Nemo.Configuration 1.0
 import "Playlists.js" as Playlists
 import "pages"
