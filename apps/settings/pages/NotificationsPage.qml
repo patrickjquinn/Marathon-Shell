@@ -50,6 +50,16 @@ Page {
                 text: qsTr("Apps")
                 visible: apps.count > 0
             }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                visible: apps.count > 0
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("Switch an app off to hide its notifications")
+            }
             Repeater {
                 id: apps
 
