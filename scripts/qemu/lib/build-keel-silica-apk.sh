@@ -40,7 +40,8 @@ apk add --no-cache --quiet \
     abuild rsync curl ca-certificates git \
     build-base cargo cmake samurai \
     qt6-qtbase-dev qt6-qtbase-private-dev \
-    qt6-qtdeclarative-dev qt6-qtdeclarative-private-dev 2>&1 | tail -3 || true
+    qt6-qtdeclarative-dev qt6-qtdeclarative-private-dev \
+    mlite-dev dconf-dev pkgconf 2>&1 | tail -3 || true
 
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q
