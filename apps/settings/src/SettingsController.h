@@ -86,7 +86,6 @@ class SettingsController : public QObject {
                                          const QString &passkey) const;
     Q_INVOKABLE QString lockoutStatusText(bool lockedOut, int secondsRemaining) const;
     Q_INVOKABLE QString quickPinValidationError(const QString &pin, const QString &password) const;
-    Q_INVOKABLE QString soundTypeLabel(const QString &soundType) const;
 
     int                 notificationAppsRevision() const;
     QVariantList        notificationApps() const;

@@ -3,7 +3,6 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
-import MarathonApp.Settings
 
 Page {
     id: page
@@ -12,6 +11,7 @@ Page {
     property string soundType: "ringtone"
     readonly property string key: ({ ringtone: "ringtone", notification: "notificationSound", alarm: "alarmSound" })[soundType]
     readonly property string current: Settings[key]
+    readonly property string title: ({ ringtone: qsTr("Ringtone"), notification: qsTr("Notification sound"), alarm: qsTr("Alarm sound") })[soundType]
 
     function choose(path) {
         Settings[key] = path;
@@ -25,7 +25,7 @@ Page {
         anchors.fill: parent
         model: page.soundType === "notification" ? Settings.availableNotificationSounds() : page.soundType === "alarm" ? Settings.availableAlarmSounds() : Settings.availableRingtones()
         header: PageHeader {
-            title: SettingsController.soundTypeLabel(page.soundType)
+            title: page.title
             description: qsTr("Tap a sound to choose and hear it")
         }
 

@@ -294,19 +294,6 @@ QString SettingsController::quickPinValidationError(const QString &pin,
     return QString();
 }
 
-QString SettingsController::soundTypeLabel(const QString &soundType) const {
-    if (soundType == QLatin1String("ringtone")) {
-        return QStringLiteral("Ringtone");
-    }
-    if (soundType == QLatin1String("notification")) {
-        return QStringLiteral("Notification Sound");
-    }
-    if (soundType == QLatin1String("alarm")) {
-        return QStringLiteral("Alarm Sound");
-    }
-    return QStringLiteral("Sound");
-}
-
 int SettingsController::notificationAppsRevision() const {
     return m_notificationAppsRevision;
 }

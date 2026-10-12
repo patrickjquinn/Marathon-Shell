@@ -176,9 +176,6 @@ QtObject {
             return "System password required";
         return "";
     }
-    function soundTypeLabel(type) {
-        return { ringtone: "Ringtone", notification: "Notification Sound", alarm: "Alarm Sound" }[type] || "Sound";
-    }
 
     function setNotificationEnabled(appId, enabled) {
         record(["notify", appId, enabled]);

@@ -152,6 +152,7 @@ TestCase {
         const s = open("sound");
         child(s.page, "alarmSoundButton").clicked(null);
         const picker = pushed(s.app, s.page);
+        compare(picker.title, "Alarm sound");
         child(picker, "sound-Bell").clicked(null);
         compare(Settings.alarmSound, "/sounds/alarm_bell.wav");
         compare(Settings.ringtone, "/sounds/ring_classic.wav");
