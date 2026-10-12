@@ -42,21 +42,21 @@ Dialog {
                     color: Theme.highlightColor
                 }
             }
-            TextField {
-                id: labelField
-
-                objectName: "labelField"
-                width: parent.width
-                label: qsTr("Label")
-                placeholderText: qsTr("Alarm")
-                EnterKey.iconSource: "image://theme/icon-m-enter-close"
-                EnterKey.onClicked: focus = false
-            }
             SectionHeader {
                 text: qsTr("Repeat")
             }
             WeekdaySelector {
                 id: weekdays
+            }
+            TextField {
+                id: labelField
+
+                objectName: "labelField"
+                width: parent.width
+                label: qsTr("Alarm name")
+                placeholderText: qsTr("Alarm")
+                EnterKey.iconSource: "image://theme/icon-m-enter-close"
+                EnterKey.onClicked: focus = false
             }
         }
 

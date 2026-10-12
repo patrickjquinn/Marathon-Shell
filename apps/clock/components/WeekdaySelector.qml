@@ -24,8 +24,7 @@ Row {
             readonly property bool selected: root.days.indexOf(modelData) !== -1
 
             width: root.width / 7
-            height: Theme.itemSizeSmall
-            highlighted: down || selected
+            height: Theme.itemSizeMedium
             Accessible.role: Accessible.CheckBox
             Accessible.name: Qt.locale().dayName(modelData)
             Accessible.checkable: true
@@ -33,11 +32,26 @@ Row {
             Accessible.onToggleAction: clicked(null)
             onClicked: root.days = Logic.toggleDay(root.days, modelData)
 
+            GlassItem {
+                id: dot
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: dayName.top
+                anchors.bottomMargin: -Theme.paddingLarge
+                color: day.down ? Theme.highlightColor : day.selected ? Theme.lightPrimaryColor : Theme.primaryColor
+                backgroundColor: day.selected ? day.palette.backgroundGlowColor : "transparent"
+                dimmed: !day.selected
+                falloffRadius: day.selected ? defaultFalloffRadius : 0.075
+            }
             Label {
-                anchors.centerIn: parent
+                id: dayName
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Theme.paddingSmall
                 text: Qt.locale().dayName(day.modelData, Locale.ShortFormat)
                 font.pixelSize: Theme.fontSizeSmall
-                color: day.selected ? Theme.highlightColor : Theme.primaryColor
+                color: day.down ? Theme.highlightColor : Theme.primaryColor
             }
         }
     }
