@@ -86,6 +86,15 @@ TestCase {
         compare(app.currentTab.url, "https://kde.org/");
     }
 
+    function test_focusedEmptyAddressOffersBookmarksAndRecent() {
+        const app = makeApp([{ url: "https://kde.org/", title: "KDE" }], [{ url: "https://qt.io/", title: "Qt", timestamp: 2 }]);
+        const page = app.pageStack.currentPage;
+        page.startEditing();
+        const list = findChild(page, "suggestionView");
+        tryVerify(() => list.visible && list.count === 2);
+        compare(list.model.map(s => s.kind), ["bookmark", "history"]);
+    }
+
     function test_enterInTheAddressNavigates() {
         const app = makeApp();
         const page = app.pageStack.currentPage;

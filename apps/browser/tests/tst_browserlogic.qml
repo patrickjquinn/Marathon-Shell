@@ -50,7 +50,7 @@ TestCase {
     function test_suggestions() {
         const bookmarks = [{ url: "https://kde.org", title: "KDE" }];
         const history = [{ url: "https://kde.org", title: "KDE" }, { url: "https://qt.io", title: "Qt docs" }];
-        compare(Logic.suggestions("", bookmarks, history, "Bing"), []);
+        compare(Logic.suggestions("", [], [], "Bing"), []);
         const s = Logic.suggestions("kde.org", bookmarks, history, "Bing");
         compare(s.map(e => e.kind), ["go", "search", "bookmark"]);
         compare(s[0].value, "https://kde.org");
@@ -59,6 +59,18 @@ TestCase {
         compare(d.map(e => e.kind), ["search", "history"]);
         compare(d[1].title, "Qt docs");
         compare(d[1].subtitle, "https://qt.io");
+    }
+
+    function test_emptyQuerySuggestsBookmarksThenRecent() {
+        const bookmarks = [{ url: "https://kde.org", title: "KDE" }];
+        const history = [{ url: "https://old.org", title: "Old", timestamp: 1 }, { url: "https://kde.org", title: "KDE", timestamp: 9 }];
+        for (let i = 0; i < 10; i++)
+            history.push({ url: "https://n" + i + ".org", title: "", timestamp: 10 + i });
+        const s = Logic.suggestions("  ", bookmarks, history, "Bing");
+        compare(s[0].kind, "bookmark");
+        compare(s[0].value, "https://kde.org");
+        compare(s.slice(1).map(e => e.value), ["https://n9.org", "https://n8.org", "https://n7.org", "https://n6.org", "https://n5.org", "https://n4.org"]);
+        verify(s.every(e => e.kind !== "search" && e.kind !== "go"));
     }
 
     function test_suggestionsCapAtEight() {

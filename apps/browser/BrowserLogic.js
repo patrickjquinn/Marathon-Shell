@@ -74,10 +74,20 @@ function homepageFromInput(text) {
     return /^(https?|about):/i.test(url) ? url : "https://" + url;
 }
 
+const recentLimit = 6;
+
+// An untouched address field offers the bookmarks, then the latest visits.
+function startingPoints(bookmarks, history) {
+    const out = bookmarks.slice(0, suggestionLimit).map(b => ({ kind: "bookmark", title: b.title || b.url, subtitle: b.url, value: b.url }));
+    const marked = bookmarks.map(b => b.url);
+    const recent = history.filter(h => h.url && marked.indexOf(h.url) === -1).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    return out.concat(recent.slice(0, recentLimit).map(h => ({ kind: "history", title: h.title || h.url, subtitle: h.url, value: h.url })));
+}
+
 function suggestions(query, bookmarks, history, engineName) {
     const q = String(query || "").trim();
     if (!q)
-        return [];
+        return startingPoints(bookmarks, history);
     const lower = q.toLowerCase();
     const out = [];
     if ((q.indexOf(".") !== -1 && q.indexOf(" ") === -1) || /^https?:\/\//i.test(q)) {
