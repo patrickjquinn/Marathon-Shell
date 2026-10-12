@@ -1998,6 +1998,9 @@ DavObject::DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissio
                 [this]() { emit AccountsChanged(); });
         connect(m_engine, &DavSyncEngine::syncFinished, this,
                 [this](const QString &accountId, int, int, int) { emit SyncFinished(accountId); });
+        connect(m_engine, &DavSyncEngine::accountDiscovered, this, &DavObject::AccountDiscovered);
+        connect(m_engine, &DavSyncEngine::accountDiscoveryFailed, this,
+                &DavObject::AccountDiscoveryFailed);
     }
 }
 

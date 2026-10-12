@@ -3143,6 +3143,12 @@ DavClient::DavClient(QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
                                           "org.marathonos.Shell.Dav1", "SyncFinished", this,
                                           SLOT(onSyncFinished(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "AccountDiscovered", this,
+                                          SIGNAL(accountDiscovered(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "AccountDiscoveryFailed",
+                                          this, SIGNAL(accountDiscoveryFailed(QString, QString)));
     refresh();
 }
 

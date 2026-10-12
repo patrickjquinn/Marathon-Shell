@@ -9,6 +9,9 @@ QtObject {
     property real lastSyncMs: 0
     property var calls: []
 
+    signal accountDiscovered(string accountId)
+    signal accountDiscoveryFailed(string accountId, string reason)
+
     function reset() {
         accounts = [];
         syncing = false;

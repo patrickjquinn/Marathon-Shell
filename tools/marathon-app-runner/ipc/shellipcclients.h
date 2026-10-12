@@ -1358,6 +1358,8 @@ class DavClient : public QObject {
     void accountsChanged();
     void stateChanged();
     void syncFinished(const QString &accountId);
+    void accountDiscovered(const QString &accountId);
+    void accountDiscoveryFailed(const QString &accountId, const QString &reason);
 
   private slots:
     void onAccountsChanged();

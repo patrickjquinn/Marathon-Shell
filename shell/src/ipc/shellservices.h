@@ -692,6 +692,8 @@ class DavObject : public IpcPermissionedService {
   signals:
     void AccountsChanged();
     void SyncFinished(const QString &accountId);
+    void AccountDiscovered(const QString &accountId);
+    void AccountDiscoveryFailed(const QString &accountId, const QString &reason);
     void StateChanged(const QVariantMap &state);
 
   private:

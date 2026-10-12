@@ -146,11 +146,38 @@ TestCase {
         compare(DavSync.calls, [["add", "pat", "https://cloud.example.com", "pat", "pw", "basic"]]);
         compare(list.count, 1);
         verify(!child(s.page, "placeholder").enabled);
-        child(s.page, "syncItem").clicked();
+        compare(s.page.checkingId, "acc1");
+        verify(!child(s.page, "addItem").enabled);
+        DavSync.accountDiscovered("acc1");
+        compare(s.page.checkingId, "");
         compare(DavSync.calls[1], ["sync"]);
+        child(s.page, "syncItem").clicked();
+        compare(DavSync.calls[2], ["sync"]);
         compare(child(s.page, "lastSync").value, "Never");
         DavSync.lastError = "401";
         verify(child(s.page, "lastError").visible);
+    }
+
+    function test_addAccountFailureKeepsInput() {
+        const s = open("accounts");
+        child(s.page, "addItem").clicked();
+        const dialog = pushed(s.app, s.page);
+        dialog.baseUrl = " cloud.example.com ";
+        dialog.username = "pat";
+        dialog.secret = "wrong";
+        dialog.displayName = "Work";
+        dialog.accept();
+        back(s);
+        compare(DavSync.calls, [["add", "Work", "https://cloud.example.com", "pat", "wrong", "basic"]]);
+        DavSync.accountDiscoveryFailed("acc1", "principal not found");
+        const retry = pushed(s.app, s.page);
+        compare(DavSync.calls[1], ["remove", "acc1"]);
+        compare(child(s.page, "accountList").count, 0);
+        verify(child(retry, "errorLabel").visible);
+        compare(retry.baseUrl, " cloud.example.com ");
+        compare(retry.username, "pat");
+        compare(retry.secret, "wrong");
+        compare(retry.displayName, "Work");
     }
 
     function test_removeAccount() {

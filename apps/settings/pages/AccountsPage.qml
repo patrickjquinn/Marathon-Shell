@@ -10,13 +10,48 @@ Page {
     // The runner only shares the sync service with apps that hold the storage permission.
     readonly property var dav: typeof DavSync !== "undefined" ? DavSync : null
 
-    function addAccount(displayName, baseUrl, username, secret) {
-        dav.addAccount(displayName !== "" ? displayName : username, baseUrl, username, secret, "basic");
+    // The account being checked against its server, and what was typed for it.
+    property string checkingId: ""
+    property var entered: ({})
+
+    function normalizedUrl(url) {
+        const trimmed = url.trim();
+        return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : "https://" + trimmed;
     }
 
-    function openAddDialog() {
-        const dialog = pageStack.push(Qt.resolvedUrl("AddAccountDialog.qml"));
+    function addAccount(displayName, baseUrl, username, secret) {
+        entered = { displayName: displayName, baseUrl: baseUrl, username: username, secret: secret };
+        const name = displayName.trim() !== "" ? displayName.trim() : username.trim();
+        const id = dav.addAccount(name, normalizedUrl(baseUrl), username.trim(), secret, "basic");
+        if (id === "")
+            openAddDialog(qsTr("Couldn't add the account"));
+        else
+            checkingId = id;
+    }
+
+    function openAddDialog(error) {
+        const dialog = pageStack.push(Qt.resolvedUrl("AddAccountDialog.qml"), Object.assign({ error: error || "" }, error ? entered : {}));
         dialog.accepted.connect(() => page.addAccount(dialog.displayName, dialog.baseUrl, dialog.username, dialog.secret));
+    }
+
+    Connections {
+        target: page.dav
+        ignoreUnknownSignals: true
+
+        function onAccountDiscovered(accountId) {
+            if (accountId !== page.checkingId)
+                return;
+            page.checkingId = "";
+            Notices.show(qsTr("Account added"));
+            page.dav.syncNow();
+        }
+        function onAccountDiscoveryFailed(accountId, reason) {
+            if (accountId !== page.checkingId)
+                return;
+            page.checkingId = "";
+            page.dav.removeAccount(accountId);
+            page.openAddDialog(qsTr("Couldn't sign in. Check the server address, username and password."));
+        }
     }
 
     SilicaListView {
@@ -80,7 +115,8 @@ Page {
             MenuItem {
                 objectName: "addItem"
                 text: qsTr("Add account")
-                onClicked: page.openAddDialog()
+                enabled: page.checkingId === ""
+                onClicked: page.openAddDialog("")
             }
         }
 
@@ -118,7 +154,7 @@ Page {
                 }
                 Label {
                     width: parent.width
-                    text: item.modelData.username + " · " + item.modelData.baseUrl
+                    text: item.modelData.id === page.checkingId ? qsTr("Checking account…") : item.modelData.username + " · " + item.modelData.baseUrl
                     font.pixelSize: Theme.fontSizeExtraSmall
                     truncationMode: TruncationMode.Fade
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

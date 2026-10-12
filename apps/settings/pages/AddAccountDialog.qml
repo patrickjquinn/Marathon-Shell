@@ -9,6 +9,7 @@ Dialog {
     property alias baseUrl: urlField.text
     property alias username: userField.text
     property alias secret: secretField.text
+    property string error: ""
 
     canAccept: baseUrl.trim() !== "" && username.trim() !== ""
 
@@ -24,6 +25,16 @@ Dialog {
             DialogHeader {
                 acceptText: qsTr("Add")
                 title: qsTr("New account")
+            }
+            Label {
+                objectName: "errorLabel"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                visible: dialog.error !== ""
+                text: dialog.error
+                wrapMode: Text.Wrap
+                color: Theme.errorColor
             }
             TextField {
                 id: urlField
