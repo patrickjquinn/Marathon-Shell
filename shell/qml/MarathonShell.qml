@@ -2052,6 +2052,19 @@ Item {
     }
 
     Connections {
+        function onIsHotspotOnChanged() {
+            if (SystemControlStore.isHotspotOn)
+                connectionToast.show(SystemControlStore.hotspotSsid + " · " + SystemControlStore.hotspotPassword, "broadcast");
+        }
+
+        function onHotspotFailed(message) {
+            errorToast.show("Hotspot didn't start", message, "broadcast");
+        }
+
+        target: SystemControlStore
+    }
+
+    Connections {
         function onBatteryWarning(title, body, iconName, hapticLevel) {
             if (errorToast)
                 errorToast.show(title, body, iconName);

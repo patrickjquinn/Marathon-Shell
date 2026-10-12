@@ -31,6 +31,7 @@ class NetworkManagerCpp : public QObject {
     Q_PROPERTY(bool bluetoothAvailable READ bluetoothAvailable NOTIFY bluetoothAvailableChanged)
     Q_PROPERTY(bool hotspotSupported READ hotspotSupported NOTIFY hotspotSupportedChanged)
     Q_PROPERTY(bool airplaneModeEnabled READ airplaneModeEnabled NOTIFY airplaneModeEnabledChanged)
+    Q_PROPERTY(bool hotspotActive READ isHotspotActive NOTIFY hotspotActiveChanged)
     Q_PROPERTY(
         QVariantList availableNetworks READ availableNetworks NOTIFY availableNetworksChanged)
 
@@ -100,6 +101,8 @@ class NetworkManagerCpp : public QObject {
     void availableNetworksChanged();
     void connectionSuccess();
     void connectionFailed(const QString &message);
+    void hotspotActiveChanged();
+    void hotspotFailed(const QString &message);
 
   private slots:
     void queryWifiState();
@@ -112,10 +115,13 @@ class NetworkManagerCpp : public QObject {
                                const QStringList &invalidated);
     void onApPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                const QStringList &invalidated);
+    void onHotspotStateChanged(uint state, uint reason);
 
   private:
     void            setupDBusConnections();
     void            detectHardwareAvailability();
+    void            setHotspotActive(bool active);
+    void            watchHotspot(bool watch);
 
     QDBusInterface *m_nmInterface;
     QTimer         *m_signalMonitor = nullptr;

@@ -1094,6 +1094,7 @@ NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManag
     QObject::connect(m_network, &NetworkManagerCpp::wifiAvailableChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::bluetoothAvailableChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::hotspotSupportedChanged, this, push);
+    QObject::connect(m_network, &NetworkManagerCpp::hotspotActiveChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::airplaneModeEnabledChanged, this, push);
     QObject::connect(m_network, &NetworkManagerCpp::availableNetworksChanged, this, push);
 

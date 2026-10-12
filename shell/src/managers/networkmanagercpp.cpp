@@ -833,7 +833,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
 
     if (!m_hasNetworkManager || m_wifiDevicePath.isEmpty()) {
         qWarning() << "[NetworkManagerCpp] Cannot create hotspot: WiFi not available";
-        emit connectionFailed("WiFi not available");
+        emit hotspotFailed("Wi-Fi is not available");
         return;
     }
 
@@ -886,21 +886,64 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
 
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [this, ssid](QDBusPendingCallWatcher *watcher) {
+                watcher->deleteLater();
                 QDBusPendingReply<QDBusObjectPath, QDBusObjectPath> reply = *watcher;
 
                 if (reply.isError()) {
                     QString error = reply.error().message();
                     qWarning() << "[NetworkManagerCpp] Hotspot creation failed:" << error;
-                    emit connectionFailed("Failed to create hotspot: " + error);
-                } else {
-                    m_hotspotConnectionPath = reply.value().path();
-                    m_hotspotActive         = true;
-                    qInfo() << "[NetworkManagerCpp] Hotspot active:" << ssid;
-                    emit connectionSuccess();
+                    emit hotspotFailed(error);
+                    return;
                 }
-
-                watcher->deleteLater();
+                // The reply only means activation started; the AP is up once
+                // the active connection reaches ACTIVATED.
+                watchHotspot(false);
+                m_hotspotConnectionPath = reply.argumentAt<1>().path();
+                watchHotspot(true);
+                QDBusInterface active("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
+                                      "org.freedesktop.NetworkManager.Connection.Active",
+                                      QDBusConnection::systemBus());
+                onHotspotStateChanged(active.property("State").toUInt(), 0);
+                qInfo() << "[NetworkManagerCpp] Hotspot activating:" << ssid;
             });
+}
+
+void NetworkManagerCpp::watchHotspot(bool watch) {
+    if (m_hotspotConnectionPath.isEmpty())
+        return;
+    QDBusConnection bus = QDBusConnection::systemBus();
+    if (watch)
+        bus.connect("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
+                    "org.freedesktop.NetworkManager.Connection.Active", "StateChanged", this,
+                    SLOT(onHotspotStateChanged(uint, uint)));
+    else
+        bus.disconnect("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
+                       "org.freedesktop.NetworkManager.Connection.Active", "StateChanged", this,
+                       SLOT(onHotspotStateChanged(uint, uint)));
+}
+
+void NetworkManagerCpp::onHotspotStateChanged(uint state, uint reason) {
+    constexpr uint kActivated   = 2;
+    constexpr uint kDeactivated = 4;
+    if (state == kActivated) {
+        setHotspotActive(true);
+    } else if (state == kDeactivated || state == 0) {
+        const bool wasActive = m_hotspotActive;
+        watchHotspot(false);
+        m_hotspotConnectionPath.clear();
+        setHotspotActive(false);
+        if (!wasActive) {
+            qWarning() << "[NetworkManagerCpp] Hotspot failed to start, reason" << reason;
+            emit hotspotFailed(QStringLiteral("The Wi-Fi adapter could not start an access point"));
+        }
+    }
+}
+
+void NetworkManagerCpp::setHotspotActive(bool active) {
+    if (m_hotspotActive == active)
+        return;
+    m_hotspotActive = active;
+    emit hotspotActiveChanged();
 }
 
 void NetworkManagerCpp::stopHotspot() {
@@ -910,20 +953,14 @@ void NetworkManagerCpp::stopHotspot() {
         return;
     }
 
-    QDBusInterface activeConn("org.freedesktop.NetworkManager", m_hotspotConnectionPath,
-                              "org.freedesktop.NetworkManager.Connection.Active",
-                              QDBusConnection::systemBus());
-
-    if (activeConn.isValid()) {
-        QDBusReply<void> reply = m_nmInterface->call(
-            "DeactivateConnection", QVariant::fromValue(QDBusObjectPath(m_hotspotConnectionPath)));
-        if (reply.isValid()) {
-            qInfo() << "[NetworkManagerCpp] Hotspot stopped";
-        }
-    }
+    watchHotspot(false);
+    QDBusReply<void> reply = m_nmInterface->call(
+        "DeactivateConnection", QVariant::fromValue(QDBusObjectPath(m_hotspotConnectionPath)));
+    if (!reply.isValid())
+        qWarning() << "[NetworkManagerCpp] Hotspot stop failed:" << reply.error().message();
 
     m_hotspotConnectionPath.clear();
-    m_hotspotActive = false;
+    setHotspotActive(false);
 }
 
 bool NetworkManagerCpp::isHotspotActive() const {

@@ -12,6 +12,7 @@
 #include "src/managers/powermanagercpp.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/screenshotservicecpp.h"
+#include <QRandomGenerator>
 #include <cmath>
 #include <algorithm>
 
@@ -40,6 +41,10 @@ SystemControlStore::SystemControlStore(
         setIsWifiOn(m_networkManager->wifiEnabled());
         setIsAirplaneModeOn(m_networkManager->airplaneModeEnabled());
         setIsHotspotOn(m_networkManager->isHotspotActive());
+        connect(m_networkManager, &NetworkManagerCpp::hotspotActiveChanged, this,
+                [this]() { setIsHotspotOn(m_networkManager->isHotspotActive()); });
+        connect(m_networkManager, &NetworkManagerCpp::hotspotFailed, this,
+                &SystemControlStore::hotspotFailed);
         connect(m_networkManager, &NetworkManagerCpp::wifiEnabledChanged, this,
                 [this]() { setIsWifiOn(m_networkManager->wifiEnabled()); });
         connect(m_networkManager, &NetworkManagerCpp::airplaneModeEnabledChanged, this,
@@ -219,11 +224,39 @@ void SystemControlStore::toggleHotspot() {
     }
     if (m_networkManager->isHotspotActive()) {
         m_networkManager->stopHotspot();
-        setIsHotspotOn(false);
     } else {
-        m_networkManager->createHotspot("Marathon Hotspot", "marathon2025");
-        setIsHotspotOn(true);
+        ensureHotspotCredentials();
+        m_networkManager->createHotspot(m_hotspotSsid, m_hotspotPassword);
     }
+}
+
+// Generated once per device and kept, so clients that joined stay joined.
+void SystemControlStore::ensureHotspotCredentials() {
+    if (!m_hotspotPassword.isEmpty())
+        return;
+    if (m_settingsManager) {
+        m_hotspotSsid     = m_settingsManager->get("hotspot/ssid").toString();
+        m_hotspotPassword = m_settingsManager->get("hotspot/password").toString();
+    }
+    if (m_hotspotPassword.isEmpty()) {
+        // No 0/O/1/l/i: the password is read off the screen and typed.
+        static const QString kAlphabet = QStringLiteral("abcdefghjkmnpqrstuvwxyz23456789");
+        QRandomGenerator    *rng       = QRandomGenerator::system();
+        auto                 pick      = [rng](int n) {
+            QString s;
+            for (int i = 0; i < n; ++i)
+                s += kAlphabet.at(static_cast<int>(rng->bounded(kAlphabet.size())));
+            return s;
+        };
+        m_hotspotSsid     = QStringLiteral("Marathon-") + pick(4).toUpper();
+        m_hotspotPassword = pick(4) + '-' + pick(4) + '-' + pick(4);
+        if (m_settingsManager) {
+            m_settingsManager->set("hotspot/ssid", m_hotspotSsid);
+            m_settingsManager->set("hotspot/password", m_hotspotPassword);
+            m_settingsManager->sync();
+        }
+    }
+    emit hotspotCredentialsChanged();
 }
 
 void SystemControlStore::toggleVibration() {

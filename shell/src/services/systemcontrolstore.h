@@ -35,6 +35,8 @@ class SystemControlStore : public QObject {
     Q_PROPERTY(bool isAutoBrightnessOn READ isAutoBrightnessOn NOTIFY isAutoBrightnessOnChanged)
     Q_PROPERTY(bool isLocationOn READ isLocationOn NOTIFY isLocationOnChanged)
     Q_PROPERTY(bool isHotspotOn READ isHotspotOn NOTIFY isHotspotOnChanged)
+    Q_PROPERTY(QString hotspotSsid READ hotspotSsid NOTIFY hotspotCredentialsChanged)
+    Q_PROPERTY(QString hotspotPassword READ hotspotPassword NOTIFY hotspotCredentialsChanged)
     Q_PROPERTY(bool isVibrationOn READ isVibrationOn NOTIFY isVibrationOnChanged)
     Q_PROPERTY(bool isNightLightOn READ isNightLightOn NOTIFY isNightLightOnChanged)
     Q_PROPERTY(int brightness READ brightness NOTIFY brightnessChanged)
@@ -87,6 +89,12 @@ class SystemControlStore : public QObject {
     bool isHotspotOn() const {
         return m_isHotspotOn;
     }
+    QString hotspotSsid() const {
+        return m_hotspotSsid;
+    }
+    QString hotspotPassword() const {
+        return m_hotspotPassword;
+    }
     bool isVibrationOn() const {
         return m_isVibrationOn;
     }
@@ -136,6 +144,8 @@ class SystemControlStore : public QObject {
     void isAutoBrightnessOnChanged();
     void isLocationOnChanged();
     void isHotspotOnChanged();
+    void hotspotCredentialsChanged();
+    void hotspotFailed(const QString &message);
     void isVibrationOnChanged();
     void isNightLightOnChanged();
     void brightnessChanged();
@@ -161,6 +171,7 @@ class SystemControlStore : public QObject {
     void                   setVolumeValue(int value);
     void                   setIsLowPowerMode(bool enabled);
     void                   refreshAlarmState();
+    void                   ensureHotspotCredentials();
 
     NetworkManagerCpp     *m_networkManager;
     BluetoothManager      *m_bluetoothManager;
@@ -192,4 +203,6 @@ class SystemControlStore : public QObject {
     int                    m_brightness         = 50;
     int                    m_volume             = 50;
     bool                   m_isLowPowerMode     = false;
+    QString                m_hotspotSsid;
+    QString                m_hotspotPassword;
 };
