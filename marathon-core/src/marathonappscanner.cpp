@@ -35,13 +35,7 @@ MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *p
 QStringList MarathonAppScanner::getSearchPaths() {
     QStringList paths;
 
-#ifdef Q_OS_MACOS
-
-    paths << "/usr/local/share/marathon-apps";
-#else
-
     paths << "/usr/share/marathon-apps";
-#endif
 
     QString homeDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
     paths << homeDir + "/.local/share/marathon-apps";
