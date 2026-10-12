@@ -190,22 +190,11 @@ Item {
                 radius: cardRoot.radius
                 clip: true
 
-                // The app's cover over the bottom half of its live preview, on
-                // a neutral scrim so it reads over any app content.
-                Rectangle {
-                    anchors.fill: coverView
-                    z: 1
-                    visible: coverView.available
-                    color: Qt.rgba(0, 0, 0, 0.7)
-                }
-
+                // The app's cover when it has one, otherwise its live preview.
                 KeelCoverView {
                     id: coverView
 
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: parent.height / 2
+                    anchors.fill: parent
                     z: 2
                     appId: taskCard.appId
                     compositor: taskCard.compositor
@@ -216,6 +205,7 @@ Item {
                     id: appPreview
 
                     anchors.fill: parent
+                    visible: !coverView.available
                     active: true
                     asynchronous: true
 
@@ -314,11 +304,12 @@ Item {
                                 ShaderEffectSource {
                                     id: liveSnapshot
 
-                                    // Fill the card at the app's aspect; the card clips the overflow.
+                                    // Fill the card at the app's aspect from the top, so the
+                                    // header shows; the card clips the overflow.
                                     property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
                                     property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.top: parent.top
                                     width: parentAspect >= appAspect ? parent.height / appAspect : parent.width
                                     height: parentAspect >= appAspect ? parent.height : parent.width * appAspect
                                     sourceItem: previewContainer.liveApp
@@ -354,7 +345,7 @@ Item {
                                     property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
                                     property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.top: parent.top
                                     width: parentAspect >= appAspect ? parent.height / appAspect : parent.width
                                     height: parentAspect >= appAspect ? parent.height : parent.width * appAspect
                                     visible: taskCard.hasWaylandSurface
