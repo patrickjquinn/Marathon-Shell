@@ -70,6 +70,37 @@ function formatCountdown(seconds) {
     return h > 0 ? h + ":" + pad2(m) + ":" + s : m + ":" + s;
 }
 
+const knownCities = [
+    { name: "New York", tz: "America/New_York", offset: -5 },
+    { name: "Los Angeles", tz: "America/Los_Angeles", offset: -8 },
+    { name: "Chicago", tz: "America/Chicago", offset: -6 },
+    { name: "Toronto", tz: "America/Toronto", offset: -5 },
+    { name: "Mexico City", tz: "America/Mexico_City", offset: -6 },
+    { name: "São Paulo", tz: "America/Sao_Paulo", offset: -3 },
+    { name: "London", tz: "Europe/London", offset: 0 },
+    { name: "Paris", tz: "Europe/Paris", offset: 1 },
+    { name: "Berlin", tz: "Europe/Berlin", offset: 1 },
+    { name: "Rome", tz: "Europe/Rome", offset: 1 },
+    { name: "Madrid", tz: "Europe/Madrid", offset: 1 },
+    { name: "Amsterdam", tz: "Europe/Amsterdam", offset: 1 },
+    { name: "Stockholm", tz: "Europe/Stockholm", offset: 1 },
+    { name: "Moscow", tz: "Europe/Moscow", offset: 3 },
+    { name: "Dubai", tz: "Asia/Dubai", offset: 4 },
+    { name: "Mumbai", tz: "Asia/Kolkata", offset: 5.5 },
+    { name: "Bangkok", tz: "Asia/Bangkok", offset: 7 },
+    { name: "Singapore", tz: "Asia/Singapore", offset: 8 },
+    { name: "Hong Kong", tz: "Asia/Hong_Kong", offset: 8 },
+    { name: "Shanghai", tz: "Asia/Shanghai", offset: 8 },
+    { name: "Beijing", tz: "Asia/Shanghai", offset: 8 },
+    { name: "Tokyo", tz: "Asia/Tokyo", offset: 9 },
+    { name: "Seoul", tz: "Asia/Seoul", offset: 9 },
+    { name: "Sydney", tz: "Australia/Sydney", offset: 10 },
+    { name: "Melbourne", tz: "Australia/Melbourne", offset: 10 },
+    { name: "Auckland", tz: "Pacific/Auckland", offset: 12 }
+];
+
+const defaultCities = ["New York", "London", "Tokyo", "Sydney"].map(n => knownCities.find(c => c.name === n));
+
 function parseCities(json, defaults) {
     if (!json)
         return defaults;

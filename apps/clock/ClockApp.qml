@@ -1,211 +1,102 @@
-pragma ComponentBehavior: Bound
-import MarathonApp.Clock
-import MarathonOS.Shell
-import MarathonUI.Containers
-import MarathonUI.Navigation
-import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
+import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
+import Marathon.Platform 1.0
+import "ClockLogic.js" as Logic
+import "models"
+import "pages"
 
-MApp {
-    id: clockApp
+ApplicationWindow {
+    id: root
 
-    property var alarms: []
+    readonly property var alarms: Alarms.alarms
+    property var cities: Logic.parseCities(Settings.get("clock/worldCities", ""), Logic.defaultCities)
+    property Stopwatch stopwatch: Stopwatch {
+        ticking: Qt.application.active
+    }
+    property CountdownTimer countdown: CountdownTimer {
+        onFinished: Alarms.triggerAlarmNow("Timer")
+        onRunningChanged: root._holdBackground(running)
+    }
+    // Keeps the app from being frozen while a countdown runs.
+    property int _backgroundTask: 0
 
-    function loadAlarms() {
-        if (typeof AlarmService === 'undefined')
-            return;
-
-        alarms = AlarmService.alarms;
-        alarmsChanged();
+    function _holdBackground(hold) {
+        if (hold && _backgroundTask === 0)
+            _backgroundTask = Lifecycle.beginBackgroundTask("countdown-timer", "timer running");
+        else if (!hold && _backgroundTask !== 0) {
+            Lifecycle.endBackgroundTask(_backgroundTask);
+            _backgroundTask = 0;
+        }
     }
 
-    function createAlarm(hour, minute, label, repeat) {
-        if (typeof AlarmService === 'undefined')
-            return false;
-
-        var alarmId = AlarmService.createAlarm(_padZero(hour) + ":" + _padZero(minute), label, repeat, {
-            "vibrate": true,
-            "snoozeEnabled": true,
-            "snoozeDuration": 10
-        });
-        loadAlarms();
-        return alarmId !== "";
-    }
-
-    function updateAlarm(id, hour, minute, label, repeat) {
-        if (typeof AlarmService === 'undefined')
-            return false;
-
-        var ok = AlarmService.updateAlarm(id, {
-            "time": _padZero(hour) + ":" + _padZero(minute),
-            "label": label || "Alarm",
-            "enabled": true,
-            "repeat": repeat
-        });
-        loadAlarms();
+    function _check(ok) {
+        if (!ok)
+            Notices.show(qsTr("Couldn't save the alarm. Try again."));
         return ok;
     }
 
-    function deleteAlarm(id) {
-        if (typeof AlarmService === 'undefined')
-            return false;
-
-        var ok = AlarmService.deleteAlarm(id);
-        loadAlarms();
-        return ok;
+    function editAlarm(alarm) {
+        const now = new Date();
+        const t = alarm ? Logic.parseTime(alarm.time) : { hour: now.getHours(), minute: now.getMinutes() };
+        pageStack.push(Qt.resolvedUrl("pages/AlarmDialog.qml"), {
+            app: root,
+            alarmId: alarm ? alarm.id : "",
+            hour: t.hour,
+            minute: t.minute,
+            label: alarm && alarm.label !== "Alarm" ? alarm.label : "",
+            repeat: alarm && alarm.repeat ? alarm.repeat : []
+        });
     }
 
-    function restoreAlarm(alarm) {
-        if (typeof AlarmService === 'undefined')
-            return false;
-
-        var alarmId = AlarmService.createAlarm(alarm.time, alarm.label, alarm.repeat || [], {
-            "sound": alarm.sound,
-            "vibrate": alarm.vibrate,
-            "snoozeEnabled": alarm.snoozeEnabled,
-            "snoozeDuration": alarm.snoozeDuration
-        });
-        if (alarmId !== "" && !alarm.enabled)
-            AlarmService.updateAlarm(alarmId, {
-                "enabled": false
-            });
-        loadAlarms();
-        return alarmId !== "";
+    function saveAlarm(id, hour, minute, label, repeat) {
+        const time = Logic.timeString(hour, minute);
+        if (id === "")
+            return _check(Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 }) !== "");
+        return _check(Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }));
     }
 
     function toggleAlarm(id) {
-        if (typeof AlarmService === 'undefined')
-            return false;
-
-        var alarm = _getAlarmById(id);
-        if (!alarm)
-            return false;
-
-        AlarmService.updateAlarm(id, {
-            "enabled": !alarm.enabled
-        });
-        loadAlarms();
-        return true;
+        const alarm = alarms.find(a => a.id === id);
+        return alarm ? _check(Alarms.updateAlarm(id, { enabled: !alarm.enabled })) : false;
     }
 
-    function _padZero(num) {
-        return (num < 10 ? "0" : "") + num;
+    function deleteAlarm(id) {
+        if (!Alarms.deleteAlarm(id))
+            Notices.show(qsTr("Couldn't delete the alarm. Try again."));
     }
 
-    function _getAlarmById(id) {
-        if (!alarms)
-            return null;
-        for (var i = 0; i < alarms.length; i++) {
-            if (alarms[i].id === id)
-                return alarms[i];
+    function _saveCities(next) {
+        cities = next;
+        Settings.set("clock/worldCities", JSON.stringify(next));
+    }
+
+    function addCity(city) {
+        if (!cities.some(c => c.name === city.name))
+            _saveCities(cities.concat([city]));
+    }
+
+    function removeCity(name) {
+        _saveCities(cities.filter(c => c.name !== name));
+    }
+
+    function moveCity(from, to) {
+        _saveCities(Logic.moveCity(cities, from, to));
+    }
+
+    function cityTime(city, now) {
+        const tz = Logic.zoneFor(city, Logic.knownCities);
+        if (tz) {
+            const r = WorldClock.timeIn(tz);
+            return { time: r.time, diff: r.offsetLabel, weekday: r.weekday };
         }
-        return null;
+        return { time: Logic.offsetTime(city.offset, now), diff: (city.offset >= 0 ? "+" : "") + city.offset + "h", weekday: "" };
     }
 
     appId: "clock"
-    appName: "Clock"
-    Component.onCompleted: {
-        loadAlarms();
-    }
-
-    Connections {
-        function onAlarmsChanged() {
-            clockApp.loadAlarms();
-        }
-
-        target: typeof AlarmService !== 'undefined' ? AlarmService : null
-        enabled: typeof AlarmService !== 'undefined'
-    }
-
-    content: Rectangle {
-        anchors.fill: parent
-        color: MColors.background
-
-        Binding {
-            target: clockApp
-            property: "navigationDepth"
-            value: alarmPage.backLayers + worldClockPage.backLayers
-        }
-
-        Connections {
-            function onBackPressed() {
-                if (alarmPage.backLayers > 0)
-                    alarmPage.handleBack();
-                else if (worldClockPage.backLayers > 0)
-                    worldClockPage.handleBack();
-            }
-
-            target: clockApp
-        }
-
-        Column {
-            property int currentView: 1     // default to Clock pane (index 1)
-
-            anchors.fill: parent
-            spacing: 0
-
-            StackLayout {
-                width: parent.width
-                height: parent.height - tabBar.height
-                currentIndex: parent.currentView
-
-                // Index order MUST match the tab labels in MTabBar below.
-                WorldClockPage {
-                    id: worldClockPage
-                }
-
-                ClockPage {
-                    id: clockPage
-                }
-
-                AlarmPage {
-                    id: alarmPage
-
-                    app: clockApp
-                }
-
-                StopwatchPage {
-                    id: stopwatchPage
-                }
-
-                TimerPage {
-                    id: timerPage
-                }
-            }
-
-            MTabBar {
-                id: tabBar
-
-                width: parent.width
-                activeTab: parent.currentView
-                tabs: [
-                    {
-                        "label": "World",
-                        "icon": "globe"
-                    },
-                    {
-                        "label": "Clock",
-                        "icon": "clock"
-                    },
-                    {
-                        "label": "Alarm",
-                        "icon": "bell"
-                    },
-                    {
-                        "label": "Stopwatch",
-                        "icon": "timer"
-                    },
-                    {
-                        "label": "Timer",
-                        "icon": "hourglass"
-                    }
-                ]
-                onTabSelected: index => {
-                    HapticService.light();
-                    parent.currentView = index;
-                }
-            }
+    initialPage: Component {
+        MainPage {
+            app: root
         }
     }
 }
