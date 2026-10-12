@@ -134,10 +134,19 @@ TestCase {
         tryVerify(() => findChild(delegateAt(findChild(tasks, "tasksView"), 0), "taskSwitch").checked);
     }
 
-    function test_taskRowOpensNote() {
-        const app = makeApp([note(4, { content: "- [ ] milk" })], "/tasks");
+    function test_taskRowTapToggles() {
+        const app = makeApp([note(4, { content: "list\n- [ ] milk" })], "/tasks");
         const tasks = pushed(app, 2);
         mouseClick(delegateAt(findChild(tasks, "tasksView"), 0), 400, 20);
+        tryVerify(() => app.notes[0].content === "list\n- [x] milk");
+        compare(app.pageStack.depth, 2);
+    }
+
+    function test_taskMenuOpensNote() {
+        const app = makeApp([note(4, { content: "- [ ] milk" })], "/tasks");
+        const tasks = pushed(app, 2);
+        const menu = delegateAt(findChild(tasks, "tasksView"), 0).openMenu();
+        tapMenuItem(menu, "openNoteItem");
         compare(pushed(app, 3).noteId, 4);
     }
 

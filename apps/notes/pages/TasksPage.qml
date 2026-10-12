@@ -29,42 +29,25 @@ Page {
 
             required property var modelData
 
-            contentHeight: Theme.itemSizeMedium
-            Accessible.name: qsTr("Open %1").arg(modelData.noteTitle)
-            onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), { store: page.store, noteId: item.modelData.noteId })
+            contentHeight: check.height
+            menu: ContextMenu {
+                MenuItem {
+                    objectName: "openNoteItem"
+                    text: qsTr("Open note")
+                    onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), { store: page.store, noteId: item.modelData.noteId })
+                }
+            }
 
-            Switch {
+            TextSwitch {
                 id: check
 
                 objectName: "taskSwitch"
-                anchors.verticalCenter: parent.verticalCenter
+                text: item.modelData.text
+                description: item.modelData.noteTitle || qsTr("Untitled")
                 checked: item.modelData.checked
                 automaticCheck: false
-                Accessible.name: item.modelData.text
                 onClicked: page.store.save(Store.toggleTask(page.store.notes, item.modelData.noteId, item.modelData.line, Date.now()))
-            }
-            Column {
-                anchors {
-                    left: check.right
-                    right: parent.right
-                    rightMargin: Theme.horizontalPageMargin
-                    verticalCenter: parent.verticalCenter
-                }
-
-                Label {
-                    width: parent.width
-                    text: item.modelData.text
-                    font.strikeout: item.modelData.checked
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.highlightColor : item.modelData.checked ? Theme.secondaryColor : Theme.primaryColor
-                }
-                Label {
-                    width: parent.width
-                    text: item.modelData.noteTitle
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                }
+                onPressAndHold: item.openMenu()
             }
         }
 
