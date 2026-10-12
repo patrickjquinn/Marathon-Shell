@@ -339,8 +339,10 @@ TestCase {
         const accounts = pushed(app, 2);
         compare(findChild(accounts, "accounts").count, 2);
         compare(MailService.called("refreshFolders").map(c => c.args[0]), ["1", "2"]);
-        verify(findChild(accounts, "folder-Work-inbox").highlighted);
-        verify(!findChild(accounts, "folder-Work-trash").highlighted);
+        verify(findChild(accounts, "folder-Work-inbox").current);
+        verify(!findChild(accounts, "folder-Work-inbox").highlighted);
+        compare(findChild(findChild(accounts, "folder-Work-inbox"), "folderName").color, Theme.highlightColor);
+        compare(findChild(findChild(accounts, "folder-Work-trash"), "folderName").color, Theme.primaryColor);
         verify(findChild(accounts, "folder-Work-outbox"));
         verify(findChild(accounts, "folder-Home-inbox").enabled);
     }

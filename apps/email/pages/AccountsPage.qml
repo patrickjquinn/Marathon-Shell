@@ -70,7 +70,6 @@ Page {
 
                             objectName: "folder-" + account.modelData.name + "-" + modelData.kind
                             contentHeight: Theme.itemSizeSmall
-                            highlighted: down || current
                             Accessible.name: modelData.name + (shown > 0 ? ", " + shown : "")
                             onClicked: page.app.openFolder(account.modelData.id, modelData.id, modelData.kind)
 
@@ -80,7 +79,7 @@ Page {
                                 x: Theme.horizontalPageMargin
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: Logic.folderIcon(folder.modelData.kind)
-                                color: folder.highlighted ? Theme.highlightColor : Theme.primaryColor
+                                color: folder.highlighted || folder.current ? Theme.highlightColor : Theme.primaryColor
                             }
                             Label {
                                 anchors {
@@ -90,9 +89,10 @@ Page {
                                     rightMargin: Theme.paddingMedium
                                     verticalCenter: parent.verticalCenter
                                 }
+                                objectName: "folderName"
                                 text: folder.modelData.name
                                 truncationMode: TruncationMode.Fade
-                                color: folder.highlighted ? Theme.highlightColor : Theme.primaryColor
+                                color: folder.highlighted || folder.current ? Theme.highlightColor : Theme.primaryColor
                             }
                             Label {
                                 id: countLabel
