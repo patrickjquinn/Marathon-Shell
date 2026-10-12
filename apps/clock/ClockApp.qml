@@ -50,16 +50,30 @@ ApplicationWindow {
         });
     }
 
+    function _announce(time, repeat) {
+        const now = new Date();
+        const when = Logic.nextOccurrence({ enabled: true, time: time, repeat: repeat }, now);
+        if (when)
+            Notices.show(Logic.alarmIn(when, now));
+    }
+
     function saveAlarm(id, hour, minute, label, repeat) {
         const time = Logic.timeString(hour, minute);
-        if (id === "")
-            return _check(Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 }) !== "");
-        return _check(Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }));
+        const ok = id === ""
+                ? _check(Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 }) !== "")
+                : _check(Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }));
+        if (ok)
+            _announce(time, repeat);
+        return ok;
     }
 
     function toggleAlarm(id) {
         const alarm = alarms.find(a => a.id === id);
-        return alarm ? _check(Alarms.updateAlarm(id, { enabled: !alarm.enabled })) : false;
+        if (!alarm || !_check(Alarms.updateAlarm(id, { enabled: !alarm.enabled })))
+            return false;
+        if (!alarm.enabled)
+            _announce(alarm.time, alarm.repeat || []);
+        return true;
     }
 
     function deleteAlarm(id) {

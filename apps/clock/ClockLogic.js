@@ -47,6 +47,21 @@ function nextOccurrence(alarm, now) {
     return null;
 }
 
+function alarmIn(when, now) {
+    const ms = when - now;
+    if (ms < 60000)
+        return qsTr("Alarm in less than a minute");
+    const mins = Math.ceil(ms / 60000);
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor(mins % 1440 / 60);
+    const m = mins % 60;
+    if (d > 0)
+        return h > 0 ? qsTr("Alarm in %1 d %2 h").arg(d).arg(h) : qsTr("Alarm in %1 d").arg(d);
+    if (h > 0)
+        return m > 0 ? qsTr("Alarm in %1 h %2 min").arg(h).arg(m) : qsTr("Alarm in %1 h").arg(h);
+    return qsTr("Alarm in %1 min").arg(m);
+}
+
 function nextAlarm(alarms, now) {
     let best = null;
     for (const alarm of alarms) {

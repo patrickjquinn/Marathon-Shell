@@ -76,6 +76,27 @@ TestCase {
         compare(app.alarms[0].label, "Gym");
     }
 
+    function clearNotices() {
+        Notices._queue = [];
+        Notices._dismissCurrent();
+    }
+
+    function test_savingAnAlarmSaysWhenItRings() {
+        const app = makeApp();
+        clearNotices();
+        verify(app.saveAlarm("", 6, 45, "", []));
+        verify(Notices._current !== null);
+        verify(Notices._current.text.indexOf("Alarm in ") === 0, Notices._current.text);
+        const id = app.alarms[0].id;
+        clearNotices();
+        app.toggleAlarm(id);
+        compare(Notices._current, null);
+        app.toggleAlarm(id);
+        verify(Notices._current !== null);
+        verify(Notices._current.text.indexOf("Alarm in ") === 0);
+        clearNotices();
+    }
+
     function test_toggleAndDelete() {
         const app = makeApp();
         app.saveAlarm("", 6, 45, "", []);

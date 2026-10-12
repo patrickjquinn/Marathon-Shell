@@ -127,4 +127,20 @@ TestCase {
     function test_defaultCitiesAreKnown() {
         compare(Logic.defaultCities.map(c => c.tz), ["America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney"]);
     }
+
+    function test_alarmIn_data() {
+        const now = new Date(2026, 0, 5, 23, 40, 10);
+        const at = (d, h, m) => new Date(2026, 0, d, h, m);
+        return [
+            { tag: "hours and minutes", when: at(6, 7, 0), now: now, out: "Alarm in 7 h 20 min" },
+            { tag: "minutes", when: at(6, 0, 5), now: now, out: "Alarm in 25 min" },
+            { tag: "exact hours", when: at(6, 1, 40), now: new Date(2026, 0, 5, 23, 40), out: "Alarm in 2 h" },
+            { tag: "under a minute", when: at(5, 23, 41), now: now, out: "Alarm in less than a minute" },
+            { tag: "days", when: at(8, 7, 0), now: now, out: "Alarm in 2 d 7 h" }
+        ];
+    }
+
+    function test_alarmIn(data) {
+        compare(Logic.alarmIn(data.when, data.now), data.out);
+    }
 }
