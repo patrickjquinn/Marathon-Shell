@@ -21,7 +21,11 @@ Rectangle {
     // exactly 0 left a faint, touch-eating overlay after closing.
     visible: showing || opacity > MMotion.epsilon
     opacity: showing ? 1.0 : 0.0
+    enabled: showing
     z: 10000
+
+    Accessible.role: Accessible.Dialog
+    Accessible.name: title
 
     // Opacity rides the effects family — colour/opacity must not
     // ring per M3 Expressive. Spring + critical damping gives the
@@ -68,6 +72,8 @@ Rectangle {
         y: root.showing ? 0 : height
 
         Behavior on y {
+            enabled: !MMotion.reduceMotion
+
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("sheet")
                 damping: MMotion.dampingSpatialFor("sheet")

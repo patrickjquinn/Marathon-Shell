@@ -25,7 +25,11 @@ Rectangle {
     // exactly 0 left a faint, touch-eating overlay after closing.
     visible: showing || opacity > MMotion.epsilon
     opacity: showing ? 1.0 : 0.0
+    enabled: showing
     z: 10000
+
+    Accessible.role: Accessible.Dialog
+    Accessible.name: title
 
     Behavior on opacity {
         SpringAnimation {
@@ -63,6 +67,8 @@ Rectangle {
         scale: root.showing ? 1.0 : 0.9
 
         Behavior on scale {
+            enabled: !MMotion.reduceMotion
+
             SpringAnimation {
                 spring: MMotion.stiffnessSpatialFor("modal")
                 damping: MMotion.dampingSpatialFor("modal")
