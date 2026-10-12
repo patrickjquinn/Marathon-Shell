@@ -26,17 +26,7 @@ KeyboardSettingsStore::KeyboardSettingsStore(QObject *parent)
                        {"ru_RU", "Русский"},
                        {"ar_SA", "العربية"},
                        {"zh_CN", "中文"},
-                       {"ja_JP", "日本語"}})
-    , m_languageFlags({{"en_US", "🇺🇸"},
-                       {"fr_FR", "🇫🇷"},
-                       {"de_DE", "🇩🇪"},
-                       {"es_ES", "🇪🇸"},
-                       {"pt_BR", "🇧🇷"},
-                       {"it_IT", "🇮🇹"},
-                       {"ru_RU", "🇷🇺"},
-                       {"ar_SA", "🇸🇦"},
-                       {"zh_CN", "🇨🇳"},
-                       {"ja_JP", "🇯🇵"}}) {
+                       {"ja_JP", "日本語"}}) {
     QTimer::singleShot(0, this, &KeyboardSettingsStore::resolveSettingsManager);
 }
 
@@ -89,11 +79,6 @@ void KeyboardSettingsStore::setPredictionsEnabled(bool enabled) {
 QString KeyboardSettingsStore::getLanguageName(const QString &languageId) const {
     const QVariant value = m_languageNames.value(languageId);
     return value.isValid() ? value.toString() : languageId;
-}
-
-QString KeyboardSettingsStore::getFlag(const QString &languageId) const {
-    const QVariant value = m_languageFlags.value(languageId);
-    return value.isValid() ? value.toString() : QStringLiteral("");
 }
 
 void KeyboardSettingsStore::resolveSettingsManager() {

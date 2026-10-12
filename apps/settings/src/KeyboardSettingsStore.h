@@ -32,8 +32,6 @@ class KeyboardSettingsStore : public QObject {
     Q_PROPERTY(bool predictionsEnabled READ predictionsEnabled WRITE setPredictionsEnabled NOTIFY
                    predictionsEnabledChanged)
     Q_PROPERTY(QStringList availableLanguages READ availableLanguages CONSTANT)
-    Q_PROPERTY(QVariantMap languageNames READ languageNames CONSTANT)
-    Q_PROPERTY(QVariantMap languageFlags READ languageFlags CONSTANT)
 
   public:
     explicit KeyboardSettingsStore(QObject *parent = nullptr);
@@ -56,12 +54,6 @@ class KeyboardSettingsStore : public QObject {
     QStringList availableLanguages() const {
         return m_availableLanguages;
     }
-    QVariantMap languageNames() const {
-        return m_languageNames;
-    }
-    QVariantMap languageFlags() const {
-        return m_languageFlags;
-    }
 
     void                setCurrentLanguage(const QString &languageId);
     void                setAutoCorrectEnabled(bool enabled);
@@ -70,7 +62,6 @@ class KeyboardSettingsStore : public QObject {
     void                setPredictionsEnabled(bool enabled);
 
     Q_INVOKABLE QString getLanguageName(const QString &languageId) const;
-    Q_INVOKABLE QString getFlag(const QString &languageId) const;
 
   signals:
     void currentLanguageChanged();
@@ -89,7 +80,6 @@ class KeyboardSettingsStore : public QObject {
     QPointer<QObject> m_settingsManager;
     QStringList       m_availableLanguages;
     QVariantMap       m_languageNames;
-    QVariantMap       m_languageFlags;
 
     QString           m_currentLanguage       = QStringLiteral("en_US");
     bool              m_autoCorrectEnabled    = true;
