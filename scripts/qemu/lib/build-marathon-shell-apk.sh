@@ -54,6 +54,7 @@ if [ -n "$MARATHON_SHELL_SRC" ]; then
 fi
 
 podman run --rm -i \
+    --tmpfs /work:rw,exec,size=6g \
     -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
     -e MARATHON_SHELL_REF="$MARATHON_SHELL_REF" \
     -e USE_LOCAL_SHELL_SRC="$([ -n "$MARATHON_SHELL_SRC" ] && echo 1 || echo 0)" \
