@@ -24,8 +24,14 @@ Rectangle {
     signal closed
     signal notificationTapped(int id, string appId, string title)
 
-    // Sailfish's Events view: the ambience shows through, dimmed.
-    color: Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, Silica.Theme.opacityHigh)
+    // Sailfish's Events view: the blurred ambience, opaque even over an app.
+    color: "transparent"
+
+    KeelAmbienceBackground {
+        anchors.fill: parent
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
 
     // ── Header (glass) ──────────────────────────────────────
     // JSX HubScreen() positions the header at top: 28 so the status bar
@@ -37,26 +43,30 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.topMargin: Constants.statusBarHeight
-        height: 132
-
+        height: headerColumn.height + Silica.Theme.paddingLarge * 2
 
         Column {
-            anchors.fill: parent
-            anchors.leftMargin: 20
-            anchors.rightMargin: 20
-            anchors.topMargin: 14
-            spacing: 14
+            id: headerColumn
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.topMargin: Silica.Theme.paddingLarge
+            spacing: Silica.Theme.paddingLarge
 
             // Title row
             Item {
                 width: parent.width
-                height: titleText.implicitHeight
+                height: titleColumn.height
 
                 // A Silica page header: title right-aligned in the highlight,
                 // the unread count beneath it.
                 Column {
+                    id: titleColumn
+
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
 
                     Silica.Label {
                         id: titleText
@@ -70,23 +80,6 @@ Rectangle {
                         text: qsTr("%n unread", "", NotificationModel.unreadCount)
                         color: Silica.Theme.secondaryHighlightColor
                         font.pixelSize: Silica.Theme.fontSizeSmall
-                    }
-                }
-
-                Row {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 18
-
-                    GlyphIcon {
-                        name: "search"
-                        size: 20
-                        color: MColors.textSecondary
-                    }
-                    GlyphIcon {
-                        name: "filter"
-                        size: 19
-                        color: MColors.textSecondary
                     }
                 }
             }
@@ -111,7 +104,7 @@ Rectangle {
 
             Row {
                 id: chipRow
-                spacing: Math.round(6 * (Constants.scaleFactor || 1.0))
+                spacing: Silica.Theme.paddingSmall
 
                 Silica.FilterChip {
                     text: "All " + (NotificationModel.count || 0)
