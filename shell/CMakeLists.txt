@@ -338,7 +338,6 @@ set(JSON_FILES
 )
 
 set(UI_RESOURCES
-    qml/theme/halo-teal.svg
     qml/theme/fonts/Sora.ttf
     qml/theme/fonts/Sora-Thin.ttf
     qml/theme/fonts/Sora-ExtraLight.ttf
