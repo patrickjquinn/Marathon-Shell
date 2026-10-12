@@ -5,4 +5,5 @@ QtObject {
     readonly property real screenWidth: 360
     readonly property real screenHeight: 1140
     readonly property bool isSquareScreen: false
+    readonly property real statusBarHeight: 32
 }

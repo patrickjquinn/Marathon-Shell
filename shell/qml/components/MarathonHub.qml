@@ -29,8 +29,22 @@ Rectangle {
     onVisibleChanged: if (visible) refreshAgenda()
     Component.onCompleted: refreshAgenda()
 
+    // As the notification banner's tap: open the sender, or just mark read.
+    function openNotification(notifId, appId) {
+        NotificationService.clickNotification(notifId);
+        NotificationModel.markAsRead(notifId);
+        if (!appId)
+            return;
+        NavigationRouter.navigateToDeepLink(appId, "", {
+            "notificationId": notifId,
+            "action": "view",
+            "from": "hub"
+        });
+        if (isInPeekMode)
+            closed();
+    }
+
     signal closed
-    signal notificationTapped(int id, string appId, string title)
 
     // Sailfish's Events view: the blurred ambience, opaque even over an app.
     color: "transparent"
@@ -119,6 +133,8 @@ Rectangle {
 
     ListView {
         id: list
+
+        objectName: "hubList"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
@@ -133,6 +149,7 @@ Rectangle {
         reuseItems: true
 
         delegate: MHubRow {
+            required property var model
             required property int index
             required property string appId
             required property string title
@@ -156,7 +173,7 @@ Rectangle {
             account: hub.accountFor(appId)
             snippet: body
 
-            onActivated: hub.notificationTapped(0, appId, title)
+            onActivated: hub.openNotification(model.id, appId)
         }
     }
 
