@@ -308,6 +308,7 @@ set(QML_FILES
     qml/ui/MTopHairline.qml
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
+    qml/core/LauncherGrid.js
 )
 
 set(JSON_FILES
@@ -371,7 +372,7 @@ foreach(singleton_file ${SINGLETON_FILES})
     )
 endforeach()
 # Imported by path; a qmldir entry makes the module ambiguous.
-set_source_files_properties(qml/ui/PhosphorGlyphs.js qml/core/Agenda.js PROPERTIES
+set_source_files_properties(qml/ui/PhosphorGlyphs.js qml/core/Agenda.js qml/core/LauncherGrid.js PROPERTIES
     QT_QML_SKIP_QMLDIR_ENTRY TRUE
 )
 

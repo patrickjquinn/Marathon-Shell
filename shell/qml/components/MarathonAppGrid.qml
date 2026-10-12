@@ -4,17 +4,15 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
+import "../core/LauncherGrid.js" as LauncherGrid
 
 Item {
     id: appGrid
 
     property var appModel: null
     property int pageIndex: 0
-    // Sailfish's launcher grid: as many columns as Silica's launcher icon
-    // fits with room around it (five on a 720 px phone), and rows to match.
-    readonly property real _cellSize: Silica.Theme.iconSizeLauncher * 1.5
-    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : Math.max(3, Math.floor(Constants.screenWidth / _cellSize))
-    property int rows: Math.max(3, Math.floor(Constants.screenHeight * 0.75 / (_cellSize * 1.4)))
+    property int columns: LauncherGrid.columns(Constants.screenWidth, Silica.Theme.iconSizeLauncher, SettingsManagerCpp.appGridColumns)
+    property int rows: LauncherGrid.rows(Constants.screenHeight, Silica.Theme.iconSizeLauncher)
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
