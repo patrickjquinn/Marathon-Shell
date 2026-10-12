@@ -179,7 +179,6 @@ Page {
                         }
                         text: item.model.from || ""
                         truncationMode: TruncationMode.Fade
-                        font.bold: item.unread
                         color: item.unread || item.highlighted ? Theme.highlightColor : Theme.primaryColor
                     }
                     Icon {
