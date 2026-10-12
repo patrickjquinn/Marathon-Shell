@@ -7,6 +7,7 @@
 #include <QDBusConnection>
 #include <QDBusReply>
 #include <QTimer>
+#include <QHash>
 #include <qqml.h>
 
 class NetworkManagerCpp : public QObject {
@@ -81,6 +82,11 @@ class NetworkManagerCpp : public QObject {
     Q_INVOKABLE void         disconnectWifi();
     // Abandons a connectToNetwork that has not reached ACTIVATED yet.
     Q_INVOKABLE void         cancelPendingConnection();
+    // Drops every saved profile for ssid.
+    Q_INVOKABLE void         forgetNetwork(const QString &ssid);
+    // security: "none", "wpa-psk" or "sae".
+    Q_INVOKABLE void         connectToHiddenNetwork(const QString &ssid, const QString &security,
+                                                    const QString &password);
 
     Q_INVOKABLE void         setAirplaneMode(bool enabled);
 
@@ -118,12 +124,17 @@ class NetworkManagerCpp : public QObject {
     void onApPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                const QStringList &invalidated);
     void onHotspotStateChanged(uint state, uint reason);
+    void refreshSavedNetworks();
+    void onPendingActivationStateChanged(uint state, uint reason);
 
   private:
     void            setupDBusConnections();
     void            detectHardwareAvailability();
     void            setHotspotActive(bool active);
     void            watchHotspot(bool watch);
+    void            activate(const QDBusMessage &msg, const QString &ssid);
+    void            watchPendingActivation(const QString &path);
+    void            markKnownNetworks();
     void            setWifiEnabled(bool enabled);
 
     QDBusInterface *m_nmInterface;
@@ -140,6 +151,10 @@ class NetworkManagerCpp : public QObject {
     QString      m_pendingConnectSsid;
     QString      m_pendingConnectPath;
     bool         m_connectCancelled = false;
+    QString      m_watchedActivationPath;
+    // Saved infrastructure Wi-Fi profiles by SSID.
+    QHash<QString, QStringList> m_savedNetworks;
+    int                         m_savedGeneration = 0;
     int          m_wifiSignalStrength;
     bool         m_ethernetConnected;
     QString      m_ethernetConnectionName;
