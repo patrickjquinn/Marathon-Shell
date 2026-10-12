@@ -212,7 +212,7 @@ bool NotificationDatabase::markAsRead(uint id) {
 
 bool NotificationDatabase::dismiss(uint id) {
     QSqlQuery query(m_db);
-    query.prepare("UPDATE notifications SET dismissed = 1 WHERE id = :id");
+    query.prepare("UPDATE notifications SET dismissed = 1 WHERE id = :id AND dismissed = 0");
     query.bindValue(":id", id);
 
     if (!query.exec()) {
@@ -220,7 +220,7 @@ bool NotificationDatabase::dismiss(uint id) {
         return false;
     }
 
-    return true;
+    return query.numRowsAffected() > 0;
 }
 
 bool NotificationDatabase::dismissAll() {

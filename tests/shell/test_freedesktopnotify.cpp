@@ -64,6 +64,72 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(replied.first().at(1).toString(), QString("On my way"));
         QCOMPARE(invoked.count(), 0);
     }
+
+    static bool stored(NotificationDatabase &db, uint id) {
+        for (const auto &r : db.getNotifications())
+            if (r.id == id)
+                return true;
+        return false;
+    }
+
+    void userDismissIsPersistedAndSignalled() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+
+        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        QVERIFY(stored(db, id));
+        model.dismissNotification(int(id));
+
+        QVERIFY(!stored(db, id));
+        QCOMPARE(closed.count(), 1);
+        QCOMPARE(closed.first().at(0).toUInt(), id);
+        QCOMPARE(closed.first().at(1).toUInt(), 2u);
+    }
+
+    void dismissAllIsPersisted() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        const uint a = fdn.Notify("chat", 0, "", "Ada", "1", {}, {}, -1);
+        const uint b = fdn.Notify("chat", 0, "", "Ada", "2", {}, {}, -1);
+        model.dismissAllNotifications();
+
+        QVERIFY(!stored(db, a));
+        QVERIFY(!stored(db, b));
+    }
+
+    void closeNotificationRemovesTheRow() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+
+        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        fdn.CloseNotification(id);
+
+        QVERIFY(!model.getNotification(int(id)));
+        QCOMPARE(closed.count(), 1);
+        QCOMPARE(closed.first().at(1).toUInt(), 3u);
+    }
+
+    void replacingDoesNotSignalClosed() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+
+        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        fdn.Notify("chat", id, "", "Ada", "Hi again", {}, {}, -1);
+
+        QCOMPARE(closed.count(), 0);
+    }
 };
 
 QTEST_MAIN(TestFreedesktopNotify)

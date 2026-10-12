@@ -165,6 +165,7 @@ void NotificationModel::dismissAllNotifications() {
     if (m_notifications.isEmpty())
         return;
 
+    const QList<int> ids = m_notificationIndex.keys();
     beginResetModel();
     qDeleteAll(m_notifications);
     m_notifications.clear();
@@ -173,6 +174,8 @@ void NotificationModel::dismissAllNotifications() {
 
     updateUnreadCount();
     emit countChanged();
+    for (int id : ids)
+        emit notificationDismissed(id);
     qDebug() << "[NotificationModel] Dismissed all notifications";
 }
 

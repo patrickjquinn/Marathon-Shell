@@ -16,7 +16,15 @@ FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *databas
     : QObject(parent)
     , m_database(database)
     , m_model(model)
-    , m_powerManager(powerManager) {}
+    , m_powerManager(powerManager) {
+    // A row the user swiped away (or opened) must not come back on restart.
+    if (m_model) {
+        connect(m_model, &NotificationModel::notificationDismissed, this, [this](int id) {
+            if (id > 0 && m_database->dismiss(uint(id)))
+                emit NotificationClosed(uint(id), 2);
+        });
+    }
+}
 
 FreedesktopNotifications::~FreedesktopNotifications() = default;
 
@@ -176,6 +184,8 @@ void FreedesktopNotifications::CloseNotification(uint id) {
     if (m_database->dismiss(id)) {
         emit NotificationClosed(id, 3);
     }
+    if (m_model)
+        m_model->dismissNotification(int(id));
 }
 
 QStringList FreedesktopNotifications::GetCapabilities() {
