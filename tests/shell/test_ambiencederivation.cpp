@@ -24,9 +24,26 @@ class TestAmbienceDerivation : public QObject {
         QVERIFY(deriveAmbienceSeed(solid(QColor(235, 240, 245))).light);
     }
 
-    void greyWallpaperFallsBackToMeanColour() {
+    // Sailfish's dark ambiences highlight in a light pastel of their hue
+    // (water #7ff0fe, sailfish5 #ffad80), however dark the wallpaper.
+    void darkWallpaperGivesAVividLightHighlight() {
+        const AmbienceSeed s = deriveAmbienceSeed(solid(QColor(10, 40, 120)));
+        QVERIFY(s.base.valueF() >= 0.95);
+        QVERIFY(s.base.hsvSaturationF() >= 0.4 && s.base.hsvSaturationF() <= 0.65);
+    }
+
+    // ...and their light ones in a deep, saturated one (airy #004c99).
+    void lightWallpaperGivesADeepHighlight() {
+        const AmbienceSeed s = deriveAmbienceSeed(solid(QColor(170, 210, 250)));
+        QVERIFY(s.light);
+        QVERIFY(s.base.valueF() <= 0.65);
+        QVERIFY(s.base.hsvSaturationF() >= 0.9);
+    }
+
+    void greyWallpaperGivesANeutralHighlight() {
         const AmbienceSeed s = deriveAmbienceSeed(solid(QColor(90, 90, 90)));
-        QCOMPARE(s.base.red(), 90);
+        QVERIFY(s.base.hsvSaturationF() <= 0.15);
+        QVERIFY(s.base.valueF() >= 0.95);
         QVERIFY(!s.light);
     }
 

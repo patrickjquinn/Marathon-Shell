@@ -46,9 +46,19 @@ AmbienceSeed deriveAmbienceSeed(const QImage &wallpaper) {
         if (bk.count >= pixels / 20 && (!best || bk.weight > best->weight))
             best = &bk;
 
-    seed.base  = best ? QColor(qRound(best->r / best->count), qRound(best->g / best->count),
-                               qRound(best->b / best->count))
-                      : QColor(qRound(sumR / pixels), qRound(sumG / pixels), qRound(sumB / pixels));
+    const QColor dominant = best ? QColor(qRound(best->r / best->count), qRound(best->g / best->count),
+                                          qRound(best->b / best->count))
+                                 : QColor(qRound(sumR / pixels), qRound(sumG / pixels), qRound(sumB / pixels));
     seed.light = sumLum / pixels / 255.0 > 0.6;
+
+    // The wallpaper's hue at Sailfish's highlight strength: a light pastel on
+    // a dark ambience (water #7ff0fe), a deep tone on a light one (airy
+    // #004c99). A grey wallpaper keeps a near-neutral highlight.
+    const qreal hue    = qMax<qreal>(0, dominant.hsvHueF());
+    const bool  greyed = !best;
+    if (seed.light)
+        seed.base = QColor::fromHsvF(hue, greyed ? 0.1 : 1.0, 0.6);
+    else
+        seed.base = QColor::fromHsvF(hue, greyed ? 0.08 : 0.5, 1.0);
     return seed;
 }
