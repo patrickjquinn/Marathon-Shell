@@ -13,7 +13,7 @@ inline Action systemAction(int key, const QString &focusedToolkit) {
     if (key == Qt::Key_Super_L || key == Qt::Key_Meta)
         return Home;
     if (key == Qt::Key_Escape)
-        return focusedToolkit.isEmpty() || focusedToolkit == QLatin1String("marathonui") ? Back : None;
+        return focusedToolkit.isEmpty() ? Back : None;
     return None;
 }
 

@@ -28,10 +28,6 @@ class KeelHost : public QObject {
   public:
     explicit KeelHost(int dpi, QObject *parent = nullptr);
 
-    static bool wantedFor(const QString &toolkit) {
-        return toolkit != QLatin1String("marathonui");
-    }
-
     bool                    start(const QString &runtimeDir);
     QString                 address() const;
     QHash<QString, QString> environment() const;

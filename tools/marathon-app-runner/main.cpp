@@ -500,63 +500,11 @@ static void onTerm(int) {
     (void)::write(g_termFds[0], &c, 1);
 }
 
-// MarathonUI and MarathonOS.Shell roots, ahead of Qt's defaults. App-independent,
-// so a pool spare sets them up before it is adopted.
+// MarathonOS.Shell roots, ahead of Qt's defaults. App-independent, so a pool
+// spare sets them up before it is adopted.
 static int sharedImportPathCount = 0;
 static void addSharedImportPaths(QQmlEngine *engine) {
     const int before = engine->importPathList().size();
-    {
-        const QDir        binDir(QCoreApplication::applicationDirPath());
-        const QDir        cwd(QDir::currentPath());
-
-        const QStringList devCandidates = {
-
-            binDir.filePath("../../../build-ui"),
-
-            binDir.filePath("../../build-ui"),
-            binDir.filePath("../build-ui"),
-            cwd.filePath("build-ui"),
-            cwd.filePath("../build-ui"),
-        };
-
-        bool foundUi = false;
-        for (const QString &cand : devCandidates) {
-            if (QDir(cand + "/MarathonUI").exists()) {
-                engine->addImportPath(cand);
-                foundUi = true;
-                break;
-            }
-        }
-
-        const QString userUi =
-            QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
-        if (QDir(userUi + "/MarathonUI").exists()) {
-            engine->addImportPath(userUi);
-            foundUi = true;
-        }
-
-        if (QDir("/usr/lib/qt6/qml/MarathonUI").exists()) {
-            engine->addImportPath("/usr/lib/qt6/qml");
-            foundUi = true;
-        }
-        if (QDir("/usr/lib64/qt6/qml/MarathonUI").exists()) {
-            engine->addImportPath("/usr/lib64/qt6/qml");
-            foundUi = true;
-        }
-        if (QDir("/usr/local/lib/qt6/qml/MarathonUI").exists()) {
-            engine->addImportPath("/usr/local/lib/qt6/qml");
-            foundUi = true;
-        }
-        if (QDir("/usr/local/lib64/qt6/qml/MarathonUI").exists()) {
-            engine->addImportPath("/usr/local/lib64/qt6/qml");
-            foundUi = true;
-        }
-
-        if (!foundUi) {
-            qWarning()
-                << "[marathon-app-runner] MarathonUI import root not found. Apps may fail to load.";
-        }
-    }
 
     // MarathonOS.Shell resolution.
     //
@@ -565,10 +513,9 @@ static void addSharedImportPaths(QQmlEngine *engine) {
     // prior packaging run declared `singleton AlarmManager 1.0
     // qml/services/AlarmManager.qml` in its qmldir, but the
     // corresponding .qml file had already been removed from the
-    // source tree. Because the MarathonUI fallback loop above
-    // adds /usr/local/lib/qt6/qml to the engine's import paths
-    // (and Qt searches first-added-first), the stale install
-    // would win lookup over the development build, every app
+    // source tree. Because /usr/local/lib/qt6/qml was on the
+    // engine's import paths (and Qt searches first-added-first),
+    // the stale install would win lookup over the development build, every app
     // that imported MarathonOS.Shell would inherit the broken
     // AlarmManager declaration, and Settings would refuse to
     // load with `Type AlarmManager unavailable` chasing up the
@@ -582,7 +529,7 @@ static void addSharedImportPaths(QQmlEngine *engine) {
     //      on disk — see createPatchedQmldirWithoutPrefer).
     //   2. Prepend the dev build's patched root to the engine's
     //      import path list so it wins resolution over any
-    //      install path that the MarathonUI loop already added.
+    //      install path already on it.
     QStringList shellImportPaths;
     auto        considerShellRoot = [&](const QString &cand) {
         if (cand.isEmpty() || !QDir(cand).exists())
@@ -612,8 +559,7 @@ static void addSharedImportPaths(QQmlEngine *engine) {
     }
 
     // Reorder: shell roots first (dev build/env winning over
-    // anything the MarathonUI loop added). QQmlEngine's import
-    // search is first-added-first.
+    // installed paths). QQmlEngine's import search is first-added-first.
     const QStringList existing = engine->importPathList();
     engine->setImportPathList(shellImportPaths + existing);
     sharedImportPathCount = engine->importPathList().size() - before;
@@ -798,12 +744,10 @@ int main(int argc, char *argv[]) {
                 warmCtx.doneCurrent();
         }
 
-        // Load the QML modules and fonts every app uses, in the engine the
-        // adopted app will run in: musl resolves all of a plugin's
-        // relocations at dlopen, the first FontLoader builds fontconfig's
-        // configuration, and compiled types stay in the engine's type
-        // loader. Types are only compiled (inside Component), not created:
-        // MarathonUI's singletons read services registered after adoption.
+        // Load the QML modules every app uses, in the engine the adopted
+        // app will run in: musl resolves all of a plugin's relocations at
+        // dlopen, and compiled types stay in the engine's type loader.
+        // Types are only compiled (inside Component), not created.
         startKeelHost();
         pooledView = std::make_unique<QQuickView>();
         addSharedImportPaths(pooledView->engine());
@@ -814,45 +758,11 @@ int main(int argc, char *argv[]) {
                               "import QtQuick.Controls\n"
                               "import QtQuick.Layouts\n"
                               "import QtQuick.Shapes\n"
-                              "import QtQuick.Effects\n"
-                              "import MarathonUI.Theme\n"
-                              "import MarathonUI.Core\n"
-                              "import MarathonUI.Controls\n"
-                              "import MarathonUI.Containers\n"
-                              "import MarathonUI.Effects\n"
-                              "import MarathonUI.Feedback\n"
-                              "import MarathonUI.Lists\n"
-                              "import MarathonUI.Modals\n"
-                              "import MarathonUI.Navigation\n";
+                              "import QtQuick.Effects\n";
             if (silica)
                 warm += "import Sailfish.Silica 1.0 as Silica\n"
                         "import Marathon.Silica 1.0 as MS\n";
-            warm += "QtObject {\n"
-                    "    property list<QtObject> fonts: [\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Thin.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-ExtraLight.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Light.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Regular.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Medium.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-SemiBold.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-Bold.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/Sora-ExtraBold.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Theme/fonts/JetBrainsMono-Medium.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Core/fonts/Phosphor-Light.ttf\" },\n"
-                    "        FontLoader { source: \"qrc:/qt/qml/MarathonUI/Core/fonts/Phosphor-Bold.ttf\" }\n"
-                    "    ]\n"
-                    "    property list<Component> marathonUi: [\n"
-                    "        Component { MApp {} }, Component { MPage {} }, Component { MTopBar {} },\n"
-                    "        Component { MSection {} }, Component { MSettingsListItem {} },\n"
-                    "        Component { MEmptyState {} }, Component { MLabel {} }, Component { MCard {} },\n"
-                    "        Component { MButton {} }, Component { MIconButton {} }, Component { Icon {} },\n"
-                    "        Component { MTabBar {} }, Component { MConfirmDialog {} },\n"
-                    "        Component { MSnackbar {} }, Component { MSearchField {} },\n"
-                    "        Component { MActivityIndicator {} }, Component { MTextField {} },\n"
-                    "        Component { MFloatingActionButton {} }, Component { MStackView {} },\n"
-                    "        Component { MSheet {} }, Component { MToggle {} }, Component { MSlider {} }\n"
-                    "    ]\n";
+            warm += "QtObject {\n";
             if (silica)
                 warm += "    property list<Component> silica: [\n"
                         "        Component { MS.ApplicationWindow {} }, Component { MS.Page {} },\n"
@@ -1043,10 +953,9 @@ int main(int argc, char *argv[]) {
         1140;
     view.resize(w, h);
 
-    // Every app gets the host's ambience: MarathonUI's theme follows Silica's.
     if (!keelHost)
         startKeelHost();
-    if (keelHost && KeelHost::wantedFor(info->toolkit)) {
+    if (keelHost) {
         // The shell draws the ambience behind a Keel app, which leaves its
         // background transparent; only these windows pay for alpha blending.
         QSurfaceFormat format = view.format();
@@ -1060,9 +969,8 @@ int main(int argc, char *argv[]) {
     }
 
     // A Keel app is told to close (CloseRequested) and given a second to save,
-    // whether the close comes from the task switcher or as SIGTERM. Other
-    // apps keep SIGTERM's default disposition.
-    if (keelHost && KeelHost::wantedFor(info->toolkit)) {
+    // whether the close comes from the task switcher or as SIGTERM.
+    if (keelHost) {
         auto beginClose = [host = keelHost.get(), closing = std::make_shared<bool>(false)]() {
             if (*closing)
                 return;
@@ -1153,7 +1061,7 @@ int main(int argc, char *argv[]) {
 
         // MARATHON_LAYER_SAMPLES + MARATHON_GPU_HDR mirror the shell-side
         // exposures (shell/main.cpp). Apps need these too — every
-        // layer-wrapped QML item in shared marathon-ui primitives reads
+        // layer-wrapped QML item in shared shell components reads
         // Constants.layerSamples, AppBackdropBlur reads Constants.gpuHdr.
         // Without these context properties the runner falls back to
         // hardcoded defaults that don't match the device's GPU capability.

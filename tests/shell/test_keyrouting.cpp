@@ -6,10 +6,6 @@ class TestKeyRouting : public QObject {
     Q_OBJECT
 
   private slots:
-    void escapeIsBackForMarathonUiApps() {
-        QCOMPARE(KeyRouting::systemAction(Qt::Key_Escape, QStringLiteral("marathonui")),
-                 KeyRouting::Back);
-    }
     void escapeIsBackWithNoApp() {
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Escape, QString()), KeyRouting::Back);
     }
@@ -20,10 +16,10 @@ class TestKeyRouting : public QObject {
     }
     void superIsHomeForEveryApp() {
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Super_L, QStringLiteral("keel")), KeyRouting::Home);
-        QCOMPARE(KeyRouting::systemAction(Qt::Key_Meta, QStringLiteral("marathonui")), KeyRouting::Home);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_Meta, QString()), KeyRouting::Home);
     }
     void otherKeysPassThrough() {
-        QCOMPARE(KeyRouting::systemAction(Qt::Key_A, QStringLiteral("marathonui")), KeyRouting::None);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_A, QStringLiteral("keel")), KeyRouting::None);
     }
 };
 

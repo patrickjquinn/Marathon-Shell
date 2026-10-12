@@ -7,7 +7,7 @@
 class QQmlContext;
 
 // Marathon.Platform: the service clients the runner gives an app, under the
-// names Keel apps use. Legacy MarathonUI apps keep the context properties.
+// names Keel apps use. The older context-property names stay registered.
 QHash<QString, QString> platformTypeNames();
 
 // Registers each client already set on the context under its Marathon.Platform

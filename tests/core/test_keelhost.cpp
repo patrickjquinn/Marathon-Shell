@@ -180,11 +180,6 @@ class TestKeelHost : public QObject {
         QCOMPARE(requests, 1);
     }
 
-    void hostOnlyForKeelApps() {
-        QVERIFY(KeelHost::wantedFor(QStringLiteral("keel")));
-        QVERIFY(!KeelHost::wantedFor(QStringLiteral("marathonui")));
-    }
-
     void lateAmbienceStillReachesPeers() {
         KeelHost host(144);
         QVERIFY(host.start(runtime.path()));
