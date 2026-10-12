@@ -139,6 +139,14 @@ TestCase {
         compare(list.source, "collection/category/game");
     }
 
+    function test_appsTabCanRefresh() {
+        const app = makeApp();
+        const tab = showTab(app, 1);
+        tryCompare(app.store, "catalogLoading", false, 10000);
+        findChild(tab, "refreshItem").clicked(null);
+        verify(app.store.catalogLoading);
+    }
+
     function test_topChartsRanked() {
         const app = makeApp();
         const tab = showTab(app, 1);

@@ -9,6 +9,7 @@ TabItem {
     id: root
 
     property var store
+    property real topMargin
 
     flickable: flick
 
@@ -19,10 +20,23 @@ TabItem {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
 
+        PullDownMenu {
+            MenuItem {
+                objectName: "refreshItem"
+                text: qsTr("Refresh")
+                onClicked: root.store.loadCatalog()
+            }
+        }
+
         Column {
             id: column
 
             width: parent.width
+
+            Item {
+                width: 1
+                height: root.topMargin
+            }
 
             SectionHeader {
                 text: qsTr("Categories")

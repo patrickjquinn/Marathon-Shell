@@ -45,6 +45,7 @@ Page {
         id: appsTab
         AppsTab {
             store: root.store
+            topMargin: tabs.tabBarHeight
         }
     }
     Component {
