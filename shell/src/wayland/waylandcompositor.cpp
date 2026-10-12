@@ -1148,7 +1148,7 @@ void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSur
     file();
 }
 
-QObject *WaylandCompositor::coverSurface(const QString &appId) const {
+QWaylandSurface *WaylandCompositor::coverSurface(const QString &appId) const {
     return m_covers.value(appId).data();
 }
 

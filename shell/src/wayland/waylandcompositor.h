@@ -109,7 +109,7 @@ class WaylandCompositor : public QWaylandCompositor {
 
   public:
     // The surface of a Keel app's cover window, or null.
-    Q_INVOKABLE QObject *coverSurface(const QString &appId) const;
+    Q_INVOKABLE QWaylandSurface *coverSurface(const QString &appId) const;
 
   signals:
     void coverChanged(const QString &appId);

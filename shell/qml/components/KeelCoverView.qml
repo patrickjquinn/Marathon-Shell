@@ -11,7 +11,7 @@ Item {
     property string appId
     property var compositor: null
     property bool shown: false
-    property QtObject coverSurface: compositor && appId !== "" ? compositor.coverSurface(appId) : null
+    property WaylandSurface coverSurface: compositor && appId !== "" ? compositor.coverSurface(appId) : null
     readonly property bool available: coverSurface !== null
 
     function _report() {
