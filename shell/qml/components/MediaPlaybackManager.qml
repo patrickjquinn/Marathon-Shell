@@ -183,7 +183,6 @@ Item {
                 disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious)
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: {
-                    HapticManager.light();
                     MPRIS2Controller.previous();
                 }
             }
@@ -194,7 +193,6 @@ Item {
                 variant: "primary"
                 disabled: !(mediaManager.hasMedia && MPRIS2Controller)
                 onClicked: {
-                    HapticManager.medium();
                     MPRIS2Controller.playPause();
                 }
             }
@@ -206,7 +204,6 @@ Item {
                 disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext)
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: {
-                    HapticManager.light();
                     MPRIS2Controller.next();
                 }
             }
