@@ -1,7 +1,7 @@
 # Moving a Marathon app to Keel
 
 Spec: docs/superpowers/specs/2026-10-11-keel-for-marathon-design.md (§3, §4).
-Reference app: apps/notes-silica (ApplicationWindow, pages, cover, Nemo.Configuration, tests).
+Reference app: apps/notes (ApplicationWindow, pages, cover, Nemo.Configuration, tests).
 
 ## Rules
 - Keel is never modified. Use `import Sailfish.Silica 1.0` then `import Marathon.Silica 1.0` (this order,
@@ -16,7 +16,7 @@ Reference app: apps/notes-silica (ApplicationWindow, pages, cover, Nemo.Configur
 - Root file: `ApplicationWindow` (Marathon.Silica) with `appId`, `initialPage`, optional `cover`.
   The runner calls `handleBack()`; ApplicationWindow already pops pages / minimises.
 - Give the app a `cover:` (CoverBackground; ≤3 lines of state, Theme.fontSizeMedium+, CoverAction
-  for the main action). See apps/notes-silica/cover/NotesCover.qml.
+  for the main action). See apps/notes/cover/NotesCover.qml.
 
 ## MarathonUI → Keel
 | MarathonUI | Use |
@@ -47,7 +47,7 @@ Reference app: apps/notes-silica (ApplicationWindow, pages, cover, Nemo.Configur
 
 ## Verify (host)
 - `KEEL_QML=$HOME/Developer/Shipwright/build/keel/qml` for everything below.
-- Tests: add `apps/<app>/tests/` (copy apps/notes-silica/tests/run.sh); keep or port existing logic
+- Tests: add `apps/<app>/tests/` (copy apps/notes/tests/run.sh); keep or port existing logic
   tests; add tests for each page loading and its main interactions. Run `sh apps/<app>/tests/run.sh`.
 - Build the app module: `cmake -S . -B build-<app> -G Ninja -DBUILD_TESTING=ON -DKEEL_QML=$KEEL_QML`
   then `ninja -C build-<app> <app>` — no qmlcachegen errors, no unresolved types.

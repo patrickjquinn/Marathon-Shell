@@ -1,2 +1,0 @@
-import QtQml
-QtObject {}

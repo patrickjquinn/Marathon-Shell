@@ -99,7 +99,7 @@ makedepends="
 	qmf-dev
 	"
 install="$pkgname.post-install"
-subpackages="$pkgname-doc $pkgname-silica marathon-icon-theme:icontheme:noarch"
+subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch"
 # The shell source is this repo. scripts/qemu/lib/build-marathon-shell-apk.sh
 # stages the working tree into /var/cache/distfiles as
 # marathon-shell-$pkgver.tar.gz and re-runs `abuild -F checksum`, so the URL
@@ -371,12 +371,6 @@ package() {
 }
 
 # sha512sums regenerate with `abuild checksum` on build host.
-silica() {
-	pkgdesc="Marathon apps built with Sailfish Silica (Keel)"
-	depends="$pkgname=$pkgver-r$pkgrel keel-silica"
-	amove usr/share/marathon-apps/notes-silica
-}
-
 icontheme() {
 	pkgdesc="Phosphor icons under Sailfish icon names, for Keel's Silica"
 	license="MIT"
