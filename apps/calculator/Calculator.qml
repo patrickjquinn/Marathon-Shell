@@ -253,6 +253,11 @@ QtObject {
         return f;
     }
 
+    // "50 + 10 %" adds 10 % of 50, as other calculators do; otherwise % is x/100.
+    function percentOf(x) {
+        return currentOperator === "+" || currentOperator === "−" ? currentValue * x / 100 : x / 100;
+    }
+
     // Trig is in degrees.
     function applyScientific(name) {
         if (errorText !== "")
@@ -269,7 +274,7 @@ QtObject {
         case "log":     r = Math.log(x) / Math.LN10;     expr = "log(" + fmt(x) + ")"; break;
         case "ln":      r = Math.log(x);                 expr = "ln(" + fmt(x) + ")"; break;
         case "fact":    r = factorial(x);                expr = fmt(x) + "!"; break;
-        case "percent": r = x / 100;                     expr = fmt(x) + "%"; break;
+        case "percent": r = percentOf(x);                expr = fmt(x) + "%"; break;
         default: return;
         }
         const pending = currentOperator;
