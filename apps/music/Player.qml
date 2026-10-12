@@ -61,8 +61,12 @@ QtObject {
         _play(Queue.next(queue.length, index, shuffle, true, Math.random()));
     }
 
+    // Past the first seconds, Previous restarts the track.
     function previous() {
-        _play(Queue.previous(queue.length, index));
+        if (currentTrack && media.position > 3000)
+            media.position = 0;
+        else
+            _play(Queue.previous(queue.length, index));
     }
 
     function seek(ms) {

@@ -56,6 +56,17 @@ TestCase {
         compare(p.currentTrack.title, "Three");
     }
 
+    function test_previousRestartsAPlayingTrack() {
+        const p = makePlayer();
+        p.playTracks(tracks, 1);
+        p.media.position = 3500;
+        p.previous();
+        compare(p.currentTrack.title, "Two");
+        compare(p.media.position, 0);
+        p.previous();
+        compare(p.currentTrack.title, "One", "near the start it goes back a track");
+    }
+
     function test_endOfMediaAdvances() {
         const p = makePlayer();
         p.playTracks(tracks, 0);
