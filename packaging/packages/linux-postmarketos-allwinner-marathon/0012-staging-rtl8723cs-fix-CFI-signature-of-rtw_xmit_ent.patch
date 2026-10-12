@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Steven Lamphear <steven@stevenlamphear.com>
+Date: Wed, 6 May 2026 00:00:00 +0000
+Subject: [PATCH] staging: rtl8723cs: fix CFI signature of rtw_xmit_entry
+
+rtw_xmit_entry is assigned to net_device_ops::ndo_start_xmit, whose
+expected signature is
+
+  netdev_tx_t (*)(struct sk_buff *, struct net_device *)
+
+but the staging driver declares it returning int. After typedef
+expansion the parameter types already match (_pkt is struct sk_buff
+and _nic_hdl is struct net_device *), so the only mismatch is the
+return type.
+
+With kCFI enabled on arm64, the indirect call from dev_hard_start_xmit
+hashes the expected target type and traps when it does not match,
+producing a fatal panic on the PinePhone as soon as wpa_supplicant
+sends a frame:
+
+  CFI failure at dev_hard_start_xmit+0xdc/0x250
+   (target: rtw_xmit_entry+0x0/0xd4 [8723cs];
+    expected type: 0xc4815b0f)
+  Kernel panic - not syncing: Oops - CFI: Fatal exception in interrupt
+
+Change the return type of rtw_xmit_entry (and its forward declaration
+in the PLATFORM_LINUX block of xmit_osdep.h) to netdev_tx_t so the
+CFI type hash matches, and update the local `ret` variable to use
+netdev_tx_t / NETDEV_TX_OK to match.
+
+Link: https://gitlab.postmarketos.org/postmarketOS/pmaports/-/work_items/4507
+---
+ drivers/staging/rtl8723cs/include/xmit_osdep.h      | 2 +-
+ drivers/staging/rtl8723cs/os_dep/linux/xmit_linux.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/staging/rtl8723cs/include/xmit_osdep.h b/drivers/staging/rtl8723cs/include/xmit_osdep.h
+--- a/drivers/staging/rtl8723cs/include/xmit_osdep.h
++++ b/drivers/staging/rtl8723cs/include/xmit_osdep.h
+@@ -68,7 +68,7 @@
+ struct xmit_buf;
+ 
+ extern int _rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
+-extern int rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
++extern netdev_tx_t rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
+ 
+ #endif /* PLATFORM_LINUX */
+ 
+diff --git a/drivers/staging/rtl8723cs/os_dep/linux/xmit_linux.c b/drivers/staging/rtl8723cs/os_dep/linux/xmit_linux.c
+--- a/drivers/staging/rtl8723cs/os_dep/linux/xmit_linux.c
++++ b/drivers/staging/rtl8723cs/os_dep/linux/xmit_linux.c
+@@ -510,11 +510,11 @@
+ }
+ #endif
+ 
+-int rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev)
++netdev_tx_t rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev)
+ {
+ 	_adapter *padapter = (_adapter *)rtw_netdev_priv(pnetdev);
+ 	struct	mlme_priv	*pmlmepriv = &(padapter->mlmepriv);
+-	int ret = 0;
++	netdev_tx_t ret = NETDEV_TX_OK;
+ 
+ 	if (pkt) {
+ #ifdef CONFIG_CUSTOMER_ALIBABA_GENERAL
+-- 
+2.45.0

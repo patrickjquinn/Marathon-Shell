@@ -1,0 +1,135 @@
+From e7f9bd78c32aefb925ade72907a9c7c4b214f2a8 Mon Sep 17 00:00:00 2001
+From: JuniorJPDJ <git@juniorjpdj.pl>
+Date: Tue, 23 Mar 2021 12:29:37 +0100
+Subject: [PATCH] ARM: dts: sun6i: Add GoClever Orion 70L tablet
+
+---
+ arch/arm/boot/dts/allwinner/Makefile          |   1 +
+ .../sun6i-a31s-goclever-gcta741l.dts          | 103 ++++++++++++++++++
+ 2 files changed, 104 insertions(+)
+ create mode 100644 arch/arm/boot/dts/allwinner/sun6i-a31s-goclever-gcta741l.dts
+
+diff --git a/arch/arm/boot/dts/allwinner/Makefile b/arch/arm/boot/dts/allwinner/Makefile
+index 98f37eeddc77..9f6d5b83c6b1 100644
+--- a/arch/arm/boot/dts/allwinner/Makefile
++++ b/arch/arm/boot/dts/allwinner/Makefile
+@@ -111,6 +111,7 @@ dtb-$(CONFIG_MACH_SUN6I) += \
+ 	sun6i-a31-mele-a1000g-quad.dtb \
+ 	sun6i-a31s-colorfly-e708-q1.dtb \
+ 	sun6i-a31s-cs908.dtb \
++	sun6i-a31s-goclever-gcta741l.dtb \
+ 	sun6i-a31s-inet-q972.dtb \
+ 	sun6i-a31s-primo81.dtb \
+ 	sun6i-a31s-sina31s.dtb \
+diff --git a/arch/arm/boot/dts/allwinner/sun6i-a31s-goclever-gcta741l.dts b/arch/arm/boot/dts/allwinner/sun6i-a31s-goclever-gcta741l.dts
+new file mode 100644
+index 000000000000..4fcba20ffe48
+--- /dev/null
++++ b/arch/arm/boot/dts/allwinner/sun6i-a31s-goclever-gcta741l.dts
+@@ -0,0 +1,103 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR X11)
++// Copyright 2021 Jacek Pruciak <linux@juniorjpdj.pl>
++
++/dts-v1/;
++#include "sun6i-a31s.dtsi"
++#include "sun6i-reference-design-tablet.dtsi"
++//#include <dt-bindings/pwm/pwm.h>
++
++/ {
++	model = "GoClever Orion 70L";
++	compatible = "goclever,gcta741l", "allwinner,sun6i-a31s";
++
++	panel {
++		compatible = "hannstar,tqtm070cb501";
++		power-supply = <&reg_dc1sw>;
++		//backlight = <&backlight>;
++
++		port {
++			panel_input: endpoint {
++				remote-endpoint = <&tcon0_out_lcd>;
++			};
++		};
++	};
++
++	// PWM not supported by sun6i at the moment
++	//backlight {
++	//	compatible = "pwm-backlight";
++	//	pwms = <&pwm 0 50000 PWM_POLARITY_INVERTED>;
++	//	brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
++	//	default-brightness-level = <8>;
++	//	enable-gpios = <&pio 0 25 GPIO_ACTIVE_HIGH>; /* PA25 */
++	//};
++};
++
++&usb_otg {
++	dr_mode = "otg";
++};
++
++&battery_power_supply {
++	status = "okay";
++};
++
++&lradc {
++	vref-supply = <&reg_aldo3>;
++	status = "okay";
++
++	button-1000 {
++		label = "Home";
++		linux,code = <KEY_HOMEPAGE>;
++		channel = <0>;
++		voltage = <1000000>;
++	};
++};
++
++&i2c2 {
++	status = "okay";
++
++	accelerometer@4c {
++		compatible = "fsl,mma7660";
++		reg = <0x4c>;
++		interrupt-parent = <&pio>;
++		interrupts = <0 9 IRQ_TYPE_LEVEL_HIGH>; /* PA9 */
++
++		mount-matrix =	"0", "1", "0",
++						"1", "0", "0",
++						"0", "0", "1";
++	};
++};
++
++&tcon0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&lcd0_rgb888_pins>;
++	status = "okay";
++};
++
++&tcon0_out {
++	tcon0_out_lcd: endpoint@0 {
++		reg = <0>;
++		remote-endpoint = <&panel_input>;
++	};
++};
++
++&de {
++	status = "okay";
++};
++
++&simplefb_lcd {
++	status = "okay";
++};
++
++&codec {
++	// This still doesn't work
++	allwinner,audio-routing =
++		/* sink, source */
++		"Headphone", "HP",
++		"Speaker", "LINEOUT",
++		"MIC1", "Mic",
++		"MIC2", "Headset Mic",
++		"Mic",	"MBIAS",
++		"Headset Mic", "HBIAS";
++	allwinner,pa-gpios = <&r_pio 0 4 GPIO_ACTIVE_HIGH>; /* PL4 */
++	status = "okay";
++};
+-- 
+2.52.0
+

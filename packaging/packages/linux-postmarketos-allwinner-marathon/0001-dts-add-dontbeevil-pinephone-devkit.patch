@@ -1,0 +1,536 @@
+From 9849f4b3d6e2a82aaab14d336e91bb1951ca9bfb Mon Sep 17 00:00:00 2001
+From: Martijn Braam <martijn@brixit.nl>
+Date: Sat, 20 Apr 2019 01:19:48 +0200
+Subject: [PATCH] dts: add dontbeevil (pinephone devkit)
+
+* arm64: dts: allwinner: add support for pinephone devkit
+* dontbeevil: add separate dts for longts devkit
+* dontbeevil: add flash
+* dontbeevil: connect the flash to the camera
+* dontbeevil: use new flash dt binding
+---
+ arch/arm64/boot/dts/allwinner/Makefile        |   2 +
+ .../sun50i-a64-dontbeevil-longts.dts          |  14 +
+ .../dts/allwinner/sun50i-a64-dontbeevil.dts   | 476 ++++++++++++++++++
+ 3 files changed, 492 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil-longts.dts
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil.dts
+
+diff --git a/arch/arm64/boot/dts/allwinner/Makefile b/arch/arm64/boot/dts/allwinner/Makefile
+index c6c13267dcfa..cda9ebd2b4a2 100644
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -1,6 +1,8 @@
+ # SPDX-License-Identifier: GPL-2.0
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-amarula-relic.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-bananapi-m64.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-dontbeevil.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-dontbeevil-longts.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-nanopi-a64.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-oceanic-5205-5inmfd.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-olinuxino.dtb
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil-longts.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil-longts.dts
+new file mode 100644
+index 000000000000..49f71536649b
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil-longts.dts
+@@ -0,0 +1,14 @@
++/dts-v1/;
++
++#include "sun50i-a64-dontbeevil.dts"
++
++/ {
++	model = "PinePhone Don't be evil development kit with long touch cable";
++	compatible = "pine64,sopine-baseboard", "pine64,sopine",
++		     "allwinner,sun50i-a64";
++
++};
++
++&touchscreen {
++	touchscreen-inverted-x;
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil.dts
+new file mode 100644
+index 000000000000..15a91f2d6202
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-dontbeevil.dts
+@@ -0,0 +1,476 @@
++/*
++ * Copyright (c) 2017 Icenowy Zheng <icenowy@aosc.xyz>
++ *
++ * Based on sun50i-a64-pine64.dts, which is:
++ *   Copyright (c) 2016 ARM Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPL or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++/dts-v1/;
++
++#include "sun50i-a64-sopine.dtsi"
++#include <dt-bindings/pwm/pwm.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "PinePhone Don't be evil development kit";
++	compatible = "pine64,sopine-baseboard", "pine64,sopine",
++		     "allwinner,sun50i-a64";
++
++	aliases {
++		ethernet0 = &emac;
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	i2c-csi {
++		compatible = "i2c-gpio";
++		sda-gpios = <&pio 4 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>; /* CSI-SDA: PE13 */
++		scl-gpios = <&pio 4 12 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>; /* CSI-SCK: PE12 */
++		i2c-gpio,delay-us = <5>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		ov5640: camera@3c {
++			compatible = "ovti,ov5640";
++			reg = <0x3c>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&csi_mclk_pin>;
++			clocks = <&ccu CLK_CSI_MCLK>;
++			clock-names = "xclk";
++
++			AVDD-supply = <&reg_dldo3>;
++			DOVDD-supply = <&reg_aldo1>;
++			DVDD-supply = <&reg_eldo3>;
++			reset-gpios = <&pio 3 3 GPIO_ACTIVE_LOW>; /* CSI-RST-R: PD3 */
++			powerdown-gpios = <&pio 2 0 GPIO_ACTIVE_HIGH>; /* CSI-STBY-R: PC0 */
++
++			flash-leds = <&sgm3140_flash>;
++
++			port {
++				ov5640_ep: endpoint {
++					remote-endpoint = <&csi_ep>;
++					bus-width = <8>;
++					hsync-active = <1>; /* Active high */
++					vsync-active = <0>; /* Active low */
++					data-active = <1>;  /* Active high */
++					pclk-sample = <1>;  /* Rising */
++				};
++			};
++		};
++	};
++
++
++	hdmi-connector {
++		compatible = "hdmi-connector";
++		type = "a";
++
++		port {
++			hdmi_con_in: endpoint {
++				remote-endpoint = <&hdmi_out_con>;
++			};
++		};
++	};
++
++	reg_vcc1v8: vcc1v8 {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc1v8";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&r_pwm 0 50000 PWM_POLARITY_INVERTED>;
++		brightness-levels = <0 1 2 4 8 16 32 64 128 512>;
++		default-brightness-level = <2>;
++		enable-gpios = <&pio 7 10 GPIO_ACTIVE_HIGH>; /* LCD-BL-EN: PH10 */
++	};
++
++	vibrator {
++		compatible = "gpio-vibrator";
++		enable-gpios = <&pio 3 2 GPIO_ACTIVE_HIGH>; /* PD2 */
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		red {
++			gpios = <&r_pio 0 8 GPIO_ACTIVE_LOW>; /* PL8 */
++		};
++		green {
++			gpios = <&r_pio 0 9 GPIO_ACTIVE_LOW>; /* PL9 */
++		};
++		blue {
++			gpios = <&r_pio 0 11 GPIO_ACTIVE_LOW>; /* PL11 */
++		};
++	};
++
++	speaker_amp: audio-amplifier {
++		compatible = "simple-audio-amplifier";
++		enable-gpios = <&pio 2 7 GPIO_ACTIVE_HIGH>; /* PA-SHDN: PC7 */
++		sound-name-prefix = "Speaker Amp";
++	};
++
++	sgm3140 {
++		compatible = "sgmicro,sgm3140";
++		flash-gpios = <&pio 3 7 GPIO_ACTIVE_HIGH>; /* FLASH_TRIGOUT: PD7 */
++		enable-gpios = <&pio 1 3 GPIO_ACTIVE_HIGH>; /* FLASH_EN: PB3 */
++
++		sgm3140_flash: led {
++			function = LED_FUNCTION_FLASH;
++			color = <LED_COLOR_ID_WHITE>;
++		};
++	};
++};
++
++&ac_power_supply {
++	status = "okay";
++};
++
++&battery_power_supply {
++	status = "okay";
++};
++
++&codec {
++	status = "okay";
++};
++
++&codec_analog {
++	status = "okay";
++};
++
++&csi {
++	status = "okay";
++
++	port {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		csi_ep: endpoint {
++			remote-endpoint = <&ov5640_ep>;
++			bus-width = <8>;
++			hsync-active = <1>; /* Active high */
++			vsync-active = <0>; /* Active low */
++			data-active = <1>;  /* Active high */
++			pclk-sample = <1>;  /* Rising */
++		};
++	};
++};
++
++&dai {
++	status = "okay";
++};
++
++&de {
++	status = "okay";
++};
++
++&dphy {
++	status = "okay";
++};
++
++&reg_ldo_io0 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++	regulator-name = "vcc-ctp";
++	status = "okay";
++};
++
++&dsi {
++	vcc-dsi-supply = <&reg_dldo1>;		/* VCC3V3-DSI */
++	#address-cells = <1>;
++	#size-cells = <0>;
++	status = "okay";
++
++	panel@0 {
++		compatible = "pinephone,jd9365da";
++		reg = <0>;
++		avdd-supply = <&reg_dc1sw>;	/* VCC-LCD */
++		dvdd-supply = <&reg_dldo2>;	/* VCC-MIPI */
++		cvdd-supply = <&reg_ldo_io0>;			/* VCC-CTP: GPIO0-LDO */
++		reset-gpios = <&pio 3 24 GPIO_ACTIVE_HIGH>; /* LCD-RST: PD24 */
++		backlight = <&backlight>;
++	};
++};
++
++&r_pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&r_pwm_pin>;
++	status = "okay";
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins>;
++	phy-mode = "rgmii";
++	phy-handle = <&ext_rgmii_phy>;
++	phy-supply = <&reg_dc1sw>;
++	status = "okay";
++};
++
++&hdmi {
++	hvcc-supply = <&reg_dldo1>;
++	status = "disabled";
++};
++
++&hdmi_out {
++	hdmi_out_con: endpoint {
++		remote-endpoint = <&hdmi_con_in>;
++	};
++};
++
++
++
++&i2c0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c0_pins>;
++	status = "okay";
++
++	touchscreen: ft6236@38 {
++		compatible = "focaltech,ft6236", "edt,edt-6236";
++		reg = <0x38>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_intr_pin>;
++
++		interrupt-parent = <&pio>;
++		interrupts = <7 4 IRQ_TYPE_EDGE_FALLING>;
++		irq-gpios = <&pio 7 4 GPIO_ACTIVE_LOW>;
++
++		vdd-supply = <&reg_ldo_io0>;
++
++		touchscreen-size-x = <720>;
++		touchscreen-size-y = <1440>;
++	};
++};
++
++&pio {
++	touch_intr_pin: touch_intr_pin {
++		pins = "PH4";
++		// TODO: perhaps remove this bias
++		bias-pull-up;
++		function = "irq";
++	};
++};
++
++
++&i2c1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c1_pins>;
++	status = "okay";
++
++	mpu6050@68 {
++		compatible = "invensense,mpu6050";
++		reg = <0x68>;
++		interrupt-parent = <&pio>;
++		interrupts = <7 5 IRQ_TYPE_EDGE_FALLING>; /* PH5 */
++		mount-matrix = "0", "1", "0",
++			       "1", "0", "0",
++			       "0", "0", "1";
++	};
++
++	lis3mdl@1e {
++		compatible = "st,lis3mdl-magn";
++		reg = <0x1e>;
++		interrupt-parent = <&pio>;
++		interrupts = <1 1 IRQ_TYPE_EDGE_RISING>; /* PB1 */
++	};
++
++	stk3335@47 {
++		compatible = "sensortek,stk3335";
++		reg = <0x47>;
++		interrupt-parent = <&pio>;
++		interrupts = <1 0 IRQ_TYPE_EDGE_FALLING>; /* PB0 */
++	};
++};
++
++&lradc {
++	vref-supply = <&reg_aldo3>;
++	status = "okay";
++
++	button@191 {
++		label = "Volume Up";
++		linux,code = <KEY_VOLUMEUP>;
++		channel = <0>;
++		voltage = <357142>;
++	};
++
++	button@392 {
++		label = "Volume Down";
++		linux,code = <KEY_VOLUMEDOWN>;
++		channel = <0>;
++		voltage = <750000>;
++	};
++};
++
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <1>;
++	};
++};
++
++&mmc1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc1_pins>;
++	vmmc-supply = <&reg_dcdc1>;
++	vqmmc-supply = <&reg_dldo4>;
++	bus-width = <4>;
++	non-removable;
++	status = "okay";
++
++	rtl8723bs: wifi@1 {
++		reg = <1>;
++	};
++};
++
++&mmc2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc2_pins>;
++	vmmc-supply = <&reg_dcdc1>;
++	vqmmc-supply = <&reg_vcc1v8>;
++	bus-width = <8>;
++	non-removable;
++	cap-mmc-hw-reset;
++	mmc-hs200-1_8v;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&reg_dc1sw {
++	regulator-name = "vcc-lcd";
++};
++
++&reg_dldo1 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++	regulator-name = "vcc-hdmi";
++};
++
++&reg_dldo2 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++	regulator-name = "vcc-mipi";
++};
++
++&reg_dldo4 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++	regulator-name = "vcc-wifi";
++};
++
++&simplefb_hdmi {
++	vcc-hdmi-supply = <&reg_dldo1>;
++};
++
++&sound {
++	simple-audio-card,aux-devs = <&codec_analog>, <&speaker_amp>;
++	simple-audio-card,widgets = "Microphone", "Microphone",
++				    "Headphone", "Headphone Jack",
++				    "Speaker", "Earpiece Speaker";
++	simple-audio-card,routing =
++			"Earpiece Speaker", "EARPIECE",
++			"Headphone Jack", "Speaker Amp OUTL",
++			"Speaker Amp INL", "HP",
++			"Left DAC", "DAC Left",
++			"Right DAC", "DAC Right",
++			"ADC Left", "Left ADC",
++			"ADC Right", "Right ADC",
++			"Microphone", "HBIAS",
++			"MIC2", "Microphone";
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_pins>, <&uart1_rts_cts_pins>;
++	status = "okay";
++
++	bluetooth {
++		compatible = "realtek,rtl8723bs-bt";
++		enable-gpios = <&r_pio 0 4 GPIO_ACTIVE_HIGH>; /* PL4 */
++		device-wake-gpios = <&r_pio 0 5 GPIO_ACTIVE_HIGH>; /* PL5 */
++		host-wake-gpios = <&r_pio 0 6 GPIO_ACTIVE_HIGH>; /* PL6 */
++		firmware-postfix = "pine64";
++	};
++};
++
++&usb_otg {
++	dr_mode = "otg";
++	status = "okay";
++};
++
++&usbphy {
++	status = "okay";
++};
++
++&tcon1 {
++	status = "disabled";
++};
++
++&hdmi_phy {
++	status = "disabled";
++};
+-- 
+2.52.0
+

@@ -1,0 +1,32 @@
+From 1506286d8c16d785be82821ec85f43dffa389b83 Mon Sep 17 00:00:00 2001
+From: Oliver Smith <ollieparanoid@postmarketos.org>
+Date: Tue, 20 Oct 2020 11:11:48 +0200
+Subject: [PATCH] dts: pinetab: add missing ohci1
+
+ohci1 is the low-speed variant of the usb port.
+Original patch by Icenowy Zheng.
+
+Cherry picked from here, but this isn't the original patch either:
+https://gitlab.com/pine64-org/linux/-/commit/69ae7087ec51b09bb6a0afb53dddb5eb030b3236
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pinetab.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pinetab.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pinetab.dts
+index 419fe19b4a6f..e30034a1553b 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pinetab.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pinetab.dts
+@@ -311,6 +311,10 @@ &ohci0 {
+ 	status = "okay";
+ };
+ 
++&ohci1 {
++	status = "okay";
++};
++
+ &pwm {
+ 	status = "okay";
+ };
+-- 
+2.52.0
+

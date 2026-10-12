@@ -1,0 +1,57 @@
+From 8984700f8696dcb2c3d177d1588010adf3ed37af Mon Sep 17 00:00:00 2001
+From: JuniorJPDJ <git@juniorjpdj.pl>
+Date: Thu, 25 Mar 2021 19:11:22 +0100
+Subject: [PATCH] drm: panel: simple: Add Hannstar HSD070IDW1-A
+
+---
+ drivers/gpu/drm/panel/panel-simple.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-simple.c b/drivers/gpu/drm/panel/panel-simple.c
+index e73c2ff7cc45..e27f633c7ae6 100644
+--- a/drivers/gpu/drm/panel/panel-simple.c
++++ b/drivers/gpu/drm/panel/panel-simple.c
+@@ -2429,6 +2429,30 @@ static const struct panel_desc giantplus_gpm940b0 = {
+ 	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE,
+ };
+ 
++static const struct drm_display_mode hannstar_hsd070idw1_a_mode = {
++	.clock = 33000,
++	.hdisplay = 800,
++	.hsync_start = 800 + 40,
++	.hsync_end = 800 + 40 + 1,
++	.htotal = 800 + 40 + 1 + 87,
++	.vdisplay = 480,
++	.vsync_start = 480 + 13,
++	.vsync_end = 480 + 13 + 1,
++	.vtotal = 480 + 13 + 1 + 31,
++};
++
++static const struct panel_desc hannstar_hsd070idw1_a = {
++	.modes = &hannstar_hsd070idw1_a_mode,
++	.num_modes = 1,
++	.bpc = 6,
++	.size = {
++		.width = 154,
++		.height = 87,
++	},
++	.bus_format = MEDIA_BUS_FMT_RGB666_1X18,
++	.connector_type = DRM_MODE_CONNECTOR_DPI,
++};
++
+ static const struct display_timing hannstar_hsd070pww1_timing = {
+ 	.pixelclock = { 64300000, 71100000, 82000000 },
+ 	.hactive = { 1280, 1280, 1280 },
+@@ -5181,6 +5205,9 @@ static const struct of_device_id platform_of_match[] = {
+ 	}, {
+ 		.compatible = "giantplus,gpm940b0",
+ 		.data = &giantplus_gpm940b0,
++	}, {
++		.compatible = "hannstar,hsd070idw1-a",
++		.data = &hannstar_hsd070idw1_a,
+ 	}, {
+ 		.compatible = "hannstar,hsd070pww1",
+ 		.data = &hannstar_hsd070pww1,
+-- 
+2.52.0
+

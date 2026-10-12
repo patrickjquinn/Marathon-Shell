@@ -1,0 +1,278 @@
+From 7a07890d15b65c112ed522c8ecda59ebd08ea428 Mon Sep 17 00:00:00 2001
+From: JuniorJPDJ <git@juniorjpdj.pl>
+Date: Thu, 25 Mar 2021 19:18:58 +0100
+Subject: [PATCH] ARM: dts: sun6i: Add Lark FreeMe 70.2S tablet
+
+---
+ arch/arm/boot/dts/allwinner/Makefile          |   1 +
+ .../allwinner/sun4i-a10-lark-freeme-70-2s.dts | 246 ++++++++++++++++++
+ 2 files changed, 247 insertions(+)
+ create mode 100644 arch/arm/boot/dts/allwinner/sun4i-a10-lark-freeme-70-2s.dts
+
+diff --git a/arch/arm/boot/dts/allwinner/Makefile b/arch/arm/boot/dts/allwinner/Makefile
+index 9f6d5b83c6b1..c085a6e27744 100644
+--- a/arch/arm/boot/dts/allwinner/Makefile
++++ b/arch/arm/boot/dts/allwinner/Makefile
+@@ -36,6 +36,7 @@ dtb-$(CONFIG_MACH_SUN4I) += \
+ 	sun4i-a10-inet9f-rev03.dtb \
+ 	sun4i-a10-itead-iteaduino-plus.dtb \
+ 	sun4i-a10-jesurun-q5.dtb \
++	sun4i-a10-lark-freeme-70-2s.dtb \
+ 	sun4i-a10-marsboard.dtb \
+ 	sun4i-a10-mini-xplus.dtb \
+ 	sun4i-a10-mk802.dtb \
+diff --git a/arch/arm/boot/dts/allwinner/sun4i-a10-lark-freeme-70-2s.dts b/arch/arm/boot/dts/allwinner/sun4i-a10-lark-freeme-70-2s.dts
+new file mode 100644
+index 000000000000..5f17902410c1
+--- /dev/null
++++ b/arch/arm/boot/dts/allwinner/sun4i-a10-lark-freeme-70-2s.dts
+@@ -0,0 +1,246 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR X11)
++// Copyright 2021 Jacek Pruciak <linux@juniorjpdj.pl>
++// Copyright 2020 Adam Słaboń <asaillen456esx@gmail.com>
++// Copyright 2015 Hans de Goede <hdegoede@redhat.com>
++
++/dts-v1/;
++#include "sun4i-a10.dtsi"
++#include "sunxi-common-regulators.dtsi"
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/pwm/pwm.h>
++
++/ {
++	model = "Lark FreeMe 70.2S";
++	compatible = "lark,freeme-70-2s", "allwinner,sun4i-a10";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	hdmi-connector {
++		compatible = "hdmi-connector";
++		type = "c";
++
++		port {
++			hdmi_con_in: endpoint {
++				remote-endpoint = <&hdmi_out_con>;
++			};
++		};
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 0 50000 PWM_POLARITY_INVERTED>;
++		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
++		default-brightness-level = <8>;
++		enable-gpios = <&pio 7 7 GPIO_ACTIVE_HIGH>; /* PH7 */
++	};
++
++	panel: panel {
++		compatible = "hannstar,hsd070idw1-a";
++		power-supply = <&reg_vcc3v3>;
++		enable-gpios = <&pio 7 8 GPIO_ACTIVE_HIGH>; /* PH8 */
++		backlight = <&backlight>;
++
++		port {
++			panel_input: endpoint {
++				remote-endpoint = <&tcon0_out_lcd>;
++			};
++		};
++	};
++};
++
++&tcon0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&lcd_rgb666_pins>;
++	status = "okay";
++};
++
++&tcon0_out {
++	tcon0_out_lcd: endpoint@0 {
++		reg = <0>;
++		remote-endpoint = <&panel_input>;
++	};
++};
++
++&pio {
++	lcd_rgb666_pins: lcd-rgb666-pins {
++		pins = "PD2", "PD3", "PD4", "PD5", "PD6", "PD7",
++				"PD10", "PD11", "PD12", "PD13", "PD14", "PD15",
++				"PD18", "PD19", "PD20", "PD21", "PD22", "PD23",
++				"PD24", "PD25", "PD26", "PD27";
++		function = "lcd0";
++	};
++};
++
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm0_pin>;
++	status = "okay";
++};
++
++&ehci1 {
++	/* WiFi card */
++	status = "okay";
++};
++
++&ohci0 {
++	/* Full USB port - USB1.1 */
++	status = "okay";
++};
++
++&ehci0 {
++	/* Full USB port - USB2 */
++	status = "okay";
++};
++
++&i2c0 {
++	status = "okay";
++
++	axp209: pmic@34 {
++		reg = <0x34>;
++		interrupts = <0>;
++	};
++};
++
++&i2c1 {
++	status = "okay";
++
++	accelerometer@1c {
++		compatible = "domintech,dmard06";
++		reg = <0x1c>;
++	};
++};
++
++#include "axp209.dtsi"
++
++&reg_dcdc2 {
++	regulator-always-on;
++	regulator-min-microvolt = <1000000>;
++	regulator-max-microvolt = <1400000>;
++	regulator-name = "vdd-cpu";
++};
++
++&reg_dcdc3 {
++	regulator-always-on;
++	regulator-min-microvolt = <1000000>;
++	regulator-max-microvolt = <1400000>;
++	regulator-name = "vdd-int-dll";
++};
++
++&reg_ldo1 {
++	regulator-name = "vdd-rtc";
++};
++
++&reg_ldo2 {
++	regulator-always-on;
++	regulator-min-microvolt = <3000000>;
++	regulator-max-microvolt = <3000000>;
++	regulator-name = "avcc";
++};
++
++&ac_power_supply {
++	status = "okay";
++};
++
++&battery_power_supply {
++	status = "okay";
++};
++
++&usb_power_supply {
++	status = "okay";
++};
++
++&i2c1 {
++	status = "okay";
++};
++
++&lradc {
++	vref-supply = <&reg_vcc3v0>;
++	status = "okay";
++
++	button-400 {
++		label = "Key Esc";
++		linux,code = <KEY_ESC>;
++		channel = <0>;
++		voltage = <400000>;
++	};
++
++	button-800 {
++		label = "Key Menu";
++		linux,code = <KEY_MENU>;
++		channel = <0>;
++		voltage = <800000>;
++	};
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_vcc3v3>;
++	bus-width = <4>;
++	cd-gpios = <&pio 7 1 GPIO_ACTIVE_LOW>; /* PH1 */
++	status = "okay";
++};
++
++&otg_sram {
++	status = "okay";
++};
++
++&reg_usb0_vbus {
++	status = "okay";
++};
++
++&reg_usb1_vbus {
++	status = "okay";
++};
++
++&reg_usb2_vbus {
++	/* WiFi */
++	gpio = <&pio 7 12 GPIO_ACTIVE_HIGH>; /* PH12 */
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	dr_mode = "otg";
++	status = "okay";
++};
++
++&codec {
++	allwinner,pa-gpios = <&pio 7 15 GPIO_ACTIVE_HIGH>; /* PH15 */
++	status = "okay";
++};
++
++&de {
++	status = "okay";
++};
++
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_out {
++	hdmi_out_con: endpoint {
++		remote-endpoint = <&hdmi_con_in>;
++	};
++};
++
++&usbphy {
++	usb0_id_det-gpios = <&pio 7 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>; /* PH4 */
++	usb0_vbus_det-gpios = <&pio 7 5 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>; /* PH5 */
++	usb0_vbus_power-supply = <&usb_power_supply>;
++	usb0_vbus-supply = <&reg_usb0_vbus>;
++	usb1_vbus-supply = <&reg_usb1_vbus>;
++	usb2_vbus-supply = <&reg_usb2_vbus>;
++	status = "okay";
++};
+-- 
+2.52.0
+

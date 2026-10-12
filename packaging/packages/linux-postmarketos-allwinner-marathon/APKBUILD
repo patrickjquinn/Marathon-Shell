@@ -1,0 +1,109 @@
+# Marathon fork of pmaports' linux-postmarketos-allwinner. Same source and
+# patches; the config adds the A64 watchdog (SUNXI_WATCHDOG, fed by systemd
+# from marathon-base-config) and the soft/hard lockup detectors with panic,
+# so a hung PinePhone reboots by itself instead of staying dark. Hung-task
+# detection logs only. Drop this fork when pmaports enables the same.
+# Co-Maintainer: Jan Jasper de Kroon <jajadekroon@gmail.com>
+maintainer="Arnav Singh <me@arnavion.dev>"
+_flavor=postmarketos-allwinner
+_config="config-$_flavor.$CARCH"
+pkgname=linux-$_flavor-marathon
+pkgver=6.18.3_git20260105
+pkgrel=0
+_tag="orange-pi-6.18-20260105-0049"
+pkgdesc="PinePhone kernel — Marathon fork with the A64 watchdog and lockup detection"
+arch="aarch64"
+url="https://megous.com/git/linux/"
+license="GPL-2.0-only"
+makedepends="
+	bison
+	clang
+	elfutils-dev
+	findutils
+	flex
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	pahole
+	perl
+	postmarketos-installkernel
+	python3
+	zstd
+	"
+# Replace pmaports' linux-postmarketos-allwinner so device-pine64-pinephone
+# installs this kernel; module paths stay 6.18.3 as upstream.
+provides="linux-postmarketos-allwinner=$pkgver-r$pkgrel"
+replaces="linux-postmarketos-allwinner"
+provider_priority=200
+options="!strip !check !tracedeps
+	pmb:cross-native
+	pmb:kconfigcheck-community
+	"
+source="$pkgname-$_tag.tar.gz::https://github.com/Arnavion/linux/archive/refs/tags/$_tag.tar.gz
+	config-$_flavor.aarch64
+	0001-dts-add-dontbeevil-pinephone-devkit.patch
+	0002-dts-add-pinetab-dev-old-display-panel.patch
+	0003-dts-pinetab-add-missing-ohci1.patch
+	0004-dts-pinetab-make-audio-routing-consistent-with-pinep.patch
+	0005-dts-pinephone-drop-modem-power-node.patch
+	0006-drm-panel-simple-Add-Hannstar-TQTM070CB501.patch
+	0007-ARM-dts-sun6i-Add-GoClever-Orion-70L-tablet.patch
+	0008-drm-panel-simple-Add-Hannstar-HSD070IDW1-A.patch
+	0009-ARM-dts-sun6i-Add-Lark-FreeMe-70.2S-tablet.patch
+	0010-eMMC-workaround.patch
+	0011-arm64-dts-allwinner-orangepi-3-fix-ethernet.patch
+	0012-staging-rtl8723cs-fix-CFI-signature-of-rtw_xmit_ent.patch
+	"
+builddir="$srcdir/linux-$_tag"
+
+case "$CARCH" in
+	aarch64*) _carch="arm64" ;;
+	arm*) _carch="arm" ;;
+esac
+
+
+prepare() {
+	default_prepare
+	cp "$srcdir/config-$_flavor.$CARCH" .config
+}
+
+build() {
+	unset LDFLAGS
+	make ARCH="$_carch" LLVM=1 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-$_flavor" \
+		CFLAGS_MODULE=-fno-pic \
+		DTC_FLAGS="-@"
+}
+
+package() {
+	make dtbs_install modules_install zinstall \
+		ARCH="$_carch" \
+		LLVM=1 \
+		INSTALL_PATH="$pkgdir/boot" \
+		INSTALL_MOD_STRIP=1 \
+		INSTALL_MOD_PATH="$pkgdir"/usr \
+		INSTALL_DTBS_PATH="$pkgdir/boot/dtbs"
+
+	rm -f "$pkgdir"/usr/lib/modules/*/build "$pkgdir"/usr/lib/modules/*/source
+
+	install -D "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/"$_flavor"/kernel.release
+}
+
+sha512sums="
+3f291658f6e9183d4a7c56c96bd6b6c84f16c3ce96c023a78b80695d90e029de53a19126b34cd770d72fc67204d59bb0f16c9a1a87876cdaa4d5d21f18dc6c49  linux-postmarketos-allwinner-orange-pi-6.18-20260105-0049.tar.gz
+d76238bfb3cb0ecc35eb0aada8ae9b9ba2f021a18d0741ed7cffe75ae582517c03a5b7fa1c5f3ff46ee4524f3684c0ad3c6a55c6ddd0cf4ac9ca34231fd386e6  config-postmarketos-allwinner.aarch64
+5ee446b124ae551fab659fe51e4bf9a617218f464398ed899bb438c469e93bacc248b1a6d3936ac36ba812971170696765117f2b619fdd37e5ff21b46f01bde9  0001-dts-add-dontbeevil-pinephone-devkit.patch
+ffb0e0b553eeb2a8b0db6302ad524aee80b4c8141d6becb4d614689b5f2fd1a07ba0df6d2ceec73634f3cc66e581013b44deb7c0df79afc1a9e5fa4bf9e56fec  0002-dts-add-pinetab-dev-old-display-panel.patch
+eaff5d1167e2fa1a46619dc15623d1ac979a76f67b385d43cc026150efeb98dd46ab3e824e1bcf2423b644c693b2543186278cb8f74bc68a151e88e27dbc1f8c  0003-dts-pinetab-add-missing-ohci1.patch
+69b6429b61ed81ac595b2536396b96320e8942930f52dd827dbfd6e67783fcb6e9389de89415b66316344611bba0bc591f8aa979c11f805da9c645626220ef95  0004-dts-pinetab-make-audio-routing-consistent-with-pinep.patch
+128666c5e8e45d20617faeda2a9eedcbb2278d1d07c80bc74d96b328171776ed2f23a378d83dcc2f1348d3bd2d798677fb870153299fd088ada025c332b95793  0005-dts-pinephone-drop-modem-power-node.patch
+8b46f075b95a40a935853a2a63f38884cbab639d2b91e746d7dcc5219713244a00292d35b5abc47ce409ed11bf7260ebffb84df50b6f0f5ed8bbf34e731d3898  0006-drm-panel-simple-Add-Hannstar-TQTM070CB501.patch
+65b26dc9185579799024cac7e429f4eba51986530b59bfd670e58b7844cfa0322487d197bf64625b5b635a95cf5749a71984dce63fc722db56292e540c3491c8  0007-ARM-dts-sun6i-Add-GoClever-Orion-70L-tablet.patch
+5b0f286027dd2e2d6f16e6965f466d1466deba45355ac44146bef0826e6bfc8acdd852231e3bbaffc0bd1a15494171f2b998270d05f2cfc9b2529b321c1425a1  0008-drm-panel-simple-Add-Hannstar-HSD070IDW1-A.patch
+38517de7f29e1769060cbcd297b116db71f2dc0da5f51a44d9c62266d2e43d0ed9f006de59d8dad2118fdac66cccd603d8f4df926602581523bf288106e46c87  0009-ARM-dts-sun6i-Add-Lark-FreeMe-70.2S-tablet.patch
+295079325f9bd30d2ccaebcc02f618faf6c6ab671499168a359c7460743f2ca8b8454495e272d74d781bb3c42a41edcdab49a36c34635ffa4e277670d10b2628  0010-eMMC-workaround.patch
+f0fa032dcd25f4b3f5cbbd863d7580f786d34bb6111bfcea8eaa0bdb8e40bba7baa4c32fbbc20ea90bf575f6804c01bc0e6e892ad8547ff7242e07b3128ab929  0011-arm64-dts-allwinner-orangepi-3-fix-ethernet.patch
+28c32c65fd51146b56e381720a5056708b0ff002cebbcab7b0013009c2a05cc0411244c868e1a2d8dfbd9bfd186611a9caf88851768596d74f9c3b1a4ab2fbf2  0012-staging-rtl8723cs-fix-CFI-signature-of-rtw_xmit_ent.patch
+"
