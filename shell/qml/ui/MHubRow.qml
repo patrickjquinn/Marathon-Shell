@@ -1,171 +1,127 @@
 import MarathonOS.Shell
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
-// Marathon DS · Hub row (unified inbox).
-//
-// Min-height 72 design-px row: optional 8 × 8 unread dot at the left edge,
-// 40 × 40 monogram-or-icon avatar with a per-contact tint, then the
-// content column — name + time row, account label, single-line
-// snippet. The snippet clamps to one line with ellipsis.
-//
-// Used by MarathonHub. Same pattern is reusable for other glass
-// inboxes (search results, notification stack).
+// Hub row: unread dot, a glass-ring monogram or icon, then sender and
+// time, account and a one-line snippet, laid out as Sailfish's events.
 Item {
     id: row
 
-    // Content — caller wires.
     property bool unread: false
-    property color avatarTint: MColors.bb10Elevated
-    property string avatarText: ""           // monogram letters
-    property string avatarIcon: ""           // icon glyph (used when avatarText is empty)
-    property bool avatarUsesTealBorder: false
-    property color avatarTextColor: "#ffffff"
+    property string avatarText: ""
+    property string avatarIcon: ""
     property string name: ""
     property string time: ""
-    property string account: ""              // "iMessage", "Mail", "Work", etc.
+    property string account: ""
     property string snippet: ""
+    readonly property bool down: area.pressed && area.containsMouse
 
     signal activated
 
-    readonly property real scaleFactor: Constants.scaleFactor || 1.0
-
-    // 72 design-px is the DS minimum, not a fixed height. The row stacks
-    // three scaled type tokens (subhead + caption + footnote); at 1.5x
-    // their line-boxes alone exceed 72 physical px, so a fixed 72 clipped
-    // the snippet. Scale the minimum and let real content raise it.
-    implicitHeight: Math.max(Math.round(72 * scaleFactor),
-                             textColumn.implicitHeight + MSpacing.sm * 2)
+    implicitHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
 
     Rectangle {
         anchors.fill: parent
-        color: hover.containsMouse ? MColors.whiteOverlay02 : "transparent"
+        color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
     }
 
-    // ── Unread dot ─────────────────────────────────────────
     Rectangle {
-        id: dot
-        width: Math.round(8 * row.scaleFactor)
+        width: Silica.Theme.paddingSmall
         height: width
         radius: width / 2
         anchors.left: parent.left
-        anchors.leftMargin: Math.round(8 * row.scaleFactor)
+        anchors.leftMargin: Silica.Theme.paddingSmall
         anchors.verticalCenter: parent.verticalCenter
-        color: MColors.marathonTealBright
+        color: Silica.Theme.highlightColor
         visible: row.unread
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: Math.round(16 * row.scaleFactor)
-            height: width
-            radius: width / 2
-            color: MColors.marathonTealGlow
-            opacity: 0.18
-            z: -1
-        }
     }
 
-    // ── Avatar ─────────────────────────────────────────────
     Rectangle {
         id: avatar
-        width: Math.round(40 * row.scaleFactor)
+        width: Silica.Theme.iconSizeMedium
         height: width
         radius: width / 2
         anchors.left: parent.left
-        anchors.leftMargin: Math.round(24 * row.scaleFactor)
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter
-        color: row.avatarTint
-        border.width: 1
-        border.color: row.avatarUsesTealBorder ? MColors.tealBorder : MColors.whiteOverlay08
+        color: "transparent"
+        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
         Text {
             anchors.centerIn: parent
             text: row.avatarText
-            color: row.avatarTextColor
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeSubhead
-            font.weight: MTypography.weightMedium
+            color: Silica.Theme.highlightColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeSmall
             visible: row.avatarText.length > 0
         }
         GlyphIcon {
             anchors.centerIn: parent
             name: row.avatarIcon
-            size: Math.round(18 * row.scaleFactor)
-            color: row.avatarTextColor
+            size: Silica.Theme.iconSizeExtraSmall
+            color: Silica.Theme.highlightColor
             visible: row.avatarText.length === 0 && row.avatarIcon.length > 0
         }
     }
 
-    // ── Text content ───────────────────────────────────────
     Column {
         id: textColumn
         anchors.left: avatar.right
-        anchors.leftMargin: Math.round(14 * row.scaleFactor)
+        anchors.leftMargin: Silica.Theme.paddingMedium
         anchors.right: parent.right
-        anchors.rightMargin: MSpacing.lg
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Math.round(2 * row.scaleFactor)
 
-        // Name + time
         Item {
             width: parent.width
             height: nameText.implicitHeight
 
-            Text {
+            Silica.Label {
                 id: nameText
                 anchors.left: parent.left
                 anchors.right: timeText.left
-                anchors.rightMargin: MSpacing.sm
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: Silica.Theme.paddingSmall
                 text: row.name
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeSubhead
-                font.weight: row.unread ? MTypography.weightDemiBold : MTypography.weightMedium
-                elide: Text.ElideRight
+                color: row.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+                truncationMode: Silica.TruncationMode.Fade
             }
-            Text {
+            Silica.Label {
                 id: timeText
                 anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenter: nameText.verticalCenter
                 text: row.time
-                color: MColors.textSecondary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeCaption
+                color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 font.features: ({
                         "tnum": 1
                     })
             }
         }
 
-        // Account
-        Text {
+        Silica.Label {
             width: parent.width
-            text: row.account
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeCaption
-            font.weight: MTypography.weightRegular
-            elide: Text.ElideRight
+            text: row.snippet
+            color: row.down ? Silica.Theme.highlightColor : (row.unread ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor)
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+            truncationMode: Silica.TruncationMode.Fade
             visible: text.length > 0
         }
 
-        // Snippet — single-line clamp.
-        Text {
+        Silica.Label {
             width: parent.width
-            text: row.snippet
-            color: row.unread ? MColors.textPrimary : MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-            font.weight: MTypography.weightRegular
-            elide: Text.ElideRight
+            text: row.account
+            color: row.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+            font.pixelSize: Silica.Theme.fontSizeTiny
+            truncationMode: Silica.TruncationMode.Fade
             visible: text.length > 0
         }
     }
 
     MouseArea {
-        id: hover
+        id: area
         anchors.fill: parent
-        hoverEnabled: true
         onClicked: row.activated()
     }
 }

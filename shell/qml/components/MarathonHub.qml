@@ -149,11 +149,8 @@ Rectangle {
             readonly property string appKey: String(appId || "").toLowerCase()
 
             unread: !isRead
-            avatarTint: hub.tintFor(appKey)
             avatarText: hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : ""
-            avatarUsesTealBorder: appKey === "phone"
-            avatarTextColor: hub.avatarTextFor(appKey)
             name: title
             time: hub.relativeTime(timestamp)
             account: hub.accountFor(appId)
@@ -164,28 +161,6 @@ Rectangle {
     }
 
     // ── Helpers ─────────────────────────────────────────────
-    function tintFor(appId) {
-        switch (appId) {
-        case "messages":
-        case "imessage":
-            return MColors.secBlue;
-        case "mail":
-            return MColors.secRose;
-        case "linear":
-        case "work":
-            return MColors.secViolet;
-        case "phone":
-        case "call":
-            return Qt.rgba(0, 0.537, 0.482, 0.18);
-        default:
-            return MColors.bb10Card;
-        }
-    }
-
-    function avatarTextFor(appId) {
-        return appId === "phone" || appId === "call" ? MColors.marathonTealBright : "#ffffff";
-    }
-
     function monogramFor(name, appId) {
         if (appId === "phone" || appId === "call")
             return "";
