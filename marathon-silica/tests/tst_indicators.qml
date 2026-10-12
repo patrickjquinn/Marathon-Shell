@@ -70,7 +70,16 @@ TestCase {
 
     function test_filterChipMeetsTargetSize() {
         const c = createTemporaryObject(chip, testCase);
-        verify(c.height >= 44);
+        verify(c.height >= Theme.itemSizeExtraSmall);
+    }
+
+    function test_filterChipShowsStateWithAGlassDot() {
+        const c = createTemporaryObject(chip, testCase);
+        const dot = findChild(c, "chipIndicator");
+        verify(dot.dimmed);
+        c.checked = true;
+        verify(!dot.dimmed);
+        compare(c._backgroundColor.a, 0);
     }
 
     function test_filterChipFocusFrame() {

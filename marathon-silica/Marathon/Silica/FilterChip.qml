@@ -2,7 +2,8 @@ import QtQuick
 import Sailfish.Silica as S
 import "Activation.js" as Activation
 
-// A toggle that narrows a list: "Unread", "Today", a category.
+// A toggle that narrows a list: "Unread", "Today", a category. Shown the
+// way TextSwitch shows its state, a glass dot that lights when on.
 S.BackgroundItem {
     id: root
 
@@ -10,9 +11,8 @@ S.BackgroundItem {
     property bool checked
     property bool automaticCheck: true
 
-    width: label.implicitWidth + 2 * S.Theme.paddingLarge
-    height: Math.max(44, S.Theme.itemSizeExtraSmall * 0.75)
-    _backgroundColor: "transparent"
+    width: indicator.width + label.implicitWidth + S.Theme.paddingLarge
+    height: S.Theme.itemSizeExtraSmall
     activeFocusOnTab: true
     onClicked: if (automaticCheck) checked = !checked
     Accessible.role: Accessible.CheckBox
@@ -28,26 +28,30 @@ S.BackgroundItem {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: S.Theme.paddingSmall / 2
-        radius: height / 2
-        color: root.checked ? S.Theme.rgba(S.Theme.highlightBackgroundColor, S.Theme.highlightBackgroundOpacity)
-                            : root.highlighted ? S.Theme.rgba(S.Theme.highlightBackgroundColor, S.Theme.opacityFaint) : "transparent"
-        border.width: root.checked ? 0 : Math.max(1, Math.round(S.Theme.pixelRatio))
-        border.color: S.Theme.rgba(S.Theme.primaryColor, S.Theme.opacityLow)
+    S.GlassItem {
+        id: indicator
+
+        objectName: "chipIndicator"
+        anchors.verticalCenter: parent.verticalCenter
+        width: S.Theme.itemSizeExtraSmall * 0.75
+        height: width
+        opacity: root.enabled ? 1.0 : S.Theme.opacityLow
+        dimmed: !root.checked
+        falloffRadius: root.checked ? defaultFalloffRadius : (root.palette.colorScheme === S.Theme.LightOnDark ? 0.075 : 0.1)
+        color: root.highlighted ? root.palette.highlightColor : dimmed ? root.palette.primaryColor : S.Theme.lightPrimaryColor
+        backgroundColor: root.checked ? root.palette.backgroundGlowColor : "transparent"
     }
 
     S.Label {
         id: label
 
-        anchors.centerIn: parent
+        anchors.left: indicator.right
+        anchors.verticalCenter: parent.verticalCenter
         font.pixelSize: S.Theme.fontSizeSmall
         color: root.checked || root.highlighted ? S.Theme.highlightColor : S.Theme.primaryColor
     }
 
     FocusFrame {
         parent: root
-        radius: height / 2
     }
 }
