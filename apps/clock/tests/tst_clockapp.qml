@@ -190,6 +190,37 @@ TestCase {
         compare(Lifecycle.held, held);
     }
 
+    function test_runningTimerIsAShellAlarm() {
+        const app = makeApp();
+        app.setTimer(90);
+        app.countdown.start();
+        compare(Alarms.hidden.length, 1);
+        const alarm = Alarms.hidden[0];
+        compare(alarm.label, "Timer");
+        verify(alarm.oneShot);
+        compare(alarm.at, app.countdown.endsAt);
+        verify(alarm.snoozeEnabled === false);
+        compare(app.alarms.length, 0);
+        compare(Settings.get("clock/timerAlarm", ""), alarm.id);
+
+        app.countdown.pause();
+        compare(Alarms.hidden.length, 0);
+        app.countdown.start();
+        compare(Alarms.hidden.length, 1);
+        app.countdown.reset();
+        compare(Alarms.hidden.length, 0);
+        compare(Settings.get("clock/timerAlarm", "x"), "");
+    }
+
+    function test_timerRingsOnceWhenTheShellAlreadyRang() {
+        const app = makeApp();
+        app.countdown.set(1);
+        app.countdown.start();
+        Alarms.hidden = [];
+        tryVerify(() => !app.countdown.running, 3000);
+        compare(Alarms.triggered, []);
+    }
+
     function test_stopwatchAndTimerSurviveRestart() {
         const app = makeApp();
         app.stopwatch.start();

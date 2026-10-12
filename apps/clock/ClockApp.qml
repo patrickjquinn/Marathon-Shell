@@ -17,12 +17,46 @@ ApplicationWindow {
         onEdited: Settings.set("clock/stopwatch", JSON.stringify(snapshot()))
     }
     property CountdownTimer countdown: CountdownTimer {
-        onFinished: Alarms.triggerAlarmNow("Timer")
-        onRunningChanged: root._holdBackground(running)
+        onFinished: {
+            if (!root._timerRang)
+                Alarms.triggerAlarmNow(qsTr("Timer"));
+        }
+        onRunningChanged: {
+            root._holdBackground(running);
+            if (running)
+                root._scheduleTimerAlarm();
+            else
+                root._timerRang = root._cancelTimerAlarm();
+        }
         onEdited: Settings.set("clock/timer", JSON.stringify(snapshot()))
     }
     // Keeps the app from being frozen while a countdown runs.
     property int _backgroundTask: 0
+    // The shell alarm that rings the timer when Clock isn't running.
+    property string _timerAlarm: ""
+    property bool _timerRang: false
+
+    function _scheduleTimerAlarm() {
+        _cancelTimerAlarm();
+        _timerAlarm = Alarms.createAlarm("", qsTr("Timer"), [], {
+            at: countdown.endsAt,
+            oneShot: true,
+            hidden: true,
+            vibrate: true,
+            snoozeEnabled: false
+        });
+        Settings.set("clock/timerAlarm", _timerAlarm);
+    }
+
+    // True when the shell had already rung it.
+    function _cancelTimerAlarm() {
+        if (_timerAlarm === "")
+            return false;
+        const rang = !Alarms.deleteAlarm(_timerAlarm);
+        _timerAlarm = "";
+        Settings.set("clock/timerAlarm", "");
+        return rang;
+    }
 
     function _holdBackground(hold) {
         if (hold && _backgroundTask === 0)
@@ -35,7 +69,10 @@ ApplicationWindow {
 
     Component.onCompleted: {
         stopwatch.restore(Logic.parseState(Settings.get("clock/stopwatch", "")));
+        _timerAlarm = Settings.get("clock/timerAlarm", "");
         const missed = countdown.restore(Logic.parseState(Settings.get("clock/timer", "")));
+        if (!countdown.running)
+            _cancelTimerAlarm();
         if (missed >= 0)
             Notices.show(qsTr("Timer finished at %1").arg(Format.formatDate(new Date(missed), Formatter.TimeValue)));
     }

@@ -5,12 +5,14 @@ QtObject {
     property var alarms: []
     property bool fail: false
     property var triggered: []
+    property var hidden: []
     property int nextId: 1
 
     function reset() {
         alarms = [];
         fail = false;
         triggered = [];
+        hidden = [];
         nextId = 1;
     }
 
@@ -18,6 +20,10 @@ QtObject {
         if (fail)
             return "";
         const id = "a" + nextId++;
+        if (options && options.hidden) {
+            hidden = hidden.concat([Object.assign({ id: id, label: label }, options)]);
+            return id;
+        }
         alarms = alarms.concat([{ id: id, time: time, label: label, repeat: repeat, enabled: true }]);
         return id;
     }
@@ -30,9 +36,10 @@ QtObject {
     }
 
     function deleteAlarm(id) {
-        if (fail)
+        if (fail || !alarms.concat(hidden).some(a => a.id === id))
             return false;
         alarms = alarms.filter(a => a.id !== id);
+        hidden = hidden.filter(a => a.id !== id);
         return true;
     }
 
