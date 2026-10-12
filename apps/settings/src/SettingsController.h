@@ -64,7 +64,6 @@ class SettingsController : public QObject {
     Q_INVOKABLE QVariantList appsForHandler(const QString &handler, int revision = 0);
     Q_INVOKABLE QString      defaultAppName(const QString &handler, int revision = 0);
     Q_INVOKABLE void         setDefaultApp(const QString &handler, const QString &appId);
-    Q_INVOKABLE QVariantList notificationAppsForRevision(int revision = 0) const;
     Q_INVOKABLE void         setNotificationEnabled(const QString &appId, bool enabled);
     Q_INVOKABLE void showWifiDialog(const QString &ssid, int strength, const QString &security,
                                     bool secured);
