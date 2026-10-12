@@ -286,7 +286,8 @@ Item {
                     anchors.left: parent.left
                     anchors.right: headerButtons.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: SystemStatusStore.dateString
+                    // As the Hub and lock screen write it; re-read at midnight.
+                    text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), "dddd, d MMMM")
                     truncationMode: Silica.TruncationMode.Fade
                     color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: Silica.Theme.fontSizeSmall

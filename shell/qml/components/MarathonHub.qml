@@ -95,7 +95,8 @@ Rectangle {
 
             Silica.Label {
                 width: parent.width
-                text: Qt.formatDate(new Date(), "dddd, d MMMM")
+                // Re-read when the date string turns over at midnight.
+                text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), "dddd, d MMMM")
                 color: Silica.Theme.secondaryHighlightColor
                 font.pixelSize: Silica.Theme.fontSizeSmall
             }
