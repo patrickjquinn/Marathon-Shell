@@ -24,8 +24,6 @@ set(SOURCES
     src/ipc/shellservices.cpp
     src/models/taskmodel.h
     src/models/taskmodel.cpp
-    src/services/statemanagercpp.h
-    src/services/statemanagercpp.cpp
     src/services/unifiedsearchservicecpp.h
     src/services/unifiedsearchservicecpp.cpp
     src/models/notificationmodel.h

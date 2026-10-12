@@ -99,7 +99,6 @@
 #include "src/managers/platformcpp.h"
 #include "src/services/navigationroutercpp.h"
 #include "src/services/statusbariconservicecpp.h"
-#include "src/services/statemanagercpp.h"
 #include "src/services/unifiedsearchservicecpp.h"
 #include "src/services/telephonyintegrationcpp.h"
 #include "src/services/screenshotservicecpp.h"
@@ -667,7 +666,6 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
                                                     notificationModel);
     auto *navigationRouter = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
-    createObject<StateManagerCpp>(ctx, "StateManager", &app);
 
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
