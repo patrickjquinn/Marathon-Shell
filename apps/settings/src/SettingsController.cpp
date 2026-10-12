@@ -113,18 +113,6 @@ void SettingsController::setNotificationEnabled(const QString &appId, bool enabl
     m_settingsManager->setProperty("appNotificationSettings", settings);
 }
 
-void SettingsController::requestPage(const QString &pageName, const QVariantMap &params) {
-    emit pageRequested(pageName, params);
-}
-
-bool SettingsController::requestBack() {
-    if (m_navigationDepth <= 0) {
-        return false;
-    }
-    emit backRequested();
-    return true;
-}
-
 void SettingsController::showWifiDialog(const QString &ssid, int strength, const QString &security,
                                         bool secured) {
     m_wifiDialogSsid       = ssid;
@@ -240,29 +228,6 @@ void SettingsController::cancelBluetoothPairing() {
     dismissBluetoothDialog();
 }
 
-QString SettingsController::bluetoothDeviceIcon(const QString &type) const {
-    const QString normalized = type.trimmed().toLower();
-    if (normalized == QLatin1String("headphones") || normalized == QLatin1String("headset")) {
-        return QStringLiteral("headphones");
-    }
-    if (normalized == QLatin1String("keyboard")) {
-        return QStringLiteral("keyboard");
-    }
-    if (normalized == QLatin1String("mouse")) {
-        return QStringLiteral("mouse");
-    }
-    if (normalized == QLatin1String("phone") || normalized == QLatin1String("smartphone")) {
-        return QStringLiteral("smartphone");
-    }
-    if (normalized == QLatin1String("computer") || normalized == QLatin1String("laptop")) {
-        return QStringLiteral("monitor");
-    }
-    if (normalized == QLatin1String("speaker")) {
-        return QStringLiteral("volume-2");
-    }
-    return QStringLiteral("bluetooth");
-}
-
 QString SettingsController::bluetoothPairingModeText(const QString &mode) const {
     if (mode == QLatin1String("pin")) {
         return QStringLiteral("Enter PIN to pair");
@@ -320,19 +285,6 @@ QString SettingsController::batteryStatusText(bool isCharging, bool isPluggedIn,
         return QStringLiteral("%1h %2m remaining").arg(hours).arg(minutes);
     }
     return QStringLiteral("%1m remaining").arg(minutes);
-}
-
-QString SettingsController::wifiSignalIcon(int strength) const {
-    if (strength <= 0) {
-        return QStringLiteral("wifi-zero");
-    }
-    if (strength <= 33) {
-        return QStringLiteral("wifi-low");
-    }
-    if (strength <= 66) {
-        return QStringLiteral("wifi");
-    }
-    return QStringLiteral("wifi-high");
 }
 
 QString SettingsController::wifiConnectionStatusText(int strength) const {
@@ -406,18 +358,6 @@ QString SettingsController::soundTypeLabel(const QString &soundType) const {
         return QStringLiteral("Alarm Sound");
     }
     return QStringLiteral("Sound");
-}
-
-int SettingsController::navigationDepth() const {
-    return m_navigationDepth;
-}
-
-void SettingsController::setNavigationDepth(int depth) {
-    if (m_navigationDepth == depth) {
-        return;
-    }
-    m_navigationDepth = depth;
-    emit navigationDepthChanged();
 }
 
 int SettingsController::appSourceRevision() const {

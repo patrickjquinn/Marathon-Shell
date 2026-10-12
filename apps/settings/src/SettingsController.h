@@ -66,8 +66,6 @@ class SettingsController : public QObject {
     Q_INVOKABLE void         setDefaultApp(const QString &handler, const QString &appId);
     Q_INVOKABLE QVariantList notificationAppsForRevision(int revision = 0) const;
     Q_INVOKABLE void         setNotificationEnabled(const QString &appId, bool enabled);
-    Q_INVOKABLE void         requestPage(const QString &pageName, const QVariantMap &params = {});
-    Q_INVOKABLE bool         requestBack();
     Q_INVOKABLE void showWifiDialog(const QString &ssid, int strength, const QString &security,
                                     bool secured);
     Q_INVOKABLE void dismissWifiDialog();
@@ -81,14 +79,12 @@ class SettingsController : public QObject {
     Q_INVOKABLE void submitBluetoothPasskey(const QString &passkey);
     Q_INVOKABLE void confirmBluetoothPairing(bool accepted);
     Q_INVOKABLE void cancelBluetoothPairing();
-    Q_INVOKABLE QString bluetoothDeviceIcon(const QString &type) const;
     Q_INVOKABLE QString bluetoothPairingModeText(const QString &mode) const;
     Q_INVOKABLE QString bluetoothHelpText(const QString &mode) const;
     Q_INVOKABLE bool    bluetoothCanPair(const QString &mode, const QString &pin,
                                          const QString &passkey) const;
     Q_INVOKABLE QString batteryStatusText(bool isCharging, bool isPluggedIn,
                                           int estimatedSeconds) const;
-    Q_INVOKABLE QString wifiSignalIcon(int strength) const;
     Q_INVOKABLE QString wifiConnectionStatusText(int strength) const;
     Q_INVOKABLE QString availableNetworkSubtitle(const QString &security, int strength,
                                                  const QVariant &frequency) const;
@@ -97,8 +93,6 @@ class SettingsController : public QObject {
     Q_INVOKABLE QString quickPinValidationError(const QString &pin, const QString &password) const;
     Q_INVOKABLE QString soundTypeLabel(const QString &soundType) const;
 
-    int                 navigationDepth() const;
-    void                setNavigationDepth(int depth);
     int                 appSourceRevision() const;
     int                 defaultAppsRevision() const;
     int                 notificationAppsRevision() const;
@@ -131,9 +125,6 @@ class SettingsController : public QObject {
   signals:
     void appSourceChanged();
     void defaultAppsChanged();
-    void pageRequested(const QString &pageName, const QVariantMap &params);
-    void backRequested();
-    void navigationDepthChanged();
     void wifiDialogChanged();
     void bluetoothDialogChanged();
     void notificationAppsChanged();
@@ -169,7 +160,6 @@ class SettingsController : public QObject {
     QPointer<QObject>      m_settingsManager;
     QPointer<QObject>      m_appSource;
     QHash<int, QByteArray> m_roleNames;
-    int                    m_navigationDepth          = 0;
     int                    m_appSourceRevision        = 0;
     int                    m_defaultAppsRevision      = 0;
     int                    m_notificationAppsRevision = 0;
