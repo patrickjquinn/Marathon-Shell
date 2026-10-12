@@ -139,18 +139,6 @@ void SystemStatusStore::addNotification(const QString &title, const QString &mes
     }
 }
 
-void SystemStatusStore::removeNotification(int notificationId) {
-    if (m_notificationService) {
-        m_notificationService->dismissNotification(notificationId);
-    }
-}
-
-void SystemStatusStore::clearAllNotifications() {
-    if (m_notificationService) {
-        m_notificationService->dismissAllNotifications();
-    }
-}
-
 void SystemStatusStore::updateSystemInfo() {
     setCpuUsage(QRandomGenerator::global()->bounded(10, 41));
     setMemoryUsage(QRandomGenerator::global()->bounded(35, 56));
