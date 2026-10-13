@@ -64,6 +64,7 @@ the record's grooves, the map's folds):
 | Settings | three sliders at their settings |
 | Terminal | a console: dark screen under a title bar, prompt and cursor |
 | Test | the shape as the vessel, the liquid line across it, bubbles |
+| Template | a fresh sheet: the object ruled as a grid, a plus on it |
 
 Cut-out lines are 3.2 wide with round caps.
 

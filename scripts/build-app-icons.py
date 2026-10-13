@@ -333,6 +333,13 @@ def test(a):
           '<circle cx="43" cy="66" r="1.6" fill="{C}"/>')
 
 
+def template(a):
+    # A fresh sheet: the object ruled as a grid, a new app's plus on it.
+    a.fill("T")
+    a.clip(line("".join(f"M{v} 0V86M0 {v}H86" for v in range(25, 70, 9)), "L", 1.2))
+    a.add(line("M43 30V56M30 43H56", "D", 5))
+
+
 # App: (title, hue, shape, draw), in home grid order. Hues: five category
 # families round the wheel from Marathon teal (172), skipping the olive band;
 # see docs/design/colour-palette.md.
@@ -352,6 +359,7 @@ ICONS = {
     "notes": ("Notes: a ruled page", 84.0, TIME, notes),
     "settings": ("Settings: a wheel", 36.0, TOOLS, settings),
     "terminal": ("Terminal: a prompt", 354.0, TOOLS, terminal),
+    "template": ("Template: a blueprint", 46.0, TOOLS, template),
     "test": ("Test: a flask", 22.0, TOOLS, test),
 }
 

@@ -38,7 +38,7 @@ object does; families are far enough apart that categories never blur.
 | Places & web | bottom right: the pin's point | 234–266, blue | Browser 234, Maps 250, Store 266 |
 | Media | none: the lens, the disc | 302–338, magenta | Gallery 302, Music 320, Camera 338 |
 | Time & notes | top left: the page's corner | 56–84, amber | Calendar 56, Clock 70, Notes 84 |
-| Tools & system | top left and bottom right: machined | 354–36, red to orange | Terminal 354, Calculator 8, Test 22, Settings 36 |
+| Tools & system | top left and bottom right: machined | 354–46, red to orange | Terminal 354, Calculator 8, Test 22, Settings 36, Template 46 |
 
 A new app takes its category's shape and a free hue in its band. A
 category that needs a sixth family takes the yellow-green gap only at
