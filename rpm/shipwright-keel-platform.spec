@@ -14,7 +14,7 @@
 
 Name:       shipwright-keel-platform
 Version:    0.1.0
-Release:    20
+Release:    21
 Summary:    Sailfish platform QML modules for Qt6 apps (Keel)
 # Clean-room code is Shipwright's; sailfish-secrets, nemo-qml-plugin-accounts,
 # nemo-qml-plugin-thumbnailer, libmce-qt and sailfish-components-accounts
@@ -82,10 +82,10 @@ Requires:   qt6-qtbase-gui >= 6.8
 # Qt minor releases (see shipwright-keel-silica.spec).
 Requires:   qt6-qtbase-gui < 6.9
 Requires:   qt6-qtdeclarative >= 6.8
-Requires:   shipwright-keel-silica
+Requires:   shipwright-keel-silica >= 0.1.0-29
 # MprisPlayerControls controls MPRIS players through Amber.Mpris (this
 # spec's -amber-mpris, or Chum's amber-qml-plugin-mpris-qt6).
-Recommends: %{name}-amber-mpris = %{version}-%{release}
+Recommends: (%{name}-amber-mpris = %{version}-%{release} or amber-qml-plugin-mpris-qt6)
 
 %description media
 Sailfish.Media 1.0 for Keel: MediaKey (keys grabbed through Lipstick's
@@ -96,7 +96,7 @@ MprisPlayerControls.
 %package gallery
 Summary:    Sailfish.Gallery 1.0 for Qt6 (ThumbnailImage, ImageViewer)
 Requires:   qt6-qtdeclarative >= 6.8
-Requires:   shipwright-keel-silica
+Requires:   shipwright-keel-silica >= 0.1.0-29
 
 %description gallery
 Sailfish.Gallery 1.0 for Keel: ThumbnailImage and ImageViewer, the types
@@ -105,7 +105,7 @@ apps use outside the Gallery app.
 %package pickers
 Summary:    Sailfish.Pickers 1.0 for Qt6 (content, file and folder pickers)
 Requires:   qt6-qtdeclarative >= 6.8
-Requires:   shipwright-keel-silica
+Requires:   shipwright-keel-silica >= 0.1.0-29
 # The pickers list media from Tracker's index when it answers on the session
 # bus, and scan the home directory otherwise.
 Recommends: tracker
@@ -117,7 +117,7 @@ videos, music, documents, downloads, files and folders) on Keel's Silica.
 %package webview
 Summary:    Sailfish.WebView and Sailfish.WebEngine 1.0 for Qt6
 Requires:   qt6-qtdeclarative >= 6.8
-Requires:   shipwright-keel-silica
+Requires:   shipwright-keel-silica >= 0.1.0-29
 # Sailfish.WebView.Pickers opens Sailfish.Pickers' pages for file uploads.
 Requires:   %{name}-pickers = %{version}-%{release}
 # Pages render with Qt WebEngine (Chum's qt6-qtwebengine, chum:testing,
@@ -244,7 +244,7 @@ libaccounts-glib. Sign-in is in %{name}-sailfish-accounts.
 Summary:    Sailfish.Accounts 1.0 for Qt6 (accounts and sign-in)
 Requires:   %{name}-accounts = %{version}-%{release}
 Requires:   qt6-qtdeclarative >= 6.8
-Requires:   shipwright-keel-silica
+Requires:   shipwright-keel-silica >= 0.1.0-29
 # Sign-in goes through the system's signond (peer-to-peer D-Bus), sync
 # profiles through msyncd, as for the Qt 5 module.
 Requires:   signon-qt5
@@ -438,6 +438,9 @@ install -D -m 0644 keel/platform/policy/sailjail/KeelPolicy.permission \
 %{_libdir}/pkgconfig/accounts-qt6.pc
 
 %changelog
+* Mon Oct 12 2026 Shipwright - 0.1.0-21
+- Sailfish.Media recommends Amber.Mpris from Keel or from Chum's amber-qml-plugin-mpris-qt6, so a phone with Chum's is not offered Keel's in its place.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-20
 - Sailfish.Media and Nemo.Thumbnailer require Qt 6.8 (below 6.9): they use QtGui's private API.
 

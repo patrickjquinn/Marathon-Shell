@@ -11,9 +11,28 @@
 #define KEEL_FORMAT_H
 
 #include <QDateTime>
+#include <QLocale>
 #include <QObject>
 #include <QVariant>
 #include <QtQml/qqmlregistration.h>
+
+namespace keel::clock {
+
+// The phone's 12/24-hour setting (Settings > Time and date > 24-hour clock):
+// dconf /sailfish/i18n/lc_timeformat24h, '24' or '12'. Unset or anything
+// else follows the locale, as Sailfish does.
+enum class Hours { Locale, Twelve, TwentyFour };
+Hours setting();
+// The setting as dconf prints it ('24', '12', 24) -> Hours.
+Hours parse(const QString &value);
+// Whether times are shown on a 24-hour clock in `locale`, after the setting.
+bool twentyFourHours(const QLocale &locale);
+// `format` (a QLocale/QDateTime format string) on the clock `hours` asks
+// for: "h:mm AP" <-> "HH:mm", keeping the locale's separators and quoted
+// literal text.
+QString adjust(const QString &format, Hours hours);
+
+} // namespace keel::clock
 
 class KeelFormatter : public QObject
 {

@@ -133,7 +133,7 @@ SilicaControl {
 
         var theMonth = new Date(year, month - 1, 1, 12)
         monthName.text = Format.formatDate(theMonth, Format.MonthNameStandaloneShort)
-        monthYear.text = Qt.formatDateTime(theMonth, "yyyy")
+        monthYear.text = Qt.locale().toString(theMonth, "yyyy")
     }
 
     function _loadDateGrid(fromDate, totalDays) {
@@ -267,8 +267,10 @@ SilicaControl {
         Repeater {
             model: 7
             delegate: Label {
-                // 2 Jan 2000 was a Sunday
-                text: Qt.formatDateTime(new Date(2000, 0, 2 + root.weekStart + index, 12), "ddd")
+                // The locale's own short weekday name (0 is Sunday): Qt 6's
+                // Qt.formatDateTime with a format string prints English names.
+                // (1: Locale.ShortFormat, which QtQuick 2.0 does not expose)
+                text: Qt.locale().standaloneDayName((root.weekStart + index) % 7, 1)
                 width: cellWidth
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: root.palette.highlightColor

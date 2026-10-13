@@ -12,7 +12,7 @@
 
 Name:       shipwright-keel-nemo-compat
 Version:    0.1.0
-Release:    7
+Release:    8
 Summary:    Nemo QML plugins (DBus, Notifications, KeepAlive, Configuration) for Qt6 (Keel)
 # Upstream sources keep their licences (keel/nemo-compat/PROVENANCE.md):
 # nemo-qml-plugin-dbus plugin, nemo-keepalive, libngf-qt, libresourceqt,
@@ -61,7 +61,10 @@ nemo-qml-plugin-configuration-qt6.
 Summary:    Nemo.DBus 2.0 for Qt6 (Keel build with Qt6 fixes)
 # Chum ships the same upstream plugin at the same path. Keel's build adds
 # two Qt6 fixes (PROVENANCE.md) that are offered upstream; once Chum has
-# them this subpackage can be dropped.
+# them this subpackage can be dropped. Nothing of Keel's requires it alone
+# (the main package takes Chum's as well), so a phone with Chum's keeps it.
+# No Provides: Keel's build is not the same as Chum's, and Chum's version is
+# not known here.
 Conflicts:  nemo-qml-plugin-dbus-qt6
 
 %description dbus
@@ -71,8 +74,15 @@ with Keel's fixes for D-Bus variant demarshalling and Properties.Get.
 %package configuration
 Summary:    Nemo.Configuration 1.0 for Qt6 (Keel build)
 # Chum ships the same upstream plugin at the same path; this subpackage is
-# Keel's build of it, against Chum's mlite-qt6.
+# Keel's build of it, against Chum's mlite-qt6, with the plugin's own files
+# unchanged (keel/nemo-compat/PROVENANCE.md). The two cannot both be
+# installed (same files), so nothing of Keel's requires this subpackage
+# alone: Keel accepts either, and a phone with Chum's keeps it.
 Conflicts:  nemo-qml-plugin-configuration-qt6
+# The same QML API as Chum's 0.2.10 (upstream from after that release), so a
+# Chum app that needs Chum's plugin is served by this one instead of making
+# the solver choose between them. Not Obsoletes: Chum's is never replaced.
+Provides:   nemo-qml-plugin-configuration-qt6 = 0.2.10
 
 %description configuration
 The Nemo.Configuration 1.0 QML plugin (ConfigurationValue,
@@ -128,6 +138,9 @@ install -D -m 0644 keel/nemo-compat/PROVENANCE.md %{buildroot}%{_datadir}/doc/%{
 %{_libdir}/qt6/qml/Nemo/Configuration
 
 %changelog
+* Mon Oct 12 2026 Shipwright - 0.1.0-8
+- Keel's Nemo.Configuration says that it provides Chum's nemo-qml-plugin-configuration-qt6 (it is the same plugin), so installing a Chum app that needs Chum's no longer asks to remove Keel's, and the other way round.
+
 * Sat Oct 03 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-7
 - Licence: LGPL-2.1-only AND BSD-3-Clause AND MIT (LICENSING.md).
 

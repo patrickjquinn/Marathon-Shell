@@ -623,6 +623,28 @@ async fn only_pilot_speaks_for_the_person() {
     assert_eq!(refused["isError"], true);
     assert!(text_of(&refused).contains("only Pilot"), "{refused}");
     assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
+    // Nor one destructive call on its own, whatever its _meta claims.
+    let delete = json!({ "note": "keel://org.example.notes/note/n1" });
+    let refused = other
+        .call_tool_json("org.example.notes__notes.delete", delete.clone(), &claims)
+        .await
+        .unwrap();
+    assert_eq!(refused["isError"], true);
+    assert!(
+        text_of(&refused).starts_with("NeedsConfirmation"),
+        "{refused}"
+    );
+    assert!(text_of(&refused).contains("only Pilot"), "{refused}");
+    assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
+    // A paired computer, trusted process or not, cannot either.
+    let external = KeelMcp::new(notes.clone(), true).trusting_client(true);
+    external.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
+    let refused = external
+        .call_tool_json("org.example.notes__notes.delete", delete.clone(), &claims)
+        .await
+        .unwrap();
+    assert!(text_of(&refused).contains("paired computer"), "{refused}");
+    assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
     let context = other
         .read_resource_json("keel://org.example.notes/context", &claims)
         .await;

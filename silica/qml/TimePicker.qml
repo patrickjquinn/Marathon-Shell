@@ -133,6 +133,9 @@ SilicaItem {
             date.setHours(hour)
             date.setMinutes(minute)
             var format
+            // DefaultHours: Formatter.TimeValue, which follows the phone's
+            // 24-hour clock setting (dconf /sailfish/i18n/lc_timeformat24h),
+            // else the locale (keel/silica/plugin/cpp/format.cpp).
             format = (hourMode == DateTime.DefaultHours
                       ? Formatter.TimeValue
                       : (hourMode == DateTime.TwentyFourHours ? Formatter.TimeValueTwentyFourHours

@@ -67,6 +67,24 @@ fn meta_flag(meta: &Map<String, Value>, key: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// A tool declared destructive (and not read-only) or `confirm`: only a
+/// client that speaks for the person may call it. Outbound (open-world)
+/// alone is not enough to refuse a single call; plans count it too.
+fn person_must_agree(tool: &Value) -> bool {
+    let hint = |h: &str| {
+        tool.get("annotations")
+            .and_then(|a| a.get(h))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    };
+    (hint("destructiveHint") && !hint("readOnlyHint"))
+        || tool
+            .get("_meta")
+            .and_then(|m| m.get(meta_key("confirm")))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
 fn text(s: impl Into<String>) -> Value {
     json!({ "type": "text", "text": s.into() })
 }
@@ -386,6 +404,15 @@ impl KeelMcp {
         let entry = catalogue
             .tool(name)
             .ok_or_else(|| ErrorData::invalid_params(format!("no tool named {name}"), None))?;
+        // As for keel__plan.run: a tool the app declares destructive or
+        // confirm-first runs only for a client that speaks for the person.
+        // Anyone else would be asking the app to act on nobody's word.
+        if person_must_agree(&entry.tool) && !self.speaks_for_person() {
+            return Ok(error_result(format!(
+                "NeedsConfirmation: {name} changes data or asks the person to confirm, and {}",
+                self.who_confirms()
+            )));
+        }
         Ok(
             match self.run_tool(entry, &arguments, user_initiated).await {
                 Ok(value) => self.present(entry, &value),

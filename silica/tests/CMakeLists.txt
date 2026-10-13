@@ -121,6 +121,19 @@ add_test(NAME keel_silica_labelformat COMMAND tst_keel_labelformat)
 set_tests_properties(keel_silica_labelformat PROPERTIES
     ENVIRONMENT "${_keel_test_env}" TIMEOUT 60)
 
+# Format's times on the phone's 12/24-hour setting (dconf
+# /sailfish/i18n/lc_timeformat24h, through a fake dconf program), else the
+# locale's clock.
+qt_add_executable(tst_keel_timeformat timeformat/tst_timeformat.cpp ../plugin/cpp/format.cpp
+    ../plugin/cpp/format.h ../plugin/cpp/keeldconf.cpp ../plugin/cpp/keeldconf.h)
+keel_use_dconf(tst_keel_timeformat)
+target_include_directories(tst_keel_timeformat PRIVATE ../plugin/cpp)
+target_compile_definitions(tst_keel_timeformat PRIVATE
+    KEEL_FAKE_DCONF="${CMAKE_CURRENT_SOURCE_DIR}/timeformat/fake-dconf.sh")
+target_link_libraries(tst_keel_timeformat PRIVATE Qt6::Core Qt6::Qml Qt6::Test)
+add_test(NAME keel_silica_timeformat COMMAND tst_keel_timeformat)
+set_tests_properties(keel_silica_timeformat PROPERTIES ENVIRONMENT "${_keel_test_env}" TIMEOUT 60)
+
 # The theme image provider (colour scheme variants, substitutes, monochrome
 # tint) and theme icons in a light ambience, on icons the test writes.
 qt_add_executable(tst_keel_themeicons themeicons/tst_themeicons.cpp ../plugin/cpp/themeimageprovider.cpp

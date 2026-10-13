@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    6
+Release:    7
 License:    MIT
 URL:        https://github.com/patrickjquinn/shipwright-open
 
@@ -58,6 +58,12 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Mon Oct 12 2026 Shipwright - 0.1.0-7
+- An app's action that changes things the person must confirm (installing,
+  removing, deleting) runs only for a client that speaks for the person, as
+  plans already did: a paired computer or an untrusted local client can no
+  longer run one on its own.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-6
 - Recognises Pilot by its saved privileged group too: Pilot now runs as the person's group and raises its rights only to read the calendar and contacts.
 

@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    28
+Release:    29
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -48,6 +48,16 @@ BuildRequires:  pkgconfig(dconf)
 # 5.2.0.15 and 5.2.0.18 build against Chum's 6.8.4
 # (tools/build/reef/chum-qt6.lock); a Chum Qt 6.9 must not be installed
 # under these packages until Keel is ported and rebuilt for it.
+#
+# What the pin does on a phone (checked with libsolv on fake packages,
+# docs/adr/0013-qt6-from-chum-testing.md, "The < 6.9 pin on a phone"): it
+# can only hold Chum's Qt back, never take it away. Where Qt 6.8 is
+# installed, an update to a Chum Qt 6.9 is skipped while Keel is installed
+# (Keel is not removed for it). Where a Chum Qt 6.9 is already installed,
+# installing a Keel app fails with a dependency message: zypp and
+# PackageKit do not downgrade an installed package unless asked to, and
+# Reef never asks (it installs with ONLY_TRUSTED alone, no ALLOW_DOWNGRADE).
+# Only `zypper dup`, which may downgrade, could swap Qt back to Reef's 6.8.4.
 Requires:       qt6-qtbase >= 6.8
 Requires:       qt6-qtbase < 6.9
 Requires:       qt6-qtbase-gui >= 6.8
@@ -62,8 +72,12 @@ Requires:       qt6-qtwayland
 Requires:       dconf
 # Nemo.Configuration, which Silica's FirstTimeUseCounter.qml imports
 # (RemorsePopup and RemorseItem use it): without it no page with a remorse
-# can be created.
-Requires:       shipwright-keel-nemo-compat-configuration
+# can be created. Keel's build or Chum's: both are the same upstream plugin at
+# the same path (keel/nemo-compat/PROVENANCE.md). Requiring Keel's alone made
+# the solver offer to remove Chum's (they conflict), and with it every other
+# Qt 6 app that needs Chum's; with either accepted, a phone that has Chum's
+# keeps it.
+Requires:       (shipwright-keel-nemo-compat-configuration or nemo-qml-plugin-configuration-qt6)
 Suggests:       shipwright-keel-shell
 # SilicaWebView shows web content through Sailfish.WebView, made at run time.
 Suggests:       shipwright-keel-platform-webview
@@ -146,6 +160,12 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Mon Oct 12 2026 Shipwright - 0.1.0-29
+- Nemo.Configuration can come from Chum's nemo-qml-plugin-configuration-qt6 as well as from Keel's own build. Installing a Keel app on a phone with Chum's plugin no longer offers to remove it (and the Chum apps that need it).
+- The spec explains what the Qt 6.8 requirement does on a phone with Chum's Qt: it holds a Chum Qt 6.9 update back; it never downgrades or removes Qt.
+- Weekday names in the date picker are in the phone's language.
+- Times follow the 24-hour clock setting in Settings, and the language's own clock when it is not set.
+
 * Sun Oct 11 2026 Shipwright - 0.1.0-28
 - Keel Actions recognises Pilot by its saved privileged group as well as its effective one.
 
