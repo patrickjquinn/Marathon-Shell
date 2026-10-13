@@ -660,32 +660,6 @@ Item {
         }
     ]
 
-    // Fonts are loaded by MTypography's singleton FontLoaders at
-    // qrc:/qt/qml/MarathonOS/Shell/qml/theme/fonts/. The previous shell-level
-    // FontLoaders pointed at qrc:/fonts/Sora.ttf — a path that doesn't
-    // exist in the shell's qrc (no resource ever installed it there),
-    // so they always logged "status=Error" on startup. Removed: those
-    // ids (soraVariable, jetbrainsMono, slateLight, slateBook) had no
-    // QML consumers — pure dead code.
-
-    FontLoader {
-        id: slateRegular
-
-        source: "qrc:/fonts/Slate-Regular.ttf"
-    }
-
-    FontLoader {
-        id: slateMedium
-
-        source: "qrc:/fonts/Slate-Medium.ttf"
-    }
-
-    FontLoader {
-        id: slateBold
-
-        source: "qrc:/fonts/Slate-Bold.ttf"
-    }
-
     MouseArea {
         id: cursorTracker
 
