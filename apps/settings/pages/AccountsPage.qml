@@ -7,7 +7,7 @@ import Marathon.Platform 1.0
 Page {
     id: page
 
-    // The runner only shares the sync service with apps that hold the storage permission.
+    // The runner only shares the sync service with apps that hold the system permission.
     readonly property var dav: typeof DavSync !== "undefined" ? DavSync : null
 
     // The account being checked against its server, and what was typed for it.

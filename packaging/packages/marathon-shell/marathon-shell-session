@@ -24,7 +24,8 @@ fi
 # so each start rescanned them (probing the camera and decoder) and rewrote
 # the registry: ~280 ms of the PinePhone shell's startup. Skip the check
 # while the registry is newer than the plugin directory; installing or
-# upgrading a plugin updates that directory and re-enables it.
+# upgrading a plugin updates that directory and re-enables it. Apps don't
+# inherit it (the shell strips it when launching them).
 gst_registry="${XDG_CACHE_HOME:-$HOME/.cache}/gstreamer-1.0/registry.$(uname -m).bin"
 if [ "$gst_registry" -nt /usr/lib/gstreamer-1.0 ]; then
     export GST_REGISTRY_UPDATE=no

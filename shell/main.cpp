@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
     // QQmlApplicationEngine's file selector probes every URL for +locale and
-    // +platform variants; nothing ships any.
+    // +platform variants; the shell ships none. App launches strip it.
     qputenv("QT_NO_BUILTIN_SELECTORS", "1");
 
     // Curved-edge AA via geometry where FBO MSAA is unavailable. Etnaviv

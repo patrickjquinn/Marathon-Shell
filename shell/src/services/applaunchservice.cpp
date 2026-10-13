@@ -1372,6 +1372,11 @@ void AppLaunchService::spawnSpareRunner() {
 
     auto *proc = new QProcess(this);
     proc->setProcessChannelMode(QProcess::SeparateChannels);
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    // Shell-only startup shortcuts; see WaylandCompositor::launchApp.
+    env.remove(QStringLiteral("QT_NO_BUILTIN_SELECTORS"));
+    env.remove(QStringLiteral("GST_REGISTRY_UPDATE"));
+    proc->setProcessEnvironment(env);
     connect(proc, &QProcess::readyReadStandardError, this, [proc]() {
         const QStringList lines = QString::fromLocal8Bit(proc->readAllStandardError()).split('\n');
         for (const QString &l : lines) {

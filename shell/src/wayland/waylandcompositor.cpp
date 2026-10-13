@@ -410,11 +410,12 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.remove("WAYLAND_DISPLAY");
     env.remove("DISPLAY");
 
+    // Shell-only startup shortcuts (main.cpp, marathon-shell-session): apps
+    // may ship +locale QML variants, and keep their own GStreamer registries.
+    env.remove("QT_NO_BUILTIN_SELECTORS");
+    env.remove("GST_REGISTRY_UPDATE");
+
     const bool isRunner = actualCommand.contains("marathon-app-runner");
-    // The shell turns Qt's file selectors off for itself and its runner;
-    // other Qt apps may ship +locale or +platform variants.
-    if (!isRunner)
-        env.remove("QT_NO_BUILTIN_SELECTORS");
 
     qint64     timestamp   = QDateTime::currentMSecsSinceEpoch();
     uint       commandHash = qHash(actualCommand);
