@@ -355,10 +355,13 @@ void ShellClient::setCoverActions(QObject *object, const QStringList &icons, boo
     m_coverActionValue = live ? CoverActions::propertyValue(m_coverActions->service(), icons, iconBackground)
                               : QString();
     // Lipstick's switcher reads it from the app's window, not the cover
-    // (Silica sets it there too).
+    // (Silica sets it there too). No actions (a cover's list disabled, as
+    // Keys' while it is locked) clear the property: an empty string is an
+    // action Lipstick cannot read ("CoverActionModel: Bad action").
+    const QVariant value = m_coverActionValue.isEmpty() ? QVariant() : QVariant(m_coverActionValue);
     for (const QPointer<QWindow> &w : std::as_const(m_appWindows)) {
         if (w)
-            setWindowProperty(w, QStringLiteral("_APP_COVER_ACTION"), m_coverActionValue);
+            setWindowProperty(w, QStringLiteral("_APP_COVER_ACTION"), value);
     }
 }
 

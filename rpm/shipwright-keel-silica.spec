@@ -165,6 +165,7 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 - Apps open a little faster: the app's cover (what the app switcher shows) is made just after the app's first frame instead of alongside it.
 - No binding loops in labels: a wrapping label that fades, the remorse timer's label and a slider's label (each logged on every layout).
 - A page title inside a list's header keeps clear of the camera cut-out from the start; it used to start under it and leave the page looking scrolled down a little.
+- An app whose cover buttons are switched off (Keys while locked, Mail without an account) no longer hands the home screen an empty button list, which it logged as a bad cover action.
 
 * Tue Oct 13 2026 Shipwright - 0.1.0-30
 - Cover buttons work on the phone. Lipstick draws a cover's buttons itself and tells the app when one is tapped; Keel apps now give it their buttons the way Silica apps do, so tapping one runs it (Reef's refresh, Messages' mark all read, and the rest) instead of only opening the app. Only the home screen can press them.
