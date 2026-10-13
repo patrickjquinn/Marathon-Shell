@@ -1192,8 +1192,9 @@ Item {
                 if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
                     oobeRoot.currentPage++;
                 } else {
-                    SettingsManagerCpp.firstRunComplete = true;
+                    // Before firstRunComplete: setting it unloads the wizard.
                     oobeRoot.setupComplete();
+                    SettingsManagerCpp.firstRunComplete = true;
                 }
             }
         }
