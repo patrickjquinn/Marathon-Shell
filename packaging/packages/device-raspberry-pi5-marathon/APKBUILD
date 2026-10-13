@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / CM5 — Marathon OS base port (no enclosure)"
 pkgver=1.0.0
-pkgrel=7
+pkgrel=8
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"

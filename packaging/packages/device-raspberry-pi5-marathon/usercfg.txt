@@ -11,10 +11,6 @@
 # backend renders through this).
 dtoverlay=vc4-kms-v3d
 
-# GPU memory split — 128M leaves enough headroom for KMS planes plus
-# QtWebEngine's compositor.
-gpu_mem=128
-
 # CPU boost. Pi 5 stock arm_freq is 2.4 GHz. arm_boost=1 is a no-op on
 # this SoC (Pi 4 / Pi 400 only — confirmed by Pi engineer PhilE on the
 # forum, raspi-config has no Pi 5 overclock branch either). The
