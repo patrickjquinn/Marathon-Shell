@@ -107,4 +107,10 @@ TestCase {
         compare(Logic.nearestIndex(factors, 1.0999), 3);
         compare(Logic.nearestIndex(factors, 3), factors.length - 1);
     }
+
+    function test_manifestPermissionsHaveLabels() {
+        compare(Logic.permissionInfo("phone").title, "Phone");
+        compare(Logic.permissionInfo("secret-service").title, "Passwords");
+        verify(Logic.permissionInfo("secret-service").description.length > 0);
+    }
 }

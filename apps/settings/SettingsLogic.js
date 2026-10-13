@@ -270,6 +270,8 @@ const permissions = {
     notifications: { title: qsTr("Notifications"), description: qsTr("Show notifications") },
     alarms: { title: qsTr("Alarms"), description: qsTr("Alarms and timers") },
     telephony: { title: qsTr("Phone"), description: qsTr("Make and answer calls") },
+    phone: { title: qsTr("Phone"), description: qsTr("Make and answer calls") },
+    "secret-service": { title: qsTr("Passwords"), description: qsTr("Saved account passwords") },
     sms: { title: qsTr("Messages"), description: qsTr("Send and read SMS") },
     bluetooth: { title: qsTr("Bluetooth"), description: qsTr("Bluetooth devices") },
     system: { title: qsTr("System"), description: qsTr("Device settings") },
