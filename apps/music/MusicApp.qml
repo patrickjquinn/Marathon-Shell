@@ -5,7 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Shell
 import Marathon.Platform 1.0
-import MarathonApp.Music 1.0
+import MarathonApp.Music 1.0 as Native
 import Nemo.Configuration 1.0
 import "Library.js" as Library
 import "Playlists.js" as Playlists
@@ -64,7 +64,7 @@ ApplicationWindow {
                                         .arg(track ? track.title : ""))
     }
 
-    property MprisPlayer mpris: MprisPlayer {
+    property Native.MprisPlayer mpris: Native.MprisPlayer {
         readonly property var track: app.player.currentTrack
 
         active: track !== null
