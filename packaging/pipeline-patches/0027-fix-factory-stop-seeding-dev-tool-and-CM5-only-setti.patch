@@ -1,0 +1,48 @@
+From 6f93dea5fa23eb897694477b7a0571db3a023c36 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 13 Oct 2026 20:14:00 +0100
+Subject: [PATCH] fix(factory): stop seeding dev-tool and CM5-only settings
+
+The factory 'Marathon Shell.conf' turned the home grid's desktop-app
+filter off, so terminals and daemons (Foot Server, Foot Client) landed
+on every phone's grid, and set userScaleFactor=1.10, tuned for the
+HackberryPi's HyperPixel panel, on every device: setup said 100% was the
+default but opened at 110%. The filter now keeps its default, and 1.10
+applies only when the HackberryPi overlay is installed.
+---
+ mkosi.images/base/mkosi.postinst | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 01f70e1..8f7387b 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -65,20 +65,16 @@ cat > "$FACTORY/Marathon Shell.conf" <<'EOF'
+ [system]
+ firstRunComplete=false
+ 
+-[ui]
+-# HyperPixel 4 Square is 720×720 ~254 PPI; Marathon's design canvas is
+-# 540×1140 phone aspect. 1.10 is the field-tuned value for the CM5 +
+-# HyperPixel combo — bumps text + chrome up enough to be legible at
+-# arm's-length without overflowing the square panel. OOBE's scale
+-# picker can override.
+-userScaleFactor=1.10
+-
+ [apps]
+-filterMobileFriendly=false
+ hiddenApps=@Invalid()
+ 
+ [General]
+ EOF
++# HyperPixel 4 Square (HackberryPi CM5) is 720x720 at ~254 PPI; 1.10 keeps
++# text legible there. Other devices start at 1.0. Setup can change either.
++if [ -e "$BUILDROOT/boot/overlays/hackberrypi.dtbo" ]; then
++    printf '\n[ui]\nuserScaleFactor=1.10\n' >> "$FACTORY/Marathon Shell.conf"
++fi
+ 
+ # Factory tree: pre-grant common permissions so apps can launch without prompts
+ FACTORY_PERMS="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon"
+-- 
+2.55.0
+
