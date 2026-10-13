@@ -346,7 +346,10 @@ endif()
 message(STATUS "Found PAM library: ${PAM_LIBRARY}")
 
 qt6_add_executable(marathon-shell ${SOURCES})
-set(MARATHON_VERSION "${PROJECT_VERSION}" CACHE STRING "Version shown in Settings > About")
+# Settings > About; packages pass -DMARATHON_VERSION=pkgver-rpkgrel.
+if(NOT DEFINED MARATHON_VERSION)
+    set(MARATHON_VERSION "${PROJECT_VERSION}")
+endif()
 target_compile_definitions(marathon-shell PRIVATE MARATHON_VERSION="${MARATHON_VERSION}")
 # A static plugin compiled into the shell; Q_IMPORT_PLUGIN in main.cpp.
 set_source_files_properties(src/managers/marathoninputcontext.cpp PROPERTIES

@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.21)
 enable_testing()
 
-find_package(Qt6 REQUIRED COMPONENTS Test Core DBus Gui)
+find_package(Qt6 REQUIRED COMPONENTS Test Core DBus Gui Network)
 
 # AppRegistry tests (pure data model, no external deps)
 add_executable(test_core_appregistry
@@ -72,6 +72,15 @@ target_include_directories(test_core_appscanner PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
 add_test(NAME Core_AppScanner COMMAND test_core_appscanner)
+
+# UpdateService version ordering
+add_executable(test_core_updateversion
+    test_updateversion.cpp
+    ../../shell/src/services/updateservice.cpp
+)
+target_link_libraries(test_core_updateversion Qt6::Test Qt6::Gui Qt6::Network)
+target_include_directories(test_core_updateversion PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Core_UpdateVersion COMMAND test_core_updateversion)
 
 # DesktopFileParser tests (exec cleaning, .desktop parsing, icon resolution)
 add_executable(test_core_desktopfileparser

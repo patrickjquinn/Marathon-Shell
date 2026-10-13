@@ -166,8 +166,10 @@ int UpdateService::compareVersion(const QString &a, const QString &b) {
     const QStringList bp = b.split(versionSep(), Qt::SkipEmptyParts);
     const int         n  = qMax(ap.size(), bp.size());
     for (int i = 0; i < n; ++i) {
-        const QString as  = i < ap.size() ? ap.at(i) : QStringLiteral("0");
-        const QString bs  = i < bp.size() ? bp.at(i) : QStringLiteral("0");
+        // "v1" (tags) and "r409" (package builds) compare as numbers.
+        static const QRegularExpression prefix{QStringLiteral("^[vr](?=\\d)")};
+        const QString as  = QString(i < ap.size() ? ap.at(i) : QStringLiteral("0")).remove(prefix);
+        const QString bs  = QString(i < bp.size() ? bp.at(i) : QStringLiteral("0")).remove(prefix);
         bool          aok = false, bok = false;
         const int     ai = as.toInt(&aok);
         const int     bi = bs.toInt(&bok);

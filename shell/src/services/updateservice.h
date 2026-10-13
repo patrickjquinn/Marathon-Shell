@@ -67,8 +67,11 @@ class UpdateService : public QObject {
   private slots:
     void onReleasesReply();
 
-  private:
+  public:
+    // > 0 when a is newer. Tags may carry a leading v, package builds -rN.
     static int              compareVersion(const QString &a, const QString &b);
+
+  private:
 
     QString                 m_currentVersion;
     QString                 m_latestVersion;
