@@ -1,0 +1,5 @@
+# Starts Pacific when another app asks it to open a link and it isn't
+# running (shoal/pacific/app/src/dbus.rs).
+[D-BUS Service]
+Name=org.shipwright.pacific.ui
+Exec=/usr/bin/shipwright-pacific

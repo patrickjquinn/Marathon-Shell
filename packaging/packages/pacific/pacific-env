@@ -1,0 +1,21 @@
+#!/bin/sh
+# Pacific's runtime environment on Marathon; the app execs itself through
+# this (shoal/pacific/app/src/lib.rs). Sailfish uses engine/launcher/
+# pacific-env.c, whose libhybris, droid media and Atlantic settings don't
+# apply here.
+export PACIFIC_ENV=1
+# The WebView draws WPE's frames as GL textures in the Qt Quick scene.
+export QSG_RHI_BACKEND=opengl
+
+# GLES2-class GPUs (Librem 5 etnaviv, PinePhone lima) paint pages faster
+# with Skia on the CPU; the compositor still runs on the GPU.
+driver=$(readlink -f /sys/class/drm/renderD128/device/driver 2>/dev/null)
+case "${driver##*/}" in
+etnaviv|lima)
+	export WEBKIT_SKIA_ENABLE_CPU_RENDERING="${WEBKIT_SKIA_ENABLE_CPU_RENDERING:-1}"
+	;;
+esac
+
+export WEBKIT_GST_ENABLE_HLS_SUPPORT="${WEBKIT_GST_ENABLE_HLS_SUPPORT:-1}"
+
+exec "$@"

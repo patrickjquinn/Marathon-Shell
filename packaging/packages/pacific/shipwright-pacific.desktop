@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Pacific
+Comment=Browse the web
+Icon=shipwright-pacific
+Exec=/usr/bin/shipwright-pacific %U
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;application/xhtml+xml;
+Categories=Network;WebBrowser;
+X-Purism-FormFactor=Workstation;Mobile;
