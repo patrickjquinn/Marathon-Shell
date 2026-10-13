@@ -145,14 +145,12 @@ def render(title, hue, draw):
 
 
 def phone(a):
-    # The handset, bowed into the square corner, its ends turned in as ear
-    # and mouth pieces.
-    c, r, a1, a2 = (54.5, 32.0), 26.0, 82.0, 188.0
-    a.add(line(arc(r, a1, a2, c), "D", 10))
-    for ang in (a1, a2):
-        (x0, y0), (x1, y1) = pt(r, ang, c), pt(r - 8, ang, c)
-        a.add(line(f"M{x0:.2f} {y0:.2f}L{x1:.2f} {y1:.2f}", "D", 15))
-
+    # A call: the handset reduced to one bow into the square corner, two
+    # waves about the same centre.
+    c = (55.0, 31.0)
+    a.add(line(arc(28, 92, 178, c), "D", 11))
+    a.add(line(arc(16, 104, 166, c), "L", 4.5))
+    a.add(line(arc(7, 104, 166, c), "L", 4.5))
 
 def messages(a):
     # The shape is already a bubble, its tail the square corner: two
@@ -170,10 +168,10 @@ def email(a):
 
 
 def browser(a):
-    # The globe: a disc about the centre, a meridian and the equator cut out.
+    # The globe: a disc about the centre, one meridian and the equator cut.
     a.add('<circle cx="43" cy="43" r="25" fill="{D}"/>')
-    a.add(line("M43 18 A11 25 0 0 0 43 68 A11 25 0 0 0 43 18 M18 43 H68 M23 31 H63 M23 55 H63", w=3))
-
+    a.plane('M43 18A25 25 0 0 1 43 68Z', 'M43 0H86V86H43Z', "L")
+    a.add(line("M43 18 A12 25 0 0 0 43 68 A12 25 0 0 0 43 18 M18 43 H68"))
 
 def store(a):
     # The bag: the shape inset below its rim, the handle an arc above.
@@ -185,32 +183,26 @@ def store(a):
 
 
 def music(a):
-    # Two quavers on one beam.
-    a.add('<g fill="{D}" transform="translate(0 3)"><ellipse cx="31" cy="59" rx="7.5" ry="5.6" transform="rotate(-22 31 59)"/>'
-          '<ellipse cx="56" cy="53" rx="7.5" ry="5.6" transform="rotate(-22 56 53)"/>'
-          '<rect x="34.5" y="27" width="4" height="32"/><rect x="59.5" y="21" width="4" height="32"/>'
-          '<path d="M34.5 24 L63.5 17 V26 L34.5 33 Z"/></g>')
-
+    # Sound: five bars about the centre line, tallest in the middle.
+    for x, h, tone in ((23, 14, "L"), (33, 30, "D"), (43, 44, "D"), (53, 26, "D"), (63, 12, "L")):
+        a.add(line(f"M{x} {43 - h / 2}V{43 + h / 2}", tone, 7))
 
 def camera(a):
-    # The body is the shape inset and cut short; the lens a ring about the
-    # centre, the glass one radial blend.
-    body = inset(16)
-    a.add('<rect x="27" y="19" width="15" height="8" rx="2.5" fill="{E}"/>')
-    a.plane(body, "M0 24H86V66H0Z", "D")
-    a.add('<circle cx="43" cy="45" r="14" fill="{C}"/><circle cx="43" cy="45" r="10.5" fill="{R}"/>'
-          '<circle cx="43" cy="45" r="3.8" fill="{E}"/><circle cx="39.5" cy="41.5" r="2.2" fill="{C}"/>'
-          '<circle cx="62" cy="31.5" r="2.4" fill="{T}"/>')
-
+    # The aperture: a disc about the centre, its six blades cut out.
+    blades = " ".join("M{:.2f} {:.2f}L{:.2f} {:.2f}".format(*pt(9.5, t), *pt(27, t + 62)) for t in range(0, 360, 60))
+    a.add('<circle cx="43" cy="43" r="26" fill="{D}"/>')
+    a.add('<circle cx="43" cy="43" r="9.5" fill="{R}"/>')
+    a.n += 1
+    a.parts.append(f'<clipPath id="p{a.n}"><circle cx="43" cy="43" r="26"/></clipPath>'
+                   f'<path d="{blades}" fill="none" stroke="{a.c["C"]}" stroke-width="2.6" '
+                   f'stroke-linecap="round" clip-path="url(#p{a.n})"/>')
 
 def gallery(a):
-    # The picture: the shape inset, a pale sky, two hills on arcs, the sun.
+    # A picture: the shape inset, one hill on an arc, the sun.
     pic = inset(16)
     a.add(f'<path d="{pic}" fill="{{T}}"/>')
-    a.plane(pic, "M2 76 A28 28 0 0 1 58 76 Z", "E")
-    a.plane(pic, "M32 80 A25 25 0 0 1 82 80 Z", "D")
-    a.add('<circle cx="55" cy="32" r="5.5" fill="{C}"/>')
-
+    a.plane(pic, "M4 82 A40 40 0 0 1 84 82 Z", "D")
+    a.add('<circle cx="55" cy="31" r="6" fill="{C}"/>')
 
 def maps(a):
     # The shape turned so its square corner points down is the pin.
@@ -220,26 +212,19 @@ def maps(a):
 
 
 def calendar(a):
-    # The page: the shape inset, its top band a facet held by two rings,
-    # the days as dots and today a disc.
+    # The page: the shape inset, its top band held by two rings; one day
+    # marked.
     page = inset(16)
     a.add(f'<path d="{page}" fill="{{T}}"/>')
-    a.plane(page, "M0 0H86V33H0Z", "D")
+    a.plane(page, "M0 0H86V34H0Z", "D")
     a.add(line("M33 13V24M53 13V24", "E", 4.2))
-    days = [(x, y) for y in (42, 52, 62) for x in (30, 39, 48, 57)][:10]
-    a.add("".join(f'<circle cx="{x}" cy="{y}" r="2.6" fill="{{D}}"/>' for x, y in days if (x, y) != (48, 52)))
-    a.add('<circle cx="48" cy="52" r="4.6" fill="{E}"/>')
-
+    a.add('<rect x="45" y="44" width="13" height="13" rx="3" fill="{D}"/>')
 
 def clock(a):
-    # The dial about the centre; the hour hand points into the square corner.
+    # The dial; the quarter hour swept in the lighter plane, the hands cut.
     a.add('<circle cx="43" cy="43" r="26" fill="{D}"/>')
-    ticks = " ".join("M{:.2f} {:.2f}L{:.2f} {:.2f}".format(*pt(21, t), *pt(24, t)) for t in (0, 90, 180, 270))
-    a.add(line(ticks, "T", 2.6))
-    (hx, hy), (mx, my) = pt(11, 135), pt(17, 270)
-    a.add(line(f"M{mx:.2f} {my:.2f}L43 43L{hx:.2f} {hy:.2f}"))
-    a.add('<circle cx="43" cy="43" r="3" fill="{C}"/>')
-
+    a.add('<path d="M43 43V17A26 26 0 0 1 69 43Z" fill="{L}"/>')
+    a.add(line("M43 24 L43 43 L30 54", w=3.8))
 
 def calculator(a):
     # Four keys, each the shape in small; the = key the lighter plane.
@@ -253,7 +238,7 @@ def calculator(a):
 
 
 def notes(a):
-    # The page: the shape inset, its square corner folded over, ruled.
+    # The page: the shape inset, its square corner folded over; two lines.
     page = inset(16)
     a.add(f'<path d="{page}" fill="{{D}}"/>')
     f = 13.0
@@ -261,8 +246,7 @@ def notes(a):
     a.add(f'<path d="M{lo - 1} {hi - f}V{hi + 1}H{lo + f}Z" fill="{{C}}"/>')
     a.add(f'<path d="M{lo} {hi - f}L{lo + f} {hi}V{hi - f}Z" fill="{{L}}" stroke="{{L}}" '
           'stroke-width="1" stroke-linejoin="round"/>')
-    a.add(line(f"M{lo + 8} 32H{hi - 8}M{lo + 8} 42H{hi - 8}M{lo + f + 6} 52H{hi - 14}"))
-
+    a.add(line(f"M{lo + 8} 35H{hi - 8}M{lo + 8} 46H{hi - 16}"))
 
 def gear(teeth, ro, ri, tip, root, c=(C0, C0)):
     """A gear outline: `teeth` teeth from ri to ro, `tip` and `root` the
@@ -302,13 +286,13 @@ def test(a):
 # App: (title, hue, draw), in home grid order; hues are 22.5-degree steps,
 # no two grid neighbours closer than 45 degrees.
 ICONS = {
-    "phone": ("Phone: a handset", 145.0, phone),
+    "phone": ("Phone: a call", 145.0, phone),
     "messages": ("Messages: nested speech bubbles", 212.5, messages),
     "email": ("Mail: an envelope", 280.0, email),
     "browser": ("Browser: a globe", 235.0, browser),
     "store": ("Store: a bag", 190.0, store),
-    "music": ("Music: two quavers", 325.0, music),
-    "camera": ("Camera: a lens", 32.5, camera),
+    "music": ("Music: a sound", 325.0, music),
+    "camera": ("Camera: an aperture", 32.5, camera),
     "gallery": ("Gallery: a picture", 302.5, gallery),
     "maps": ("Maps: a pin", 257.5, maps),
     "calendar": ("Calendar: a month", 10.0, calendar),

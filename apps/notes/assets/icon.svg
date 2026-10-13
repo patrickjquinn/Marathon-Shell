@@ -37,5 +37,5 @@
   <path d="M43.000,16.300 H43.000 A26.700,26.700 0 0 1 69.700,43.000 V43.000 A26.700,26.700 0 0 1 43.000,69.700 H17.723 A1.423,1.423 0 0 1 16.300,68.277 V43.000 A26.700,26.700 0 0 1 43.000,16.300 Z" fill="url(#gD)"/>
   <path d="M15.3 56.7V70.7H29.3Z" fill="url(#gC)"/>
   <path d="M16.3 56.7L29.3 69.7V56.7Z" fill="url(#gL)" stroke="url(#gL)" stroke-width="1" stroke-linejoin="round"/>
-  <path d="M24.3 32H61.7M24.3 42H61.7M35.3 52H55.7" fill="none" stroke="url(#gC)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24.3 35H61.7M24.3 46H53.7" fill="none" stroke="url(#gC)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

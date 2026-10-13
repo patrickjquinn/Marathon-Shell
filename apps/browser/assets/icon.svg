@@ -35,5 +35,6 @@
   <path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z" fill="url(#gC)"/>
   <clipPath id="face"><path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z"/></clipPath><path d="M43.000,8.300 H43.000 A34.700,34.700 0 0 1 77.700,43.000 V43.000 A34.700,34.700 0 0 1 43.000,77.700 H9.723 A1.423,1.423 0 0 1 8.300,76.277 V43.000 A34.700,34.700 0 0 1 43.000,8.300 Z" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="3" clip-path="url(#face)"/>
   <circle cx="43" cy="43" r="25" fill="url(#gD)"/>
-  <path d="M43 18 A11 25 0 0 0 43 68 A11 25 0 0 0 43 18 M18 43 H68 M23 31 H63 M23 55 H63" fill="none" stroke="url(#gC)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <clipPath id="p1"><path d="M43 18A25 25 0 0 1 43 68Z"/></clipPath><path d="M43 0H86V86H43Z" fill="url(#gL)" clip-path="url(#p1)"/>
+  <path d="M43 18 A12 25 0 0 0 43 68 A12 25 0 0 0 43 18 M18 43 H68" fill="none" stroke="url(#gC)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

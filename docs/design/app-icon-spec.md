@@ -56,7 +56,7 @@ columns) closer than 45°:
 One flat object on the face, built from the frame: the shape set in
 concentrically (the bubble, envelope, bag, picture, page, screen; Maps' pin
 is the shape turned so its square corner points down), or circles and arcs
-about the centre (globe, lens, dial, wheel). Calculator's keys are the
+about the centre (globe, aperture, dial, wheel, the bars of a sound). Calculator's keys are the
 shape in small. The square corner is used where the metaphor has one: the
-bubble's tail, the handset bowed into it, the hour hand, the folded page.
+bubble's tail, the handset bowed into it, the hour hand, the folded page. Objects stay abstract where the app is still clear: a call is a bow and two waves, music five bars, the camera an aperture, a month one marked day.
 Cut-out lines are 3.4 wide with round caps.
