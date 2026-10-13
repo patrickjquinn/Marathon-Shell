@@ -102,6 +102,7 @@ class AudioManagerCpp : public QObject {
 
   private:
     void        parseWpctlStatus(const QString &output);
+    void        applyPipeWireMute(bool muted, int attemptsLeft);
     void        runWpctl(const QStringList &args, const std::function<void(bool ok)> &done = {});
     void        sendPendingVolume();
     void        updatePlaybackState();

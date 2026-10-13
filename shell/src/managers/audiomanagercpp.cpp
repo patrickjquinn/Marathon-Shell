@@ -8,6 +8,7 @@
 #include <QDBusConnection>
 #include <QDBusMetaType>
 #include <QProcess>
+#include <QTimer>
 #include <QRegularExpression>
 #include <utility>   // std::as_const
 
@@ -176,12 +177,7 @@ void AudioManagerCpp::setMuted(bool muted) {
     if (m_isPipeWire) {
         m_muted = muted;
         emit mutedChanged();
-        runWpctl({"set-mute", "@DEFAULT_AUDIO_SINK@", muted ? "1" : "0"}, [muted](bool ok) {
-            if (ok)
-                qDebug() << "[AudioManagerCpp] Set muted to:" << muted << "(PipeWire)";
-            else
-                qWarning() << "[AudioManagerCpp] Failed to set mute";
-        });
+        applyPipeWireMute(muted, 15);
         return;
     } else {
 
@@ -266,6 +262,22 @@ void AudioManagerCpp::refreshStreams() {
         m_statusPending = false;
     });
     process->start("wpctl", {"status"});
+}
+
+// At boot the shell restores mute before WirePlumber has a default sink;
+// retry until it does, unless the user has changed mute since.
+void AudioManagerCpp::applyPipeWireMute(bool muted, int attemptsLeft) {
+    runWpctl({"set-mute", "@DEFAULT_AUDIO_SINK@", muted ? "1" : "0"},
+             [this, muted, attemptsLeft](bool ok) {
+                 if (ok || m_muted != muted)
+                     return;
+                 if (attemptsLeft <= 1) {
+                     qWarning() << "[AudioManagerCpp] Failed to set mute";
+                     return;
+                 }
+                 QTimer::singleShot(2000, this,
+                                    [this, muted, attemptsLeft] { applyPipeWireMute(muted, attemptsLeft - 1); });
+             });
 }
 
 void AudioManagerCpp::runWpctl(const QStringList &args, const std::function<void(bool ok)> &done) {
