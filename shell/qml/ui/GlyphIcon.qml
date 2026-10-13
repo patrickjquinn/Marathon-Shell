@@ -19,7 +19,7 @@ Text {
     property string weight: "light"
 
     text: Phosphor.Glyphs[name] || ""
-    font.family: weight === "bold" ? phosphorBoldFont.name : phosphorLightFont.name
+    font.family: weight === "bold" ? MTypography.iconFontBold : MTypography.iconFontLight
     font.pixelSize: size
 
     color: MColors.textPrimary
@@ -30,13 +30,4 @@ Text {
     // it interactive (buttons, list items) carry the Accessible.name -- skip
     // so screen readers don't read the glyph codepoint.
     Accessible.ignored: true
-
-    FontLoader {
-        id: phosphorLightFont
-        source: Qt.resolvedUrl("fonts/Phosphor-Light.ttf")
-    }
-    FontLoader {
-        id: phosphorBoldFont
-        source: Qt.resolvedUrl("fonts/Phosphor-Bold.ttf")
-    }
 }

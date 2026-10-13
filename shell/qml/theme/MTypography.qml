@@ -54,6 +54,14 @@ QtObject {
     property FontLoader _monoLoader: FontLoader {
         source: Qt.resolvedUrl("fonts/JetBrainsMono-Medium.ttf")
     }
+    property FontLoader _phosphorLight: FontLoader {
+        source: Qt.resolvedUrl("../ui/fonts/Phosphor-Light.ttf")
+    }
+    property FontLoader _phosphorBold: FontLoader {
+        source: Qt.resolvedUrl("../ui/fonts/Phosphor-Bold.ttf")
+    }
+    readonly property string iconFontLight: _phosphorLight.name
+    readonly property string iconFontBold: _phosphorBold.name
 
     // Default family for callers that don't care about weight. Most
     // body text lands here. Always falls back to literal "Sora" so the
