@@ -3,23 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 """Draw apps/<app>/assets/icon.svg for every first-party Marathon app.
 
-Shipwright's icon system (Shipwright icons/make-icons.py), itself built on
-Jolla's launcher template (sailfishos.org/design/icons). Spec:
-docs/design/app-icon-spec.md.
+Shipwright's frame-and-face system on Jolla's launcher template
+(sailfishos.org/design/icons). Spec: docs/design/app-icon-spec.md; colours:
+docs/design/colour-palette.md.
 
     scripts/build-app-icons.py [apps-dir]     # needs picosvg (pip)
 
 The drawing uses clip paths, which Qt's SVG renderer does not apply;
 picosvg flattens each icon to plain paths before it is written.
 
-- Shape. 86 x 86, the Sailfish base shape; Marathon's family squares the
-  bottom-left corner, beside Reef (leaf), Shoal (bottom right) and Pilot
-  (top right).
-- Colour. One OKLCH hue per icon: a gradient frame round a cream face, the
-  object in the hue's deep tone with a darker facet, a lighter plane and a
-  pale tint; details cut out in the face's cream.
-- Object. One flat object on the face, built from the frame: the shape set
-  in concentrically, or circles and arcs about the centre.
+- Shape. The Sailfish base shape; the square corners name the category.
+- Frame, gap, object. The frame; a cream gap; the object is the same shape
+  inset again, so every object contours its frame at one gap.
+- Metaphor. Cut into the object in cream, or laid in its other tones,
+  clipped to it. Matte: flat tones lit softly from the top; no highlights,
+  glass or shadows.
 """
 
 import math
@@ -32,6 +30,7 @@ REPO = Path(__file__).resolve().parent.parent
 S, IN = 86.0, 0.3            # canvas, inset (template)
 ROUND, SQUARE = 42.7, 1.423  # corner radii (template)
 FACE_INSET = 8.0
+OBJ = 16.0                   # the object: the shape inset again, 8 inside the face
 # Each category squares its own corners (tl, tr, br, bl): Jolla's icon story
 # picks a base shape per metaphor; Marathon picks one per category.
 COMMS = (True, True, True, False)    # the bubble's tail
@@ -40,7 +39,7 @@ MEDIA = (True, True, True, True)     # the lens, the disc
 TIME = (False, True, True, True)     # the page's corner
 TOOLS = (False, True, False, True)   # two squared corners, machined
 C0 = 43.0
-CUT = 2.6                    # width of a cut-out line
+CUT = 3.2                    # width of a cut-out line
 
 
 def _srgb(x):
@@ -64,19 +63,19 @@ def oklch(L, C, h):
 
 
 def palette(h):
-    """Shipwright's tones, each a gradient pair (bottom left, top right):
-    frame F, object D, its lit facet H, darker facet E, plane L, tint T,
-    cream face C, and the radial R (light centre, deep edge)."""
+    """One hue's matte tones, each a pair of stops (top, bottom): frame F,
+    object D, darker E, lighter L, tint T, cream C."""
     y = 0.09 if 45 <= h <= 110 else 0.0  # yellows go brown when deep
     f = 0.06 if 55 <= h <= 110 else 0.0  # and olive in the frame
-    return {"F": (oklch(0.62 + f, 0.18, h), oklch(0.80 + f / 2, 0.14, h + 15)),
-            "D": (oklch(0.45 + y, 0.16, h), oklch(0.57 + y, 0.15, h + 6)),
-            "E": (oklch(0.37 + y, 0.14, h), oklch(0.48 + y, 0.14, h + 6)),
-            "H": (oklch(0.51 + y, 0.155, h), oklch(0.63 + y, 0.14, h + 6)),
-            "L": (oklch(0.56 + y, 0.15, h), oklch(0.68 + y, 0.13, h + 6)),
-            "T": (oklch(0.80, 0.09, h), oklch(0.88, 0.07, h + 6)),
-            "C": ("#F1EBD3", "#FCF8EA"),
-            "R": (oklch(0.68 + y, 0.13, h + 6), oklch(0.45 + y, 0.16, h))}
+
+    def tone(L, C):
+        return oklch(L + 0.03, C, h + 4), oklch(L - 0.02, C, h)
+    return {"F": tone(0.68 + f, 0.16),
+            "D": tone(0.50 + y, 0.15),
+            "E": tone(0.39 + y, 0.13),
+            "L": tone(0.64 + y, 0.13),
+            "T": tone(0.85, 0.07),
+            "C": ("#F7F3E5", "#EFE9D4")}
 
 
 def base(tl, tr, br, bl, d=0.0):
@@ -109,82 +108,6 @@ def line(d, tone="C", w=CUT, cap="round"):
             f'stroke-linecap="{cap}" stroke-linejoin="round"/>')
 
 
-class Art:
-    """One icon's layers; `{name}` in a layer is a palette colour."""
-
-    def __init__(self, colours, corners, prefix="p"):
-        self.c, self.corners, self.parts, self.n, self.prefix = colours, corners, [], 0, prefix
-
-    def shape(self, d):
-        """This icon's base shape, inset by d."""
-        return base(*self.corners, d=d)
-
-    def add(self, svg):
-        self.parts.append(svg.format(**self.c))
-
-    def plane(self, shape_d, region_d, fill):
-        """Paint `region_d` in `fill`, clipped to `shape_d`."""
-        self.n += 1
-        cid = f"{self.prefix}{self.n}"
-        self.parts.append(f'<clipPath id="{cid}"><path d="{shape_d}"/></clipPath>'
-                          f'<path d="{region_d}" fill="{self.c[fill]}" clip-path="url(#{cid})"/>')
-
-    def lit(self, *shapes, tone="D"):
-        """The shapes in `tone`, their top-right half (toward the light) in
-        the lit facet. A shape is a path, or (path, transform)."""
-        els = "".join(f'<path d="{d}"' + (f' transform="{t}"' if t else "") + "/>"
-                      for d, t in ((x, "") if isinstance(x, str) else x for x in shapes))
-        self.n += 1
-        cid = f"{self.prefix}{self.n}"
-        lit = self.c["H" if tone == "D" else "L"]
-        self.parts.append(f'<g fill="{self.c[tone]}">{els}</g><clipPath id="{cid}">{els}</clipPath>'
-                          f'<path d="M0 0H86V86Z" fill="{lit}" clip-path="url(#{cid})"/>')
-
-
-def render(title, hue, corners, draw):
-    tones = palette(hue)
-    art = Art({k: f"url(#g{k})" for k in tones}, corners)
-    face = base(*corners, d=FACE_INSET)
-    art.add(f'<path d="{face}" fill="{{C}}"/>')
-    art.parts.append(f'<clipPath id="face"><path d="{face}"/></clipPath>'
-                     f'<path d="{face}" fill="none" stroke="#000000" stroke-opacity="0.08" '
-                     'stroke-width="3" clip-path="url(#face)"/>')
-    # The object's contact shadow: its silhouette, dropped and faint.
-    shadow = Art({k: "none" if k == "C" else "#000000" for k in tones}, corners, "s")
-    draw(shadow)
-    art.parts.append('<g opacity="0.13" transform="translate(0 1.5)">' + "".join(shadow.parts) + "</g>")
-    draw(art)
-    diag = 'x1="0.717" y1="85.283" x2="85.283" y2="0.717"'
-    radial = 'cx="40" cy="40" r="24"'
-    grads = "\n".join(
-        f'    <{"radialGradient" if k == "R" else "linearGradient"} id="g{k}" gradientUnits="userSpaceOnUse" '
-        f'{radial if k == "R" else diag}>\n'
-        f'      <stop offset="0" stop-color="{a}"/>\n      <stop offset="1" stop-color="{b}"/>\n'
-        f'    </{"radialGradient" if k == "R" else "linearGradient"}>'
-        for k, (a, b) in tones.items())
-    body = "\n".join("  " + p for p in art.parts)
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-<!-- {title}. Generated by scripts/build-app-icons.py; spec in docs/design/app-icon-spec.md. -->
-<svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86">
-  <defs>
-{grads}
-  </defs>
-  <path d="{base(*corners)}" fill="url(#gF)"/>
-{body}
-</svg>
-'''
-
-
-
-def band(c, ro, ri, a1, a2):
-    """The ring between ri and ro about c, from a1 to a2 clockwise."""
-    (x1, y1), (x2, y2) = pt(ro, a1, c), pt(ro, a2, c)
-    (x3, y3), (x4, y4) = pt(ri, a2, c), pt(ri, a1, c)
-    big = 1 if (a2 - a1) % 360 > 180 else 0
-    return (f"M{x1:.2f} {y1:.2f}A{ro} {ro} 0 {big} 1 {x2:.2f} {y2:.2f}L{x3:.2f} {y3:.2f}"
-            f"A{ri} {ri} 0 {big} 0 {x4:.2f} {y4:.2f}Z")
-
-
 def rrect(x0, y0, x1, y1, r):
     return (f"M{x0 + r} {y0}H{x1 - r}A{r} {r} 0 0 1 {x1} {y0 + r}V{y1 - r}A{r} {r} 0 0 1 {x1 - r} {y1}"
             f"H{x0 + r}A{r} {r} 0 0 1 {x0} {y1 - r}V{y0 + r}A{r} {r} 0 0 1 {x0 + r} {y0}Z")
@@ -194,177 +117,229 @@ def disc(r, c=(C0, C0)):
     return f"M{c[0] - r} {c[1]}A{r} {r} 0 1 0 {c[0] + r} {c[1]}A{r} {r} 0 1 0 {c[0] - r} {c[1]}Z"
 
 
+def poly(*p):
+    return "M" + "L".join(f"{x:.2f} {y:.2f}" for x, y in p) + "Z"
+
+
+class Art:
+    """One icon's layers; `{name}` in a layer is a palette colour."""
+
+    def __init__(self, colours, corners):
+        self.c, self.corners, self.parts, self.n = colours, corners, [], 0
+        self.obj = base(*corners, d=OBJ)
+
+    def shape(self, d):
+        """This icon's base shape, inset by d."""
+        return base(*self.corners, d=d)
+
+    def add(self, svg):
+        self.parts.append(svg.format(**self.c))
+
+    def fill(self, tone, d=None):
+        """The object, or `d`, in `tone`."""
+        self.add(f'<path d="{d or self.obj}" fill="{{{tone}}}"/>')
+
+    def clip(self, svg, to=None):
+        """`svg`, clipped to the object (or to the path `to`)."""
+        self.n += 1
+        self.parts.append(f'<clipPath id="k{self.n}"><path d="{to or self.obj}"/></clipPath>'
+                          f'<g clip-path="url(#k{self.n})">{svg.format(**self.c)}</g>')
+
+    def plane(self, region, tone, to=None):
+        self.clip(f'<path d="{region}" fill="{{{tone}}}"/>', to)
+
+
+def render(title, hue, corners, draw):
+    tones = palette(hue)
+    art = Art({k: f"url(#g{k})" for k in tones}, corners)
+    art.add(f'<path d="{art.shape(FACE_INSET)}" fill="{{C}}"/>')
+    draw(art)
+    grads = "\n".join(
+        f'    <linearGradient id="g{k}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="86">\n'
+        f'      <stop offset="0" stop-color="{a}"/>\n      <stop offset="1" stop-color="{b}"/>\n'
+        f'    </linearGradient>'
+        for k, (a, b) in tones.items())
+    body = "\n".join("  " + p for p in art.parts)
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86">
+  <defs>
+{grads}
+  </defs>
+  <path d="{base(*corners)}" fill="url(#gF)"/>
+{body}
+</svg>
+'''
+
+
+LO, HI = IN + OBJ, S - IN - OBJ  # the object's bounds
+
+
+def band(c, ro, ri, a1, a2):
+    """The ring between ri and ro about c, from a1 to a2 clockwise."""
+    (x1, y1), (x2, y2), (x3, y3), (x4, y4) = pt(ro, a1, c), pt(ro, a2, c), pt(ri, a2, c), pt(ri, a1, c)
+    return f"M{x1:.2f} {y1:.2f}A{ro} {ro} 0 0 1 {x2:.2f} {y2:.2f}L{x3:.2f} {y3:.2f}A{ri} {ri} 0 0 0 {x4:.2f} {y4:.2f}Z"
+
+
 def phone(a):
-    # A call: the handset a band bowed into the square corner, its ear and
-    # mouth pieces turned in; two waves about the same centre.
-    c, ro, ri, a1, a2 = (55.0, 31.0), 35.0, 26.5, 98.0, 172.0
-    pads = [(rrect(c[0] + ri - 8, c[1] + t0, c[0] + ro + 0.5, c[1] + t0 + 11, 3.5), f"rotate({ang} {c[0]} {c[1]})")
-            for ang, t0 in ((a1, -7.0), (a2, -4.0))]
-    a.lit(band(c, ro, ri, a1, a2), *pads)
-    a.add(line(arc(16, 108, 162, c), "L") + line(arc(8.5, 108, 162, c), "L"))
+    # A call: the handset cut out of the object, bowed into the square
+    # corner, its voice rings opening toward the round one.
+    a.fill("D")
+    c, ro, ri, a1, a2 = (55.5, 30.5), 32.0, 23.5, 98.0, 172.0
+    pads = "".join(f'<path d="{rrect(c[0] + ri - 7.5, c[1] + t0, c[0] + ro, c[1] + t0 + 12, 3.6)}" '
+                   f'transform="rotate({ang} {c[0]} {c[1]})" fill="{{C}}"/>' for ang, t0 in ((a1, -7.5), (a2, -4.5)))
+    a.add(f'<path d="{band(c, ro, ri, a1, a2)}" fill="{{C}}"/>' + pads)
+    a.clip(line(arc(10, 105, 165, c), "L", 3) + line(arc(17, 108, 162, c), "L", 3))
 
 
 def messages(a):
-    # The shape is already a bubble, its tail the square corner: two
-    # nested, the typing dots cut out.
-    a.add(f'<path d="{a.shape(15)}" fill="{{T}}"/>')
-    a.lit(a.shape(23))
-    a.add("".join(f'<circle cx="{x}" cy="43" r="2.9" fill="{{C}}"/>' for x in (33, 43, 53)))
+    # A conversation: a bubble inside the bubble, the typing dots cut out.
+    a.fill("T")
+    a.fill("D", a.shape(OBJ + 8))
+    a.add("".join(f'<circle cx="{x}" cy="43" r="3" fill="{{C}}"/>' for x in (34, 43, 52)))
 
 
 def email(a):
-    # The shape inset as the envelope, its flap a darker facet, the fold cut.
-    env = a.shape(17)
-    a.lit(env)
-    a.plane(env, "M0 0H86V31L43 48L0 31Z", "E")
-    a.add(line("M18 30 L43 48 L68 30"))
+    # The object is the envelope: the flap darker above the fold.
+    a.fill("D")
+    a.plane("M0 0H86V30L43 49L0 30Z", "E")
+    a.clip(line("M10 27 L43 49 L76 27"))
 
 
 def browser(a):
-    # The globe: a disc about the centre, a meridian and the equator cut.
-    a.lit(disc(25))
-    a.add(line("M43 18 A12 25 0 0 0 43 68 A12 25 0 0 0 43 18 M18 43 H68"))
+    # The web: a globe's meridian and equator cut through the object, and
+    # the pointer on it.
+    a.fill("D")
+    a.plane("M43 8 A13 35 0 0 1 43 78 A13 35 0 0 1 43 8Z", "L")
+    a.clip(line("M43 8 A13 35 0 0 0 43 78 A13 35 0 0 0 43 8 M8 43 H78"))
+    a.add(f'<path d="{poly((44, 44), (63, 51), (55, 54.5), (61.5, 61), (58, 64.5), (51.5, 58), (48, 66))}" '
+          'fill="{C}" stroke="{C}" stroke-width="1.6" stroke-linejoin="round"/>')
 
 
 def store(a):
-    # The bag: the shape inset below its rim, a hem, the handle an arc.
-    bag = a.shape(17)
-    a.add(f'<path d="{band((43, 33), 11.5, 8.5, 180, 360)}" fill="{{E}}"/>')
-    a.plane(bag, "M0 33H86V86H0Z", "D")
-    a.plane(bag, "M33 33H86V86Z", "H")
-    a.plane(bag, "M0 33H86V37H0Z", "E")
+    # The shelf: one app of each kind, each its category's shape.
+    a.fill("D")
+    k, w = 15.0 / S, 15.0
+    for (x, y), corners in zip(((26, 26), (45, 26), (26, 45), (45, 45)), (COMMS, MEDIA, TIME, TOOLS)):
+        a.add(f'<path d="{base(*corners)}" transform="translate({x} {y}) scale({k:.5f})" fill="{{C}}"/>')
 
 
 def music(a):
-    # Sound: seven bars about the centre line under one envelope.
-    bars = "".join(rrect(x - 2, 43 - h / 2, x + 2, 43 + h / 2, 2)
-                   for x, h in zip(range(25, 62, 6), (10, 22, 34, 44, 32, 20, 10)))
-    a.lit(bars)
+    # A record: grooves about the centre, the label cut out.
+    a.fill("E")
+    a.add("".join(f'<circle cx="43" cy="43" r="{r}" fill="none" stroke="{{L}}" stroke-width="1"/>'
+                  for r in (13, 16.5, 20, 23.5)))
+    a.add(f'<path d="{disc(9.5)}" fill="{{C}}"/><path d="{disc(2.4)}" fill="{{E}}"/>')
 
 
 def camera(a):
-    # The aperture: six blades in turn round a hexagonal opening.
-    R0, ri = 26.0, 9.5
+    # The aperture: six blades in turn round the opening.
+    R0, ri = ROUND - OBJ, 9.0
     V = [pt(ri, 60 * k - 90) for k in range(6)]
 
     def hit(p, q):
-        dx, dy = q[0] - p[0], q[1] - p[1]
-        fx, fy = p[0] - C0, p[1] - C0
-        A, B, Cc = dx * dx + dy * dy, 2 * (fx * dx + fy * dy), fx * fx + fy * fy - R0 * R0
+        dx, dy, fx, fy = q[0] - p[0], q[1] - p[1], p[0] - C0, p[1] - C0
+        A, B, Cc = dx * dx + dy * dy, 2 * (fx * dx + fy * dy), fx * fx + fy * fy - (R0 + 4) ** 2
         t = (-B + math.sqrt(B * B - 4 * A * Cc)) / (2 * A)
         return p[0] + t * dx, p[1] + t * dy
     P = [hit(V[k], V[(k + 1) % 6]) for k in range(6)]
-    a.add(f'<path d="{disc(ri + 1)}" fill="{{R}}"/>')
-    for k, tone in zip(range(6), "DHEDHE"):
+    a.fill("E")
+    for k, tone in zip(range(6), "DLDLDL"):
         v1, v2, p0, p1 = V[(k + 1) % 6], V[(k + 2) % 6], P[k], P[(k + 1) % 6]
-        d = (f"M{v1[0]:.2f} {v1[1]:.2f}L{p0[0]:.2f} {p0[1]:.2f}A{R0} {R0} 0 0 1 {p1[0]:.2f} {p1[1]:.2f}"
-             f"L{v2[0]:.2f} {v2[1]:.2f}Z")
-        a.add(f'<path d="{d}" fill="{{{tone}}}" stroke="{{C}}" stroke-width="1" stroke-linejoin="round"/>')
+        a.clip(f'<path d="{poly(v1, p0, p1, v2)}" fill="{{{tone}}}" stroke="{{C}}" stroke-width="1.6" '
+               'stroke-linejoin="round"/>')
 
 
 def gallery(a):
-    # A picture: the shape inset, two hills on arcs, the sun.
-    pic = a.shape(16)
-    a.add(f'<path d="{pic}" fill="{{T}}"/>')
-    a.plane(pic, disc(30, (24, 80)), "L")
-    a.plane(pic, disc(28, (62, 85)), "D")
-    a.add('<circle cx="55" cy="31" r="5.5" fill="{C}"/>')
+    # A picture through the round object: sky, two hills, the sun.
+    a.fill("T")
+    a.plane(disc(30, (24, 76)), "L")
+    a.plane(disc(28, (64, 82)), "D")
+    a.add('<circle cx="54" cy="32" r="6" fill="{C}"/>')
 
 
 def maps(a):
-    # The shape turned so its square corner points down is the pin.
-    a.add('<ellipse cx="43" cy="69" rx="12" ry="3" fill="{T}"/>')
-    turn = {(True, True, True, False): -45, (True, True, False, True): 45}[a.corners]
-    a.lit((a.shape(23), f"translate(0 -4) rotate({turn} 43 43)"))
-    a.add('<circle cx="43" cy="39" r="6.5" fill="{C}"/>')
+    # A folded map, its panels in turn, and the heading arrow on it.
+    a.fill("D")
+    a.plane("M0 0H34.3V86H0Z", "L")
+    a.plane("M51.7 0H86V86H51.7Z", "E")
+    a.add(f'<path d="{poly((43, 25), (56, 59), (43, 51), (30, 59))}" fill="{{C}}" '
+          'stroke="{C}" stroke-width="2" stroke-linejoin="round" transform="rotate(30 43 43)"/>')
 
 
 def calendar(a):
-    # The page: the shape inset, its top band held by two rings; the days
-    # in the lighter plane, one marked.
-    page = a.shape(16)
-    a.add(f'<path d="{page}" fill="{{T}}"/>')
-    a.plane(page, "M0 0H86V33H0Z", "D")
-    a.plane(page, "M33 0H86V33H33Z", "H")
-    a.add(f'<path d="{rrect(31, 12, 35, 24, 2)}{rrect(51, 12, 55, 24, 2)}" fill="{{E}}"/>')
-    days = [(x, y) for y in (41, 52) for x in (26, 39.5, 53)]
-    a.add("".join(f'<path d="{rrect(x, y, x + 7, y + 7, 1.6)}" fill="{{{"D" if (x, y) == (53, 52) else "L"}}}"/>'
-                  for x, y in days))
+    # The page: its top band held by two rings, the days cut out, today lit.
+    a.fill("D")
+    a.plane("M0 0H86V33H0Z", "E")
+    a.clip(f'<path d="{rrect(30, 9, 35, 24, 2.5)}{rrect(51, 9, 56, 24, 2.5)}" fill="{{C}}"/>')
+    days = [(x, y) for y in (39, 48.5, 58) for x in (24, 33.5, 43, 52.5)]
+    a.clip("".join(f'<path d="{rrect(x, y, x + 6, y + 6, 1.4)}" fill="{{{"L" if (x, y) == (43, 48.5) else "C"}}}"/>'
+                   for x, y in days))
 
 
 def clock(a):
-    # The dial; the quarter hour swept, the hour hand into the square corner.
-    a.lit(disc(26))
-    a.add('<path d="M43 43V20A23 23 0 0 1 66 43Z" fill="{L}"/>')
-    a.add("".join('<circle cx="{:.2f}" cy="{:.2f}" r="1.3" fill="{{T}}"/>'.format(*pt(22, t)) for t in range(0, 360, 30)))
-    (hx, hy), (mx, my) = pt(12, 225), pt(18, 90)
-    a.add(line(f"M43 43L{hx:.2f} {hy:.2f}", w=3.4) + line(f"M43 43L{mx:.2f} {my:.2f}", w=2.4))
-    a.add('<circle cx="43" cy="43" r="2.8" fill="{C}"/>')
-
-
-def calculator(a):
-    # Four keys, each the shape in small; the = key the lighter plane.
-    k = 19.5 / S
-    keys = ((22, 22, "D", "M{0} {1}h7M{2} {3}v7"), (44.5, 22, "H", "M{0} {1}h7"),
-            (22, 44.5, "H", "M{4} {5}l5 5M{6} {5}l-5 5"), (44.5, 44.5, "L", "M{0} {7}h7M{0} {8}h7"))
-    for x, y, tone, sym in keys:
-        a.add(f'<path d="{a.shape(0)}" transform="translate({x} {y}) scale({k:.5f})" fill="{{{tone}}}"/>')
-        cx, cy = x + 9.75, y + 9.75
-        a.add(line(sym.format(cx - 3.5, cy, cx, cy - 3.5, cx - 2.5, cy - 2.5, cx + 2.5, cy - 2, cy + 2), w=2.2))
+    # The dial: the quarter hour swept out to the object's edge, the hour
+    # hand into the square corner.
+    a.fill("D")
+    a.plane("M43 43V0H86V43Z", "L")
+    a.add("".join('<circle cx="{:.2f}" cy="{:.2f}" r="1.5" fill="{{C}}"/>'.format(*pt(21, t))
+                  for t in range(0, 360, 30) if t not in (0, 270)))
+    (hx, hy), (mx, my) = pt(13, 217.5), pt(20, 0)
+    a.add(line(f"M43 43L{hx:.2f} {hy:.2f}", w=3.8) + line(f"M43 43L{mx:.2f} {my:.2f}", w=2.8))
+    a.add('<circle cx="43" cy="43" r="3.4" fill="{C}"/>')
 
 
 def notes(a):
-    # The page: the shape inset, its square corner folded over; two lines.
-    page = a.shape(16)
-    a.lit(page)
-    f = 13.0
-    lo, hi = 16.3, S - 16.3
-    a.add(f'<path d="M{lo - 1} {lo + f}V{lo - 1}H{lo + f}Z" fill="{{C}}"/>')
-    a.add(f'<path d="M{lo} {lo + f}L{lo + f} {lo}V{lo + f}Z" fill="{{L}}"/>')
-    a.add(line(f"M{lo + 9} 38H{hi - 9}M{lo + 9} 47H{hi - 9}M{lo + 9} 56H{hi - 19}"))
-
-
-def gear(teeth, ro, ri, tip, root, c=(C0, C0)):
-    """A gear outline: `teeth` teeth from ri to ro, `tip` and `root` the
-    half-widths of tooth and gap at their radii, in degrees."""
-    step, d = 360.0 / teeth, ""
-    for i in range(teeth):
-        t = i * step - 90
-        for r, ang in ((ri, t - step / 2 + root), (ro, t - tip), (ro, t + tip), (ri, t + step / 2 - root)):
-            x, y = pt(r, ang, c)
-            d += f"{'L' if d else 'M'}{x:.2f} {y:.2f}"
-    return d + "Z"
+    # The page, its square corner folded over, ruled.
+    a.fill("D")
+    f = 14.0
+    a.add(f'<path d="{poly((LO - 1, LO + f + 1.5), (LO - 1, LO - 1), (LO + f + 1.5, LO - 1))}" fill="{{C}}"/>')
+    a.add(f'<path d="{poly((LO, LO + f), (LO + f, LO), (LO + f, LO + f))}" fill="{{L}}"/>')
+    a.clip(line(f"M{LO + 8} 40H{HI - 8}M{LO + 8} 49H{HI - 8}M{LO + 8} 58H{HI - 20}"))
 
 
 def settings(a):
-    # The wheel about the centre, the hub cut out.
-    a.lit(gear(10, 26, 21, 6.5, 4))
-    a.add('<circle cx="43" cy="43" r="9" fill="{C}"/>')
+    # Adjustment: three sliders, each at its own setting.
+    a.fill("D")
+    for y, x in ((30, 52), (43, 32), (56, 45)):
+        a.clip(line(f"M10 {y}H76"))
+        a.add(f'<circle cx="{x}" cy="{y}" r="5.6" fill="{{E}}" stroke="{{C}}" stroke-width="3"/>')
+
+
+def calculator(a):
+    # Four keys: the object quartered by cut gaps; the = key lit.
+    a.fill("D")
+    a.plane("M43 43H86V86H43Z", "L")
+    a.clip(line("M43 0V86M0 43H86", w=3.6, cap="butt"))
+    s = 4.2
+    a.add(line(f"M{31 - s} 31H{31 + s}M31 {31 - s}V{31 + s}M{55 - s} 31H{55 + s}"
+               f"M{31 - s * .75} {55 - s * .75}L{31 + s * .75} {55 + s * .75}M{31 + s * .75} {55 - s * .75}L{31 - s * .75} {55 + s * .75}"
+               f"M{55 - s} 52.5H{55 + s}M{55 - s} 57.5H{55 + s}", w=2.8))
 
 
 def terminal(a):
-    # The screen: the shape inset in the facet; the prompt and a block cursor.
-    a.add(f'<path d="{a.shape(16)}" fill="{{E}}"/>')
-    a.add(line("M28 34 L36 42 L28 50", w=3))
-    a.add(f'<path d="{rrect(41, 47.5, 54, 51, 0.8)}" fill="{{T}}"/>')
+    # A console: the screen dark under a title bar, the prompt and cursor.
+    a.fill("E")
+    a.plane("M0 0H86V27H0Z", "D")
+    a.add(line("M27 37 L35 45 L27 53", w=3.2))
+    a.add(f'<path d="{rrect(40, 50, 54, 54, 1)}" fill="{{T}}"/>')
 
 
 def test(a):
-    # A flask: the glass in the tint, the liquid lit, bubbles cut.
-    flask = "M38.5 21 H47.5 V34 L63 59 Q66.5 66 59 66 H27 Q19.5 66 23 59 L38.5 34 Z"
-    a.add(f'<path d="{flask}" fill="{{T}}"/>')
-    a.plane(flask, "M0 49 Q21.5 45 43 49 T86 49 V86 H0 Z", "D")
-    a.add(f'<path d="{rrect(35, 18, 51, 22, 1.5)}" fill="{{E}}"/>')
-    a.add('<circle cx="37" cy="58" r="2.4" fill="{C}"/><circle cx="47" cy="55" r="1.7" fill="{C}"/>')
+    # A trial: the object is the vessel, the liquid line across it, bubbles.
+    a.fill("T")
+    wave = "M0 46 Q21.5 41 43 46 T86 46"
+    a.plane(wave + "V86H0Z", "D")
+    a.clip(line(wave, w=2.4))
+    a.add('<circle cx="36" cy="60" r="2.8" fill="{C}"/><circle cx="48" cy="56" r="2" fill="{C}"/>'
+          '<circle cx="43" cy="66" r="1.6" fill="{C}"/>')
 
 
 # App: (title, hue, shape, draw), in home grid order. Hues: five category
 # families round the wheel from Marathon teal (172), skipping the olive band;
 # see docs/design/colour-palette.md.
 ICONS = {
-    "phone": ("Phone: a call", 154.0, COMMS, phone),
-    "messages": ("Messages: nested speech bubbles", 172.0, COMMS, messages),
-    "email": ("Mail: an envelope", 190.0, COMMS, email),
+    "phone": ("Phone: a call", 192.0, COMMS, phone),
+    "messages": ("Messages: nested speech bubbles", 154.0, COMMS, messages),
+    "email": ("Mail: an envelope", 172.0, COMMS, email),
     "browser": ("Browser: a globe", 234.0, PLACES, browser),
     "store": ("Store: a bag", 266.0, PLACES, store),
     "music": ("Music: a sound", 320.0, MEDIA, music),

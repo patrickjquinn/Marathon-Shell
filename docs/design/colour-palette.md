@@ -34,7 +34,7 @@ object does; families are far enough apart that categories never blur.
 
 | Family | Shape (square corners) | Hue band | Apps (hue) |
 |---|---|---|---|
-| Communication | bottom left: the bubble's tail | 154–190, on teal | Phone 154, Messages 172, Mail 190 |
+| Communication | bottom left: the bubble's tail | 154–192, on teal | Messages 154, Mail 172, Phone 192 |
 | Places & web | bottom right: the pin's point | 234–266, blue | Browser 234, Maps 250, Store 266 |
 | Media | none: the lens, the disc | 302–338, magenta | Gallery 302, Music 320, Camera 338 |
 | Time & notes | top left: the page's corner | 56–84, amber | Calendar 56, Clock 70, Notes 84 |
@@ -47,31 +47,20 @@ higher lightness (L ≥ 0.75), where it reads lime, not olive.
 ## Tonal ramp
 
 Each hue is used only through one ramp (Material 3's tonal-palette idea:
-fixed hue, set lightness steps), each step a gradient from bottom left to
-top right:
+fixed hue, set lightness steps). Matte: each tone is a soft vertical step
+(top L + 0.03, hue + 4° → bottom L − 0.02), light from above as on BB10's
+icons, never a highlight.
 
-| Tone | L (start → end) | C | Use |
+| Tone | L | C | Use |
 |---|---|---|---|
-| F | 0.62 → 0.80 | 0.18 → 0.14 | icon frame |
-| D | 0.45 → 0.57 | 0.16 | the object |
-| H | 0.51 → 0.63 | 0.155 | the object's lit facet |
-| E | 0.37 → 0.48 | 0.14 | a darker facet |
-| L | 0.56 → 0.68 | 0.15 | a lighter plane |
-| T | 0.80 → 0.88 | 0.09 | a pale tint |
-| C | `#F1EBD3` → `#FCF8EA` | — | the cream face, every icon |
+| F | 0.68 | 0.16 | icon frame |
+| D | 0.50 | 0.15 | the object |
+| E | 0.39 | 0.13 | a darker plane |
+| L | 0.64 | 0.13 | a lighter plane |
+| T | 0.85 | 0.07 | a pale tint |
+| C | `#F7F3E5` → `#EFE9D4` | — | the cream gap and cut-outs, every icon |
 
-The end stop also turns the hue +6° (+15° on the frame), toward the light.
-Hues 45–110 sit 0.09 lighter in D, E, H, L and 0.06 in F, or they go brown.
-
-Swatches at each family's centre (F start → end, D start):
-
-| Family | F | D |
-|---|---|---|
-| Communication (172) | `#019D7E` → `#22D9CC` | `#076450` |
-| Places & web (250) | `#0289EA` → `#9EBDFF` | `#045797` |
-| Media (320) | `#B45BC8` → `#F59AE1` | `#7A2E8B` |
-| Time & notes (70) | `#D0860B` → `#F1BF4E` | `#986106` |
-| Tools & system (15) | `#DD4C62` → `#FFA191` | `#9A1C37` |
+Hues 45–110 sit 0.09 lighter in D, E, L and 0.06 in F, or they go brown.
 
 `scripts/build-app-icons.py` holds the numbers; change them there and
 regenerate.

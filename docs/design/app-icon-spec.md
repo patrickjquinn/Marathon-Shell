@@ -14,16 +14,16 @@ icons. Colours and shapes come from `docs/design/colour-palette.md`.
 |---|---|
 | Canvas | 86 × 86 (`viewBox="0 0 86 86"`), a 0.3 gap per side |
 | Shape | the Sailfish base shape: each corner a quarter circle (r 42.7) or near square (r 1.423) |
-| Category | **the square corners name the app's category** (see below) |
-| Frame | the shape in the hue's frame gradient |
-| Face | the shape inset 8, cream (`#F1EBD3` → `#FCF8EA`), with a faint inner shadow (black 8 %, 3 px, clipped) |
+| Category | the square corners name the app's category (below) |
+| Frame | the shape, in the hue's frame tone |
+| Gap | the shape inset 8, cream |
+| Object | **the shape inset 16**: every object contours its frame, at the same 8 gap |
 | Shell chrome | none: the launcher draws the SVG as is |
 
 ## Category shapes
 
 Jolla's icon story: one base shape "won't fit all icons"; a set of base
 shapes keeps consistency while giving each icon a cue for its purpose.
-Marathon assigns the shape per category:
 
 | Category | Square corners | Cue |
 |---|---|---|
@@ -33,29 +33,39 @@ Marathon assigns the shape per category:
 | Time & notes | top left | the page's corner |
 | Tools & system | top left, bottom right | machined |
 
-## Colour
+## Colour and finish
 
 One hue per icon from its category's family in
-`docs/design/colour-palette.md`, used only through the tonal ramp there
-(frame F, object D with lit facet H, facet E, plane L, tint T, cream face
-C, radial R for glass). Details are cut out in the face's cream.
+`docs/design/colour-palette.md`, through the tonal ramp there. Matte: soft
+vertical tones lit from above; no highlights, glass, facets or shadows.
 
-## Object
+## Metaphor
 
-One flat object on the face, built from the frame: the shape set in
-concentrically (the bubble, envelope, bag, picture, page, screen; Maps' pin
-is the shape turned so its square corner points down), or circles and arcs
-about the centre (globe, aperture, dial, wheel, the bars of a sound). Calculator's keys are the
-shape in small. The square corner is used where the metaphor has one: the
-bubble's tail, the handset bowed into it, the hour hand, the folded page. Objects stay abstract where the app is still clear: a call is a bow and two waves, music five bars, the camera an aperture, a month one marked day.
-Cut-out lines are 2.6 wide with round caps.
+The object is the shape; the metaphor is cut into it in cream or laid in
+its other tones, always clipped to it, and names the app by one structural
+detail rather than a stock glyph (after BB10's icons: the calendar's band,
+the record's grooves, the map's folds):
 
-## Light and depth
+| App | Object |
+|---|---|
+| Phone | a handset cut out, bowed into the tail corner, its voice rings opening |
+| Messages | a bubble inside the bubble, typing dots cut |
+| Mail | the envelope: the flap darker above the cut fold |
+| Browser | a globe's meridian and equator cut through it, a pointer on it |
+| Maps | a folded map in three panels, the heading arrow on it |
+| Store | the shelf: four small apps, one in each category's shape |
+| Music | a record: grooves, the label cut out |
+| Camera | an aperture: six blades round the opening |
+| Gallery | a picture through the round: sky, two hills, the sun |
+| Calendar | the page: a band held by two rings, the days cut, today lit |
+| Clock | a dial: the quarter hour swept to the edge, the hour hand into the square corner |
+| Notes | the page, its square corner folded, ruled |
+| Calculator | quartered by cut gaps into four keys, the = key lit |
+| Settings | three sliders at their settings |
+| Terminal | a console: dark screen under a title bar, prompt and cursor |
+| Test | the shape as the vessel, the liquid line across it, bubbles |
 
-One light, from the top right. Each solid object has a lit facet H
-(0.51, 0.155, h → 0.63, 0.14, h + 6) over its top-right half, split on the
-diagonal through the centre. Under the object sits a contact shadow: its
-silhouette in black at 13 %, dropped 1.5. No other effects.
+Cut-out lines are 3.2 wide with round caps.
 
 ## Output
 
