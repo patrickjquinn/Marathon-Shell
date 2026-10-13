@@ -1,0 +1,35 @@
+From 3ea758882e3814eb58ac88c07bfd7ebfbd7322bf Mon Sep 17 00:00:00 2001
+From: Boyan Karatotev <boyan.karatotev@arm.com>
+Date: Mon, 16 Feb 2026 13:46:09 +0000
+Subject: [PATCH] fix(psci): pass correct arguments to
+ psci_suspend_to_pwrdown_start()
+
+Commit 83ec7e452 incorrectly and inadvertently changed the argument. Put
+it back to how it was.
+
+Change-Id: I5a3efac1dbb5efc5c7b6dfd03f02b61669e3ddf0
+Signed-off-by: Boyan Karatotev <boyan.karatotev@arm.com>
+---
+ lib/psci/psci_suspend.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lib/psci/psci_suspend.c b/lib/psci/psci_suspend.c
+index 522df6f8583..0199d8240c4 100644
+--- a/lib/psci/psci_suspend.c
++++ b/lib/psci/psci_suspend.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
++ * Copyright (c) 2013-2026, Arm Limited and Contributors. All rights reserved.
+  *
+  * SPDX-License-Identifier: BSD-3-Clause
+  */
+@@ -195,7 +195,7 @@ int psci_cpu_suspend_start(unsigned int idx,
+ 
+ 	if (is_power_down_state != 0U) {
+ 		max_off_lvl = psci_find_max_off_lvl(state_info);
+-		psci_suspend_to_pwrdown_start(idx, end_pwrlvl, end_pwrlvl, state_info);
++		psci_suspend_to_pwrdown_start(idx, end_pwrlvl, max_off_lvl, state_info);
+ 	}
+ 
+ #if USE_GIC_DRIVER
