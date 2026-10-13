@@ -1,5 +1,5 @@
 # Marathon fork of pmaports' pinephone-callaudiod. Same source; 0001 waits
-# for the card's source after a profile switch, which PipeWire creates
+# for the selected profile's source after a profile switch, which PipeWire creates
 # asynchronously: upstream took the first source at once, found none, and
 # failed the first switch into call mode with StopIteration. Drop this fork
 # when upstream fixes it.
@@ -7,7 +7,7 @@ maintainer="Patrick Quinn <patrick@jquinn.com>"
 _pkgname=pinephone-callaudiod
 pkgname=$_pkgname-marathon
 pkgver=0.1.3
-pkgrel=0
+pkgrel=1
 pkgdesc="Call audio routing daemon — Marathon fork that waits for the call source"
 url="https://github.com/Arnavion/pinephone-callaudiod"
 arch="noarch"
@@ -41,5 +41,5 @@ package() {
 
 sha512sums="
 ae70947ebb52849b0e5429d0740240986b832975e470bbbe7122c3be5eb25df6b725e44c50cfd33a239219172b9dc344f457e298dec9531791728ff33cf769ee  pinephone-callaudiod-0.1.3.tar.gz
-872e880f9dc2a70acbd7b8fab027177dfbe437e78ae4dad1e092fb858bba86d38135932da197b4bed40889e189b6086b044ade54b22b18baaab352db320bdb48  0001-wait-for-source-after-profile-switch.patch
+8ac0f2d4a58383e0bc2347343b5b398df0cdf48280f9234ce737631d8f72a3943598c8c5bab774cc68423e6a68c3cc684c556f2f92ee3caeba8b2d741f39b1df  0001-wait-for-source-after-profile-switch.patch
 "
