@@ -26,7 +26,7 @@ fn is_app_ref(app_id: &str) -> bool {
 fn stdout_of(cmd: &mut Command) -> String {
     cmd.stderr(Stdio::null())
         .output()
-        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
+        .map(|out| strip_ansi_escapes::strip_str(String::from_utf8_lossy(&out.stdout)))
         .unwrap_or_default()
 }
 
@@ -413,5 +413,14 @@ mod tests {
         assert_eq!(updates("\u{1b}[?25h")["updates"], json!([]));
         let value = installed("\u{1b}[?25h\norg.x.Y\t1.0\tY\n", Path::new("/nonexistent"));
         assert_eq!(value["installed"].as_array().unwrap().len(), 1);
+    }
+
+    /// The escape can arrive glued to the first row; that row is still an app.
+    #[test]
+    fn keeps_a_row_after_a_glued_escape() {
+        let tmp = tempfile::tempdir().unwrap();
+        let output = "\u{1b}[?25horg.x.Y\n";
+        let listing = stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list"));
+        assert_eq!(updates(&listing)["updates"], json!([{ "app_id": "org.x.Y" }]));
     }
 }
