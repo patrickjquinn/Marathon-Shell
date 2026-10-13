@@ -166,7 +166,7 @@
 				backlight = <&panel_bl>;
 
 				timing: panel-timing {
-					clock-frequency = <35000000>;	/* matches ZitaoTech's stock dtbo */
+					clock-frequency = <36832000>;	/* 812 x 756 x 60 Hz; 35 MHz gave 57 Hz */
 					hactive = <720>;
 					hfront-porch = <44>;
 					hsync-len = <2>;

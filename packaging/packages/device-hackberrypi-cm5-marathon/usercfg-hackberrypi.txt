@@ -11,10 +11,14 @@
 # hackberrypi.dts in this aport.
 dtoverlay=hackberrypi
 
-# Free GPIO 14/15 for HyperPixel — the panel uses DPI on those pins,
-# which collides with the BT UART. We disable the BT UART on the
-# HackberryPi build only; vanilla Pi 5 keeps Bluetooth working.
-dtoverlay=disable-bt
+# Bluetooth stays on: the HackberryPi's speakers are a Bluetooth module
+# (MH-M18 + PAM8406, "XWF-M18-M28-M38"). disable-bt doesn't free GPIO
+# 14/15 on a Pi 5 anyway; DPI already has them.
+
+# Stock clocks in the handheld: the Pi 5 base's 2.6 GHz +10 mV boost runs
+# hot behind a 5000 mAh cell with an optional fan.
+arm_freq=2400
+over_voltage_delta=0
 
 # Force the CM5's USB OTG controller into host mode. Without this the
 # internal RP2040 USB-HID BlackBerry keyboard (BBQ10/Q20) never
