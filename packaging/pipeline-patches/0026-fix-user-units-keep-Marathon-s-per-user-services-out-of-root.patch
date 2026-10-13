@@ -1,0 +1,68 @@
+From 4aeea578bd267dc97cbf81b6212b079d04ef3350 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 13 Oct 2026 13:45:11 +0100
+Subject: [PATCH] fix(user-units): keep Marathon's per-user services out of
+ root's session
+
+An SSH login as root started its own systemd --user, which ran the
+Flathub setup, the store refresh timer and a second mmsd-tng against
+the modem. ConditionUser=!root on each, as PipeWire's units have.
+---
+ marathon-extras/marathon-store-refresh.service.template | 1 +
+ marathon-extras/marathon-store-refresh.timer.template   | 1 +
+ mkosi.images/base/mkosi.postinst                        | 8 ++++++++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/marathon-extras/marathon-store-refresh.service.template b/marathon-extras/marathon-store-refresh.service.template
+index d9ff189..47464eb 100644
+--- a/marathon-extras/marathon-store-refresh.service.template
++++ b/marathon-extras/marathon-store-refresh.service.template
+@@ -1,6 +1,7 @@
+ [Unit]
+ Description=Marathon App Store: refresh installed + updates state
+ ConditionPathExists=/usr/bin/flatpak
++ConditionUser=!root
+ 
+ [Service]
+ Type=oneshot
+diff --git a/marathon-extras/marathon-store-refresh.timer.template b/marathon-extras/marathon-store-refresh.timer.template
+index 2680617..6c85dad 100644
+--- a/marathon-extras/marathon-store-refresh.timer.template
++++ b/marathon-extras/marathon-store-refresh.timer.template
+@@ -1,6 +1,7 @@
+ [Unit]
+ Description=Marathon App Store: refresh state every 12h
+ ConditionPathExists=/usr/bin/flatpak
++ConditionUser=!root
+ 
+ [Timer]
+ OnBootSec=2min
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 99b7ca2..01f70e1 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -498,6 +498,7 @@ cat > "$BUILDROOT/usr/lib/systemd/user/marathon-flathub-user-setup.service" <<'E
+ [Unit]
+ Description=Marathon: register Flathub for the user (offline-safe)
+ ConditionPathExists=/usr/share/flatpak/keyrings/flathub.gpg
++ConditionUser=!root
+ 
+ [Service]
+ Type=oneshot
+@@ -511,6 +512,13 @@ mkdir -p "$BUILDROOT/usr/lib/systemd/user/default.target.wants"
+ ln -sf ../marathon-flathub-user-setup.service \
+     "$BUILDROOT/usr/lib/systemd/user/default.target.wants/marathon-flathub-user-setup.service"
+ 
++# mmsd-tng is enabled for every user; an SSH login as root started a second
++# MMS daemon against the modem.
++install -Dm644 /dev/stdin "$BUILDROOT/usr/lib/systemd/user/mmsd-tng.service.d/10-marathon-not-root.conf" <<'EOF'
++[Unit]
++ConditionUser=!root
++EOF
++
+ SYS_HTOP="$BUILDROOT/usr/share/applications/htop.desktop"
+ if [ -f "$SYS_HTOP" ]; then
+     cat > "$SYS_HTOP" <<'EOF'
+-- 
+2.55.0
+
