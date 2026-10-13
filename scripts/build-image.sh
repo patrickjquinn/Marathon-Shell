@@ -126,9 +126,10 @@ build_if_missing() {
     # cache as warm when that exact apk is present.
     if [ -n "$aport_apkbuild" ] && [ -f "$aport_apkbuild" ]; then
         local pkgver pkgrel pkgname expected
-        pkgver=$(grep -E '^pkgver=' "$aport_apkbuild" | head -1 | cut -d= -f2)
-        pkgrel=$(grep -E '^pkgrel=' "$aport_apkbuild" | head -1 | cut -d= -f2)
-        pkgname=$(grep -E '^pkgname=' "$aport_apkbuild" | head -1 | cut -d= -f2)
+        # Sourced, not grepped: pkgname can be built from other variables
+        # (linux-$_flavor-marathon).
+        read -r pkgname pkgver pkgrel < <(set +u; . "$aport_apkbuild" >/dev/null 2>&1
+                                          echo "$pkgname $pkgver $pkgrel")
         if [ -n "$pkgver" ] && [ -n "$pkgrel" ] && [ -n "$pkgname" ]; then
             expected="${pkgname}-${pkgver}-r${pkgrel}.apk"
             if [ -f "$MKOSI_PKG_DIR/$expected" ]; then
