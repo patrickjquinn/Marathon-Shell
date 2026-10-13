@@ -889,7 +889,7 @@ CONFIG_BLK_MQ_STACKING=y
 #
 # IO Schedulers
 #
-# CONFIG_MQ_IOSCHED_DEADLINE is not set
+CONFIG_MQ_IOSCHED_DEADLINE=y
 # CONFIG_MQ_IOSCHED_KYBER is not set
 # CONFIG_IOSCHED_BFQ is not set
 # end of IO Schedulers
