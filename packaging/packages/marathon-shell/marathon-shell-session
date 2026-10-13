@@ -18,6 +18,19 @@ if [ -e /usr/lib/libmimalloc.so.2 ]; then
     export MIMALLOC_ARENA_EAGER_COMMIT=0
 fi
 
+# ---- GStreamer registry ------------------------------------------------------
+#
+# The v4l2 plugins depend on /dev/video*, whose mtimes change every session,
+# so each start rescanned them (probing the camera and decoder) and rewrote
+# the registry: ~280 ms of the PinePhone shell's startup. Skip the check
+# while the registry is newer than the plugin directory; installing or
+# upgrading a plugin updates that directory and re-enables it.
+gst_registry="${XDG_CACHE_HOME:-$HOME/.cache}/gstreamer-1.0/registry.$(uname -m).bin"
+if [ "$gst_registry" -nt /usr/lib/gstreamer-1.0 ]; then
+    export GST_REGISTRY_UPDATE=no
+fi
+unset gst_registry
+
 # ---- Session identity --------------------------------------------------------
 
 export XDG_SESSION_TYPE=wayland
