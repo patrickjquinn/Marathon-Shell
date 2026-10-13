@@ -2188,13 +2188,17 @@ Item {
         id: lockScreenNetworkAgent
     }
 
-    MarathonOOBE {
-        id: oobeWizard
-
-        // The passcode was just entered twice; land on the home screen.
-        onSetupComplete: {
-            Logger.info("Shell", "OOBE setup completed");
-            SessionStore.unlock();
+    // Never needed again once setup is done, so it isn't built.
+    Loader {
+        anchors.fill: parent
+        z: Constants.zIndexModalOverlay
+        active: !SettingsManagerCpp.firstRunComplete
+        sourceComponent: MarathonOOBE {
+            // The passcode was just entered twice; land on the home screen.
+            onSetupComplete: {
+                Logger.info("Shell", "OOBE setup completed");
+                SessionStore.unlock();
+            }
         }
     }
 
