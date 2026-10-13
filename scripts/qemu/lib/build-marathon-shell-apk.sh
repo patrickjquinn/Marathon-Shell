@@ -131,8 +131,8 @@ rsync -a --checksum --no-times /aports-src/ /work/aports/
 mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
 if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
     rsync -a --checksum --no-times --delete \
-          --exclude='.git' --exclude='build' --exclude='build-apps' \
-          --exclude='build-ui' --exclude='.cache' --exclude='packaging' \
+          --exclude='.git' --exclude='/build' --exclude='/build-*' \
+          --exclude='.cache' --exclude='packaging' \
           /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
 else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
