@@ -7,6 +7,9 @@ QtObject {
     id: root
 
     property var service
+    // Keel scales text by the font multiplier, so Keel apps' text follows
+    // Interface size, live.
+    property var settings
 
     property Connections _seed: Connections {
         function onSeedChanged() {
@@ -20,6 +23,14 @@ QtObject {
         target: root.service
     }
 
+    property Connections _settings: Connections {
+        function onUserScaleFactorChanged() {
+            root.apply();
+        }
+
+        target: root.settings
+    }
+
     function buildMap() {
         const scheme = service.light ? 1 : 0;
         const map = {
@@ -29,6 +40,8 @@ QtObject {
         };
         if (service.pixelRatio > 0)
             map["/desktop/sailfish/silica/theme_pixel_ratio"] = service.pixelRatio;
+        if (settings && settings.userScaleFactor > 0)
+            map["/desktop/jolla/theme/font/sizeMultiplier"] = settings.userScaleFactor;
         return map;
     }
 

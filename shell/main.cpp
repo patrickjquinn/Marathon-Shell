@@ -217,7 +217,17 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
 Q_IMPORT_PLUGIN(MarathonInputContextPlugin)
 
+// MARATHON_STARTUP_TIMING=1: milliseconds since process start at each phase.
+static void startupMark(const char *phase) {
+    static const bool on = qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0;
+    if (!on)
+        return;
+    static QElapsedTimer t = [] { QElapsedTimer e; e.start(); return e; }();
+    qInfo().noquote() << "[Startup]" << t.elapsed() << "ms" << phase;
+}
+
 int main(int argc, char *argv[]) {
+    startupMark("main");
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
 
@@ -324,6 +334,7 @@ int main(int argc, char *argv[]) {
     // once the context exists so apps keep their QT_IM_MODULE=wayland.
     qputenv("QT_IM_MODULES", "marathon");
     QGuiApplication app(argc, argv);
+    startupMark("application");
     qunsetenv("QT_IM_MODULES");
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
@@ -569,6 +580,7 @@ int main(int argc, char *argv[]) {
                                                    mpris2Controller);
     qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
 
+    startupMark("stores");
     auto *settingsManager = new SettingsManager(&app);
     qmlRegisterSingletonInstance<SettingsManager>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                   settingsManager);
@@ -666,6 +678,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
+    startupMark("models");
     auto *networkManager = new NetworkManagerCpp(&app);
     qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
                                                     networkManager);
@@ -701,6 +714,7 @@ int main(int argc, char *argv[]) {
                      applyDeviceName);
     QObject::connect(bluetoothManager, &BluetoothManager::availableChanged, bluetoothManager,
                      applyDeviceName);
+    startupMark("system managers");
     auto *locationManager  = new LocationManager(&app);
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
@@ -726,6 +740,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
                                                   securityManager);
 
+    startupMark("sensors, location, security");
     auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
     qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
                                                    appLaunchService);
@@ -936,6 +951,7 @@ int main(int argc, char *argv[]) {
     wordEngine->setEnabled(true);
     qInfo() << "[MarathonShell] Word Engine initialized";
     auto *emojiPredictor = new EmojiPredictor(&app);
+    startupMark("policies and stores");
     qmlRegisterSingletonInstance<EmojiPredictor>("MarathonOS.Shell", 1, 0, "EmojiPredictor",
                                                  emojiPredictor);
     auto *phrasePredictor = new PhrasePredictor(&app);
@@ -946,6 +962,7 @@ int main(int argc, char *argv[]) {
     auto *autoCorrect = new AutoCorrect(dictionary, &app);
     qmlRegisterSingletonInstance<AutoCorrect>("MarathonOS.Shell", 1, 0, "AutoCorrect", autoCorrect);
     auto *languageManager = new LanguageManager(settingsManager, wordEngine, &app);
+    startupMark("keyboard engine");
     qmlRegisterSingletonInstance<LanguageManager>("MarathonOS.Shell", 1, 0, "LanguageManager",
                                                   languageManager);
 
@@ -1194,11 +1211,24 @@ int main(int argc, char *argv[]) {
         },
         Qt::QueuedConnection);
 
+    startupMark("services");
     engine.load(url);
+    startupMark("qml loaded");
 
     if (engine.rootObjects().isEmpty()) {
         qCritical() << "No root QML objects";
         return -1;
+    }
+    for (QObject *root : engine.rootObjects()) {
+        if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+            auto *once = new QMetaObject::Connection;
+            *once = QObject::connect(win, &QQuickWindow::frameSwapped, win, [once] {
+                startupMark("first frame");
+                QObject::disconnect(*once);
+                delete once;
+            });
+            break;
+        }
     }
 
     // The shell's single QQuickWindow is the root object (Main.qml Window).

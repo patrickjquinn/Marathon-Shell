@@ -17,9 +17,15 @@ TestCase {
         function publish(map) { published = map; }
     }
 
+    QtObject {
+        id: fakeSettings
+        property real userScaleFactor: 1.25
+    }
+
     AmbienceController {
         id: controller
         service: fakeService
+        settings: fakeSettings
     }
 
     function test_publishesKeelKeys() {
@@ -45,5 +51,13 @@ TestCase {
         fakeService.pixelRatio = 1.5;
         compare(Ambience.pixelRatio, 1.5);
         fakeService.pixelRatio = 1.25;
+    }
+
+    function test_textFollowsInterfaceSize() {
+        fakeService.seedChanged();
+        compare(fakeService.published["/desktop/jolla/theme/font/sizeMultiplier"], 1.25);
+        fakeSettings.userScaleFactor = 1.5;
+        compare(fakeService.published["/desktop/jolla/theme/font/sizeMultiplier"], 1.5);
+        fakeSettings.userScaleFactor = 1.25;
     }
 }

@@ -248,6 +248,7 @@ Item {
     }
     AmbienceController {
         service: AmbienceService
+        settings: SettingsManagerCpp
     }
     Timer {
         id: screenshotTimer
