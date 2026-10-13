@@ -217,14 +217,14 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
 Q_IMPORT_PLUGIN(MarathonInputContextPlugin)
 
-// MARATHON_STARTUP_TIMING=1: milliseconds since process start at each phase.
-Q_LOGGING_CATEGORY(lcStartup, "marathon.startup")
+// MARATHON_STARTUP_TIMING=1: milliseconds since process start at each phase,
+// to stderr (the journal) so no logging rule or handler buffer can drop it.
 static void startupMark(const char *phase) {
     static const bool on = qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0;
     if (!on)
         return;
     static QElapsedTimer t = [] { QElapsedTimer e; e.start(); return e; }();
-    qCInfo(lcStartup).noquote() << "[Startup]" << t.elapsed() << "ms" << phase;
+    fprintf(stderr, "[Startup] %lld ms %s\n", static_cast<long long>(t.elapsed()), phase);
 }
 
 int main(int argc, char *argv[]) {
