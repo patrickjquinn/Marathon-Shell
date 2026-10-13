@@ -81,10 +81,22 @@ foreach(_mode shell nodbus noshell)
         ENVIRONMENT "${_keel_test_env};KEEL_TEST_MODE=${_mode}" TIMEOUT 120)
 endforeach()
 
+# Direct mode's cover actions (plugin/cpp/coveractions.h) on a private
+# session bus: Silica's bus name, path and _APP_COVER_ACTION value, and only
+# Lipstick triggers.
+find_program(KEEL_SILICA_DBUS_RUN_SESSION dbus-run-session)
+if(KEEL_SILICA_DBUS_RUN_SESSION)
+    qt_add_executable(tst_keel_coveractions shell/tst_coveractions.cpp
+        ../plugin/cpp/coveractions.cpp ../plugin/cpp/coveractions.h)
+    target_include_directories(tst_keel_coveractions PRIVATE ../plugin/cpp)
+    target_link_libraries(tst_keel_coveractions PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
+    add_test(NAME keel_silica_coveractions COMMAND ${KEEL_SILICA_DBUS_RUN_SESSION} --config-file=${KEEL_ISOLATED_BUS_CONFIG} -- $<TARGET_FILE:tst_keel_coveractions>)
+    set_tests_properties(keel_silica_coveractions PROPERTIES ENVIRONMENT "${_keel_test_env}" TIMEOUT 60)
+endif()
+
 # Sailfish.Share on a private session bus: ShareAction against a fake
 # system share dialog (and its clipboard fallback), ShareProvider as a share
 # target.
-find_program(KEEL_SILICA_DBUS_RUN_SESSION dbus-run-session)
 if(KEEL_SILICA_DBUS_RUN_SESSION)
     qt_add_executable(tst_keel_share share/tst_share.cpp)
     target_compile_definitions(tst_keel_share PRIVATE KEEL_QML_DIR="${KEEL_QML_OUTPUT_DIR}")

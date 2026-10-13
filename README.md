@@ -572,7 +572,8 @@ file back.
    b. *Lipstick takes the cover.* Go to the home screen: the app grid shows
       the cover ("Direct"), not a thumbnail of the page; the app logs
       `KEELTEST coverStatus=active`, then `inactive` when it is opened
-      again. A `CoverAction` triggers when tapped. Closing the app from its
+      again. Lipstick draws the cover's `CoverAction` and tapping it triggers it
+      (Lipstick calls the app's org.sailfishos.coveraction name). Closing the app from its
       cover ends it (`closeRequested` in its log).
    c. *Orientation, keyboard, ambience.* Rotating the phone turns the page
       (`deviceOrientation=2` for landscape) and the keyboard opens in the

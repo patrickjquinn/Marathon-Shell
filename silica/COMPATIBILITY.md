@@ -97,7 +97,7 @@ Enum holders that are not rows of their own: `Formatter` (with Format), `Dock` (
 | ComboBox | implemented | Silica's BSD QML (1.2.156). |
 | ContextMenu | implemented | Silica's BSD QML (1.2.156). The dimming-free layer is a compiled Qt 6 shader; on the software scene graph (no shaders) the window above and below the menu's item is shaded instead. |
 | Cover | implemented | `status` follows keel-shell's (or Lipstick's, direct mode) cover exposure, through `Activating` and `Deactivating` (one event-loop turn each); `size` is `Cover.Small` when the compositor gives the cover window a small cover's size, else `Cover.Large`. |
-| CoverAction | implemented | Triggered by taps on the cover window, which keel-shell forwards. |
+| CoverAction | implemented | On the phone (direct mode) Lipstick draws the actions and triggers them over D-Bus, as for Silica's covers (`_APP_COVER_ACTION`, plugin/cpp/coveractions.h); `iconSource` must be a theme icon or a path Lipstick can read. Under keel-shell, triggered by taps on the cover window, which keel-shell forwards. |
 | CoverActionList | implemented | `iconBackground`, `enabled`; `window` accepted but unused. |
 | CoverBackground | implemented | Silica's BSD QML (1.2.156). |
 | CoverPlaceholder | implemented | Silica's BSD QML (1.2.156). `icon.source` resolves against the app's file (bare absolute paths become `file://`), not Keel's `qrc:`; same for `icon` of Button, IconButton, Switch, IconTextSwitch. |

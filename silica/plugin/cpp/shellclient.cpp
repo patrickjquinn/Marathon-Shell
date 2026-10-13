@@ -3,6 +3,7 @@
 
 #include "shellclient.h"
 
+#include "coveractions.h"
 #include "dconfambience.h"
 
 #include <QDBusPendingCallWatcher>
@@ -319,6 +320,8 @@ void ShellClient::tagAppWindow(QWindow *window)
     setWindowProperty(window, QStringLiteral("WINID"), windowLinkId(window));
     setWindowProperty(window, QStringLiteral("BACKGROUND_VISIBLE"), true);
     linkCover(window);
+    if (!m_coverActionValue.isEmpty())
+        setWindowProperty(window, QStringLiteral("_APP_COVER_ACTION"), m_coverActionValue);
 }
 
 void ShellClient::linkCover(QWindow *window)
@@ -331,6 +334,32 @@ void ShellClient::linkCover(QWindow *window)
     setWindowProperty(window, QStringLiteral("SAILFISH_HAVE_COVER"), true);
     setWindowProperty(window, QStringLiteral("SAILFISH_COVER_WINDOW"),
                       QStringLiteral("__winref:%1").arg(windowLinkId(cover)));
+}
+
+void ShellClient::setCoverActions(QObject *object, const QStringList &icons, bool iconBackground)
+{
+    auto *window = qobject_cast<QWindow *>(object);
+    if (!m_direct || !window)
+        return;
+    // One name for the process's cover window, owned from its first action
+    // to the end (Silica keeps its name the same way).
+    if (!m_coverActions && !icons.isEmpty()) {
+        const QString service = CoverActions::serviceName(QCoreApplication::organizationName(),
+                                                          QCoreApplication::applicationName(),
+                                                          QCoreApplication::applicationPid(),
+                                                          windowLinkId(window));
+        m_coverActions = new CoverActions(QDBusConnection::sessionBus(), service, this);
+        connect(m_coverActions, &CoverActions::triggered, this, &ShellClient::coverActionTriggered);
+    }
+    const bool live = m_coverActions && m_coverActions->registered();
+    m_coverActionValue = live ? CoverActions::propertyValue(m_coverActions->service(), icons, iconBackground)
+                              : QString();
+    // Lipstick's switcher reads it from the app's window, not the cover
+    // (Silica sets it there too).
+    for (const QPointer<QWindow> &w : std::as_const(m_appWindows)) {
+        if (w)
+            setWindowProperty(w, QStringLiteral("_APP_COVER_ACTION"), m_coverActionValue);
+    }
 }
 
 bool ShellClient::isCoverWindow(const QObject *object) const

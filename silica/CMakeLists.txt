@@ -110,6 +110,7 @@ qt_add_qml_module(keelplugin
         plugin/cpp/keelplugin.cpp
         plugin/cpp/glyphwarning.cpp
         plugin/cpp/shellclient.cpp plugin/cpp/shellclient.h
+        plugin/cpp/coveractions.cpp plugin/cpp/coveractions.h
         plugin/cpp/dconfambience.cpp plugin/cpp/dconfambience.h
         plugin/cpp/keeldconf.cpp plugin/cpp/keeldconf.h
 )

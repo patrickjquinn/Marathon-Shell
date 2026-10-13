@@ -53,7 +53,12 @@ ApplicationWindow {
             id: coverItem
             onStatusChanged: app.report("coverStatus", status === Cover.Active ? "active" : "inactive")
             Label { anchors.centerIn: parent; text: "Direct" }
-            CoverActionList { CoverAction { iconSource: "image://theme/icon-cover-next" } }
+            CoverActionList {
+                CoverAction {
+                    iconSource: "image://theme/icon-cover-next"
+                    onTriggered: app.report("coverAction", 0)
+                }
+            }
         }
     }
 

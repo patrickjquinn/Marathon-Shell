@@ -108,6 +108,10 @@ Module {
         Property { name: "coverEnabled"; type: "bool"; isReadonly: true }
         Property { name: "ambience"; type: "QVariantMap"; isReadonly: true }
         Signal { name: "closeRequested" }
+        Signal {
+            name: "coverActionTriggered"
+            Parameter { name: "index"; type: "int" }
+        }
         Method {
             name: "connectTo"
             type: "bool"
@@ -127,6 +131,12 @@ Module {
             Parameter { name: "object"; type: "QObject"; isPointer: true }
             Parameter { name: "name"; type: "QString" }
             Parameter { name: "value"; type: "QVariant" }
+        }
+        Method {
+            name: "setCoverActions"
+            Parameter { name: "object"; type: "QObject"; isPointer: true }
+            Parameter { name: "icons"; type: "QStringList" }
+            Parameter { name: "iconBackground"; type: "bool" }
         }
     }
 }

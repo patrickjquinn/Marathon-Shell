@@ -15,6 +15,8 @@ Checks, for any Keel app:
     Qt 5's QDataStream format: WINID, BACKGROUND_VISIBLE (Lipstick draws the
     ambience behind it), SAILFISH_HAVE_COVER and SAILFISH_COVER_WINDOW
     "__winref:<the cover's WINID>"; the cover is not full screen;
+  * the cover's actions are the main window's _APP_COVER_ACTION, as Silica's
+    Qt 5 covers give them to Lipstick (keel/silica/plugin/cpp/coveractions.h);
   * onscreen_visibility Hidden keeps the main window's and the cover's
     surfaces, and showing them again redraws them (Keel's keel-wl-shell
     integration; Qt's own wl-shell destroys a hidden window's surface). The
@@ -26,7 +28,9 @@ Checks, for any Keel app:
 With the test app (harbour-keeldirect, --test-app) also: direct mode was
 chosen by Keel's launcher, the ambience came from dconf, activation follows
 keyboard focus, the cover status follows activation, a press reaches the
-page, and SIGTERM becomes Shell.closeRequested.
+page, SIGTERM becomes Shell.closeRequested, and a cover action is
+triggered over D-Bus by Lipstick (the owner of com.jolla.lipstick) and by
+no one else. The app runs on a private session bus.
 
 With --booster and --invoker the app is launched the way Lipstick launches
 it, `invoker --type=keel APP`, through booster-keel (keel/booster); the test
@@ -174,6 +178,39 @@ def keel_shell_running():
     return False
 
 
+def private_bus(workdir):
+    """A session bus for the app alone: (process, address)."""
+    bus = subprocess.Popen(["dbus-daemon", "--session", "--nofork", "--print-address=1",
+                            "--address=unix:path=%s" % os.path.join(workdir, "bus")],
+                           stdout=subprocess.PIPE, text=True)
+    return bus, bus.stdout.readline().strip()
+
+
+def trigger_cover_action(address, service, index, as_lipstick):
+    """Calls the cover action's trigger(index), owning com.jolla.lipstick
+    when as_lipstick, as Lipstick does when one is tapped. None without
+    PyGObject; else the D-Bus error name, or "" on success."""
+    try:
+        from gi.repository import Gio, GLib
+    except ImportError:
+        return None
+    conn = Gio.DBusConnection.new_for_address_sync(
+        address, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT
+        | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION, None, None)
+    try:
+        if as_lipstick:
+            conn.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                           "RequestName", GLib.Variant("(su)", ("com.jolla.lipstick", 4)),
+                           None, Gio.DBusCallFlags.NONE, 5000, None)
+        conn.call_sync(service, "/" + service.replace(".", "/"), "org.sailfishos.silica.coveraction",
+                       "trigger", GLib.Variant("(i)", (index,)), None, Gio.DBusCallFlags.NONE, 5000, None)
+        return ""
+    except GLib.Error as e:
+        return Gio.DBusError.get_remote_error(e) or e.message
+    finally:
+        conn.close_sync(None)
+
+
 def check(condition, message):
     if not condition:
         raise Failure(message)
@@ -199,6 +236,8 @@ def run(args):
         env.pop(var, None)
     env["XDG_RUNTIME_DIR"] = runtime
     os.environ["XDG_RUNTIME_DIR"] = runtime
+    bus, bus_address = private_bus(workdir)
+    env["DBUS_SESSION_BUS_ADDRESS"] = bus_address
     compositor = Compositor(args.compositor, workdir)
     env["WAYLAND_DISPLAY"] = compositor.socket
     for k in ("KEEL_SHELL", "KEEL_SHELL_DBUS", "QT_WAYLAND_SHELL_INTEGRATION", "DISPLAY",
@@ -321,6 +360,17 @@ def run(args):
               "main window links its cover (SAILFISH_COVER_WINDOW %s)" % link["value"])
         check(not any(e["ev"] == "shell_state" and e["surface"] == cover_id and e["state"] == "fullscreen"
                       for e in compositor.poll()), "cover is not full screen")
+        # Lipstick draws a cover's actions and triggers them over D-Bus; it
+        # reads them from the app's window, as Silica sets them.
+        actions = prop(main_id, "_APP_COVER_ACTION")
+        check(actions["lipstickCompatible"], "_APP_COVER_ACTION decodes as a Qt 5 QString (Lipstick)")
+        fields = actions["value"].split("\n")
+        service = fields[0]
+        check(service.startswith("org.sailfishos.coveraction.") and ".pid%d." % pid in service,
+              "cover actions are served at %s" % service)
+        if args.test_app:
+            check(fields[1:] == ["trigger", "0", "image://theme/icon-cover-next", "0"],
+                  "_APP_COVER_ACTION lists the cover's action as Silica does (%r)" % actions["value"])
 
         # Lipstick hides windows that leave the screen (display off, the
         # switcher) with onscreen_visibility Hidden and shows them again
@@ -443,6 +493,26 @@ def run(args):
             app.wait_report("closeRequested", "true", 5)
             code = app.proc.wait(10)
             check(code == 0, "SIGTERM: closeRequested, then a clean exit (status %d)" % code)
+
+            # A tap on a cover action: Lipstick calls trigger(index).
+            if args.booster:
+                time.sleep(2)
+            app, pid = launch()
+            actions = compositor.wait_for(
+                lambda e: e["ev"] == "property" and e["pid"] == pid and e["name"] == "_APP_COVER_ACTION",
+                args.timeout, "the third run's cover actions")
+            service = actions["value"].split("\n")[0]
+            refused = trigger_cover_action(bus_address, service, 0, as_lipstick=False)
+            if refused is None:
+                print("skip - cover action trigger: no PyGObject (python3-gobject)")
+            else:
+                check(refused == "org.freedesktop.DBus.Error.AccessDenied",
+                      "a cover action is not triggered by anyone but Lipstick (%s)" % refused)
+                check(not app.reports("coverAction"), "the refused call ran no action")
+                check(trigger_cover_action(bus_address, service, 0, as_lipstick=True) == "",
+                      "Lipstick's trigger(0) is answered")
+                app.wait_report("coverAction", "0", 5)
+                print("ok - Lipstick's tap on a cover action runs its onTriggered")
     except Failure:
         if app:
             print("--- app output ---\n" + "\n".join(app.lines[-60:]))
@@ -456,6 +526,8 @@ def run(args):
         if booster:
             booster.stop()
         compositor.stop()
+        bus.terminate()
+        bus.wait(5)
         shutil.rmtree(workdir, ignore_errors=True)
 
 

@@ -18,7 +18,9 @@
 //   activation is the application state (keyboard focus); close requests are
 //   the main window's close event and SIGTERM; the cover status follows the
 //   cover window's visibility and exposure; the ambience is read from dconf
-//   (dconfambience.h).
+//   (dconfambience.h); the cover's actions are the cover window's
+//   _APP_COVER_ACTION, which Lipstick draws and triggers over D-Bus
+//   (coveractions.h).
 // * keel-shell (KEEL_SHELL=1), the opt-in fallback: the client side of the
 //   keel-shell contract (keel/shell/PROTOCOL.md).
 //
@@ -43,6 +45,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 class QScreen;
@@ -106,6 +109,11 @@ public:
     // Direct mode: a Lipstick window property on `object` (a QWindow), for
     // QML (the cover's TRANSPARENT). No-op otherwise.
     Q_INVOKABLE void setLipstickProperty(QObject *object, const QString &name, const QVariant &value) const;
+    // Direct mode: the cover's actions, by icon source; `object` is the
+    // cover window. They go on the app's windows, where Lipstick looks for
+    // them; it draws them on the cover and, when one is tapped,
+    // coverActionTriggered(index) follows. No-op otherwise.
+    Q_INVOKABLE void setCoverActions(QObject *object, const QStringList &icons, bool iconBackground);
 
     // Window property through Qt's platform native interface (Qt Wayland:
     // qt_extended_surface.update_generic_property). False without a
@@ -124,6 +132,7 @@ signals:
     void dpiChanged();
     void ambienceChanged();
     void closeRequested();
+    void coverActionTriggered(int index);
 
 private slots:
     void onOrientationChanged(int degrees);
@@ -158,6 +167,8 @@ private:
     QList<QPointer<QWindow>> m_appWindows;
     QPointer<QScreen> m_screen;
     class DconfAmbience *m_dconf = nullptr;
+    class CoverActions *m_coverActions = nullptr;
+    QString m_coverActionValue;
 
     QDBusConnection m_bus;
     QString m_connectionName;

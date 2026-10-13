@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    29
+Release:    30
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -160,6 +160,9 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Tue Oct 13 2026 Shipwright - 0.1.0-30
+- Cover buttons work on the phone. Lipstick draws a cover's buttons itself and tells the app when one is tapped; Keel apps now give it their buttons the way Silica apps do, so tapping one runs it (Reef's refresh, Messages' mark all read, and the rest) instead of only opening the app. Only the home screen can press them.
+
 * Mon Oct 12 2026 Shipwright - 0.1.0-29
 - Nemo.Configuration can come from Chum's nemo-qml-plugin-configuration-qt6 as well as from Keel's own build. Installing a Keel app on a phone with Chum's plugin no longer offers to remove it (and the Chum apps that need it).
 - The spec explains what the Qt 6.8 requirement does on a phone with Chum's Qt: it holds a Chum Qt 6.9 update back; it never downgrades or removes Qt.

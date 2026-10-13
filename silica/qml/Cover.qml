@@ -5,9 +5,11 @@
 // coverActionArea, size, status, transparent; Cover.Active etc.).
 // Clean-room. Under keel-shell, status follows the shell's CoverStatus
 // (keel/shell/PROTOCOL.md: 1 = cover window exposed), through Activating and
-// Deactivating. Cover actions are drawn
-// in coverActionArea and triggered by taps, which keel-shell forwards to the
-// cover window (PROTOCOL.md section 3; Needs device verification).
+// Deactivating. In direct mode Lipstick draws the cover actions itself and
+// calls back when one is tapped (Shell.setCoverActions, coveractions.h): taps
+// on them never reach the cover window. Under keel-shell they are drawn in
+// coverActionArea and triggered by taps, which keel-shell forwards to the
+// cover window (PROTOCOL.md section 3).
 import QtQuick
 import Keel 1.0
 
@@ -51,6 +53,33 @@ Item {
     }
     readonly property var _actions: _actionList ? _actionList._actionObjects : []
 
+    // Direct mode: the actions go to Lipstick, which draws them over the
+    // cover (with its own background when iconBackground is set).
+    readonly property bool _lipstickDraws: Shell.direct
+    readonly property var _actionIcons: {
+        var icons = []
+        for (var i = 0; i < _actions.length; ++i)
+            icons.push(String(_actions[i].iconSource))
+        return icons
+    }
+    readonly property bool _actionBackground: _actionList !== null && _actionList.iconBackground
+    readonly property var _coverWindow: Window.window
+    function _publishActions() {
+        if (_lipstickDraws && _coverWindow)
+            Shell.setCoverActions(_coverWindow, _actionIcons, _actionBackground)
+    }
+    on_ActionIconsChanged: _publishActions()
+    on_ActionBackgroundChanged: _publishActions()
+    on_CoverWindowChanged: _publishActions()
+    Connections {
+        target: Shell
+        enabled: cover._lipstickDraws
+        function onCoverActionTriggered(index) {
+            if (index >= 0 && index < cover._actions.length)
+                cover._actions[index].trigger()
+        }
+    }
+
     function _collectActionLists() {
         var found = []
         var r = cover.resources
@@ -62,6 +91,7 @@ Item {
     Component.onCompleted: {
         _status = _shown ? Cover.Active : Cover.Inactive
         _collectActionLists()
+        _publishActions()
     }
 
     implicitWidth: Theme.coverSizeLarge.width
@@ -83,7 +113,7 @@ Item {
         height: Math.round(Theme.itemSizeSmall * 1.2)
         Rectangle {
             anchors.fill: parent
-            visible: cover._actionList !== null && cover._actionList.iconBackground
+            visible: !cover._lipstickDraws && cover._actionList !== null && cover._actionList.iconBackground
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
                 GradientStop { position: 1.0; color: Theme.rgba(Theme.highlightDimmerColor, 0.8) }
@@ -91,6 +121,7 @@ Item {
         }
         Row {
             anchors.fill: parent
+            visible: !cover._lipstickDraws
             Repeater {
                 model: cover._actions.length
                 MouseArea {

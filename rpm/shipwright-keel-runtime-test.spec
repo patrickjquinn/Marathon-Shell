@@ -12,7 +12,7 @@
 # Under mb2 the build runs in the checkout (the repository root).
 Name:       shipwright-keel-runtime-test
 Version:    0.1.0
-Release:    4
+Release:    5
 Summary:    Test apps for Keel's runtime on a phone (direct mode, booster, keel-shell)
 License:    MIT
 URL:        https://github.com/patrickjquinn/shipwright-open
@@ -99,6 +99,9 @@ install -D -m 0755 tools/phase0/keel-runtime-test.sh \
 %license LICENSES/MIT.txt
 
 %changelog
+* Tue Oct 13 2026 Shipwright - 0.1.0-5
+- The direct-mode test app's cover button reports when it is tapped.
+
 * Sat Oct 03 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-4
 - Licence: MIT (LICENSING.md).
 
