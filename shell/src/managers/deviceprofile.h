@@ -31,6 +31,7 @@ class DeviceProfile : public QObject {
     Q_PROPERTY(bool panelDither READ panelDither CONSTANT)
     Q_PROPERTY(QString renderNode READ renderNode CONSTANT)
     Q_PROPERTY(QString cpuGovernor READ cpuGovernor CONSTANT)
+    Q_PROPERTY(QString callAudio READ callAudio CONSTANT)
     Q_PROPERTY(qreal brightnessFloor READ brightnessFloor CONSTANT)
     Q_PROPERTY(int runnerWidth READ runnerWidth CONSTANT)
     Q_PROPERTY(int runnerHeight READ runnerHeight CONSTANT)
@@ -69,6 +70,11 @@ class DeviceProfile : public QObject {
     const QString &renderNode() const {
         return m_renderNode;
     }
+    // How calls route audio: "callaudiod" (its D-Bus API) or "ucm-profiles"
+    // (the shell switches the L5 wm8962's UCM profiles itself).
+    const QString &callAudio() const {
+        return m_callAudio;
+    }
     const QString &cpuGovernor() const {
         return m_cpuGovernor;
     }
@@ -100,6 +106,7 @@ class DeviceProfile : public QObject {
     bool    m_panelDither     = true;
     QString m_renderNode      = QStringLiteral("/dev/dri/renderD128");
     QString m_cpuGovernor     = QStringLiteral("ondemand");
+    QString m_callAudio       = QStringLiteral("callaudiod");
     qreal   m_brightnessFloor = 0.28; // L5 panel min visible duty cycle
     // Initial surface size handed to spawned app-runners (their logical
     // app canvas). L5 default 540x1140; the shell forwards these as

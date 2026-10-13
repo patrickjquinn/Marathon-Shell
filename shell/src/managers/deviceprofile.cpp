@@ -123,6 +123,8 @@ void DeviceProfile::load() {
         m_renderNode = s;
     if (conf.value("MARATHON_CPU_GOVERNOR", QStringLiteral("CPU_GOVERNOR"), s))
         m_cpuGovernor = s;
+    if (conf.value("MARATHON_CALL_AUDIO", QStringLiteral("CALL_AUDIO"), s))
+        m_callAudio = s;
 
     if (conf.value("MARATHON_BRIGHTNESS_FLOOR", QStringLiteral("BRIGHTNESS_FLOOR"), s)) {
         bool        ok = false;

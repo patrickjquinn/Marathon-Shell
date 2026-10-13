@@ -1,4 +1,10 @@
 #include "audioroutingmanager.h"
+#include "managers/deviceprofile.h"
+
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
@@ -142,6 +148,28 @@ AudioRoutingManager::~AudioRoutingManager() {
     pw_deinit();
 }
 
+// callaudiod's API (mobian's, and pinephone-callaudiod's on the PinePhone):
+// mode 1 is a call, 0 the default.
+static void callAudiod(const QString &method, const QVariant &arg) {
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.mobian_project.CallAudio"), QStringLiteral("/org/mobian_project/CallAudio"),
+        QStringLiteral("org.mobian_project.CallAudio"), method);
+    msg.setArguments({arg});
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(msg));
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, watcher,
+                     [method](QDBusPendingCallWatcher *w) {
+                         w->deleteLater();
+                         QDBusPendingReply<bool> reply = *w;
+                         if (reply.isError() || !reply.value())
+                             qWarning() << "[AudioRoutingManager] callaudiod" << method << "failed:"
+                                        << reply.error().message();
+                     });
+}
+
+static bool usesCallAudiod() {
+    return DeviceProfile::instance().callAudio() == QLatin1String("callaudiod");
+}
+
 void AudioRoutingManager::startCallAudio() {
     if (m_isInCall) {
         qDebug() << "[AudioRoutingManager] Already in call, ignoring startCallAudio";
@@ -152,6 +180,12 @@ void AudioRoutingManager::startCallAudio() {
 
     m_isInCall = true;
     emit inCallChanged(true);
+
+    if (usesCallAudiod()) {
+        callAudiod(QStringLiteral("SelectMode"), QVariant::fromValue(1u));
+        callAudiod(QStringLiteral("EnableSpeaker"), m_isSpeakerphoneEnabled);
+        return;
+    }
 
     // Direct UCM-profile switch on the L5 wm8962 — no callaudiod indirection.
     // Picks HiFi (Handset1, Handset2) which programs the codec mixer for
@@ -175,7 +209,10 @@ void AudioRoutingManager::stopCallAudio() {
     m_isInCall = false;
     emit inCallChanged(false);
 
-    switchProfile(m_previousProfile.isEmpty() ? "Default" : m_previousProfile);
+    if (usesCallAudiod())
+        callAudiod(QStringLiteral("SelectMode"), QVariant::fromValue(0u));
+    else
+        switchProfile(m_previousProfile.isEmpty() ? "Default" : m_previousProfile);
 
     if (m_isMuted) {
         setMuted(false);
@@ -195,7 +232,9 @@ void AudioRoutingManager::setSpeakerphone(bool enabled) {
     m_isSpeakerphoneEnabled = enabled;
     emit speakerphoneChanged(enabled);
 
-    if (m_isInCall) {
+    if (m_isInCall && usesCallAudiod()) {
+        callAudiod(QStringLiteral("EnableSpeaker"), enabled);
+    } else if (m_isInCall) {
         // Both modes still source the mic from the modem PCM (Handset2);
         // toggle picks earpiece vs loud speaker for the output side.
         switchProfile(enabled ? "Speakerphone" : "VoiceCall");
@@ -212,6 +251,10 @@ void AudioRoutingManager::setMuted(bool muted) {
     m_isMuted = muted;
     emit mutedChanged(muted);
 
+    if (m_isInCall && usesCallAudiod()) {
+        callAudiod(QStringLiteral("MuteMic"), muted);
+        return;
+    }
     runWpctlCommand("wpctl",
                     QStringList() << "set-mute" << "@DEFAULT_SOURCE@" << (muted ? "1" : "0"));
 }

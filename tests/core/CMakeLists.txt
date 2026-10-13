@@ -204,6 +204,16 @@ target_link_libraries(test_core_dbusnormalize Qt6::Test Qt6::Core Qt6::DBus)
 target_include_directories(test_core_dbusnormalize PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
 add_test(NAME Core_DbusNormalize COMMAND test_core_dbusnormalize)
 
+# Call audio routing comes from the device profile
+add_executable(test_core_deviceprofile_callaudio
+    test_deviceprofile_callaudio.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+set_target_properties(test_core_deviceprofile_callaudio PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_deviceprofile_callaudio Qt6::Test Qt6::Core)
+target_include_directories(test_core_deviceprofile_callaudio PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_DeviceProfileCallAudio COMMAND test_core_deviceprofile_callaudio)
+
 # The old auto-lock switch carried into the lock delay
 add_executable(test_core_lockdelaymigration
     test_lockdelaymigration.cpp
