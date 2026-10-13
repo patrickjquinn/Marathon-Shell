@@ -12,7 +12,7 @@ _flavor=postmarketos-allwinner
 _config="config-$_flavor.$CARCH"
 pkgname=linux-$_flavor-marathon
 pkgver=6.18.3_git20260105
-pkgrel=1
+pkgrel=2
 _tag="orange-pi-6.18-20260105-0049"
 pkgdesc="PinePhone kernel — Marathon fork with the A64 watchdog and lockup detection"
 arch="aarch64"
@@ -90,6 +90,15 @@ package() {
 		INSTALL_DTBS_PATH="$pkgdir/boot/dtbs"
 
 	rm -f "$pkgdir"/usr/lib/modules/*/build "$pkgdir"/usr/lib/modules/*/source
+
+	# installkernel is /usr/bin/installkernel, which scripts/install.sh never
+	# looks for, so zinstall fell back to vmlinuz-<ver>. U-Boot boot needs
+	# pmOS's /boot/vmlinuz.
+	if [ ! -e "$pkgdir"/boot/vmlinuz ]; then
+		mv "$pkgdir"/boot/vmlinuz-* "$pkgdir"/boot/vmlinuz
+		mv "$pkgdir"/boot/System.map-* "$pkgdir"/boot/System.map
+		install -Dm644 "$builddir"/.config "$pkgdir"/boot/config
+	fi
 
 	install -D "$builddir"/include/config/kernel.release \
 		"$pkgdir"/usr/share/kernel/"$_flavor"/kernel.release
