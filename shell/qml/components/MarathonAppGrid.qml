@@ -314,14 +314,16 @@ Item {
                     anchors.right: parent.right
                     anchors.topMargin: -4
                     anchors.rightMargin: -4
-                    width: 20
-                    height: 20
-                    radius: 10
+                    height: badgeLabel.font.pixelSize + 8
+                    width: Math.max(height, badgeLabel.implicitWidth + 10)
+                    radius: height / 2
                     color: MColors.marathonTealBright
                     border.width: 2
                     border.color: MColors.elev0
 
                     Text {
+                        id: badgeLabel
+
                         text: badgeOverlay.modelData.count > 9 ? "9+" : badgeOverlay.modelData.count.toString()
                         color: MColors.textOnAccent
                         font.family: MTypography.fontFamily
