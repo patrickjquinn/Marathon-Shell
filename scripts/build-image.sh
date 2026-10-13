@@ -175,7 +175,8 @@ if [ -d "$DEVICE_OVERLAY_APORT" ]; then
     # Forks the overlay depends on (kernel, U-Boot, ...); apk takes them
     # from mkosi.packages in place of the pmaports packages they replace.
     for fork in $(set +u; . "$DEVICE_OVERLAY_APORT/APKBUILD"; echo $depends); do
-        case "$fork" in *-marathon) [ -d "$APORTS_DIR/$fork" ] || continue ;; *) continue ;; esac
+        # A device overlay it depends on (CM5 on Pi 5) has its own builder.
+        case "$fork" in device-*) continue ;; *-marathon) [ -d "$APORTS_DIR/$fork" ] || continue ;; *) continue ;; esac
         APORT="$fork" build_if_missing "$fork" "$fork-*.apk" \
             "$LIB/build-aport-apk.sh" "$APORTS_DIR/$fork/APKBUILD"
     done
