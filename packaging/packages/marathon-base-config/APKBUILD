@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=43
+pkgrel=44
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -196,26 +196,6 @@ PRESET
 
 	# A foreign resolv.conf at boot gets imported by resolved as a global DNS server.
 	ln -sf ../run/systemd/resolve/stub-resolv.conf "$pkgdir/etc/resolv.conf"
-
-	# wireplumber drop-in: disable the BlueZ + BLE-MIDI monitors. The CM5
-	# uses dtoverlay=disable-bt (the on-SoC bluetooth is wired to the GPIO
-	# pins HyperPixel needs), so bluez-daemon never runs and the monitor
-	# logs "BlueZ system service is not available" on every wireplumber
-	# start. monitor.bluez=disabled silences it cleanly. Per
-	# pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/bluetooth.html
-	install -dm755 "$pkgdir/etc/wireplumber/wireplumber.conf.d"
-	cat > "$pkgdir/etc/wireplumber/wireplumber.conf.d/10-marathon-no-bluez.conf" <<'EOF'
-# Marathon: disable BlueZ + BLE-MIDI monitors. We boot with
-# dtoverlay=disable-bt on Pi 5 / CM5 — no bluez daemon ever runs and
-# without this drop-in wireplumber spams "BlueZ system service is not
-# available" on every shell session.
-wireplumber.profiles = {
-  main = {
-    monitor.bluez = disabled
-    monitor.bluez-midi = disabled
-  }
-}
-EOF
 
 	# plymouth-quit.service drop-in: hold the splash visible for 4s.
 	# plymouth-quit fires when multi-user.target is reached (well before
