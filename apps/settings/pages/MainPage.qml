@@ -127,6 +127,8 @@ Page {
                 title: qsTr("Settings")
             }
             SearchField {
+                id: searchField
+
                 objectName: "searchField"
                 width: parent.width
                 placeholderText: qsTr("Search settings")
@@ -192,6 +194,9 @@ Page {
 
         ViewPlaceholder {
             objectName: "noResults"
+            // Under the search field: centring in the window put it over the
+            // field once the keyboard shrank the page.
+            y: searchField.y + searchField.height + Theme.paddingLarge * 2
             enabled: page.searching && page.results.length === 0
             text: qsTr("No matching settings")
             hintText: qsTr("Try another word, like Wi-Fi, volume or PIN")

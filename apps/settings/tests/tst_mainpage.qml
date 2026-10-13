@@ -117,6 +117,19 @@ TestCase {
         verify(findChild(page, "airplaneSwitch").visible);
     }
 
+    function test_noResultsSitsBelowSearchField() {
+        const app = makeApp();
+        const page = app.pageStack.currentPage;
+        const field = findChild(page, "searchField");
+        app.height = 520; // the keyboard takes the lower part of the window
+        field.text = "nothing like this";
+        wait(50);
+        const placeholder = findChild(page, "noResults");
+        const fieldBottom = field.mapToItem(page, 0, field.height).y;
+        verify(placeholder.mapToItem(page, 0, 0).y >= fieldBottom,
+               "placeholder top " + placeholder.mapToItem(page, 0, 0).y + " overlaps search field bottom " + fieldBottom);
+    }
+
     function test_terminalLaunchesApp() {
         const app = makeApp();
         entry(app, "terminal").clicked(null);
