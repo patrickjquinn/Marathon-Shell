@@ -42,15 +42,17 @@ if grep -qsE '^PCI_ID=1AF4:1050' /sys/bus/pci/devices/*/uevent 2>/dev/null; then
 fi
 
 if [ -z "${QT_QPA_PLATFORM:-}" ]; then
-    # eglfs+eglfs_kms_atomic is the right combo on both real phone hardware
-    # and on QEMU virtio-gpu — Qt has no standalone "kms" platform plugin.
-    # Atomic modeset (vs legacy eglfs_kms) gives us: atomic property
+    # eglfs + eglfs_kms with atomic modeset, on phone hardware and QEMU
+    # virtio-gpu alike. Qt 6 has no eglfs_kms_atomic integration (asking for
+    # it falls back to legacy eglfs_kms); atomic is QT_QPA_EGLFS_KMS_ATOMIC.
+    # Atomic modeset gives us: atomic property
     # setting (no mid-frame flicker), hardware plane composition (L5's
     # DSI controller has overlay planes for status bar / keyboard / lock),
     # smoother page-flip timing required by commit-timing-v1, and is a
     # prerequisite for drm-syncobj explicit-sync.
     export QT_QPA_PLATFORM=eglfs
-    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms_atomic
+    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+    export QT_QPA_EGLFS_KMS_ATOMIC=1
     export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
     # Marathon is touch-first — no system cursor needed. Without
     # HIDECURSOR, eglfs polls a (non-existent on phone hardware) DRM
