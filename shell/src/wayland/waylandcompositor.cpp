@@ -411,6 +411,10 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.remove("DISPLAY");
 
     const bool isRunner = actualCommand.contains("marathon-app-runner");
+    // The shell turns Qt's file selectors off for itself and its runner;
+    // other Qt apps may ship +locale or +platform variants.
+    if (!isRunner)
+        env.remove("QT_NO_BUILTIN_SELECTORS");
 
     qint64     timestamp   = QDateTime::currentMSecsSinceEpoch();
     uint       commandHash = qHash(actualCommand);
