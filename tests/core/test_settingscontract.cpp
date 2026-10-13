@@ -72,6 +72,7 @@ namespace {
         {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
         {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
         {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
+        {"vibrationEnabled", {"shell/qml/components/VirtualKeyboard.qml", "SettingsManagerCpp.vibrationEnabled"}},
         // The setter applies it through timedated.
         {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
         {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
