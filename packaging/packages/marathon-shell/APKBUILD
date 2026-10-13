@@ -8,6 +8,7 @@ url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 depends="
+	mimalloc2
 	qt6-qtbase
 	qt6-qtbase-sqlite
 	qt6-qtdeclarative

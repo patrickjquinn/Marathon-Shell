@@ -5,6 +5,19 @@
 # environment, picks the right QPA backend for the target hardware, and
 # execs the shell binary.
 
+# ---- Allocator ---------------------------------------------------------------
+#
+# musl's malloc is slow for QML's allocation-heavy object creation: on the
+# PinePhone mimalloc cut the shell's QML load from 7.0 s to 5.3 s and first
+# frame from 10.4 s to 8.5 s. Purging freed memory at once and committing
+# arenas lazily keeps the cost to +16 MB RSS (+51 MB untuned). Apps inherit
+# it (bwrap passes the environment and binds /usr).
+if [ -e /usr/lib/libmimalloc.so.2 ]; then
+    export LD_PRELOAD="/usr/lib/libmimalloc.so.2${LD_PRELOAD:+:$LD_PRELOAD}"
+    export MIMALLOC_PURGE_DELAY=0
+    export MIMALLOC_ARENA_EAGER_COMMIT=0
+fi
+
 # ---- Session identity --------------------------------------------------------
 
 export XDG_SESSION_TYPE=wayland
