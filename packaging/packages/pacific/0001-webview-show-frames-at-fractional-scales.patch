@@ -1,0 +1,19 @@
+Pacific's WebView waited for a frame exactly as wide as the view before
+drawing anything. At a fractional content scale WebKit's frames come out
+a pixel narrower, so on the PinePhone (scale 1.75) no page was ever shown.
+
+--- a/shoal/pacific/webview/src/pacificwebview.cpp
++++ b/shoal/pacific/webview/src/pacificwebview.cpp
+@@ -1303,7 +1303,11 @@
+     // Nothing until WebKit has drawn at the view's width once: a first frame
+     // at another size would show as a band across the top.
+     if (!m_sizedFrameSeen) {
+-        if (frameSize.isEmpty() || frameSize.width() != physicalSize().width())
++        // WebKit sizes its frames from the CSS size, rounded, times the
++        // scale: at a fractional scale (1.75 at 270 DPI) a 720 px view gets
++        // 719 px frames. Accept that rounding, or nothing is ever shown.
++        const int slack = static_cast<int>(std::ceil(effectiveContentScale()));
++        if (frameSize.isEmpty() || std::abs(frameSize.width() - physicalSize().width()) > slack)
+             return node;
+         m_sizedFrameSeen = true;
+     }

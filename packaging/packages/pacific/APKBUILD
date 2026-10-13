@@ -7,7 +7,7 @@
 # Atlantic engine) are left out; pacific-env gives the engine its environment.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=0
+pkgrel=1
 _commit=22b61cc161e78a9d61e8d1e1fae2f29a03e4b62a
 pkgdesc="Pacific web browser for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -30,6 +30,7 @@ makedepends="
 	libwpebackend-fdo-dev
 	mesa-dev
 	ninja
+	patchelf
 	qt6-qtbase-dev
 	qt6-qtbase-private-dev
 	qt6-qtdeclarative-dev
@@ -43,6 +44,7 @@ source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-op
 	pacific-env
 	shipwright-pacific.desktop
 	org.shipwright.pacific.ui.service
+	0001-webview-show-frames-at-fractional-scales.patch
 	"
 builddir="$srcdir/shipwright-open-$_commit"
 options="!check net"
@@ -76,6 +78,10 @@ package() {
 	DESTDIR="$pkgdir" cmake --install build-webview
 
 	install -Dm755 "$out/libshipwright_pacific.so" "$pkgdir/usr/bin/$app"
+	# The app library is executable through a PT_INTERP that Keel's link
+	# script (tools/keel-launcher/link_sailfishapp.rs) hardcodes to glibc's
+	# ld-linux; on musl the kernel then reports "file not found".
+	patchelf --set-interpreter /lib/ld-musl-$CARCH.so.1 "$pkgdir/usr/bin/$app"
 	install -Dm755 "$srcdir/pacific-env" "$pkgdir/usr/libexec/pacific/pacific-env"
 	install -d "$pkgdir/usr/share/$app"
 	cp -r shoal/pacific/ui/qml "$pkgdir/usr/share/$app/qml"
