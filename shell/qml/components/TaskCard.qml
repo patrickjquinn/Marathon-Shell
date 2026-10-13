@@ -525,7 +525,7 @@ Item {
                     id: bannerIcon
                     anchors.verticalCenter: parent.verticalCenter
                     source: taskCard.icon
-                    size: Theme.iconSizeMedium
+                    size: Theme.iconSizeSmall
                 }
 
                 Column {
@@ -545,15 +545,15 @@ Item {
                     id: closeButtonContainer
 
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Theme.itemSizeExtraSmall
-                    height: Theme.itemSizeExtraSmall
+                    width: Theme.iconSizeSmall
+                    height: Theme.iconSizeSmall
 
                     Rectangle {
                         id: closeButtonRect
 
                         anchors.centerIn: parent
-                        width: Theme.itemSizeExtraSmall
-                        height: Theme.itemSizeExtraSmall
+                        width: Theme.iconSizeSmall
+                        height: Theme.iconSizeSmall
                         color: "transparent"
 
                         Accessible.role: Accessible.Button
@@ -573,7 +573,7 @@ Item {
                             id: closeButtonArea
 
                             anchors.fill: parent
-                            anchors.margins: -16
+                            anchors.margins: -Theme.paddingLarge
                             z: 1000
                             preventStealing: true
                             onPressed: mouse => {
