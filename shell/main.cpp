@@ -1222,12 +1222,8 @@ int main(int argc, char *argv[]) {
     }
     for (QObject *root : engine.rootObjects()) {
         if (auto *win = qobject_cast<QQuickWindow *>(root)) {
-            auto *once = new QMetaObject::Connection;
-            *once = QObject::connect(win, &QQuickWindow::frameSwapped, win, [once] {
-                startupMark("first frame");
-                QObject::disconnect(*once);
-                delete once;
-            });
+            QObject::connect(win, &QQuickWindow::frameSwapped, win,
+                             [] { startupMark("first frame"); }, Qt::SingleShotConnection);
             break;
         }
     }
