@@ -102,6 +102,12 @@ function(add_marathon_app APP_NAME)
     get_filename_component(ABS_FILE "${QML_FILE}" ABSOLUTE)
     file(RELATIVE_PATH REL_FILE "${CMAKE_CURRENT_SOURCE_DIR}" "${ABS_FILE}")
     list(APPEND RELATIVE_QML_FILES "${REL_FILE}")
+    # Scripts are imported by relative path from the app's own QML. Listed in
+    # the qmldir, an app that imports its own module by name (Music, Maps)
+    # resolves them next to the installed qmldir, where only the plugin is.
+    if(REL_FILE MATCHES "\\.(js|mjs)$")
+      set_source_files_properties("${REL_FILE}" PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
+    endif()
   endforeach()
 
   if(ARG_SOURCES)
