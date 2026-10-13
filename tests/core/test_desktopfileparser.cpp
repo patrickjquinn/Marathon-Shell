@@ -25,6 +25,25 @@ class TestDesktopFileParser : public QObject {
 
   private slots:
 
+    // === CONTRACT: terminals and daemons stay off the filtered grid ===
+
+    void devToolsAreFilteredOut() {
+        QTemporaryDir dir;
+        // The entries foot, htop and alacritty install on postmarketOS.
+        const QStringList hidden{"foot", "footclient", "foot-server", "htop", "Alacritty"};
+        for (const QString &id : hidden)
+            writeFile(dir.path() + "/" + id + ".desktop",
+                      basicDesktop(id, id, "Categories=System;TerminalEmulator;Mobile;"));
+        writeFile(dir.path() + "/org.gnome.Calls.desktop", basicDesktop("Calls", "gnome-calls"));
+
+        DesktopFileParser  parser;
+        const QVariantList apps = parser.scanApplications({dir.path()}, true);
+        QStringList        ids;
+        for (const QVariant &v : apps)
+            ids << v.toMap().value("id").toString();
+        QCOMPARE(ids, QStringList{"org.gnome.Calls"});
+    }
+
     // === CONTRACT: Valid .desktop file produces correct fields ===
 
     void parsesValidDesktopFile() {

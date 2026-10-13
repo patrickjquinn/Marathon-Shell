@@ -421,7 +421,7 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
     static const QSet<QString> kHiddenDevTools{
         "alacritty",
         "foot",
-        "foot-client",
+        "footclient",
         "foot-server",
         "htop",
         "btop",
