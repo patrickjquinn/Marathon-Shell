@@ -1,4 +1,5 @@
 #include "shellipcclients.h"
+#include "dbusnormalize.h"
 
 #include <ctime>
 
@@ -24,64 +25,6 @@ static bool isAccessDenied(const QDBusError &e) {
 static bool debugEnabled() {
     const QByteArray v = qgetenv("MARATHON_DEBUG").trimmed().toLower();
     return v == "1" || v == "true";
-}
-
-static QVariant     normalizeDbusVariantDeep(QVariant v);
-
-static QVariantList normalizeListDeep(const QVariantList &in) {
-    QVariantList out;
-    out.reserve(in.size());
-    for (const QVariant &it : in)
-        out.push_back(normalizeDbusVariantDeep(it));
-    return out;
-}
-
-static QVariantMap normalizeMapDeep(const QVariantMap &in) {
-    QVariantMap out;
-    for (auto it = in.constBegin(); it != in.constEnd(); ++it)
-        out.insert(it.key(), normalizeDbusVariantDeep(it.value()));
-    return out;
-}
-
-static QVariant normalizeDbusVariantDeep(QVariant v) {
-
-    if (v.canConvert<QDBusVariant>())
-        v = v.value<QDBusVariant>().variant();
-
-    if (v.userType() == qMetaTypeId<QDBusArgument>()) {
-
-        const QVariantMap asMap = qdbus_cast<QVariantMap>(v);
-        if (!asMap.isEmpty())
-            return normalizeMapDeep(asMap);
-
-        const QVariantList asList = qdbus_cast<QVariantList>(v);
-        if (!asList.isEmpty())
-            return normalizeListDeep(asList);
-
-        return v;
-    }
-
-    if (v.metaType().id() == QMetaType::QVariantList)
-        return normalizeListDeep(v.toList());
-    if (v.metaType().id() == QMetaType::QVariantMap)
-        return normalizeMapDeep(v.toMap());
-
-    return v;
-}
-
-static QVariantList unwrapDbusVariantList(const QVariant &v) {
-
-    QVariantList raw;
-    if (v.canConvert<QDBusVariant>()) {
-        raw = unwrapDbusVariantList(v.value<QDBusVariant>().variant());
-        return raw;
-    }
-    if (v.userType() == qMetaTypeId<QDBusArgument>()) {
-        raw = qdbus_cast<QVariantList>(v);
-    } else {
-        raw = v.toList();
-    }
-    return normalizeListDeep(raw);
 }
 
 static QDBusInterface makePermissionsIface(QObject *parent) {

@@ -183,6 +183,7 @@ find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
 add_executable(test_core_settingscontract
     test_settingscontract.cpp
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
 )
 target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
@@ -192,6 +193,16 @@ target_include_directories(test_core_settingscontract PRIVATE
 )
 target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
+
+# D-Bus reply containers normalize without demarshalling the wrong type
+add_executable(test_core_dbusnormalize
+    test_dbusnormalize.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+)
+set_target_properties(test_core_dbusnormalize PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_dbusnormalize Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_core_dbusnormalize PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
+add_test(NAME Core_DbusNormalize COMMAND test_core_dbusnormalize)
 
 # The old auto-lock switch carried into the lock delay
 add_executable(test_core_lockdelaymigration

@@ -23,6 +23,7 @@ set(SOURCES
     platformtypes.cpp
     wallpaperclient.cpp
     ipc/shellipcclients.cpp
+    ipc/dbusnormalize.cpp
     calendarmanagercpp.cpp
     ../../marathon-services/src/musiclibrarymanager.cpp
 )
