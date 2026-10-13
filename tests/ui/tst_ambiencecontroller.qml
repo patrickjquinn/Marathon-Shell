@@ -60,4 +60,9 @@ TestCase {
         compare(fakeService.published["/desktop/jolla/theme/font/sizeMultiplier"], 1.5);
         fakeSettings.userScaleFactor = 1.25;
     }
+
+    function test_timeFormatForKeel() {
+        compare(controller.keelTimeFormat("24h"), "24");
+        compare(controller.keelTimeFormat("12h"), "12");
+    }
 }
