@@ -1,0 +1,45 @@
+--- a/pinephone-callaudiod
++++ b/pinephone-callaudiod
+@@ -3,6 +3,7 @@
+ import enum
+ import json
+ import subprocess
++import time
+ import typing
+ 
+ import dasbus.connection
+@@ -66,6 +67,17 @@
+ 			if not source_name.endswith('.monitor'):
+ 				yield source_name
+ 
++	@staticmethod
++	def first_source() -> str:
++		# A profile switch recreates the card's nodes asynchronously, so the
++		# new profile's source can take a moment to appear.
++		for _ in range(50):
++			source = next(Pactl.list_sources(), None)
++			if source is not None:
++				return source
++			time.sleep(0.1)
++		raise RuntimeError('no source after switching profile')
++
+ class PulseAudioState:
+ 	def __init__(self):
+ 		main_card_name = None
+@@ -94,14 +106,14 @@
+ 	@property
+ 	def main_card_hifi_source_name(self) -> str:
+ 		if self.__main_card_hifi_source_name is None:
+-			self.__main_card_hifi_source_name = next(Pactl.list_sources())
++			self.__main_card_hifi_source_name = Pactl.first_source()
+ 
+ 		return self.__main_card_hifi_source_name
+ 
+ 	@property
+ 	def main_card_voice_call_source_name(self) -> str:
+ 		if self.__main_card_voice_call_source_name is None:
+-			self.__main_card_voice_call_source_name = next(Pactl.list_sources())
++			self.__main_card_voice_call_source_name = Pactl.first_source()
+ 
+ 		return self.__main_card_voice_call_source_name
+ 
