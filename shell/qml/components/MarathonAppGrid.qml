@@ -24,6 +24,24 @@ Item {
         var remaining = appModel.count - startIndex;
         return Math.max(0, Math.min(remaining, itemsPerPage));
     }
+    // Unread counts for this page's apps, as {index, count}. Only badged
+    // icons get an overlay.
+    readonly property var badges: {
+        const notifications = NotificationService.notifications;
+        if (!appModel || !SettingsManagerCpp.showNotificationBadges || notifications.length === 0)
+            return [];
+        const out = [];
+        for (let i = 0; i < pageItemCount; ++i) {
+            const app = appModel.getAppAtIndex(startIndex + i);
+            const count = app ? NotificationService.getNotificationCountForApp(app.id) : 0;
+            if (count > 0)
+                out.push({
+                    "index": i,
+                    "count": count
+                });
+        }
+        return out;
+    }
 
     signal appLaunched(var app)
     signal longPress(var app, rect sceneRect)
@@ -222,8 +240,8 @@ Item {
     component IconOverlay: Item {
         id: overlay
 
-        required property int index
-        readonly property IconCell cell: iconRepeater.count > index ? iconRepeater.itemAt(index) as IconCell : null
+        property int cellIndex: -1
+        readonly property IconCell cell: cellIndex >= 0 && iconRepeater.count > cellIndex ? iconRepeater.itemAt(cellIndex) as IconCell : null
         default property alias content: iconArea.data
 
         x: cell ? cell.x : 0
@@ -282,12 +300,14 @@ Item {
         anchors.fill: iconGrid
 
         Repeater {
-            model: appGrid.pageItemCount
+            model: appGrid.badges
 
             IconOverlay {
                 id: badgeOverlay
 
-                readonly property var appData: cell ? cell.appData : null
+                required property var modelData
+
+                cellIndex: modelData.index
 
                 Rectangle {
                     anchors.top: parent.top
@@ -300,21 +320,9 @@ Item {
                     color: MColors.marathonTealBright
                     border.width: 2
                     border.color: MColors.elev0
-                    visible: {
-                        if (!badgeOverlay.appData || !SettingsManagerCpp.showNotificationBadges)
-                            return false;
-
-                        return NotificationService.getNotificationCountForApp(badgeOverlay.appData.id) > 0;
-                    }
 
                     Text {
-                        text: {
-                            if (!badgeOverlay.appData)
-                                return "";
-
-                            var count = NotificationService.getNotificationCountForApp(badgeOverlay.appData.id);
-                            return count > 9 ? "9+" : count.toString();
-                        }
+                        text: badgeOverlay.modelData.count > 9 ? "9+" : badgeOverlay.modelData.count.toString()
                         color: MColors.textOnAccent
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeEyebrow
