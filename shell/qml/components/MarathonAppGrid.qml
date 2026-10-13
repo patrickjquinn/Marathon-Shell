@@ -255,13 +255,14 @@ Item {
         id: iconGrid
 
         anchors.fill: parent
-        anchors.margins: 10
+        anchors.topMargin: 10
+        // The page margin every app and the dock use, so the outer columns
+        // line up with the rest of the UI instead of running to the edges.
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin
         anchors.bottomMargin: Constants.bottomBarHeight + 12
         columns: appGrid.columns
         rows: appGrid.rows
-        // Tighter inter-cell spacing for higher density per user direction
-        // — 8 px keeps icons legible while fitting 6 rows × 4 cols on
-        // phone canvases without clipping.
         spacing: Math.round(8 * (Constants.scaleFactor || 1.0))
 
         Repeater {
