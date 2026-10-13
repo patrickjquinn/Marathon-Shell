@@ -1,0 +1,14 @@
+Link libintl: on musl it isn't part of libc, and WebKit calls
+bindtextdomain. From Alpine's wpewebkit aport (af2b80f), rebased on 2.54.
+
+--- a/Source/WebKit/CMakeLists.txt
++++ b/Source/WebKit/CMakeLists.txt
+@@ -825,6 +825,8 @@ if (ATOMICS_REQUIRE_LIBATOMIC)
+     list(APPEND WebKit_PRIVATE_LIBRARIES atomic)
+ endif ()
+ 
++list(APPEND WebKit_PRIVATE_LIBRARIES intl)
++
+ set(WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS)
+ 
+ set(WebKit_INTERFACE_LIBRARIES WebKit)

@@ -1,0 +1,114 @@
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+# WPE WebKit for Pacific, Marathon's browser. Alpine dropped wpewebkit in
+# 2025; this follows its last recipe and webkit2gtk-6.0's, at the version
+# and feature set Pacific's engine uses (shoal/pacific/engine/build/
+# atlantic-wpe-features.cmake), on stock upstream sources.
+pkgname=wpewebkit
+pkgver=2.54.0
+pkgrel=0
+pkgdesc="WebKit port optimized for embedded devices"
+url="https://wpewebkit.org/"
+arch="aarch64 x86_64"
+license="LGPL-2.0-or-later AND BSD-2-Clause"
+depends="bubblewrap xdg-dbus-proxy"
+makedepends="
+	clang
+	cmake
+	enchant2-dev
+	gperf
+	gst-plugins-bad-dev
+	gst-plugins-base-dev
+	harfbuzz-dev
+	libavif-dev
+	libdrm-dev
+	libepoxy-dev
+	libgcrypt-dev
+	libjxl-dev
+	libnice-dev
+	libseccomp-dev
+	libsoup3-dev
+	libtasn1-dev
+	libwebp-dev
+	libwpe-dev
+	libwpebackend-fdo-dev
+	libxkbcommon-dev
+	lld
+	llvm
+	mesa-dev
+	ninja
+	openssl-dev
+	perl
+	ruby
+	unifdef
+	wayland-dev
+	wayland-protocols
+	woff2-dev
+	"
+subpackages="$pkgname-dev"
+source="https://wpewebkit.org/releases/wpewebkit-$pkgver.tar.xz
+	gettext.patch
+	"
+options="!check"
+
+build() {
+	export CC=clang
+	export CXX=clang++
+	export AR=llvm-ar
+	export NM=llvm-nm
+	export RANLIB=llvm-ranlib
+	export LDFLAGS="$LDFLAGS -fuse-ld=lld"
+	# Alpine builds with _FORTIFY_SOURCE, which WebKit trips: a failed check
+	# traps, and the WebProcess died with SIGTRAP on every page load.
+	# webkit2gtk-6.0 disables it on every arch for the same reason.
+	export CFLAGS="$CFLAGS -g0 -U_FORTIFY_SOURCE"
+	export CXXFLAGS="$CXXFLAGS -g0 -U_FORTIFY_SOURCE"
+
+	cmake -B build -G Ninja \
+		-DPORT=WPE \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_SKIP_RPATH=ON \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DENABLE_WPE_LEGACY_API=ON \
+		-DENABLE_WPE_PLATFORM=OFF \
+		-DENABLE_GPU_PROCESS=OFF \
+		-DENABLE_DOCUMENTATION=OFF \
+		-DENABLE_INTROSPECTION=OFF \
+		-DENABLE_JOURNALD_LOG=OFF \
+		-DENABLE_MINIBROWSER=OFF \
+		-DENABLE_WEBDRIVER=OFF \
+		-DENABLE_SAMPLING_PROFILER=OFF \
+		-DENABLE_SPEECH_SYNTHESIS=OFF \
+		-DENABLE_SPELLCHECK=ON \
+		-DENABLE_BUBBLEWRAP_SANDBOX=ON \
+		-DENABLE_VIDEO=ON \
+		-DENABLE_WEB_AUDIO=ON \
+		-DENABLE_MEDIA_SOURCE=ON \
+		-DENABLE_MEDIA_STREAM=ON \
+		-DENABLE_WEB_RTC=ON \
+		-DUSE_GSTREAMER_WEBRTC=ON \
+		-DENABLE_ENCRYPTED_MEDIA=OFF \
+		-DENABLE_GEOLOCATION=ON \
+		-DENABLE_DEVICE_ORIENTATION=ON \
+		-DENABLE_GAMEPAD=OFF \
+		-DENABLE_XSLT=OFF \
+		-DUSE_ATK=OFF \
+		-DUSE_LCMS=OFF \
+		-DUSE_LIBHYPHEN=OFF \
+		-DUSE_OPENJPEG=OFF \
+		-DUSE_LIBBACKTRACE=OFF \
+		-DUSE_SYSTEM_SYSPROF_CAPTURE=OFF \
+		-DUSE_WOFF2=ON \
+		-DUSE_AVIF=ON
+	# WebCore's unified sources take ~2 GB a clang job; ninja would run nproc+2.
+	cmake --build build --parallel "${WPE_BUILD_JOBS:-6}"
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+
+sha512sums="
+844e6faad4b7fa3c62d76eee17f0f4681899a1d64b1e46d5d25cedfafd731e88248733a43c4c55e9e20f746927c284db0b9b0dca3cc40f6a32d90f963f1395af  wpewebkit-2.54.0.tar.xz
+26f30d09037b11f1196273b0fcdb392d52d1f86dc8595ec8a6470198750b5915ead7f74a7e3bda5d6955237d49212e6d38fe98db427fbbd441bde6ee7bc85f3c  gettext.patch
+"
