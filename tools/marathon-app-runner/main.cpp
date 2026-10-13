@@ -1233,7 +1233,9 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("AlarmService", new AlarmClient(&app));
     if (hasPerm("system"))
         ctx->setContextProperty("UpdateService", new UpdateClient(&app));
-    if (hasPerm("storage"))
+    // The shell's Dav1 gates on "system"; with "storage" every app's client
+    // was refused at launch.
+    if (hasPerm("system"))
         ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
     if (hasPerm("system"))
         ctx->setContextProperty("AppStoreService", new AppStoreClient(&app));
