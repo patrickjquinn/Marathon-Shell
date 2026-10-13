@@ -4,7 +4,7 @@
 pkgname=device-pine64-pinephone-marathon
 pkgdesc="PINE64 PinePhone device package for Marathon OS"
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -16,6 +16,7 @@ options="!check !archcheck"
 # pstore; TF-A >= 2.14.3), built by scripts/build-image.sh.
 depends="
 	device-pine64-pinephone
+	device-pine64-pinephone-audio
 	linux-postmarketos-allwinner-marathon
 	u-boot-pinephone-marathon
 	marathon-shell
@@ -56,6 +57,6 @@ package() {
 sha512sums="
 cb4ae7fb9259b803c1adb79e378397649ca2cd35c0b1e6c33d0f30fa20ae45a018e5209840eed57dfc6d3fb21a07a503b5a5776c358ee5347b80bf9a3e36677a  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-351e1800e4631a33db9be08b619cfa5d73b88cdf40e89d85952f39c707ba5a6447cfbd2b95089847a5d085f8c5f3f5498f1509ae91d62623cd8ba39531c35403  device-profile.conf
+b81113aa5036c4c1751ba1124d2974ad0422dbf8edd53a96ba514b1b3a61a8c61b355fe1948321ef4d687089fb8925e963dd66e00c32cb054719590cb793896d  device-profile.conf
 e52c281fb3e043502fa0d6ced696dd78b95a74ccce1947d8d90d9bf6ad93d34f17113bb7dfabca8549b3b4504b10ec81cc0bb38b03fc3d4800ee8f9431839935  marathon-boot.cmd
 "
