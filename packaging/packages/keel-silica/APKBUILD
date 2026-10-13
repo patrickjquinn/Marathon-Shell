@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=4
+pkgrel=5
 _commit=55e956d7e87ffc32ae617c3ec6deb2c0550717bc
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
@@ -9,6 +9,7 @@ url="https://github.com/patrickjquinn/shipwright-open"
 arch="aarch64"
 license="MIT AND BSD-3-Clause AND LGPL-2.1-only"
 depends="qt6-qtdeclarative~$_qtver mlite dconf"
+subpackages="$pkgname-dev"
 makedepends="
 	cargo
 	cmake

@@ -106,12 +106,13 @@ else
     echo "WARNING: qmf-*.apk not found under /local-apks — Mail backend will be skipped"
 fi
 
-KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-*.apk 2>/dev/null | tail -1 || true)"
+KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-[0-9]*.apk 2>/dev/null | tail -1 || true)"
+KEEL_SILICA_DEV_APK="$(ls -1v /local-apks/keel-silica-dev-*.apk 2>/dev/null | tail -1 || true)"
 if [ -z "$KEEL_SILICA_APK" ]; then
     echo "error: keel-silica-*.apk not found under /local-apks (run build-keel-silica-apk.sh)" >&2
     exit 1
 fi
-apk add --no-cache --quiet --allow-untrusted "$KEEL_SILICA_APK"
+apk add --no-cache --quiet --allow-untrusted "$KEEL_SILICA_APK" $KEEL_SILICA_DEV_APK
 echo "keel-silica installed from $KEEL_SILICA_APK"
 
 mkdir -p /root/.abuild

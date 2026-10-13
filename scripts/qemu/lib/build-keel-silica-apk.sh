@@ -56,6 +56,7 @@ cd /work/aports/keel-silica
 abuild -d -F
 
 cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
+cp "/root/packages/aports/aarch64/${TARGET/keel-silica-/keel-silica-dev-}" /out/
 echo "wrote /out/${TARGET}"
 CSCRIPT
 
