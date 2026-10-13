@@ -240,7 +240,7 @@ pub fn installed(listing: &str, icons: &Path) -> Value {
         .lines()
         .filter_map(|line| {
             let mut cols = line.splitn(3, '\t');
-            let app_id = cols.next().filter(|id| !id.is_empty())?;
+            let app_id = cols.next().filter(|id| REF_RE.is_match(id))?;
             let version = cols.next().unwrap_or_default();
             let name = cols.next().unwrap_or_default();
             Some(json!({
@@ -257,7 +257,7 @@ pub fn installed(listing: &str, icons: &Path) -> Value {
 pub fn updates(listing: &str) -> Value {
     let apps: Vec<Value> = listing
         .split_whitespace()
-        .filter(|app| is_app_ref(app))
+        .filter(|app| is_app_ref(app) && REF_RE.is_match(app))
         .map(|app| json!({ "app_id": app }))
         .collect();
     json!({ "updates": apps, "ts": now() })
@@ -405,5 +405,13 @@ mod tests {
             .map(|u| u["app_id"].as_str().unwrap())
             .collect();
         assert_eq!(ids, ["org.x.Y", "org.c.D"]);
+    }
+
+    /// Offline, flatpak prints only terminal escapes; they are not apps.
+    #[test]
+    fn ignores_terminal_escapes() {
+        assert_eq!(updates("\u{1b}[?25h")["updates"], json!([]));
+        let value = installed("\u{1b}[?25h\norg.x.Y\t1.0\tY\n", Path::new("/nonexistent"));
+        assert_eq!(value["installed"].as_array().unwrap().len(), 1);
     }
 }
