@@ -231,6 +231,9 @@ int main(int argc, char *argv[]) {
     startupMark("main");
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
+    // QQmlApplicationEngine's file selector probes every URL for +locale and
+    // +platform variants; nothing ships any.
+    qputenv("QT_NO_BUILTIN_SELECTORS", "1");
 
     // Curved-edge AA via geometry where FBO MSAA is unavailable. Etnaviv
     // (GC7000Lite) hides MSAA renderbuffers — without this Shape strokes,
