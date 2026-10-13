@@ -78,9 +78,9 @@ class LocationManager : public QObject {
     void            createClient();
     void            updateLocation(const QString &locationPath);
 
-    QDBusInterface *m_manager;
-    QDBusInterface *m_client;
     QString         m_clientPath;
+    bool            m_creatingClient = false;
+    bool            m_startWanted    = false;
     bool            m_available;
     bool            m_active;
     double          m_latitude;

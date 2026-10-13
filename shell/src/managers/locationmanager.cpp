@@ -1,5 +1,8 @@
 #include "locationmanager.h"
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QDBusReply>
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
@@ -22,10 +25,20 @@ const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp 
     return argument; // NOLINT(bugprone-return-const-ref-from-parameter)
 }
 
+static const QString kGeoclue = QStringLiteral("org.freedesktop.GeoClue2");
+
+// Every GeoClue call is async: the service is bus-activated and, with no
+// Wi-Fi or SIM, takes up to 90 s to come up. A QDBusInterface would
+// introspect it synchronously and freeze the shell for the D-Bus timeout.
+static QDBusPendingCall geoclueCall(const QString &path, const QString &iface,
+                                    const QString &method, const QVariantList &args = {}) {
+    QDBusMessage msg = QDBusMessage::createMethodCall(kGeoclue, path, iface, method);
+    msg.setArguments(args);
+    return QDBusConnection::systemBus().asyncCall(msg);
+}
+
 LocationManager::LocationManager(QObject *parent)
     : QObject(parent)
-    , m_manager(nullptr)
-    , m_client(nullptr)
     , m_available(false)
     , m_active(false)
     , m_latitude(0.0)
@@ -35,8 +48,6 @@ LocationManager::LocationManager(QObject *parent)
     , m_speed(0.0)
     , m_heading(0.0)
     , m_timestamp(0) {
-    qDebug() << "[LocationManager] Initializing";
-
     qRegisterMetaType<GeoClueTimestamp>("GeoClueTimestamp");
     qDBusRegisterMetaType<GeoClueTimestamp>();
 
@@ -47,114 +58,93 @@ LocationManager::~LocationManager() {
     if (m_active) {
         stop();
     }
-    // m_client and m_manager are parented to this; Qt will delete them
 }
 
 void LocationManager::connectToGeoclue() {
-    qDebug() << "[LocationManager] Connecting to Geoclue2";
-
-    m_manager =
-        new QDBusInterface("org.freedesktop.GeoClue2", "/org/freedesktop/GeoClue2/Manager",
-                           "org.freedesktop.GeoClue2.Manager", QDBusConnection::systemBus(), this);
-
-    if (!m_manager->isValid()) {
-        qDebug() << "[LocationManager] Geoclue2 not available:" << m_manager->lastError().message();
-        m_available = false;
-        emit availableChanged();
+    auto *bus = QDBusConnection::systemBus().interface();
+    m_available = bus && (bus->isServiceRegistered(kGeoclue).value() ||
+                          bus->activatableServiceNames().value().contains(kGeoclue));
+    emit availableChanged();
+    if (!m_available) {
+        qDebug() << "[LocationManager] Geoclue2 not available";
         return;
     }
-
-    qInfo() << "[LocationManager] Connected to Geoclue2";
-    m_available = true;
-    emit availableChanged();
-
+    m_startWanted = true;
     createClient();
 }
 
 void LocationManager::createClient() {
-    if (!m_manager || !m_manager->isValid()) {
+    if (!m_available || m_creatingClient || !m_clientPath.isEmpty())
         return;
-    }
+    m_creatingClient = true;
 
-    qDebug() << "[LocationManager] Creating client asynchronously...";
-
-    QDBusPendingCall         asyncCall = m_manager->asyncCall("GetClient");
-    QDBusPendingCallWatcher *watcher   = new QDBusPendingCallWatcher(asyncCall, this);
-
+    auto *watcher = new QDBusPendingCallWatcher(
+        geoclueCall("/org/freedesktop/GeoClue2/Manager", "org.freedesktop.GeoClue2.Manager",
+                    "GetClient"),
+        this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [this](QDBusPendingCallWatcher *call) {
+                call->deleteLater();
+                m_creatingClient = false;
                 QDBusPendingReply<QDBusObjectPath> reply = *call;
                 if (reply.isError()) {
                     qWarning() << "[LocationManager] Failed to create client:"
                                << reply.error().message();
                     emit error("Failed to create location client");
-                } else {
-                    m_clientPath = reply.value().path();
-                    qDebug() << "[LocationManager] Client created:" << m_clientPath;
-
-                    m_client = new QDBusInterface("org.freedesktop.GeoClue2", m_clientPath,
-                                                  "org.freedesktop.GeoClue2.Client",
-                                                  QDBusConnection::systemBus(), this);
-
-                    if (!m_client->isValid()) {
-                        qWarning() << "[LocationManager] Client interface invalid";
-                    } else {
-
-                        m_client->setProperty("DesktopId", "org.marathon.Shell");
-
-                        m_client->setProperty("RequestedAccuracyLevel", 8);
-
-                        QDBusConnection::systemBus().connect(
-                            "org.freedesktop.GeoClue2", m_clientPath,
-                            "org.freedesktop.GeoClue2.Client", "LocationUpdated", this,
-                            SLOT(onLocationUpdated(QDBusObjectPath, QDBusObjectPath)));
-
-                        qInfo() << "[LocationManager] Client configured and ready";
-
-                        start();
-                    }
+                    return;
                 }
-                call->deleteLater();
+                m_clientPath = reply.value().path();
+
+                const QString props = QStringLiteral("org.freedesktop.DBus.Properties");
+                const QString client = QStringLiteral("org.freedesktop.GeoClue2.Client");
+                geoclueCall(m_clientPath, props, "Set",
+                            {client, QStringLiteral("DesktopId"),
+                             QVariant::fromValue(QDBusVariant(QStringLiteral("org.marathon.Shell")))});
+                geoclueCall(m_clientPath, props, "Set",
+                            {client, QStringLiteral("RequestedAccuracyLevel"),
+                             QVariant::fromValue(QDBusVariant(8u))});
+                QDBusConnection::systemBus().connect(
+                    kGeoclue, m_clientPath, client, "LocationUpdated", this,
+                    SLOT(onLocationUpdated(QDBusObjectPath, QDBusObjectPath)));
+
+                if (m_startWanted)
+                    start();
             });
 }
 
 void LocationManager::start() {
-    if (!m_client || !m_client->isValid() || m_active) {
+    if (m_active)
+        return;
+    m_startWanted = true;
+    if (m_clientPath.isEmpty()) {
+        createClient();
         return;
     }
 
-    qInfo() << "[LocationManager] Starting location updates";
-
-    QDBusPendingCall         asyncCall = m_client->asyncCall("Start");
-    QDBusPendingCallWatcher *watcher   = new QDBusPendingCallWatcher(asyncCall, this);
-
+    auto *watcher = new QDBusPendingCallWatcher(
+        geoclueCall(m_clientPath, "org.freedesktop.GeoClue2.Client", "Start"), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [this](QDBusPendingCallWatcher *call) {
+                call->deleteLater();
                 QDBusPendingReply<void> reply = *call;
                 if (reply.isError()) {
                     qWarning() << "[LocationManager] Failed to start:" << reply.error().message();
                     emit error("Failed to start location updates");
-                } else {
-                    m_active = true;
-                    emit activeChanged();
-                    qInfo() << "[LocationManager] Location updates started";
+                    return;
                 }
-                call->deleteLater();
+                m_active = true;
+                emit activeChanged();
             });
 }
 
 void LocationManager::stop() {
-    if (!m_client || !m_client->isValid() || !m_active) {
+    m_startWanted = false;
+    if (m_clientPath.isEmpty() || !m_active)
         return;
-    }
 
-    qInfo() << "[LocationManager] Stopping location updates";
-
-    m_client->asyncCall("Stop");
+    geoclueCall(m_clientPath, "org.freedesktop.GeoClue2.Client", "Stop");
     m_active = false;
     emit activeChanged();
-
-    qInfo() << "[LocationManager] Location updates stopped";
 }
 
 void LocationManager::onLocationUpdated(const QDBusObjectPath &oldLocation,
