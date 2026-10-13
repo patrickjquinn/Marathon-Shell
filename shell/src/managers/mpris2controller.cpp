@@ -544,7 +544,7 @@ QStringList MPRIS2Controller::extractMetadataStringList(const QVariantMap &metad
             return value.toStringList();
         }
 
-        if (value.canConvert<QDBusVariant>()) {
+        if (value.userType() == qMetaTypeId<QDBusVariant>()) {
             QDBusVariant dbusVar    = value.value<QDBusVariant>();
             QVariant     innerValue = dbusVar.variant();
             if (innerValue.canConvert<QStringList>()) {

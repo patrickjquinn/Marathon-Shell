@@ -104,7 +104,7 @@ static QByteArray dbusByteArrayFromVariant(const QVariant &v) {
         return out;
     }
 
-    if (v.canConvert<QDBusVariant>())
+    if (v.userType() == qMetaTypeId<QDBusVariant>())
         return dbusByteArrayFromVariant(v.value<QDBusVariant>().variant());
 
     return {};
