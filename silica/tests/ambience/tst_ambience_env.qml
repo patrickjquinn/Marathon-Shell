@@ -47,4 +47,22 @@ TestCase {
         Ambience.applyForwarded("")
         compare(Theme.colorScheme, Theme.DarkOnLight)
     }
+
+    // Settings > Display > Text size (dconf font/sizeCategory) scales
+    // Theme.fontSize* as Silica does; the Base sizes stay. Pixel ratio 2 here.
+    function test_text_size() {
+        compare(Theme.fontSizeMediumBase, 64)
+        compare(Theme.fontSizeMedium, 64)
+        var spy = Qt.createQmlObject("import QtTest 1.0; SignalSpy { signalName: 'fontSizeMediumChanged' }", this)
+        spy.target = Theme
+        Ambience.applyForwarded("/desktop/jolla/theme/font/sizeCategory='huge'\n")
+        verify(spy.count > 0)
+        compare(Ambience.fontSizeCategory, 2)
+        compare(Theme.fontSizeMedium, 80)    // 64 x 60/48
+        compare(Theme.fontSizeTiny, 51)      // 40 x 38/30
+        compare(Theme.fontSizeHuge, 139)     // 128 x 104/96
+        compare(Theme.fontSizeMediumBase, 64)
+        Ambience.applyForwarded("")
+        compare(Theme.fontSizeMedium, 64)
+    }
 }

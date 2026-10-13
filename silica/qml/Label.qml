@@ -55,7 +55,7 @@ Private.SilicaText {
                              && KeelQuick.GraphicsInfo.api !== KeelQuick.GraphicsInfo.Software // Modified by Shipwright for Qt 6: no shaders on the software scene graph
     property bool _elideText: truncationMode == TruncationMode.Elide
                               || (truncationMode == TruncationMode.Fade && KeelQuick.GraphicsInfo.api === KeelQuick.GraphicsInfo.Software) // Modified by Shipwright for Qt 6: elided where no shader can fade it (tested before lineCount, which eliding changes)
-                              || (truncationMode == TruncationMode.Fade && lineCount > 1)
+                              || (truncationMode == TruncationMode.Fade && (wrapMode !== Text.NoWrap && maximumLineCount > 1 ? true : lineCount > 1)) // Modified by Shipwright for Qt 6: a wrapping label that may take more than one line elides from its settings, not its lineCount, which eliding changes during this binding (a binding loop)
 
     elide: _elideText ? (horizontalAlignment == Text.AlignLeft
                          ? Text.ElideRight

@@ -73,7 +73,14 @@ SilicaControl {
     property Item _descriptionLabel
     property real _preferredHeight: page && page.isLandscape ? Theme.itemSizeSmall : Theme.itemSizeLarge
     property Item _navigateForwardMouseArea
-    property int _minimumTopMargin: (page && page.orientation == Orientation.Portrait)
+    // Modified by Shipwright for Qt 6: until the page is found (a header
+    // inside a list's header item is found late, see onCompleted), the
+    // window's orientation decides, so the title starts clear of the camera
+    // cut-out and does not move down after the list has been laid out.
+    property int _minimumTopMargin: ((page ? page.orientation
+                                           : (typeof __silica_applicationwindow_instance !== "undefined" && __silica_applicationwindow_instance
+                                              ? __silica_applicationwindow_instance.orientation : Orientation.Portrait))
+                                     == Orientation.Portrait)
                                     ? KeelSilica.Screen.topCutout.height : 0
 
     onDescriptionChanged: {
@@ -103,6 +110,13 @@ SilicaControl {
     Component.onCompleted: {
         if (!page) {
             page = Util.findPage(pageHeader)
+            // Modified by Shipwright for Qt 6: a header inside a list's
+            // header item (a Column with the PageHeader and more) is
+            // completed before the list adopts it, so no page is found yet
+            // and the title ignored the camera cut-out. Look again once it
+            // is placed.
+            if (!page)
+                Qt.callLater(function() { if (!pageHeader.page) pageHeader.page = Util.findPage(pageHeader) })
         }
     }
 

@@ -70,13 +70,13 @@ class KeelTheme : public QObject
     Q_PROPERTY(int fontSizeLargeBase READ fontSizeLargeBase NOTIFY fontSizeLargeBaseChanged FINAL)
     Q_PROPERTY(int fontSizeExtraLargeBase READ fontSizeExtraLargeBase NOTIFY fontSizeExtraLargeBaseChanged FINAL)
     Q_PROPERTY(int fontSizeHugeBase READ fontSizeHugeBase NOTIFY fontSizeHugeBaseChanged FINAL)
-    Q_PROPERTY(int fontSizeTiny READ fontSizeTinyBase NOTIFY fontSizeTinyChanged FINAL)
-    Q_PROPERTY(int fontSizeExtraSmall READ fontSizeExtraSmallBase NOTIFY fontSizeExtraSmallChanged FINAL)
-    Q_PROPERTY(int fontSizeSmall READ fontSizeSmallBase NOTIFY fontSizeSmallChanged FINAL)
-    Q_PROPERTY(int fontSizeMedium READ fontSizeMediumBase NOTIFY fontSizeMediumChanged FINAL)
-    Q_PROPERTY(int fontSizeLarge READ fontSizeLargeBase NOTIFY fontSizeLargeChanged FINAL)
-    Q_PROPERTY(int fontSizeExtraLarge READ fontSizeExtraLargeBase NOTIFY fontSizeExtraLargeChanged FINAL)
-    Q_PROPERTY(int fontSizeHuge READ fontSizeHugeBase NOTIFY fontSizeHugeChanged FINAL)
+    Q_PROPERTY(int fontSizeTiny READ fontSizeTiny NOTIFY fontSizeTinyChanged FINAL)
+    Q_PROPERTY(int fontSizeExtraSmall READ fontSizeExtraSmall NOTIFY fontSizeExtraSmallChanged FINAL)
+    Q_PROPERTY(int fontSizeSmall READ fontSizeSmall NOTIFY fontSizeSmallChanged FINAL)
+    Q_PROPERTY(int fontSizeMedium READ fontSizeMedium NOTIFY fontSizeMediumChanged FINAL)
+    Q_PROPERTY(int fontSizeLarge READ fontSizeLarge NOTIFY fontSizeLargeChanged FINAL)
+    Q_PROPERTY(int fontSizeExtraLarge READ fontSizeExtraLarge NOTIFY fontSizeExtraLargeChanged FINAL)
+    Q_PROPERTY(int fontSizeHuge READ fontSizeHuge NOTIFY fontSizeHugeChanged FINAL)
 
     // Geometry
     Q_PROPERTY(qreal pixelRatio READ pixelRatio NOTIFY pixelRatioChanged FINAL)
@@ -161,6 +161,15 @@ public:
     int fontSizeLargeBase() const { return jsRound(40 * m_pixelRatio); }
     int fontSizeExtraLargeBase() const { return measured() ? 76 : jsRound(50 * m_pixelRatio); }
     int fontSizeHugeBase() const { return jsRound(64 * m_pixelRatio); }
+    // At the person's text size (Settings > Display > Text size), as Silica:
+    // Keel.Ambience scales the Base sizes (plugin/src/config.rs).
+    int fontSizeTiny() const { return m_fontSizes[0]; }
+    int fontSizeExtraSmall() const { return m_fontSizes[1]; }
+    int fontSizeSmall() const { return m_fontSizes[2]; }
+    int fontSizeMedium() const { return m_fontSizes[3]; }
+    int fontSizeLarge() const { return m_fontSizes[4]; }
+    int fontSizeExtraLarge() const { return m_fontSizes[5]; }
+    int fontSizeHuge() const { return m_fontSizes[6]; }
 
     qreal pixelRatio() const { return m_pixelRatio; }
     qreal paddingSmall() const { return measured() ? 10 : jsRound(6 * m_pixelRatio); }
@@ -336,6 +345,7 @@ private:
     QString m_fontFamilyHeading;
     QString m_backgroundImage;
     qreal m_pixelRatio = 1.0;
+    int m_fontSizes[7] = {};
     bool m_phoneScreen = true;
     qreal m_screenWidth = 540;
 };

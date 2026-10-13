@@ -21,6 +21,33 @@ TestCase {
         compare(S.Screen.topCutout.height, 66)
     }
 
+    // A PageHeader inside a list's header item (a Column with the header and
+    // more) keeps its title below the cut-out from its first layout: it used
+    // to find its page only after the list had placed it, start in the
+    // cut-out and then grow, leaving the title scrolled under the top.
+    function test_page_header_in_list_header_clears_the_cutout() {
+        var w = Qt.createQmlObject(
+            "import QtQuick; import QtQuick.Window; import Sailfish.Silica 1.0\n"
+            + "Window { width: 1032; height: 2272; visible: true\n"
+            + "  property alias app: app\n"
+            + "  ApplicationWindow { id: app; anchors.fill: parent; initialPage: Component { Page {\n"
+            + "    SilicaListView { anchors.fill: parent; model: 3; delegate: Label { text: 'row' }\n"
+            + "      header: Column { width: parent.width\n"
+            + "        PageHeader { objectName: 'header'; title: 'Spelling languages'\n"
+            + "          property real lowest: 1e9\n"
+            + "          Component.onCompleted: lowest = Math.min(lowest, topMargin)\n"
+            + "          onTopMarginChanged: lowest = Math.min(lowest, topMargin) }\n"
+            + "        Label { width: parent.width; wrapMode: Text.Wrap; text: 'Words are checked against these languages.' } } } } } } }", this)
+        tryVerify(function() { return w.app.pageStack.currentPage && !w.app.pageStack.busy })
+        var header = findChild(w.app.pageStack.currentPage, "header")
+        verify(header, "the header is there")
+        tryVerify(function() { return header.page !== null && header.page !== undefined }, 2000, "it found its page")
+        verify(header.lowest >= S.Screen.topCutout.height, "the title never started in the cut-out (" + header.lowest + ")")
+        var title = header.mapToItem(w.app.pageStack.currentPage, 0, header.topMargin)
+        verify(title.y >= S.Screen.topCutout.height, "the title is below the cut-out on the page (" + title.y + ")")
+        w.destroy()
+    }
+
     function test_rounded_corners() {
         compare(S.Screen.topLeftCorner.radius, 35)
         compare(S.Screen.topLeftCorner.x, 35)

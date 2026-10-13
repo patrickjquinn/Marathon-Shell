@@ -34,6 +34,10 @@ pub mod qobject {
         #[qproperty(QString, font_family_heading, cxx_name = "fontFamilyHeading", READ, NOTIFY = ambience_changed)]
         #[qproperty(QString, ambience_name, cxx_name = "ambienceName", READ, NOTIFY = ambience_changed)]
         #[qproperty(QString, source, READ, NOTIFY = ambience_changed)]
+        /// Settings > Display > Text size: 0 normal to 3 gigantic.
+        #[qproperty(i32, font_size_category, cxx_name = "fontSizeCategory", READ, NOTIFY = ambience_changed)]
+        /// A text size multiplier set in dconf instead; 0 when unset.
+        #[qproperty(f64, font_size_multiplier, cxx_name = "fontSizeMultiplier", READ, NOTIFY = ambience_changed)]
         type Ambience = super::AmbienceRust;
 
         /// Emitted whenever any ambience value changes.
@@ -67,6 +71,12 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "highlightDimmerFromColor"]
         fn highlight_dimmer_from_color(&self, color: &QString, scheme: i32) -> QString;
+
+        /// `Theme.fontSize*` at the person's text size, from
+        /// `Theme.fontSize*Base` (`slot` 0 Tiny to 6 Huge), as Silica.
+        #[qinvokable]
+        #[cxx_name = "scaledFontSize"]
+        fn scaled_font_size(&self, base: i32, slot: i32) -> i32;
     }
 }
 
@@ -93,6 +103,8 @@ pub struct AmbienceRust {
     font_family_heading: QString,
     ambience_name: QString,
     source: QString,
+    font_size_category: i32,
+    font_size_multiplier: f64,
     /// The values last stored, so `refresh()` only notifies on a change.
     resolved: Option<Resolved>,
 
@@ -137,6 +149,10 @@ impl AmbienceRust {
         self.font_family = QString::from(r.font_family.as_str());
         self.font_family_heading = QString::from(r.font_family_heading.as_str());
         self.ambience_name = QString::from(r.ambience_name.as_str());
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        let category = r.font_size_category as i32;
+        self.font_size_category = category;
+        self.font_size_multiplier = r.font_size_multiplier;
         true
     }
 
@@ -168,6 +184,8 @@ impl Default for AmbienceRust {
             font_family_heading: QString::default(),
             ambience_name: QString::default(),
             source: QString::default(),
+            font_size_category: 0,
+            font_size_multiplier: 0.0,
             resolved: None,
             forwarded,
             runtime: Layer::default(),
@@ -210,6 +228,13 @@ impl qobject::Ambience {
         let layer = Layer::from_lines(&lines.to_string());
         self.as_mut().rust_mut().runtime = layer;
         self.refresh();
+    }
+
+    pub fn scaled_font_size(&self, base: i32, slot: i32) -> i32 {
+        match (&self.resolved, usize::try_from(slot)) {
+            (Some(r), Ok(slot)) => r.scaled_font_size(base, slot),
+            _ => base,
+        }
     }
 
     pub fn highlight_from_color(&self, color: &QString, scheme: i32) -> QString {

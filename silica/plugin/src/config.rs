@@ -48,6 +48,8 @@ pub enum Prop {
     FontFamily,
     FontFamilyHeading,
     AmbienceName,
+    FontSizeCategory,
+    FontSizeMultiplier,
 }
 
 fn normalise(key: &str) -> String {
@@ -87,6 +89,9 @@ pub fn property_for_key(key: &str) -> Option<Prop> {
         "fontfamily" => Prop::FontFamily,
         "fontfamilyheading" => Prop::FontFamilyHeading,
         "activeambience" | "ambiencename" => Prop::AmbienceName,
+        // Settings > Display > Text size (jolla-settings FontSizeSetting.qml).
+        "fontsizecategory" => Prop::FontSizeCategory,
+        "fontsizemultiplier" => Prop::FontSizeMultiplier,
         _ => return None,
     })
 }
@@ -127,6 +132,8 @@ pub struct Layer {
     pub font_family: Option<String>,
     pub font_family_heading: Option<String>,
     pub ambience_name: Option<String>,
+    pub font_size_category: Option<String>,
+    pub font_size_multiplier: Option<f64>,
 }
 
 fn unquote(v: &str) -> String {
@@ -167,6 +174,10 @@ impl Layer {
             Prop::FontFamily => self.font_family = Some(unquote(value)),
             Prop::FontFamilyHeading => self.font_family_heading = Some(unquote(value)),
             Prop::AmbienceName => self.ambience_name = Some(unquote(value)),
+            Prop::FontSizeCategory => self.font_size_category = Some(unquote(value)),
+            Prop::FontSizeMultiplier => {
+                self.font_size_multiplier = parse_number(value).filter(|v| *v > 0.0);
+            }
         }
         true
     }
@@ -237,6 +248,8 @@ impl Layer {
             font_family: pick!(font_family),
             font_family_heading: pick!(font_family_heading),
             ambience_name: pick!(ambience_name),
+            font_size_category: pick!(font_size_category),
+            font_size_multiplier: pick!(font_size_multiplier),
         }
     }
 }
@@ -259,6 +272,53 @@ pub struct Resolved {
     pub font_family: String,
     pub font_family_heading: String,
     pub ambience_name: String,
+    /// Settings' text size: 0 normal, 1 large, 2 huge, 3 gigantic.
+    pub font_size_category: usize,
+    /// A multiplier set in dconf instead of a category; 0 when unset.
+    pub font_size_multiplier: f64,
+}
+
+/// Settings > Display > Text size, in the order Settings lists them.
+pub const FONT_SIZE_CATEGORIES: [&str; 4] = ["normal", "large", "huge", "gigantic"];
+
+/// Stock Silica's `Theme.fontSize{Tiny..Huge}` for each text size, measured
+/// on a Jolla Phone (Sailfish OS 5.2.0.18, pixel ratio 1.5), and the
+/// unscaled sizes they grow from. Silica's own code is closed: Keel scales
+/// each size by the same ratio, so it matches Silica exactly there and in
+/// proportion on other screens. Sizes up to Medium grow by the category's
+/// multiplier (1.125, 1.25, 1.458); larger ones grow less.
+const SILICA_FONT_BASE: [i32; 7] = [30, 36, 42, 48, 60, 76, 96];
+const SILICA_FONT_SIZES: [[i32; 7]; 4] = [
+    [30, 36, 42, 48, 60, 76, 96],
+    [34, 40, 47, 54, 65, 80, 100],
+    [38, 45, 53, 60, 71, 85, 104],
+    [44, 52, 61, 70, 79, 93, 111],
+];
+
+impl Resolved {
+    /// The size QML sees for `Theme.fontSize*` at the person's text size:
+    /// `base` is `Theme.fontSize*Base`, `slot` 0 (Tiny) to 6 (Huge).
+    #[must_use]
+    pub fn scaled_font_size(&self, base: i32, slot: usize) -> i32 {
+        let Some(&silica_base) = SILICA_FONT_BASE.get(slot) else {
+            return base;
+        };
+        let b = f64::from(base);
+        let scaled = if self.font_size_multiplier > 0.0 {
+            // Fitted to Silica's categories (within a pixel of each): the
+            // multiplier in full up to Medium, then fading as sizes grow.
+            let m = self.font_size_multiplier;
+            let medium = b * f64::from(SILICA_FONT_BASE[3]) / f64::from(silica_base);
+            b * (1.0 + (m - 1.0) * (medium / b).powf(1.52).min(1.0))
+        } else {
+            let sizes = SILICA_FONT_SIZES[self.font_size_category.min(3)];
+            b * f64::from(sizes[slot]) / f64::from(silica_base)
+        };
+        // As JavaScript's Math.round, which Theme used.
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = (scaled + 0.5).floor() as i32;
+        rounded
+    }
 }
 
 /// Sailfish's text and heading families. sailfish-fonts' Sail Sans Pro (an
@@ -317,6 +377,12 @@ impl Layer {
                 .filter(|f| !f.is_empty())
                 .unwrap_or_else(|| DEFAULT_FONT_FAMILY_HEADING.to_string()),
             ambience_name: self.ambience_name.clone().unwrap_or_default(),
+            font_size_category: self
+                .font_size_category
+                .as_deref()
+                .and_then(|c| FONT_SIZE_CATEGORIES.iter().position(|n| *n == c))
+                .unwrap_or(0),
+            font_size_multiplier: self.font_size_multiplier.unwrap_or(0.0),
         }
     }
 }
@@ -456,5 +522,65 @@ mod tests {
             describe_sources(&one, &empty, &one),
             "defaults + keel-shell environment + KEEL_THEME_ overrides"
         );
+    }
+
+    // Stock Silica on a Jolla Phone (Sailfish OS 5.2.0.18, pixel ratio 1.5):
+    // Theme.fontSize{Tiny..Huge} for each Settings > Display > Text size.
+    const SILICA_BASE: [i32; 7] = [30, 36, 42, 48, 60, 76, 96];
+    const SILICA: [(&str, [i32; 7]); 4] = [
+        ("normal", [30, 36, 42, 48, 60, 76, 96]),
+        ("large", [34, 40, 47, 54, 65, 80, 100]),
+        ("huge", [38, 45, 53, 60, 71, 85, 104]),
+        ("gigantic", [44, 52, 61, 70, 79, 93, 111]),
+    ];
+
+    #[test]
+    fn reads_the_text_size_keys() {
+        assert_eq!(property_for_key("/desktop/jolla/theme/font/sizeCategory"), Some(Prop::FontSizeCategory));
+        assert_eq!(property_for_key("/desktop/jolla/theme/font/sizeMultiplier"), Some(Prop::FontSizeMultiplier));
+        assert_eq!(property_for_key("FONT_SIZE_CATEGORY"), Some(Prop::FontSizeCategory));
+        let r = Layer::from_lines("/desktop/jolla/theme/font/sizeCategory='huge'\n").resolve();
+        assert_eq!(r.font_size_category, 2);
+        assert_eq!(Layer::default().resolve().font_size_category, 0);
+        // An unknown name is Normal, as in Silica ("Invalid font size category").
+        let r = Layer::from_lines("/desktop/jolla/theme/font/sizeCategory='enormous'\n").resolve();
+        assert_eq!(r.font_size_category, 0);
+    }
+
+    #[test]
+    fn text_size_matches_silica() {
+        for (index, (name, sizes)) in SILICA.iter().enumerate() {
+            let r = Layer::from_lines(&format!("/desktop/jolla/theme/font/sizeCategory='{name}'\n")).resolve();
+            assert_eq!(r.font_size_category, index);
+            for slot in 0..7 {
+                assert_eq!(r.scaled_font_size(SILICA_BASE[slot], slot), sizes[slot], "{name} slot {slot}");
+            }
+        }
+    }
+
+    #[test]
+    fn text_size_scales_with_the_screen() {
+        // Twice the pixel ratio: twice Silica's sizes, within rounding.
+        let r = Layer::from_lines("/desktop/jolla/theme/font/sizeCategory='gigantic'\n").resolve();
+        for slot in 0..7 {
+            let got = r.scaled_font_size(SILICA_BASE[slot] * 2, slot);
+            assert!((got - SILICA[3].1[slot] * 2).abs() <= 1, "slot {slot}: {got}");
+        }
+    }
+
+    #[test]
+    fn a_text_size_multiplier_follows_silica_closely() {
+        // Silica's categories as plain multipliers: within a pixel of Silica.
+        for (name, m) in [("large", 1.125), ("huge", 1.25), ("gigantic", 1.458_333)] {
+            let sizes = SILICA.iter().find(|(n, _)| *n == name).unwrap().1;
+            let r = Layer::from_lines(&format!("/desktop/jolla/theme/font/sizeMultiplier={m}\n")).resolve();
+            for slot in 0..7 {
+                let got = r.scaled_font_size(SILICA_BASE[slot], slot);
+                assert!((got - sizes[slot]).abs() <= 1, "{name} slot {slot}: {got} vs {}", sizes[slot]);
+            }
+        }
+        // 1.0 or nonsense: unscaled.
+        let r = Layer::from_lines("/desktop/jolla/theme/font/sizeMultiplier=0\n").resolve();
+        assert_eq!(r.scaled_font_size(48, 3), 48);
     }
 }

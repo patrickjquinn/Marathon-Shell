@@ -73,9 +73,7 @@ QString adjust(const QString &format, Hours hours)
         if (ch == QLatin1Char('\'')) {
             quoted = !quoted;
             out += ch;
-        } else if (quoted) {
-            out += ch;
-        } else if (ch == QLatin1Char('h') || ch == QLatin1Char('H')) {
+        } else if (!quoted && (ch == QLatin1Char('h') || ch == QLatin1Char('H'))) {
             const qsizetype start = i;
             while (i + 1 < format.size() && format.at(i + 1) == ch)
                 ++i;
@@ -87,7 +85,7 @@ QString adjust(const QString &format, Hours hours)
                 out += format.mid(start, i - start + 1);
             else
                 out += hours == Hours::TwentyFour ? QStringLiteral("HH") : QStringLiteral("h");
-        } else if ((ch == QLatin1Char('a') || ch == QLatin1Char('A')) && i + 1 < format.size()
+        } else if (!quoted && (ch == QLatin1Char('a') || ch == QLatin1Char('A')) && i + 1 < format.size()
                    && format.at(i + 1).toLower() == QLatin1Char('p')) {
             sawAmPm = true;
             out += hours == Hours::Twelve ? format.mid(i, 2) : QString(QChar(0));

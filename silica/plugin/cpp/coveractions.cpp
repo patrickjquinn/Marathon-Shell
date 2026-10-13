@@ -9,17 +9,19 @@
 #include <QDBusReply>
 #include <QLoggingCategory>
 
+#include <utility>
+
 Q_DECLARE_LOGGING_CATEGORY(lcKeelShell)
 
 namespace keel {
 
 static const char *const kLipstick = "com.jolla.lipstick";
 
-CoverActions::CoverActions(const QDBusConnection &bus, const QString &service, QObject *parent)
+CoverActions::CoverActions(QDBusConnection bus, QString service, QObject *parent)
     : QObject(parent)
-    , m_bus(bus)
-    , m_service(service)
-    , m_path(objectPath(service))
+    , m_bus(std::move(bus))
+    , m_service(std::move(service))
+    , m_path(objectPath(m_service))
 {
     if (!m_bus.isConnected()) {
         qCWarning(lcKeelShell) << "cover actions: no session bus";

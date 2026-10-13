@@ -252,7 +252,7 @@ SilicaMouseArea {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: _backgroundItem.verticalCenter
         anchors.topMargin: Theme.paddingMedium
-        width: Math.min(paintedWidth, parent.width - 2*Theme.paddingMedium)
+        width: Math.min(implicitWidth, parent.width - 2*Theme.paddingMedium) // Modified by Shipwright for Qt 6: the natural width, not paintedWidth, which eliding (the software stand-in for the fade) changes in this binding (a binding loop)
         truncationMode: TruncationMode.Fade
     }
 

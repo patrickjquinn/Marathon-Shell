@@ -32,6 +32,8 @@ Module {
         Property { name: "fontFamilyHeading"; type: "QString"; isReadonly: true }
         Property { name: "ambienceName"; type: "QString"; isReadonly: true }
         Property { name: "source"; type: "QString"; isReadonly: true }
+        Property { name: "fontSizeCategory"; type: "int"; isReadonly: true }
+        Property { name: "fontSizeMultiplier"; type: "double"; isReadonly: true }
         Signal { name: "ambienceChanged" }
         Method { name: "reload" }
         Method {
@@ -61,6 +63,12 @@ Module {
             type: "QString"
             Parameter { name: "color"; type: "QString" }
             Parameter { name: "scheme"; type: "::std::int32_t" }
+        }
+        Method {
+            name: "scaledFontSize"
+            type: "::std::int32_t"
+            Parameter { name: "base"; type: "::std::int32_t" }
+            Parameter { name: "slot"; type: "::std::int32_t" }
         }
     }
     Component {

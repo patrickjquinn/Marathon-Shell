@@ -89,6 +89,19 @@ void KeelTheme::update()
         ratio = qMax(1.0, jsRound(m_screenWidth / 540 * 4) / 4.0);
     set(m_pixelRatio, ratio);
 
+    // Text size: the Base sizes, scaled by the ambience at the person's
+    // setting (unscaled without an ambience, as on a plain desktop run).
+    const int bases[7] = { fontSizeTinyBase(), fontSizeExtraSmallBase(), fontSizeSmallBase(),
+                           fontSizeMediumBase(), fontSizeLargeBase(), fontSizeExtraLargeBase(),
+                           fontSizeHugeBase() };
+    for (int slot = 0; slot < 7; ++slot) {
+        int size = bases[slot];
+        if (QObject *a = m_ambience.data())
+            QMetaObject::invokeMethod(a, "scaledFontSize", Q_RETURN_ARG(int, size),
+                                      Q_ARG(int, bases[slot]), Q_ARG(int, slot));
+        set(m_fontSizes[slot], size);
+    }
+
     if (changed)
         emitChanged();
 }

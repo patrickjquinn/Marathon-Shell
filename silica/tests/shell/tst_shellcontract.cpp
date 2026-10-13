@@ -193,13 +193,17 @@ void tst_ShellContract::initialAmbienceAndScale()
 
 void tst_ShellContract::coverWindow()
 {
-    const QList<ShowRecord> covers = coverShows();
     if (mode() == QLatin1String("noshell")) {
-        QVERIFY(covers.isEmpty());
+        // Long enough for the cover to have come (after the first frame, or
+        // a second without one), had it been going to.
+        QTest::qWait(1500);
+        QVERIFY(coverShows().isEmpty());
         QCOMPARE(root()->property("_coverWindow").value<QObject *>(), nullptr);
         return;
     }
-    QCOMPARE(covers.size(), 1);
+    // The cover comes after the app's first frame, not with it.
+    QTRY_COMPARE(coverShows().size(), 1);
+    const QList<ShowRecord> covers = coverShows();
     const ShowRecord &r = covers.constFirst();
     // PROTOCOL.md section 3: marker title set before show(), marker + ":" +
     // app name, top level (never a transient), sized by the app.
@@ -224,8 +228,8 @@ void tst_ShellContract::coverStatus()
             QCOMPARE(coverItem()->property("status").toInt(), 0);
         return;
     }
+    QTRY_VERIFY(coverItem());
     QQuickItem *cover = coverItem();
-    QVERIFY(cover);
     QCOMPARE(cover->property("status").toInt(), 0); // Cover.Inactive
     // Every status the cover passes through, as an app's onStatusChanged sees it.
     StatusRecorder recorder(cover);
@@ -258,8 +262,8 @@ void tst_ShellContract::coverAction()
 {
     if (mode() == QLatin1String("noshell"))
         return;
+    QTRY_VERIFY(coverItem());
     QQuickItem *cover = coverItem();
-    QVERIFY(cover);
     QWindow *w = cover->window();
     QVERIFY(w);
     auto *notes = root()->property("notes").value<QObject *>();

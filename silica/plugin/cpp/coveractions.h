@@ -40,7 +40,7 @@ class CoverActions : public QObject, protected QDBusContext
 public:
     // Owns `service` on `bus` and serves the object for it. registered()
     // says whether both worked.
-    CoverActions(const QDBusConnection &bus, const QString &service, QObject *parent = nullptr);
+    CoverActions(QDBusConnection bus, QString service, QObject *parent = nullptr);
     ~CoverActions() override;
 
     bool registered() const { return m_registered; }

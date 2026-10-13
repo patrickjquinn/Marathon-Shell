@@ -52,6 +52,7 @@ ApplicationWindow {
         CoverBackground {
             id: coverItem
             onStatusChanged: app.report("coverStatus", status === Cover.Active ? "active" : "inactive")
+            Component.onCompleted: app.report("coverAfterFirstFrame", app._firstFrameShown)
             Label { anchors.centerIn: parent; text: "Direct" }
             CoverActionList {
                 CoverAction {

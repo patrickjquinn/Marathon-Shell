@@ -142,7 +142,7 @@ SwipeItem {
             text: showSwipeHint && !_narrowMode ? qsTrId("components-la-swipe-to-hide")
                                                 : cancelText
 
-            width: _wideMode ? Math.min(contentWidth, parent.width)
+            width: _wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
                              : parent.width
             font.pixelSize: _twoLines ? Math.min(Theme.fontSizeSmall,
                                                  Theme.fontSizeSmallBase * 1.12)
@@ -158,7 +158,7 @@ SwipeItem {
             text: root.text !== root._deletedText ? root.text : ""
             visible: _twoLines
 
-            width: _wideMode ? Math.min(contentWidth, parent.width)
+            width: _wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
                              : parent.width
             palette.primaryColor: root.palette.secondaryColor
             font.pixelSize: _wideMode ? textLabel.font.pixelSize

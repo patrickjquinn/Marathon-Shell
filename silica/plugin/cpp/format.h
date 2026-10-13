@@ -24,7 +24,7 @@ namespace keel::clock {
 enum class Hours { Locale, Twelve, TwentyFour };
 Hours setting();
 // The setting as dconf prints it ('24', '12', 24) -> Hours.
-Hours parse(const QString &value);
+Hours parse(const QString &text);
 // Whether times are shown on a 24-hour clock in `locale`, after the setting.
 bool twentyFourHours(const QLocale &locale);
 // `format` (a QLocale/QDateTime format string) on the clock `hours` asks

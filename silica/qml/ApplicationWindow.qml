@@ -303,9 +303,45 @@ Item {
     }
     function _loadCover() { return _coverHolder.load() }
 
+    // The cover is made after the app's first frame, not with it: a second
+    // window (its render thread, GL context and QML) competed with that
+    // frame, and Lipstick shows a cover only once the app is in the
+    // background. It is made at once if the app leaves the foreground
+    // first, and after a second if no frame comes (an unexposed window). An
+    // app starts inactive (activation is keyboard focus, which comes after
+    // the window is mapped), so only leaving the foreground counts.
+    property bool _firstFrameShown: false
+    // Once made, the cover stays (an app that turns active again before its
+    // first frame must not lose it).
+    property bool _coverWanted: false
+    on_FirstFrameShownChanged: if (_firstFrameShown) _coverWanted = true
+    property bool _wasActive: false
+    onApplicationActiveChanged: {
+        if (applicationActive)
+            _wasActive = true
+        else if (_wasActive)
+            _coverWanted = true
+    }
+    Connections {
+        target: window.QtWindow.Window.window
+        enabled: !window._firstFrameShown
+        ignoreUnknownSignals: true
+        // The first frame with the first page in, its opening transition done.
+        function onFrameSwapped() {
+            if (stack.depth > 0 && !stack.busy)
+                Qt.callLater(function() { window._firstFrameShown = true })
+        }
+    }
+    Timer {
+        running: !window._firstFrameShown
+        interval: 1000
+        onTriggered: window._firstFrameShown = true
+    }
+
     Loader {
         id: coverWindowLoader
         active: Shell.coverEnabled && window.cover !== undefined && window.cover !== null
+                && window._coverWanted
         sourceComponent: QtWindow.Window {
             id: coverWindow
             // PROTOCOL.md section 3: the title carries the marker and is set

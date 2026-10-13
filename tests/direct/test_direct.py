@@ -9,6 +9,7 @@ Checks, for any Keel app:
   * the main window arrives as a wl_shell surface shown full screen, with
     no CATEGORY, and draws;
   * the cover arrives as a second wl_shell surface of the same process,
+    after the main window's first frame,
     carrying CATEGORY=cover as a qt_extended_surface generic property that a
     Qt 5.6 compositor can decode, sent before the cover's first buffer;
   * the main window carries what Lipstick reads from a Silica window, in
@@ -146,6 +147,18 @@ class App:
                 if key == name:
                     out.append(value)
         return out
+
+    def first_report(self, name, timeout):
+        """The first value reported for `name`, waiting up to `timeout`."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            got = self.reports(name)
+            if got:
+                return got[0]
+            if self.proc.poll() is not None:
+                break
+            time.sleep(0.02)
+        raise Failure("app did not report %s" % name)
 
     def wait_report(self, name, value, timeout):
         deadline = time.monotonic() + timeout
@@ -329,6 +342,13 @@ def run(args):
         check(cover_prop["value"] == "cover", "CATEGORY is 'cover'")
         check(cover_prop["lipstickCompatible"], "CATEGORY decodes as a Qt 5 QString (Lipstick)")
         check(not cover_prop["mapped"], "CATEGORY arrives before the cover's first buffer")
+        # The cover is made after the main window's first frame, so the two
+        # windows do not compete for it (ApplicationWindow.qml).
+        # (Checked in the app: on the wire the render thread's first commit
+        # can trail the GUI thread's cover messages.)
+        if args.test_app:
+            check(app.first_report("coverAfterFirstFrame", 5) == "true",
+                  "the cover is made after the main window's first frame")
         cover_id = cover_prop["surface"]
         check(cover_id != main_id, "cover is a separate surface")
         cover_buf = compositor.wait_for(ev_is("buffer", surface=cover_id), args.timeout,

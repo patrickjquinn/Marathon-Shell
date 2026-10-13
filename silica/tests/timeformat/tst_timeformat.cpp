@@ -44,11 +44,11 @@ private slots:
     {
         QTest::addColumn<QString>("text");
         QTest::addColumn<int>("hours");
-        QTest::newRow("string 24") << "'24'" << int(Hours::TwentyFour);
-        QTest::newRow("string 12") << "'12'" << int(Hours::Twelve);
-        QTest::newRow("bare 24") << "24" << int(Hours::TwentyFour);
-        QTest::newRow("unset") << "" << int(Hours::Locale);
-        QTest::newRow("other") << "'auto'" << int(Hours::Locale);
+        QTest::newRow("string 24") << "'24'" << static_cast<int>(Hours::TwentyFour);
+        QTest::newRow("string 12") << "'12'" << static_cast<int>(Hours::Twelve);
+        QTest::newRow("bare 24") << "24" << static_cast<int>(Hours::TwentyFour);
+        QTest::newRow("unset") << "" << static_cast<int>(Hours::Locale);
+        QTest::newRow("other") << "'auto'" << static_cast<int>(Hours::Locale);
     }
 
     void parse()
@@ -63,16 +63,16 @@ private slots:
         QTest::addColumn<QString>("format");
         QTest::addColumn<int>("hours");
         QTest::addColumn<QString>("expected");
-        QTest::newRow("US to 24") << "h:mm AP" << int(Hours::TwentyFour) << "HH:mm";
-        QTest::newRow("US date-time to 24") << "M/d/yy h:mm AP" << int(Hours::TwentyFour) << "M/d/yy HH:mm";
-        QTest::newRow("marker first to 24") << "AP h:mm" << int(Hours::TwentyFour) << "HH:mm";
-        QTest::newRow("German to 12") << "HH:mm" << int(Hours::Twelve) << "h:mm AP";
-        QTest::newRow("Finnish to 12") << "H.mm" << int(Hours::Twelve) << "h.mm AP";
-        QTest::newRow("Finnish stays 24") << "H.mm" << int(Hours::TwentyFour) << "H.mm";
-        QTest::newRow("US stays 12") << "h:mm AP" << int(Hours::Twelve) << "h:mm AP";
-        QTest::newRow("quoted literal") << "'klo' H.mm" << int(Hours::Twelve) << "'klo' h.mm AP";
-        QTest::newRow("locale") << "h:mm AP" << int(Hours::Locale) << "h:mm AP";
-        QTest::newRow("date only") << "dd.MM.yy" << int(Hours::Twelve) << "dd.MM.yy";
+        QTest::newRow("US to 24") << "h:mm AP" << static_cast<int>(Hours::TwentyFour) << "HH:mm";
+        QTest::newRow("US date-time to 24") << "M/d/yy h:mm AP" << static_cast<int>(Hours::TwentyFour) << "M/d/yy HH:mm";
+        QTest::newRow("marker first to 24") << "AP h:mm" << static_cast<int>(Hours::TwentyFour) << "HH:mm";
+        QTest::newRow("German to 12") << "HH:mm" << static_cast<int>(Hours::Twelve) << "h:mm AP";
+        QTest::newRow("Finnish to 12") << "H.mm" << static_cast<int>(Hours::Twelve) << "h.mm AP";
+        QTest::newRow("Finnish stays 24") << "H.mm" << static_cast<int>(Hours::TwentyFour) << "H.mm";
+        QTest::newRow("US stays 12") << "h:mm AP" << static_cast<int>(Hours::Twelve) << "h:mm AP";
+        QTest::newRow("quoted literal") << "'klo' H.mm" << static_cast<int>(Hours::Twelve) << "'klo' h.mm AP";
+        QTest::newRow("locale") << "h:mm AP" << static_cast<int>(Hours::Locale) << "h:mm AP";
+        QTest::newRow("date only") << "dd.MM.yy" << static_cast<int>(Hours::Twelve) << "dd.MM.yy";
     }
 
     void adjust()

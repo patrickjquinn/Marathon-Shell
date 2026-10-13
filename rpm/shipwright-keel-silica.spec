@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    30
+Release:    31
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -160,6 +160,12 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Tue Oct 13 2026 Shipwright - 0.1.0-31
+- Text follows Settings > Display > Text size, as in Jolla's apps: Large, Huge and Gigantic make Keel apps' text bigger too, and a change applies straight away.
+- Apps open a little faster: the app's cover (what the app switcher shows) is made just after the app's first frame instead of alongside it.
+- No binding loops in labels: a wrapping label that fades, the remorse timer's label and a slider's label (each logged on every layout).
+- A page title inside a list's header keeps clear of the camera cut-out from the start; it used to start under it and leave the page looking scrolled down a little.
+
 * Tue Oct 13 2026 Shipwright - 0.1.0-30
 - Cover buttons work on the phone. Lipstick draws a cover's buttons itself and tells the app when one is tapped; Keel apps now give it their buttons the way Silica apps do, so tapping one runs it (Reef's refresh, Messages' mark all read, and the rest) instead of only opening the app. Only the home screen can press them.
 
