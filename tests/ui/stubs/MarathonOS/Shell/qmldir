@@ -35,3 +35,4 @@ singleton LanguageManager 1.0 LanguageManager.qml
 singleton NetworkManagerCpp 1.0 NetworkManagerCpp.qml
 MEntrance 1.0 MEntrance.qml
 MAppIcon 1.0 MAppIcon.qml
+singleton AppLaunchService 1.0 AppLaunchService.qml

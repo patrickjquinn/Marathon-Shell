@@ -11,7 +11,12 @@ Item {
     property string appId
     property var compositor: null
     property bool shown: false
-    property WaylandSurface coverSurface: compositor && appId !== "" ? compositor.coverSurface(appId) : null
+    property int _coverRevision: 0
+    // A binding, so a card that is handed another app drops the old cover.
+    readonly property WaylandSurface coverSurface: {
+        _coverRevision;
+        return compositor && appId !== "" ? compositor.coverSurface(appId) : null;
+    }
     readonly property bool available: coverSurface !== null
 
     function _report() {
@@ -30,7 +35,7 @@ Item {
         ignoreUnknownSignals: true
         function onCoverChanged(changedAppId) {
             if (changedAppId === root.appId)
-                root.coverSurface = root.compositor.coverSurface(root.appId);
+                root._coverRevision++;
         }
     }
 
