@@ -59,4 +59,17 @@ is the shape turned so its square corner points down), or circles and arcs
 about the centre (globe, aperture, dial, wheel, the bars of a sound). Calculator's keys are the
 shape in small. The square corner is used where the metaphor has one: the
 bubble's tail, the handset bowed into it, the hour hand, the folded page. Objects stay abstract where the app is still clear: a call is a bow and two waves, music five bars, the camera an aperture, a month one marked day.
-Cut-out lines are 3.4 wide with round caps.
+Cut-out lines are 2.6 wide with round caps.
+
+## Light and depth
+
+One light, from the top right. Each solid object has a lit facet H
+(0.51, 0.155, h → 0.63, 0.14, h + 6) over its top-right half, split on the
+diagonal through the centre. Under the object sits a contact shadow: its
+silhouette in black at 13 %, dropped 1.5. No other effects.
+
+## Output
+
+Qt's SVG renderer does not apply `clipPath`; it paints the clip shape as a
+black fill. The generator draws with clip paths and flattens every icon to
+plain paths with picosvg (`pip install picosvg`) before writing it.
