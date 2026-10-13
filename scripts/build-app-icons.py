@@ -32,7 +32,13 @@ REPO = Path(__file__).resolve().parent.parent
 S, IN = 86.0, 0.3            # canvas, inset (template)
 ROUND, SQUARE = 42.7, 1.423  # corner radii (template)
 FACE_INSET = 8.0
-MARATHON = (True, True, True, False)  # (tl, tr, br, bl)
+# Each category squares its own corners (tl, tr, br, bl): Jolla's icon story
+# picks a base shape per metaphor; Marathon picks one per category.
+COMMS = (True, True, True, False)    # the bubble's tail
+PLACES = (True, True, False, True)   # the pin's point
+MEDIA = (True, True, True, True)     # the lens, the disc
+TIME = (False, True, True, True)     # the page's corner
+TOOLS = (False, True, False, True)   # two squared corners, machined
 C0 = 43.0
 CUT = 2.6                    # width of a cut-out line
 
@@ -62,7 +68,8 @@ def palette(h):
     frame F, object D, its lit facet H, darker facet E, plane L, tint T,
     cream face C, and the radial R (light centre, deep edge)."""
     y = 0.09 if 45 <= h <= 110 else 0.0  # yellows go brown when deep
-    return {"F": (oklch(0.62, 0.18, h), oklch(0.80, 0.14, h + 15)),
+    f = 0.06 if 55 <= h <= 110 else 0.0  # and olive in the frame
+    return {"F": (oklch(0.62 + f, 0.18, h), oklch(0.80 + f / 2, 0.14, h + 15)),
             "D": (oklch(0.45 + y, 0.16, h), oklch(0.57 + y, 0.15, h + 6)),
             "E": (oklch(0.37 + y, 0.14, h), oklch(0.48 + y, 0.14, h + 6)),
             "H": (oklch(0.51 + y, 0.155, h), oklch(0.63 + y, 0.14, h + 6)),
@@ -83,8 +90,6 @@ def base(tl, tr, br, bl, d=0.0):
             f"V{a + r[0]:.3f} A{r[0]:.3f},{r[0]:.3f} 0 0 1 {a + r[0]:.3f},{a:.3f} Z")
 
 
-def inset(d):
-    return base(*MARATHON, d=d)
 
 
 def pt(r, a, c=(C0, C0)):
@@ -107,8 +112,12 @@ def line(d, tone="C", w=CUT, cap="round"):
 class Art:
     """One icon's layers; `{name}` in a layer is a palette colour."""
 
-    def __init__(self, colours, prefix="p"):
-        self.c, self.parts, self.n, self.prefix = colours, [], 0, prefix
+    def __init__(self, colours, corners, prefix="p"):
+        self.c, self.corners, self.parts, self.n, self.prefix = colours, corners, [], 0, prefix
+
+    def shape(self, d):
+        """This icon's base shape, inset by d."""
+        return base(*self.corners, d=d)
 
     def add(self, svg):
         self.parts.append(svg.format(**self.c))
@@ -132,16 +141,16 @@ class Art:
                           f'<path d="M0 0H86V86Z" fill="{lit}" clip-path="url(#{cid})"/>')
 
 
-def render(title, hue, draw):
+def render(title, hue, corners, draw):
     tones = palette(hue)
-    art = Art({k: f"url(#g{k})" for k in tones})
-    face = inset(FACE_INSET)
+    art = Art({k: f"url(#g{k})" for k in tones}, corners)
+    face = base(*corners, d=FACE_INSET)
     art.add(f'<path d="{face}" fill="{{C}}"/>')
     art.parts.append(f'<clipPath id="face"><path d="{face}"/></clipPath>'
                      f'<path d="{face}" fill="none" stroke="#000000" stroke-opacity="0.08" '
                      'stroke-width="3" clip-path="url(#face)"/>')
     # The object's contact shadow: its silhouette, dropped and faint.
-    shadow = Art({k: "none" if k == "C" else "#000000" for k in tones}, "s")
+    shadow = Art({k: "none" if k == "C" else "#000000" for k in tones}, corners, "s")
     draw(shadow)
     art.parts.append('<g opacity="0.13" transform="translate(0 1.5)">' + "".join(shadow.parts) + "</g>")
     draw(art)
@@ -160,7 +169,7 @@ def render(title, hue, draw):
   <defs>
 {grads}
   </defs>
-  <path d="{inset(0)}" fill="url(#gF)"/>
+  <path d="{base(*corners)}" fill="url(#gF)"/>
 {body}
 </svg>
 '''
@@ -198,14 +207,14 @@ def phone(a):
 def messages(a):
     # The shape is already a bubble, its tail the square corner: two
     # nested, the typing dots cut out.
-    a.add(f'<path d="{inset(15)}" fill="{{T}}"/>')
-    a.lit(inset(23))
+    a.add(f'<path d="{a.shape(15)}" fill="{{T}}"/>')
+    a.lit(a.shape(23))
     a.add("".join(f'<circle cx="{x}" cy="43" r="2.9" fill="{{C}}"/>' for x in (33, 43, 53)))
 
 
 def email(a):
     # The shape inset as the envelope, its flap a darker facet, the fold cut.
-    env = inset(17)
+    env = a.shape(17)
     a.lit(env)
     a.plane(env, "M0 0H86V31L43 48L0 31Z", "E")
     a.add(line("M18 30 L43 48 L68 30"))
@@ -219,7 +228,7 @@ def browser(a):
 
 def store(a):
     # The bag: the shape inset below its rim, a hem, the handle an arc.
-    bag = inset(17)
+    bag = a.shape(17)
     a.add(f'<path d="{band((43, 33), 11.5, 8.5, 180, 360)}" fill="{{E}}"/>')
     a.plane(bag, "M0 33H86V86H0Z", "D")
     a.plane(bag, "M33 33H86V86Z", "H")
@@ -255,7 +264,7 @@ def camera(a):
 
 def gallery(a):
     # A picture: the shape inset, two hills on arcs, the sun.
-    pic = inset(16)
+    pic = a.shape(16)
     a.add(f'<path d="{pic}" fill="{{T}}"/>')
     a.plane(pic, disc(30, (24, 80)), "L")
     a.plane(pic, disc(28, (62, 85)), "D")
@@ -265,14 +274,15 @@ def gallery(a):
 def maps(a):
     # The shape turned so its square corner points down is the pin.
     a.add('<ellipse cx="43" cy="69" rx="12" ry="3" fill="{T}"/>')
-    a.lit((inset(23), "translate(0 -4) rotate(-45 43 43)"))
+    turn = {(True, True, True, False): -45, (True, True, False, True): 45}[a.corners]
+    a.lit((a.shape(23), f"translate(0 -4) rotate({turn} 43 43)"))
     a.add('<circle cx="43" cy="39" r="6.5" fill="{C}"/>')
 
 
 def calendar(a):
     # The page: the shape inset, its top band held by two rings; the days
     # in the lighter plane, one marked.
-    page = inset(16)
+    page = a.shape(16)
     a.add(f'<path d="{page}" fill="{{T}}"/>')
     a.plane(page, "M0 0H86V33H0Z", "D")
     a.plane(page, "M33 0H86V33H33Z", "H")
@@ -287,7 +297,7 @@ def clock(a):
     a.lit(disc(26))
     a.add('<path d="M43 43V20A23 23 0 0 1 66 43Z" fill="{L}"/>')
     a.add("".join('<circle cx="{:.2f}" cy="{:.2f}" r="1.3" fill="{{T}}"/>'.format(*pt(22, t)) for t in range(0, 360, 30)))
-    (hx, hy), (mx, my) = pt(12, 135), pt(18, 270)
+    (hx, hy), (mx, my) = pt(12, 225), pt(18, 90)
     a.add(line(f"M43 43L{hx:.2f} {hy:.2f}", w=3.4) + line(f"M43 43L{mx:.2f} {my:.2f}", w=2.4))
     a.add('<circle cx="43" cy="43" r="2.8" fill="{C}"/>')
 
@@ -298,20 +308,20 @@ def calculator(a):
     keys = ((22, 22, "D", "M{0} {1}h7M{2} {3}v7"), (44.5, 22, "H", "M{0} {1}h7"),
             (22, 44.5, "H", "M{4} {5}l5 5M{6} {5}l-5 5"), (44.5, 44.5, "L", "M{0} {7}h7M{0} {8}h7"))
     for x, y, tone, sym in keys:
-        a.add(f'<path d="{inset(0)}" transform="translate({x} {y}) scale({k:.5f})" fill="{{{tone}}}"/>')
+        a.add(f'<path d="{a.shape(0)}" transform="translate({x} {y}) scale({k:.5f})" fill="{{{tone}}}"/>')
         cx, cy = x + 9.75, y + 9.75
         a.add(line(sym.format(cx - 3.5, cy, cx, cy - 3.5, cx - 2.5, cy - 2.5, cx + 2.5, cy - 2, cy + 2), w=2.2))
 
 
 def notes(a):
     # The page: the shape inset, its square corner folded over; two lines.
-    page = inset(16)
+    page = a.shape(16)
     a.lit(page)
     f = 13.0
     lo, hi = 16.3, S - 16.3
-    a.add(f'<path d="M{lo - 1} {hi - f}V{hi + 1}H{lo + f}Z" fill="{{C}}"/>')
-    a.add(f'<path d="M{lo} {hi - f}L{lo + f} {hi}V{hi - f}Z" fill="{{L}}"/>')
-    a.add(line(f"M{lo + 9} 34H{hi - 9}M{lo + 9} 43H{hi - 9}M{lo + 9} 52H{hi - 19}"))
+    a.add(f'<path d="M{lo - 1} {lo + f}V{lo - 1}H{lo + f}Z" fill="{{C}}"/>')
+    a.add(f'<path d="M{lo} {lo + f}L{lo + f} {lo}V{lo + f}Z" fill="{{L}}"/>')
+    a.add(line(f"M{lo + 9} 38H{hi - 9}M{lo + 9} 47H{hi - 9}M{lo + 9} 56H{hi - 19}"))
 
 
 def gear(teeth, ro, ri, tip, root, c=(C0, C0)):
@@ -334,7 +344,7 @@ def settings(a):
 
 def terminal(a):
     # The screen: the shape inset in the facet; the prompt and a block cursor.
-    a.add(f'<path d="{inset(16)}" fill="{{E}}"/>')
+    a.add(f'<path d="{a.shape(16)}" fill="{{E}}"/>')
     a.add(line("M28 34 L36 42 L28 50", w=3))
     a.add(f'<path d="{rrect(41, 47.5, 54, 51, 0.8)}" fill="{{T}}"/>')
 
@@ -348,34 +358,35 @@ def test(a):
     a.add('<circle cx="37" cy="58" r="2.4" fill="{C}"/><circle cx="47" cy="55" r="1.7" fill="{C}"/>')
 
 
-# App: (title, hue, draw), in home grid order; hues are 22.5-degree steps,
-# no two grid neighbours closer than 45 degrees.
+# App: (title, hue, shape, draw), in home grid order. Hues: five category
+# families round the wheel from Marathon teal (172), skipping the olive band;
+# see docs/design/colour-palette.md.
 ICONS = {
-    "phone": ("Phone: a call", 145.0, phone),
-    "messages": ("Messages: nested speech bubbles", 212.5, messages),
-    "email": ("Mail: an envelope", 280.0, email),
-    "browser": ("Browser: a globe", 235.0, browser),
-    "store": ("Store: a bag", 190.0, store),
-    "music": ("Music: a sound", 325.0, music),
-    "camera": ("Camera: an aperture", 32.5, camera),
-    "gallery": ("Gallery: a picture", 302.5, gallery),
-    "maps": ("Maps: a pin", 257.5, maps),
-    "calendar": ("Calendar: a month", 10.0, calendar),
-    "clock": ("Clock: a dial", 77.5, clock),
-    "calculator": ("Calculator: four keys", 167.5, calculator),
-    "notes": ("Notes: a ruled page", 100.0, notes),
-    "settings": ("Settings: a wheel", 55.0, settings),
-    "terminal": ("Terminal: a prompt", 122.5, terminal),
-    "test": ("Test: a flask", 347.5, test),
+    "phone": ("Phone: a call", 154.0, COMMS, phone),
+    "messages": ("Messages: nested speech bubbles", 172.0, COMMS, messages),
+    "email": ("Mail: an envelope", 190.0, COMMS, email),
+    "browser": ("Browser: a globe", 234.0, PLACES, browser),
+    "store": ("Store: a bag", 266.0, PLACES, store),
+    "music": ("Music: a sound", 320.0, MEDIA, music),
+    "camera": ("Camera: an aperture", 338.0, MEDIA, camera),
+    "gallery": ("Gallery: a picture", 302.0, MEDIA, gallery),
+    "maps": ("Maps: a pin", 250.0, PLACES, maps),
+    "calendar": ("Calendar: a month", 56.0, TIME, calendar),
+    "clock": ("Clock: a dial", 70.0, TIME, clock),
+    "calculator": ("Calculator: four keys", 8.0, TOOLS, calculator),
+    "notes": ("Notes: a ruled page", 84.0, TIME, notes),
+    "settings": ("Settings: a wheel", 36.0, TOOLS, settings),
+    "terminal": ("Terminal: a prompt", 354.0, TOOLS, terminal),
+    "test": ("Test: a flask", 22.0, TOOLS, test),
 }
 
 
 if __name__ == "__main__":
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "apps"
-    for app, (title, hue, draw) in ICONS.items():
+    for app, (title, hue, corners, draw) in ICONS.items():
         out = root / app / "assets" / "icon.svg"
         out.parent.mkdir(parents=True, exist_ok=True)
-        flat = SVG.fromstring(render(title, hue, draw)).topicosvg().tostring(pretty_print=True)
+        flat = SVG.fromstring(render(title, hue, corners, draw)).topicosvg().tostring(pretty_print=True)
         out.write_text(f"<!-- {title}. Generated by scripts/build-app-icons.py; spec in "
                        f"docs/design/app-icon-spec.md. -->\n{flat}")
     print(f"{len(ICONS)} icons written")

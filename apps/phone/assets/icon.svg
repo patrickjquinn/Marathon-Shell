@@ -2,32 +2,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86">
   <defs>
     <linearGradient id="gD" x1="0.717" y1="85.283" x2="85.283" y2="0.717" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#036819"/>
-      <stop offset="1" stop-color="#0C8F46"/>
+      <stop offset="0" stop-color="#096638"/>
+      <stop offset="1" stop-color="#108D5D"/>
     </linearGradient>
     <linearGradient id="gF" x1="0.717" y1="85.283" x2="85.283" y2="0.717" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#23A136"/>
-      <stop offset="1" stop-color="#5ED99E"/>
+      <stop offset="0" stop-color="#06A059"/>
+      <stop offset="1" stop-color="#46DAAE"/>
     </linearGradient>
     <linearGradient id="gH" x1="0.717" y1="85.283" x2="85.283" y2="0.717" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0D7C23"/>
-      <stop offset="1" stop-color="#39A05B"/>
+      <stop offset="0" stop-color="#0C7A43"/>
+      <stop offset="1" stop-color="#0DA26B"/>
     </linearGradient>
     <linearGradient id="gL" x1="0.717" y1="85.283" x2="85.283" y2="0.717" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2B8A36"/>
-      <stop offset="1" stop-color="#53AF6E"/>
+      <stop offset="0" stop-color="#058B4C"/>
+      <stop offset="1" stop-color="#3DB07C"/>
     </linearGradient>
     <linearGradient id="gC" x1="0.717" y1="85.283" x2="85.283" y2="0.717" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#F1EBD3"/>
       <stop offset="1" stop-color="#FCF8EA"/>
     </linearGradient>
     <linearGradient id="gD_1" x1="-31.239205" y1="-4.49612" x2="53.326795" y2="-89.06212" gradientTransform="matrix(-0.139173 0.990268 -0.990268 -0.139173 0 0)" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#036819"/>
-      <stop offset="1" stop-color="#0C8F46"/>
+      <stop offset="0" stop-color="#096638"/>
+      <stop offset="1" stop-color="#108D5D"/>
     </linearGradient>
     <linearGradient id="gD_0" x1="-104.433393" y1="15.930173" x2="-19.867393" y2="-68.635827" gradientTransform="matrix(-0.990268 0.139173 -0.139173 -0.990268 0 0)" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#036819"/>
-      <stop offset="1" stop-color="#0C8F46"/>
+      <stop offset="0" stop-color="#096638"/>
+      <stop offset="1" stop-color="#108D5D"/>
     </linearGradient>
   </defs>
   <path fill="url(#gF)" d="M43,0.3 L43,0.3 A42.7 42.7 0 0 1 85.7,43 L85.7,43 A42.7 42.7 0 0 1 43,85.7 L1.723,85.7 A1.423 1.423 0 0 1 0.3,84.277 L0.3,43 A42.7 42.7 0 0 1 43,0.3 Z"/>
