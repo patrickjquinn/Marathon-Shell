@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=5
+pkgrel=6
 _commit=55e956d7e87ffc32ae617c3ec6deb2c0550717bc
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
