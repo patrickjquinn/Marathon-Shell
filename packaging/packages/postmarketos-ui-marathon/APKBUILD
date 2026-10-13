@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=4
+pkgrel=5
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -21,6 +21,7 @@ license="Apache-2.0"
 depends="
 	marathon-shell
 	marathon-base-config
+	pacific
 	greetd
 	networkmanager
 	modemmanager

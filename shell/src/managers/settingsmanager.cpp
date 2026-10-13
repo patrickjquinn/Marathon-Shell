@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QJSEngine>
@@ -324,7 +325,11 @@ void SettingsManager::load() {
         return v.isEmpty() ? fallback : v;
     };
     QVariantMap defaultApps;
-    defaultApps["browser"]   = pickDefault("apps/defaultBrowser", QStringLiteral("browser"));
+    // Pacific is Marathon's browser where it's installed.
+    const QString browser = QFile::exists(QStringLiteral("/usr/share/applications/shipwright-pacific.desktop"))
+                                ? QStringLiteral("shipwright-pacific")
+                                : QStringLiteral("browser");
+    defaultApps["browser"]   = pickDefault("apps/defaultBrowser", browser);
     defaultApps["dialer"]    = pickDefault("apps/defaultDialer", QStringLiteral("phone"));
     defaultApps["messaging"] = pickDefault("apps/defaultMessaging", QStringLiteral("messages"));
     defaultApps["email"]     = pickDefault("apps/defaultEmail", QStringLiteral("email"));

@@ -163,6 +163,11 @@ build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'     "$
 build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'      "$LIB/build-marathon-mail-oauth-apk.sh"       "$APORTS_DIR/marathon-mail-oauth/APKBUILD"
 build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$LIB/build-marathon-plymouth-theme-apk.sh"   "$APORTS_DIR/marathon-plymouth-theme/APKBUILD"
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
+APORT=wpewebkit \
+build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
+# Pacific isn't in the public shipwright-open export: build a local checkout.
+PACIFIC_SRC="${PACIFIC_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pacific" ] && echo "$HOME/Developer/Shipwright")}" \
+build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 

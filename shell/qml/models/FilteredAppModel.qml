@@ -17,7 +17,9 @@ Item {
     // the JSX HomePage1 ordering, substituting installed Marathon apps for
     // the brand-only slots (mi/wallet/health) that don't ship as separate
     // app bundles yet.
-    property var pinnedAppIds: ["phone", "messages", "email", "browser", "store", "music", "camera", "gallery", "maps", "calendar", "clock", "calculator", "notes", "settings"]
+    // The browser slot holds whichever browser is the default.
+    readonly property string browserId: SettingsManagerCpp.defaultApps.browser || "browser"
+    property var pinnedAppIds: ["phone", "messages", "email", browserId, "store", "music", "camera", "gallery", "maps", "calendar", "clock", "calculator", "notes", "settings"]
     property bool pinnedMode: true
 
     signal dataChanged
@@ -143,6 +145,10 @@ Item {
     Connections {
         function onHiddenAppsChanged() {
             filteredModel.hiddenApps = SettingsManagerCpp.hiddenApps;
+            filteredModel.requestRebuild();
+        }
+
+        function onDefaultAppsChanged() {
             filteredModel.requestRebuild();
         }
 

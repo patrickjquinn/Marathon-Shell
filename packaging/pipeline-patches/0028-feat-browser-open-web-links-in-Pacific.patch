@@ -1,0 +1,29 @@
+From d17d94ca08b21085bbbd017b01385c4be41b2bb5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 13 Oct 2026 22:36:21 +0100
+Subject: [PATCH] feat(browser): open web links in Pacific
+
+Pacific is Marathon's browser; xdg-open and the portal's OpenURI read
+the system mimeapps.list.
+---
+ mkosi.images/base/mkosi.postinst | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 8f7387b..aca306a 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -474,6 +474,10 @@ mkdir -p "$BUILDROOT/usr/share/applications"
+ cat > "$BUILDROOT/usr/share/applications/mimeapps.list" <<'EOF'
+ [Default Applications]
+ x-scheme-handler/marathon-store=marathon-store-handler.desktop
++x-scheme-handler/http=shipwright-pacific.desktop
++x-scheme-handler/https=shipwright-pacific.desktop
++text/html=shipwright-pacific.desktop
++application/xhtml+xml=shipwright-pacific.desktop
+ EOF
+ 
+ # Pre-register Flathub for --user too so the install handler works without
+-- 
+2.55.0
+
