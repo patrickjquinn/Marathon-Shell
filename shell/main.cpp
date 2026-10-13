@@ -260,6 +260,7 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication::setApplicationName("Marathon Shell");
     QGuiApplication::setOrganizationName("Marathon OS");
+    QGuiApplication::setApplicationVersion(QStringLiteral(MARATHON_VERSION));
 
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);

@@ -183,7 +183,8 @@ build() {
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
-		-DQt6_DIR=/usr/lib/cmake/Qt6
+		-DQt6_DIR=/usr/lib/cmake/Qt6 \
+		-DMARATHON_VERSION="$pkgver-r$pkgrel"
 	cmake --build build
 
 	cmake -B build-apps -S apps -G Ninja \
