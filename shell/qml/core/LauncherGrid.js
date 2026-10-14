@@ -7,7 +7,7 @@ function columns(screenWidth, iconSize, forcedColumns) {
 }
 
 function rows(screenHeight, iconSize) {
-    return Math.max(3, Math.floor(screenHeight * 0.75 / (iconSize * 1.5 * 1.4)));
+    return Math.max(3, Math.round(screenHeight * 0.75 / (iconSize * 1.5 * 1.4)));
 }
 
 function pageCount(appCount, itemsPerPage) {
