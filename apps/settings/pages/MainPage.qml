@@ -11,10 +11,15 @@ Page {
 
     property var app
     property string query: ""
-    readonly property var results: Logic.search(query)
+    readonly property var results: present(Logic.search(query))
     readonly property bool searching: query.trim() !== ""
     // Only present once the app runner shares the shell's wallpaper list.
     readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
+
+    // No mobile network entry on devices without a modem.
+    function present(entries) {
+        return entries.filter(e => e.page !== "cellular" || Modem.available);
+    }
 
     function summary(name) {
         switch (name) {
@@ -183,7 +188,7 @@ Page {
                             text: section.modelData.title
                         }
                         Repeater {
-                            model: section.modelData.entries
+                            model: page.present(section.modelData.entries)
 
                             EntryItem {}
                         }

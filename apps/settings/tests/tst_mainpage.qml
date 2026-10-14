@@ -85,6 +85,13 @@ TestCase {
         compare(valueOf(entry(app, "cellular")), "Mobile network, No SIM card");
     }
 
+    function test_noModemNoMobileNetwork() {
+        Modem.available = false;
+        const app = makeApp();
+        entry(app, "wifi");
+        compare(findChild(app.pageStack.currentPage, "entry-cellular"), null);
+    }
+
     function test_quickSwitches() {
         const app = makeApp();
         const airplane = findChild(app.pageStack.currentPage, "airplaneSwitch");
