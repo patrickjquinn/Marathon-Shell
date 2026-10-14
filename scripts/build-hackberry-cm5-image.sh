@@ -24,4 +24,7 @@
 #   ./scripts/flash/flash-hackberry-cm5.sh /dev/sdX
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The Pi 5 build layers the HackberryPi overlay only when its apk is in
+# mkosi.packages (mkosi.configure), so build it first.
+MARATHON_TARGET_DEVICE=hackberrypi-cm5 bash "$SCRIPT_DIR/qemu/lib/build-device-marathon-apk.sh"
 exec bash "$SCRIPT_DIR/build-image.sh" raspberry-pi5 "$@"
