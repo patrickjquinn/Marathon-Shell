@@ -280,7 +280,14 @@ case "$MARATHON_TARGET_DEVICE" in
         # We rewrite the .raw directly via mtools' @@offset syntax (the
         # FAT inside the GPT-partitioned image), not the .esp.raw split
         # — that split isn't what gets flashed.
-        if ! command -v mcopy >/dev/null || ! command -v sfdisk >/dev/null; then
+        if sfdisk -d "$LATEST_IMG" 2>/dev/null | grep -q '^label: dos'; then
+            # build-image.py made it pure MBR for the Pi 5 / CM5 BootROM, and
+            # mkosi.finalize already staged kernel_2712.img + the mkinitfs
+            # initramfs_2712. What follows is for GPT/verity images: run on
+            # MBR it replaced initramfs-rpi with a systemd initrd, then
+            # died on the verity UUID lookup.
+            echo "==> pure-MBR Pi image: boot files staged by mkosi.finalize"
+        elif ! command -v mcopy >/dev/null || ! command -v sfdisk >/dev/null; then
             echo "warn: mtools/sfdisk missing; cannot promote initrd to ESP root" >&2
             echo "      install with: apt install mtools util-linux  |  dnf install mtools util-linux" >&2
         else
