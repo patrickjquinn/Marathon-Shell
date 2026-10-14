@@ -63,6 +63,8 @@ Page {
             width: parent.width
 
             PageHeader {
+                id: header
+
                 objectName: "monthHeader"
                 title: Qt.locale().standaloneMonthName(page.date.getMonth())
                 description: page.date.getFullYear()
@@ -73,6 +75,11 @@ Page {
 
                 objectName: "datePicker"
                 width: parent.width
+                // Without the week column the margins let the next month peek in.
+                leftMargin: 0
+                rightMargin: 0
+                // Six weeks fit on a short screen.
+                cellHeight: Math.min(cellWidth, Math.floor((page.height - header.height - dayRowHeight) / 6))
                 daysVisible: true
                 weeksVisible: false
                 monthYearVisible: false
