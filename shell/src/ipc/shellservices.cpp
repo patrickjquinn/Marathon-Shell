@@ -1685,8 +1685,8 @@ QVariantList SmsObject::GetConversations() {
     if (!requireSms())
         return {};
     const QVariantList list = m_sms->conversations();
-    qWarning() << "[SmsObject] GetConversations -> caller=" << callerAppIdOrEmpty()
-               << "count=" << list.size();
+    qDebug() << "[SmsObject] GetConversations -> caller=" << callerAppIdOrEmpty()
+             << "count=" << list.size();
     return list;
 }
 

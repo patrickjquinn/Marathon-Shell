@@ -1320,7 +1320,7 @@ Item {
             // already has a surface is a re-show and must always proceed,
             // or a restore inside the hold window leaves the window blank.
             if ((!task || task.surfaceId < 0) && AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
-                Logger.warn("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+                Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                 return;
             }
             Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");

@@ -1138,7 +1138,7 @@ void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSur
             return;
         const QString appId = safeToplevel->appId();
         m_covers.insert(appId, safeSurface);
-        qWarning() << "[WaylandCompositor] Cover for" << appId;
+        qInfo() << "[WaylandCompositor] Cover for" << appId;
         emit coverChanged(appId);
     };
     connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, file);

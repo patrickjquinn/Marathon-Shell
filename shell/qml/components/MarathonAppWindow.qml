@@ -133,7 +133,7 @@ Rectangle {
         surfaceId = sid || -1;
         hasError = false;
         loadError = "";
-        Logger.warn("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
+        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
         if (appWindow.appContainer) {
             if (appWindow.appContainer["children"].length > 0) {
                 var currentChild = appWindow.appContainer["children"][0];
@@ -184,7 +184,7 @@ Rectangle {
                 }
             }
         } else {
-            Logger.warn("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
+            Logger.info("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
             appWindow.isLoadingComponent = true;
         }
         visible = true;
