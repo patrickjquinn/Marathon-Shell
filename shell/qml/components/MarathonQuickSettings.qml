@@ -122,25 +122,26 @@ Item {
         return list.filter(tile => enabled.indexOf(tile.id) >= 0);
     }
 
-    // Rotation lock only when an orientation sensor exists: without one it
-    // would control nothing.
+    // Hardware tiles only when the hardware exists: without it they control nothing.
     readonly property var tiles: {
-        var t = [
-            { id: "wifi",      icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn },
-            { id: "cellular",  icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn },
-            { id: "bluetooth", icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
-            { id: "airplane",  icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
-            { id: "dnd",       icon: "bell-slash",       label: "Silent",    on: SystemControlStore.isDndMode },
-            { id: "torch",     icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn },
-            { id: "location",  icon: "map-pin",          label: "Location",  on: SystemControlStore.isLocationOn },
-            { id: "hotspot",   icon: "broadcast",        label: "Hotspot",   on: SystemControlStore.isHotspotOn },
-            { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn }
-        ];
+        var t = [{ id: "wifi",      icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn }];
+        if (ModemManagerCpp.modemAvailable)
+            t.push({ id: "cellular",  icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn });
+        t.push({ id: "bluetooth", icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
+               { id: "airplane",  icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
+               { id: "dnd",       icon: "bell-slash",       label: "Silent",    on: SystemControlStore.isDndMode });
+        if (FlashlightManagerCpp.available)
+            t.push({ id: "torch",     icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn });
+        t.push({ id: "location",  icon: "map-pin",          label: "Location",  on: SystemControlStore.isLocationOn },
+               { id: "hotspot",   icon: "broadcast",        label: "Hotspot",   on: SystemControlStore.isHotspotOn },
+               { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn });
         if (RotationManager.available)
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
-        t.push({ id: "autobrightness", icon: "sun",         label: "Auto",    on: SystemControlStore.isAutoBrightnessOn },
-               { id: "lowpower",       icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode },
-               { id: "vibration",      icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn });
+        if (SensorManagerCpp.lightAvailable)
+            t.push({ id: "autobrightness", icon: "sun",     label: "Auto",    on: SystemControlStore.isAutoBrightnessOn });
+        t.push({ id: "lowpower",       icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode });
+        if (HapticManager.available)
+            t.push({ id: "vibration",  icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn });
         return enabledOnly(t);
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0

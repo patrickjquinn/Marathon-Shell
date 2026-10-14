@@ -709,6 +709,8 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<CellBroadcastManager>(
         "MarathonOS.Shell", 1, 0, "CellBroadcastManagerCpp", cellBroadcastManager);
     auto *sensorManager = new SensorManagerCpp(&app);
+    qmlRegisterSingletonInstance<SensorManagerCpp>("MarathonOS.Shell", 1, 0, "SensorManagerCpp",
+                                                   sensorManager);
     displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     // The device name is what other Bluetooth devices see.

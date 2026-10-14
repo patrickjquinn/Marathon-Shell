@@ -12,6 +12,7 @@ class SensorManagerCpp : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(bool proximityAvailable READ proximityAvailable NOTIFY proximityAvailableChanged)
+    Q_PROPERTY(bool lightAvailable READ lightAvailable CONSTANT)
     Q_PROPERTY(bool proximityNear READ proximityNear NOTIFY proximityNearChanged)
     Q_PROPERTY(int ambientLight READ ambientLight NOTIFY ambientLightChanged)
 
@@ -23,6 +24,9 @@ class SensorManagerCpp : public QObject {
     }
     bool proximityAvailable() const {
         return m_proximityAvailable;
+    }
+    bool lightAvailable() const {
+        return m_lightBackend;
     }
     bool proximityNear() const {
         return m_proximityNear;
