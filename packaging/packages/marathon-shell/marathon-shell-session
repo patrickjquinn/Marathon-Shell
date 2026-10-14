@@ -246,7 +246,11 @@ if [ -r /etc/marathon/device-profile.conf ]; then
     [ -n "$_v" ] && _gpu_stack="$_v"
 fi
 [ -n "${MARATHON_GPU_STACK:-}" ] && _gpu_stack="$MARATHON_GPU_STACK"
-export MARATHON_ACTIVE_GPU_STACK="mesa-etnaviv"
+# vivante-blob is only active once the checks below pass.
+case "$_gpu_stack" in
+vivante-blob) export MARATHON_ACTIVE_GPU_STACK="mesa-etnaviv" ;;
+*) export MARATHON_ACTIVE_GPU_STACK="$_gpu_stack" ;;
+esac
 
 if [ "$_gpu_stack" = "vivante-blob" ] && [ "$IS_VIRTIO_GPU" != 1 ] \
    && [ "$NEED_SOFTWARE_BACKEND" != 1 ]; then
