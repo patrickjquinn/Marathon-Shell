@@ -53,6 +53,9 @@ rsync -a --checksum --no-times /aports-src/ /work/aports/
 
 cd "/work/aports/device-${DEVICE}-marathon"
 abuild -F checksum >/dev/null
+# abuild -d skips dependencies; the HackberryPi overlay needs dtc.
+mk=$(srcdir=/; . ./APKBUILD; echo ${makedepends:-})
+[ -z "$mk" ] || apk add --no-cache --quiet $mk
 abuild -d -F
 
 cp "/root/packages/aports/aarch64/device-${DEVICE}-marathon-"*.apk /out/
