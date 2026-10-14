@@ -160,103 +160,116 @@ Item {
         }
     }
 
-    Column {
+    // Scrolls when the permissions outgrow a short screen.
+    Silica.SilicaFlickable {
+        objectName: "permissionFlickable"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
-        anchors.topMargin: Silica.Theme.paddingLarge
-        spacing: Silica.Theme.paddingMedium
+        anchors.bottom: parent.bottom
+        clip: true
+        contentHeight: content.y + content.height + Silica.Theme.paddingLarge
 
-        MAppIcon {
-            anchors.horizontalCenter: parent.horizontalCenter
-            source: permissionDialog.appIconSource
-            size: Silica.Theme.iconSizeLauncher
-            width: size
-            height: size
-        }
+        Column {
+            id: content
 
-        Silica.Label {
-            x: Silica.Theme.horizontalPageMargin
-            width: parent.width - 2 * x
-            horizontalAlignment: Text.AlignHCenter
-            text: permissionDialog.appName
-            color: Silica.Theme.highlightColor
-            font.pixelSize: Silica.Theme.fontSizeLarge
-            truncationMode: Silica.TruncationMode.Fade
-        }
+            y: Silica.Theme.paddingLarge
+            width: parent.width
+            spacing: Silica.Theme.paddingMedium
 
-        Silica.Label {
-            x: Silica.Theme.horizontalPageMargin
-            width: parent.width - 2 * x
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.Wrap
-            text: permissionDialog.descriptionText()
-            color: Silica.Theme.secondaryHighlightColor
-            font.pixelSize: Silica.Theme.fontSizeSmall
-        }
+            MAppIcon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                source: permissionDialog.appIconSource
+                size: Silica.Theme.iconSizeLauncher
+                width: size
+                height: size
+            }
 
-        Silica.SectionHeader {
-            text: qsTr("Permissions")
-        }
+            Silica.Label {
+                x: Silica.Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                horizontalAlignment: Text.AlignHCenter
+                text: permissionDialog.appName
+                color: Silica.Theme.highlightColor
+                font.pixelSize: Silica.Theme.fontSizeLarge
+                truncationMode: Silica.TruncationMode.Fade
+            }
 
-        Repeater {
-            model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
-                   ? permissionDialog.allPermissions
-                   : (permissionDialog.permission ? [permissionDialog.permission] : [])
+            Silica.Label {
+                x: Silica.Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: permissionDialog.descriptionText()
+                color: Silica.Theme.secondaryHighlightColor
+                font.pixelSize: Silica.Theme.fontSizeSmall
+            }
 
-            delegate: Item {
-                id: permRow
+            Silica.SectionHeader {
+                text: qsTr("Permissions")
+            }
 
-                required property string modelData
+            Repeater {
+                model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
+                       ? permissionDialog.allPermissions
+                       : (permissionDialog.permission ? [permissionDialog.permission] : [])
 
-                width: parent.width
-                height: Math.max(Silica.Theme.itemSizeMedium, rowText.height + Silica.Theme.paddingMedium * 2)
+                delegate: Item {
+                    id: permRow
 
-                GlyphIcon {
-                    id: rowIcon
+                    required property string modelData
 
-                    x: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: permissionDialog.permissionIconName(permRow.modelData)
-                    size: Silica.Theme.iconSizeSmall
-                    color: Silica.Theme.primaryColor
-                }
+                    width: parent.width
+                    height: Math.max(Silica.Theme.itemSizeMedium, rowText.height + Silica.Theme.paddingMedium * 2)
 
-                Column {
-                    id: rowText
+                    GlyphIcon {
+                        id: rowIcon
 
-                    anchors.left: rowIcon.right
-                    anchors.leftMargin: Silica.Theme.paddingLarge
-                    anchors.right: parent.right
-                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    Silica.Label {
-                        width: parent.width
-                        text: permissionDialog.permissionTitle(permRow.modelData)
-                        truncationMode: Silica.TruncationMode.Fade
+                        x: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: permissionDialog.permissionIconName(permRow.modelData)
+                        size: Silica.Theme.iconSizeSmall
+                        color: Silica.Theme.primaryColor
                     }
-                    Silica.Label {
-                        width: parent.width
-                        text: permissionDialog.permissionSubtitle(permRow.modelData)
-                        visible: text.length > 0
-                        wrapMode: Text.Wrap
-                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                        color: Silica.Theme.secondaryColor
+
+                    Column {
+                        id: rowText
+
+                        anchors.left: rowIcon.right
+                        anchors.leftMargin: Silica.Theme.paddingLarge
+                        anchors.right: parent.right
+                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Silica.Label {
+                            width: parent.width
+                            text: permissionDialog.permissionTitle(permRow.modelData)
+                            truncationMode: Silica.TruncationMode.Fade
+                        }
+                        Silica.Label {
+                            width: parent.width
+                            text: permissionDialog.permissionSubtitle(permRow.modelData)
+                            visible: text.length > 0
+                            wrapMode: Text.Wrap
+                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                            color: Silica.Theme.secondaryColor
+                        }
                     }
                 }
             }
+
+            Silica.Label {
+                x: Silica.Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                topPadding: Silica.Theme.paddingLarge
+                wrapMode: Text.Wrap
+                text: qsTr("You can change this anytime in Settings → Apps → %1.").arg(permissionDialog.appName)
+                color: Silica.Theme.secondaryColor
+                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+            }
         }
 
-        Silica.Label {
-            x: Silica.Theme.horizontalPageMargin
-            width: parent.width - 2 * x
-            topPadding: Silica.Theme.paddingLarge
-            wrapMode: Text.Wrap
-            text: qsTr("You can change this anytime in Settings → Apps → %1.").arg(permissionDialog.appName)
-            color: Silica.Theme.secondaryColor
-            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-        }
+        Silica.VerticalScrollDecorator {}
     }
 
     Behavior on opacity {
