@@ -191,6 +191,19 @@ if [ -d "$DEVICE_OVERLAY_APORT" ]; then
         "$DEVICE_OVERLAY_APORT/APKBUILD"
 fi
 
+# Pi 5 / CM5 images pin linux-rpi 6.12.85-r0 (mkosi-configure.py: edge's
+# 6.18.35 NULL-derefs during initrd udev on a Pi 5). Edge has moved on, so
+# the pinned apks come from the stable branch that still carries them.
+case "$MARATHON_TARGET_DEVICE" in
+raspberry-pi*|rpi*)
+    for p in linux-rpi-6.12.85-r0.apk linux-rpi-dev-6.12.85-r0.apk; do
+        [ -s "$MKOSI_PKG_DIR/$p" ] && continue
+        echo "==> fetching pinned $p from Alpine v3.23"
+        curl -fsSL -o "$MKOSI_PKG_DIR/$p" "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/$p"
+    done
+    ;;
+esac
+
 echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE"
 cd "$DURANIUM_DIR"
 PATH="$(dirname "$MKOSI_BIN"):$PATH" \
