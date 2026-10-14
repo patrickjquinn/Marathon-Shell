@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=44
+pkgrel=45
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -218,6 +218,18 @@ EOF
 [Service]
 ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -e /dev/fb0 ] && exit 0; sleep 0.05; done; exit 0'
 EOF
+
+	# systemd 262's coredump manager needs PIDFD_INFO_COREDUMP (Linux 6.16).
+	# On older kernels its ExecCondition fails and it is retried on every
+	# login; the core_pattern pipe still records crashes.
+	local unit
+	for unit in systemd-coredumpd systemd-coredump-register; do
+		install -d "$pkgdir/usr/lib/systemd/system/$unit.service.d"
+		cat > "$pkgdir/usr/lib/systemd/system/$unit.service.d/10-marathon-kernel.conf" <<'EOF'
+[Unit]
+ConditionKernelVersion=>=6.16
+EOF
+	done
 
 	# avahi-daemon drop-in: start after NetworkManager so /etc/resolv.conf
 	# (which NM writes) exists when avahi opens it. Without this we log
