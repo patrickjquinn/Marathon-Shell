@@ -149,6 +149,13 @@ void DeviceProfile::load() {
             m_runnerHeight = n;
     }
 
+    if (conf.value("MARATHON_PANEL_DPI", QStringLiteral("PANEL_DPI"), s)) {
+        bool        ok = false;
+        const qreal v  = s.toDouble(&ok);
+        if (ok && v > 0.0)
+            m_panelDpi = v;
+    }
+
     qInfo().noquote() << "[DeviceProfile] id=" << m_deviceId << "gpu=" << m_gpuStack
                       << QStringLiteral("gles=%1.%2").arg(m_glesMajor).arg(m_glesMinor)
                       << "alpha=" << m_surfaceHasAlpha << "msaa=" << m_hwMsaaSamples

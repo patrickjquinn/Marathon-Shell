@@ -35,6 +35,7 @@ class DeviceProfile : public QObject {
     Q_PROPERTY(qreal brightnessFloor READ brightnessFloor CONSTANT)
     Q_PROPERTY(int runnerWidth READ runnerWidth CONSTANT)
     Q_PROPERTY(int runnerHeight READ runnerHeight CONSTANT)
+    Q_PROPERTY(qreal panelDpi READ panelDpi CONSTANT)
 
   public:
     // Loads (once) from MARATHON_DEVICE_PROFILE if set, else
@@ -87,6 +88,10 @@ class DeviceProfile : public QObject {
     int runnerHeight() const {
         return m_runnerHeight;
     }
+    // True panel DPI for the wl_output physical size; 0 = trust the screen.
+    qreal panelDpi() const {
+        return m_panelDpi;
+    }
 
   private:
     explicit DeviceProfile(QObject *parent = nullptr);
@@ -112,5 +117,6 @@ class DeviceProfile : public QObject {
     // app canvas). L5 default 540x1140; the shell forwards these as
     // MARATHON_APP_WIDTH/HEIGHT so an overlay can set a device's own canvas.
     int m_runnerWidth  = 540;
-    int m_runnerHeight = 1140;
+    int   m_runnerHeight = 1140;
+    qreal m_panelDpi     = 0;
 };

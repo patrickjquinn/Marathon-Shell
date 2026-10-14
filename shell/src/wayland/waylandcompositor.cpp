@@ -7,6 +7,7 @@
 #include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/wldrm.h"
 #include "src/wayland/securitycontextv1.h"
+#include "src/managers/deviceprofile.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -1333,8 +1334,12 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     const QSize windowSize = m_window->size();
     m_output->setAvailableGeometry(QRect(QPoint(0, 0), windowSize));
 
-    QSize physicalSizeMm(0, 0);
-    if (screen) {
+    QSize       physicalSizeMm(0, 0);
+    const qreal panelDpi = DeviceProfile::instance().panelDpi();
+    if (panelDpi > 0.0) {
+        physicalSizeMm = QSize(qMax(1, qRound(windowSize.width() / panelDpi * 25.4)),
+                               qMax(1, qRound(windowSize.height() / panelDpi * 25.4)));
+    } else if (screen) {
         const QSizeF hostMm = screen->physicalSize();
         const QSize  hostPx = screen->geometry().size();
 
