@@ -46,7 +46,10 @@ Item {
                 if (src && src.id)
                     indexById[src.id] = src;
             }
-            var pinnedIdSet = {};
+            // The built-in browser only appears in the browser slot.
+            var pinnedIdSet = {
+                "browser": true
+            };
             for (var j = 0; j < pinnedAppIds.length; j++) {
                 var id = pinnedAppIds[j];
                 pinnedIdSet[id] = true;
