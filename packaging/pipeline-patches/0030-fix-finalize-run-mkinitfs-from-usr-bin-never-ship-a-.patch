@@ -1,0 +1,59 @@
+From c04d1231d09cc1dd7a179a4438810714f83ecb86 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 14 Oct 2026 07:27:10 +0100
+Subject: [PATCH] fix(finalize): run mkinitfs from /usr/bin, never ship a
+ kmods-only initrd
+
+postmarketos-mkinitfs 2.12 installs to /usr/bin, so 'chroot /sbin/
+mkinitfs' failed with 'No such file'. The composer then promoted the
+kmods-only .initrd it had extracted from the UKI to initramfs_2712; it
+has no /init, so a Pi 5 / CM5 kernel panics with nothing to run, before
+the display or USB keyboard come up. The same failure left the
+PinePhone image with no initramfs. mkinitfs is now found where it is,
+and a missing initramfs fails the build.
+---
+ mkosi.finalize | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index b6d9621..bc1d6c3 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -759,7 +759,14 @@ CONFIG
+                 # -k. It auto-discovers the kernel via /usr/lib/modules/
+                 # and writes to /boot by default. Plain invocation is
+                 # correct.
+-                chroot "$BUILDROOT" /sbin/mkinitfs 2>&1 \
++                # postmarketos-mkinitfs 2.12 installs to /usr/bin; older
++                # releases used /sbin.
++                MKINITFS=""
++                for p in /usr/bin/mkinitfs /usr/sbin/mkinitfs /sbin/mkinitfs; do
++                    [ -x "$BUILDROOT$p" ] && MKINITFS="$p" && break
++                done
++                [ -n "$MKINITFS" ] || { echo "error: no mkinitfs in the image" >&2; exit 1; }
++                chroot "$BUILDROOT" "$MKINITFS" 2>&1 \
+                     | sed 's/^/  mkinitfs: /' \
+                     || echo "warning: mkinitfs non-zero exit"
+                 [ -n "$ETC_RESTORE" ] && rm -rf "$BUILDROOT/etc"
+@@ -789,10 +796,17 @@ CONFIG
+                 [ -f "$cand" ] && INITRD_SRC="$cand" && break
+             done
+             if [ -z "$INITRD_SRC" ]; then
+-                for d in "$BUILDROOT"/boot/*/initrd "$BUILDROOT"/boot/initramfs*; do
++                for d in "$BUILDROOT"/boot/*/initrd; do
+                     [ -f "$d" ] && INITRD_SRC="$d" && break
+                 done
+             fi
++            # Never fall back to an initramfs* already in /boot: on the Pi
++            # that is the kmods-only .initrd extracted from the UKI, which
++            # has no /init, so the kernel panics with nothing to run.
++            if [ -z "$INITRD_SRC" ]; then
++                echo "error: mkinitfs produced no initramfs; the image would not boot" >&2
++                exit 1
++            fi
+             # mkinitfs writes a separate kernel-modules.initrd under
+             # /boot/<kver>/ for legacy device-subdir layouts; concat is
+             # only required if it exists.
+-- 
+2.55.0
+
