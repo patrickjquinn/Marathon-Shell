@@ -1,0 +1,89 @@
+From b3a6897fe3caf3645ffcf8078565fe24630e51c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 14 Oct 2026 20:16:37 +0100
+Subject: [PATCH] fix(pi): boot partition laid out as Raspberry Pi OS does
+
+The HackberryPi never mounted root from the FAT16 image. Match the
+layout every Pi 5 / CM5 EEPROM boots: FAT32 with 4-sector clusters (was
+FAT16, 32 KiB clusters), MBR type 0x0c, the BPB's hidden sectors set to
+the partition start, and no El Torito ISO9660 descriptors in the gap
+before the partition.
+---
+ mkosi.conf             | 14 ++++++--------
+ scripts/build-image.py | 17 ++++++++++++-----
+ 2 files changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/mkosi.conf b/mkosi.conf
+index 72f8fd4..e044bc0 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -37,14 +37,10 @@ ToolsTreePackages=
+ 	# we ship the extracted sections instead).
+ 	binutils
+ Environment=SYSTEMD_REPART_MKFS_OPTIONS_EROFS="-b 4096"
+-# Pi 5 BootROM on shipped CM5 EEPROMs reads FAT16 reliably; FAT32 on this
+-# hardware is silently rejected. Working pmbootstrap reference image uses
+-# FAT16. mkfs.vfat defaults to FAT32 for partitions > 16 MB, so force FAT16
+-# with 32 KB clusters (1 GB / 32 KB = 32768 clusters, within FAT16's 65525
+-# limit). `-n pmOS_boot` sets the FS label so the postmarketos-mkinitfs
+-# init script's `find_partition` (uses blkid --label) can locate it.
+-# Pairs with the hybrid-MBR injection in scripts/build-image.py.
+-Environment=SYSTEMD_REPART_MKFS_OPTIONS_VFAT="-F 16 -s 64 -n pmOS_boot"
++# FAT32 as Raspberry Pi OS formats its boot partition (mkfs.fat -F 32
++# -s 4), the layout every Pi 5 / CM5 EEPROM boots. `-n pmOS_boot` lets
++# postmarketos-mkinitfs find it with blkid --label.
++Environment=SYSTEMD_REPART_MKFS_OPTIONS_VFAT="-F 32 -s 4 -n pmOS_boot"
+ # Mirror for the ext4 root: FS label = pmOS_root for blkid --label
+ # discovery. systemd-repart's Label= directive sets the GPT partition
+ # entry name, not the filesystem label — those are separate.
+@@ -53,6 +49,8 @@ Environment=SYSTEMD_REPART_MKFS_OPTIONS_EXT4="-L pmOS_root"
+ [Output]
+ OutputDirectory=mkosi.output/%i
+ SplitArtifacts=partitions,uki
++# No ISO9660 boot catalog in the gap before the Pi's boot partition.
++ElTorito=no
+ # FIXME: mkosi insists on building and using it's own systemd-based initrd
+ # unless we specify a custom one, but we want to use the one we build in
+ # the buildroot... So we set an empty one here and "append" ours later.
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 8e36db7..fe81ff8 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -346,14 +346,14 @@ def build_image(components: List[str], extra_args: List[str]):
+                     f.seek(backup_offset); f.write(b"\x00" * (33 * 512))
+                 # Rewrite the MBR. The two partitions are at known LBA ranges
+                 # because mkosi.repart is deterministic: ESP 2048..2099199 (1 GiB),
+-                # root 2099200..(2099200+10485760-1) (5 GiB). Type 0x0e is
+-                # FAT16 LBA (matches the FAT16 ESP forced via mkosi.conf).
+-                # Type 0x83 is plain Linux.
++                # root 2099200..(2099200+10485760-1) (5 GiB). Type 0x0c is
++                # FAT32 LBA (the ESP's format, per mkosi.conf), as on Raspberry
++                # Pi OS. Type 0x83 is plain Linux.
+                 sfdisk_input = (
+                     "label: dos\n"
+                     "unit: sectors\n"
+                     "\n"
+-                    "start=2048,    size=2097152,  type=e, bootable\n"
++                    "start=2048,    size=2097152,  type=c, bootable\n"
+                     "start=2099200, size=10485760, type=83\n"
+                 )
+                 subprocess.run(
+@@ -361,7 +361,14 @@ def build_image(components: List[str], extra_args: List[str]):
+                     input=sfdisk_input.encode(),
+                     check=True,
+                 )
+-                print("Pi: pure MBR written (bootable FAT16 LBA + Linux ext4)")
++                # mkfs.fat ran on a bare partition image, so its BPB says 0
++                # hidden sectors; record the real start, in the boot sector
++                # and its FAT32 backup at sector 6.
++                with open(raw_path, "r+b") as f:
++                    for sector in (0, 6):
++                        f.seek((2048 + sector) * 512 + 0x1C)
++                        f.write((2048).to_bytes(4, "little"))
++                print("Pi: pure MBR written (bootable FAT32 LBA + Linux ext4)")
+ 
+         duration = time.time() - start_time
+         print(f"Built device: {device}, ui: {ui}, release: {release} in {duration}s")
+-- 
+2.55.0
+
