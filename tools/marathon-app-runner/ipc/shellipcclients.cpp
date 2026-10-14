@@ -33,6 +33,13 @@ static QDBusInterface makePermissionsIface(QObject *parent) {
                           parent);
 }
 
+static void connectPermissionGranted(QObject *receiver) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell",
+                                          "/org/marathonos/Shell/Permissions",
+                                          "org.marathonos.Shell.Permissions1", "PermissionGranted",
+                                          receiver, SLOT(onPermissionGranted(QString, QString)));
+}
+
 static QString notificationServiceName() {
     auto *iface = QDBusConnection::sessionBus().interface();
     if (iface && iface->isServiceRegistered("org.marathon.Notifications"))
@@ -425,7 +432,13 @@ SmsClient::SmsClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
                                           "org.marathonos.Shell.Sms1", "ConversationsChanged", this,
                                           SLOT(refresh()));
+    connectPermissionGranted(this);
     refresh();
+}
+
+void SmsClient::onPermissionGranted(const QString &appId, const QString &permission) {
+    if (appId == m_appId && (permission == "sms" || permission == "phone"))
+        refresh();
 }
 
 bool SmsClient::ensurePermission() {
@@ -447,7 +460,6 @@ bool SmsClient::ensurePermission() {
         m_permissionRequested = true;
         m_permIface.call("RequestPermission", m_appId, "sms");
     }
-    QTimer::singleShot(750, this, &SmsClient::refresh);
     return false;
 }
 
@@ -2121,8 +2133,14 @@ NetworkClient::NetworkClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Network",
                                           "org.marathonos.Shell.Network1", "ConnectionFailed", this,
                                           SIGNAL(connectionFailed(QString)));
+    connectPermissionGranted(this);
 
     refresh();
+}
+
+void NetworkClient::onPermissionGranted(const QString &appId, const QString &permission) {
+    if (appId == m_appId && (permission == "network" || permission == "system"))
+        refresh();
 }
 
 bool NetworkClient::ensureNetworkPermission() {
@@ -2145,8 +2163,6 @@ bool NetworkClient::ensureNetworkPermission() {
         m_permissionRequested = true;
         m_permIface.call("RequestPermission", m_appId, "network");
     }
-
-    QTimer::singleShot(750, this, &NetworkClient::refresh);
     return false;
 }
 
@@ -2365,10 +2381,8 @@ void SmsClient::setConversations(const QVariantList &v) {
 }
 
 void SmsClient::refresh() {
-    if (!ensurePermission()) {
-        qWarning() << "[SmsClient] refresh: permission gate failed for" << m_appId;
+    if (!ensurePermission())
         return;
-    }
     QDBusReply<QVariantList> r = m_iface.call("GetConversations");
     if (!r.isValid()) {
         qWarning() << "[SmsClient] GetConversations failed:" << r.error().type()
@@ -3347,14 +3361,23 @@ void AppLifecycleClient::unregisterApp(const QString &appId) {
     Q_UNUSED(appId);
 }
 
-ModemClient::ModemClient(QObject *parent)
+ModemClient::ModemClient(const QString &appId, QObject *parent)
     : QObject(parent)
+    , m_appId(appId)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Modem", "org.marathonos.Shell.Modem1",
               QDBusConnection::sessionBus()) {
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Modem",
                                           "org.marathonos.Shell.Modem1", "StateChanged", this,
                                           SLOT(onStateChanged(QVariantMap)));
+    connectPermissionGranted(this);
     refresh();
+}
+
+void ModemClient::onPermissionGranted(const QString &appId, const QString &permission) {
+    if (appId == m_appId && (permission == "network" || permission == "system")) {
+        m_retries = 0;
+        refresh();
+    }
 }
 
 void ModemClient::refresh() {
@@ -3364,7 +3387,7 @@ void ModemClient::refresh() {
         QDBusPendingReply<QVariantMap> r = *w;
         if (r.isValid()) {
             onStateChanged(r.value());
-        } else if (m_retries++ < 20) {
+        } else if (!isAccessDenied(r.error()) && m_retries++ < 20) {
             QTimer::singleShot(500, this, &ModemClient::refresh);
         } else if (!isAccessDenied(r.error())) {
             qWarning() << "[ModemClient] GetState failed:" << r.error().message();

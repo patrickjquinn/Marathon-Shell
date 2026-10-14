@@ -183,6 +183,9 @@ class SmsClient : public QObject {
     void sendFailed(const QString &recipient, const QString &reason);
     void conversationsChanged();
 
+  private slots:
+    void onPermissionGranted(const QString &appId, const QString &permission);
+
   private:
     bool           ensurePermission();
     void           setConversations(const QVariantList &v);
@@ -916,6 +919,7 @@ class NetworkClient : public QObject {
 
   private slots:
     void onStateChanged(const QVariantMap &state);
+    void onPermissionGranted(const QString &appId, const QString &permission);
 
   private:
     bool           ensureNetworkPermission();
@@ -950,7 +954,7 @@ class ModemClient : public QObject {
     Q_PROPERTY(uint allowedModes READ allowedModes NOTIFY stateChanged)
 
   public:
-    explicit ModemClient(QObject *parent = nullptr);
+    explicit ModemClient(const QString &appId, QObject *parent = nullptr);
 
     bool available() const {
         return m_state.value("available").toBool();
@@ -999,11 +1003,13 @@ class ModemClient : public QObject {
 
   private slots:
     void onStateChanged(const QVariantMap &state);
+    void onPermissionGranted(const QString &appId, const QString &permission);
 
   private:
     void           refresh();
     void           call(const char *method, const QVariant &arg = QVariant());
 
+    QString        m_appId;
     QDBusInterface m_iface;
     QVariantMap    m_state;
     int            m_retries = 0;
