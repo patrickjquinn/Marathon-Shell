@@ -1,0 +1,40 @@
+From 5a97acc302ba572d4b78faaf977e5b7d353e047e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 14 Oct 2026 07:32:11 +0100
+Subject: [PATCH] fix(finalize): plain-cpio initramfs on the Pi from zstd too
+
+mkinitfs 2.12 compresses with zstd; only gzip was unpacked, so the Pi 5
+got a compressed initramfs where the known-good layout has plain cpio.
+---
+ mkosi.finalize | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index bc1d6c3..7375518 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -847,11 +847,16 @@ CONFIG
+                 # Pi 5 only: decompress gzip → plain cpio (recent EEPROM
+                 # chokes on gzip). Librem 5 U-Boot's booti handles
+                 # gzip-compressed initramfs natively, no decomp needed.
+-                if [ -z "${UBOOT_SCRIPT_BOOT:-}" ] \
+-                   && file "$STAGED" 2>/dev/null | grep -q "gzip compressed"; then
+-                    gunzip -c "$STAGED" > "$STAGED.cpio"
+-                    mv "$STAGED.cpio" "$STAGED"
+-                    echo "info: decompressed gzip -> plain cpio (Pi 5 BootROM-friendly)"
++                # mkinitfs 2.12 writes zstd: give the BootROM plain cpio too.
++                if [ -z "${UBOOT_SCRIPT_BOOT:-}" ]; then
++                    case "$(file -b "$STAGED" 2>/dev/null)" in
++                    gzip*) gunzip -c "$STAGED" > "$STAGED.cpio" ;;
++                    Zstandard*) zstd -dcq "$STAGED" > "$STAGED.cpio" ;;
++                    esac
++                    if [ -s "$STAGED.cpio" ]; then
++                        mv "$STAGED.cpio" "$STAGED"
++                        echo "info: decompressed initramfs -> plain cpio (Pi 5 BootROM-friendly)"
++                    fi
+                 fi
+                 # Pi 5 also stages initramfs-rpi as a backwards-compat alias.
+                 if [ -z "${UBOOT_SCRIPT_BOOT:-}" ]; then
+-- 
+2.55.0
+
