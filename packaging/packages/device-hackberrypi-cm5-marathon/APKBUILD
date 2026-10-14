@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -16,11 +16,11 @@ depends="
 	device-raspberry-pi5-marathon
 "
 makedepends="dtc"
-install="$pkgname.post-install"
 source="
 	hackberrypi.dts
 	usercfg-hackberrypi.txt
-	marathon-irq-dwc2.service
+	90-marathon-irq-dwc2.rules
+	marathon-irq-dwc2
 	marathon-cm5-fuelgauge.conf
 	"
 
@@ -48,15 +48,11 @@ package() {
 	install -Dm644 "$srcdir/usercfg-hackberrypi.txt" \
 		"$pkgdir/boot/usercfg-hackberrypi.txt"
 
-	# IRQ steering oneshot — pin dwc2 USB IRQ away from CPU0 so the
-	# BlackBerry HID polling load doesn't saturate the compositor's
-	# CPU. Pi 5 dwc2 is on the BCM2712 GIC (NOT rp1-routed) so
-	# affinity is steerable.
-	install -Dm644 "$srcdir/marathon-irq-dwc2.service" \
-		"$pkgdir/usr/lib/systemd/system/marathon-irq-dwc2.service"
-	install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
-	ln -sf /usr/lib/systemd/system/marathon-irq-dwc2.service \
-		"$pkgdir/usr/lib/systemd/system/sysinit.target.wants/marathon-irq-dwc2.service"
+	# dwc2 USB IRQ steering, run when the driver binds.
+	install -Dm644 "$srcdir/90-marathon-irq-dwc2.rules" \
+		"$pkgdir/usr/lib/udev/rules.d/90-marathon-irq-dwc2.rules"
+	install -Dm755 "$srcdir/marathon-irq-dwc2" \
+		"$pkgdir/usr/libexec/marathon-irq-dwc2"
 
 	# Force-load the MAX17048 fuel-gauge module at boot. udev modalias
 	# matching is unreliable on linux-rpi here (the i2c-gpio bus
@@ -66,8 +62,9 @@ package() {
 }
 
 sha512sums="
-df26511eef4f0bb465eaff6eb19055ad03829e3e0a1f8cf6b97c5c9b65d59f14c26abe297073be7b41e2ab8d6b67988fb0b50b7d94634997cdcb66dce9816caf  hackberrypi.dts
-06dfeae9c12f6695c7e8c22cb1c74a8475edbcf3e6fcf0f47a7a3acfa28b24106a41f5d753a8168ef2fe9df8083fcb84dde09f6b40c94b4604222ae22840af45  usercfg-hackberrypi.txt
-17fbc185c528b305f4b4d29dd4119f15c58d1966a3e9b616cc37f8d7e6b72ca3f43ab31a9c4cd344713f8fa50336336edff78fb0cc1cec9325a38f9fd1bff91f  marathon-irq-dwc2.service
+df166ee5ca9159698a20858407a44206f70a70e8e97476e60b9879a6b1880cd95efccd0b6e8a4a64e08dfa089ae44f87e156030ea28988615c19cda84892ed10  hackberrypi.dts
+a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576ade34b1cd1ba4fc26ce7d7d760dbde93e13022113c6a59d6  usercfg-hackberrypi.txt
+9ec953eac0cfb62aebb4ed7403a3bb084a6ce89ddd356887fde58f5a12d9b75dd77d33e3154c7a0fde4b04a0eaf4fdab58ba75ac79366c29d001e158e593511f  90-marathon-irq-dwc2.rules
+89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
 "

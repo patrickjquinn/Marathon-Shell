@@ -1,0 +1,5 @@
+#!/bin/sh
+# Steer the dwc2 USB IRQ to CPUs 1-3 (mask e).
+irq=$(awk -F: '/dwc2/ {print $1 + 0; exit}' /proc/interrupts)
+[ -n "$irq" ] && [ "$irq" -gt 0 ] && echo e > "/proc/irq/$irq/smp_affinity"
+exit 0
