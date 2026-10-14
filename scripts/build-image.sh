@@ -289,9 +289,11 @@ case "$MARATHON_TARGET_DEVICE" in
             #   /path/to.raw1 : start=    2048, size=    2097152, type=C12A...
             # The whitespace between `start=` and its value breaks awk-by-field
             # parsing, so pull each value with a regex on the matching line.
+            # GPT ESP type, or MBR FAT/ESP (build-image.py makes Pi 5
+            # images pure MBR). No match must not trip set -e.
             ESP_OFFSET_SECTORS=$(sfdisk -d "$LATEST_IMG" \
-                | grep -i 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' \
-                | sed -E 's/.*start=[[:space:]]*([0-9]+).*/\1/')
+                | grep -iE 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B|type=(e|c|ef)(,|$)' \
+                | head -1 | sed -E 's/.*start=[[:space:]]*([0-9]+).*/\1/' || true)
             SECTOR_SIZE=$(sfdisk -d "$LATEST_IMG" \
                 | sed -nE 's/^sector-size:[[:space:]]*([0-9]+).*/\1/p')
             if [ -z "${ESP_OFFSET_SECTORS:-}" ] || [ -z "${SECTOR_SIZE:-}" ]; then
