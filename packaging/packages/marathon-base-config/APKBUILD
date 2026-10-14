@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=45
+pkgrel=46
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -196,17 +196,6 @@ PRESET
 
 	# A foreign resolv.conf at boot gets imported by resolved as a global DNS server.
 	ln -sf ../run/systemd/resolve/stub-resolv.conf "$pkgdir/etc/resolv.conf"
-
-	# plymouth-quit.service drop-in: hold the splash visible for 4s.
-	# plymouth-quit fires when multi-user.target is reached (well before
-	# greetd starts). Total userspace boot is ~5 s on the CM5+r179 image
-	# so 4 s here keeps the Marathon mark visible essentially through
-	# the whole boot — the shell takes over the panel ~1 s later.
-	install -d "$pkgdir/etc/systemd/system/plymouth-quit.service.d"
-	cat > "$pkgdir/etc/systemd/system/plymouth-quit.service.d/10-marathon-hold-splash.conf" <<'EOF'
-[Service]
-ExecStartPre=/usr/bin/sleep 4
-EOF
 
 	# plymouth-start.service drop-in: wait for /dev/fb0 to exist before
 	# launching plymouthd. drm-rp1-dpi binds at the same instant
