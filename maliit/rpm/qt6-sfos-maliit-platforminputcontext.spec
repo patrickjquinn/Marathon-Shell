@@ -9,7 +9,7 @@
 %global srcroot keel/maliit
 Name:       qt6-sfos-maliit-platforminputcontext
 Version:    1.0.1+qt6.20241010182000.1.g9bb86e6
-Release:    1.2.1.bso.shipwright1
+Release:    1.2.1.bso.shipwright2
 Summary:    Maliit input context for Qt 6 apps on Sailfish OS (Keel fixes)
 License:    LGPL-2.1-only
 URL:        https://github.com/sailfishos-open/maliit-framework
@@ -51,6 +51,9 @@ install -D -m 0755 target/keel-maliit/build/libmaliitplatforminputcontextplugin.
 %{_libdir}/qt6/plugins/platforminputcontexts/libmaliitplatforminputcontextplugin.so
 
 %changelog
+* Wed Oct 14 2026 Shipwright - 1.0.1+qt6.20241010182000.1.g9bb86e6-1.2.1.bso.shipwright2
+- The build's checksum check works with BusyBox's sha256sum as well as coreutils' (no change to the plugin).
+
 * Mon Oct 05 2026 Shipwright - 1.0.1+qt6.20241010182000.1.g9bb86e6-1.2.1.bso.shipwright1
 - Initialise containerConnectionInterface: Qt 6 apps crashed when the
   keyboard opened (Jolla Phone).

@@ -25,8 +25,8 @@
 #include <QRegularExpression>
 #include <QSize>
 #include <QTimer>
-#include <QWindow>
 #include <QTranslator>
+#include <QWindow>
 
 #include <atomic>
 #include <cstdio>
@@ -128,6 +128,28 @@ void Keel::detail::installTranslations(QCoreApplication *app)
 
 namespace SailfishApp {
 
+namespace {
+
+// When the event loop ends, every window gives back its native surface
+// while the graphics stack is still whole. Apps end with exit() (the Rust
+// mains: std::process::exit(app.exec())), which runs the libraries'
+// static destructors first: on the Jolla Phone the Android gralloc mapper
+// (libhybris) was gone when a window's EGL surface was freed after it, and
+// the app crashed as it closed (Pilot, segfault in mapper.mediatek.so).
+void releaseWindowsAtQuit(QGuiApplication *app)
+{
+    if (app->property("_keelReleasesWindows").toBool())
+        return;
+    app->setProperty("_keelReleasesWindows", true);
+    QObject::connect(app, &QCoreApplication::aboutToQuit, app, []() {
+        const QWindowList windows = QGuiApplication::topLevelWindows();
+        for (QWindow *w : windows)
+            w->destroy();
+    });
+}
+
+} // namespace
+
 QGuiApplication *application(int &argc, char **argv)
 {
     // Boosted (booster-keel), or a second call: the existing application.
@@ -135,6 +157,7 @@ QGuiApplication *application(int &argc, char **argv)
         // An app that made its own application object (a Rust main) still
         // gets English plurals; its own catalogs, installed later, come first.
         Keel::detail::installEnglishPlurals(existing);
+        releaseWindowsAtQuit(existing);
         return existing;
     }
     // Direct mode on Sailfish (or keel-shell, or a desktop window).
@@ -144,6 +167,7 @@ QGuiApplication *application(int &argc, char **argv)
     if (QCoreApplication::applicationName().isEmpty() && argc > 0 && argv[0])
         QCoreApplication::setApplicationName(QFileInfo(QString::fromLocal8Bit(argv[0])).fileName());
     Keel::detail::installTranslations(app);
+    releaseWindowsAtQuit(app);
     return app;
 }
 

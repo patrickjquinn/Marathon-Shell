@@ -23,6 +23,8 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
+#include <functional>
+
 class KeelAction;
 class KeelCall;
 class KeelContext;
@@ -117,6 +119,15 @@ private:
     QList<QPointer<KeelShortcut>> m_shortcuts;
     // Calls waiting for their action to register.
     QList<QPointer<KeelCall>> m_pending;
+    // Entity lookups and searches waiting for their entity type to
+    // register (activation can answer before the QML has loaded it).
+    struct PendingEntityCall {
+        QString type;
+        QPointer<KeelCall> call;
+        std::function<void(KeelEntity *)> run;
+    };
+    QList<PendingEntityCall> m_pendingEntities;
+    void waitForEntity(const QString &type, KeelCall *call, std::function<void(KeelEntity *)> run);
     bool m_foreground = false;
     bool m_serving = false;
     QElapsedTimer m_sinceBackground;

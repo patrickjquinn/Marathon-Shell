@@ -166,6 +166,9 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 - No binding loops in labels: a wrapping label that fades, the remorse timer's label and a slider's label (each logged on every layout).
 - A page title inside a list's header keeps clear of the camera cut-out from the start; it used to start under it and leave the page looking scrolled down a little.
 - An app whose cover buttons are switched off (Keys while locked, Mail without an account) no longer hands the home screen an empty button list, which it logged as a bad cover action.
+- Keel Actions: asking an app that has never been opened (so its permissions were never allowed) answers at once that it has to be opened first, instead of waiting a minute and timing out (Migrate).
+- Keel Actions: a search or lookup that arrives while an app is still starting waits for the app to be ready instead of failing (Pacific's bookmarks, 2 of 3 cold calls).
+- Keel Actions: looking for apps no longer asks every program on the phone every 10 seconds (about 5 failed calls a second, waking them); a program is asked once, and again only when it restarts.
 
 * Tue Oct 13 2026 Shipwright - 0.1.0-30
 - Cover buttons work on the phone. Lipstick draws a cover's buttons itself and tells the app when one is tapped; Keel apps now give it their buttons the way Silica apps do, so tapping one runs it (Reef's refresh, Messages' mark all read, and the rest) instead of only opening the app. Only the home screen can press them.

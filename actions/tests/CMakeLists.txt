@@ -17,6 +17,14 @@ add_test(NAME keel_actions_qml
 set_tests_properties(keel_actions_qml PROPERTIES
     ENVIRONMENT "${_keel_actions_test_env}" TIMEOUT 120)
 
+# An entity declared in the installed manifest that registers late.
+add_test(NAME keel_actions_qml_late_entity
+    COMMAND ${KEEL_QMLTESTRUNNER} -import "${KEEL_QML_OUTPUT_DIR}"
+            -input "${CMAKE_CURRENT_SOURCE_DIR}/qml-late")
+set_tests_properties(keel_actions_qml_late_entity PROPERTIES
+    ENVIRONMENT "${_keel_actions_test_env};KEEL_ACTIONS_MANIFEST=${CMAKE_CURRENT_SOURCE_DIR}/../codegen/tests/golden/qml-notes/actions.json"
+    TIMEOUT 120)
+
 # The runtime's describe() equals the generator's golden actions.json.
 qt_add_executable(tst_keel_actions_describe_golden golden/tst_describe_golden.cpp)
 target_compile_definitions(tst_keel_actions_describe_golden PRIVATE

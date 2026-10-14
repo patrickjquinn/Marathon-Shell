@@ -346,6 +346,8 @@ KeelCall *KeelActionRegistry::getEntity(const QString &type, const QString &id)
                 guarded->fail(value.toObject().value(QLatin1String("code")).toString(),
                               value.toObject().value(QLatin1String("message")).toString());
         });
+    } else if (!entry.isEmpty()) {
+        waitForEntity(type, call, [call, id](KeelEntity *e) { e->dispatchLookup(call, id); });
     } else {
         call->fail(KeelCall::UnknownAction, QStringLiteral("no entity type ") + type);
     }
@@ -376,10 +378,20 @@ KeelCall *KeelActionRegistry::findEntities(const QString &type, const QString &q
                 guarded->fail(value.toObject().value(QLatin1String("code")).toString(),
                               value.toObject().value(QLatin1String("message")).toString());
         });
+    } else if (!entityEntry(type).isEmpty()) {
+        waitForEntity(type, call, [call, query, bounded](KeelEntity *e) { e->dispatchSearch(call, query, bounded); });
     } else {
         call->fail(KeelCall::UnknownAction, QStringLiteral("no entity type ") + type);
     }
     return call;
+}
+
+void KeelActionRegistry::waitForEntity(const QString &type, KeelCall *call, std::function<void(KeelEntity *)> run)
+{
+    // Declared in the manifest but not registered yet; the call's timer
+    // fails it if the entity never comes.
+    call->startTimer(RegistrationWaitMs);
+    m_pendingEntities.append({type, call, std::move(run)});
 }
 
 QJsonObject KeelActionRegistry::context() const
@@ -424,6 +436,16 @@ void KeelActionRegistry::addEntity(KeelEntity *entity)
         return;
     }
     m_entities.insert(entity->type(), entity);
+    const QList<PendingEntityCall> pending = m_pendingEntities;
+    m_pendingEntities.clear();
+    for (const PendingEntityCall &p : pending) {
+        if (!p.call || p.call->isFinished())
+            continue;
+        if (p.type == entity->type())
+            p.run(entity);
+        else
+            m_pendingEntities.append(p);
+    }
 }
 
 void KeelActionRegistry::removeEntity(KeelEntity *entity)
