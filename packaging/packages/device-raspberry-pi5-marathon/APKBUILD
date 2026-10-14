@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / CM5 — Marathon OS base port (no enclosure)"
 pkgver=1.0.0
-pkgrel=8
+pkgrel=9
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -55,6 +55,7 @@ source="
 	greetd-marathon.toml
 	logind.conf
 	usercfg.txt
+	device-profile.conf
 	"
 
 package() {
@@ -79,10 +80,14 @@ package() {
 	# OTG overrides when device-hackberrypi-cm5-marathon is installed.
 	install -Dm644 "$srcdir/usercfg.txt" \
 		"$pkgdir/boot/usercfg.txt"
+
+	install -Dm644 "$srcdir/device-profile.conf" \
+		"$pkgdir/etc/marathon/device-profile.conf"
 }
 
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
 e55c325b2ba38df1b83321cb37c2844372135eef8c43935e1715b3b7b275f37002bee77f8a6956460c1adc6d9ab801453582f132dbcbebec298b5be013fdf219  usercfg.txt
+20f0c6bbc4d7d5cc616ef9a2afb79f0cd4ba03b6bdc9a134998f30cd39c165c5d9b44dff20244df749cd840d3a7a7cbaa13856151b9987f22585437ea3c081c7  device-profile.conf
 "
