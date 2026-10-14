@@ -244,6 +244,20 @@ QString joinForSplitCommand(const QStringList &args) {
         "--num-raster-threads=2 "
         "--enable-viewport "
         "--main-frame-resizes-are-orientation-changes";
+
+    // Stacks whose GL Chromium can drive: no GL override, so QtWebEngine
+    // picks its own implementation and WebGL runs on the GPU.
+    constexpr const char *kGpuChromiumFlags = "--ignore-gpu-blocklist "
+                                              "--no-sandbox "
+                                              "--disable-dev-shm-usage "
+                                              "--num-raster-threads=2 "
+                                              "--enable-viewport "
+                                              "--main-frame-resizes-are-orientation-changes";
+
+    const char *deviceChromiumFlags() {
+        const bool gpu = DeviceProfile::instance().gpuStack() == QLatin1String("mesa-v3d");
+        return gpu ? kGpuChromiumFlags : kDefaultChromiumFlags;
+    }
 }
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
@@ -755,7 +769,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // emit the same value.
     const QString effectiveChromiumFlags = qEnvironmentVariable(
         "QTWEBENGINE_CHROMIUM_FLAGS",
-        manifestChromiumFlags.isEmpty() ? QString::fromLatin1(kDefaultChromiumFlags) :
+        manifestChromiumFlags.isEmpty() ? QString::fromLatin1(deviceChromiumFlags()) :
                                           manifestChromiumFlags);
 
     // The runner is a Wayland CLIENT of the shell's compositor. Without
