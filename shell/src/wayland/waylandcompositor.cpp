@@ -545,7 +545,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     process->setProperty("marathonStderrTail", QString());
 
     QPointer<QProcess> safeProcess(process);
-    connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command]() {
+    const QString      logTag = command.section(QStringLiteral("--app-id "), -1).section(' ', 0, 0);
+    connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command, logTag]() {
         if (!safeProcess)
             return;
         QString output = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
@@ -571,7 +572,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
                         if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
                             continue;
                     }
-                    qWarning().noquote() << "[AppRunner stdout]" << command << "->" << line;
+                    qInfo().noquote() << "[AppRunner stdout]" << logTag << "->" << line;
                     if (++shown >= 25)
                         break;
                 }
@@ -579,7 +580,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     });
 
-    connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command]() {
+    connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command, logTag]() {
         if (!safeProcess)
             return;
         QString error = QString::fromLocal8Bit(safeProcess->readAllStandardError());
@@ -605,7 +606,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
                         if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
                             continue;
                     }
-                    qWarning().noquote() << "[AppRunner stderr]" << command << "->" << line;
+                    qInfo().noquote() << "[AppRunner stderr]" << logTag << "->" << line;
                     if (++shown >= 25)
                         break;
                 }

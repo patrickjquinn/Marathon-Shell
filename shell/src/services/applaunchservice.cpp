@@ -1392,11 +1392,14 @@ void AppLaunchService::spawnSpareRunner() {
     env.remove(QStringLiteral("GST_REGISTRY_UPDATE"));
     proc->setProcessEnvironment(env);
     connect(proc, &QProcess::readyReadStandardError, this, [proc]() {
+        const QString     tag   = proc->property("marathonAppId").toString();
         const QStringList lines = QString::fromLocal8Bit(proc->readAllStandardError()).split('\n');
         for (const QString &l : lines) {
             const QString line = l.trimmed();
             if (!line.isEmpty())
-                qWarning().noquote() << "[PoolRunner stderr]" << line;
+                qInfo().noquote() << "[PoolRunner stderr]"
+                                  << (tag.isEmpty() ? QStringLiteral("spare") : tag) << "->"
+                                  << line;
         }
     });
     connect(proc, &QProcess::started, this, [this, proc]() {
@@ -1491,6 +1494,7 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
         m_activeByPid.remove(tracked.pid);
         return false;
     }
+    m_spareProcess->setProperty("marathonAppId", p.appId);
     m_pendingRoute.clear();
     m_pendingRouteParamsJson.clear();
     qInfo() << "[AppLaunchService] Pool-adopted runner pid" << tracked.pid << "for" << p.appId;
