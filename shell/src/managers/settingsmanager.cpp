@@ -273,6 +273,7 @@ void SettingsManager::load() {
     m_dndEnabled         = m_settings.value("audio/dndEnabled", false).toBool();
     m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
     m_reduceMotion       = m_settings.value("accessibility/reduceMotion", false).toBool();
+    m_automaticTimeZone  = m_settings.value("time/automaticTimeZone", true).toBool();
     m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
     m_screenTimeout = m_settings.value("display/screenTimeout", DeviceProfile::instance().screenTimeoutMs()).toInt();
@@ -407,6 +408,7 @@ void SettingsManager::save() {
     m_settings.setValue("audio/dndEnabled", m_dndEnabled);
     m_settings.setValue("audio/vibrationEnabled", m_vibrationEnabled);
     m_settings.setValue("accessibility/reduceMotion", m_reduceMotion);
+    m_settings.setValue("time/automaticTimeZone", m_automaticTimeZone);
     m_settings.setValue("audio/audioProfile", m_audioProfile);
 
     m_settings.setValue("display/screenTimeout", m_screenTimeout);
@@ -710,6 +712,14 @@ void SettingsManager::setAutomaticTime(bool enabled) {
                     emit automaticTimeChanged();
                 }
             });
+}
+
+void SettingsManager::setAutomaticTimeZone(bool enabled) {
+    if (m_automaticTimeZone == enabled)
+        return;
+    m_automaticTimeZone = enabled;
+    save();
+    emit automaticTimeZoneChanged();
 }
 
 void SettingsManager::setSystemTime(qint64 msecsSinceEpoch) {

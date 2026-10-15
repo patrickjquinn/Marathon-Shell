@@ -295,6 +295,8 @@ class SettingsClient : public QObject {
     Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
         bool automaticTime READ automaticTime WRITE setAutomaticTime NOTIFY automaticTimeChanged)
+    Q_PROPERTY(bool automaticTimeZone READ automaticTimeZone WRITE setAutomaticTimeZone NOTIFY
+                   automaticTimeZoneChanged)
     Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
@@ -374,6 +376,7 @@ class SettingsClient : public QObject {
     bool reduceMotion() const;
     QString timeZone() const;
     bool    automaticTime() const;
+    bool    automaticTimeZone() const;
     QString                 audioProfile() const;
 
     int                     screenTimeout() const;
@@ -427,6 +430,7 @@ class SettingsClient : public QObject {
     void                    setReduceMotion(bool v);
     void                    setTimeZone(const QString &v);
     void                    setAutomaticTime(bool v);
+    void                    setAutomaticTimeZone(bool v);
     Q_INVOKABLE void        setSystemTime(qint64 msecsSinceEpoch);
     void                    setAudioProfile(const QString &v);
 
@@ -493,6 +497,7 @@ class SettingsClient : public QObject {
     void reduceMotionChanged();
     void timeZoneChanged();
     void automaticTimeChanged();
+    void automaticTimeZoneChanged();
     void dateTimeChangeFailed(const QString &reason);
     void audioProfileChanged();
 

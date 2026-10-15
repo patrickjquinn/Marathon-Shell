@@ -56,6 +56,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(QString timeZone READ timeZone WRITE setTimeZone NOTIFY timeZoneChanged)
     Q_PROPERTY(
         bool automaticTime READ automaticTime WRITE setAutomaticTime NOTIFY automaticTimeChanged)
+    Q_PROPERTY(bool automaticTimeZone READ automaticTimeZone WRITE setAutomaticTimeZone NOTIFY
+                   automaticTimeZoneChanged)
     Q_PROPERTY(
         QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
@@ -180,6 +182,9 @@ class SettingsManager : public QObject {
     bool    automaticTime() const {
         return m_automaticTime;
     }
+    bool automaticTimeZone() const {
+        return m_automaticTimeZone;
+    }
     QString audioProfile() const {
         return m_audioProfile;
     }
@@ -286,6 +291,7 @@ class SettingsManager : public QObject {
     void                    setReduceMotion(bool enabled);
     void                    setTimeZone(const QString &zoneId);
     void                    setAutomaticTime(bool enabled);
+    void                    setAutomaticTimeZone(bool enabled);
     Q_INVOKABLE void        setSystemTime(qint64 msecsSinceEpoch);
     void                    setAudioProfile(const QString &profile);
 
@@ -359,6 +365,7 @@ class SettingsManager : public QObject {
     void reduceMotionChanged();
     void timeZoneChanged();
     void automaticTimeChanged();
+    void automaticTimeZoneChanged();
     // timedated refused a time zone, automatic time or clock change.
     void dateTimeChangeFailed(const QString &reason);
     void audioProfileChanged();
@@ -413,6 +420,7 @@ class SettingsManager : public QObject {
 
     QString             m_deviceName;
     bool                m_automaticTime = true;
+    bool                m_automaticTimeZone = true;
     bool                m_autoLock;
     int                 m_autoLockTimeout;
     bool                m_showNotificationPreviews;

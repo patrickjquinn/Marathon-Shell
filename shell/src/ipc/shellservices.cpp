@@ -240,6 +240,10 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
     QObject::connect(
         m_settings, &SettingsManager::automaticTimeChanged, this,
         [this, emitProp]() { emitProp("automaticTime", m_settings->automaticTime()); });
+    QObject::connect(m_settings, &SettingsManager::automaticTimeZoneChanged, this,
+                     [this, emitProp]() {
+                         emitProp("automaticTimeZone", m_settings->automaticTimeZone());
+                     });
     QObject::connect(m_settings, &SettingsManager::dateTimeChangeFailed, this,
                      &SettingsObject::DateTimeChangeFailed);
     QObject::connect(m_settings, &SettingsManager::dateFormatChanged, this,
@@ -338,6 +342,7 @@ QVariantMap SettingsObject::GetState() {
         {"reduceMotion", m_settings->reduceMotion()},
         {"timeZone", m_settings->timeZone()},
         {"automaticTime", m_settings->automaticTime()},
+        {"automaticTimeZone", m_settings->automaticTimeZone()},
         {"audioProfile", m_settings->audioProfile()},
         {"screenTimeout", m_settings->screenTimeout()},
         {"autoBrightness", m_settings->autoBrightness()},
@@ -420,6 +425,8 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setTimeZone(v.toString());
     else if (name == "automaticTime")
         m_settings->setAutomaticTime(v.toBool());
+    else if (name == "automaticTimeZone")
+        m_settings->setAutomaticTimeZone(v.toBool());
     else if (name == "audioProfile")
         m_settings->setAudioProfile(v.toString());
     else if (name == "screenTimeout")

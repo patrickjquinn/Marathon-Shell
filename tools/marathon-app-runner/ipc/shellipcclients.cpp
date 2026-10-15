@@ -784,6 +784,7 @@ void SettingsClient::refresh() {
         emit vibrationEnabledChanged();
         emit reduceMotionChanged();
         emit timeZoneChanged();
+        emit automaticTimeZoneChanged();
         emit audioProfileChanged();
         emit screenTimeoutChanged();
         emit autoBrightnessChanged();
@@ -863,6 +864,7 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         {"reduceMotion", &SettingsClient::reduceMotionChanged},
         {"timeZone", &SettingsClient::timeZoneChanged},
         {"automaticTime", &SettingsClient::automaticTimeChanged},
+        {"automaticTimeZone", &SettingsClient::automaticTimeZoneChanged},
         {"audioProfile", &SettingsClient::audioProfileChanged},
         {"screenTimeout", &SettingsClient::screenTimeoutChanged},
         {"autoBrightness", &SettingsClient::autoBrightnessChanged},
@@ -955,6 +957,9 @@ QString SettingsClient::timeZone() const {
 }
 bool SettingsClient::automaticTime() const {
     return prop("automaticTime", true).toBool();
+}
+bool SettingsClient::automaticTimeZone() const {
+    return prop("automaticTimeZone", true).toBool();
 }
 QString SettingsClient::audioProfile() const {
     return prop("audioProfile", "normal").toString();
@@ -1098,6 +1103,9 @@ void SettingsClient::setTimeZone(const QString &v) {
 }
 void SettingsClient::setAutomaticTime(bool v) {
     setProp("automaticTime", v);
+}
+void SettingsClient::setAutomaticTimeZone(bool v) {
+    setProp("automaticTimeZone", v);
 }
 void SettingsClient::setSystemTime(qint64 msecsSinceEpoch) {
     if (!ensureSystemPermission())

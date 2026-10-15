@@ -49,6 +49,7 @@
 #include "src/services/marathonntfyclient.h"
 #include "src/services/flatpakmanager.h"
 #include "src/services/motiondaemon.h"
+#include "src/services/automatictimezone.h"
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
@@ -760,6 +761,7 @@ int main(int argc, char *argv[]) {
                      applyDeviceName);
     startupMark("system managers");
     auto *locationManager  = new LocationManager(&app);
+    new AutomaticTimeZone(settingsManager, locationManager, &app);
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
                                                 hapticManager);
