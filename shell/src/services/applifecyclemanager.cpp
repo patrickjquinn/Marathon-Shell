@@ -2,6 +2,7 @@
 
 #include "applaunchservice.h"
 #include "cgroupmanager.h"
+#include "processstopper.h"
 #include "taskmodel.h"
 
 #include <QDateTime>
@@ -462,7 +463,7 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
     if (it == m_appStates.end())
         return;
     const LifecycleState old = it->state;
-    if (old == newState)
+    if (old == newState || (m_stopping && newState == Frozen))
         return;
     // Never freeze an app that has not mapped its first surface. Freezing
     // a cold-starting runner stops it before it can create its Wayland
@@ -586,6 +587,26 @@ int AppLifecycleManager::killOldestFrozenApp() {
     });
     transitionTo(oldestId, Killed);
     return static_cast<int>(pid);
+}
+
+void AppLifecycleManager::stopAllApps(int graceMs) {
+    if (m_stopping)
+        return;
+    m_stopping = true;
+    m_cgroup->thawAll();
+    QList<qint64> pids;
+    if (m_appLaunchService) {
+        for (auto it = m_appStates.cbegin(); it != m_appStates.cend(); ++it)
+            pids << m_appLaunchService->terminationPidForAppId(it.key());
+    }
+    auto *stopper = new ProcessStopper(this);
+    connect(stopper, &ProcessStopper::finished, this, [this, stopper](int killed) {
+        qCInfo(lcLifecycle) << "stopAllApps: done," << killed << "SIGKILLed after the grace";
+        stopper->deleteLater();
+        emit allAppsStopped();
+    });
+    qCInfo(lcLifecycle) << "stopAllApps: SIGTERM" << pids << "grace" << graceMs << "ms";
+    stopper->stop(pids, graceMs);
 }
 
 void AppLifecycleManager::writeOomScoreAdj(const QString &appId, LifecycleState state) {

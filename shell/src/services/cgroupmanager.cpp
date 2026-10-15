@@ -248,6 +248,11 @@ bool CgroupManager::setAppFrozen(const QString &appId, bool frozen) {
     return ok;
 }
 
+void CgroupManager::thawAll() {
+    for (auto it = m_appPaths.cbegin(); it != m_appPaths.cend(); ++it)
+        setFrozen(it.value(), false);
+}
+
 bool CgroupManager::setAppUclampMin(const QString &appId, int pct) {
     if (!m_available)
         return false;

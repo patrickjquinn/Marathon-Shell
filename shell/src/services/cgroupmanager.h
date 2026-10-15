@@ -43,6 +43,9 @@ class CgroupManager : public QObject {
     // prior placeAppPid calls.
     bool setAppFrozen(const QString &appId, bool frozen);
 
+    // Thaw every app placed by placeAppPid.
+    void thawAll();
+
     // Set the cgroup's cpu.uclamp.min (kernel 5.3+). Kernel accepts a
     // percentage 0-100 where 0 is "no boost" (default) and 100 forces
     // the scheduler to treat the group's tasks as capacity-max. Marathon

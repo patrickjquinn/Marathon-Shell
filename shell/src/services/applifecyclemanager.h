@@ -58,6 +58,11 @@ class AppLifecycleManager : public QObject {
     // app exists. Wired from MemoryPressureMonitor::Critical in main.cpp.
     Q_INVOKABLE int         killOldestFrozenApp();
 
+    // Session stop: thaw and SIGTERM every app (a Keel app's host turns
+    // SIGTERM into CloseRequested), SIGKILL what is left after graceMs, then
+    // emit allAppsStopped. No app is frozen again afterwards.
+    void                    stopAllApps(int graceMs);
+
     Q_INVOKABLE int         lifecycleState(const QString &appId) const;
     Q_INVOKABLE QStringList activeCapabilities(const QString &appId) const;
 
@@ -82,6 +87,7 @@ class AppLifecycleManager : public QObject {
     void capabilitiesChanged(const QString &appId);
     // Back went to an out-of-process app asynchronously and it declined.
     void systemBackUnhandled();
+    void allAppsStopped();
 
   private:
     struct AppState {
@@ -122,4 +128,5 @@ class AppLifecycleManager : public QObject {
     QString                           m_foregroundAppId;
     QStringList                       m_pendingForegroundApps;
     int                               m_idleFreezeDebounceMs = 10000;
+    bool                              m_stopping             = false;
 };
