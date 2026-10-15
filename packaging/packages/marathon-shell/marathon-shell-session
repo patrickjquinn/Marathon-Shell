@@ -105,6 +105,12 @@ fi
 # overshooting it. An earlier 160 setting rendered the 390-design at only
 # 54% of canvas width — what the user described as "the UI looks stupid
 # and small at whatever scale you have it on."
+# A device overlay can pin its DPI with FORCE_DPI in device-profile.conf.
+if [ -z "${MARATHON_FORCE_DPI:-}" ] && [ -r /etc/marathon/device-profile.conf ]; then
+    _v=$(sed -n 's/^[[:space:]]*FORCE_DPI[[:space:]]*=[[:space:]]*//p' \
+            /etc/marathon/device-profile.conf | tr -d '"' | head -1)
+    [ -n "$_v" ] && export MARATHON_FORCE_DPI="$_v"
+fi
 if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
     export MARATHON_FORCE_DPI=296
 fi
