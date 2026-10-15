@@ -139,6 +139,13 @@ target_link_libraries(test_shell_processstopper Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processstopper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ProcessStopper COMMAND test_shell_processstopper)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBDRM REQUIRED libdrm)
+add_executable(test_shell_drmmasterwait test_drmmasterwait.cpp ../../shell/src/managers/drmmasterwait.cpp)
+target_link_libraries(test_shell_drmmasterwait Qt6::Test Qt6::Core ${LIBDRM_LIBRARIES})
+target_include_directories(test_shell_drmmasterwait PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${LIBDRM_INCLUDE_DIRS})
+add_test(NAME Shell_DrmMasterWait COMMAND test_shell_drmmasterwait)
+
 # Status bar glyphs: real Phosphor names, state carried by the glyph
 add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
 target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)

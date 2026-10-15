@@ -18,6 +18,8 @@ set(SOURCES
     src/services/cgroupmanager.cpp
     src/services/processstopper.h
     src/services/processstopper.cpp
+    src/managers/drmmasterwait.h
+    src/managers/drmmasterwait.cpp
     src/services/memorypressuremonitor.h
     src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h

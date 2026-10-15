@@ -51,6 +51,7 @@
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
+#include "src/managers/drmmasterwait.h"
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
 #include "src/services/wakeonkeyfilter.h"
@@ -339,6 +340,18 @@ int main(int argc, char *argv[]) {
     // carries the compositor's keyboard show/hide requests. QT_IM_MODULES
     // outranks the QT_IM_MODULE=none in some device configs, and it is unset
     // once the context exists so apps keep their QT_IM_MODULE=wayland.
+    // After a session restart the previous shell's master can outlive its
+    // process for a moment, and eglfs_kms opening the card then never gets it.
+    if (qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs"))) {
+        const QStringList cards  = eglfsKmsCards();
+        const int         waited = waitForDrmMaster(cards, 5000);
+        if (waited < 0)
+            qCritical() << "[MarathonShell] DRM master on" << cards
+                        << "still held after 5 s; the display will not update";
+        else if (waited > 0)
+            qWarning() << "[MarathonShell] waited" << waited << "ms for DRM master on" << cards;
+    }
+
     qputenv("QT_IM_MODULES", "marathon");
     QGuiApplication app(argc, argv);
     startupMark("application");
