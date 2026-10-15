@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import QtQuick.Effects
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
@@ -212,6 +213,14 @@ Item {
                     visible: !coverView.available
                     active: true
                     asynchronous: true
+                    // A live preview has square corners; cut them to the glass.
+                    layer.enabled: visible
+                    layer.effect: MultiEffect {
+                        maskEnabled: true
+                        maskSource: previewMask
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
+                    }
 
                     sourceComponent: Item {
                         anchors.fill: parent
@@ -459,6 +468,16 @@ Item {
                     }
                 }
             }
+        }
+
+        Rectangle {
+            id: previewMask
+
+            anchors.fill: glass
+            radius: glass.radius
+            antialiasing: true
+            visible: false
+            layer.enabled: true
         }
 
         Rectangle {
