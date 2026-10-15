@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=6
+pkgrel=7
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -80,5 +80,5 @@ a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576
 89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
 442ba19c4a34433cbcedbe95dd44df295f4644480dc3cd41fea61ff695f3773c5fe7c692bf584ecd82a92fbb056debed61c92641355dc0a6fb146e342f4c2fa5  hackberrypi.modules
-5c58a510acd8737021b017f476eaea0c760d082e882ee9a678e988e18e129f21553f3fd8fb9295541389d5232e9408ea78f547eb3c7cad1533909a82dbdbb13f  device-profile.conf
+de707bed4b95fa452f9279ee833b464e1c5c0be1e7824787e02975356e76ea79592e63564a8314fde7892f6058132c4610b36b02cd2a68ca3d04ef0731a493aa  device-profile.conf
 "
