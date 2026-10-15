@@ -68,6 +68,17 @@ TestCase {
         verify(b[1].activeFocusOnTab);
     }
 
+    function test_barHidesContentScrolledUnderIt() {
+        const t = tabsOf(createTemporaryObject(app, testCase));
+        const backdrop = findChild(t.tabBarItem, "tabBarBackdrop");
+        verify(backdrop, "no backdrop behind the tab bar");
+        verify(!backdrop.visible);
+        t.yOffset = 200;
+        verify(backdrop.visible);
+        compare(backdrop.color.a, 1);
+        compare(backdrop.height, t.tabBarItem.height);
+    }
+
     function test_enterSelectsTab() {
         const t = tabsOf(createTemporaryObject(app, testCase));
         const b = buttons(t.tabBarItem);

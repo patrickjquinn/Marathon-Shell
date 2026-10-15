@@ -1,4 +1,5 @@
 import QtQuick
+import Sailfish.Silica as S
 import Sailfish.Silica.private as P
 
 P.TabBar {
@@ -17,6 +18,16 @@ P.TabBar {
 
     Accessible.role: Accessible.PageTabList
     Accessible.name: _currentTabButton ? _currentTabButton.title : ""
+
+    // A tab's content scrolls up under the pinned bar, which is see-through
+    // over a transparent app window.
+    Rectangle {
+        objectName: "tabBarBackdrop"
+        anchors.fill: parent
+        z: -1
+        color: Qt.rgba(S.Theme.overlayBackgroundColor.r, S.Theme.overlayBackgroundColor.g, S.Theme.overlayBackgroundColor.b, 1)
+        visible: root._tabView !== null && root._tabView.yOffset > 0
+    }
 
     delegate: TabButton {
         required property var model
