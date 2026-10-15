@@ -263,6 +263,17 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
     QPointer<KeelHost> m_keelHost;
 };
 
+// A page that focused itself while the app was built (Keel's initial page
+// goes Active synchronously) holds focus somewhere below the root.
+static bool subtreeHasFocus(const QQuickItem *item) {
+    const QList<QQuickItem *> children = item->childItems();
+    for (const QQuickItem *child : children) {
+        if (child->hasFocus() || subtreeHasFocus(child))
+            return true;
+    }
+    return false;
+}
+
 static QString capitalizeAppId(const QString &appId) {
     if (appId.isEmpty())
         return appId;
@@ -1399,7 +1410,10 @@ int main(int argc, char *argv[]) {
                 rootItem->setWidth(view.width());
                 rootItem->setHeight(view.height());
 
-                rootItem->forceActiveFocus();
+                // The root is a plain Item, so focusing it would take active
+                // focus from the page and keys would never reach the page.
+                if (!subtreeHasFocus(rootItem))
+                    rootItem->forceActiveFocus();
 
                 QObject::connect(&view, &QQuickView::widthChanged, rootItem,
                                  [&view, rootItem](int) { rootItem->setWidth(view.width()); });
