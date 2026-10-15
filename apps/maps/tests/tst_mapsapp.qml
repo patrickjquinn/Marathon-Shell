@@ -132,6 +132,24 @@ TestCase {
         compare(app.pageStack.depth, 2);
     }
 
+    // Results arriving must not take the keys from the search field.
+    function test_typingContinuesAfterResults() {
+        const app = makeApp();
+        app.fetch = (url, done) => done(200, JSON.stringify([{ display_name: "Dublin, Ireland", lat: "53.3", lon: "-6.2", type: "city" }]));
+        app.openSearch();
+        settle(app);
+        const field = findChild(current(app), "searchField");
+        tryVerify(() => field.activeFocus);
+        keyClick(Qt.Key_D);
+        keyClick(Qt.Key_U);
+        keyClick(Qt.Key_B);
+        tryCompare(findChild(current(app), "resultsView"), "count", 1, 2000);
+        keyClick(Qt.Key_Backspace);
+        keyClick(Qt.Key_L);
+        compare(field.text, "dul");
+        verify(field.activeFocus);
+    }
+
     function test_shortQueryOnEnterAndBias() {
         const app = makeApp();
         let asked = "";
