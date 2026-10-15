@@ -1604,7 +1604,7 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
         qInfo() << "[AppLaunchService] appClosed PID" << pid << "(untracked)";
         return;
     }
-    const PendingLaunch &p = it.value();
+    const PendingLaunch p = it.value();
     m_activeByPid.erase(it);
     m_pidToAppId.remove(pid);
     if (m_appIdToPid.value(p.appId) == pid) {
