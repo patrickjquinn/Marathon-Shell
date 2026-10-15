@@ -30,6 +30,7 @@ class UpdateService : public QObject {
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
     Q_PROPERTY(bool checking READ checking NOTIFY checkingChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(qint64 lastCheckedMs READ lastCheckedMs NOTIFY checkingChanged)
 
   public:
     explicit UpdateService(QObject *parent = nullptr);
@@ -52,6 +53,9 @@ class UpdateService : public QObject {
     }
     QString lastError() const {
         return m_lastError;
+    }
+    qint64 lastCheckedMs() const {
+        return m_lastCheckedMs;
     }
 
     Q_INVOKABLE void checkNow();
@@ -78,7 +82,8 @@ class UpdateService : public QObject {
     QString                 m_releaseUrl;
     QString                 m_releaseNotes;
     QString                 m_lastError;
-    bool                    m_checking = false;
+    bool                    m_checking      = false;
+    qint64                  m_lastCheckedMs = 0;
 
     QNetworkAccessManager  *m_net;
     QPointer<QNetworkReply> m_reply;

@@ -1,6 +1,7 @@
 #include "updateservice.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
 #include <QJsonArray>
@@ -9,6 +10,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QUrl>
 
@@ -104,7 +106,9 @@ void UpdateService::onReleasesReply() {
     QNetworkReply *reply = m_reply;
     m_reply              = nullptr;
     m_checking           = false;
-    emit checkingChanged();
+    m_lastCheckedMs      = QDateTime::currentMSecsSinceEpoch();
+    // After the result is set, so one state push carries both.
+    const auto done = qScopeGuard([this]() { emit checkingChanged(); });
 
     if (reply->error() != QNetworkReply::NoError) {
         m_lastError = reply->errorString();

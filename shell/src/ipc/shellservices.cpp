@@ -2043,6 +2043,8 @@ UpdatesObject::UpdatesObject(UpdateService *updates, MarathonPermissionManager *
                 [this]() { emit StateChanged(buildState()); });
         connect(m_updates, &UpdateService::checkingChanged, this,
                 [this]() { emit StateChanged(buildState()); });
+        connect(m_updates, &UpdateService::lastErrorChanged, this,
+                [this]() { emit StateChanged(buildState()); });
     }
 }
 
@@ -2057,6 +2059,7 @@ QVariantMap UpdatesObject::buildState() const {
         {"updateAvailable", m_updates->updateAvailable()},
         {"checking", m_updates->checking()},
         {"lastError", m_updates->lastError()},
+        {"lastCheckedMs", m_updates->lastCheckedMs()},
         {"channel", m_updates->isStableChannel() ? "stable" : "edge"},
     };
 }

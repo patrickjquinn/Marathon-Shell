@@ -1376,6 +1376,7 @@ class UpdateClient : public QObject {
     Q_PROPERTY(bool checking READ checking NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
     Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
+    Q_PROPERTY(qlonglong lastCheckedMs READ lastCheckedMs NOTIFY stateChanged)
 
   public:
     explicit UpdateClient(QObject *parent = nullptr);
@@ -1403,6 +1404,9 @@ class UpdateClient : public QObject {
     }
     QString channel() const {
         return m_state.value("channel").toString();
+    }
+    qlonglong lastCheckedMs() const {
+        return m_state.value("lastCheckedMs").toLongLong();
     }
 
     Q_INVOKABLE void checkNow();
