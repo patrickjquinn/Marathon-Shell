@@ -22,7 +22,7 @@ TestCase {
     function test_placeholderWithoutPhotos() {
         const c = createTemporaryObject(cover, testCase, { photos: [] });
         verify(findChild(c, "coverPlaceholder").visible);
-        verify(!findChild(c, "polaroid").visible);
+        verify(!findChild(c, "coverImage").visible);
     }
 
     function test_showsALibraryPhoto() {
@@ -30,8 +30,8 @@ TestCase {
         const c = createTemporaryObject(cover, testCase, { photos: ps });
         verify(c.shownPhoto !== null);
         verify(ps.some(p => p.id === c.shownPhoto.id));
-        verify(findChild(c, "polaroid").visible);
-        verify(!findChild(c, "coverPlaceholder").visible, "no placeholder text behind the polaroid");
+        verify(findChild(c, "coverImage").visible);
+        verify(!findChild(c, "coverPlaceholder").visible, "no placeholder text behind the photo");
         compare(String(findChild(c, "coverImage").source), c.shownPhoto.path);
     }
 

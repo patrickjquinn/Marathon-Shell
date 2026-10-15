@@ -33,31 +33,15 @@ CoverBackground {
         icon.source: "image://theme/icon-l-gallery"
     }
 
-    Rectangle {
-        id: polaroid
-
-        objectName: "polaroid"
+    Image {
+        objectName: "coverImage"
+        anchors.fill: parent
         visible: root.shownPhoto !== null
-        width: root.width - 2 * Theme.paddingLarge
-        height: width + Theme.paddingLarge * 2
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: -Theme.paddingLarge
-        rotation: -4
-        antialiasing: true
-        color: Theme.lightPrimaryColor
-
-        Image {
-            objectName: "coverImage"
-            x: Theme.paddingSmall
-            y: Theme.paddingSmall
-            width: parent.width - 2 * Theme.paddingSmall
-            height: width
-            source: root.shownPhoto ? (root.shownPhoto.thumbnailPath || root.shownPhoto.path) : ""
-            sourceSize.width: width
-            sourceSize.height: height
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            clip: true
-        }
+        source: root.shownPhoto ? (root.shownPhoto.thumbnailPath || root.shownPhoto.path) : ""
+        sourceSize.width: width
+        sourceSize.height: height
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        clip: true
     }
 }
