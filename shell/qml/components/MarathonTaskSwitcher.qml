@@ -148,20 +148,21 @@ Item {
         maximumFlickVelocity: 3000
         anchors.fill: parent
         anchors.margins: Silica.Theme.paddingLarge
-        // Cards keep the cover's proportions: two columns where two rows of
-        // them fit, three otherwise (square screens). Rows are spread over
-        // the page so none is cut off.
+        // Two columns. Where two rows of cover-shaped cards fit (tall phones)
+        // cards keep the cover's proportions and rows are spread over the
+        // page so none is cut off; otherwise (square screens) a page is a 2x2
+        // grid of frames the cover is fitted into.
         readonly property bool overflows: contentHeight > height
         readonly property real coverAspect: Silica.Theme.coverSizeLarge.height / Silica.Theme.coverSizeLarge.width
         readonly property real bannerHeight: Silica.Theme.iconSizeSmall + 2 * Silica.Theme.paddingSmall
         readonly property real cardChrome: bannerHeight + 2 * Silica.Theme.paddingSmall
-        readonly property int columns: 2 * ((width / 2 - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome) <= height ? 2 : 3
         readonly property real cardHeight: (cellWidth - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome
-        readonly property int rowsPerPage: Math.max(1, Math.floor(height / cardHeight))
+        readonly property bool coverShaped: 2 * cardHeight <= height
+        readonly property int rowsPerPage: coverShaped ? Math.max(1, Math.floor(height / cardHeight)) : 2
 
         anchors.rightMargin: overflows ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
         anchors.bottomMargin: Constants.bottomBarHeight + Silica.Theme.paddingLarge
-        cellWidth: width / columns
+        cellWidth: width / 2
         cellHeight: height / rowsPerPage
         clip: true
         Component.onCompleted: {
@@ -184,6 +185,7 @@ Item {
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
             bannerHeight: taskGrid.bannerHeight
+            fitCell: !taskGrid.coverShaped
             haveWayland: taskSwitcher.haveWayland
             compositor: taskSwitcher.compositor
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive

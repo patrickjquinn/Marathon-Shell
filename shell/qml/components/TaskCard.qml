@@ -19,6 +19,8 @@ Item {
     required property var waylandSurface
     property bool haveWayland: false
     property real bannerHeight: Theme.itemSizeSmall
+    // Fill the cell instead of taking the cover's shape; the cover is fitted inside.
+    property bool fitCell: false
     property var compositor: null
     property bool taskSwitcherVisible: true
     property bool gridMoving: false
@@ -128,14 +130,14 @@ Item {
             }
         }
 
-        // The cover's own shape: Theme.coverSizeLarge scaled to the card's width.
+        // The cover's own shape (Theme.coverSizeLarge at the card's width), or the whole cell.
         Rectangle {
             id: glass
 
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: Math.round(width * Theme.coverSizeLarge.height / Theme.coverSizeLarge.width)
+            height: taskCard.fitCell ? Math.max(0, taskCard.height - 2 * Theme.paddingSmall - bannerRect.height) : Math.round(width * Theme.coverSizeLarge.height / Theme.coverSizeLarge.width)
             // Neutral dark glass: the highlight colours only mark text and state.
             color: Qt.rgba(0, 0, 0, 0.55)
             radius: Theme.paddingMedium
