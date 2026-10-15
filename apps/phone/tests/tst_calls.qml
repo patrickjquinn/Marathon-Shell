@@ -208,8 +208,8 @@ TestCase {
         app.callStartedAt = Date.now() - 125000;
         const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
         cover.now = Date.now();
-        compare(findChild(cover, "coverPrimary").text, "2:05");
-        compare(findChild(cover, "coverSecondary").text, "Grace Hopper");
+        compare(findChild(cover, "coverHeadline").value, "2:05");
+        compare(findChild(cover, "coverHeadline").label, "Grace Hopper");
         verify(!findChild(cover, "coverPlaceholder").visible);
         hangupSpy.target = cover;
         hangupSpy.clear();
@@ -221,8 +221,8 @@ TestCase {
         CallHistory.history = [{ id: 1, number: "1", type: "missed", timestamp: 1700000000 }, { id: 2, number: "2", type: "missed", timestamp: 1700000001 }];
         const app = makeApp();
         const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
-        compare(findChild(cover, "coverPrimary").text, "2");
-        compare(findChild(cover, "coverSecondary").text, "missed calls");
+        compare(findChild(cover, "coverHeadline").value, "2");
+        compare(findChild(cover, "coverHeadline").label, "missed calls");
         seenStub.value = Date.now();
         verify(findChild(cover, "coverPlaceholder").visible);
     }

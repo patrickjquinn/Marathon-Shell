@@ -23,35 +23,18 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: !root.phone.inCall && root.phone.missedCount === 0
-        text: qsTr("Phone")
+        text: qsTr("No missed calls")
         icon.source: "image://theme/icon-l-phone"
     }
 
-    Column {
+    CoverHeadline {
+        objectName: "coverHeadline"
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        spacing: Theme.paddingSmall
         visible: root.phone.inCall || root.phone.missedCount > 0
-
-        Label {
-            objectName: "coverPrimary"
-            width: parent.width
-            text: root.phone.inCall ? (root.connected ? Phone.duration((root.now - root.phone.callStartedAt) / 1000) : qsTr("Calling…")) : root.phone.missedCount
-            color: Theme.highlightColor
-            font.pixelSize: Theme.fontSizeHuge
-            font.weight: Font.ExtraLight
-            truncationMode: TruncationMode.Fade
-        }
-        Label {
-            objectName: "coverSecondary"
-            width: parent.width
-            text: root.phone.inCall ? root.phone.callName || Phone.format(root.phone.callNumber) : root.phone.missedCount === 1 ? qsTr("missed call") : qsTr("missed calls")
-            font.pixelSize: Theme.fontSizeMedium
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            truncationMode: TruncationMode.Fade
-        }
+        value: root.phone.inCall ? (root.connected ? Phone.duration((root.now - root.phone.callStartedAt) / 1000) : qsTr("Calling…")) : root.phone.missedCount
+        label: root.phone.inCall ? root.phone.callName || Phone.format(root.phone.callNumber) : root.phone.missedCount === 1 ? qsTr("missed call") : qsTr("missed calls")
     }
 
     CoverActionList {
