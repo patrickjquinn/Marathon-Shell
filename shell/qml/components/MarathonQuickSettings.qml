@@ -11,6 +11,7 @@ Item {
     id: quickSettings
 
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
 
     // What the content needs; the shell opens the shade this far, as
     // Sailfish's top menu, with the screen dimmed below it.
@@ -272,7 +273,7 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: Silica.Theme.paddingLarge * 2
+            spacing: quickSettings.compactLayout ? Silica.Theme.paddingLarge : Silica.Theme.paddingLarge * 2
 
             layer.enabled: true
 
@@ -328,7 +329,7 @@ Item {
                 objectName: "tileGrid"
                 width: parent.width
                 columns: 4
-                rowSpacing: Silica.Theme.paddingLarge
+                rowSpacing: quickSettings.compactLayout ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
                 readonly property real cellWidth: width / columns
 
                 Repeater {
