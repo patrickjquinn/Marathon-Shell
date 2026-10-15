@@ -1135,6 +1135,7 @@ Item {
         searchActive: UIStore.searchOpen
         pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen
         onPilotRequested: {
+            pilotGlow.light();
             // The Wayland client is the app itself, not its sandbox or Keel host.
             const s = UIStore.appWindowOpen && appWindow.waylandSurface ? (appWindow.waylandSurface.surface || appWindow.waylandSurface) : null;
             PilotClient.showSheetFor(s && s.client ? s.client.processId : 0);
@@ -2382,6 +2383,13 @@ Item {
         target: PilotClient
         property: "watching"
         value: !SessionStore.isLocked
+    }
+
+    PilotEdgeGlow {
+        id: pilotGlow
+
+        anchors.fill: parent
+        z: Constants.zIndexPilotGlow
     }
 
     Rectangle {

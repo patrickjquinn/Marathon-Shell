@@ -295,7 +295,7 @@ for system navigation**. Its semantic surface area:
 | Gesture | Effect |
 |---|---|
 | Tap | (nothing — it's a status affordance, not a button) |
-| Touch and hold (still, ~0.55 s) | Ask Shipwright Pilot, when installed: the pill lights and Pilot comes up over the app |
+| Touch and hold (still, ~0.55 s) | Ask Shipwright Pilot, when installed: the pill lights, the screen's edges glow, Pilot's overlay comes up over the app |
 | Short swipe up | Minimize app / dismiss keyboard / dismiss search |
 | Long swipe up | Go home (app → app switcher → home) |
 | Long-press in left zone (< 15% from left) | Toggle search |

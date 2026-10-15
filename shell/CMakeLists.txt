@@ -235,6 +235,7 @@ set(QML_FILES
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonTaskSwitcher.qml
     qml/components/MarathonNavBar.qml
+    qml/components/PilotEdgeGlow.qml
     qml/components/MarathonStatusBar.qml
     qml/components/MarathonBottomBar.qml
     qml/components/MarathonQuickSettings.qml

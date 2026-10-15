@@ -67,6 +67,7 @@ QtObject {
     readonly property int zIndexModalOverlay: 2000
     readonly property int zIndexModal: zIndexModalOverlay
     readonly property int zIndexKeyboard: 3000
+    readonly property int zIndexPilotGlow: 4000
     readonly property real gestureSwipeShort: Math.round(80 * scaleFactor)
     readonly property real gestureSwipeLong: Math.round(150 * scaleFactor)
     readonly property real quickSettingsDismissThreshold: 0.3
