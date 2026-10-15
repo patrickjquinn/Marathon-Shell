@@ -39,7 +39,7 @@ void ScreenMetrics::attachToScreen(QScreen *screen) {
     updateFromScreen();
 }
 
-qreal ScreenMetrics::computeDpi(QScreen *screen) const {
+qreal ScreenMetrics::computeDpi(QScreen *screen) {
     // MARATHON_FORCE_DPI overrides everything below -- Qt derives DPI from EDID,
     // and emulated panels (QEMU virtio-gpu, some VM display protocols) report
     // a fake desktop-monitor physical size that yields ~108 DPI on a 720x1440

@@ -5,6 +5,7 @@
 #include "sailfishlaunch.h"
 #include "taskmodel.h"
 #include "src/managers/deviceprofile.h"
+#include "src/managers/screenmetrics.h"
 
 #include <QMetaObject>
 #include <QVariant>
@@ -40,6 +41,12 @@
 #endif
 
 namespace {
+
+// The DPI the shell's own Constants.scaleFactor uses.
+qreal shellDpi() {
+    const qreal dpi = ScreenMetrics::computeDpi(QGuiApplication::primaryScreen());
+    return dpi > 0 ? dpi : 160.0;
+}
 
 // Function-local statics: compiled once on first use, with no pre-main
 // initialiser that could throw uncatchably (which a namespace-scope
@@ -611,19 +618,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // launches need the values too so Constants.scaleFactor in the app
     // matches the shell.
     {
-        bool             ok     = false;
-        const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
-        double           dpi    = 160.0;
-        if (!forced.isEmpty()) {
-            const double v = forced.toDouble(&ok);
-            if (ok && v > 0)
-                dpi = v;
-        }
-        if (!ok) {
-            const QScreen *screen = QGuiApplication::primaryScreen();
-            dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
-        }
-        env.insert("MARATHON_DPI", QString::number(dpi, 'f', 1));
+        env.insert("MARATHON_DPI", QString::number(shellDpi(), 'f', 1));
 
         QSettings    shellSettings(QSettings::IniFormat, QSettings::UserScope,
                                    QStringLiteral("marathon-os"), QStringLiteral("Marathon Shell"));
@@ -1088,27 +1083,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_USER_SCALE")
                       << QString::number(userScale, 'f', 3);
         }
-        {
-            // Honour MARATHON_FORCE_DPI in the parent shell — that is the
-            // value ScreenMetricsCpp uses for Constants.scaleFactor in the
-            // shell, so apps must see the same number or chrome and app
-            // content scale at different rates (e.g. 1.0 shell vs 1.2 app
-            // on a dev host with EDID DPI 192).
-            const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
-            double           dpi    = 160.0;
-            bool             ok     = false;
-            if (!forced.isEmpty()) {
-                const double v = forced.toDouble(&ok);
-                if (ok && v > 0)
-                    dpi = v;
-            }
-            if (!ok) {
-                const QScreen *screen = QGuiApplication::primaryScreen();
-                dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
-            }
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
-                      << QString::number(dpi, 'f', 1);
-        }
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
+                  << QString::number(shellDpi(), 'f', 1);
         if (const QScreen *primaryScreen = QGuiApplication::primaryScreen()) {
             const QRect g = primaryScreen->geometry();
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SCREEN_WIDTH")
@@ -1320,22 +1296,8 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          << QString::number(initialAppSize().width()) << QStringLiteral("--setenv")
          << QStringLiteral("MARATHON_APP_HEIGHT") << QString::number(initialAppSize().height());
 
-    {
-        const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
-        double           dpi    = 160.0;
-        bool             ok     = false;
-        if (!forced.isEmpty()) {
-            const double v = forced.toDouble(&ok);
-            if (ok && v > 0)
-                dpi = v;
-        }
-        if (!ok) {
-            const QScreen *screen = QGuiApplication::primaryScreen();
-            dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
-        }
-        args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
-             << QString::number(dpi, 'f', 1);
-    }
+    args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
+         << QString::number(shellDpi(), 'f', 1);
     if (const QScreen *primaryScreen = QGuiApplication::primaryScreen()) {
         const QRect g = primaryScreen->geometry();
         args << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SCREEN_WIDTH")

@@ -32,13 +32,14 @@ class ScreenMetrics : public QObject {
         return m_devicePixelRatio;
     }
 
+    static qreal computeDpi(QScreen *screen);
+
   signals:
     void metricsChanged();
 
   private:
     void              attachToScreen(QScreen *screen);
     void              updateFromScreen();
-    qreal             computeDpi(QScreen *screen) const;
 
     QPointer<QScreen> m_screen;
     int               m_width            = 0;
