@@ -13,6 +13,7 @@ Item {
     property var selected: null
 
     signal charSizeChanged
+    signal textCommitted(string text)
 
     function select(sx, sy, ex, ey) {
         selected = [sx, sy, ex, ey];

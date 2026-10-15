@@ -92,6 +92,16 @@ Item {
             modifiersUsed();
     }
 
+    // Text from the on-screen keyboard, which arrives as input-method commits.
+    function handleText(text) {
+        handleKey({
+            "key": _letterKey(text),
+            "text": text,
+            "modifiers": 0,
+            "accepted": false
+        });
+    }
+
     Rectangle {
         anchors.fill: parent
         color: renderer.backgroundColor
@@ -129,6 +139,7 @@ Item {
         onHeightChanged: updateTerminalSize()
         onTerminalChanged: updateTerminalSize()
         Keys.onPressed: event => root.handleKey(event)
+        onTextCommitted: text => root.handleText(text)
 
         // A tap focuses, a long press starts a selection; plain drags stay
         // with the page so the pulley menu opens.

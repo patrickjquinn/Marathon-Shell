@@ -82,9 +82,12 @@ class TerminalRenderer : public QQuickPaintedItem {
     void selectionColorChanged();
     void scrollOffsetChanged();
     void historyLinesChanged();
+    void textCommitted(const QString &text);
 
   protected:
-    void paint(QPainter *painter) override;
+    void     paint(QPainter *painter) override;
+    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
+    void     inputMethodEvent(QInputMethodEvent *event) override;
 
   private slots:
     void onScreenChanged();

@@ -1,6 +1,7 @@
 #include "TerminalRenderer.h"
 #include "TerminalEngine.h"
 #include "TerminalScreen.h"
+#include <QInputMethodEvent>
 #include <QPainter>
 #include <QTimer>
 #include <cmath>
@@ -15,6 +16,7 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     , m_scrollOffset(0)
     , m_historyLines(0) {
     setFlag(ItemHasContents, true);
+    setFlag(ItemAcceptsInputMethod, true);
     setAntialiasing(true);
 
     QStringList fonts = {"JetBrains Mono", "Cascadia Code", "Fira Code", "Roboto Mono", "Courier New", "Monospace"};
@@ -275,4 +277,28 @@ void TerminalRenderer::paint(QPainter *painter) {
             x = runEnd;
         }
     }
+}
+
+QVariant TerminalRenderer::inputMethodQuery(Qt::InputMethodQuery query) const {
+    switch (query) {
+        case Qt::ImEnabled: return true;
+        case Qt::ImHints:
+            return int(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase | Qt::ImhPreferLatin);
+        case Qt::ImCursorRectangle:
+            if (m_screen)
+                return QRectF(m_screen->cursorX() * m_charWidth,
+                              m_screen->cursorY() * m_charHeight + m_scrollOffset, m_charWidth,
+                              m_charHeight);
+            return QRectF();
+        case Qt::ImSurroundingText: return QString();
+        case Qt::ImCursorPosition:
+        case Qt::ImAnchorPosition: return 0;
+        default: return QQuickPaintedItem::inputMethodQuery(query);
+    }
+}
+
+void TerminalRenderer::inputMethodEvent(QInputMethodEvent *event) {
+    if (!event->commitString().isEmpty())
+        emit textCommitted(event->commitString());
+    event->accept();
 }

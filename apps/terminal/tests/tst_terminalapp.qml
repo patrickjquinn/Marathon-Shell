@@ -140,6 +140,21 @@ TestCase {
         compare(sent[1].modifiers & Qt.ControlModifier, Qt.ControlModifier);
     }
 
+    // The on-screen keyboard commits text through the input method.
+    function test_keyboardTextReachesTheShell() {
+        const app = makeApp();
+        page(app);
+        const renderer = findChild(app.pageStack.currentPage, "renderer");
+        renderer.textCommitted("s");
+        renderer.parent.extraModifiers = Qt.ControlModifier;
+        renderer.textCommitted("c");
+        const sent = app.currentSession.sent;
+        compare(sent.length, 2);
+        compare(sent[0].input, "s");
+        compare(sent[1].key, Qt.Key_C);
+        compare(sent[1].modifiers & Qt.ControlModifier, Qt.ControlModifier);
+    }
+
     function test_menuKeyOpensPulley() {
         const app = makeApp();
         const p = page(app);
