@@ -2,6 +2,7 @@
 
 #include "appmodel.h"
 #include "processtree.h"
+#include "sailfishlaunch.h"
 #include "taskmodel.h"
 #include "src/managers/deviceprofile.h"
 
@@ -1720,6 +1721,23 @@ void AppLaunchService::sendForwardToRunner(const QString &appId) {
 void AppLaunchService::setCoverVisible(const QString &appId, bool visible) {
     if (!appId.isEmpty())
         callRunnerLifecycle(appId, "SetCoverStatus", {visible ? 1 : 0});
+}
+
+qint64 AppLaunchService::hostPidForAppId(const QString &appId) const {
+    for (auto it = m_activeByPid.cbegin(); it != m_activeByPid.cend(); ++it) {
+        if (it->appId == appId && SailfishLaunch::isHosted(it->command))
+            return it.key();
+    }
+    return -1;
+}
+
+bool AppLaunchService::isKeelHostApp(const QString &appId) const {
+    return hostPidForAppId(appId) > 0;
+}
+
+void AppLaunchService::setAppActive(const QString &appId, bool active) {
+    if (isKeelHostApp(appId))
+        callRunnerLifecycle(appId, "SetActive", {active});
 }
 
 void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,

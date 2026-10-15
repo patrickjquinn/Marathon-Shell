@@ -56,6 +56,7 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
                         st.stateEnteredMs = st.launchTimeMs;
                         st.state          = Foreground;
                         m_appStates.insert(appId, st);
+                        m_appLaunchService->setAppActive(appId, true);
                     }
                     // Demote the previous foreground app so uclamp / OOM
                     // reflect only one Foreground at a time. For runner-
@@ -501,6 +502,9 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
         // interactive load spikes.
         m_cgroup->setAppUclampMin(appId, newState == Foreground ? 30 : 0);
     }
+
+    if (m_appLaunchService && (old == Foreground) != (newState == Foreground))
+        m_appLaunchService->setAppActive(appId, newState == Foreground);
 
     emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
 }

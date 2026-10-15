@@ -173,7 +173,15 @@ class AppLaunchService : public QObject {
     // Tells a Keel app whether its cover is on screen (Cover.Active).
     Q_INVOKABLE void setCoverVisible(const QString &appId, bool visible);
 
+    // A Keel app run under marathon-keel-host (SailfishLaunch).
+    Q_INVOKABLE bool isKeelHostApp(const QString &appId) const;
+    // Tells a hosted Keel app whether it is the foreground app (Active);
+    // the runner takes it from its window instead.
+    void setAppActive(const QString &appId, bool active);
+
   private:
+    qint64                 hostPidForAppId(const QString &appId) const;
+
     QHash<qint64, QString> m_pidToAppId;
     QHash<QString, qint64> m_appIdToPid;
 };
