@@ -36,3 +36,4 @@ TabBar 1.0 TabBar.qml
 TabButton 1.0 TabButton.qml
 TabItem 1.0 TabItem.qml
 TabView 1.0 TabView.qml
+CoverHeadline 1.0 CoverHeadline.qml
