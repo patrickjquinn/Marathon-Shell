@@ -35,10 +35,8 @@ void AmbienceService::setWallpaper(const QString &path) {
     emit seedChanged();
 }
 
-qreal AmbienceService::sailfishPixelRatio(qreal dpi, qreal userScale, qreal deviceRatio) {
-    const qreal device = deviceRatio > 0 ? deviceRatio : dpi / 160.0 * 390.0 / 540.0;
-    // In steps of 0.05: the icon theme has a z<ratio> directory for each.
-    return qRound(device * userScale * 20) / 20.0;
+qreal AmbienceService::sailfishPixelRatio(qreal dpi, qreal userScale) {
+    return dpi / 160.0 * userScale / 2.0;
 }
 
 void AmbienceService::setPixelRatio(qreal ratio) {

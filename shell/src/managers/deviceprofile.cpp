@@ -156,13 +156,6 @@ void DeviceProfile::load() {
             m_panelDpi = v;
     }
 
-    if (conf.value("MARATHON_KEEL_PIXEL_RATIO", QStringLiteral("KEEL_PIXEL_RATIO"), s)) {
-        bool        ok = false;
-        const qreal v  = s.toDouble(&ok);
-        if (ok && v > 0.0)
-            m_keelPixelRatio = v;
-    }
-
     if (conf.value("MARATHON_DOZE_DPMS", QStringLiteral("DOZE_DPMS"), s))
         m_dozeDpms = toBool(s, m_dozeDpms);
     if (conf.value("MARATHON_PANEL_DEPTH", QStringLiteral("PANEL_DEPTH"), s)) {

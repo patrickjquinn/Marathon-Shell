@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <QImage>
 #include <QTemporaryDir>
+#include <QtMath>
 
 #include "ambienceservice.h"
 
@@ -69,22 +70,44 @@ class TestAmbienceService : public QObject {
         QCOMPARE(spy.count(), 1);
     }
 
-    // Marathon's scale (dpi / 160) with Silica's 540 px canvas fitted to
-    // Marathon's 390 units, in steps of 0.05.
-    void pixelRatioFollowsMarathonScale() {
-        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.0), 1.15); // HackberryPi CM5
-        QCOMPARE(AmbienceService::sailfishPixelRatio(270, 1.0), 1.2);  // PinePhone
-        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.0), 1.3);  // Librem 5
-        QCOMPARE(AmbienceService::sailfishPixelRatio(296, 1.0), 1.35); // QEMU
-        QCOMPARE(AmbienceService::sailfishPixelRatio(402, 1.0), 1.8);  // OnePlus 6
-        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.2), 1.55);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 0.75), 0.95);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(0, 1.0), 0.0);
+    // Keel rounds Silica's base sizes (theme.h) like the shell rounds its
+    // design px (Constants.qml): Math.round.
+    static int px(qreal v) {
+        return qFloor(v + 0.5);
     }
 
-    void deviceRatioReplacesTheDensity() {
-        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.0, 1.25), 1.25);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.2, 1.25), 1.5);
+    void silicaTextMatchesShellText_data() {
+        QTest::addColumn<qreal>("dpi");
+        QTest::addColumn<qreal>("userScale");
+        QTest::newRow("HackberryPi") << 254.0 << 1.0;
+        QTest::newRow("HackberryPi 75%") << 254.0 << 0.75;
+        QTest::newRow("HackberryPi 110%") << 254.0 << 1.1;
+        QTest::newRow("PinePhone") << 270.0 << 1.0;
+        QTest::newRow("Librem 5") << 287.0 << 1.0;
+        QTest::newRow("Librem 5 120%") << 287.0 << 1.2;
+        QTest::newRow("QEMU") << 296.0 << 1.0;
+        QTest::newRow("OnePlus 6") << 402.0 << 1.0;
+        QTest::newRow("design canvas") << 160.0 << 1.0;
+    }
+
+    // Silica fontSize{ExtraSmall,Small,Medium,Huge} (24/28/32/64 x ratio)
+    // against the shell's XSmall 12, Small 14, Body 16 and XXLarge 32
+    // (x scaleFactor).
+    void silicaTextMatchesShellText() {
+        QFETCH(qreal, dpi);
+        QFETCH(qreal, userScale);
+        const qreal scale = dpi / 160 * userScale;
+        const qreal ratio = AmbienceService::sailfishPixelRatio(dpi, userScale);
+        for (int base : {12, 14, 16, 32})
+            QCOMPARE(px(2 * base * ratio), px(base * scale));
+    }
+
+    void pixelRatioFollowsMarathonScale() {
+        QCOMPARE(AmbienceService::sailfishPixelRatio(160, 1.0), 0.5);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(320, 1.0), 1.0);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.0), 0.79375);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.2), 0.9525);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(0, 1.0), 0.0);
     }
 
     void pixelRatioIsPublishedForKeel() {

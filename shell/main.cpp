@@ -635,8 +635,7 @@ int main(int argc, char *argv[]) {
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
             const qreal ratio = AmbienceService::sailfishPixelRatio(
-                screenMetrics->dpi(), settingsManager->userScaleFactor(),
-                DeviceProfile::instance().keelPixelRatio());
+                screenMetrics->dpi(), settingsManager->userScaleFactor());
             ambienceService->setPixelRatio(ratio);
             // Keel's forwarded layer, read when its Ambience is first created:
             // the shell's Silica starts at this ratio instead of the width rule.
