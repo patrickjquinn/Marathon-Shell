@@ -75,8 +75,8 @@ Item {
         readonly property Item contentColumn: contentColumn
         readonly property Item iconBox: iconBox
 
-        width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
-        height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.spacing) / appGrid.rows
+        width: iconGrid.width / appGrid.columns
+        height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.rowSpacing) / appGrid.rows
 
         Accessible.role: Accessible.Button
         Accessible.name: appData ? appData.name : ""
@@ -151,19 +151,14 @@ Item {
 
             // Silica's launcher label size, as on Sailfish's home.
             Text {
-                width: parent.parent.width
+                width: iconCell.width - Silica.Theme.paddingSmall
                 horizontalAlignment: Text.AlignHCenter
                 text: iconCell.appData ? iconCell.appData.name : ""
                 color: Silica.Theme.primaryColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeTiny
-                // iOS Home Screen + Android launchers wrap to 2 lines
-                // before truncating. At ≥1.25× canvas the cell width
-                // can't hold "Calculator" / "App Store" / "Messages"
-                // / "Calendar" in one line at the scaled footnote
-                // size; wrap → fit instead of "Calcul…". Only at
-                // word boundaries: one long word elides rather than
-                // splitting as "Authenticat / or".
+                // Names longer than the column wrap to a second line at word
+                // boundaries; one long word elides rather than splitting.
                 wrapMode: Text.WordWrap
                 elide: Text.ElideRight
                 maximumLineCount: 2
@@ -281,7 +276,9 @@ Item {
         anchors.bottomMargin: Constants.bottomBarHeight + 12
         columns: appGrid.columns
         rows: appGrid.rows
-        spacing: Math.round(8 * (Constants.scaleFactor || 1.0))
+        // Labels take the whole column pitch; the icons are narrower anyway.
+        columnSpacing: 0
+        rowSpacing: Math.round(8 * (Constants.scaleFactor || 1.0))
 
         Repeater {
             id: iconRepeater
