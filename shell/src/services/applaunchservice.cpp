@@ -863,9 +863,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
     // Warm pool: hand a pre-initialised runner this app instead of paying
     // exec + dynamic linking + Qt init on the critical path (~1s of the
-    // ~2s tap-to-frame measured 2026-07-02). WebEngine apps keep the cold
-    // path — their env and sandbox shape are per-app.
-    if (!usesWebEngine && m_spareAdoptable && m_spareProcess &&
+    // ~2s tap-to-frame measured 2026-07-02). WebEngine and storage apps keep
+    // the cold path — their env and sandbox shape are per-app.
+    if (!usesWebEngine && !permissions.contains("storage") && m_spareAdoptable && m_spareProcess &&
         m_spareProcess->state() == QProcess::Running) {
         PendingLaunch pooled;
         pooled.appId   = appId;
@@ -894,6 +894,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     //   - read-write bind : XDG_DATA_HOME/marathon-apps/<appId>            (data)
     //   - read-write bind : XDG_CACHE_HOME/marathon-apps/<appId>           (cache)
     //   - pass through    : XDG_RUNTIME_DIR (Wayland + user D-Bus sockets)
+    //   - read-write bind : XDG user dirs + ~/DCIM, only with "storage"
     //   - tmpfs           : everything else under /home, /tmp
     //   - no network namespace unless "network" permission granted
     //   - --die-with-parent so a hung sandbox can't outlive the shell
@@ -1038,6 +1039,26 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << xdgRuntimeDir << xdgRuntimeDir << QStringLiteral("--ro-bind-try")
                   << xdgConfigHome + QStringLiteral("/dconf")
                   << xdgConfigHome + QStringLiteral("/dconf");
+
+        if (permissions.contains("storage")) {
+            for (const auto loc :
+                 {QStandardPaths::PicturesLocation, QStandardPaths::MusicLocation,
+                  QStandardPaths::MoviesLocation, QStandardPaths::DocumentsLocation,
+                  QStandardPaths::DownloadLocation}) {
+                const QString dir = QStandardPaths::writableLocation(loc);
+                if (dir.isEmpty() || dir == homeDir)
+                    continue;
+                QDir().mkpath(dir);
+                bwrapArgs << QStringLiteral("--bind") << dir << dir;
+            }
+            const QString dcim = homeDir + QStringLiteral("/DCIM");
+            bwrapArgs << QStringLiteral("--bind-try") << dcim << dcim;
+            // MediaLibraryManager::getThumbnailsDir(), which runs in this process.
+            const QString thumbs = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+                QStringLiteral("/marathon/thumbnails");
+            QDir().mkpath(thumbs);
+            bwrapArgs << QStringLiteral("--ro-bind") << thumbs << thumbs;
+        }
 
         // Pass HOME as a tmpfs-mounted directory; apps can write to their
         // per-app data/cache paths only.
