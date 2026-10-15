@@ -56,6 +56,10 @@ ApplicationWindow {
             pageStack.push(Qt.resolvedUrl(route === "/folders" ? "pages/FoldersPage.qml" : "pages/TasksPage.qml"), { store: app }, PageStackAction.Immediate);
     }
 
+    NotesActions {
+        store: app
+    }
+
     cover: Component {
         NotesCover {
             notes: Store.sorted(app.notes)
