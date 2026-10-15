@@ -27,7 +27,7 @@ Item {
     // Compact sizes target real screen pixels: the scale factor on these
     // screens varies with how the panel's size is reported.
     readonly property real compactUnit: Constants.screenHeight / 720 / Constants.scaleFactor
-    readonly property real keyButtonSize: compactLayout ? Math.round(72 * compactUnit) : 56
+    readonly property real keyButtonSize: compactLayout ? Math.round(64 * compactUnit) : 56
     readonly property real keyCellPadding: compactLayout ? 8 : 12
     readonly property real keypadRowSpacing: compactLayout ? 8 : 12
     readonly property real keypadColumnSpacing: compactLayout ? 14 : 16
@@ -305,7 +305,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             // Six dots centred, clear of a key-sized cell either side.
             width: Math.max(keypad.width, Math.round((6 * 14 + 5 * 16 + 2 * (pinScreen.keyButtonSize + pinScreen.keyCellPadding)) * Constants.scaleFactor))
-            height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
+            height: Math.round(pinScreen.keyButtonSize * (pinScreen.compactLayout ? 0.7 : 1) * Constants.scaleFactor)
 
             Row {
                 id: pinCircles
@@ -692,6 +692,7 @@ Item {
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Emergency call"
+            visible: typeof ModemManagerCpp === "undefined" || ModemManagerCpp.modemAvailable
             backgroundColor: "transparent"
             color: Silica.Theme.errorColor
             onClicked: {
