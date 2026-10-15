@@ -292,6 +292,7 @@ set(QML_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/AmbienceController.qml
+    qml/core/WindowOrigins.qml
     qml/models/FilteredAppModel.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
@@ -372,6 +373,7 @@ set_source_files_properties(src/managers/marathoninputcontext.cpp PROPERTIES
 set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
+    qml/core/WindowOrigins.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
     qml/theme/MSpacing.qml
@@ -481,6 +483,8 @@ qt6_add_qml_module(marathon-shell
         src/services/wallpaperstore.h
         src/services/router.cpp
         src/services/router.h
+        src/services/gesturetracker.cpp
+        src/services/gesturetracker.h
         src/services/ambiencederivation.cpp
         src/services/ambiencederivation.h
         src/services/ambienceservice.cpp

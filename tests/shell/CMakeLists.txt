@@ -215,3 +215,12 @@ target_include_directories(test_shell_backgroundlaunch PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
 add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
+
+# Gesture engine: velocity window, commit decisions, settle spring
+add_executable(test_shell_gesturetracker
+    test_gesturetracker.cpp
+    ../../shell/src/services/gesturetracker.cpp
+)
+target_link_libraries(test_shell_gesturetracker Qt6::Test Qt6::Core Qt6::Qml)
+target_include_directories(test_shell_gesturetracker PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_GestureTracker COMMAND test_shell_gesturetracker)
