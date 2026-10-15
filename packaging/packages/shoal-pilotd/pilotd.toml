@@ -5,8 +5,8 @@
 [privacy]
 source = "none"
 
-# Pilot is started through the shell (Navigation1.LaunchApp), so it may
-# show its overlay over the app on screen.
+# Pilot is started through the shell (Navigation1.StartAppInBackground),
+# behind the app on screen, so it may show its overlay over that app.
 [events]
 open_command = ["/usr/libexec/shoal-pilot/marathon-open", "/usr/bin/shoal-pilot"]
 
