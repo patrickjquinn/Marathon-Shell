@@ -6,11 +6,13 @@ import QtQuick
 Column {
     id: pageIndicator
 
-    required property int taskCount
     required property real gridContentY
+    required property real gridContentHeight
     required property real gridHeight
-    property int pageCount: Math.ceil(taskCount / 4)
+    property int pageCount: gridHeight > 0 ? Math.ceil(gridContentHeight / gridHeight) : 1
     property int currentPage: {
+        if (gridContentY >= gridContentHeight - gridHeight - 1)
+            return pageCount - 1;
         var page = Math.round(gridContentY / gridHeight);
         return Math.max(0, Math.min(page, pageCount - 1));
     }
@@ -19,7 +21,7 @@ Column {
     anchors.rightMargin: Constants.spacingMedium
     anchors.verticalCenter: parent.verticalCenter
     spacing: Constants.spacingSmall
-    visible: taskCount > 4
+    visible: pageCount > 1
     z: 100
 
     Repeater {

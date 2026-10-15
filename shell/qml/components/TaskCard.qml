@@ -17,6 +17,7 @@ Item {
     required property int surfaceId
     required property var waylandSurface
     property bool haveWayland: false
+    property real bannerHeight: Theme.itemSizeSmall
     property var compositor: null
     property bool taskSwitcherVisible: true
     property bool gridMoving: false
@@ -82,23 +83,16 @@ Item {
         updateRegisteredSurface();
     }
 
-    Rectangle {
+    Item {
         id: cardRoot
 
         property bool closing: false
 
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         anchors.margins: Theme.paddingSmall
-        // Neutral dark glass: the highlight colours only mark text and state.
-        color: Qt.rgba(0, 0, 0, 0.55)
-        radius: Theme.paddingMedium
-        antialiasing: true
-        // Clip children to the rounded corners. Without this, the banner
-        // (sharp-cornered Rectangle anchored to the bottom edge) renders
-        // its solid fill into the bottom-left/right corner pixels that
-        // lie OUTSIDE cardRoot's rounded shape — visually making the
-        // handle look wider than the card body.
-        clip: true
+        height: glass.height + bannerRect.height
         readonly property bool pressed: (previewTapArea.pressed || handleTapArea.pressed) && !taskCard.suppressTapOpen
 
         scale: closing ? 0.7 : (pressed ? 0.97 : 1)
@@ -133,14 +127,27 @@ Item {
             }
         }
 
+        // The cover's own shape: Theme.coverSizeLarge scaled to the card's width.
+        Rectangle {
+            id: glass
+
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: Math.round(width * Theme.coverSizeLarge.height / Theme.coverSizeLarge.width)
+            // Neutral dark glass: the highlight colours only mark text and state.
+            color: Qt.rgba(0, 0, 0, 0.55)
+            radius: Theme.paddingMedium
+            antialiasing: true
+        }
+
         MouseArea {
             id: previewTapArea
 
             property real pressX: 0
             property real pressY: 0
 
-            anchors.fill: parent
-            anchors.bottomMargin: bannerRect.height
+            anchors.fill: glass
             z: 50
             preventStealing: false
             propagateComposedEvents: true
@@ -172,24 +179,20 @@ Item {
         }
 
         Rectangle {
-            anchors.fill: parent
+            anchors.fill: glass
             anchors.margins: 1
             z: 3
-            radius: cardRoot.radius - 1
+            radius: glass.radius - 1
             color: "transparent"
             border.width: 1
             border.color: cardRoot.pressed ? Theme.highlightColor : Theme.rgba(Theme.primaryColor, 0.1)
         }
 
         Item {
-            anchors.fill: parent
+            anchors.fill: glass
 
-            Rectangle {
+            Item {
                 anchors.fill: parent
-                anchors.bottomMargin: bannerRect.height
-                color: "transparent"
-                radius: cardRoot.radius
-                clip: true
 
                 // The app's cover when it has one, otherwise its live preview.
                 KeelCoverView {
@@ -461,10 +464,10 @@ Item {
         Rectangle {
             id: bannerRect
 
-            anchors.bottom: parent.bottom
+            anchors.top: glass.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: Theme.itemSizeSmall
+            height: taskCard.bannerHeight
             color: "transparent"
 
             MouseArea {
@@ -518,8 +521,6 @@ Item {
 
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Theme.paddingSmall
-                anchors.rightMargin: Theme.paddingSmall
                 spacing: Theme.paddingSmall
 
                 MAppIcon {

@@ -148,10 +148,21 @@ Item {
         maximumFlickVelocity: 3000
         anchors.fill: parent
         anchors.margins: Silica.Theme.paddingLarge
-        anchors.rightMargin: TaskModel.taskCount > 4 ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
+        // Cards keep the cover's proportions: two columns where two rows of
+        // them fit, three otherwise (square screens). Rows are spread over
+        // the page so none is cut off.
+        readonly property bool overflows: contentHeight > height
+        readonly property real coverAspect: Silica.Theme.coverSizeLarge.height / Silica.Theme.coverSizeLarge.width
+        readonly property real bannerHeight: Silica.Theme.iconSizeSmall + 2 * Silica.Theme.paddingSmall
+        readonly property real cardChrome: bannerHeight + 2 * Silica.Theme.paddingSmall
+        readonly property int columns: 2 * ((width / 2 - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome) <= height ? 2 : 3
+        readonly property real cardHeight: (cellWidth - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome
+        readonly property int rowsPerPage: Math.max(1, Math.floor(height / cardHeight))
+
+        anchors.rightMargin: overflows ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
         anchors.bottomMargin: Constants.bottomBarHeight + Silica.Theme.paddingLarge
-        cellWidth: width / 2
-        cellHeight: height / 2
+        cellWidth: width / columns
+        cellHeight: height / rowsPerPage
         clip: true
         Component.onCompleted: {
             console.log("[TaskSwitcher] GridView created, model count:", count);
@@ -159,7 +170,7 @@ Item {
         }
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
-        interactive: TaskModel.taskCount > 4
+        interactive: overflows
         boundsBehavior: Flickable.StopAtBounds
         model: TaskModel
         cacheBuffer: Math.max(0, height * 2)
@@ -172,6 +183,7 @@ Item {
         delegate: TaskCard {
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
+            bannerHeight: taskGrid.bannerHeight
             haveWayland: taskSwitcher.haveWayland
             compositor: taskSwitcher.compositor
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
@@ -182,8 +194,8 @@ Item {
     }
 
     TaskPageIndicator {
-        taskCount: TaskModel.taskCount
         gridContentY: taskGrid.contentY
+        gridContentHeight: taskGrid.contentHeight
         gridHeight: taskGrid.height
     }
 
