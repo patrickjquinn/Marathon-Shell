@@ -255,6 +255,7 @@ Item {
         contentHeight: content.y + content.height + Silica.Theme.paddingLarge
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: MMotion.flickDecelerationFast
+        maximumFlickVelocity: MMotion.flickVelocity
 
         // Gated on the open height, not the animating one, so it does not
         // flip while the shade opens.

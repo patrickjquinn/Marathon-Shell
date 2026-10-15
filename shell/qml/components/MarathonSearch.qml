@@ -210,6 +210,7 @@ Item {
             clip: true
             model: searchOverlay.searchResults
             interactive: true
+            maximumFlickVelocity: MMotion.flickVelocity
             boundsBehavior: Flickable.StopAtBounds
             Keys.onUpPressed: {
                 if (currentIndex === 0)
