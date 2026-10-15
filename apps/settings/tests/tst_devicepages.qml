@@ -224,6 +224,19 @@ TestCase {
         compare(child(s.page, "zoneButton").value, "Berlin (UTC+01:00)");
     }
 
+    function test_automaticTimeZone() {
+        const s = open("datetime");
+        const auto = child(s.page, "automaticZoneSwitch");
+        verify(auto.checked);
+        verify(!child(s.page, "zoneButton").enabled);
+        auto.clicked(null);
+        verify(!Settings.automaticTimeZone);
+        verify(!auto.checked);
+        verify(child(s.page, "zoneButton").enabled);
+        auto.clicked(null);
+        verify(Settings.automaticTimeZone);
+    }
+
     function test_timeZoneSearchTakesKeys() {
         const s = open("datetime");
         child(s.page, "zoneButton").clicked(null);

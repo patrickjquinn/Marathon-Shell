@@ -21,6 +21,7 @@ QtObject {
     property string deviceName: "Librem 5"
     property int autoLockTimeout: 0
     property bool automaticTime: true
+    property bool automaticTimeZone: true
     property var systemTimes: []
     property bool vibrationEnabled: true
 
@@ -50,6 +51,7 @@ QtObject {
         deviceName = "Librem 5";
         autoLockTimeout = 0;
         automaticTime = true;
+        automaticTimeZone = true;
         systemTimes = [];
         vibrationEnabled = true;
     }

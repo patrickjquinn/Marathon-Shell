@@ -109,10 +109,19 @@ Page {
                 checked: Settings.timeFormat === "24h"
                 onClicked: Settings.timeFormat = checked ? "12h" : "24h"
             }
+            TextSwitch {
+                objectName: "automaticZoneSwitch"
+                text: qsTr("Automatic time zone")
+                description: qsTr("Set the time zone from your location while Location is on")
+                automaticCheck: false
+                checked: Settings.automaticTimeZone
+                onClicked: Settings.automaticTimeZone = !Settings.automaticTimeZone
+            }
             ValueButton {
                 objectName: "zoneButton"
                 label: qsTr("Time zone")
                 value: zones.displayName(Settings.timeZone || "UTC")
+                enabled: !Settings.automaticTimeZone
                 onClicked: pageStack.push(Qt.resolvedUrl("TimeZonePage.qml"))
             }
         }
