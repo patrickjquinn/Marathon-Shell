@@ -1,4 +1,6 @@
+#include <cmath>
 #include <QGuiApplication>
+#include <QScreen>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QQuickStyle>
@@ -615,6 +617,17 @@ int main(int argc, char *argv[]) {
                      });
     qmlRegisterSingletonInstance<AmbienceService>("MarathonOS.Shell", 1, 0, "AmbienceService",
                                                   ambienceService);
+    // Keel picks phone or tablet metrics (page margins, ...) from the panel's
+    // physical size; a DT that misreports it (the HackberryPi's doubled
+    // width-mm) gives a phone tablet margins. The profile's true DPI wins.
+    if (!qEnvironmentVariableIsSet("KEEL_SCREEN_DIAGONAL") && DeviceProfile::instance().panelDpi() > 0) {
+        if (const QScreen *screen = QGuiApplication::primaryScreen()) {
+            const QSize px = screen->size() * screen->devicePixelRatio();
+            const qreal inches = std::hypot(px.width(), px.height()) / DeviceProfile::instance().panelDpi();
+            qputenv("KEEL_SCREEN_DIAGONAL", QByteArray::number(inches, 'f', 2));
+        }
+    }
+
     // Keel apps and the shell's Silica take their size from this ratio, so
     // the interface-size setting scales them with the rest of the shell.
     {
