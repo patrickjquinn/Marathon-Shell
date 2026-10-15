@@ -168,6 +168,11 @@ build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$
 # Pacific isn't in the public shipwright-open export: build a local checkout.
 PACIFIC_SRC="${PACIFIC_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pacific" ] && echo "$HOME/Developer/Shipwright")}" \
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
+# Pilot neither: one script builds the daemon and the app.
+PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
+build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilotd/APKBUILD"
+PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
+build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
