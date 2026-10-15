@@ -457,7 +457,10 @@ TestCase {
         app.startNavigation();
         settle(app);
         compare(app.voice.spoken, []);
-        mouseClick(findChild(current(app), "muteButton"));
+        const mute = findChild(current(app), "muteButton");
+        // Shown by startNavigation: it takes input once it has been drawn.
+        waitForRendering(mute);
+        mouseClick(mute);
         verify(!app.voice.muted);
     }
 
