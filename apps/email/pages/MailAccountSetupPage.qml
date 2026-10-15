@@ -145,7 +145,7 @@ Dialog {
 
             DialogHeader {
                 acceptText: qsTr("Sign in")
-                title: qsTr("Other (IMAP)")
+                title: page.provider === "" || page.provider === "other" ? qsTr("Other (IMAP)") : providerBox.value
             }
             Label {
                 x: Theme.horizontalPageMargin

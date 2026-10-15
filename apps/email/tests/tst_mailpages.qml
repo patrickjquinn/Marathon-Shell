@@ -372,6 +372,7 @@ TestCase {
         findChild(setup, "emailField").text = "me@icloud.com";
         compare(setup.provider, "icloud");
         compare(findChild(setup, "providerBox").currentIndex, 1);
+        compare(findChild(setup, "dialogHeader").title, "iCloud");
         compare(findChild(setup, "imapHostField").text, "imap.mail.me.com");
         compare(findChild(setup, "smtpPortField").text, "587");
         compare(setup.smtpEnc, 2);
