@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
@@ -59,7 +61,9 @@ Rectangle {
         color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
     }
 
-    Rectangle {
+    // Shipwright Pilot's bottom-edge notch: a slim highlight pill in a halo
+    // of wider, fainter ones.
+    Item {
         id: indicator
 
         property real targetX: parent.width / 2 - width / 2
@@ -67,15 +71,29 @@ Rectangle {
         property real dragX: navBar.currentX * 0.3
         property real dragY: navBar.currentY * 0.3
 
-        width: Constants.cardBannerHeight
-        height: Constants.spacingXSmall
-        radius: Constants.borderRadiusSharp
-        color: Silica.Theme.primaryColor
-        opacity: navBar.pinScreenMode ? 0 : 0.9
+        objectName: "navPill"
+        width: Silica.Theme.itemSizeExtraLarge
+        height: Silica.Theme.paddingSmall
         visible: !navBar.pinScreenMode
-        antialiasing: Constants.enableAntialiasing
         x: targetX + dragX
         y: targetY - dragY
+
+        Repeater {
+            model: 3
+
+            Rectangle {
+                required property int index
+                readonly property real spread: index * Silica.Theme.paddingSmall
+
+                anchors.centerIn: parent
+                width: indicator.width * 0.55 + 2 * spread
+                height: Silica.Theme.paddingSmall + 2 * spread
+                radius: height / 2
+                color: Silica.Theme.highlightColor
+                opacity: index === 0 ? 0.6 : 0.16 / index
+                antialiasing: Constants.enableAntialiasing
+            }
+        }
 
         Behavior on x {
             enabled: !navMouseArea.pressed

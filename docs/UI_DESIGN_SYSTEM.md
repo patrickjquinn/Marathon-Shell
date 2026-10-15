@@ -408,11 +408,12 @@ Both share the same animation token (`MMotion.stiffnessSpatialFor("tap")`).
 
 ### 7.4 Nav bar (`MarathonNavBar`)
 
-System bottom strip. Pill centred at the bottom, 4 px tall (`xs`
-spacing), `pill` radius. The strip is its own MouseArea — every system
-gesture starts here. No tap action on the pill itself; it's a
-*status affordance* (white when shell-active, dim when an app has
-focus stolen, hidden in pin-screen mode).
+System bottom strip. The pill is Shipwright Pilot's bottom-edge notch:
+a slim `pill`-radius bar in the ambience highlight colour
+(`Theme.paddingSmall` tall, 55% of `Theme.itemSizeExtraLarge` wide) in a
+halo of two wider, fainter ones. The strip is its own MouseArea — every
+system gesture starts here. No tap action on the pill itself; it's a
+*status affordance* (hidden in pin-screen mode).
 
 ### 7.5 Quick Settings shade
 

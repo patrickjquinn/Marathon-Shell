@@ -97,4 +97,11 @@ TestCase {
         compare(rightSpy.count, 1);
         compare(searchSpy.count, 0);
     }
+
+    function test_pillIsTheNotch() {
+        const pill = findChild(nav, "navPill");
+        verify(pill);
+        compare(pill.width, Silica.Theme.itemSizeExtraLarge);
+        compare(pill.x + pill.width / 2, nav.width / 2);
+    }
 }
