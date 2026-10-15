@@ -230,10 +230,16 @@ void showOnDesktop(QQuickView* view, const QSize& screen, int orientation)
 QQuickView* createOverlay(QQuickView* view, const QString& qmlPath)
 {
     const QString path = QFileInfo(qmlPath).absoluteDir().filePath(QStringLiteral("Overlay.qml"));
-    if (Keel::windowMode() != Keel::WindowMode::Direct || Keel::headless() || !QFileInfo::exists(path))
+    // Marathon OS: under marathon-keel-host (Shell mode) the shell shows a
+    // window titled keel:dialog above the app on screen, for an app it
+    // started (MARATHON_SHELL_PID).
+    const bool marathon = Keel::windowMode() == Keel::WindowMode::Shell
+        && qEnvironmentVariableIsSet("MARATHON_SHELL_PID");
+    if ((Keel::windowMode() != Keel::WindowMode::Direct && !marathon) || Keel::headless()
+        || !QFileInfo::exists(path))
         return nullptr;
     auto* overlay = new QQuickView(view->engine(), nullptr);
-    overlay->setTitle(QStringLiteral("Pilot"));
+    overlay->setTitle(marathon ? QStringLiteral("keel:dialog:pilot") : QStringLiteral("Pilot"));
     overlay->setColor(Qt::transparent);
     overlay->setResizeMode(QQuickView::SizeRootObjectToView);
     overlay->create();
