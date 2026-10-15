@@ -130,6 +130,7 @@ Rectangle {
                 Behavior on width {
                     NumberAnimation {
                         duration: MMotion.quick
+                        easing.type: MMotion.easingFor("tap")
                     }
                 }
             }
@@ -178,6 +179,7 @@ Rectangle {
             Behavior on color {
                 ColorAnimation {
                     duration: MMotion.quick
+                    easing.type: MMotion.easingFor("hover")
                 }
             }
         }
@@ -207,6 +209,7 @@ Rectangle {
             Behavior on color {
                 ColorAnimation {
                     duration: MMotion.quick
+                    easing.type: MMotion.easingFor("hover")
                 }
             }
         }

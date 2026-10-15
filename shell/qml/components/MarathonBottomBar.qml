@@ -149,7 +149,10 @@ Item {
                 Accessible.name: qsTr("Page %1").arg(index + 1)
 
                 Behavior on width {
-                    NumberAnimation { duration: MMotion.quick }
+                    NumberAnimation {
+                        duration: MMotion.quick
+                        easing.type: MMotion.easingFor("tap")
+                    }
                 }
             }
         }

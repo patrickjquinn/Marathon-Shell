@@ -1802,6 +1802,7 @@ Item {
             Behavior on opacity {
                 NumberAnimation {
                     duration: Constants.animationFast
+                    easing.type: MMotion.easingFor("hover")
                 }
             }
         }
