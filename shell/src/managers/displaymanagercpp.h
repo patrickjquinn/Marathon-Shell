@@ -75,7 +75,7 @@ class DisplayManagerCpp : public QObject {
     // never bias the learned curve.
     Q_INVOKABLE void   setBrightnessFromUser(double brightness);
     Q_INVOKABLE double getBrightness();
-    Q_INVOKABLE void   setScreenState(bool on);
+    Q_INVOKABLE void   setScreenState(bool on, const QString &reason = QStringLiteral("other"));
     Q_INVOKABLE void   setAutoBrightness(bool enabled);
     Q_INVOKABLE void   setRotationLock(bool locked);
     Q_INVOKABLE void   setScreenTimeout(int seconds);

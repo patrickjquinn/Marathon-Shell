@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QList>
+#include <utility>
 
 class QSocketNotifier;
 
@@ -26,8 +27,9 @@ class PowerKeyListener : public QObject {
     ~PowerKeyListener() override;
 
   signals:
-    void powerKeyPressed();
-    void powerKeyReleased();
+    // device = "<name> (<path>)" of the input node the press came from.
+    void powerKeyPressed(const QString &device);
+    void powerKeyReleased(const QString &device);
 
   private slots:
     void onFdReadable(int fd);
@@ -40,11 +42,11 @@ class PowerKeyListener : public QObject {
         QSocketNotifier *notifier;
     };
 
-    QList<Watch> m_watches;
+    QList<Watch>                       m_watches;
 
-    QStringList  discoverPowerKeyDevices() const;
-    bool         openDevice(const QString &path);
-    void         closeAll();
+    QList<std::pair<QString, QString>> discoverPowerKeyDevices() const; // (path, name)
+    bool                               openDevice(const QString &path, const QString &name);
+    void                               closeAll();
 };
 
 #endif

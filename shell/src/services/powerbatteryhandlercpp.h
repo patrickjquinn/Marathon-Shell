@@ -19,7 +19,8 @@ class PowerBatteryHandlerCpp : public QObject {
                                     DisplayManagerCpp *displayManager, HapticManager *haptics,
                                     QObject *parent = nullptr);
 
-    Q_INVOKABLE void handlePowerButtonPress(bool sessionLocked, bool screenOnHint = true);
+    Q_INVOKABLE void handlePowerButtonPress(bool sessionLocked, bool screenOnHint = true,
+                                            const QString &source = QStringLiteral("power key"));
 
     // Stamp the power key-DOWN time. PowerKeyListener sees every physical
     // press on raw /dev/input, so this is the reliable source of hold
@@ -34,7 +35,7 @@ class PowerBatteryHandlerCpp : public QObject {
 
   private:
     void                              turnScreenOn();
-    void                              turnScreenOff();
+    void                              turnScreenOff(const QString &reason);
 
     QPointer<PowerPolicyController>   m_powerPolicy;
     QPointer<DisplayPolicyController> m_displayPolicy;

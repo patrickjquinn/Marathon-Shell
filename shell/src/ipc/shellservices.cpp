@@ -867,7 +867,7 @@ void DisplayObject::SetNightLightSchedule(const QString &schedule) {
 void DisplayObject::SetScreenState(bool on) {
     if (!requireSystem())
         return;
-    m_display->setScreenState(on);
+    m_display->setScreenState(on, QStringLiteral("D-Bus Display1.SetScreenState"));
 }
 
 void DisplayObject::Wake() {

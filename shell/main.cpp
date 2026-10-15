@@ -859,7 +859,7 @@ int main(int argc, char *argv[]) {
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, powerBatteryHandler,
                      [powerBatteryHandler]() { powerBatteryHandler->notePowerButtonDown(); });
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
-                     [powerBatteryHandler, displayPolicyController]() {
+                     [powerBatteryHandler, displayPolicyController](const QString &device) {
                          const bool screenOn =
                              displayPolicyController ? displayPolicyController->screenOn() : true;
                          // sessionLocked=false is a reasonable fallback — the
@@ -867,7 +867,8 @@ int main(int argc, char *argv[]) {
                          // matters for the screen-ON path (LockAndTurnScreenOff
                          // vs TurnScreenOff), and the screen-OFF wake path
                          // (TurnScreenOn) is agnostic to it.
-                         powerBatteryHandler->handlePowerButtonPress(false, screenOn);
+                         powerBatteryHandler->handlePowerButtonPress(
+                             false, screenOn, QStringLiteral("power key on ") + device);
                      });
     auto *audioPolicyController =
         new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);

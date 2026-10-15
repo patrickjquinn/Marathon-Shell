@@ -34,7 +34,7 @@ class DisplayPolicyController : public QObject {
     }
 
     Q_INVOKABLE void turnScreenOn();
-    Q_INVOKABLE void turnScreenOff();
+    Q_INVOKABLE void turnScreenOff(const QString &reason = QStringLiteral("other"));
 
     // Force-unblank path for the resume-from-suspend edge. External
     // suspends (logind IdleAction, lid switch, RTC alarm, anything not

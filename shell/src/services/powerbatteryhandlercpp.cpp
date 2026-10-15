@@ -24,7 +24,8 @@ void PowerBatteryHandlerCpp::notePowerButtonDown() {
     m_rawKeySeen  = true;
 }
 
-void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool screenOnHint) {
+void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool screenOnHint,
+                                                    const QString &source) {
     if (!m_powerPolicy)
         return;
 
@@ -79,9 +80,9 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
         turnScreenOn();
     } else if (action == PowerPolicyController::LockAndTurnScreenOff) {
         emit lockRequested();
-        turnScreenOff();
+        turnScreenOff(source);
     } else if (action == PowerPolicyController::TurnScreenOff) {
-        turnScreenOff();
+        turnScreenOff(source);
     }
 
     if (m_haptics)
@@ -105,18 +106,18 @@ void PowerBatteryHandlerCpp::turnScreenOn() {
         m_displayManager->setScreenState(true);
 }
 
-void PowerBatteryHandlerCpp::turnScreenOff() {
+void PowerBatteryHandlerCpp::turnScreenOff(const QString &reason) {
     // Route through Doze entry when available — that path freezes
     // background apps immediately + flips wifi PSM on, so the
     // backlight-off state is actually low-power and push connections
     // survive. Falls back to a plain backlight blank if PowerPolicy
     // isn't wired.
     if (m_powerPolicy) {
-        m_powerPolicy->enterDoze();
+        m_powerPolicy->enterDoze(reason);
         return;
     }
     if (m_displayPolicy)
-        m_displayPolicy->turnScreenOff();
+        m_displayPolicy->turnScreenOff(reason);
     else if (m_displayManager)
-        m_displayManager->setScreenState(false);
+        m_displayManager->setScreenState(false, reason);
 }

@@ -47,16 +47,16 @@ namespace {
 
 PowerKeyListener::PowerKeyListener(QObject *parent)
     : QObject(parent) {
-    const QStringList devices = discoverPowerKeyDevices();
+    const auto devices = discoverPowerKeyDevices();
     if (devices.isEmpty()) {
         qWarning() << "[PowerKeyListener] No input device advertises KEY_POWER. "
                       "The power button will not wake the display.";
         return;
     }
 
-    for (const QString &path : devices) {
-        if (openDevice(path)) {
-            qInfo() << "[PowerKeyListener] Watching" << path << "for KEY_POWER";
+    for (const auto &[path, name] : devices) {
+        if (openDevice(path, name)) {
+            qInfo() << "[PowerKeyListener] Watching" << path << name << "for KEY_POWER";
         }
     }
 
@@ -71,19 +71,19 @@ PowerKeyListener::~PowerKeyListener() {
     closeAll();
 }
 
-QStringList PowerKeyListener::discoverPowerKeyDevices() const {
+QList<std::pair<QString, QString>> PowerKeyListener::discoverPowerKeyDevices() const {
     QFile f("/proc/bus/input/devices");
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "[PowerKeyListener] Cannot open /proc/bus/input/devices:" << f.errorString();
         return {};
     }
 
-    QStringList result;
-    QString     name;
-    QString     handler;
-    QStringList keyWords;
+    QList<std::pair<QString, QString>> result;
+    QString                            name;
+    QString                            handler;
+    QStringList                        keyWords;
 
-    auto        flush = [&]() {
+    auto                               flush = [&]() {
         if (handler.isEmpty()) {
             name.clear();
             handler.clear();
@@ -99,7 +99,7 @@ QStringList PowerKeyListener::discoverPowerKeyDevices() const {
                 << "advertisesPower=" << advertises;
         if (advertises) {
             const QString path = QStringLiteral("/dev/input/") + handler;
-            result.append(path);
+            result.append({path, name});
         }
         name.clear();
         handler.clear();
@@ -141,7 +141,7 @@ QStringList PowerKeyListener::discoverPowerKeyDevices() const {
     return result;
 }
 
-bool PowerKeyListener::openDevice(const QString &path) {
+bool PowerKeyListener::openDevice(const QString &path, const QString &name) {
     const int fd = ::open(path.toLocal8Bit().constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         qWarning() << "[PowerKeyListener] open(" << path << ") failed:" << ::strerror(errno);
@@ -151,7 +151,7 @@ bool PowerKeyListener::openDevice(const QString &path) {
     auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
     connect(notifier, &QSocketNotifier::activated, this, &PowerKeyListener::onFdReadable);
 
-    Watch w{fd, QString(), path, notifier};
+    Watch w{fd, name, path, notifier};
     m_watches.append(w);
     return true;
 }
@@ -172,15 +172,22 @@ void PowerKeyListener::closeAll() {
 }
 
 void PowerKeyListener::onFdReadable(int fd) {
+    QString device;
+    for (const Watch &w : std::as_const(m_watches)) {
+        if (w.fd == fd) {
+            device = QStringLiteral("%1 (%2)").arg(w.name, w.path);
+            break;
+        }
+    }
     struct input_event ev{};
     while (true) {
         const ssize_t n = ::read(fd, &ev, sizeof(ev));
         if (n == (ssize_t)sizeof(ev)) {
             if (ev.type == EV_KEY && ev.code == kKeyPower) {
                 if (ev.value == 1) {
-                    emit powerKeyPressed();
+                    emit powerKeyPressed(device);
                 } else if (ev.value == 0) {
-                    emit powerKeyReleased();
+                    emit powerKeyReleased(device);
                 }
             }
             continue;

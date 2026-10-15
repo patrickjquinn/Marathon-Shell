@@ -58,7 +58,7 @@ class PowerPolicyController : public QObject {
     bool         canSleep() const;
 
     Q_INVOKABLE QString wake(const QString &reason);
-    Q_INVOKABLE bool    sleep();
+    Q_INVOKABLE bool    sleep(const QString &reason = QStringLiteral("other"));
 
     bool                dozing() const {
         return m_dozing;
@@ -72,7 +72,7 @@ class PowerPolicyController : public QObject {
     // state. Wake from doze is sub-100 ms (no kernel resume penalty)
     // and network/modem associations stay live the whole time so push
     // notifications arrive while "asleep".
-    Q_INVOKABLE bool enterDoze();
+    Q_INVOKABLE bool enterDoze(const QString &reason = QStringLiteral("other"));
     Q_INVOKABLE bool exitDoze();
 
     Q_INVOKABLE PowerPolicyController::PowerButtonAction powerButtonAction(bool screenOn, bool sessionLocked) const;

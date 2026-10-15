@@ -146,7 +146,7 @@ Item {
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
-            DisplayPolicyControllerCpp.turnScreenOff();
+            DisplayPolicyControllerCpp.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
         }
     }
 

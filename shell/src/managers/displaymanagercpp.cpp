@@ -533,6 +533,8 @@ void DisplayManagerCpp::setCallProximityBlank(bool blank) {
     if (m_backlightDevice.isEmpty())
         return;
     m_proximityBlanked = blank;
+    if (blank)
+        qWarning() << "[DisplayManagerCpp] screen off by proximity during a call";
 
     QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
     if (blPower.open(QIODevice::WriteOnly)) {
@@ -680,7 +682,10 @@ void DisplayManagerCpp::setNightLightSchedule(const QString &schedule) {
     qInfo() << "[DisplayManagerCpp] Night Light schedule:" << schedule;
 }
 
-void DisplayManagerCpp::setScreenState(bool on) {
+void DisplayManagerCpp::setScreenState(bool on, const QString &reason) {
+    if (!on)
+        qWarning().noquote() << "[DisplayManagerCpp] screen off by" << reason;
+
     // Order matters. The Qt eglfs_kms backend does NOT inspect DPMS state
     // before calling drmModePageFlip; if a flip is in flight when the
     // platform screen goes to PowerStateOff, the flip lands on a sleeping

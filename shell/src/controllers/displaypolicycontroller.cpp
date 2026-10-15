@@ -112,9 +112,9 @@ void DisplayPolicyController::turnScreenOn() {
     }
 }
 
-void DisplayPolicyController::turnScreenOff() {
+void DisplayPolicyController::turnScreenOff(const QString &reason) {
     if (m_displayManager)
-        m_displayManager->setScreenState(false);
+        m_displayManager->setScreenState(false, reason);
     if (m_screenOn) {
         m_screenOn = false;
         emit screenOnChanged();

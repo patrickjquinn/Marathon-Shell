@@ -189,14 +189,14 @@ QString PowerPolicyController::wake(const QString &reason) {
     return reason;
 }
 
-bool PowerPolicyController::sleep() {
+bool PowerPolicyController::sleep(const QString &reason) {
     // Backwards-compatible alias for enterDoze(). Routing sleep() to
     // Doze matches the iOS / Android user model: the visible "sleep"
     // state keeps push live.
-    return enterDoze();
+    return enterDoze(reason);
 }
 
-bool PowerPolicyController::enterDoze() {
+bool PowerPolicyController::enterDoze(const QString &reason) {
     if (m_dozing) {
         return true;
     }
@@ -211,7 +211,7 @@ bool PowerPolicyController::enterDoze() {
     //    i.MX 8M Quad + mxsfb-dsi. Backlight-off + compositor frame
     //    pause is enough to drop visible draw to ~0.
     if (m_displayManager)
-        m_displayManager->setScreenState(false);
+        m_displayManager->setScreenState(false, QStringLiteral("%1 (doze)").arg(reason));
 
     // 2. Freeze background apps immediately (skip the per-app debounce).
     //    AppLifecycleManager.setIdleFreezeDebounceMs(0) makes every

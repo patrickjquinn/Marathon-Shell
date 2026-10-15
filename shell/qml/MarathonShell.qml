@@ -145,7 +145,7 @@ Item {
         } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = false;
             if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, DisplayPolicyControllerCpp.screenOn);
+                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, DisplayPolicyControllerCpp.screenOn, "power key (shell Keys)");
                 powerButtonTimer.stop();
             }
             event.accepted = true;
@@ -751,7 +751,7 @@ Item {
             }
             Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
             SessionStore.isLocked = true;
-            DisplayPolicyControllerCpp.turnScreenOff();
+            DisplayPolicyControllerCpp.turnScreenOff("idle timer (" + idleScreenTimer.interval + "ms)");
         }
     }
 
@@ -2424,7 +2424,7 @@ Item {
             var action = PowerPolicyControllerCpp.sleepAction(locked);
             if (action === PowerPolicyControllerCpp.LockThenSleep)
                 SessionStore.lock();
-            PowerPolicyControllerCpp.sleep();
+            PowerPolicyControllerCpp.sleep("power menu sleep");
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
