@@ -8,6 +8,9 @@ S.ContextMenu {
     property Item _keyboardReturnFocus
 
     Accessible.role: Accessible.PopupMenu
+    // Keel scrolls only to a set rectangle: without one, a menu opened near
+    // the bottom of a page expands off screen.
+    P.VerticalAutoScroll.cursorRectangle: Qt.rect(0, 0, width, height)
 
     // Called by the opener after open(): keys now move through the menu,
     // and focus goes back to returnFocus when it closes.

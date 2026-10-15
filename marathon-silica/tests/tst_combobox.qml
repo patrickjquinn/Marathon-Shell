@@ -24,6 +24,40 @@ TestCase {
         }
     }
 
+    Component {
+        id: comboAtBottom
+        SilicaFlickable {
+            property alias combo: bottomCombo
+            width: 540; height: 960
+            contentHeight: column.height
+            Column {
+                id: column
+                width: parent.width
+                Item { width: 1; height: 900 }
+                ComboBox {
+                    id: bottomCombo
+                    width: 540
+                    label: "Encryption"
+                    menu: ContextMenu {
+                        MenuItem { text: "SSL" }
+                        MenuItem { text: "STARTTLS" }
+                        MenuItem { text: "None" }
+                    }
+                }
+            }
+        }
+    }
+
+    function test_menuNearTheBottomScrollsIntoView() {
+        const f = createTemporaryObject(comboAtBottom, testCase);
+        f.combo.forceActiveFocus();
+        keyClick(Qt.Key_Return);
+        const menu = f.combo.menu;
+        tryVerify(() => menu.active && menu.height > 0 && !f.moving);
+        tryVerify(() => menu.mapToItem(f, 0, menu.height).y <= f.height + 1, 2000, "menu runs off the bottom");
+        verify(menu.mapToItem(f, 0, 0).y >= 0);
+    }
+
     function test_roleNameValue() {
         const c = createTemporaryObject(combo, testCase);
         compare(c.Accessible.role, Accessible.ComboBox);
