@@ -59,6 +59,12 @@ class AppLaunchService : public QObject {
     Q_INVOKABLE bool launchAppWithRoute(const QVariant &app, const QString &route,
                                         const QString &paramsJson, QObject *compositorRef = nullptr,
                                         QObject *appWindowRef = nullptr);
+    // Starts the app without bringing it on screen: its window becomes a
+    // task, the app in front stays. A running app is left where it is.
+    Q_INVOKABLE bool startAppInBackground(const QVariant &app);
+    bool             isBackgroundLaunch(const QString &appId) const {
+        return m_backgroundLaunches.contains(appId);
+    }
     Q_INVOKABLE void closeNativeApp(int surfaceId);
 
     Q_INVOKABLE bool isAppLaunching(const QString &appId) const;
@@ -149,6 +155,9 @@ class AppLaunchService : public QObject {
     QPointer<QObject>             m_appLifecycleManager;
 
     QSet<QString>                 m_launchingApps;
+    // Started by startAppInBackground, until their window maps.
+    QSet<QString>                 m_backgroundLaunches;
+    bool                          m_startingInBackground = false;
 
     QHash<QString, PendingLaunch> m_pendingByCommand;
 

@@ -554,6 +554,8 @@ class NavigationObject : public QObject, protected QDBusContext {
 
   public slots:
     bool LaunchApp(const QString &appId);
+    // Starts the app without bringing it to the front (Pilot's overlay).
+    bool StartAppInBackground(const QString &appId);
     bool Navigate(const QString &uri);
     bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
 

@@ -51,23 +51,27 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
                     // so uclamp/OOM/freeze all have a state to key off.
                     // The user just tapped the icon so Foreground is the
                     // correct initial state.
+                    // A background launch leaves the app in front where it is.
+                    const bool background = m_appLaunchService->isBackgroundLaunch(appId);
                     if (!m_appStates.contains(appId)) {
                         AppState st;
                         st.launchTimeMs   = QDateTime::currentMSecsSinceEpoch();
                         st.stateEnteredMs = st.launchTimeMs;
-                        st.state          = Foreground;
+                        st.state          = background ? BackgroundIdle : Foreground;
                         m_appStates.insert(appId, st);
-                        m_appLaunchService->setAppActive(appId, true);
+                        if (!background)
+                            m_appLaunchService->setAppActive(appId, true);
                     }
                     // Demote the previous foreground app so uclamp / OOM
                     // reflect only one Foreground at a time. For runner-
                     // based apps this path substitutes for the demote
                     // that bringToForeground normally does for in-shell
                     // (QObject-registered) apps.
-                    if (!m_foregroundAppId.isEmpty() && m_foregroundAppId != appId) {
-                        onForegroundExit(m_foregroundAppId);
+                    if (!background) {
+                        if (!m_foregroundAppId.isEmpty() && m_foregroundAppId != appId)
+                            onForegroundExit(m_foregroundAppId);
+                        m_foregroundAppId = appId;
                     }
-                    m_foregroundAppId = appId;
                     if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
                         writeOomScoreAdj(appId, it->state);
                     }

@@ -1800,6 +1800,27 @@ bool NavigationObject::LaunchApp(const QString &appId) {
     return ok;
 }
 
+// No caller auth, as LaunchApp.
+bool NavigationObject::StartAppInBackground(const QString &appId) {
+    const QString caller = callerAppIdOrEmpty();
+
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::InvalidArgs, "appId cannot be empty");
+        return false;
+    }
+
+    qInfo() << "[NavigationObject] StartAppInBackground requested by"
+            << (caller.isEmpty() ? QStringLiteral("<external>") : caller) << "for" << appId;
+
+    const bool ok = m_launchService->startAppInBackground(QVariant(appId));
+    if (ok) {
+        emit AppLaunched(appId);
+    } else {
+        emit NavigationFailed(appId, "Failed to launch app");
+    }
+    return ok;
+}
+
 bool NavigationObject::Navigate(const QString &uri) {
     const QString caller = callerAppIdOrEmpty();
     if (caller.isEmpty()) {

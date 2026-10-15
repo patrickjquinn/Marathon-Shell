@@ -488,6 +488,21 @@ bool AppLaunchService::launchAppWithRoute(const QVariant &app, const QString &ro
     return ok;
 }
 
+bool AppLaunchService::startAppInBackground(const QVariant &app) {
+    const QString appId = resolveAppObject(app).value("id").toString();
+    if (!appId.isEmpty() &&
+        (pidForAppId(appId) > 0 || m_launchingApps.contains(appId) ||
+         (m_taskModel && m_taskModel->getTaskByAppId(appId))))
+        return true;
+    m_backgroundLaunches.insert(appId);
+    m_startingInBackground = true;
+    const bool ok          = launchApp(app, nullptr, nullptr);
+    m_startingInBackground = false;
+    if (!ok)
+        m_backgroundLaunches.remove(appId);
+    return ok;
+}
+
 bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
                                  QObject *appWindowRef) {
     QObject          *comp = compositorRef ? compositorRef : m_compositor.data();
@@ -520,6 +535,21 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
     Task      *heldTask = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
     const bool hasUsableSurface =
         heldTask && heldTask->surfaceId() >= 0 && heldTask->waylandSurface();
+    // Still starting in the background: show it as it maps, not a second copy.
+    if (!m_startingInBackground && m_backgroundLaunches.remove(appId) && !hasUsableSurface) {
+        qInfo() << "[AppLaunchService] Foregrounding background launch:" << appId;
+        if (m_uiStore)
+            invokeVoid(m_uiStore, "openApp", {appId, name, appObj.value("icon")});
+        invokeVoid(win, "show",
+                   {appId, name, appObj.value("icon"),
+                    type.isEmpty() ? QStringLiteral("marathon") : type, QVariant(), -1});
+        if (!m_pendingRoute.isEmpty())
+            emit routeForRunningApp(appId, m_pendingRoute, m_pendingRouteParamsJson);
+        m_pendingRoute.clear();
+        m_pendingRouteParamsJson.clear();
+        emit appLaunchCompleted(appId, name);
+        return true;
+    }
     if (m_launchingApps.contains(appId) && !hasUsableSurface) {
         qWarning() << "[AppLaunchService] App already launching:" << appId;
         return false;
@@ -569,10 +599,12 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
         return false;
     }
 
-    if (m_uiStore)
-        invokeVoid(m_uiStore, "openApp", {appId, name, icon});
-
-    invokeVoid(appWindowRef, "show", {appId, name, icon, QStringLiteral("native"), QVariant(), -1});
+    if (!m_backgroundLaunches.contains(appId)) {
+        if (m_uiStore)
+            invokeVoid(m_uiStore, "openApp", {appId, name, icon});
+        invokeVoid(appWindowRef, "show",
+                   {appId, name, icon, QStringLiteral("native"), QVariant(), -1});
+    }
     emit appLaunchProgress(appId, 50);
 
     if (!exec.isEmpty()) {
@@ -615,13 +647,14 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                        << "- surfaceId" << existing->surfaceId() << "- falling to cold spawn";
     }
 
-    if (m_uiStore)
-        invokeVoid(m_uiStore, "openApp", {appId, name, icon});
-
-    emit appLaunchProgress(appId, 30);
-    invokeVoid(
-        appWindowRef, "show",
-        {appId, name, icon, type.isEmpty() ? QStringLiteral("marathon") : type, QVariant(), -1});
+    if (!m_backgroundLaunches.contains(appId)) {
+        if (m_uiStore)
+            invokeVoid(m_uiStore, "openApp", {appId, name, icon});
+        emit appLaunchProgress(appId, 30);
+        invokeVoid(appWindowRef, "show",
+                   {appId, name, icon, type.isEmpty() ? QStringLiteral("marathon") : type,
+                    QVariant(), -1});
+    }
     emit          appLaunchProgress(appId, 60);
 
     const QString runnerPath = runnerExecutablePath();
@@ -1606,6 +1639,7 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
     }
     const PendingLaunch p = it.value();
     m_activeByPid.erase(it);
+    m_backgroundLaunches.remove(p.appId);
     m_pidToAppId.remove(pid);
     if (m_appIdToPid.value(p.appId) == pid) {
         m_appIdToPid.remove(p.appId);
@@ -1755,6 +1789,9 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
             const PendingLaunch &p = it.value();
             qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to PID" << pid
                     << "app" << p.appId;
+            // Tells the lifecycle the app is in the background.
+            if (m_backgroundLaunches.contains(p.appId))
+                registerPidForAppId(pid, p.appId);
 
             if (m_taskModel) {
                 if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
@@ -1766,7 +1803,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                 }
             }
 
-            if (m_appWindow)
+            if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
                 invokeVoid(m_appWindow, "show",
                            {p.appId, p.name, p.icon,
                             p.type.isEmpty() ? QStringLiteral("native") : p.type,
@@ -1800,7 +1837,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                 }
             }
 
-            if (m_appWindow)
+            if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
                 invokeVoid(m_appWindow, "show",
                            {p.appId, p.name, p.icon,
                             p.type.isEmpty() ? QStringLiteral("native") : p.type,
