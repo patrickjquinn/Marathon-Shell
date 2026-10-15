@@ -84,7 +84,8 @@ int main(int argc, char *argv[]) {
     if (!appId.isEmpty() && !lifecycle.registerOn(QDBusConnection::sessionBus(), appId))
         qWarning("marathon-keel-host: cannot register %s", qPrintable(HostLifecycle::serviceName(appId)));
 
-    HostedApp hosted(&host, program, arguments);
+    // keel-shell's close grace (PROTOCOL.md section 4).
+    HostedApp hosted(&host, program, arguments, 3000);
     QObject::connect(&hosted, &HostedApp::finished, &app, [](int code) { QCoreApplication::exit(code); });
     if (!hosted.start()) {
         qCritical("marathon-keel-host: cannot start %s", qPrintable(program));
