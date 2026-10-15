@@ -8,6 +8,7 @@ QtObject {
     property bool updateAvailable: true
     property bool checking: false
     property string lastError: ""
+    property real lastCheckedMs: 1760000000000
     property string channel: "stable"
     property var calls: []
 
@@ -15,6 +16,8 @@ QtObject {
         updateAvailable = true;
         checking = false;
         lastError = "";
+        latestVersion = "r380";
+        lastCheckedMs = 1760000000000;
         channel = "stable";
         calls = [];
     }

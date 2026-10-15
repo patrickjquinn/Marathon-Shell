@@ -12,6 +12,20 @@ Page {
         { value: "edge", title: qsTr("Edge"), description: qsTr("Includes pre-releases") }
     ]
 
+    function statusText() {
+        if (Updates.checking)
+            return qsTr("Checking for updates…");
+        if (Updates.updateAvailable)
+            return qsTr("Update %1 is available").arg(Updates.latestVersion);
+        if (Updates.lastError !== "")
+            return qsTr("Couldn't check for updates");
+        if (!Updates.lastCheckedMs)
+            return qsTr("Not checked yet");
+        if (Updates.latestVersion === "")
+            return qsTr("No releases found on this channel");
+        return qsTr("Up to date");
+    }
+
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
@@ -40,7 +54,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 bottomPadding: Theme.paddingLarge
-                text: Updates.checking ? qsTr("Checking for updates…") : Updates.updateAvailable ? qsTr("Update %1 is available").arg(Updates.latestVersion) : Updates.lastError !== "" ? qsTr("Couldn't check for updates") : qsTr("Up to date")
+                text: page.statusText()
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeLarge
                 color: Theme.highlightColor
@@ -83,6 +97,12 @@ Page {
                 objectName: "latestVersion"
                 label: qsTr("Latest")
                 value: Updates.latestVersion || "—"
+            }
+            DetailItem {
+                objectName: "lastChecked"
+                visible: Updates.lastCheckedMs > 0
+                label: qsTr("Last checked")
+                value: visible ? new Date(Updates.lastCheckedMs).toLocaleString(Qt.locale(), Locale.ShortFormat) : ""
             }
             ComboBox {
                 objectName: "channelCombo"

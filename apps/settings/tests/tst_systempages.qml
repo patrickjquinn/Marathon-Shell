@@ -262,6 +262,23 @@ TestCase {
         verify(child(s.page, "errorHint").visible);
     }
 
+    function test_updatesNeverCheckedOrNoRelease() {
+        Updates.updateAvailable = false;
+        Updates.latestVersion = "";
+        Updates.lastCheckedMs = 0;
+        const s = open("updates");
+        const status = child(s.page, "statusLabel");
+        compare(status.text, "Not checked yet");
+        verify(!child(s.page, "lastChecked").visible);
+        Updates.checking = true;
+        compare(status.text, "Checking for updates…");
+        Updates.checking = false;
+        Updates.lastCheckedMs = 1760000000000;
+        compare(status.text, "No releases found on this channel");
+        verify(child(s.page, "lastChecked").visible);
+        verify(child(s.page, "lastChecked").value !== "");
+    }
+
     function test_aboutAndRename() {
         const s = open("about");
         compare(child(s.page, "nameButton").value, "Librem 5");
