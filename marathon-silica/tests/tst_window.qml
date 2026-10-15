@@ -117,6 +117,21 @@ TestCase {
         compare(acceptedSpy.count, 0);
     }
 
+    function test_pinnedDialogHeaderHidesScrolledContent() {
+        const a = createTemporaryObject(app, testCase);
+        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        const d = a.pageStack.push(Qt.resolvedUrl("data/ScrollingDialog.qml"), {}, PageStackAction.Immediate);
+        tryCompare(d, "status", PageStatus.Active);
+        d.flickable.contentY = 400;
+        const backdrop = findChild(d.flickable.contentItem, "dialogHeaderBackdrop");
+        verify(backdrop, "no backdrop behind the pinned header");
+        tryVerify(function () { return backdrop.visible; });
+        compare(backdrop.color.a, 1);
+        compare(backdrop.mapToItem(d, 0, 0).y, 0);
+        d.flickable.contentY = 0;
+        verify(!backdrop.visible);
+    }
+
     function test_escapeRejectsDialog() {
         const s = openDialog();
         keyClick(Qt.Key_Escape);
