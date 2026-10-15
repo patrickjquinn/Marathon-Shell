@@ -347,7 +347,7 @@ set(UI_RESOURCES
     qml/theme/fonts/Sora-Bold.ttf
     qml/theme/fonts/Sora-ExtraBold.ttf
     qml/theme/fonts/JetBrainsMono-Medium.ttf
-    qml/ui/fonts/Phosphor-Light.ttf
+    qml/ui/fonts/Phosphor-Thin.ttf
     qml/ui/fonts/Phosphor-Bold.ttf
 )
 

@@ -3,13 +3,13 @@ import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
 QtObject {
-    property FontLoader _phosphorLight: FontLoader {
-        source: Qt.resolvedUrl("../ui/fonts/Phosphor-Light.ttf")
+    property FontLoader _phosphorThin: FontLoader {
+        source: Qt.resolvedUrl("../ui/fonts/Phosphor-Thin.ttf")
     }
     property FontLoader _phosphorBold: FontLoader {
         source: Qt.resolvedUrl("../ui/fonts/Phosphor-Bold.ttf")
     }
-    readonly property string iconFontLight: _phosphorLight.name
+    readonly property string iconFontThin: _phosphorThin.name
     readonly property string iconFontBold: _phosphorBold.name
 
     // Default family for callers that don't care about weight.
