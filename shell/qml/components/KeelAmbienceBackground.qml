@@ -47,15 +47,4 @@ Item {
         color: Theme.highlightDimmerColor
         opacity: 0.12
     }
-
-    // Sailfish's glass grain, Keel's own tile, at device pixels.
-    Image {
-        objectName: "dither"
-        anchors.fill: parent
-        visible: root.ready
-        source: "qrc:/qt/qml/Sailfish/Silica/ambience/glass-dither.png"
-        fillMode: Image.Tile
-        smooth: false
-        opacity: root.light ? 0.6 : 1.0
-    }
 }
