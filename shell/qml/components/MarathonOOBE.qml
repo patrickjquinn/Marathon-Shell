@@ -746,7 +746,7 @@ Item {
                 {
                     "icon": "chevron-right",
                     "title": "Hub",
-                    "body": "Swipe in from the left edge of the screen to peek at the Hub — messages, notifications and calls.",
+                    "body": "Swipe in from the left edge of the screen to peek at the Hub — " + (ModemManagerCpp.modemAvailable ? "messages, notifications and calls." : "messages and notifications."),
                     "direction": "right",
                     "source": "edge"
                 },
