@@ -15,6 +15,8 @@ Item {
     readonly property bool emergency: phone ? phone.emergencyOnly || Phone.isEmergency(number) : false
     readonly property bool canCall: number.length > 0 && (Telephony.hasModem || emergency)
     readonly property string lastDialed: phone && !phone.emergencyOnly && Telephony.hasModem ? Phone.lastOutgoing(phone.callHistory) : ""
+    // Square and landscape: number across the top, keypad on the right, Call on the left.
+    readonly property bool _wide: width > height
 
     function append(text) {
         phone.dialedNumber = number + text;
@@ -54,10 +56,23 @@ Item {
         event.accepted = true;
     }
 
+    FontMetrics {
+        id: wideNumberMetrics
+
+        font.pixelSize: Theme.fontSizeExtraLarge
+    }
+
     NonGraphicalFeedback {
         id: keyFeedback
 
         event: "keypad_press"
+    }
+
+    Item {
+        id: side
+
+        width: root._wide ? root.width - keypad.width * keypad.scale - Theme.horizontalPageMargin : root.width
+        height: root.height
     }
 
     Column {
@@ -66,9 +81,8 @@ Item {
         anchors {
             left: parent.left
             right: parent.right
-            bottom: keypad.top
-            bottomMargin: Theme.paddingLarge - keypad.height * (1 - keypad.scale)
         }
+        y: root._wide ? Math.max(0, (backspaceButton.height - numberLabel.height) / 2) : keypad.y + keypad.height * (1 - keypad.scale) - Theme.paddingLarge - height
         spacing: Theme.paddingSmall
 
         Item {
@@ -87,7 +101,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: root.number.length > 0 ? Phone.format(root.number) : !Telephony.hasModem ? qsTr("No SIM or modem") : root.phone && root.phone.emergencyOnly ? qsTr("Emergency number") : qsTr("Enter number")
                 color: root.number.length > 0 ? Theme.primaryColor : Theme.secondaryHighlightColor
-                font.pixelSize: root.number.length > 0 ? Theme.fontSizeHuge : Theme.fontSizeLarge
+                font.pixelSize: root.number.length === 0 ? Theme.fontSizeLarge : root._wide ? Theme.fontSizeExtraLarge : Theme.fontSizeHuge
                 font.weight: Font.ExtraLight
                 fontSizeMode: Text.HorizontalFit
                 minimumPixelSize: root.number.length > 0 ? Theme.fontSizeLarge : Theme.fontSizeMedium
@@ -122,11 +136,13 @@ Item {
 
         Label {
             objectName: "matchLabel"
-            width: parent.width
+            x: root._wide ? Theme.horizontalPageMargin : 0
+            width: root._wide ? side.width - 2 * Theme.horizontalPageMargin : parent.width
             horizontalAlignment: Text.AlignHCenter
             text: root.number.length > 0 && !root.canCall ? qsTr("Calls aren't available") : root.match
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeSmall
+            wrapMode: Text.Wrap
             opacity: text.length > 0 ? 1 : 0
         }
     }
@@ -144,14 +160,19 @@ Item {
     Keypad {
         id: keypad
 
+        readonly property real naturalWidth: 3 * _buttonWidth + 2 * _horizontalSpacing
+
         objectName: "keypad"
         anchors {
-            bottom: callButton.top
-            bottomMargin: Theme.paddingLarge
+            right: parent.right
+            rightMargin: root._wide ? Theme.horizontalPageMargin : 0
+            bottom: root._wide ? parent.bottom : callButton.top
+            bottomMargin: root._wide ? callButton.anchors.bottomMargin : Theme.paddingLarge
         }
+        width: root._wide ? naturalWidth : root.width
         // Shrinks on short screens so the number row fits above it.
-        scale: Math.min(1, (root.height - numberColumn.height - callButton.height - 5 * Theme.paddingLarge) / height)
-        transformOrigin: Item.Bottom
+        scale: root._wide ? Math.min(1, root.width * 0.6 / naturalWidth, (root.height - Math.max(wideNumberMetrics.height, backspaceButton.height) - 2 * Theme.paddingLarge) / height) : Math.min(1, (root.height - numberColumn.height - callButton.height - 5 * Theme.paddingLarge) / height)
+        transformOrigin: root._wide ? Item.BottomRight : Item.Bottom
         vanityDialNumbers: ["", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz", "", "+", ""]
         onPressed: keyFeedback.play()
         onPressAndHold: function (number) {
@@ -173,11 +194,11 @@ Item {
 
         objectName: "callButton"
         anchors {
-            horizontalCenter: parent.horizontalCenter
+            horizontalCenter: side.horizontalCenter
             bottom: parent.bottom
-            bottomMargin: 2 * Theme.paddingLarge
+            bottomMargin: (root._wide ? 1 : 2) * Theme.paddingLarge
         }
-        preferredWidth: Theme.buttonWidthLarge
+        preferredWidth: Math.min(Theme.buttonWidthLarge, side.width - 2 * Theme.horizontalPageMargin)
         enabled: root.canCall || (root.number.length === 0 && root.lastDialed.length > 0)
         icon.source: "image://theme/icon-m-call"
         text: root.emergency ? qsTr("Emergency call") : qsTr("Call")

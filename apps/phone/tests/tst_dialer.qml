@@ -232,7 +232,14 @@ TestCase {
             const item = findChild(page, name);
             return item.mapToItem(page, 0, dy ? item.height : 0).y;
         };
-        tryVerify(() => y("matchLabel", true) <= y("keypad"), 2000, "number row over the keypad");
+        const x = (name, dx) => {
+            const item = findChild(page, name);
+            return item.mapToItem(page, dx ? item.width : 0, 0).x;
+        };
+        tryVerify(() => y("numberLabel", true) <= y("keypad"), 2000, "number row over the keypad");
+        verify(x("matchLabel", true) <= x("keypad"), "match beside the keypad");
+        verify(x("callButton", true) <= x("keypad"), "Call beside the keypad");
+        verify(findChild(page, "keypad").scale >= 0.6, "keypad not shrunk to fit a column");
         verify(y("numberLabel") >= y("tabBar", true), "number row under the tab bar");
         verify(y("backspaceButton") >= y("tabBar", true));
         verify(y("callButton", true) <= page.height);
