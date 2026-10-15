@@ -53,12 +53,10 @@ TestCase {
         fakeService.pixelRatio = 1.25;
     }
 
-    function test_textFollowsInterfaceSize() {
+    // The pixel ratio already carries the interface size.
+    function test_textIsNotScaledTwice() {
         fakeService.seedChanged();
-        compare(fakeService.published["/desktop/jolla/theme/font/sizeMultiplier"], 1.25);
-        fakeSettings.userScaleFactor = 1.5;
-        compare(fakeService.published["/desktop/jolla/theme/font/sizeMultiplier"], 1.5);
-        fakeSettings.userScaleFactor = 1.25;
+        verify(!("/desktop/jolla/theme/font/sizeMultiplier" in fakeService.published));
     }
 
     function test_timeFormatForKeel() {
