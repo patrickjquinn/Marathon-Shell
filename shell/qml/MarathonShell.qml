@@ -62,7 +62,7 @@ Item {
 
     function handleBackKey() {
         if (PermissionManager.promptActive) {
-            dismissPermissionPrompt();
+            denyPermissionPrompt();
             return;
         }
         if (closeOverlay()) {
@@ -81,6 +81,11 @@ Item {
     function dismissPermissionPrompt() {
         if (PermissionManager.promptActive)
             PermissionManager.dismissAll();
+    }
+
+    // Back on a permission prompt is Deny.
+    function denyPermissionPrompt() {
+        PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true);
     }
 
     function handleHomeKey() {
@@ -582,7 +587,7 @@ Item {
 
             PropertyChanges {
                 navBar.visible: true
-                navBar.z: Constants.zIndexNavBarApp
+                navBar.z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
                 navBar.pinScreenMode: false
             }
         }
@@ -1090,7 +1095,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        z: Constants.zIndexNavBarApp
+        z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
@@ -1105,6 +1110,10 @@ Item {
             HapticManager.light();
         }
         onSwipeLeft: {
+            if (PermissionManager.promptActive) {
+                shell.denyPermissionPrompt();
+                return;
+            }
             // Left is back: an open overlay closes before the pages move.
             if (shell.closeOverlay())
                 return;
@@ -1136,6 +1145,10 @@ Item {
         }
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
+            if (PermissionManager.promptActive) {
+                shell.denyPermissionPrompt();
+                return;
+            }
             if (powerMenu.showing) {
                 powerMenu.cancel();
                 return;

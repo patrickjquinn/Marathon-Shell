@@ -20,7 +20,7 @@ import Marathon.Silica 1.0 as Silica
 //   • Header left-aligned, NOT centered.
 //   • Maximum 2 actions per dialog. No "Allow Once / Allow While Using / Don't Allow."
 //   • No "Marathon OS - {AppName}" header. The user already knows whose phone this is.
-//   • No close X — the only way out is Deny or Allow.
+//   • No close X — Deny, Allow, or back (= Deny).
 Item {
     id: permissionDialog
 
@@ -263,7 +263,7 @@ Item {
                 width: parent.width - 2 * x
                 topPadding: Silica.Theme.paddingLarge
                 wrapMode: Text.Wrap
-                text: qsTr("You can change this anytime in Settings → Apps → %1.").arg(permissionDialog.appName)
+                text: qsTr("You can change this anytime in Settings → Installed apps → %1.").arg(permissionDialog.appName)
                 color: Silica.Theme.secondaryColor
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
             }
