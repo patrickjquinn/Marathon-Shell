@@ -75,7 +75,8 @@ Page {
 
     SilicaFlickable {
         anchors.fill: parent
-        contentHeight: height
+        // An open display menu pushes the keys down, not the number up.
+        contentHeight: height + displayArea.height - displayArea.contentHeight
 
         PullDownMenu {
             MenuItem {

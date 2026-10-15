@@ -218,6 +218,16 @@ TestCase {
         return menu;
     }
 
+    // The menu opens below the number rather than pushing it off the top.
+    function test_displayStaysPutWithMenuOpen() {
+        const t = make(squareAppComponent);
+        const display = findChild(t.page, "display");
+        const before = display.mapToItem(t.page, 0, 0).y;
+        const menu = openDisplayMenu(t);
+        compare(display.mapToItem(t.page, 0, 0).y, before);
+        verify(menu.mapToItem(t.page, 0, menu.height).y <= t.page.height);
+    }
+
     function test_copyResult() {
         const t = make();
         t.calc.press("1");
