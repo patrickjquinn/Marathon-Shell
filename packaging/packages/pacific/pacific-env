@@ -1,21 +1,75 @@
 #!/bin/sh
 # Pacific's runtime environment on Marathon; the app execs itself through
 # this (shoal/pacific/app/src/lib.rs). Sailfish uses engine/launcher/
-# pacific-env.c, whose libhybris, droid media and Atlantic settings don't
+# pacific-env.c; its libhybris, Sailjail and droid media settings don't
 # apply here.
 export PACIFIC_ENV=1
 # The WebView draws WPE's frames as GL textures in the Qt Quick scene.
 export QSG_RHI_BACKEND=opengl
 
+dflt() { eval "[ -n \"\${$1}\" ]" || export "$1=$2"; }
+
 # GLES2-class GPUs (Librem 5 etnaviv, PinePhone lima) paint pages faster
-# with Skia on the CPU; the compositor still runs on the GPU.
+# with Skia on the CPU; the compositor still runs on the GPU. CPU painting
+# takes Sailfish's Mali settings: no low-res tiles, 512 px tiles.
 driver=$(readlink -f /sys/class/drm/renderD128/device/driver 2>/dev/null)
 case "${driver##*/}" in
 etnaviv|lima)
-	export WEBKIT_SKIA_ENABLE_CPU_RENDERING="${WEBKIT_SKIA_ENABLE_CPU_RENDERING:-1}"
+	dflt WEBKIT_SKIA_ENABLE_CPU_RENDERING 1
+	dflt WEBKIT_LOWRES_TILE_SCALE 1.0
+	dflt WEBKIT_LAYERS_TILE_SIZE 512
 	;;
 esac
 
-export WEBKIT_GST_ENABLE_HLS_SUPPORT="${WEBKIT_GST_ENABLE_HLS_SUPPORT:-1}"
+dflt WEBKIT_GST_ENABLE_HLS_SUPPORT 1
+
+# The rest is Sailfish's pacific-env (shoal/pacific/engine/launcher/
+# pacific-env.c): flags of the engine's patch stack, with no upstream meaning.
+dflt JSC_numberOfFTLCompilerThreads 2
+dflt JSC_numberOfDFGCompilerThreads 2
+dflt JSC_numberOfBaselineCompilerThreads 2
+dflt JSC_numberOfGCMarkers 2
+dflt JSC_maxNumberOfWorklistThreads 4
+
+mem_kb=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
+if [ "${mem_kb:-0}" -ge 7340032 ] && [ "$PACIFIC_MEMORY_TIER" != low ]; then
+	dflt WEBKIT_MEMORY_BASE_THRESHOLD_MB 4000
+	dflt WEBKIT_PROCESS_PREWARM 1
+	export PACIFIC_MEMORY_TIER=high
+else
+	dflt WEBKIT_MEMORY_BASE_THRESHOLD_MB 700
+	export PACIFIC_MEMORY_TIER=low
+fi
+dflt WEBKIT_MEMORY_POLL_INTERVAL_MS 3000
+dflt WEBKIT_TEXTURE_POOL_CAP_MB 64
+dflt WEBKIT_URL_CACHE_DISK_CAPACITY_MB 100
+
+dflt WEBKIT_LOWRES_TILE_SCALE 0.3
+dflt WEBKIT_LOWRES_SCROLL_SPEED 120
+dflt WEBKIT_CHECKERBOARD_DURING_SCROLL 800
+dflt WEBKIT_CHECKERBOARD_SETTLE_MS 200
+dflt WEBKIT_COVER_AREA_MULTIPLIER 2
+dflt WEBKIT_LOWRES_COST_TRIGGER 1
+dflt WEBKIT_LOWRES_COST_BUDGET_MS 11
+dflt WEBKIT_LOWRES_SHARPEN_VIEWPORT_ONLY 1
+dflt WEBKIT_LOWRES_SHARPEN_MARGIN_PX 512
+dflt WEBKIT_NO_FAKE_MOUSE_MOVE 1
+dflt WEBKIT_FORCE_ASYNC_SCROLL 1
+dflt WEBKIT_INDEPENDENT_SCROLL 1
+dflt WEBKIT_KINETIC_DECEL_FRICTION 2
+dflt WEBKIT_SKIP_ROOT_CUSTOMPROP_REPAINT 1
+dflt WEBKIT_COMPOSITE_SKIP_LOCKED_LAYERS 1
+dflt WEBKIT_TILE_UPLOAD_BUDGET_MB 6
+dflt WEBKIT_TILE_UPLOAD_BUDGET_SCROLL_ONLY 1
+dflt WEBKIT_TILE_UPLOAD_SCROLL_SETTLE_MS 800
+dflt WEBKIT_TILE_UPLOAD_REST_BUDGET_MB 16
+dflt WEBKIT_LOADING_TIMER_ALIGNMENT_MS 50
+dflt WEBKIT_PARSER_TIME_LIMIT_MS 100
+dflt WEBKIT_TOUCH_ACK_TIMEOUT_MS 100
+dflt WEBKIT_SCROLLBAR_SCALE 1
+dflt WEBKIT_SCROLLBAR_SPRITE 1
+dflt WEBKIT_SCROLLBAR_SMOOTHING 0.4
+dflt WEBKIT_SCROLLBAR_NO_HOVER 1
+dflt WEBKIT_LAYERS_TILE_SIZE 1024
 
 exec "$@"
