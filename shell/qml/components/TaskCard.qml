@@ -188,13 +188,25 @@ Item {
             border.color: cardRoot.pressed ? Theme.highlightColor : Theme.rgba(Theme.primaryColor, 0.1)
         }
 
+        // The cover fills the glass; a live preview keeps the app's shape,
+        // centred when wider than the card. One layer rounds both corners.
         Item {
-            anchors.fill: glass
+            id: cardContent
+
+            anchors.centerIn: glass
+            width: glass.width
+            height: coverView.available ? glass.height : Math.min(glass.height, glass.width * (Constants.screenWidth > 0 ? Constants.screenHeight / Constants.screenWidth : 1))
+            layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: previewMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
 
             Item {
                 anchors.fill: parent
 
-                // The app's cover when it has one, otherwise its live preview.
                 KeelCoverView {
                     id: coverView
 
@@ -212,14 +224,6 @@ Item {
                     visible: !coverView.available
                     active: true
                     asynchronous: true
-                    // A live preview has square corners; cut them to the glass.
-                    layer.enabled: visible
-                    layer.effect: MultiEffect {
-                        maskEnabled: true
-                        maskSource: previewMask
-                        maskThresholdMin: 0.5
-                        maskSpreadAtMin: 1.0
-                    }
 
                     sourceComponent: Item {
                         anchors.fill: parent
@@ -472,7 +476,7 @@ Item {
         Rectangle {
             id: previewMask
 
-            anchors.fill: glass
+            anchors.fill: cardContent
             radius: glass.radius
             antialiasing: true
             visible: false
