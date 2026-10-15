@@ -184,6 +184,7 @@ ApplicationWindow {
     cover: Component {
         MusicCover {
             track: app.player.currentTrack
+            art: app.player.artUrl
             playing: app.player.playing
             progress: app.player.duration > 0 ? app.player.position / app.player.duration : 0
             onToggleRequested: app.player.toggle()
