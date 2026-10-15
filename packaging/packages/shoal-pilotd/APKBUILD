@@ -1,0 +1,61 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# pilotd, the session service of Shipwright's Pilot assistant
+# (shoal/pilot/pilotd), for Marathon. Built from a Shipwright commit like
+# pacific; scripts/qemu/lib/build-pilot-apk.sh stages a local checkout.
+#
+# 0001 uses Marathon's shell services (clock, calendar, contacts, phone,
+# radios) when org.marathonos.Shell is on the bus; the shell admits pilotd
+# by its unit and executable (shoal-pilotd.service.json, installed to
+# /usr/share/marathon-shell/services) with the permissions listed there.
+# 0002 adds direct mode, which pilotd.toml (/etc/shoal-pilot) turns on.
+#
+# Direct mode: the owner provides ~/.config/shoal-pilot/keys.env, mode
+# 0600 (pilotd refuses to start if group or others can read it):
+#     PILOT_RELAY_GROQ_KEY=<Groq API key>
+#     PILOT_RELAY_JEV_KEY=<Jev API key>
+# pilotd then calls Groq (api.groq.com, processed in the US) and Jev
+# (api.typesafe.ai) itself. Without the file it uses the Pilot relay.
+# Web search needs the relay. Speech (pilot-voice, pilot-tts) is not built.
+pkgname=shoal-pilotd
+pkgver=0.1.0
+pkgrel=0
+_commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
+pkgdesc="Pilot assistant daemon for Marathon"
+url="https://github.com/patrickjquinn/shipwright-open"
+arch="aarch64 x86_64"
+license="LicenseRef-Shipwright-Proprietary"
+depends="dbus systemd"
+makedepends="cargo clang"
+source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
+	0001-pilotd-marathon-adapters.patch
+	0002-pilotd-direct-mode.patch
+	pilotd.toml
+	marathon-open
+	shoal-pilotd.service.json
+	"
+builddir="$srcdir/shipwright-open-$_commit"
+# The tests need a session bus (dbus-daemon); they run on the build host.
+options="!check net"
+
+build() {
+	export CARGO_TARGET_DIR="$builddir/target"
+	cargo build --release --locked -p shoal-pilotd
+}
+
+package() {
+	local p=shoal/pilot/pilotd
+	install -Dm755 target/release/pilotd "$pkgdir"/usr/bin/pilotd
+	install -Dm644 $p/shoal-pilotd.service "$pkgdir"/usr/lib/systemd/user/shoal-pilotd.service
+	install -Dm644 $p/dbus/org.shipwright.Pilot.service \
+		"$pkgdir"/usr/share/dbus-1/services/org.shipwright.Pilot.service
+	install -Dm644 "$srcdir"/pilotd.toml "$pkgdir"/etc/shoal-pilot/pilotd.toml
+	install -Dm755 "$srcdir"/marathon-open "$pkgdir"/usr/libexec/shoal-pilot/marathon-open
+	install -Dm644 "$srcdir"/shoal-pilotd.service.json \
+		"$pkgdir"/usr/share/marathon-shell/services/shoal-pilotd.service.json
+	install -Dm644 $p/pilotd.example.toml "$pkgdir"/usr/share/doc/shoal-pilot/pilotd.example.toml
+	install -Dm644 shoal/pilot/README.md "$pkgdir"/usr/share/doc/shoal-pilot/README.md
+}
+
+sha512sums="
+SKIP  shoal-pilot-$_commit.tar.gz
+"

@@ -1,0 +1,5 @@
+#!/bin/sh
+# pilotd's open_command on Marathon. $1 is the app, which pilotd checks is
+# not already running; the shell starts it.
+exec busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+	org.marathonos.Shell.Navigation1 LaunchApp s shoal-pilot

@@ -1,0 +1,19 @@
+# pilotd on Marathon OS, read when the person has no
+# ~/.config/shoal-pilot/pilotd.toml of their own.
+
+# No privacy switch on Marathon's phones.
+[privacy]
+source = "none"
+
+# Pilot is started through the shell (Navigation1.LaunchApp), so it may
+# show its overlay over the app on screen.
+[events]
+open_command = ["/usr/libexec/shoal-pilot/marathon-open", "/usr/bin/shoal-pilot"]
+
+[sheet]
+open_command = ["/usr/libexec/shoal-pilot/marathon-open", "/usr/bin/shoal-pilot"]
+
+# The owner's Groq and Jev keys in ~/.config/shoal-pilot/keys.env (0600),
+# when that file exists; without it, the Pilot relay.
+[direct]
+enabled = true

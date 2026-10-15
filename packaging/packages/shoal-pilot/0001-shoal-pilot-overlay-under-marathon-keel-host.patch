@@ -1,0 +1,37 @@
+From 0a6f54eac5aa3b4a4b23dae67ccf71511f6fdffe Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 15 Oct 2026 20:38:18 +0100
+Subject: [PATCH] shoal-pilot: the overlay under Marathon's Keel host
+
+In Keel's Shell mode the overlay was not made, so Pilot came up as an app
+instead of over the one on screen. Under marathon-keel-host, started by
+the Marathon shell (MARATHON_SHELL_PID), it is made and titled
+keel:dialog:pilot, which Marathon's compositor shows above the
+foreground app with the keyboard. Sailfish is unchanged.
+---
+ shoal/pilot/app/cpp/launcher.cpp | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/shoal/pilot/app/cpp/launcher.cpp b/shoal/pilot/app/cpp/launcher.cpp
+index 50fffc8..e2a8c64 100644
+--- a/shoal/pilot/app/cpp/launcher.cpp
++++ b/shoal/pilot/app/cpp/launcher.cpp
+@@ -230,10 +230,16 @@ void showOnDesktop(QQuickView* view, const QSize& screen, int orientation)
+ QQuickView* createOverlay(QQuickView* view, const QString& qmlPath)
+ {
+     const QString path = QFileInfo(qmlPath).absoluteDir().filePath(QStringLiteral("Overlay.qml"));
+-    if (Keel::windowMode() != Keel::WindowMode::Direct || Keel::headless() || !QFileInfo::exists(path))
++    // Marathon OS: under marathon-keel-host (Shell mode) the shell shows a
++    // window titled keel:dialog above the app on screen, for an app it
++    // started (MARATHON_SHELL_PID).
++    const bool marathon = Keel::windowMode() == Keel::WindowMode::Shell
++        && qEnvironmentVariableIsSet("MARATHON_SHELL_PID");
++    if ((Keel::windowMode() != Keel::WindowMode::Direct && !marathon) || Keel::headless()
++        || !QFileInfo::exists(path))
+         return nullptr;
+     auto* overlay = new QQuickView(view->engine(), nullptr);
+-    overlay->setTitle(QStringLiteral("Pilot"));
++    overlay->setTitle(marathon ? QStringLiteral("keel:dialog:pilot") : QStringLiteral("Pilot"));
+     overlay->setColor(Qt::transparent);
+     overlay->setResizeMode(QQuickView::SizeRootObjectToView);
+     overlay->create();

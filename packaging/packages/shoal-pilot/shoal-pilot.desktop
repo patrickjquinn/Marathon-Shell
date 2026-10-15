@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Pilot
+Comment=Assistant for your phone
+Icon=shoal-pilot
+Exec=/usr/bin/shoal-pilot
+Categories=Utility;
+X-Purism-FormFactor=Workstation;Mobile;
+X-Marathon-KeelHost=true
