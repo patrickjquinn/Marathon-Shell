@@ -51,6 +51,8 @@ class DisplayManagerCpp : public QObject {
     bool rotationLocked() const {
         return m_rotationLocked;
     }
+    bool rotationAvailable() const;
+    bool lightSensorAvailable() const;
     int screenTimeout() const {
         return m_screenTimeout;
     }

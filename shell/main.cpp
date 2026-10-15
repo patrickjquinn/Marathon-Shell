@@ -1124,6 +1124,7 @@ int main(int argc, char *argv[]) {
         ipc->setAmbienceService(ambienceService);
         ipc->setWallpaperStore(wallpaperStore);
         ipc->setModemManager(modemManager);
+        ipc->setFlashlightManager(flashlightManager);
         auto *portalSettings = new PortalSettings(&app);
         portalSettings->setAmbience(ambienceService->ambience());
         QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,

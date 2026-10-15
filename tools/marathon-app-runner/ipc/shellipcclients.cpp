@@ -1696,6 +1696,15 @@ void DisplayClient::setAutoBrightnessEnabled(bool enabled) {
 bool DisplayClient::rotationLocked() const {
     return m_state.value("rotationLocked").toBool();
 }
+bool DisplayClient::rotationAvailable() const {
+    return m_state.value("rotationAvailable").toBool();
+}
+bool DisplayClient::lightSensorAvailable() const {
+    return m_state.value("lightSensorAvailable").toBool();
+}
+bool DisplayClient::torchAvailable() const {
+    return m_state.value("torchAvailable").toBool();
+}
 void DisplayClient::setRotationLocked(bool locked) {
     auto r = m_iface.call("SetRotationLock", locked);
     if (r.type() == QDBusMessage::ErrorMessage)

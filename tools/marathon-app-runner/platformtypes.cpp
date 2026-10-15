@@ -16,6 +16,7 @@ QHash<QString, QString> platformTypeNames() {
         {QStringLiteral("CalendarManager"), QStringLiteral("Calendar")},
         {QStringLiteral("WorldClockHelper"), QStringLiteral("WorldClock")},
         {QStringLiteral("SensorService"), QStringLiteral("Sensors")},
+        {QStringLiteral("HapticService"), QStringLiteral("Haptics")},
         {QStringLiteral("LocationService"), QStringLiteral("Location")},
         {QStringLiteral("AlarmService"), QStringLiteral("Alarms")},
         {QStringLiteral("SettingsManagerCpp"), QStringLiteral("Settings")},

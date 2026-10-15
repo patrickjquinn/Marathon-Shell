@@ -285,6 +285,14 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     }
 }
 
+bool DisplayManagerCpp::rotationAvailable() const {
+    return m_rotationManager && m_rotationManager->available();
+}
+
+bool DisplayManagerCpp::lightSensorAvailable() const {
+    return m_sensorManager && m_sensorManager->lightAvailable();
+}
+
 void DisplayManagerCpp::setSensorManager(SensorManagerCpp *sensorManager) {
     m_sensorManager = sensorManager;
     if (m_sensorManager && m_autoBrightnessEnabled) {

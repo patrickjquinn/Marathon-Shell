@@ -9,6 +9,7 @@
 #include "securitymanager.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
+#include "flashlightmanagercpp.h"
 #include "networkmanagercpp.h"
 #include "modemmanagercpp.h"
 #include "powermanagercpp.h"
@@ -771,10 +772,12 @@ void BluetoothObject::CancelPairing(const QString &address) {
     m_bt->cancelPairing(address);
 }
 
-DisplayObject::DisplayObject(DisplayManagerCpp *display, MarathonPermissionManager *permissions,
+DisplayObject::DisplayObject(DisplayManagerCpp *display, FlashlightManagerCpp *flashlight,
+                             MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
-    , m_display(display) {
+    , m_display(display)
+    , m_flashlight(flashlight) {
     Q_ASSERT(m_display);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -789,6 +792,8 @@ DisplayObject::DisplayObject(DisplayManagerCpp *display, MarathonPermissionManag
     QObject::connect(m_display, &DisplayManagerCpp::nightLightTemperatureChanged, this, push);
     QObject::connect(m_display, &DisplayManagerCpp::nightLightScheduleChanged, this, push);
     QObject::connect(m_display, &DisplayManagerCpp::screenStateChanged, this, push);
+    if (m_flashlight)
+        QObject::connect(m_flashlight, &FlashlightManagerCpp::availableChanged, this, push);
 }
 
 QVariantMap DisplayObject::buildState() const {
@@ -796,6 +801,9 @@ QVariantMap DisplayObject::buildState() const {
         {"available", m_display->available()},
         {"autoBrightnessEnabled", m_display->autoBrightnessEnabled()},
         {"rotationLocked", m_display->rotationLocked()},
+        {"rotationAvailable", m_display->rotationAvailable()},
+        {"lightSensorAvailable", m_display->lightSensorAvailable()},
+        {"torchAvailable", m_flashlight && m_flashlight->available()},
         {"screenTimeout", m_display->screenTimeout()},
         {"screenTimeoutString", m_display->screenTimeoutString()},
         {"brightness", m_display->brightness()},

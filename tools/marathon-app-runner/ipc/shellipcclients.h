@@ -663,6 +663,9 @@ class DisplayClient : public QObject {
     Q_PROPERTY(bool autoBrightnessEnabled READ autoBrightnessEnabled WRITE setAutoBrightnessEnabled
                    NOTIFY stateChanged)
     Q_PROPERTY(bool rotationLocked READ rotationLocked WRITE setRotationLocked NOTIFY stateChanged)
+    Q_PROPERTY(bool rotationAvailable READ rotationAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool lightSensorAvailable READ lightSensorAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool torchAvailable READ torchAvailable NOTIFY stateChanged)
     Q_PROPERTY(int screenTimeout READ screenTimeout WRITE setScreenTimeout NOTIFY stateChanged)
     Q_PROPERTY(QString screenTimeoutString READ screenTimeoutString NOTIFY stateChanged)
     Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY stateChanged)
@@ -681,6 +684,9 @@ class DisplayClient : public QObject {
     void             setAutoBrightnessEnabled(bool enabled);
     bool             rotationLocked() const;
     void             setRotationLocked(bool locked);
+    bool             rotationAvailable() const;
+    bool             lightSensorAvailable() const;
+    bool             torchAvailable() const;
     int              screenTimeout() const;
     void             setScreenTimeout(int seconds);
     QString          screenTimeoutString() const;

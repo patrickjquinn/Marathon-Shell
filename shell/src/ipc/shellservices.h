@@ -31,6 +31,7 @@ class WallpaperStore;
 class SecurityManager;
 class BluetoothManager;
 class DisplayManagerCpp;
+class FlashlightManagerCpp;
 class NetworkManagerCpp;
 class ModemManagerCpp;
 class PowerManagerCpp;
@@ -371,8 +372,9 @@ class DisplayObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
 
   public:
-    DisplayObject(DisplayManagerCpp *display, MarathonPermissionManager *permissions,
-                  AppLaunchService *launchService, QObject *parent = nullptr);
+    DisplayObject(DisplayManagerCpp *display, FlashlightManagerCpp *flashlight,
+                  MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                  QObject *parent = nullptr);
 
   public slots:
     QVariantMap GetState();
@@ -396,9 +398,10 @@ class DisplayObject : public IpcPermissionedService {
     bool requireSystem() {
         return requirePermission("Display", {"system"});
     }
-    QVariantMap        buildState() const;
+    QVariantMap           buildState() const;
 
-    DisplayManagerCpp *m_display = nullptr;
+    DisplayManagerCpp    *m_display    = nullptr;
+    FlashlightManagerCpp *m_flashlight = nullptr;
 };
 
 class PowerObject : public IpcPermissionedService {

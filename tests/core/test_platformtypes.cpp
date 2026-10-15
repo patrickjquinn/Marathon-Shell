@@ -37,6 +37,7 @@ class TestPlatformTypes : public QObject {
         QCOMPARE(names.value("TelephonyService"), QString("Telephony"));
         QCOMPARE(names.value("NetworkManagerCpp"), QString("Network"));
         QCOMPARE(names.value("AppLifecycleManager"), QString("Lifecycle"));
+        QCOMPARE(names.value("HapticService"), QString("Haptics"));
         for (const QString &name : names)
             QVERIFY2(name.at(0).isUpper() && !name.endsWith("Cpp") && !name.endsWith("Manager"),
                      qPrintable(name));
