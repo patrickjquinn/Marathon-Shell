@@ -48,6 +48,15 @@ TestCase {
         bg.light = false;
     }
 
+    function test_glassDitherOverTheWallpaper() {
+        tryVerify(() => bg.ready, 5000);
+        const dither = findChild(bg, "dither");
+        verify(dither.visible);
+        compare(dither.fillMode, Image.Tile);
+        tryCompare(dither, "status", Image.Ready);
+        compare(dither.sourceSize, Qt.size(8, 8));
+    }
+
     function test_loadsOffTheGuiThread() {
         verify(findChild(bg, "wallpaper").asynchronous);
     }
@@ -63,6 +72,7 @@ TestCase {
         bg.wallpaper = "";
         verify(!bg.ready);
         verify(!findChild(bg, "tone").visible);
+        verify(!findChild(bg, "dither").visible);
         bg.wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/dawn.svg");
     }
 }
