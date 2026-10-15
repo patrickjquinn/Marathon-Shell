@@ -76,6 +76,7 @@ TabItem {
 
         ViewPlaceholder {
             objectName: "discoverPlaceholder"
+            verticalOffset: Math.max(0, searchField.y + searchField.height + Theme.paddingLarge - (flick.height / 3 - height / 2))
             enabled: root.query !== "" ? !root.searching && root.results.length === 0 : root.offline && root.store.updateApps.length === 0
             text: root.query === "" ? qsTr("Can't reach Flathub") : root.searchError !== "" ? qsTr("Search isn't available") : qsTr("No results")
             hintText: root.query === "" ? qsTr("Check your connection, then pull down to refresh") : root.searchError !== "" ? qsTr("Couldn't reach Flathub. Check your connection and try again.") : qsTr("Nothing on Flathub for this phone matches \"%1\"").arg(root.query)

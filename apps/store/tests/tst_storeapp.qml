@@ -23,8 +23,17 @@ TestCase {
         }
     }
 
-    function makeApp() {
-        const app = createTemporaryObject(appComponent, testCase);
+    Component {
+        id: squareAppComponent
+        StoreApp {
+            width: 720
+            height: 658
+            store: TestBackend {}
+        }
+    }
+
+    function makeApp(component) {
+        const app = createTemporaryObject(component || appComponent, testCase);
         tryVerify(() => app.pageStack.currentPage !== null);
         return app;
     }
@@ -92,6 +101,17 @@ TestCase {
         app.store.pendingUpdates = [];
         tryVerify(() => findChild(tab, "discoverPlaceholder").enabled, 3000);
         compare(findChild(tab, "discoverPlaceholder").text, "Can't reach Flathub");
+    }
+
+    function test_placeholderBelowSearchField() {
+        const app = makeApp(squareAppComponent);
+        const tab = showTab(app, 0);
+        tryCompare(app.store, "catalogLoading", false, 10000);
+        app.store.pendingUpdates = [];
+        const placeholder = findChild(tab, "discoverPlaceholder");
+        tryVerify(() => placeholder.enabled, 3000);
+        const field = findChild(tab, "searchField");
+        verify(placeholder.mapToItem(tab, 0, 0).y >= field.mapToItem(tab, 0, field.height).y);
     }
 
     function test_heroHeaderIsHonest() {
