@@ -1,8 +1,8 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=8
-_commit=55e956d7e87ffc32ae617c3ec6deb2c0550717bc
+pkgrel=9
+_commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -66,5 +66,5 @@ package() {
 }
 
 sha512sums="
-0c1002424be2a84a1ed5e237eb5287526ac5518e245277bf12eb46742a8c9982f8c5e2e41ba9906034b11914610c25af9b0595e12ed6c254f222a613df19a85f  keel-silica-55e956d7e87ffc32ae617c3ec6deb2c0550717bc.tar.gz
+SKIP  keel-silica-$_commit.tar.gz
 "

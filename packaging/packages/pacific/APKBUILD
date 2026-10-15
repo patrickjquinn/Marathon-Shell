@@ -7,8 +7,8 @@
 # Atlantic engine) are left out; pacific-env gives the engine its environment.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=3
-_commit=e98ec30f19a10a9c849f4cfd28387e1b1e70c6ae
+pkgrel=4
+_commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pacific web browser for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
 arch="aarch64 x86_64"
