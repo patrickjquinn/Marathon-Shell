@@ -41,7 +41,7 @@ CoverBackground {
             width: parent.width
             visible: cover.unread === 0
             text: qsTr("No unread mail")
-            wrapMode: Text.Wrap
+            wrapMode: Text.WordWrap
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
         }
@@ -61,7 +61,7 @@ CoverBackground {
                 width: parent.width
                 visible: text !== ""
                 text: cover.subject
-                wrapMode: Text.Wrap
+                wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 font.pixelSize: Theme.fontSizeExtraSmall
