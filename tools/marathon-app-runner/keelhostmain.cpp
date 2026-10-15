@@ -6,6 +6,7 @@
 
 #include "ambienceclient.h"
 #include "hostedapp.h"
+#include "hostlifecycle.h"
 #include "keelhost.h"
 #include "sailjail.h"
 
@@ -78,6 +79,10 @@ int main(int argc, char *argv[]) {
                     << QStringLiteral("--") << program << arguments;
         program = bwrap;
     }
+
+    HostLifecycle lifecycle(&host, qEnvironmentVariable("MARATHON_SHELL_PID").toLongLong());
+    if (!appId.isEmpty() && !lifecycle.registerOn(QDBusConnection::sessionBus(), appId))
+        qWarning("marathon-keel-host: cannot register %s", qPrintable(HostLifecycle::serviceName(appId)));
 
     HostedApp hosted(&host, program, arguments);
     QObject::connect(&hosted, &HostedApp::finished, &app, [](int code) { QCoreApplication::exit(code); });

@@ -164,6 +164,18 @@ target_include_directories(test_core_hostedapp PRIVATE
 add_test(NAME Core_HostedApp COMMAND test_core_hostedapp)
 set_tests_properties(Core_HostedApp PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# The shell's lifecycle calls to a hosted app
+add_executable(test_core_hostlifecycle
+    test_hostlifecycle.cpp
+    ../../tools/marathon-app-runner/hostlifecycle.cpp
+    ../../tools/marathon-app-runner/keelhost.cpp
+)
+target_link_libraries(test_core_hostlifecycle Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
+target_include_directories(test_core_hostlifecycle PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+)
+add_test(NAME Core_HostLifecycle COMMAND test_core_hostlifecycle)
+
 # Wallpapers for the Settings app (Marathon.Platform Wallpapers)
 add_executable(test_core_wallpaperclient
     test_wallpaperclient.cpp
