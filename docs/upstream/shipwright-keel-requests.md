@@ -76,3 +76,95 @@ shell launched is shown above the app on screen (or the home screen) with the
 keyboard, between the status and navigation bars, and the app is kept from
 freezing while it shows (`KeelDialogLayer.qml`). The pill hold calls
 `ShowSheetFor` with the foreground app's Wayland client PID.
+
+## 6. System back driving Silica's page drag
+
+Extends entry 1. A one-shot `BackRequested` pops without the motion Silica's
+own swipe has: the page follows the finger 1:1, commits past
+`_flickThreshold` (`Theme.itemSizeMedium`), snaps with a duration scaled by the
+remaining distance from the 400 ms base, and draws the edge shadow
+(`PageStack.qml:123,316-325,645`, `private/PageEdgeTransition.qml:82-84`).
+Marathon's back is a drag along the bottom pill, so it has a progress to feed.
+
+Proposal: host hooks to drive an interactive back on the current PageStack,
+e.g. in `org.shipwright.keel.Shell1`: `BackStart()`, `BackUpdate(progress)`
+(0..1 of the page width), `BackCommit()` and `BackCancel()`, mapped onto the
+same lateral offset and snap the swipe uses. `BackStart` replies unhandled
+when there is nothing to pop (menu open, `backNavigation: false`, Dialog
+handled as in entry 1), so the host can fall back to its own minimise.
+
+Marathon today: pill-left calls `pageStack.pop()` in Marathon.Silica's
+ApplicationWindow; the page jumps after release.
+
+## 7. GlassItem painted on the GPU
+
+`KeelGlassItem` is a `QQuickPaintedItem` (`plugin/cpp/private/glassitem.h`),
+so every animated frame repaints on the CPU and re-uploads the texture. The
+glow animates often: Switch fades it over 50 ms (450 ms while busy) and pulses
+every 500 ms while busy (`Switch.qml:69-123`). On etnaviv and lima the upload
+is the expensive part.
+
+Proposal: render GlassItem as a scene-graph node (a QSGGeometryNode with a
+small GLES2-compatible shader, or a cached texture with colour/opacity changed
+through the material), so animating `color`, `brightness` or `falloffRadius`
+doesn't touch pixels on the CPU.
+
+Marathon today: no workaround; switch and busy glows cost a texture upload per
+frame.
+
+## 8. Ambience-change cross-fade in ApplicationWindow
+
+Silica hides the ambience switch: `ThemeTransaction` defers the new ambience
+while a 600 ms timer runs, the window (or an opaque current page) fades out
+over 400 ms InOutQuad and back in over 400 ms, and the wallpaper cross-fades
+(`ApplicationWindow.qml:230-283,521-566`). Keel's ApplicationWindow applies
+the new ambience in one frame, so colours and wallpaper snap.
+
+Proposal: carry the same states and timings in Keel's ApplicationWindow,
+driven by Keel.Ambience's about-to-change signal.
+
+Marathon today: ambience changes snap in Keel apps.
+
+## 9. maximumFlickVelocity on non-1.5 pixel ratios
+
+`Theme.maximumFlickVelocity` is `measured() ? 11250 : 5000 * m_pixelRatio`
+with `measured()` true only when the ratio is exactly 1.5 (`theme.h:206,320`).
+11250 is Jolla's 7500 × 1.5, so every other ratio gets two thirds of Jolla's
+speed; Marathon's devices are never at exactly 1.5, so long lists feel ~33%
+slow.
+
+Proposal: `7500 * m_pixelRatio` for the computed branch (identical at 1.5), or
+an env/ambience override (e.g. `KEEL_MAX_FLICK_VELOCITY`).
+
+Marathon today: no override; Keel apps flick at 5000·ratio.
+
+## 10. Opt-in glass page and dialog background
+
+Silica's DialogHeader band is a transparent rect over `dialog.background`
+(null by default, `PageStack.qml:115`) plus the highlight tint
+(`DialogHeader.qml:107-146`). On Sailfish it frosts because Lipstick paints the
+blurred ambience wallpaper behind the translucent app. A host without that
+gets the tint over whatever is under the window.
+
+Proposal: an opt-in default `pageBackground` / `dialog.background` component
+that draws the crop of the blurred ambience wallpaper (`image://keelambience`)
+under the page, positioned in window coordinates, so DialogHeader bands and
+PanelBackground's 0.15 → 0.3 gradient frost as on Sailfish. Off by default
+keeps Lipstick hosts unchanged.
+
+Marathon today: `DialogHeaderBackdrop.qml` in marathon-silica supplies the
+backdrop; it was an opaque `overlayBackgroundColor`, which made the tinted band
+read as a flat slab.
+
+## 11. Software scene graph: degrade instead of dropping effects
+
+When `GraphicsInfo.api` is Software, Keel turns off the pulley's layer
+(`PulleyMenuBase.qml:175`), ContextMenu's and OpacityRampEffect's shaders and
+DockedPanel's modal effect (`DockedPanel.qml:144`). The cause on Marathon is
+Marathon's own: the oneplus6 device package sets `QT_QUICK_BACKEND=software`
+globally, which Marathon will fix. Only if Keel wants to support software
+hosts: a plain-opacity fallback (e.g. a fading Rectangle in place of the
+pulley glow, a dimming Rectangle for modal panels) would keep the feedback
+without shaders.
+
+Marathon today: oneplus6 loses those effects until its backend is fixed.
