@@ -36,6 +36,22 @@ TestCase {
             }
         }
     }
+    Component {
+        id: pulleyApp
+        ApplicationWindow {
+            width: 540; height: 960
+            initialPage: Component {
+                Page {
+                    SilicaFlickable {
+                        objectName: "flick"
+                        anchors.fill: parent
+                        contentHeight: height
+                        PullDownMenu { MenuItem { text: "Refresh" } MenuItem { text: "Settings" } }
+                    }
+                }
+            }
+        }
+    }
     SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
     SignalSpy { id: acceptedSpy; signalName: "accepted" }
     SignalSpy { id: rejectedSpy; signalName: "rejected" }
@@ -59,6 +75,22 @@ TestCase {
         verify(a.handleBack());
         tryVerify(function () { return !p.combo.menu.active; });
         compare(a.pageStack.depth, 2);
+    }
+
+    function test_backClosesAPulledDownMenu() {
+        const a = createTemporaryObject(pulleyApp, testCase);
+        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryCompare(a.pageStack.currentPage, "status", PageStatus.Active);
+        const flick = findChild(a.pageStack.currentPage, "flick");
+        const menu = flick.pullDownMenu;
+        tryVerify(function () { return a.pageStack.currentPage.activeFocus; });
+        keyClick(Qt.Key_M, Qt.ControlModifier);
+        tryVerify(function () { return menu.active; });
+        minimizeSpy.target = a;
+        minimizeSpy.clear();
+        verify(a.handleBack());
+        tryVerify(function () { return !menu.active; });
+        compare(minimizeSpy.count, 0);
     }
 
     function test_backOnFirstPageMinimises() {

@@ -8,9 +8,9 @@ S.ApplicationWindow {
 
     signal minimizeRequested
 
-    // A combo box's or list item's menu is not among its children.
+    // A combo box's or list item's menu is not among its children; a pulley menu is.
     function _openMenu(item) {
-        for (const menu of [item.menu, item._menuItem]) {
+        for (const menu of [item, item.menu, item._menuItem]) {
             if (menu && menu.hasOwnProperty("_keyboardReturnFocus") && menu.active)
                 return menu;
         }
