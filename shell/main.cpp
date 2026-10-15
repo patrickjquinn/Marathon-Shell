@@ -619,9 +619,16 @@ int main(int argc, char *argv[]) {
     // the interface-size setting scales them with the rest of the shell.
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
-            ambienceService->setPixelRatio(AmbienceService::sailfishPixelRatio(
+            const qreal ratio = AmbienceService::sailfishPixelRatio(
                 screenMetrics->dpi(), settingsManager->userScaleFactor(),
-                DeviceProfile::instance().keelPixelRatio()));
+                DeviceProfile::instance().keelPixelRatio());
+            ambienceService->setPixelRatio(ratio);
+            // Keel's forwarded layer, read when its Ambience is first created:
+            // the shell's Silica starts at this ratio instead of the width rule.
+            if (ratio > 0) {
+                qputenv("KEEL_AMBIENCE_KEYS", "/desktop/sailfish/silica/theme_pixel_ratio");
+                qputenv("KEEL_SILICA_THEME_PIXEL_RATIO", QByteArray::number(ratio));
+            }
         };
         update();
         QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, ambienceService, update);
