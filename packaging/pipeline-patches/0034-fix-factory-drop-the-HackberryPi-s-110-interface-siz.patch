@@ -1,0 +1,31 @@
+From 65d3c8ecf8b42e524f78918256a677d0bd56395f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 15 Oct 2026 14:21:25 +0100
+Subject: [PATCH] fix(factory): drop the HackberryPi's 110 % interface size
+
+It compensated for the shell running at half scale on that panel. The
+device profile's FORCE_DPI now gives the right scale, so the boost made
+everything 10 % too large.
+---
+ mkosi.images/base/mkosi.postinst | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index aca306a..36b16a4 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -70,11 +70,6 @@ hiddenApps=@Invalid()
+ 
+ [General]
+ EOF
+-# HyperPixel 4 Square (HackberryPi CM5) is 720x720 at ~254 PPI; 1.10 keeps
+-# text legible there. Other devices start at 1.0. Setup can change either.
+-if [ -e "$BUILDROOT/boot/overlays/hackberrypi.dtbo" ]; then
+-    printf '\n[ui]\nuserScaleFactor=1.10\n' >> "$FACTORY/Marathon Shell.conf"
+-fi
+ 
+ # Factory tree: pre-grant common permissions so apps can launch without prompts
+ FACTORY_PERMS="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon"
+-- 
+2.55.0
+
