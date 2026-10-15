@@ -42,6 +42,7 @@ Item {
                         properties: "width,height"
                         from: 0
                         duration: MMotion.rippleDuration
+                        easing.type: Easing.Bezier
                         easing.bezierCurve: MMotion.easingDecelerateCurve
                     }
                     NumberAnimation {

@@ -4,7 +4,7 @@ QtObject {
     readonly property int quick: 0
     readonly property int fast: 0
     readonly property int moderate: 0
-    readonly property var easingDecelerateCurve: [0, 0, 0.2, 1]
+    readonly property var easingDecelerateCurve: [0, 0, 0.2, 1, 1, 1]
     property bool reduceMotion: false
     readonly property int flickDecelerationFast: 8000
     readonly property int staggerMicro: 0

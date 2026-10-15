@@ -232,6 +232,7 @@ Item {
 
             NumberAnimation {
                 duration: MMotion.moderate
+                easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }
         }
@@ -239,6 +240,7 @@ Item {
         Behavior on height {
             NumberAnimation {
                 duration: MMotion.quick
+                easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }
         }

@@ -102,6 +102,7 @@ Item {
 
             NumberAnimation {
                 duration: MMotion.moderate
+                easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }
         }

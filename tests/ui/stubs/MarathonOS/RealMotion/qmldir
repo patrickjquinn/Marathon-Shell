@@ -1,0 +1,2 @@
+module MarathonOS.RealMotion
+singleton MMotion 1.0 ../../../../../shell/qml/theme/MMotion.qml

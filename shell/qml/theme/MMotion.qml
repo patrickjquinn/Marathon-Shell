@@ -94,7 +94,7 @@ QtObject {
     readonly property real backFadeThreshold: 0.35
     readonly property real backEdgeClampDp: 8
 
-    readonly property var predictiveBackCurve: [0.1, 0.1, 0.0, 1.0]
+    readonly property var predictiveBackCurve: [0.1, 0.1, 0.0, 1.0, 1.0, 1.0]
 
     // Shared-element shift helpers — return px offset for the
     // entering surface during the gesture's commit phase. The
@@ -109,9 +109,9 @@ QtObject {
     }
 
     readonly property int easingStandard: Easing.Bezier
-    readonly property var easingStandardCurve: [0.2, 0, 0.2, 1]
+    readonly property var easingStandardCurve: [0.2, 0, 0.2, 1, 1, 1]
 
-    readonly property var easingDecelerateCurve: [0, 0, 0.2, 1]
+    readonly property var easingDecelerateCurve: [0, 0, 0.2, 1, 1, 1]
 
     readonly property int staggerMicro: 20
     readonly property int staggerShort: 50
@@ -169,7 +169,7 @@ QtObject {
             "microPress": {
                 duration: 80,
                 easing: Easing.OutQuad,
-                curve: [0.2, 0.8, 0.4, 1.0],
+                curve: [0.2, 0.8, 0.4, 1.0, 1.0, 1.0],
                 spring: 3.0,
                 damping: 0.4,
                 spatial: {
@@ -184,7 +184,7 @@ QtObject {
             "press": {
                 duration: 80,
                 easing: Easing.OutQuad,
-                curve: [0.2, 0.8, 0.4, 1.0],
+                curve: [0.2, 0.8, 0.4, 1.0, 1.0, 1.0],
                 spring: 3.0,
                 damping: dampingCritical,
                 spatial: {
@@ -199,7 +199,7 @@ QtObject {
             "tap": {
                 duration: 120,
                 easing: Easing.OutCubic,
-                curve: [0.2, 0, 0.2, 1.0],
+                curve: [0.2, 0, 0.2, 1.0, 1.0, 1.0],
                 spring: 2.5,
                 damping: 0.35,
                 spatial: {
@@ -214,7 +214,7 @@ QtObject {
             "hover": {
                 duration: 150,
                 easing: Easing.InOutQuad,
-                curve: [0.4, 0, 0.6, 1.0],
+                curve: [0.4, 0, 0.6, 1.0, 1.0, 1.0],
                 spring: 2.0,
                 damping: 0.3,
                 spatial: {
@@ -229,7 +229,7 @@ QtObject {
             "nav": {
                 duration: 220,
                 easing: Easing.Bezier,
-                curve: [0.2, 0, 0.0, 1.0],
+                curve: [0.2, 0, 0.0, 1.0, 1.0, 1.0],
                 spring: 1.8,
                 damping: 0.25,
                 // NOTE: the page drill-in (MStackView) does NOT use this
@@ -252,7 +252,7 @@ QtObject {
             "hero": {
                 duration: 320,
                 easing: Easing.Bezier,
-                curve: [0.2, 0, 0.0, 1.0],
+                curve: [0.2, 0, 0.0, 1.0, 1.0, 1.0],
                 spring: 1.0,
                 damping: 0.18,
                 // Hero / page-level transitions. Underdamped so it
@@ -271,7 +271,7 @@ QtObject {
             "predictiveBack": {
                 duration: 220,
                 easing: Easing.Bezier,
-                curve: [0.1, 0.1, 0.0, 1.0],
+                curve: [0.1, 0.1, 0.0, 1.0, 1.0, 1.0],
                 spring: 1.0,
                 damping: dampingCritical,
                 // Critically damped — the gesture itself supplies the
@@ -289,7 +289,7 @@ QtObject {
             "modal": {
                 duration: 240,
                 easing: Easing.Bezier,
-                curve: [0.34, 1.2, 0.64, 1.0],
+                curve: [0.34, 1.56, 0.64, 1.0, 1.0, 1.0],
                 spring: 1.6,
                 damping: 0.22,
                 spatial: {
@@ -306,7 +306,7 @@ QtObject {
             "panel": {
                 duration: 300,
                 easing: Easing.Bezier,
-                curve: [0, 0, 0.2, 1.0],
+                curve: [0, 0, 0.2, 1.0, 1.0, 1.0],
                 spring: 1.5,
                 damping: 0.2,
                 spatial: {
@@ -321,7 +321,7 @@ QtObject {
             "sheet": {
                 duration: 320,
                 easing: Easing.Bezier,
-                curve: [0, 0, 0.2, 1.0],
+                curve: [0, 0, 0.2, 1.0, 1.0, 1.0],
                 spring: 1.4,
                 damping: 0.2,
                 spatial: {
@@ -336,7 +336,7 @@ QtObject {
             "entrance": {
                 duration: 220,
                 easing: Easing.Bezier,
-                curve: [0, 0, 0.2, 1.0],
+                curve: [0, 0, 0.2, 1.0, 1.0, 1.0],
                 spring: 1.8,
                 damping: 0.25,
                 spatial: {
@@ -351,7 +351,7 @@ QtObject {
             "pulse": {
                 duration: 1200,
                 easing: Easing.InOutSine,
-                curve: [0.4, 0, 0.6, 1.0],
+                curve: [0.4, 0, 0.6, 1.0, 1.0, 1.0],
                 spring: 1.0,
                 damping: 0.15,
                 spatial: {
