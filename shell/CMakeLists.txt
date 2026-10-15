@@ -247,6 +247,7 @@ set(QML_FILES
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
     qml/components/KeelCoverView.qml
+    qml/components/KeelDialogLayer.qml
     qml/components/MarathonPageView.qml
     qml/components/MarathonSearch.qml
     qml/components/WaylandShellSurfaceItem.qml

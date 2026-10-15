@@ -1064,12 +1064,15 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
         auto decide = [this, decided, pendingToplevel, pendingXdg](bool final) {
             if (*decided || !pendingToplevel || !pendingXdg)
                 return;
-            const bool cover = KeelCover::isCoverTitle(pendingToplevel->title());
-            if (!cover && !final)
+            const bool cover  = KeelCover::isCoverTitle(pendingToplevel->title());
+            const bool dialog = KeelDialog::isDialogTitle(pendingToplevel->title());
+            if (!cover && !dialog && !final)
                 return;
             *decided = true;
             if (cover)
                 adoptCover(pendingToplevel, pendingXdg);
+            else if (dialog)
+                mapDialog(pendingToplevel, pendingXdg);
             else
                 mapToplevel(pendingToplevel, pendingXdg);
         };
@@ -1147,6 +1150,15 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
                 }
             });
     }
+}
+
+void WaylandCompositor::mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
+    QWaylandSurface *surface = xdgSurface->surface();
+    surface->setProperty("isDialog", true);
+    toplevel->sendConfigure(appConfigureSize(),
+                            QList<QWaylandXdgToplevel::State>{QWaylandXdgToplevel::ActivatedState,
+                                                              QWaylandXdgToplevel::MaximizedState});
+    emit dialogCreated(surface, surface->property("surfaceId").toInt(), xdgSurface);
 }
 
 void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {

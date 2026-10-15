@@ -91,6 +91,8 @@ class AppLaunchService : public QObject {
 
     // Quick Settings shade requested over IPC. mode: 0 hide, 1 show, 2 toggle.
     void quickSettingsRequested(int mode);
+    // A window the app shows above the app on screen (KeelDialog).
+    void dialogSurfaceCreated(const QString &appId, QObject *xdgSurface, int surfaceId);
 
   private:
     struct PendingLaunch {

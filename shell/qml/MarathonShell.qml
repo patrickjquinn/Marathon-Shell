@@ -1588,6 +1588,29 @@ Item {
         }
     }
 
+    KeelDialogLayer {
+        id: keelDialogs
+
+        anchors.fill: parent
+        anchors.topMargin: Constants.safeAreaTop
+        anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
+        z: Constants.zIndexKeelDialog
+        visible: !SessionStore.isLocked
+        onShown: pilotGlow.overlayShown()
+        onClosed: {
+            if (count === 0 && UIStore.appWindowOpen)
+                appWindow.focusApp();
+        }
+
+        Connections {
+            function onDialogSurfaceCreated(appId, xdgSurface, surfaceId) {
+                keelDialogs.add(appId, xdgSurface, surfaceId);
+            }
+
+            target: AppLaunchService
+        }
+    }
+
     ParallelAnimation {
         id: snapIntoGridAnimation
 

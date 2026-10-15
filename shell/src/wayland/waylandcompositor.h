@@ -94,6 +94,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void appViewportSizeChanged();
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
+    // A Keel app's dialog window (KeelDialog), not one of its tasks.
+    void dialogCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
@@ -118,6 +120,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QString focusedToolkit() const;
     void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void    mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);

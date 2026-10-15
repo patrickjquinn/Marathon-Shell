@@ -16,3 +16,15 @@ inline bool isCoverTitle(const QString &title) {
 }
 
 } // namespace KeelCover
+
+// A Keel app's dialog (Lipstick's CATEGORY=dialog, like Pilot's overlay): a
+// second top-level window titled with this marker, shown above the app on
+// screen. Not in keel/shell/PROTOCOL.md v1 yet.
+namespace KeelDialog {
+
+inline bool isDialogTitle(const QString &title) {
+    static const QString kMarker = QStringLiteral("keel:dialog");
+    return title == kMarker || title.startsWith(kMarker + QLatin1Char(':'));
+}
+
+} // namespace KeelDialog

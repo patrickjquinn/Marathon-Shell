@@ -54,3 +54,25 @@ a SIGTERM there skips `aboutToQuit` and the session marker survives ("closed
 unexpectedly"). Marathon launches the app itself under `marathon-keel-host`
 (Shell mode), which handles this; a SIGTERM handler in Desktop mode would cover
 the other paths.
+
+## 5. Pilot's overlay under a Keel host
+
+Pilot's overlay (`shoal/pilot/ui/Overlay.qml`) is made only in Keel's Direct
+mode (`createOverlay` in `app/cpp/launcher.cpp` returns null otherwise) and is
+marked for Lipstick with `Shell.setLipstickProperty(window, "CATEGORY",
+"dialog")`, a no-op outside Direct mode. Under `marathon-keel-host` (Shell
+mode) Pilot therefore falls back to its main window's sheet, which comes up as
+an app instead of over the app the person was in.
+
+Proposal: in Shell mode, make the overlay too, and mark it the way covers are
+marked (PROTOCOL.md section 3): title `keel:dialog` (or `keel:dialog:<name>`)
+set before `show()`, for instance by `setLipstickProperty(…, "CATEGORY",
+"dialog")` setting that title when not in Direct mode. A host-provided
+`KEEL_SHELL_DIALOG_TITLE` could carry the marker as `KEEL_SHELL_COVER_TITLE`
+does.
+
+Marathon today: a second top-level window titled `keel:dialog` from an app the
+shell launched is shown above the app on screen (or the home screen) with the
+keyboard, between the status and navigation bars, and the app is kept from
+freezing while it shows (`KeelDialogLayer.qml`). The pill hold calls
+`ShowSheetFor` with the foreground app's Wayland client PID.

@@ -300,6 +300,21 @@ void AppLaunchService::setCompositor(QObject *obj) {
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
                     onCompositorSurfaceCreated(surface, surfaceId, xdgSurface);
                 });
+            QObject::connect(
+                wc, &WaylandCompositor::dialogCreated, this,
+                [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
+                    const qint64  pid   = surface->client()->processId();
+                    const QString appId = appIdForPid(pid);
+                    // Only an app the shell runs may put a window over others.
+                    if (appId.isEmpty()) {
+                        qWarning() << "[AppLaunchService] Dialog surfaceId" << surfaceId
+                                   << "from PID" << pid << "of no app - not shown";
+                        return;
+                    }
+                    qInfo() << "[AppLaunchService] Dialog surfaceId" << surfaceId << "for"
+                            << appId;
+                    emit dialogSurfaceCreated(appId, xdgSurface, surfaceId);
+                });
         }
 #endif
     }

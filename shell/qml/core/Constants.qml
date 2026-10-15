@@ -54,6 +54,7 @@ QtObject {
     readonly property int zIndexMainContent: 90
     readonly property int zIndexBottomSection: 150
     readonly property int zIndexAppWindow: 600
+    readonly property int zIndexKeelDialog: 620
     readonly property int zIndexPeekGesture: 650
     readonly property int zIndexPeek: 700
     readonly property int zIndexLockScreen: 1000

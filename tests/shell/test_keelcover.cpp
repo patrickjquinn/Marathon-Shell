@@ -16,6 +16,14 @@ class TestKeelCover : public QObject {
         QVERIFY(!KeelCover::isCoverTitle(QStringLiteral("Notes")));
         QVERIFY(!KeelCover::isCoverTitle(QString()));
     }
+    void dialogMarker() {
+        QVERIFY(KeelDialog::isDialogTitle(QStringLiteral("keel:dialog")));
+        QVERIFY(KeelDialog::isDialogTitle(QStringLiteral("keel:dialog:Pilot")));
+        QVERIFY(!KeelDialog::isDialogTitle(QStringLiteral("keel:dialogs")));
+        QVERIFY(!KeelDialog::isDialogTitle(QStringLiteral("keel:cover")));
+        QVERIFY(!KeelDialog::isDialogTitle(QStringLiteral("Pilot")));
+        QVERIFY(!KeelCover::isCoverTitle(QStringLiteral("keel:dialog")));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestKeelCover)
