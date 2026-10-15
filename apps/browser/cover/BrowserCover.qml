@@ -43,9 +43,11 @@ CoverBackground {
             width: parent.width
             text: root.title
             maximumLineCount: 4
-            wrapMode: Text.Wrap
+            wrapMode: Text.WordWrap
             elide: Text.ElideRight
             font.pixelSize: Theme.fontSizeSmall
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Theme.fontSizeExtraSmall
         }
         Label {
             objectName: "coverHost"
