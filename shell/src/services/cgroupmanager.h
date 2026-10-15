@@ -61,8 +61,9 @@ class CgroupManager : public QObject {
     // not the session scope, so they survive greetd restarts: frozen
     // orphan pids are unkillable by SIGTERM (a frozen task never runs its
     // handler) and a leftover freeze=1 dir freezes the next launch of the
-    // same app at birth. Thaw every dir, SIGKILL leftover pids, best-effort
-    // rmdir. Call once at shell startup, before any launch.
+    // same app at birth. Thaw every dir, SIGTERM leftover pids, SIGKILL
+    // what is left after up to 1.5 s, best-effort rmdir. Call once at shell
+    // startup, before any launch.
     void reconcileStaleAppCgroups();
 
   private:

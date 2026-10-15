@@ -7,6 +7,7 @@
 #include <QTextStream>
 #include <QThread>
 
+#include <algorithm>
 #include <csignal>
 #include <utility>   // std::as_const
 
@@ -173,32 +174,60 @@ QString CgroupManager::placeAppPid(qint64 pid, const QString &appId) {
     return appPath;
 }
 
+static QList<qint64> cgroupPids(const QString &path) {
+    QList<qint64> pids;
+    QFile         procs(path + QStringLiteral("/cgroup.procs"));
+    if (!procs.open(QIODevice::ReadOnly))
+        return pids;
+    const QList<QByteArray> lines = procs.readAll().split('\n');
+    for (const QByteArray &line : lines) {
+        if (const qint64 pid = line.trimmed().toLongLong(); pid > 0)
+            pids << pid;
+    }
+    return pids;
+}
+
 void CgroupManager::reconcileStaleAppCgroups() {
     if (!m_available)
         return;
     const QDir        appsRoot(m_appsRoot);
     const QStringList dirs =
         appsRoot.entryList({QStringLiteral("marathon-app-*")}, QDir::Dirs | QDir::NoDotAndDotDot);
+    // SIGTERM first, so an app that handles it (a Keel app's CloseRequested)
+    // can save. Thaw before signalling: a frozen task runs no handler, and on
+    // cgroup v2 even SIGKILL completes only once the task can run again.
+    int terminated = 0;
     for (const QString &dir : dirs) {
         const QString path = m_appsRoot + QLatin1Char('/') + dir;
-        // Thaw before killing: on cgroup v2 a SIGKILL is accepted while
-        // frozen but exit only completes once the task can run again.
         writeFile(path + QStringLiteral("/cgroup.freeze"), QByteArrayLiteral("0"));
-        int   killed = 0;
-        QFile procs(path + QStringLiteral("/cgroup.procs"));
-        if (procs.open(QIODevice::ReadOnly)) {
-            const QList<QByteArray> pids = procs.readAll().split('\n');
-            for (const QByteArray &line : pids) {
-                const qint64 pid = line.trimmed().toLongLong();
-                if (pid > 0 && ::kill(static_cast<pid_t>(pid), SIGKILL) == 0)
-                    ++killed;
-            }
+        const QList<qint64> pids = cgroupPids(path);
+        for (const qint64 pid : pids) {
+            if (::kill(static_cast<pid_t>(pid), SIGTERM) == 0)
+                ++terminated;
+        }
+    }
+    constexpr int kGraceMs = 1500;
+    for (int waited = 0; terminated > 0 && waited < kGraceMs; waited += 50) {
+        const bool anyLeft = std::any_of(dirs.cbegin(), dirs.cend(), [this](const QString &dir) {
+            return !cgroupPids(m_appsRoot + QLatin1Char('/') + dir).isEmpty();
+        });
+        if (!anyLeft)
+            break;
+        QThread::msleep(50);
+    }
+    for (const QString &dir : dirs) {
+        const QString       path   = m_appsRoot + QLatin1Char('/') + dir;
+        int                 killed = 0;
+        const QList<qint64> pids   = cgroupPids(path);
+        for (const qint64 pid : pids) {
+            if (::kill(static_cast<pid_t>(pid), SIGKILL) == 0)
+                ++killed;
         }
         // rmdir needs the killed pids reaped first; if it fails the dir
         // stays behind thawed and empty, and placeAppPid reuses it.
         const bool removed = QDir().rmdir(path);
-        qCInfo(lcCgroup) << "reconciled stale cgroup" << dir << "- killed" << killed
-                         << "orphan pids, dir removed:" << removed;
+        qCInfo(lcCgroup) << "reconciled stale cgroup" << dir << "- SIGKILLed" << killed
+                         << "orphan pids after SIGTERM, dir removed:" << removed;
     }
 }
 
