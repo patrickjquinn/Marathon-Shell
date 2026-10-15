@@ -19,6 +19,10 @@ TestCase {
             initialPage: Component { Page { PageHeader { title: "Notes" } SectionHeader { text: "Today" } Button { objectName: "focusTarget"; y: 300; text: "Go" } } }
         }
     }
+    Component {
+        id: shortApp
+        ApplicationWindow { width: 540; height: 400; initialPage: Component { Page {} } }
+    }
     Component { id: page; Page {} }
     SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
     SignalSpy { id: acceptedSpy; signalName: "accepted" }
@@ -130,6 +134,31 @@ TestCase {
         compare(backdrop.mapToItem(d, 0, 0).y, 0);
         d.flickable.contentY = 0;
         verify(!backdrop.visible);
+    }
+
+    function find(item, test) {
+        if (test(item))
+            return item;
+        for (let i = 0; i < item.children.length; ++i) {
+            const found = find(item.children[i], test);
+            if (found)
+                return found;
+        }
+        return null;
+    }
+
+    function test_datePickerScrollsToTheLastWeek() {
+        const a = createTemporaryObject(shortApp, testCase);
+        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        const d = a.pageStack.push(Qt.resolvedUrl("data/DatePicker.qml"), {}, PageStackAction.Immediate);
+        tryCompare(d, "status", PageStatus.Active);
+        const flick = find(d, function (i) { return i.selectedDateText !== undefined; });
+        const grid = find(flick.contentItem, function (i) { return i.cellHeight !== undefined && i.weeksVisible !== undefined; });
+        verify(grid.y + grid.height > flick.height, "grid fits: the test can't show the bug");
+        tryVerify(function () { return flick.contentHeight >= grid.y + grid.height; }, 1000, "last week out of reach");
+        flick.contentY = flick.contentHeight - flick.height;
+        const backdrop = findChild(flick.contentItem, "dialogHeaderBackdrop");
+        verify(backdrop && backdrop.visible, "header band not backed");
     }
 
     function test_escapeRejectsDialog() {

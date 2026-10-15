@@ -5,6 +5,7 @@ Button 1.0 Button.qml
 SecondaryButton 1.0 SecondaryButton.qml
 ComboBox 1.0 ComboBox.qml
 ContextMenu 1.0 ContextMenu.qml
+DatePickerDialog 1.0 DatePickerDialog.qml
 Dialog 1.0 Dialog.qml
 DialogHeader 1.0 DialogHeader.qml
 FocusFrame 1.0 FocusFrame.qml
