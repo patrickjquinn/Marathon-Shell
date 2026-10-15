@@ -97,7 +97,7 @@ QtObject {
     // bar lands ≈ 100 actual-px, which combined with the bottomBar reads
     // as too much bottom chrome. Drop to 48 — still ≥ 44 px touch target
     // even at scaleFactor 1.0 (so OOBE on small screens stays tappable).
-    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 48) * scaleFactor)
+    readonly property real navBarHeight: (isSquareScreen || screenHeight < 800) ? Math.max(44, Math.round(30 * scaleFactor)) : Math.round(48 * scaleFactor)
     // Same DPI math as navBarHeight — 56 design-px × 1.8 scale = 100 actual.
     // 44 lands ≈ 80 actual, restoring iOS-like dock proportions on the L5.
     readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 44) * scaleFactor)
