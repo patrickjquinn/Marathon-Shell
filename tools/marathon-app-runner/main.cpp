@@ -908,6 +908,18 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication::setDesktopFileName(appId);
 
+    // Read once, when the app's QML first imports Keel.Actions.
+    {
+        const QString keelAppId = QStringLiteral("org.marathonos.") + appId;
+        const QString manifest  = QStandardPaths::locate(
+            QStandardPaths::GenericDataLocation,
+            QStringLiteral("keel/actions/%1.json").arg(keelAppId));
+        if (!manifest.isEmpty()) {
+            qputenv("KEEL_ACTIONS_MANIFEST", manifest.toUtf8());
+            qputenv("KEEL_ACTIONS_APP_ID", keelAppId.toUtf8());
+        }
+    }
+
     MarathonAppRegistry registry;
     MarathonAppScanner  scanner(&registry);
 
