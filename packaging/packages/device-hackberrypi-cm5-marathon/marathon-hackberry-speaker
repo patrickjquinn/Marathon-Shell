@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pair the HackberryPi's built-in Bluetooth speaker module once; BlueZ
+# reconnects trusted devices by itself afterwards.
+NAME="XWF-M18-M28-M38"
+known=$(bluetoothctl devices Paired 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+if [ -n "$known" ]; then
+    bluetoothctl connect "$known" >/dev/null 2>&1
+    exit 0
+fi
+bluetoothctl --timeout 20 scan on >/dev/null 2>&1
+mac=$(bluetoothctl devices 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+[ -n "$mac" ] || exit 0
+bluetoothctl pair "$mac" >/dev/null 2>&1
+bluetoothctl trust "$mac" >/dev/null 2>&1
+bluetoothctl connect "$mac" >/dev/null 2>&1
+exit 0

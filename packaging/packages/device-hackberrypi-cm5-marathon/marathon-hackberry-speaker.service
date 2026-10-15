@@ -1,0 +1,11 @@
+[Unit]
+Description=Pair the HackberryPi's Bluetooth speaker module
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-hackberry-speaker
+
+[Install]
+WantedBy=multi-user.target

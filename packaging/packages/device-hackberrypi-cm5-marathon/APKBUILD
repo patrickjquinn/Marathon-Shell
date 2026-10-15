@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=12
+pkgrel=13
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -62,6 +62,15 @@ package() {
 	# has a framebuffer instead of timing out waiting for /dev/fb0.
 	install -Dm644 "$srcdir/hackberrypi.modules" \
 		"$pkgdir/usr/share/mkinitfs/modules/10-hackberrypi.modules"
+
+	# The speakers are a Bluetooth module: pair it on first boot.
+	install -Dm755 "$srcdir/marathon-hackberry-speaker" \
+		"$pkgdir/usr/libexec/marathon-hackberry-speaker"
+	install -Dm644 "$srcdir/marathon-hackberry-speaker.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-hackberry-speaker.service"
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-hackberry-speaker.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-hackberry-speaker.service"
 
 	# Force-load the MAX17048 fuel-gauge module at boot. udev modalias
 	# matching is unreliable on linux-rpi here (the i2c-gpio bus
