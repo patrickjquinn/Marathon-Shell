@@ -28,6 +28,7 @@ ApplicationWindow {
     readonly property bool hasAccount: serviceAvailable && mail.currentAccountId !== "" && mail.accounts.rowCount() > 0
     readonly property int unreadCount: hasAccount ? mail.unreadCount : 0
     property string latestSender: ""
+    property string latestSubject: ""
     // A message moved from its own page waits out the inbox's remorse.
     property string pendingMoveId: ""
     property string pendingMoveKind: ""
@@ -100,7 +101,9 @@ ApplicationWindow {
     }
 
     function updateLatest() {
-        latestSender = hasAccount && latest.items.count > 0 ? String(latest.items.get(0).model.from || "") : "";
+        const top = hasAccount && latest.items.count > 0 ? latest.items.get(0).model : null;
+        latestSender = top ? String(top.from || "") : "";
+        latestSubject = top ? String(top.subject || "") : "";
     }
 
     appId: "email"
@@ -171,6 +174,7 @@ ApplicationWindow {
             available: app.hasAccount
             unread: app.unreadCount
             sender: app.latestSender
+            subject: app.latestSubject
             onNewMessageRequested: {
                 app.activate();
                 app.compose();

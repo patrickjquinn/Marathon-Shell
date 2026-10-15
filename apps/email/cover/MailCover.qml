@@ -3,49 +3,70 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
+// The unread count, then the newest message in the inbox.
 CoverBackground {
     id: cover
 
     property bool available: false
     property int unread: 0
     property string sender: ""
+    property string subject: ""
 
     signal newMessageRequested
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: !cover.available
-        text: qsTr("Mail")
-        icon.source: "image://theme/icon-m-mail"
+        text: qsTr("No accounts")
+        icon.source: "image://theme/icon-l-mail"
     }
 
     Column {
         objectName: "coverContent"
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
         visible: cover.available
+        spacing: Theme.paddingMedium
 
-        Label {
+        CoverHeadline {
             objectName: "unreadCount"
-            text: cover.unread
-            font.pixelSize: Theme.fontSizeHuge
-            color: cover.unread > 0 ? Theme.highlightColor : Theme.primaryColor
+            width: parent.width
+            visible: cover.unread > 0
+            value: cover.unread
+            label: qsTr("unread")
         }
         Label {
+            objectName: "noUnread"
             width: parent.width
-            text: qsTr("Unread", "", cover.unread)
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
+            visible: cover.unread === 0
+            text: qsTr("No unread mail")
+            wrapMode: Text.Wrap
+            font.pixelSize: Theme.fontSizeSmall
+            color: Theme.secondaryColor
         }
-        Label {
-            objectName: "latestSender"
+        Column {
             width: parent.width
-            topPadding: Theme.paddingMedium
-            visible: text !== ""
-            text: cover.sender
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
+            visible: cover.sender !== ""
+
+            Label {
+                objectName: "latestSender"
+                width: parent.width
+                text: cover.sender
+                truncationMode: TruncationMode.Fade
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            Label {
+                objectName: "latestSubject"
+                width: parent.width
+                visible: text !== ""
+                text: cover.subject
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryColor
+            }
         }
     }
 

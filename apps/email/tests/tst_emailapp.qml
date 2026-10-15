@@ -352,6 +352,7 @@ TestCase {
         withMessages();
         const app = makeApp();
         compare(app.latestSender, "Ann");
+        compare(app.latestSubject, MailService.messageModel.get(0).subject);
         MailService.messageModel.remove(0);
         tryCompare(app, "latestSender", "Bob");
         MailService.messageModel.setProperty(0, "from", "Bea");

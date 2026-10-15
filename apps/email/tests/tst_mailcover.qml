@@ -14,8 +14,10 @@ TestCase {
     SignalSpy { id: newSpy; signalName: "newMessageRequested" }
 
     function test_unreadAndSender() {
-        const c = createTemporaryObject(cover, this, { available: true, unread: 4, sender: "Ann" });
-        compare(findChild(c, "unreadCount").text, "4");
+        const c = createTemporaryObject(cover, this, { available: true, unread: 4, sender: "Ann", subject: "Plans" });
+        compare(findChild(c, "unreadCount").value, "4");
+        compare(findChild(c, "latestSubject").text, "Plans");
+        verify(!findChild(c, "noUnread").visible);
         compare(findChild(c, "latestSender").text, "Ann");
         verify(findChild(c, "coverContent").visible);
         verify(!findChild(c, "coverPlaceholder").visible);
@@ -30,6 +32,8 @@ TestCase {
     function test_noSenderHidesLine() {
         const c = createTemporaryObject(cover, this, { available: true, unread: 0, sender: "" });
         verify(!findChild(c, "latestSender").visible);
+        verify(!findChild(c, "unreadCount").visible);
+        verify(findChild(c, "noUnread").visible);
     }
 
     function test_newMessageAction() {
