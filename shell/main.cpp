@@ -57,6 +57,7 @@
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
 #include "src/services/wakeonkeyfilter.h"
+#include "src/services/pilotclient.h"
 #include "src/services/inputboost.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
@@ -1006,6 +1007,9 @@ int main(int argc, char *argv[]) {
     auto *surfaceRegistry = new SurfaceRegistry(&app);
     qmlRegisterSingletonInstance<SurfaceRegistry>("MarathonOS.Shell", 1, 0, "SurfaceRegistry",
                                                   surfaceRegistry);
+    qmlRegisterSingletonInstance<PilotClient>(
+        "MarathonOS.Shell", 1, 0, "PilotClient",
+        new PilotClient(QDBusConnection::sessionBus(), &app));
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {

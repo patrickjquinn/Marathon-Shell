@@ -110,6 +110,8 @@ set(SOURCES
     src/services/inputboost.cpp
     src/services/wakeonkeyfilter.h
     src/services/wakeonkeyfilter.cpp
+    src/services/pilotclient.h
+    src/services/pilotclient.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h
@@ -485,6 +487,8 @@ qt6_add_qml_module(marathon-shell
         src/dbus/portalsettings.h
         src/services/surfaceregistry.cpp
         src/services/surfaceregistry.h
+        src/services/pilotclient.cpp
+        src/services/pilotclient.h
         src/services/domainsuggestions.cpp
         src/services/domainsuggestions.h
         src/services/emojipredictor.cpp
