@@ -116,6 +116,17 @@ class TestDesktopFileParser : public QObject {
         QVERIFY(parser.parseDesktopFile(dir.path() + "/q.desktop").value("sailfish").toBool());
     }
 
+    void keelHostKeyRunsUnderTheHost() {
+        QTemporaryDir dir;
+        writeFile(
+            dir.path() + "/shipwright-pacific.desktop",
+            basicDesktop("Pacific", "/usr/bin/shipwright-pacific %U", "X-Marathon-KeelHost=true"));
+        DesktopFileParser parser;
+        const QVariantMap app = parser.parseDesktopFile(dir.path() + "/shipwright-pacific.desktop");
+        QCOMPARE(app.value("exec").toString(),
+                 QString("marathon-keel-host --app-id shipwright-pacific -- shipwright-pacific"));
+    }
+
     // === CONTRACT: NoDisplay=true must be filtered out ===
 
     void noDisplayAppIsFiltered() {

@@ -155,6 +155,10 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
             app["kdeFormFactors"] = value.split(';', Qt::SkipEmptyParts);
         } else if (key == "X-Flatpak") {
             app["flatpakRef"] = value;
+        } else if (key == "X-Marathon-KeelHost") {
+            // A Keel app packaged without Sailjail still wants the Keel host.
+            if (value.toLower() == "true")
+                app["sailfish"] = true;
         }
     }
 
