@@ -44,6 +44,33 @@ TestCase {
     }
 
     Component {
+        id: searchGrid
+        SilicaGridView {
+            id: g
+            property string query: ""
+            readonly property Item field: headerItem
+            width: 540; height: 960
+            cellWidth: 270; cellHeight: 180
+            model: ["apple", "apricot", "banana", "blueberry"].filter(w => w.indexOf(query) >= 0)
+            header: SearchField { width: 540; onTextChanged: g.query = text }
+            delegate: BackgroundItem { required property string modelData; width: 270; height: 180; Label { text: parent.modelData } }
+        }
+    }
+
+    function test_gridHeaderFieldKeepsFocusWhileFiltering() {
+        const g = createTemporaryObject(searchGrid, testCase);
+        g.field.forceActiveFocus();
+        keyClick(Qt.Key_B);
+        keyClick(Qt.Key_Backspace);
+        keyClick(Qt.Key_A);
+        compare(g.field.text, "a");
+        compare(g.count, 3);
+        verify(g.field.activeFocus);
+        keyClick(Qt.Key_Down);
+        verify(g.currentItem.activeFocus);
+    }
+
+    Component {
         id: flick
         SilicaFlickable { width: 540; height: 960; contentHeight: 3000 }
     }
