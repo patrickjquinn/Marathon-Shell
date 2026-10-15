@@ -79,6 +79,10 @@ fn sailfish_adapters(
     session: Option<&zbus::Connection>,
     system: Option<&zbus::Connection>,
 ) -> Adapters {
+    if let Some(c) = session.filter(|c| adapters::marathon::present(c)) {
+        log::info!("Marathon shell found: using its clock, calendar, contacts, phone and radios");
+        return marathon_adapters(cfg, c);
+    }
     // While the privileged group is held back the databases are the
     // account's own, never paths from the configuration (privilege.rs).
     let held = crate::privilege::held_back();
@@ -143,6 +147,42 @@ fn sailfish_adapters(
             Some(c) => Box::new(adapters::stock::JollaApps { session: c.clone() }),
             None => Box::new(Missing("the phone's apps")),
         },
+    }
+}
+
+/// Marathon OS: the shell's services (`adapters::marathon`); media,
+/// notifications and speech as on Sailfish.
+fn marathon_adapters(cfg: &Config, session: &zbus::Connection) -> Adapters {
+    use adapters::marathon::{
+        ShellCalendar, ShellClock, ShellContacts, ShellTelephony, ShellToggles,
+    };
+    Adapters {
+        clock: Box::new(ShellClock::new(session.clone())),
+        media: Box::new(adapters::media::Mpris {
+            session: session.clone(),
+        }),
+        calendar: Box::new(ShellCalendar {
+            session: session.clone(),
+        }),
+        contacts: Arc::new(ShellContacts::new(session.clone())),
+        telephony: Box::new(ShellTelephony {
+            session: session.clone(),
+        }),
+        toggles: Box::new(ShellToggles {
+            session: session.clone(),
+        }),
+        voice: Box::new(adapters::voice::SystemdVoice {
+            session: session.clone(),
+            unit: cfg.adapters.voice_unit.clone(),
+        }),
+        speech: match adapters::voice::TtsSocket::default_path() {
+            Some(path) => Box::new(adapters::voice::TtsSocket::new(path)),
+            None => Box::new(Missing("speech")),
+        },
+        notifier: Box::new(adapters::FdoNotifier {
+            session: session.clone(),
+        }),
+        stock: Box::new(Missing("the phone's apps")),
     }
 }
 

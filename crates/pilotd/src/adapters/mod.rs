@@ -10,6 +10,7 @@ pub mod calendar;
 pub mod clock;
 pub mod connman;
 pub mod contacts;
+pub mod marathon;
 pub mod media;
 pub mod stock;
 pub mod telephony;
