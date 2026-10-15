@@ -216,6 +216,26 @@ capture_app() {
   fi
 }
 
+# Open each app (comma-separated ids) in turn, then capture the switcher.
+capture_switcher() {
+  local ids="$1" pid out n
+  echo "→ switcher:$ids"
+  out="$VDIR/switcher.png"
+  rm -f "$out"
+  n=$(echo "$ids" | tr ',' '\n' | wc -l)
+  pid=$(launch_shell --skip-lock \
+                     --start-on=switcher:"$ids" \
+                     --screenshot-after=$((3 * n + 6)) \
+                     --screenshot-to="$out")
+  local tries=$((15 * n + 80))
+  while [ $tries -gt 0 ] && [ ! -s "$out" ]; do
+    sleep 0.2
+    tries=$((tries - 1))
+  done
+  kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+  [ -s "$out" ] && echo "  captured → $out" || { echo "  FAILED (see /tmp/marathon-shell.log)"; return 1; }
+}
+
 # --- Driver ---------------------------------------------------------------
 
 case "${1:-help}" in
@@ -226,6 +246,7 @@ case "${1:-help}" in
   quicksettings)   capture_quicksettings ;;
   permission)      capture_permission ;;
   app:*)           capture_app "${1#app:}" ;;
+  switcher:*)      capture_switcher "${1#switcher:}" ;;
   all)
     capture_lock_no_media
     capture_home

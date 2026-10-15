@@ -347,9 +347,30 @@ Item {
                     const appName = app && app.name ? app.name : appId;
                     const appIcon = app && app.icon ? app.icon : "";
                     UIStore.openApp(appId, appName, appIcon);
+                } else if (surface.indexOf("switcher:") === 0) {
+                    startOnSwitcher.apps = surface.substring(9).split(",");
+                    startOnSwitcher.start();
                 }
                 Logger.info("Shell", "start-on=" + surface + " triggered");
             }
+        }
+    }
+    // --start-on=switcher:<id>,<id>,...: open each app in turn, then the switcher.
+    Timer {
+        id: startOnSwitcher
+        property var apps: []
+        interval: 3000
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (apps.length === 0) {
+                stop();
+                shell.handleHomeKey();
+                return;
+            }
+            const app = AppModel.findById ? AppModel.findById(apps[0]) : null;
+            UIStore.openApp(apps[0], app && app.name ? app.name : apps[0], app && app.icon ? app.icon : "");
+            apps = apps.slice(1);
         }
     }
     onWidthChanged: {
