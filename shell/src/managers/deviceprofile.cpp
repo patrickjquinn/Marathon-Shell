@@ -158,6 +158,12 @@ void DeviceProfile::load() {
 
     if (conf.value("MARATHON_DOZE_DPMS", QStringLiteral("DOZE_DPMS"), s))
         m_dozeDpms = toBool(s, m_dozeDpms);
+    if (conf.value("MARATHON_PANEL_DEPTH", QStringLiteral("PANEL_DEPTH"), s)) {
+        bool      ok = false;
+        const int n  = s.toInt(&ok);
+        if (ok && n >= 4 && n <= 10)
+            m_panelDepth = n;
+    }
     if (conf.value("MARATHON_SCREEN_TIMEOUT_MS", QStringLiteral("SCREEN_TIMEOUT_MS"), s)) {
         bool      ok = false;
         const int n  = s.toInt(&ok);

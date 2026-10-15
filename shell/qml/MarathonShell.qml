@@ -2517,6 +2517,19 @@ Item {
         target: TelephonyIntegration
     }
 
+    // The panel shows fewer than 8 bits per channel and nothing below us
+    // dithers: break gradient bands over everything, apps included.
+    Image {
+        anchors.fill: parent
+        source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
+        fillMode: Image.Tile
+        opacity: 0.035
+        smooth: false
+        cache: true
+        visible: DeviceProfile.panelDepth < 8
+        z: 999998
+    }
+
     // Diagnostic live-FPS readout. Gated by MARATHON_FPS_OVERLAY env
     // (context property, default off). Green >=50, amber >=30, red below.
     // Reads ~2fps at idle (its own 500ms refresh); the real number shows

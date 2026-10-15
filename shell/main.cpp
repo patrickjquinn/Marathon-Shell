@@ -356,7 +356,7 @@ int main(int argc, char *argv[]) {
     {
         bool      envOk      = false;
         const int envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
-        int       chosen     = envOk ? envSamples : 0;
+        int       chosen     = envOk ? envSamples : DeviceProfile::instance().hwMsaaSamples();
 
         if (qEnvironmentVariableIntValue("MARATHON_ENABLE_MSAA_PROBE") != 0) {
             int               maxSamples = 0;

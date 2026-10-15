@@ -61,6 +61,7 @@ location (for host testing).
 | `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 | `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
+| `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |
 
 ## The image seam (build-time selection)
 

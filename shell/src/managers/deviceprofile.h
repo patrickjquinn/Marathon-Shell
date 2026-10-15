@@ -36,6 +36,7 @@ class DeviceProfile : public QObject {
     Q_PROPERTY(int runnerWidth READ runnerWidth CONSTANT)
     Q_PROPERTY(int runnerHeight READ runnerHeight CONSTANT)
     Q_PROPERTY(qreal panelDpi READ panelDpi CONSTANT)
+    Q_PROPERTY(int panelDepth READ panelDepth CONSTANT)
 
   public:
     // Loads (once) from MARATHON_DEVICE_PROFILE if set, else
@@ -96,6 +97,10 @@ class DeviceProfile : public QObject {
     bool dozeDpms() const {
         return m_dozeDpms;
     }
+    // Bits per colour channel the panel shows; below 8 the whole frame is dithered.
+    int panelDepth() const {
+        return m_panelDepth;
+    }
     // Default idle screen-off in ms; 0 = never.
     int screenTimeoutMs() const {
         return m_screenTimeoutMs;
@@ -134,4 +139,5 @@ class DeviceProfile : public QObject {
     bool  m_dozeDpms      = true;
     bool  m_wifiPowerSave = true;
     int   m_screenTimeoutMs = 300000;
+    int   m_panelDepth      = 8;
 };
