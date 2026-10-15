@@ -213,6 +213,16 @@ TestCase {
         compare(conv.contactName, "Dana");
     }
 
+    function test_addContactNameTakesKeysAtOnce() {
+        const app = makeApp();
+        app.openConversation(sample()[1]);
+        const conv = waitForPage(app, "conversation");
+        findChild(conv, "addContactItem").clicked();
+        tryVerify(() => page(app).hasOwnProperty("number") && page(app).status === PageStatus.Active);
+        keyClick(Qt.Key_D);
+        compare(findChild(page(app), "nameField").text, "d");
+    }
+
     function test_bubblesHaveNoFillAndCanBeCopied() {
         const app = makeApp();
         Sms.messages = { a: [

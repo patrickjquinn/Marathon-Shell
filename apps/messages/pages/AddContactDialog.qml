@@ -13,6 +13,8 @@ Dialog {
     canAccept: name !== ""
     onAcceptBlocked: Notices.show(qsTr("Add a name first"))
     onAccepted: Contacts.addContact(name, number)
+    onStatusChanged: if (status === PageStatus.Active && Window.activeFocusItem === root)
+        nameField.forceActiveFocus()
 
     SilicaFlickable {
         anchors.fill: parent
@@ -34,7 +36,6 @@ Dialog {
                 width: parent.width
                 label: qsTr("Name")
                 placeholderText: qsTr("Name")
-                focus: true
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                 EnterKey.onClicked: root.accept()
             }
