@@ -398,7 +398,10 @@ void BluetoothManager::stopScan() {
         return;
 
     qDebug() << "[BluetoothManager] Stopping scan...";
-    m_adapter->call("StopDiscovery");
+    const QDBusMessage reply = m_adapter->call("StopDiscovery");
+    if (reply.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[BluetoothManager] StopDiscovery failed:" << reply.errorName()
+                   << reply.errorMessage();
 
     if (m_scanTimer) {
         m_scanTimer->stop();
