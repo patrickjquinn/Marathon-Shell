@@ -30,7 +30,7 @@ Column {
         width: root.width
         visible: text !== ""
         font.pixelSize: S.Theme.fontSizeSmall
-        wrapMode: Text.Wrap
+        wrapMode: Text.WordWrap
         maximumLineCount: 2
         elide: Text.ElideRight
     }
