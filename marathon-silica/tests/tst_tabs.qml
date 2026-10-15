@@ -56,6 +56,40 @@ TestCase {
         return found;
     }
 
+    Component {
+        id: fourTabApp
+        ApplicationWindow {
+            width: 540; height: 960
+            initialPage: Component {
+                Page {
+                    property alias tabs: tabs
+                    TabView {
+                        id: tabs
+                        anchors.fill: parent
+                        sourceProperty: "page"
+                        model: [
+                            { title: "Alarms", page: Qt.resolvedUrl("data/TabPage.qml") },
+                            { title: "World", page: Qt.resolvedUrl("data/TabPage.qml") },
+                            { title: "Stopwatch", page: Qt.resolvedUrl("data/TabPage.qml") },
+                            { title: "Timer", page: Qt.resolvedUrl("data/TabPage.qml") }
+                        ]
+                        header: TabBar { model: tabs.model }
+                    }
+                }
+            }
+        }
+    }
+
+    function test_titlesShrinkToFitBeforeScrolling() {
+        const a = createTemporaryObject(fourTabApp, testCase);
+        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        const t = a.pageStack.currentPage.tabs;
+        tryVerify(function () { return t.tabBarItem !== null && buttons(t.tabBarItem).length === 4; });
+        const b = buttons(t.tabBarItem);
+        verify(b[0].titleFontSize < Theme.fontSizeMedium);
+        tryVerify(function () { return !t.tabBarItem._oversize; }, 1000, "tabs overflow the bar");
+    }
+
     function test_barAndButtonsAreAccessible() {
         const t = tabsOf(createTemporaryObject(app, testCase));
         compare(t.tabBarItem.Accessible.role, Accessible.PageTabList);
