@@ -19,6 +19,7 @@
 #include <QTimeZone>
 #include <QUrl>
 
+#include <algorithm>
 #include <ctime>
 
 SettingsManager *SettingsManager::create(QQmlEngine *engine, QJSEngine *) {
@@ -1127,11 +1128,32 @@ QString SettingsManager::formatSoundName(const QString &path) {
     return ::formatSoundName(path);
 }
 
+// A value QSettings can't stream (a QDBusArgument) breaks every later save.
+static bool storable(const QVariant &v) {
+    if (v.typeId() == QMetaType::QVariantList) {
+        const QVariantList l = v.toList();
+        return std::all_of(l.cbegin(), l.cend(), storable);
+    }
+    if (v.typeId() == QMetaType::QVariantMap) {
+        const QVariantMap m = v.toMap();
+        return std::all_of(m.cbegin(), m.cend(), storable);
+    }
+    return !v.isValid() || v.metaType().hasRegisteredDataStreamOperators();
+}
+
 QVariant SettingsManager::get(const QString &key, const QVariant &defaultValue) {
-    return m_settings.value(key, defaultValue);
+    const QVariant v = m_settings.value(key, defaultValue);
+    if (storable(v))
+        return v;
+    m_settings.remove(key);
+    return defaultValue;
 }
 
 void SettingsManager::set(const QString &key, const QVariant &value) {
+    if (!storable(value)) {
+        qWarning() << "[SettingsManager] not storing" << key << "of type" << value.metaType().name();
+        return;
+    }
     m_settings.setValue(key, value);
 }
 

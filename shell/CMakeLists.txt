@@ -23,6 +23,7 @@ set(SOURCES
     src/ipc/permissionauth.h
     src/ipc/shellservices.h
     src/ipc/shellservices.cpp
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
     src/models/taskmodel.h
     src/models/taskmodel.cpp
     src/services/unifiedsearchservicecpp.h
@@ -573,6 +574,7 @@ target_include_directories(marathon-shell PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/models
     ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)

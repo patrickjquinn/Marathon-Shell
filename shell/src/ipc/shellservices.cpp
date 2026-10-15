@@ -33,6 +33,7 @@
 #include "../services/applifecyclemanager.h"
 #include "marathonappregistry.h"
 #include "davsyncengine.h"
+#include "dbusnormalize.h"
 
 #include <QDBusArgument>
 #include <QDBusConnection>
@@ -521,16 +522,17 @@ QDBusVariant SettingsObject::Get(const QString &key, const QDBusVariant &default
 }
 
 void SettingsObject::Set(const QString &key, const QDBusVariant &value) {
+    const QVariant v = normalizeDbusVariantDeep(value.variant());
     if (isAppScopedKey(key)) {
         if (!requireStorage())
             return;
-        m_settings->set(key, value.variant());
+        m_settings->set(key, v);
         return;
     }
 
     if (!requireSystem())
         return;
-    m_settings->set(key, value.variant());
+    m_settings->set(key, v);
 }
 
 void SettingsObject::Sync() {
