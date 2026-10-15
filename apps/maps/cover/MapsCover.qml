@@ -21,7 +21,7 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: !root.navigating && !root.place
-        text: qsTr("Maps")
+        text: qsTr("Search for a place")
         icon.source: "image://theme/icon-l-location"
     }
 
@@ -34,26 +34,16 @@ CoverBackground {
         visible: root.navigating
 
         Icon {
-            width: Theme.iconSizeLarge
+            width: Theme.iconSizeMedium
             height: width
             source: root.maneuver ? Logic.maneuverIcon(root.maneuver.type) : ""
             color: Theme.highlightColor
         }
-        Label {
-            objectName: "coverDistance"
-            visible: !root.arrived
-            text: Logic.formatDistance(root.distance)
-            color: Theme.highlightColor
-            font.pixelSize: Theme.fontSizeExtraLarge
-        }
-        Label {
-            objectName: "coverInstruction"
+        CoverHeadline {
+            objectName: "coverHeadline"
             width: parent.width
-            text: root.maneuver ? root.maneuver.instruction : ""
-            wrapMode: Text.Wrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
-            font.pixelSize: Theme.fontSizeMedium
+            value: root.arrived ? "" : Logic.formatDistance(root.distance)
+            label: root.maneuver ? root.maneuver.instruction : ""
         }
     }
 
@@ -76,16 +66,16 @@ CoverBackground {
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
-            font.pixelSize: Theme.fontSizeLarge
+            font.pixelSize: Theme.fontSizeSmall
         }
         Label {
             width: parent.width
             text: root.place ? root.place.address : ""
             color: Theme.secondaryColor
             wrapMode: Text.Wrap
-            maximumLineCount: 2
+            maximumLineCount: 3
             elide: Text.ElideRight
-            font.pixelSize: Theme.fontSizeMedium
+            font.pixelSize: Theme.fontSizeExtraSmall
         }
     }
 

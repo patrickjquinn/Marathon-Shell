@@ -50,8 +50,8 @@ TestCase {
         });
         verify(findChild(cover, "coverNavigation").visible);
         verify(!findChild(cover, "coverPlace").visible);
-        compare(findChild(cover, "coverDistance").text, "1.2 km");
-        compare(findChild(cover, "coverInstruction").text, "Turn right onto High Street.");
+        compare(findChild(cover, "coverHeadline").value, "1.2 km");
+        compare(findChild(cover, "coverHeadline").label, "Turn right onto High Street.");
         compare(findChild(cover, "searchActions").enabled, false);
         compare(findChild(cover, "voiceActions").enabled, false);
         cover.voiceAvailable = true;
@@ -64,6 +64,6 @@ TestCase {
         cover.muted = true;
         compare(findChild(cover, "muteAction").iconSource, "image://theme/icon-cover-speaker");
         cover.arrived = true;
-        verify(!findChild(cover, "coverDistance").visible);
+        verify(!findChild(cover, "coverValue").visible);
     }
 }
