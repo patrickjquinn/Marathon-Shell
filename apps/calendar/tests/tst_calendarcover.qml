@@ -39,6 +39,9 @@ TestCase {
         compare(cover.next.map(e => e.id), [3, 2]);
         compare(findChild(cover, "coverTitle").text, "Holiday");
         compare(findChild(cover, "coverTime").text, "All day");
+        compare(findChild(cover, "coverEvents").count, 2);
+        verify(!findChild(cover, "coverMore").visible);
+        cover.events = cover.events.concat([{ id: 5, title: "Late", date: "2026-10-12", time: "20:00" }]);
         compare(findChild(cover, "coverMore").text, "1 more today");
         compare(findChild(cover, "coverDay").text, "12");
         verify(!findChild(cover, "coverEmpty").visible);
@@ -47,7 +50,7 @@ TestCase {
     function test_emptyAndAction() {
         const cover = createTemporaryObject(coverComponent, testCase, { events: [] });
         verify(findChild(cover, "coverEmpty").visible);
-        verify(!findChild(cover, "coverTitle").visible);
+        compare(findChild(cover, "coverEvents").count, 0);
         spy.target = cover;
         spy.signalName = "newEventRequested";
         findChild(cover, "newEventAction").triggered();

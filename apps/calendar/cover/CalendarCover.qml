@@ -30,7 +30,7 @@ CoverBackground {
 
     Column {
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
         spacing: Theme.paddingSmall
 
@@ -42,52 +42,70 @@ CoverBackground {
 
                 objectName: "coverDay"
                 text: cover.now.getDate()
-                font.pixelSize: Theme.fontSizeHuge
+                color: Theme.highlightColor
+                font.pixelSize: Theme.fontSizeExtraLarge
+                font.weight: Font.Light
             }
-            Label {
-                anchors.baseline: dayLabel.baseline
-                text: Qt.locale().standaloneDayName(cover.now.getDay(), Locale.ShortFormat)
-                font.pixelSize: Theme.fontSizeLarge
-                color: Theme.secondaryColor
+            Column {
+                anchors.verticalCenter: dayLabel.verticalCenter
+
+                Label {
+                    text: Qt.locale().standaloneDayName(cover.now.getDay(), Locale.ShortFormat)
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                }
+                Label {
+                    text: Qt.locale().standaloneMonthName(cover.now.getMonth(), Locale.ShortFormat)
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                }
             }
         }
 
-        Label {
-            objectName: "coverTitle"
-            width: parent.width
-            visible: cover.next.length > 0
-            text: cover.next.length > 0 ? cover.next[0].title || qsTr("Untitled event") : ""
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
-            font.pixelSize: Theme.fontSizeMedium
+        Repeater {
+            objectName: "coverEvents"
+            model: cover.next.slice(0, 2)
+
+            Column {
+                id: event
+
+                required property var modelData
+
+                width: parent.width
+
+                Label {
+                    objectName: "coverTime"
+                    width: parent.width
+                    text: cover.timeText(event.modelData)
+                    truncationMode: TruncationMode.Fade
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.highlightColor
+                }
+                Label {
+                    objectName: "coverTitle"
+                    width: parent.width
+                    text: event.modelData.title || qsTr("Untitled event")
+                    truncationMode: TruncationMode.Fade
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+            }
         }
-        Label {
-            objectName: "coverTime"
-            width: parent.width
-            visible: cover.next.length > 0
-            text: cover.next.length > 0 ? cover.timeText(cover.next[0]) : ""
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
-            color: Theme.highlightColor
-        }
+
         Label {
             objectName: "coverMore"
             width: parent.width
-            visible: cover.next.length > 1
-            text: cover.next.length === 2 ? qsTr("1 more today") : qsTr("%1 more today").arg(cover.next.length - 1)
+            visible: cover.next.length > 2
+            text: qsTr("%1 more today").arg(cover.next.length - 2)
             truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
+            font.pixelSize: Theme.fontSizeExtraSmall
             color: Theme.secondaryColor
         }
-
         Label {
             objectName: "coverEmpty"
             width: parent.width
             visible: cover.next.length === 0
             text: qsTr("No more events today")
             wrapMode: Text.Wrap
-            font.pixelSize: Theme.fontSizeMedium
+            font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
         }
     }
