@@ -1,9 +1,18 @@
 .pragma library
 
-// As many columns as the launcher icon fits with room for its label, and rows
-// to match. The pager and the grid pages share it.
-function columns(screenWidth, iconSize, forcedColumns) {
-    return forcedColumns > 0 ? forcedColumns : Math.max(3, Math.floor(screenWidth / (iconSize * 1.23)));
+// Columns by width in Silica units (screen pixels / pixel ratio): five across
+// phones, one per 135 units on wide screens, fewer where a large interface
+// size leaves a column too narrow for "Calculator" at Theme.fontSizeTiny.
+// The pager and the grid pages share it.
+function columns(screenWidth, pixelRatio, forcedColumns) {
+    if (forcedColumns > 0)
+        return forcedColumns;
+    const width = screenWidth / pixelRatio;
+    if (width < 420)
+        return 3;
+    if (width < 510)
+        return 4;
+    return Math.max(5, Math.floor(width / 135));
 }
 
 function rows(screenHeight, iconSize) {

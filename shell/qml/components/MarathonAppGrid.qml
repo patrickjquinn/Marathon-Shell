@@ -11,7 +11,7 @@ Item {
 
     property var appModel: null
     property int pageIndex: 0
-    property int columns: LauncherGrid.columns(Constants.screenWidth, Silica.Theme.iconSizeLauncher, SettingsManagerCpp.appGridColumns)
+    property int columns: LauncherGrid.columns(Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns)
     property int rows: LauncherGrid.rows(Constants.screenHeight, Silica.Theme.iconSizeLauncher)
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
