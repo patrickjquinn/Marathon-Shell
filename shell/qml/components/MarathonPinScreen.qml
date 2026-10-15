@@ -24,7 +24,10 @@ Item {
     // via Constants.isSquareScreen + a height-based fallback and shrink
     // the keypad to fit.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    readonly property real keyButtonSize: compactLayout ? 44 : 56
+    // Compact sizes target real screen pixels: the scale factor on these
+    // screens varies with how the panel's size is reported.
+    readonly property real compactUnit: Constants.screenHeight / 720 / Constants.scaleFactor
+    readonly property real keyButtonSize: compactLayout ? Math.round(72 * compactUnit) : 56
     readonly property real keyCellPadding: compactLayout ? 8 : 12
     readonly property real keypadRowSpacing: compactLayout ? 8 : 12
     readonly property real keypadColumnSpacing: compactLayout ? 14 : 16
@@ -357,7 +360,7 @@ Item {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "backspace"
-                iconSize: pinScreen.compactLayout ? 20 : 24
+                iconSize: pinScreen.compactLayout ? Math.round(24 * pinScreen.compactUnit) : 24
                 buttonSize: pinScreen.keyButtonSize
                 variant: "secondary"
                 iconColor: MColors.textSecondary
@@ -475,7 +478,7 @@ Item {
                             anchors.centerIn: parent
                             disabled: SecurityManagerCpp.isLockedOut
                             text: pinKey.digit
-                            iconSize: pinScreen.compactLayout ? 22 : 28
+                            iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                             buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
                             textColor: MColors.textPrimary
@@ -499,7 +502,7 @@ Item {
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "keyboard"
-                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        iconSize: pinScreen.compactLayout ? Math.round(24 * pinScreen.compactUnit) : 24
                         buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         visible: !pinScreen.passwordMode
@@ -519,7 +522,7 @@ Item {
                         anchors.centerIn: parent
                         disabled: SecurityManagerCpp.isLockedOut
                         text: "0"
-                        iconSize: pinScreen.compactLayout ? 22 : 28
+                        iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                         buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         textColor: MColors.textPrimary
@@ -538,7 +541,7 @@ Item {
                         objectName: "acceptKey"
                         anchors.centerIn: parent
                         iconName: "check"
-                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        iconSize: pinScreen.compactLayout ? Math.round(24 * pinScreen.compactUnit) : 24
                         buttonSize: pinScreen.keyButtonSize
                         variant: disabled ? "secondary" : "primary"
                         disabled: pinScreen.pin.length < 4 || pinScreen.authenticating || SecurityManagerCpp.isLockedOut
