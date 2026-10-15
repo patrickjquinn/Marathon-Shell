@@ -14,6 +14,8 @@ Item {
     property var compositor: null
 
     property real swipeProgress: 0
+    // Short/square screens (HackberryPi, Q25) place by height, not design px.
+    readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
     // Honour Settings → Display & Brightness → Screen Timeout for the
     // lock screen too. SettingsManager.screenTimeout==0 means "Never"
     // (handled below in idleTimer.running). Falls back to the previous
@@ -401,7 +403,7 @@ Item {
             spacing: Constants.spacingSmall
             width: parent.width * 0.9
             anchors.top: parent.top
-            anchors.topMargin: Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
+            anchors.topMargin: lockScreen.compactLayout ? Math.round(lockScreen.height * (mediaActive ? 0.06 : 0.14)) : Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
             // layer.enabled was: true (with layer.smooth) to keep the
             // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
             // QtRendering the extra FBO + bilinear pass renders the
@@ -554,7 +556,7 @@ Item {
             anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
             anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
             anchors.top: parent.top
-            anchors.topMargin: Math.round(360 * Constants.scaleFactor)
+            anchors.topMargin: lockScreen.compactLayout ? Math.round(lockScreen.height * 0.44) : Math.round(360 * Constants.scaleFactor)
             visible: hasMedia
             z: 8
         }

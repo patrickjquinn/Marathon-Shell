@@ -28,10 +28,10 @@ Item {
     // screens varies with how the panel's size is reported.
     readonly property real compactUnit: Constants.screenHeight / 720 / Constants.scaleFactor
     readonly property real keyButtonSize: compactLayout ? Math.round(64 * compactUnit) : 56
-    readonly property real keyCellPadding: compactLayout ? 8 : 12
-    readonly property real keypadRowSpacing: compactLayout ? 8 : 12
-    readonly property real keypadColumnSpacing: compactLayout ? 14 : 16
-    readonly property real columnSpacing: compactLayout ? 14 : 24
+    readonly property real keyCellPadding: compactLayout ? 6 * compactUnit : 12
+    readonly property real keypadRowSpacing: compactLayout ? 6 * compactUnit : 12
+    readonly property real keypadColumnSpacing: compactLayout ? 14 * compactUnit : 16
+    readonly property real columnSpacing: compactLayout ? 8 * compactUnit : 24
 
     signal pinCorrect
     signal cancelled
@@ -279,7 +279,7 @@ Item {
 
     Column {
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: pinScreen.compactLayout ? 0 : Math.round(-20 * Constants.scaleFactor)
+        anchors.verticalCenterOffset: pinScreen.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight) / 2) : Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100
         // layer.enabled removed — see note at the root pinScreen Item.
