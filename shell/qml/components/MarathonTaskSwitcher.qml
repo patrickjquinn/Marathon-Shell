@@ -92,7 +92,8 @@ Item {
     Column {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: Math.round(190 * Constants.scaleFactor) - Constants.statusBarHeight
+        // Matches MarathonLockScreen's clockColumn, compact rule included.
+        anchors.topMargin: (Constants.isSquareScreen || Constants.screenHeight < 800 ? Math.round(Constants.screenHeight * 0.14) : Math.round(190 * Constants.scaleFactor)) - Constants.statusBarHeight
         width: parent.width * 0.9
         spacing: Constants.spacingSmall
         visible: TaskModel.taskCount === 0
