@@ -155,8 +155,11 @@ QtObject {
     readonly property real iconSizeXLarge: Math.round(64 * scaleFactor)
 
     function updateScreenSize(width, height, deviceDpi) {
-        screenWidth = width;
-        screenHeight = height;
+        // Before the first expose the shell is 0x0; keep the ScreenMetrics binding.
+        if (width > 0 && height > 0) {
+            screenWidth = width;
+            screenHeight = height;
+        }
         var dpiMin = 50;
         var dpiMax = 1000;
         var newDpi = baseDPI;
