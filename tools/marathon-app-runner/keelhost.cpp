@@ -4,10 +4,16 @@
 #include <QEvent>
 #include <QRegularExpression>
 
+#include <utility>
+
 using namespace Qt::StringLiterals;
 
 static constexpr auto kPath     = "/org/shipwright/keel/Shell"_L1;
-static constexpr auto kThemeDir = "/desktop/jolla/theme/"_L1;
+// Keel's forwarded dconf directories (keel/silica/plugin/src/config.rs).
+static constexpr std::pair<QLatin1StringView, QLatin1StringView> kForwarded[] = {
+    {"/desktop/jolla/theme/"_L1, "KEEL_AMBIENCE_"_L1},
+    {"/desktop/sailfish/silica/"_L1, "KEEL_SILICA_"_L1},
+};
 
 KeelHost::KeelHost(int dpi, QObject *parent)
     : QObject(parent)
@@ -45,12 +51,14 @@ QHash<QString, QString> KeelHost::environment() const {
     static const QRegularExpression nonAlnum(QStringLiteral("[^A-Z0-9]"));
     QStringList                     keys;
     for (auto it = m_ambience.cbegin(); it != m_ambience.cend(); ++it) {
-        if (!it.key().startsWith(kThemeDir))
-            continue;
-        QString name = it.key().mid(kThemeDir.size()).toUpper();
-        name.replace(nonAlnum, QStringLiteral("_"));
-        env.insert(QStringLiteral("KEEL_AMBIENCE_") + name, it.value().toString());
-        keys << it.key();
+        for (const auto &[dir, prefix] : kForwarded) {
+            if (!it.key().startsWith(dir))
+                continue;
+            QString name = it.key().mid(dir.size()).toUpper();
+            name.replace(nonAlnum, QStringLiteral("_"));
+            env.insert(prefix + name, it.value().toString());
+            keys << it.key();
+        }
     }
     if (!keys.isEmpty())
         env.insert(QStringLiteral("KEEL_AMBIENCE_KEYS"), keys.join(QLatin1Char(':')));

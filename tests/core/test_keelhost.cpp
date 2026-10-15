@@ -75,6 +75,17 @@ class TestKeelHost : public QObject {
                     .contains(QStringLiteral("/desktop/jolla/theme/color/highlight")));
     }
 
+    // Silica's keys too, so an app's first layout already has the ratio.
+    void environmentForwardsSilicaKeys() {
+        KeelHost host(144);
+        host.setAmbience({{"/desktop/sailfish/silica/theme_pixel_ratio", 1.3}});
+        QVERIFY(host.start(runtime.path()));
+        const auto env = host.environment();
+        QCOMPARE(env.value("KEEL_SILICA_THEME_PIXEL_RATIO"), QStringLiteral("1.3"));
+        QCOMPARE(env.value("KEEL_AMBIENCE_KEYS"),
+                 QStringLiteral("/desktop/sailfish/silica/theme_pixel_ratio"));
+    }
+
     void emptyAmbienceExportsNoAmbienceKeys() {
         KeelHost host(144);
         QVERIFY(host.start(runtime.path()));

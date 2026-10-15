@@ -737,11 +737,18 @@ int main(int argc, char *argv[]) {
             keelHost.reset();
             return;
         }
-        const auto env = keelHost->environment();
-        for (auto it = env.cbegin(); it != env.cend(); ++it)
-            qputenv(it.key().toUtf8(), it.value().toUtf8());
+        // Re-exported on each change, for a spare whose app starts later.
+        auto exportEnv = [host = keelHost.get()]() {
+            const auto env = host->environment();
+            for (auto it = env.cbegin(); it != env.cend(); ++it)
+                qputenv(it.key().toUtf8(), it.value().toUtf8());
+        };
+        exportEnv();
         QObject::connect(ambienceClient.get(), &AmbienceClient::ambienceChanged, keelHost.get(),
-                         &KeelHost::setAmbience);
+                         [host = keelHost.get(), exportEnv](const QVariantMap &ambience) {
+                             host->setAmbience(ambience);
+                             exportEnv();
+                         });
     };
     if (poolMode) {
         // Warm the GL stack off the critical path: EGL display init, the
