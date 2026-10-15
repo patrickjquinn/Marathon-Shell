@@ -11,9 +11,41 @@ S.SilicaListView {
     Binding { target: root; property: "keyNavigationEnabled"; value: true }
 
     Accessible.role: Accessible.List
-    onActiveFocusChanged: if (activeFocus && currentItem) currentItem.forceActiveFocus()
-    onCurrentItemChanged: if (activeFocus && currentItem) currentItem.forceActiveFocus()
+    // Typing in a header search field replaces the model, and Qt then gives the
+    // new current item focus. Hand it back to the field.
+    property Item _headerFocus
+
+    function _inHeaderOrFooter(item) {
+        for (let p = item; p && p !== root; p = p.parent) {
+            if (p === root.headerItem || p === root.footerItem)
+                return true;
+        }
+        return false;
+    }
+
+    Connections {
+        target: root.Window.window
+        function onActiveFocusItemChanged() {
+            if (!root)
+                return;
+            const item = root.Window.activeFocusItem;
+            if (root._inHeaderOrFooter(item))
+                root._headerFocus = item;
+            else if (item !== root.currentItem)
+                root._headerFocus = null;
+        }
+    }
+
+    onActiveFocusChanged: if (activeFocus && currentItem && !_inHeaderOrFooter(Window.activeFocusItem)) currentItem.forceActiveFocus()
+    onCurrentItemChanged: {
+        if (_headerFocus && _headerFocus.visible && Window.activeFocusItem === currentItem)
+            _headerFocus.forceActiveFocus();
+        else if (activeFocus && currentItem && !_inHeaderOrFooter(Window.activeFocusItem))
+            currentItem.forceActiveFocus();
+    }
     Keys.onPressed: function (event) {
+        if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown)
+            root._headerFocus = null;
         if (ViewKeys.openPulley(root, event))
             return;
         switch (event.key) {

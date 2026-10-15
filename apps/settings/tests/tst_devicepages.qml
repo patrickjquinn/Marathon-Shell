@@ -216,6 +216,21 @@ TestCase {
         compare(child(s.page, "zoneButton").value, "Berlin (UTC+01:00)");
     }
 
+    function test_timeZoneSearchTakesKeys() {
+        const s = open("datetime");
+        child(s.page, "zoneButton").clicked(null);
+        const zones = pushed(s.app, s.page);
+        const field = child(zones, "searchField");
+        const list = child(zones, "zoneList");
+        mouseClick(field);
+        keyClick(Qt.Key_B);
+        keyClick(Qt.Key_E);
+        keyClick(Qt.Key_R);
+        compare(field.text, "ber");
+        compare(list.count, 1);
+        verify(field.activeFocus);
+    }
+
     function test_automaticAndManualTime() {
         const s = open("datetime");
         const auto = child(s.page, "automaticSwitch");

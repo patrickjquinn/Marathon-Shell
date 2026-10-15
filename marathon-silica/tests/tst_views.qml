@@ -19,6 +19,31 @@ TestCase {
         }
     }
     Component {
+        id: searchList
+        SilicaListView {
+            id: v
+            property string query: ""
+            readonly property Item field: headerItem
+            width: 540; height: 960
+            model: ["apple", "apricot", "banana", "blueberry"].filter(w => w.indexOf(query) >= 0)
+            header: SearchField { width: 540; onTextChanged: v.query = text }
+            delegate: ListItem { required property string modelData; Label { text: parent.modelData } }
+        }
+    }
+
+    function test_headerFieldKeepsFocusWhileFiltering() {
+        const v = createTemporaryObject(searchList, testCase);
+        v.field.forceActiveFocus();
+        keyClick(Qt.Key_A);
+        keyClick(Qt.Key_P);
+        compare(v.field.text, "ap");
+        compare(v.count, 2);
+        verify(v.field.activeFocus);
+        keyClick(Qt.Key_Down);
+        verify(v.currentItem.activeFocus);
+    }
+
+    Component {
         id: flick
         SilicaFlickable { width: 540; height: 960; contentHeight: 3000 }
     }
