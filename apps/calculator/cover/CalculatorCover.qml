@@ -29,7 +29,7 @@ CoverBackground {
             horizontalAlignment: Text.AlignRight
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: Theme.fontSizeMedium
-            wrapMode: cover.calc.errorText !== "" ? Text.Wrap : Text.NoWrap
+            wrapMode: cover.calc.errorText !== "" ? Text.WordWrap : Text.NoWrap
             text: cover.calc.displayText
             font.pixelSize: cover.calc.errorText !== "" ? Theme.fontSizeMedium : Theme.fontSizeHuge
             font.weight: Font.Light
