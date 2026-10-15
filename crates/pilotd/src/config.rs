@@ -322,6 +322,43 @@ impl Default for SheetConfig {
     }
 }
 
+/// `[direct]`: the owner's Groq and Jev keys on the phone instead of the
+/// relay (direct.rs). Used only when `enabled` and the key file exists.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DirectConfig {
+    pub enabled: bool,
+    /// Default `$XDG_CONFIG_HOME/shoal-pilot/keys.env`.
+    pub key_file: Option<PathBuf>,
+    /// The relay's upstreams (services/cloudflare-production.sh).
+    pub jev_url: String,
+    pub llm_url: String,
+    /// Where `llm_url` processes requests: Groq's public endpoint, `us`.
+    pub llm_region: String,
+    pub max_completion_tokens: u64,
+}
+
+impl Default for DirectConfig {
+    fn default() -> Self {
+        DirectConfig {
+            enabled: false,
+            key_file: None,
+            jev_url: "https://api.typesafe.ai/v1/systemone".into(),
+            llm_url: "https://api.groq.com/openai/v1/chat/completions".into(),
+            llm_region: "us".into(),
+            max_completion_tokens: 4096,
+        }
+    }
+}
+
+impl DirectConfig {
+    pub fn key_path(&self) -> Option<PathBuf> {
+        self.key_file
+            .clone()
+            .or_else(|| xdg("XDG_CONFIG_HOME", ".config").map(|d| d.join("shoal-pilot/keys.env")))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -344,6 +381,7 @@ pub struct Config {
     pub triage: crate::triage::TriageConfig,
     pub events: EventsConfig,
     pub sheet: SheetConfig,
+    pub direct: DirectConfig,
     pub backends: BTreeMap<String, Backend>,
 }
 
@@ -382,6 +420,7 @@ impl Default for Config {
             triage: crate::triage::TriageConfig::default(),
             events: EventsConfig::default(),
             sheet: SheetConfig::default(),
+            direct: DirectConfig::default(),
             backends,
         }
     }
@@ -469,6 +508,8 @@ impl Config {
         for (name, x) in [
             ("token_exchange_url", &self.token_exchange_url),
             ("web_search_url", &self.web_search_url),
+            ("direct.jev_url", &self.direct.jev_url),
+            ("direct.llm_url", &self.direct.llm_url),
         ] {
             if !x.is_empty() && !x.starts_with("https://") && !is_local(x) {
                 return Err(ConfigError::Invalid(format!("{name} {x} is not https")));
@@ -488,9 +529,17 @@ fn is_local(u: &str) -> bool {
         || u.starts_with("http://[::1]")
 }
 
-/// `$XDG_CONFIG_HOME/shoal-pilot/pilotd.toml`.
+/// The distribution's configuration, read when the person has none.
+pub const SYSTEM_CONFIG: &str = "/etc/shoal-pilot/pilotd.toml";
+
+/// `$XDG_CONFIG_HOME/shoal-pilot/pilotd.toml`, else [`SYSTEM_CONFIG`] if
+/// that exists.
 pub fn default_config_path() -> Option<PathBuf> {
-    xdg("XDG_CONFIG_HOME", ".config").map(|d| d.join("shoal-pilot/pilotd.toml"))
+    let own = xdg("XDG_CONFIG_HOME", ".config").map(|d| d.join("shoal-pilot/pilotd.toml"));
+    match own {
+        Some(p) if !p.exists() && Path::new(SYSTEM_CONFIG).exists() => Some(SYSTEM_CONFIG.into()),
+        other => other,
+    }
 }
 
 /// `$XDG_DATA_HOME/shoal-pilot`.

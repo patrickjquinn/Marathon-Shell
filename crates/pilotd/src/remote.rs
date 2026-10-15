@@ -55,6 +55,8 @@ pub enum Credential {
     TokenFile(PathBuf),
     /// The relay's device token, exchanged for the Reef licence on demand.
     Relay(Arc<crate::relay_auth::RelayAuth>),
+    /// The owner's own keys, each sent only to its upstream (direct.rs).
+    Direct(Arc<crate::direct::Direct>),
 }
 
 impl std::fmt::Debug for crate::relay_auth::RelayAuth {
@@ -100,7 +102,7 @@ impl Remote {
 
     async fn token(&self) -> Result<Option<String>, RemoteError> {
         match &self.credential {
-            Credential::None => Ok(None),
+            Credential::None | Credential::Direct(_) => Ok(None),
             Credential::Relay(auth) => auth.token().await.map(Some),
             Credential::TokenFile(path) => {
                 let t = std::fs::read_to_string(path)
@@ -112,6 +114,25 @@ impl Remote {
                 Ok(Some(t.to_owned()))
             }
         }
+    }
+
+    /// Direct mode's shaped request and key for `url`.
+    fn direct(
+        &self,
+        provider: &str,
+        url: &str,
+        body: &Value,
+    ) -> Result<Option<(Arc<crate::direct::Direct>, crate::direct::Outgoing)>, RemoteError> {
+        let Credential::Direct(d) = &self.credential else {
+            return Ok(None);
+        };
+        let out = d
+            .prepare(url, body)
+            .map_err(|message| RemoteError::Decode {
+                provider: provider.to_owned(),
+                message,
+            })?;
+        Ok(Some((d.clone(), out)))
     }
 
     /// POSTs `body` as JSON and returns the JSON reply. Logged whatever the
@@ -127,6 +148,8 @@ impl Remote {
         if self.offline.is_offline() {
             return Err(RemoteError::Offline);
         }
+        let direct = self.direct(provider, url, body)?;
+        let body = direct.as_ref().map_or(body, |(_, out)| &out.body);
         let bytes = serde_json::to_vec(body).map_err(|e| RemoteError::Decode {
             provider: provider.to_owned(),
             message: e.to_string(),
@@ -160,13 +183,20 @@ impl Remote {
         if let Some(t) = token {
             req = req.bearer_auth(t);
         }
+        if let Some(k) = direct.as_ref().and_then(|(_, out)| out.key.as_ref()) {
+            req = req.bearer_auth(k);
+        }
+        let llm = direct.as_ref().filter(|(_, out)| out.llm).map(|(d, _)| d);
         let sent = async {
             let resp = req.send().await.map_err(|e| RemoteError::Transport {
                 provider: provider.to_owned(),
                 message: e.without_url().to_string(),
             })?;
             let status = resp.status();
-            let headers = resp.headers().clone();
+            let mut headers = resp.headers().clone();
+            if let Some(d) = llm {
+                d.stamp(&mut headers);
+            }
             let raw = resp.bytes().await.map_err(|e| RemoteError::Transport {
                 provider: provider.to_owned(),
                 message: e.without_url().to_string(),
@@ -185,6 +215,7 @@ impl Remote {
             }
         };
         let bytes_in = raw.len() as u64;
+        let status = llm.map_or(status, |_| crate::direct::llm_status(status, &raw));
         if !status.is_success() {
             if status.as_u16() == 401 {
                 if let Credential::Relay(auth) = &self.credential {

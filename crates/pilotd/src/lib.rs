@@ -10,6 +10,7 @@ pub mod calibrate;
 pub mod config;
 pub mod daemon;
 pub mod dbus;
+pub mod direct;
 pub mod events;
 pub mod intents;
 pub mod jev;

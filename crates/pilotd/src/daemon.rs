@@ -35,6 +35,63 @@ pub enum StartError {
     Bus(#[from] zbus::Error),
     #[error("backend {0} is not configured")]
     Backend(String),
+    #[error("direct mode: {0}")]
+    Direct(#[from] crate::direct::KeyFileError),
+}
+
+/// `[direct]` with its key file present: the standard backend goes
+/// straight to Groq and Jev with the owner's keys, and the relay-only web
+/// search is not offered. `None`: the relay, as configured.
+pub fn direct_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, StartError> {
+    let d = cfg.direct.clone();
+    let Some(path) = d.key_path().filter(|_| d.enabled) else {
+        return Ok(None);
+    };
+    if !path.exists() {
+        log::info!("no {}: using the Pilot relay", path.display());
+        return Ok(None);
+    }
+    let (groq, jev) = crate::direct::read_keys(&path)?;
+    let standard = cfg
+        .backends
+        .get_mut("standard")
+        .ok_or_else(|| StartError::Backend("standard".into()))?;
+    standard.jev = match std::mem::replace(
+        &mut standard.jev,
+        JevConfig::Jev {
+            url: String::new(),
+            model: String::new(),
+            provider: String::new(),
+        },
+    ) {
+        JevConfig::Jev { model, .. } => JevConfig::Jev {
+            url: d.jev_url.clone(),
+            model,
+            provider: "jev".into(),
+        },
+        score @ JevConfig::Score { .. } => score,
+    };
+    standard.llm.url.clone_from(&d.llm_url);
+    standard.llm.provider = "groq".into();
+    cfg.web_search_url.clear();
+    log::info!(
+        "direct mode: Groq and Jev with the keys in {}",
+        path.display()
+    );
+    Ok(Some(crate::direct::Direct {
+        jev: crate::direct::Upstream {
+            url: d.jev_url,
+            key: jev,
+            region: None,
+        },
+        llm: crate::direct::Upstream {
+            url: d.llm_url,
+            key: groq,
+            region: Some(d.llm_region),
+        },
+        region_header: standard.llm.region_header.to_ascii_lowercase(),
+        max_completion_tokens: d.max_completion_tokens,
+    }))
 }
 
 /// Inputs to [`build`].
@@ -263,9 +320,20 @@ fn proactive(
     (triage, events)
 }
 
+/// The given credential, else direct mode's keys if configured.
+fn direct_credential(
+    given: Option<Credential>,
+    config: &mut Config,
+) -> Result<Option<Credential>, StartError> {
+    if given.is_some() {
+        return Ok(given);
+    }
+    Ok(direct_mode(config)?.map(|d| Credential::Direct(Arc::new(d))))
+}
+
 pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let Options {
-        config,
+        mut config,
         data_dir,
         session,
         system,
@@ -283,7 +351,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let (ctl, offline) = privacy::offline_state(false);
     let egress: Arc<dyn EgressSink> = store.clone();
     let http = crate::remote::http_client()?;
-    let credential = credential.unwrap_or_else(|| {
+    let credential = direct_credential(credential, &mut config)?.unwrap_or_else(|| {
         let token_file = config
             .token_file
             .clone()
