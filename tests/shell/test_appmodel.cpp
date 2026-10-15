@@ -179,6 +179,23 @@ class TestAppModel : public QObject {
         QCOMPARE(countSpy.count(), 1);
     }
 
+    // === CONTRACT: desktop keywords and categories are searchable ===
+
+    void addAppsKeepsSearchTerms() {
+        AppModel    model;
+        QVariantMap a;
+        a["id"]         = "shipwright-pacific";
+        a["name"]       = "Pacific";
+        a["icon"]       = "i.png";
+        a["type"]       = "native";
+        a["keywords"]   = QStringList{"Internet"};
+        a["categories"] = QStringList{"Network", "WebBrowser"};
+        model.addApps({a});
+
+        QCOMPARE(model.getApp("shipwright-pacific")->searchTerms(),
+                 QStringList({"internet", "network", "webbrowser"}));
+    }
+
     // === CONTRACT: getAppAtIndex ===
 
     void getAppAtIndex() {

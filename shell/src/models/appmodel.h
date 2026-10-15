@@ -15,6 +15,8 @@ class App : public QObject {
     Q_PROPERTY(QString exec READ exec CONSTANT)
     Q_PROPERTY(QStringList permissions READ permissions CONSTANT)
     Q_PROPERTY(QString flatpakRef READ flatpakRef CONSTANT)
+    // Lower-cased desktop Keywords and Categories, for search.
+    Q_PROPERTY(QStringList searchTerms READ searchTerms CONSTANT)
 
   public:
     explicit App(const QString &id, const QString &name, const QString &icon, const QString &type,
@@ -50,6 +52,12 @@ class App : public QObject {
     QString flatpakRef() const {
         return m_flatpakRef;
     }
+    QStringList searchTerms() const {
+        return m_searchTerms;
+    }
+    void setSearchTerms(const QStringList &terms) {
+        m_searchTerms = terms;
+    }
 
   private:
     QString     m_id;
@@ -59,6 +67,7 @@ class App : public QObject {
     QString     m_exec;
     QStringList m_permissions;
     QString     m_flatpakRef;
+    QStringList m_searchTerms;
 };
 
 class AppModel : public QAbstractListModel {

@@ -137,6 +137,8 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
             app["terminal"] = (value.toLower() == "true");
         } else if (key == "Categories") {
             app["categories"] = value.split(';', Qt::SkipEmptyParts);
+        } else if (key == "Keywords") {
+            app["keywords"] = value.split(';', Qt::SkipEmptyParts);
         } else if (key == "NoDisplay") {
             app["noDisplay"] = (value.toLower() == "true");
         } else if (key == "Hidden") {

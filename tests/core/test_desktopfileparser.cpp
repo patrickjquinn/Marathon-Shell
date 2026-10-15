@@ -56,6 +56,7 @@ class TestDesktopFileParser : public QObject {
                   "Exec=test-app --flag\n"
                   "Icon=test-icon\n"
                   "Categories=Utility;Development;\n"
+                  "Keywords=Web;Internet;\n"
                   "Terminal=false\n");
 
         DesktopFileParser parser;
@@ -71,6 +72,7 @@ class TestDesktopFileParser : public QObject {
         QStringList cats = app["categories"].toStringList();
         QVERIFY(cats.contains("Utility"));
         QVERIFY(cats.contains("Development"));
+        QCOMPARE(app["keywords"].toStringList(), QStringList({"Web", "Internet"}));
     }
 
     // === CONTRACT: a Sailfish app's [X-Sailjail] group is read ===

@@ -201,8 +201,10 @@ UnifiedSearchServiceCpp::SearchItem UnifiedSearchServiceCpp::itemForApp(QObject 
     const QStringList nameParts =
         appName.toLower().split(whitespace(), Qt::SkipEmptyParts);
     item.keywords.append(nameParts);
+    const QStringList terms = app->property("searchTerms").toStringList();
+    item.keywords.append(terms);
 
-    item.searchText = appName.toLower() + " " + appId.toLower();
+    item.searchText = appName.toLower() + " " + appId.toLower() + " " + terms.join(' ');
     item.data = QVariantMap{{"id", appId}, {"name", appName}, {"icon", appIcon}, {"type", appType}};
     return item;
 }

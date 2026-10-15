@@ -113,7 +113,13 @@ void AppModel::addApps(const QVariantList &apps) {
 
         const QStringList perms = appMap.value("permissions").toStringList();
         const QString     ref   = appMap.value("flatpakRef").toString();
-        newApps.append(new App(id, name, icon, type, exec, perms, ref, this));
+        App              *app   = new App(id, name, icon, type, exec, perms, ref, this);
+        QStringList       terms =
+            appMap.value("keywords").toStringList() + appMap.value("categories").toStringList();
+        for (QString &term : terms)
+            term = term.toLower();
+        app->setSearchTerms(terms);
+        newApps.append(app);
     }
 
     if (newApps.isEmpty())
