@@ -28,6 +28,7 @@ TestCase {
         Settings.reset();
         Display.reset();
         Haptics.reset();
+        Modem.reset();
         Audio.reset();
         Power.reset();
         Wallpapers.reset();
@@ -108,6 +109,13 @@ TestCase {
         verify(!child(s.page, "autoBrightnessSwitch").visible);
         verify(!child(s.page, "rotationSwitch").visible);
         verify(child(s.page, "reduceMotionSwitch").visible);
+    }
+
+    function test_noModemNoRingtone() {
+        Modem.available = false;
+        const page = open("sound").page;
+        verify(!child(page, "ringtoneButton").visible);
+        verify(child(page, "notificationSoundButton").visible);
     }
 
     function test_noVibrator() {

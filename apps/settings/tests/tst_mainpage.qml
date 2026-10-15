@@ -90,6 +90,7 @@ TestCase {
         const app = makeApp();
         entry(app, "wifi");
         compare(findChild(app.pageStack.currentPage, "entry-cellular"), null);
+        compare(findChild(app.pageStack.currentPage, "airplaneSwitch").description, "Turns off Wi-Fi and Bluetooth");
     }
 
     function test_quickSwitches() {

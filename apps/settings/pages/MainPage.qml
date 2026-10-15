@@ -160,7 +160,7 @@ Page {
                 TextSwitch {
                     objectName: "airplaneSwitch"
                     text: qsTr("Airplane mode")
-                    description: qsTr("Turns off Wi-Fi, Bluetooth and mobile network")
+                    description: Modem.available ? qsTr("Turns off Wi-Fi, Bluetooth and mobile network") : qsTr("Turns off Wi-Fi and Bluetooth")
                     automaticCheck: false
                     checked: Network.airplaneModeEnabled
                     onClicked: Network.setAirplaneMode(!checked)

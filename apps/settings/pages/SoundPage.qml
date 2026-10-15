@@ -58,6 +58,7 @@ Page {
             }
             ValueButton {
                 objectName: "ringtoneButton"
+                visible: Modem.available
                 label: qsTr("Ringtone")
                 value: Settings.formatSoundName(Settings.ringtone)
                 onClicked: page.pickSound("ringtone")

@@ -207,7 +207,7 @@ const tiles = [
     { id: "wifi", label: qsTr("Wi-Fi"), desc: qsTr("Toggle wireless network") },
     { id: "cellular", label: qsTr("Mobile data"), desc: qsTr("Toggle cellular data"), needs: "modem" },
     { id: "bluetooth", label: qsTr("Bluetooth"), desc: qsTr("Connect to devices") },
-    { id: "airplane", label: qsTr("Flight mode"), desc: qsTr("Disable all radios") },
+    { id: "airplane", label: qsTr("Airplane mode"), desc: qsTr("Disable all radios") },
     { id: "dnd", label: qsTr("Do not disturb"), desc: qsTr("Silence notifications and calls") },
     { id: "torch", label: qsTr("Torch"), desc: qsTr("Toggle flashlight"), needs: "torch" },
     { id: "location", label: qsTr("Location"), desc: qsTr("GPS and location services") },
