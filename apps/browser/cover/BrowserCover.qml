@@ -26,7 +26,7 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: root.thumbnail === "" && root.title === ""
-        text: qsTr("Browser")
+        text: qsTr("No page open")
         icon.source: "image://theme/icon-l-browser"
     }
 
@@ -36,20 +36,22 @@ CoverBackground {
         y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
         visible: root.thumbnail === "" && root.title !== ""
+        spacing: Theme.paddingSmall
 
         Label {
             objectName: "coverTitle"
             width: parent.width
             text: root.title
-            maximumLineCount: 3
+            maximumLineCount: 4
             wrapMode: Text.Wrap
-            truncationMode: TruncationMode.Fade
+            elide: Text.ElideRight
+            font.pixelSize: Theme.fontSizeSmall
         }
         Label {
             objectName: "coverHost"
             width: parent.width
             text: Logic.displayHost(root.url)
-            font.pixelSize: Theme.fontSizeSmall
+            font.pixelSize: Theme.fontSizeExtraSmall
             color: Theme.secondaryColor
             truncationMode: TruncationMode.Fade
         }
