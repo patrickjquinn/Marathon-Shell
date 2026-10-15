@@ -28,6 +28,11 @@ Item {
         } else if (marathonKeyboardLoader.item) {
             (marathonKeyboardLoader.item as MarathonKeyboard).hide();
         }
+        // Apps read the panel's visibility from the input context.
+        if (active && !Qt.inputMethod.visible)
+            Qt.inputMethod.show();
+        else if (!active && Qt.inputMethod.visible)
+            Qt.inputMethod.hide();
     }
 
     function refreshFieldHints() {

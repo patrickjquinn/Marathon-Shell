@@ -2287,6 +2287,8 @@ Item {
                 Logger.info("Shell", "InputMethodEngine: Input item focused");
                 if (!Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
+                else if (!virtualKeyboard.active)
+                    Qt.inputMethod.hide();
             }
 
             function onInputItemUnfocused() {
