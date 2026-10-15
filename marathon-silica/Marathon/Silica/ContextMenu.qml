@@ -1,5 +1,6 @@
 import QtQuick
 import Sailfish.Silica as S
+import Sailfish.Silica.private as P
 
 S.ContextMenu {
     id: root
@@ -35,7 +36,23 @@ S.ContextMenu {
         root._setHighlightedItem(items[next]);
     }
 
+    // Keel's outside-press handler closes the menu while filtering the press,
+    // which disables it and lets the press reach the control underneath.
+    // This one outlives the close until the event loop turns.
+    property bool _guarding
+    property Item _outsideGuard: P.InverseMouseArea {
+        parent: root
+        anchors.fill: parent
+        enabled: root._guarding && root._closeOnOutsideClick
+        stealPress: true
+        onPressedOutside: root.close()
+    }
+
     onActiveChanged: {
+        if (active)
+            _guarding = true;
+        else
+            Qt.callLater(() => _guarding = active);
         if (!active && _keyboardReturnFocus) {
             const back = _keyboardReturnFocus;
             _keyboardReturnFocus = null;

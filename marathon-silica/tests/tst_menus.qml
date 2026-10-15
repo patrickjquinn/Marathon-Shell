@@ -48,7 +48,35 @@ TestCase {
         }
     }
 
+    Component {
+        id: controlAboveMenu
+        Column {
+            width: 540
+            property alias button: button
+            property alias item: item
+            Button { id: button; text: "Toggle"; onClicked: testCase.log.push("button") }
+            ListItem {
+                id: item
+                menu: ContextMenu {
+                    MenuItem { text: "Forget"; onClicked: testCase.log.push("forget") }
+                }
+            }
+        }
+    }
+
     function init() { log = []; }
+
+    function test_tapOutsideContextMenuOnlyCloses() {
+        const c = createTemporaryObject(controlAboveMenu, testCase);
+        c.item.openMenu();
+        tryVerify(function () { return c.item.menuOpen; });
+        mouseClick(c.button);
+        tryVerify(function () { return !c.item.menuOpen; });
+        wait(50);
+        compare(log, []);
+        mouseClick(c.button);
+        compare(log, ["button"]);
+    }
 
     function pulley(flick) {
         return flick.pullDownMenu;
