@@ -238,4 +238,13 @@ TestCase {
         verify(y("callButton", true) <= page.height);
     }
 
+    function test_physicalKeysDial() {
+        const app = makeApp();
+        dialer(app);
+        keyClick(Qt.Key_5);
+        keyClick(Qt.Key_7);
+        compare(app.dialedNumber, "57");
+        keyClick(Qt.Key_Backspace);
+        compare(app.dialedNumber, "5");
+    }
 }

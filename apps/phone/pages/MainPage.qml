@@ -15,6 +15,15 @@ Page {
         tabs.moveTo(0);
     }
 
+    // Page children can't hold focus: key presses reach the dialer only when it has it.
+    function _focusDialer() {
+        if (tabs.currentIndex === 0 && Window.activeFocusItem === root)
+            dialerPanel.forceActiveFocus();
+    }
+
+    onStatusChanged: if (status === PageStatus.Active)
+        _focusDialer()
+
     BackgroundItem {
         id: returnToCall
 
@@ -51,6 +60,8 @@ Page {
         model: ObjectModel {
             TabItem {
                 DialerPanel {
+                    id: dialerPanel
+
                     anchors.fill: parent
                     phone: root.phone
                 }
@@ -74,7 +85,9 @@ Page {
             ]
         }
         onCurrentIndexChanged: {
-            if (currentIndex === 1)
+            if (currentIndex === 0)
+                root._focusDialer();
+            else if (currentIndex === 1)
                 root.phone.markCallLogSeen();
             else if (currentIndex === 2)
                 root.phone.requestContacts();
