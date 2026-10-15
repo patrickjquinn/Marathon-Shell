@@ -7,6 +7,10 @@ S.PullDownMenu {
 
     property Item _keyboardReturnFocus
 
+    // Closed, the indicator borders the shell's bars, not the screen edge.
+    highlightColor: active ? palette.highlightBackgroundColor
+                           : S.Theme.rgba(palette.highlightBackgroundColor, S.Theme.highlightBackgroundOpacity || 0.3)
+
     function openFromKeyboard(returnFocus) {
         PulleyKeys.open(root, returnFocus);
     }
