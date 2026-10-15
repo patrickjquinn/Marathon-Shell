@@ -288,6 +288,18 @@ Item {
             property bool firstScanDone: NetworkManagerCpp.availableNetworks.length > 0
             // Compact: the title shares the rescan row to leave room for the list.
             readonly property bool titleInHeader: oobeRoot.compactLayout && SystemStatusStore.isWifiOn
+            readonly property bool pageActive: oobeRoot.visible && oobeRoot.currentPage === 2 && SystemStatusStore.isWifiOn
+
+            function rescan() {
+                wifiPage.firstScanDone = NetworkManagerCpp.availableNetworks.length > 0;
+                NetworkManagerCpp.scanWifi();
+                scanTimeout.restart();
+            }
+
+            onPageActiveChanged: {
+                if (pageActive)
+                    rescan();
+            }
 
             Connections {
                 target: NetworkManagerCpp
@@ -303,11 +315,19 @@ Item {
                 }
             }
 
+            // NM scans take several seconds and the device may appear late.
             Timer {
-                interval: 2500
-                running: SystemStatusStore.isWifiOn && !wifiPage.firstScanDone
-                repeat: false
+                id: scanTimeout
+
+                interval: 6000
                 onTriggered: wifiPage.firstScanDone = true
+            }
+
+            Timer {
+                interval: 8000
+                repeat: true
+                running: wifiPage.pageActive && NetworkManagerCpp.availableNetworks.length === 0
+                onTriggered: NetworkManagerCpp.scanWifi()
             }
 
             ColumnLayout {
@@ -350,17 +370,27 @@ Item {
                         truncationMode: Silica.TruncationMode.Fade
                     }
 
-                    Silica.IconButton {
+                    Silica.BackgroundItem {
                         id: rescanButton
 
                         x: wifiPage.titleInHeader ? parent.width - width - Silica.Theme.horizontalPageMargin + Silica.Theme.paddingMedium : Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
                         anchors.verticalCenter: parent.verticalCenter
-                        icon.source: "image://theme/icon-m-refresh"
+                        width: Silica.Theme.itemSizeExtraSmall
+                        height: width
+                        enabled: wifiPage.firstScanDone
+                        Accessible.role: Accessible.Button
                         Accessible.name: "Rescan networks"
                         onClicked: {
                             HapticManager.light();
-                            wifiPage.firstScanDone = false;
-                            NetworkManagerCpp.scanWifi();
+                            wifiPage.rescan();
+                        }
+
+                        GlyphIcon {
+                            anchors.centerIn: parent
+                            name: "refresh-cw"
+                            size: Silica.Theme.iconSizeSmall
+                            color: rescanButton.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            opacity: rescanButton.enabled ? 1 : 0.4
                         }
                     }
 
@@ -404,11 +434,20 @@ Item {
 
                         Silica.Label {
                             width: parent.width
-                            text: "Move closer to a router, or tap refresh."
+                            text: "Move closer to a router, then scan again."
                             color: Silica.Theme.secondaryColor
                             font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeMedium
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.Wrap
+                        }
+
+                        Silica.Button {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Scan again"
+                            onClicked: {
+                                HapticManager.light();
+                                wifiPage.rescan();
+                            }
                         }
                     }
 
