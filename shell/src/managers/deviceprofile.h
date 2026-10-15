@@ -97,6 +97,10 @@ class DeviceProfile : public QObject {
     bool dozeDpms() const {
         return m_dozeDpms;
     }
+    // Keel's pixel ratio at 100% interface size; 0 = from Marathon's scale.
+    qreal keelPixelRatio() const {
+        return m_keelPixelRatio;
+    }
     // Bits per colour channel the panel shows; below 8 the whole frame is dithered.
     int panelDepth() const {
         return m_panelDepth;
@@ -140,6 +144,7 @@ class DeviceProfile : public QObject {
     int m_runnerWidth  = 540;
     int   m_runnerHeight = 1140;
     qreal m_panelDpi     = 0;
+    qreal m_keelPixelRatio = 0;
     bool  m_dozeDpms      = true;
     bool  m_wifiPowerSave = true;
     int   m_screenTimeoutMs = 300000;

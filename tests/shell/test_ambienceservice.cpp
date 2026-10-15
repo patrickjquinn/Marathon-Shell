@@ -69,18 +69,22 @@ class TestAmbienceService : public QObject {
         QCOMPARE(spy.count(), 1);
     }
 
-    // Sailfish's own devices: about 261 dpi per unit of pixel ratio.
-    void pixelRatioFollowsDensityAndUserScale() {
-        QCOMPARE(AmbienceService::sailfishPixelRatio(457, 1.0), 1.75); // Xperia 10
-        QCOMPARE(AmbienceService::sailfishPixelRatio(441, 1.0), 1.75); // Xperia X
-        QCOMPARE(AmbienceService::sailfishPixelRatio(294, 1.0), 1.25); // Jolla C
-        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.0), 1.0);  // PinePhone, Librem 5
-        // The interface size scales it exactly, not to the next quarter.
-        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.1), 1.1);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 1.5), 1.5);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(268, 0.75), 0.75);
-        // Steps of 0.05, which the icon theme has a directory for.
-        QCOMPARE(AmbienceService::sailfishPixelRatio(294, 1.1), 1.4);
+    // Marathon's scale (dpi / 160) with Silica's 540 px canvas fitted to
+    // Marathon's 390 units, in steps of 0.05.
+    void pixelRatioFollowsMarathonScale() {
+        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.0), 1.15); // HackberryPi CM5
+        QCOMPARE(AmbienceService::sailfishPixelRatio(270, 1.0), 1.2);  // PinePhone
+        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.0), 1.3);  // Librem 5
+        QCOMPARE(AmbienceService::sailfishPixelRatio(296, 1.0), 1.35); // QEMU
+        QCOMPARE(AmbienceService::sailfishPixelRatio(402, 1.0), 1.8);  // OnePlus 6
+        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.2), 1.55);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 0.75), 0.95);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(0, 1.0), 0.0);
+    }
+
+    void deviceRatioReplacesTheDensity() {
+        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.0, 1.25), 1.25);
+        QCOMPARE(AmbienceService::sailfishPixelRatio(287, 1.2, 1.25), 1.5);
     }
 
     void pixelRatioIsPublishedForKeel() {

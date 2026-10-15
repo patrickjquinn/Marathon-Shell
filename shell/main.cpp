@@ -620,7 +620,8 @@ int main(int argc, char *argv[]) {
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
             ambienceService->setPixelRatio(AmbienceService::sailfishPixelRatio(
-                screenMetrics->dpi(), settingsManager->userScaleFactor()));
+                screenMetrics->dpi(), settingsManager->userScaleFactor(),
+                DeviceProfile::instance().keelPixelRatio()));
         };
         update();
         QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, ambienceService, update);

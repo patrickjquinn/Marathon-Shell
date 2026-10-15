@@ -58,6 +58,7 @@ location (for host testing).
 | `RUNNER_WIDTH` | `MARATHON_APP_WIDTH` | `540` | Initial app-runner canvas width (logical px) |
 | `RUNNER_HEIGHT` | `MARATHON_APP_HEIGHT` | `1140` | Initial app-runner canvas height (logical px) |
 | `PANEL_DPI` | `MARATHON_PANEL_DPI` | `0` | True panel DPI, used for the physical size the compositor advertises on `wl_output` (what Wayland clients such as Pacific scale web content by); 0 = the screen's reported size |
+| `KEEL_PIXEL_RATIO` | `MARATHON_KEEL_PIXEL_RATIO` | `0` | Keel/Silica pixel ratio at 100% interface size, for the shell's Silica and every Keel app; 0 = Marathon's scale × 390/540 (the shell's DPI/160 fitted to Silica's 540 px canvas) |
 | `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 | `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
