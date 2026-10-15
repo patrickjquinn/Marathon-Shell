@@ -16,6 +16,8 @@ set(SOURCES
     src/services/backgroundtaskobserver.cpp
     src/services/cgroupmanager.h
     src/services/cgroupmanager.cpp
+    src/services/processstopper.h
+    src/services/processstopper.cpp
     src/services/memorypressuremonitor.h
     src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h

@@ -134,6 +134,11 @@ target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
 
+add_executable(test_shell_processstopper test_processstopper.cpp ../../shell/src/services/processstopper.cpp)
+target_link_libraries(test_shell_processstopper Qt6::Test Qt6::Core)
+target_include_directories(test_shell_processstopper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_ProcessStopper COMMAND test_shell_processstopper)
+
 # Status bar glyphs: real Phosphor names, state carried by the glyph
 add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
 target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)
