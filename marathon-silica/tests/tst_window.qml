@@ -24,6 +24,18 @@ TestCase {
         ApplicationWindow { width: 540; height: 400; initialPage: Component { Page {} } }
     }
     Component { id: page; Page {} }
+    Component {
+        id: comboPage
+        Page {
+            property alias combo: combo
+            ComboBox {
+                id: combo
+                width: parent.width
+                label: "Repeat"
+                menu: ContextMenu { MenuItem { text: "Never" } MenuItem { text: "Daily" } }
+            }
+        }
+    }
     SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
     SignalSpy { id: acceptedSpy; signalName: "accepted" }
     SignalSpy { id: rejectedSpy; signalName: "rejected" }
@@ -36,6 +48,17 @@ TestCase {
         compare(a.pageStack.depth, 2);
         verify(a.handleBack());
         tryCompare(a.pageStack, "depth", 1);
+    }
+
+    function test_backClosesAnOpenMenuFirst() {
+        const a = createTemporaryObject(app, testCase);
+        const p = a.pageStack.push(comboPage, {}, PageStackAction.Immediate);
+        p.combo.forceActiveFocus();
+        keyClick(Qt.Key_Return);
+        tryVerify(function () { return p.combo.menu.active; });
+        verify(a.handleBack());
+        tryVerify(function () { return !p.combo.menu.active; });
+        compare(a.pageStack.depth, 2);
     }
 
     function test_backOnFirstPageMinimises() {
