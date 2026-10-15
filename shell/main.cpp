@@ -23,6 +23,7 @@
 #include <QOpenGLFunctions>
 
 #include "util/rtprio.h"
+#include <cstdio>
 #include <cstring>
 
 #include <QSocketNotifier>
@@ -779,6 +780,41 @@ int main(int argc, char *argv[]) {
     auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
     qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
                                                       "AppLifecycleManager", appLifecycleManager);
+
+    // Session stop (greetd's SIGTERM, a VT hangup, systemd stopping the
+    // scope): the apps close while the compositor still serves them.
+    {
+        static int termPipe[2] = {-1, -1};
+        if (::pipe2(termPipe, O_CLOEXEC | O_NONBLOCK) == 0) {
+            struct sigaction sa {};
+            sa.sa_handler = [](int) {
+                const int  savedErrno = errno;
+                const char b          = 1;
+                (void)::write(termPipe[1], &b, 1);
+                errno = savedErrno;
+            };
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = SA_RESTART;
+            for (const int sig : {SIGTERM, SIGINT, SIGHUP})
+                ::sigaction(sig, &sa, nullptr);
+            auto *sn = new QSocketNotifier(termPipe[0], QSocketNotifier::Read, &app);
+            QObject::connect(sn, &QSocketNotifier::activated, appLifecycleManager,
+                             [appLifecycleManager]() {
+                                 char drain[16];
+                                 (void)::read(termPipe[0], drain, sizeof(drain));
+                                 qInfo() << "[MarathonShell] session stop: closing apps";
+                                 appLifecycleManager->stopAllApps(3000);
+                             });
+            // Skip Qt teardown: the next shell waits on our exit for DRM master.
+            QObject::connect(appLifecycleManager, &AppLifecycleManager::allAppsStopped,
+                             settingsManager, [settingsManager]() {
+                                 settingsManager->sync();
+                                 qInfo() << "[MarathonShell] session stop: apps closed, exiting";
+                                 std::fflush(nullptr);
+                                 ::_exit(0);
+                             });
+        }
+    }
 
     // PowerPolicyController takes the lifecycle manager so its
     // enterDoze() / exitDoze() can flip the freeze-debounce window
