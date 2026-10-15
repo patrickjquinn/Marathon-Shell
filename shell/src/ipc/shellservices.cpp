@@ -2001,7 +2001,7 @@ QString AlarmObject::CreateAlarm(const QString &time, const QString &label,
 }
 
 bool AlarmObject::UpdateAlarm(const QString &id, const QVariantMap &updates) {
-    return m_alarms ? m_alarms->updateAlarm(id, updates) : false;
+    return m_alarms ? m_alarms->updateAlarm(id, normalizeMapDeep(updates)) : false;
 }
 
 bool AlarmObject::DeleteAlarm(const QString &id) {
