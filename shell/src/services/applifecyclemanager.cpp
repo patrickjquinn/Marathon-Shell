@@ -559,7 +559,7 @@ int AppLifecycleManager::killOldestFrozenApp() {
         qCWarning(lcLifecycle) << "killOldestFrozenApp: no AppLaunchService";
         return -1;
     }
-    const qint64 pid = m_appLaunchService->pidForAppId(oldestId);
+    const qint64 pid = m_appLaunchService->terminationPidForAppId(oldestId);
     if (pid <= 0) {
         qCWarning(lcLifecycle) << "killOldestFrozenApp: no PID for" << oldestId;
         return -1;
@@ -577,7 +577,8 @@ int AppLifecycleManager::killOldestFrozenApp() {
     QTimer::singleShot(5000, this, [self, oldestId, pid]() {
         if (!self)
             return;
-        if (self->m_appLaunchService && self->m_appLaunchService->pidForAppId(oldestId) == pid) {
+        if (self->m_appLaunchService &&
+            self->m_appLaunchService->terminationPidForAppId(oldestId) == pid) {
             qCInfo(lcLifecycle) << "killOldestFrozenApp: SIGKILL pid" << pid
                                 << "(SIGTERM grace expired)";
             ::kill(static_cast<pid_t>(pid), SIGKILL);

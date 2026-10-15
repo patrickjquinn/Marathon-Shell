@@ -1740,6 +1740,11 @@ void AppLaunchService::setAppActive(const QString &appId, bool active) {
         callRunnerLifecycle(appId, "SetActive", {active});
 }
 
+qint64 AppLaunchService::terminationPidForAppId(const QString &appId) const {
+    const qint64 host = hostPidForAppId(appId);
+    return host > 0 ? host : pidForAppId(appId);
+}
+
 void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                                   QWaylandXdgSurface *xdgSurface) {
     if (!surface) {

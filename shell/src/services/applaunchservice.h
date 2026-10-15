@@ -178,6 +178,9 @@ class AppLaunchService : public QObject {
     // Tells a hosted Keel app whether it is the foreground app (Active);
     // the runner takes it from its window instead.
     void setAppActive(const QString &appId, bool active);
+    // The process to SIGTERM to stop an app: a hosted app's host, which
+    // turns SIGTERM into CloseRequested.
+    qint64 terminationPidForAppId(const QString &appId) const;
 
   private:
     qint64                 hostPidForAppId(const QString &appId) const;
