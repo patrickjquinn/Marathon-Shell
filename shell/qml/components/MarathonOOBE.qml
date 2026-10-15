@@ -608,112 +608,133 @@ Item {
 
             clip: true
 
-            ColumnLayout {
+            // Taller than the page at larger display sizes.
+            Flickable {
                 anchors.fill: parent
-                anchors.topMargin: Silica.Theme.paddingLarge
-                spacing: oobeRoot.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
+                contentHeight: timeColumn.y + timeColumn.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
 
-                StepTitle {
-                    text: "Time and date"
-                }
+                ColumnLayout {
+                    id: timeColumn
 
-                StepBody {
-                    visible: !oobeRoot.compactLayout
-                    text: "Configure your time format preferences."
-                }
+                    y: Silica.Theme.paddingLarge
+                    width: parent.width
+                    height: Math.max(implicitHeight, timezonePage.height - y)
+                    spacing: oobeRoot.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
 
-                Silica.Label {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
-                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
-                    Layout.topMargin: oobeRoot.compactLayout ? 0 : Silica.Theme.paddingLarge
-                    text: SystemStatusStore.timeString
-                    color: Silica.Theme.primaryColor
-                    font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeExtraLarge : Silica.Theme.fontSizeHuge
-                    font.family: Silica.Theme.fontFamilyHeading
-                }
+                    StepTitle {
+                        text: "Time and date"
+                    }
 
-                Silica.Label {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
-                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
-                    visible: !oobeRoot.compactLayout
-                    text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
-                    color: Silica.Theme.secondaryColor
-                    font.pixelSize: Silica.Theme.fontSizeMedium
-                    truncationMode: Silica.TruncationMode.Fade
-                }
+                    StepBody {
+                        visible: !oobeRoot.compactLayout
+                        text: "Configure your time format preferences."
+                    }
 
-                Silica.SectionHeader {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
-                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
-                    visible: !oobeRoot.compactLayout
-                    text: "Time format"
-                }
+                    Silica.Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                        Layout.topMargin: oobeRoot.compactLayout ? 0 : Silica.Theme.paddingLarge
+                        text: SystemStatusStore.timeString
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeExtraLarge : Silica.Theme.fontSizeHuge
+                        font.family: Silica.Theme.fontFamilyHeading
+                    }
 
-                Column {
-                    Layout.fillWidth: true
+                    Silica.Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                        visible: !oobeRoot.compactLayout
+                        text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
+                        truncationMode: Silica.TruncationMode.Fade
+                    }
 
-                    Repeater {
-                        model: [
-                            {
-                                "value": "12h",
-                                "label": "12-hour"
-                            },
-                            {
-                                "value": "24h",
-                                "label": "24-hour"
-                            }
-                        ]
+                    Silica.SectionHeader {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                        visible: !oobeRoot.compactLayout
+                        text: "Time format"
+                    }
 
-                        Silica.BackgroundItem {
-                            id: formatChoice
+                    Column {
+                        Layout.fillWidth: true
 
-                            required property var modelData
+                        Repeater {
+                            model: [
+                                {
+                                    "value": "12h",
+                                    "label": "12-hour"
+                                },
+                                {
+                                    "value": "24h",
+                                    "label": "24-hour"
+                                }
+                            ]
 
-                            readonly property bool selected: SettingsManagerCpp.timeFormat === modelData.value
+                            Silica.BackgroundItem {
+                                id: formatChoice
 
-                            width: parent.width
-                            height: oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall
-                            onClicked: {
-                                SettingsManagerCpp.timeFormat = formatChoice.modelData.value;
-                                HapticManager.light();
-                            }
+                                required property var modelData
 
-                            Silica.Label {
-                                x: Silica.Theme.horizontalPageMargin
-                                width: parent.width - 2 * x
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: formatChoice.modelData.label
-                                color: formatChoice.selected || formatChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                            }
+                                readonly property bool selected: SettingsManagerCpp.timeFormat === modelData.value
 
-                            GlyphIcon {
-                                anchors.right: parent.right
-                                anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                                anchors.verticalCenter: parent.verticalCenter
-                                visible: formatChoice.selected
-                                name: "check"
-                                size: Silica.Theme.iconSizeExtraSmall
-                                color: Silica.Theme.highlightColor
+                                width: parent.width
+                                height: oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall
+                                onClicked: {
+                                    SettingsManagerCpp.timeFormat = formatChoice.modelData.value;
+                                    HapticManager.light();
+                                }
+
+                                Silica.Label {
+                                    x: Silica.Theme.horizontalPageMargin
+                                    width: parent.width - 2 * x
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: formatChoice.modelData.label
+                                    color: formatChoice.selected || formatChoice.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                                }
+
+                                GlyphIcon {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: formatChoice.selected
+                                    name: "check"
+                                    size: Silica.Theme.iconSizeExtraSmall
+                                    color: Silica.Theme.highlightColor
+                                }
                             }
                         }
                     }
-                }
 
-                Silica.Label {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: Silica.Theme.horizontalPageMargin
-                    Layout.rightMargin: Silica.Theme.horizontalPageMargin
-                    text: "The clock sets itself over the network. Choose your time zone any time in Settings → Date & Time."
-                    color: Silica.Theme.secondaryColor
-                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                    wrapMode: Text.Wrap
-                }
+                    Silica.TextSwitch {
+                        objectName: "automaticZoneSwitch"
+                        Layout.fillWidth: true
+                        text: "Automatic time zone"
+                        description: SettingsManagerCpp.timeZone.replace(/_/g, " ")
+                        checked: SettingsManagerCpp.automaticTimeZone
+                        automaticCheck: false
+                        onClicked: SettingsManagerCpp.automaticTimeZone = !SettingsManagerCpp.automaticTimeZone
+                    }
 
-                Item {
-                    Layout.fillHeight: true
+                    Silica.Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Silica.Theme.horizontalPageMargin
+                        Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                        visible: !oobeRoot.compactLayout
+                        text: "The clock sets itself over the network, and the time zone follows your location while Location is on. Change either in Settings → Date & Time."
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                        wrapMode: Text.Wrap
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                    }
                 }
             }
         }
