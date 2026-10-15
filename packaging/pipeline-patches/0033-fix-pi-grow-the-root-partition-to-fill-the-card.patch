@@ -1,0 +1,38 @@
+From 4d343eef1d6ad44a91f25e7149f72de1c6333d15 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 15 Oct 2026 09:51:53 +0100
+Subject: [PATCH] fix(pi): grow the root partition to fill the card
+
+The Pi cmdline lacked pmos.force-partition-resize, so postmarketos-
+mkinitfs never resized the 5 GiB root partition: a 32 GB card left
+~25 GB unusable. The flag is how pmOS enables first-boot resize on
+non-Android devices.
+---
+ mkosi.finalize | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 7375518..c268ac6 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -671,7 +671,7 @@ CONFIG
+                 #   the DTB-set disable; it landed in 6.12.3+ so 6.12.85
+                 #   has it. Without this, Phase B lifecycle policy is a
+                 #   no-op on Pi 5 / CM5.
+-                echo "splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no" \
++                echo "splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no pmos.force-partition-resize" \
+                     > "$BUILDROOT/boot/cmdline.txt"
+                 rm -f "$BUILDROOT/boot/cmdline.txt.raw"
+                 echo "info: Pi-firmware UKI has no .cmdline section, wrote default /boot/cmdline.txt"
+@@ -950,7 +950,7 @@ EOF
+             # USB OTG LPM (HackberryPi keyboard requirement). console=tty1
+             # routes the framebuffer console to the HyperPixel panel.
+             cat > "$BUILDROOT/boot/cmdline.txt" <<'EOF'
+-splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no
++splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no pmos.force-partition-resize
+ EOF
+             echo "info: wrote /boot/cmdline.txt"
+             fi  # end "Pi-only: HyperPixel DTB merge + config.txt + cmdline.txt"
+-- 
+2.55.0
+
