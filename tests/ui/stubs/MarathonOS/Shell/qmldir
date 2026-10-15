@@ -36,3 +36,12 @@ singleton NetworkManagerCpp 1.0 NetworkManagerCpp.qml
 MEntrance 1.0 MEntrance.qml
 MAppIcon 1.0 MAppIcon.qml
 singleton AppLaunchService 1.0 AppLaunchService.qml
+singleton SystemControlStore 1.0 SystemControlStore.qml
+singleton ModemManagerCpp 1.0 ModemManagerCpp.qml
+singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
+singleton RotationManager 1.0 RotationManager.qml
+singleton SensorManagerCpp 1.0 SensorManagerCpp.qml
+singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
+MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
+MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml
+MNowBar 1.0 ../../../../../shell/qml/ui/MNowBar.qml

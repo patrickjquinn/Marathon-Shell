@@ -78,6 +78,9 @@ Item {
     DragHandler {
         id: dismissDrag
         target: null
+        // Overflowing content scrolls first; the shade closes from its end.
+        // Held while active: shrinking the shade moves atYEnd.
+        enabled: active || !shadeScroll.interactive || shadeScroll.atYEnd
         yAxis.enabled: true
         xAxis.enabled: false
         property real startY: 0
@@ -245,6 +248,8 @@ Item {
     // drag on the shade still closes it.
     Flickable {
         id: shadeScroll
+
+        objectName: "shadeScroll"
 
         anchors.fill: parent
         // Clipping forces a scissor and breaks batching across the whole
