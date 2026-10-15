@@ -46,6 +46,12 @@ target_link_libraries(test_core_permissionauth Qt6::Test Qt6::Core)
 target_include_directories(test_core_permissionauth PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_PermissionAuth COMMAND test_core_permissionauth)
 
+# D-Bus callers that are installed session services (shell/src/ipc/servicecaller.h)
+add_executable(test_core_servicecaller test_servicecaller.cpp)
+target_link_libraries(test_core_servicecaller Qt6::Test Qt6::Core)
+target_include_directories(test_core_servicecaller PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_ServiceCaller COMMAND test_core_servicecaller)
+
 # AppInstaller security tests (path traversal, uninstall protection)
 add_executable(test_core_installer_security
     test_installer_security.cpp

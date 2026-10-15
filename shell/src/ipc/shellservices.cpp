@@ -1,5 +1,6 @@
 #include "shellservices.h"
 #include "permissionauth.h"
+#include "servicecaller.h"
 
 #include "applaunchservice.h"
 #include "marathonpermissionmanager.h"
@@ -64,6 +65,8 @@ static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId
                              const QStringList &perms) {
     if (g_testBypassEnabled && appId == QLatin1String(MARATHON_TEST_CALLER_ID))
         return true;
+    if (appId.startsWith(ServiceCaller::kPrefix))
+        return ServiceCaller::allowed(appId, perms);
     if (!pm)
         return false;
     for (const auto &p : perms) {
@@ -105,6 +108,8 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
 
     if (QString mapped = als->appIdForPid(pid); !mapped.isEmpty())
         return mapped;
+    if (QString service = ServiceCaller::resolve(pid); !service.isEmpty())
+        return service;
 
     const qint64 shellPid = static_cast<qint64>(QCoreApplication::applicationPid());
     if (shellPid <= 0 || pid <= 0)
@@ -515,6 +520,15 @@ QDBusVariant SettingsObject::Get(const QString &key, const QDBusVariant &default
             return QDBusVariant();
         return QDBusVariant(m_settings->get(key, defaultValue.variant()));
     }
+    // The Calendar app's events, read-only, for callers with "calendar".
+    if (key.startsWith(QLatin1String("calendar/"))
+        && hasAnyPermission(m_permissions, callerAppIdOrEmpty(), {QStringLiteral("calendar")})) {
+        if (!checkRateLimit(*this, "Settings.Calendar")) {
+            sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+            return QDBusVariant();
+        }
+        return QDBusVariant(m_settings->get(key, defaultValue.variant()));
+    }
 
     if (!requireSystem())
         return QDBusVariant();
@@ -715,13 +729,13 @@ QVariantMap BluetoothObject::buildState() const {
 }
 
 QVariantMap BluetoothObject::GetState() {
-    if (!requireSystem())
+    if (!requireBluetooth())
         return {};
     return buildState();
 }
 
 void BluetoothObject::SetEnabled(bool enabled) {
-    if (!requireSystem())
+    if (!requireBluetooth())
         return;
     m_bt->setEnabled(enabled);
 }

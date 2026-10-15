@@ -360,6 +360,9 @@ class BluetoothObject : public IpcPermissionedService {
     bool requireSystem() {
         return requirePermission("Bluetooth", {"system"});
     }
+    bool requireBluetooth() {
+        return requirePermission("Bluetooth", {"bluetooth", "system"});
+    }
 
     QVariantMap       buildState() const;
     QVariantList      buildDevices(bool pairedOnly) const;
