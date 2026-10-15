@@ -84,10 +84,11 @@ Rectangle {
         var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
         if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
             if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface) {
-                Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
+                Logger.warn("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " surfaceId " + sid + " - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
                     "dialogSurface": surface,
-                    "dialogSurfaceId": sid
+                    "dialogSurfaceId": sid,
+                    "ownerAppId": id
                 });
                 if (dialog) {
                     activeDialogs.push(dialog);
@@ -148,6 +149,13 @@ Rectangle {
             var existingNativeInstance = AppLifecycleManager.getAppInstance(id);
             if (existingNativeInstance) {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
+                // An instance closed from the switcher while minimized is kept
+                // with its dead surface; a relaunch must not show that.
+                if (existingNativeInstance.surfaceId !== sid) {
+                    Logger.warn("AppWindow", "Rebinding " + id + " from surfaceId " + existingNativeInstance.surfaceId + " to " + sid);
+                    existingNativeInstance.waylandSurface = surface;
+                    existingNativeInstance.surfaceId = sid;
+                }
                 existingNativeInstance.visible = true;
                 // Going home minimized it, which locks its buffer; left set,
                 // the restored window showed no new frames.
@@ -591,9 +599,13 @@ Rectangle {
 
             property var dialogSurface: null
             property int dialogSurfaceId: -1
+            property string ownerAppId
 
             anchors.fill: parent
             z: 1000
+            // Once its surface is gone the item paints an opaque placeholder,
+            // which would black out every app shown after it.
+            visible: hasFirstFrame && ownerAppId === appWindow.appId
             surfaceObj: dialogSurface
             surfaceId: dialogSurfaceId
             shellSurface: (dialogSurface && dialogSurface.xdgSurface) ? dialogSurface.xdgSurface : null
@@ -603,13 +615,12 @@ Rectangle {
                 Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
             }
 
-            Connections {
-                target: dialogItem.dialogSurface
-                ignoreUnknownSignals: true
-                function onDestroyed() {
-                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogItem.dialogSurfaceId);
-                    dialogItem.destroy();
-                }
+            // The surface's own destroyed() never came: this item's view keeps
+            // the QWaylandSurface alive until the item goes.
+            onSurfaceDestroyed: {
+                Logger.warn("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                appWindow.activeDialogs = appWindow.activeDialogs.filter(d => d !== dialogItem);
+                dialogItem.destroy();
             }
         }
     }
