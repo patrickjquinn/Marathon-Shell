@@ -182,7 +182,7 @@ Item {
             // inactivity in the shell *coordinate space* regardless of
             // how much the user is actively typing/scrolling inside the
             // foreground app. Was task #338.
-            compositor.userActivity.connect(idleScreenTimer.restart);
+            compositor.userActivity.connect(idleScreenTimer.rearm);
         }
         // --start-on=<surface> for visual-validation harness only.
         // Honoured alongside --skip-lock; no-op without it.
@@ -697,11 +697,11 @@ Item {
         focus: false
         onPositionChanged: mouse => {
             CursorManager.onMouseActivity();
-            idleScreenTimer.restart();
+            idleScreenTimer.rearm();
             mouse.accepted = false;
         }
         onPressed: mouse => {
-            idleScreenTimer.restart();
+            idleScreenTimer.rearm();
             mouse.accepted = false;
         }
         onReleased: mouse => {
@@ -735,18 +735,31 @@ Item {
         // blank the screen immediately.
         readonly property int effectiveInterval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
 
+        readonly property bool armed: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
+
+        // restart() on activity would start a timer whose `running` binding
+        // says no ("Never", locked, screen off) and break that binding for
+        // good, so every start and reset goes through rearm().
+        function rearm() {
+            if (armed)
+                restart();
+            else
+                stop();
+        }
+
         interval: effectiveInterval > 0 ? effectiveInterval : defaultIntervalMs
-        running: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
         repeat: false
+        onArmedChanged: rearm()
+        Component.onCompleted: rearm()
         onTriggered: {
             if (typeof compositor !== 'undefined' && shell.compositor && shell.compositor.hasIdleInhibitingSurface) {
                 Logger.info("Shell", "Idle inhibitor active (video/call?) — postponing blank");
-                idleScreenTimer.restart();
+                idleScreenTimer.rearm();
                 return;
             }
             if (typeof TelephonyService !== 'undefined' && TelephonyService.hasActiveCall) {
                 Logger.info("Shell", "Active call — postponing blank");
-                idleScreenTimer.restart();
+                idleScreenTimer.rearm();
                 return;
             }
             Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
@@ -846,7 +859,7 @@ Item {
             if (DisplayPolicyControllerCpp.screenOn) {
                 dimState.restore();
                 // Re-arm idle timers from the moment of wake.
-                idleScreenTimer.restart();
+                idleScreenTimer.rearm();
             }
         }
     }

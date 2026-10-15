@@ -46,8 +46,7 @@ Item {
     }
 
     function resetIdleTimer() {
-        if (lockScreen.visible && DisplayPolicyControllerCpp.screenOn)
-            idleTimer.restart();
+        idleTimer.rearm();
     }
 
     // Relative-time formatter for notification cards.
@@ -137,12 +136,22 @@ Item {
         // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
-        running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+        readonly property bool armed: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+
+        function rearm() {
+            if (armed)
+                restart();
+            else
+                stop();
+        }
+
         repeat: false
+        onArmedChanged: rearm()
+        Component.onCompleted: rearm()
         onTriggered: {
             if (lockScreen.compositor && lockScreen.compositor.hasIdleInhibitingSurface) {
                 Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
-                idleTimer.restart();
+                idleTimer.rearm();
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
