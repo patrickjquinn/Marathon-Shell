@@ -590,9 +590,13 @@ if command -v systemd-run >/dev/null 2>&1 && \
     # reply" cluster on every boot. The full env list below forwards
     # every variable our session script established BEFORE handing off
     # to the cgroup-scoped marathon-shell-bin.
+    #
+    # On SIGTERM the shell gives its apps 3 s to close before it exits;
+    # TimeoutStopSec covers that and bounds a hung shell at shutdown.
     exec $JOURNAL systemd-run --user --quiet --collect --scope \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
+        --property=TimeoutStopSec=5 \
         --setenv=DBUS_SESSION_BUS_ADDRESS \
         --setenv=XDG_RUNTIME_DIR \
         --setenv=WAYLAND_DISPLAY \
