@@ -1,5 +1,6 @@
 #include "shellipcclients.h"
 #include "dbusnormalize.h"
+#include "managers/soundname.h"
 
 #include <ctime>
 
@@ -1215,10 +1216,7 @@ int SettingsClient::screenTimeoutValue(const QString &option) {
     return r.isValid() ? r.value() : 0;
 }
 QString SettingsClient::formatSoundName(const QString &path) {
-    if (!ensureSystemPermission())
-        return {};
-    QDBusReply<QString> r = m_iface.call("FormatSoundName", path);
-    return r.isValid() ? r.value() : QString{};
+    return ::formatSoundName(path);
 }
 QString SettingsClient::assetUrl(const QString &relativePath) {
     if (!ensureSystemPermission())

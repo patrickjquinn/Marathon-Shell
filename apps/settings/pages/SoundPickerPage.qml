@@ -34,10 +34,11 @@ Page {
 
             required property string modelData
             readonly property bool selected: modelData === page.current
+            readonly property string name: Settings.formatSoundName(modelData)
 
-            objectName: "sound-" + Settings.formatSoundName(modelData)
+            objectName: "sound-" + name
             Accessible.role: Accessible.RadioButton
-            Accessible.name: Settings.formatSoundName(modelData)
+            Accessible.name: name
             Accessible.checked: selected
             onClicked: page.choose(modelData)
 
@@ -49,7 +50,7 @@ Page {
                     rightMargin: Theme.paddingMedium
                     verticalCenter: parent.verticalCenter
                 }
-                text: Settings.formatSoundName(item.modelData)
+                text: item.name
                 truncationMode: TruncationMode.Fade
                 color: item.selected || item.highlighted ? Theme.highlightColor : Theme.primaryColor
             }

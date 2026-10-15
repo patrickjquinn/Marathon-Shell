@@ -1,4 +1,5 @@
 #include "settingsmanager.h"
+#include "soundname.h"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
@@ -1123,29 +1124,7 @@ void SettingsManager::setDefaultApps(const QVariantMap &apps) {
 }
 
 QString SettingsManager::formatSoundName(const QString &path) {
-
-    QString    p = path;
-    const QUrl url(path);
-    if (url.isValid() && url.isLocalFile())
-        p = url.toLocalFile();
-
-    QFileInfo info(p);
-    QString   baseName = info.baseName();
-
-    baseName.remove("alarm_");
-    baseName.remove("ring_");
-
-    baseName.replace('_', ' ');
-    baseName.replace('-', ' ');
-
-    QStringList words = baseName.split(' ');
-    for (int i = 0; i < words.size(); ++i) {
-        if (!words[i].isEmpty()) {
-            words[i][0] = words[i][0].toUpper();
-        }
-    }
-
-    return words.join(' ');
+    return ::formatSoundName(path);
 }
 
 QVariant SettingsManager::get(const QString &key, const QVariant &defaultValue) {
