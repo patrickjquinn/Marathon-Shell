@@ -54,8 +54,9 @@ Item {
 
     // Short / square panels (HyperPixel 4.0 Square 720×720).
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
+    readonly property real chromeGap: compactLayout ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
     // Measured from the Back/Next row and nav bar so it tracks every scale.
-    readonly property real swipeBottomInset: navigationRow.height + navBar.height + Silica.Theme.paddingLarge * 2
+    readonly property real swipeBottomInset: navigationRow.height + navBar.height + chromeGap * 2
 
     signal setupComplete
 
@@ -188,6 +189,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: Silica.Theme.horizontalPageMargin
                     Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    visible: !oobeRoot.compactLayout
                     text: "Preview"
                 }
 
@@ -284,6 +286,8 @@ Item {
 
             property string pendingSsid: ""
             property bool firstScanDone: NetworkManagerCpp.availableNetworks.length > 0
+            // Compact: the title shares the rescan row to leave room for the list.
+            readonly property bool titleInHeader: oobeRoot.compactLayout && SystemStatusStore.isWifiOn
 
             Connections {
                 target: NetworkManagerCpp
@@ -312,10 +316,12 @@ Item {
                 spacing: Silica.Theme.paddingMedium
 
                 StepTitle {
+                    visible: !wifiPage.titleInHeader
                     text: "Connect to a network"
                 }
 
                 StepBody {
+                    visible: !wifiPage.titleInHeader
                     text: SystemStatusStore.isWifiOn ? "Pick a network, or continue without one." : "Turn WiFi on to see nearby networks."
                 }
 
@@ -330,14 +336,24 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Silica.Theme.itemSizeSmall
+                    Layout.preferredHeight: oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall
                     visible: SystemStatusStore.isWifiOn
+
+                    Silica.Label {
+                        x: Silica.Theme.horizontalPageMargin
+                        width: rescanButton.x - x
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: wifiPage.titleInHeader
+                        text: "Connect to a network"
+                        color: Silica.Theme.highlightColor
+                        font.pixelSize: Silica.Theme.fontSizeLarge
+                        truncationMode: Silica.TruncationMode.Fade
+                    }
 
                     Silica.IconButton {
                         id: rescanButton
 
-                        anchors.left: parent.left
-                        anchors.leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
+                        x: wifiPage.titleInHeader ? parent.width - width - Silica.Theme.horizontalPageMargin + Silica.Theme.paddingMedium : Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
                         anchors.verticalCenter: parent.verticalCenter
                         icon.source: "image://theme/icon-m-refresh"
                         Accessible.name: "Rescan networks"
@@ -353,6 +369,7 @@ Item {
                         anchors.right: parent.right
                         anchors.rightMargin: Silica.Theme.horizontalPageMargin
                         anchors.verticalCenter: parent.verticalCenter
+                        visible: !wifiPage.titleInHeader
                         text: "Networks"
                     }
                 }
@@ -380,7 +397,7 @@ Item {
                             width: parent.width
                             text: "No networks found"
                             color: Silica.Theme.secondaryHighlightColor
-                            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+                            font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeLarge : Silica.Theme.fontSizeExtraLarge
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.Wrap
                         }
@@ -389,7 +406,7 @@ Item {
                             width: parent.width
                             text: "Move closer to a router, or tap refresh."
                             color: Silica.Theme.secondaryColor
-                            font.pixelSize: Silica.Theme.fontSizeMedium
+                            font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeMedium
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.Wrap
                         }
@@ -421,7 +438,7 @@ Item {
                                     readonly property bool lit: modelData.connected || highlighted
 
                                     width: parent.width
-                                    height: Math.max(Silica.Theme.itemSizeSmall, networkText.height + 2 * Silica.Theme.paddingMedium)
+                                    height: Math.max(oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall, networkText.height + 2 * Silica.Theme.paddingMedium)
                                     enabled: networkRow.rowEnabled
                                     onClicked: {
                                         HapticManager.light();
@@ -517,7 +534,7 @@ Item {
                     id: joinOther
 
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Silica.Theme.itemSizeSmall
+                    Layout.preferredHeight: oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall
                     visible: SystemStatusStore.isWifiOn && wifiPage.firstScanDone
                     onClicked: {
                         HapticManager.light();
@@ -544,13 +561,14 @@ Item {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.topMargin: Silica.Theme.paddingLarge
-                spacing: Silica.Theme.paddingMedium
+                spacing: oobeRoot.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
 
                 StepTitle {
                     text: "Time and date"
                 }
 
                 StepBody {
+                    visible: !oobeRoot.compactLayout
                     text: "Configure your time format preferences."
                 }
 
@@ -558,10 +576,10 @@ Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: Silica.Theme.horizontalPageMargin
                     Layout.rightMargin: Silica.Theme.horizontalPageMargin
-                    Layout.topMargin: Silica.Theme.paddingLarge
+                    Layout.topMargin: oobeRoot.compactLayout ? 0 : Silica.Theme.paddingLarge
                     text: SystemStatusStore.timeString
                     color: Silica.Theme.primaryColor
-                    font.pixelSize: Silica.Theme.fontSizeHuge
+                    font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeExtraLarge : Silica.Theme.fontSizeHuge
                     font.family: Silica.Theme.fontFamilyHeading
                 }
 
@@ -569,6 +587,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: Silica.Theme.horizontalPageMargin
                     Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    visible: !oobeRoot.compactLayout
                     text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
                     color: Silica.Theme.secondaryColor
                     font.pixelSize: Silica.Theme.fontSizeMedium
@@ -579,6 +598,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: Silica.Theme.horizontalPageMargin
                     Layout.rightMargin: Silica.Theme.horizontalPageMargin
+                    visible: !oobeRoot.compactLayout
                     text: "Time format"
                 }
 
@@ -605,7 +625,7 @@ Item {
                             readonly property bool selected: SettingsManagerCpp.timeFormat === modelData.value
 
                             width: parent.width
-                            height: Silica.Theme.itemSizeSmall
+                            height: oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall
                             onClicked: {
                                 SettingsManagerCpp.timeFormat = formatChoice.modelData.value;
                                 HapticManager.light();
@@ -741,11 +761,11 @@ Item {
                 id: coachmarkStack
 
                 anchors.top: coachmarkDots.bottom
-                anchors.topMargin: Silica.Theme.paddingLarge
+                anchors.topMargin: oobeRoot.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: Silica.Theme.paddingLarge
+                anchors.bottomMargin: oobeRoot.compactLayout ? 0 : Silica.Theme.paddingLarge
                 currentIndex: gesturesPage.currentCoachmark
 
                 Repeater {
@@ -760,11 +780,11 @@ Item {
                         Column {
                             anchors.centerIn: parent
                             width: parent.width
-                            spacing: Silica.Theme.paddingLarge
+                            spacing: oobeRoot.compactLayout ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
 
                             Item {
-                                width: Silica.Theme.itemSizeHuge
-                                height: Silica.Theme.itemSizeHuge
+                                width: oobeRoot.compactLayout ? Silica.Theme.itemSizeMedium : Silica.Theme.itemSizeHuge
+                                height: width
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 // The screen's left edge, for the Hub peek.
@@ -792,7 +812,7 @@ Item {
                                     GlyphIcon {
                                         anchors.horizontalCenter: parent.horizontalCenter
                                         name: coachmarkDelegate.modelData.icon
-                                        size: Silica.Theme.iconSizeExtraLarge
+                                        size: oobeRoot.compactLayout ? Silica.Theme.iconSizeLarge : Silica.Theme.iconSizeExtraLarge
                                         color: Silica.Theme.highlightColor
                                     }
 
@@ -852,7 +872,7 @@ Item {
                                 width: parent.width - 2 * x
                                 text: coachmarkDelegate.modelData.title
                                 color: Silica.Theme.primaryColor
-                                font.pixelSize: Silica.Theme.fontSizeLarge
+                                font.pixelSize: oobeRoot.compactLayout ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
                                 horizontalAlignment: Text.AlignHCenter
                                 wrapMode: Text.Wrap
                             }
@@ -889,14 +909,14 @@ Item {
 
             readonly property bool isCompact: oobeRoot.compactLayout
             readonly property real dotSize: Silica.Theme.paddingLarge
-            readonly property real keySpacing: isCompact ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
+            readonly property real keySpacing: isCompact ? Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
 
             // Design size; only an upper bound, see keyCellFit.
             readonly property real keyCellDesign: Math.round(keyCellBase * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
             readonly property real keyCellBase: isCompact ? 56 : 72
 
             // Height left for the four keypad rows below the header block.
-            readonly property real keypadBudget: height - Math.round(216 * Constants.scaleFactor)
+            readonly property real keypadBudget: isCompact ? height - Silica.Theme.paddingSmall - passcodeTitle.height - passcodeSubtitle.height - passcodeDots.height - 3 * Silica.Theme.paddingSmall : height - Math.round(216 * Constants.scaleFactor)
             readonly property real keyCellFit: Math.floor((keypadBudget - 3 * keySpacing) / 4)
 
             // Shrink to fit rather than clip; the 44 px floor is in device pixels on purpose.
@@ -908,8 +928,8 @@ Item {
 
             // Header type is capped against the page so it can't starve the keypad.
             readonly property real headerTypeCap: Math.max(16, Math.round(height * 0.045))
-            readonly property real titleSize: Math.min(Silica.Theme.fontSizeLarge, Math.round(headerTypeCap * 1.35))
-            readonly property real subtitleSize: Math.min(Silica.Theme.fontSizeSmall, headerTypeCap)
+            readonly property real titleSize: isCompact ? Silica.Theme.fontSizeMedium : Math.min(Silica.Theme.fontSizeLarge, Math.round(headerTypeCap * 1.35))
+            readonly property real subtitleSize: isCompact ? Silica.Theme.fontSizeExtraSmall : Math.min(Silica.Theme.fontSizeSmall, headerTypeCap)
 
             function appendDigit(d) {
                 if (passcodePage.currentPin.length >= passcodePage.maxLength)
@@ -964,12 +984,14 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: Silica.Theme.paddingLarge
+                anchors.topMargin: passcodePage.isCompact ? Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
                 anchors.leftMargin: Silica.Theme.horizontalPageMargin
                 anchors.rightMargin: Silica.Theme.horizontalPageMargin
                 spacing: passcodePage.isCompact ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
 
                 Silica.Label {
+                    id: passcodeTitle
+
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
@@ -979,15 +1001,22 @@ Item {
                 }
 
                 Silica.Label {
+                    id: passcodeSubtitle
+
                     Layout.fillWidth: true
-                    text: passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
-                    color: Silica.Theme.secondaryHighlightColor
+                    // Compact pages show the error here instead of in their own row.
+                    readonly property bool showsError: passcodePage.isCompact && oobeRoot.passcodeError.length > 0
+
+                    text: showsError ? oobeRoot.passcodeError : passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
+                    color: showsError ? Silica.Theme.errorColor : Silica.Theme.secondaryHighlightColor
                     font.pixelSize: passcodePage.subtitleSize
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
                 }
 
                 RowLayout {
+                    id: passcodeDots
+
                     Layout.alignment: Qt.AlignHCenter
                     spacing: Silica.Theme.paddingLarge
 
@@ -1017,7 +1046,7 @@ Item {
 
                 Silica.Label {
                     Layout.fillWidth: true
-                    visible: oobeRoot.passcodeError.length > 0
+                    visible: !passcodePage.isCompact && oobeRoot.passcodeError.length > 0
                     text: oobeRoot.passcodeError
                     color: Silica.Theme.errorColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
@@ -1149,7 +1178,7 @@ Item {
         anchors.bottom: navBar.top
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        anchors.bottomMargin: Silica.Theme.paddingLarge
+        anchors.bottomMargin: oobeRoot.chromeGap
         spacing: Silica.Theme.paddingMedium
 
         Silica.Button {
@@ -1207,7 +1236,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: statusBar.bottom
-        height: Silica.Theme.itemSizeSmall
+        height: oobeRoot.compactLayout ? Math.round(skipLabel.implicitHeight + 2 * Silica.Theme.paddingMedium) : Silica.Theme.itemSizeSmall
         z: 200
 
         Silica.PageIndicator {
