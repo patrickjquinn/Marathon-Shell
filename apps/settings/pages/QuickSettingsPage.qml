@@ -21,7 +21,13 @@ Page {
 
         objectName: "tileList"
         anchors.fill: parent
-        model: Logic.tiles
+        model: Logic.presentTiles({
+            modem: Modem.available,
+            torch: Display.torchAvailable,
+            rotation: Display.rotationAvailable,
+            lightSensor: Display.lightSensorAvailable,
+            vibrator: Haptics.available
+        })
         header: PageHeader {
             title: qsTr("Quick settings")
             description: qsTr("Tiles shown in the top menu")

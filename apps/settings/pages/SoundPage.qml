@@ -76,10 +76,12 @@ Page {
             }
 
             SectionHeader {
+                visible: Haptics.available
                 text: qsTr("Feedback")
             }
             TextSwitch {
                 objectName: "vibrationSwitch"
+                visible: Haptics.available
                 text: qsTr("Vibration")
                 description: qsTr("Turn off to stop all vibration, including key presses")
                 automaticCheck: false

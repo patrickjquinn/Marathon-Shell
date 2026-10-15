@@ -201,22 +201,27 @@ function setMember(list, id, member) {
 
 const tiles = [
     { id: "wifi", label: qsTr("Wi-Fi"), desc: qsTr("Toggle wireless network") },
-    { id: "cellular", label: qsTr("Mobile data"), desc: qsTr("Toggle cellular data") },
+    { id: "cellular", label: qsTr("Mobile data"), desc: qsTr("Toggle cellular data"), needs: "modem" },
     { id: "bluetooth", label: qsTr("Bluetooth"), desc: qsTr("Connect to devices") },
     { id: "airplane", label: qsTr("Flight mode"), desc: qsTr("Disable all radios") },
     { id: "dnd", label: qsTr("Do not disturb"), desc: qsTr("Silence notifications and calls") },
-    { id: "torch", label: qsTr("Torch"), desc: qsTr("Toggle flashlight") },
+    { id: "torch", label: qsTr("Torch"), desc: qsTr("Toggle flashlight"), needs: "torch" },
     { id: "location", label: qsTr("Location"), desc: qsTr("GPS and location services") },
     { id: "hotspot", label: qsTr("Hotspot"), desc: qsTr("Share internet connection") },
     { id: "nightlight", label: qsTr("Night light"), desc: qsTr("Reduce blue light") },
-    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation") },
-    { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment") },
+    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation"), needs: "rotation" },
+    { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment"), needs: "lightSensor" },
     { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
-    { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback") },
+    { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback"), needs: "vibrator" },
     { id: "power", label: qsTr("Power menu"), desc: qsTr("Show power options") }
 ];
 
 const defaultTiles = tiles.map(t => t.id);
+
+// Tiles whose hardware is present; hardware maps a tile's needs to a bool.
+function presentTiles(hardware) {
+    return tiles.filter(t => !t.needs || hardware[t.needs]);
+}
 
 const scales = [
     { factor: 0.75, title: qsTr("75%"), description: qsTr("Compact") },

@@ -44,6 +44,7 @@ Page {
             }
             TextSwitch {
                 objectName: "autoBrightnessSwitch"
+                visible: Display.lightSensorAvailable
                 text: qsTr("Automatic brightness")
                 description: qsTr("Adjusts brightness to the light around you")
                 automaticCheck: false
@@ -78,6 +79,7 @@ Page {
             }
             TextSwitch {
                 objectName: "rotationSwitch"
+                visible: Display.rotationAvailable
                 text: qsTr("Rotation lock")
                 description: qsTr("Keeps the screen in its current orientation")
                 automaticCheck: false

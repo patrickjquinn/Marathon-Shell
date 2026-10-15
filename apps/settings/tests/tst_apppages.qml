@@ -31,6 +31,9 @@ TestCase {
         AppInstaller.reset();
         SettingsController.reset();
         Permissions.reset();
+        Modem.reset();
+        Display.reset();
+        Haptics.reset();
     }
 
     function open(name) {
@@ -217,5 +220,17 @@ TestCase {
         // The shell's top menu IDs, not Settings' own names.
         compare(Logic.tiles.map(t => t.id), ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "vibration", "power"]);
         compare(Logic.defaultTiles, Logic.tiles.map(t => t.id));
+    }
+
+    function test_quickSettingsHideAbsentHardware() {
+        Modem.available = false;
+        Display.torchAvailable = false;
+        Display.rotationAvailable = false;
+        Display.lightSensorAvailable = false;
+        Haptics.available = false;
+        const s = open("quicksettings");
+        compare(child(s.page, "tileList").count, Logic.tiles.length - 5);
+        ["cellular", "torch", "rotation", "autobrightness", "vibration"].forEach(id => compare(findChild(s.page, "tile-" + id), null));
+        verify(child(s.page, "tile-wifi"));
     }
 }

@@ -27,6 +27,7 @@ TestCase {
     function init() {
         Settings.reset();
         Display.reset();
+        Haptics.reset();
         Audio.reset();
         Power.reset();
         Wallpapers.reset();
@@ -98,6 +99,21 @@ TestCase {
         compare(findChild(s.page, "clockCombo"), null);
 
         compare(findChild(s.page, "wallpaperButton"), null);
+    }
+
+    function test_displayHidesAbsentSensors() {
+        Display.lightSensorAvailable = false;
+        Display.rotationAvailable = false;
+        const s = open("display");
+        verify(!child(s.page, "autoBrightnessSwitch").visible);
+        verify(!child(s.page, "rotationSwitch").visible);
+        verify(child(s.page, "reduceMotionSwitch").visible);
+    }
+
+    function test_noVibrator() {
+        Haptics.available = false;
+        verify(!child(open("sound").page, "vibrationSwitch").visible);
+        verify(!child(open("keyboard").page, "hapticSwitch").visible);
     }
 
     function test_ambience() {

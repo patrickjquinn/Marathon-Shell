@@ -70,6 +70,7 @@ Page {
             }
             TextSwitch {
                 objectName: "hapticSwitch"
+                visible: Haptics.available
                 text: qsTr("Vibrate on key press")
                 description: Settings.vibrationEnabled ? qsTr("A short buzz for each key") : qsTr("Turn on Vibration in Sounds first")
                 enabled: Settings.vibrationEnabled
