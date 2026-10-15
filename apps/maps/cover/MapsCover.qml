@@ -63,16 +63,18 @@ CoverBackground {
             objectName: "coverPlaceName"
             width: parent.width
             text: root.place ? root.place.name : ""
-            wrapMode: Text.Wrap
+            wrapMode: Text.WordWrap
             maximumLineCount: 2
             elide: Text.ElideRight
             font.pixelSize: Theme.fontSizeSmall
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Theme.fontSizeExtraSmall
         }
         Label {
             width: parent.width
             text: root.place ? root.place.address : ""
             color: Theme.secondaryColor
-            wrapMode: Text.Wrap
+            wrapMode: Text.WordWrap
             maximumLineCount: 3
             elide: Text.ElideRight
             font.pixelSize: Theme.fontSizeExtraSmall
