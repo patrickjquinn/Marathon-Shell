@@ -92,6 +92,14 @@ class DeviceProfile : public QObject {
     qreal panelDpi() const {
         return m_panelDpi;
     }
+    // Doze powers the CRTC down (ACTIVE=0); false = backlight only.
+    bool dozeDpms() const {
+        return m_dozeDpms;
+    }
+    // Doze switches Wi-Fi power save on.
+    bool wifiPowerSave() const {
+        return m_wifiPowerSave;
+    }
 
   private:
     explicit DeviceProfile(QObject *parent = nullptr);
@@ -119,4 +127,6 @@ class DeviceProfile : public QObject {
     int m_runnerWidth  = 540;
     int   m_runnerHeight = 1140;
     qreal m_panelDpi     = 0;
+    bool  m_dozeDpms      = true;
+    bool  m_wifiPowerSave = true;
 };

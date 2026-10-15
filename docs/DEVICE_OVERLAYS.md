@@ -58,6 +58,8 @@ location (for host testing).
 | `RUNNER_WIDTH` | `MARATHON_APP_WIDTH` | `540` | Initial app-runner canvas width (logical px) |
 | `RUNNER_HEIGHT` | `MARATHON_APP_HEIGHT` | `1140` | Initial app-runner canvas height (logical px) |
 | `PANEL_DPI` | `MARATHON_PANEL_DPI` | `0` | True panel DPI, used for the physical size the compositor advertises on `wl_output` (what Wayland clients such as Pacific scale web content by); 0 = the screen's reported size |
+| `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
+| `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 
 ## The image seam (build-time selection)
 

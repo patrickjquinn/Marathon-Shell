@@ -156,6 +156,11 @@ void DeviceProfile::load() {
             m_panelDpi = v;
     }
 
+    if (conf.value("MARATHON_DOZE_DPMS", QStringLiteral("DOZE_DPMS"), s))
+        m_dozeDpms = toBool(s, m_dozeDpms);
+    if (conf.value("MARATHON_WIFI_POWERSAVE", QStringLiteral("WIFI_POWERSAVE"), s))
+        m_wifiPowerSave = toBool(s, m_wifiPowerSave);
+
     qInfo().noquote() << "[DeviceProfile] id=" << m_deviceId << "gpu=" << m_gpuStack
                       << QStringLiteral("gles=%1.%2").arg(m_glesMajor).arg(m_glesMinor)
                       << "alpha=" << m_surfaceHasAlpha << "msaa=" << m_hwMsaaSamples

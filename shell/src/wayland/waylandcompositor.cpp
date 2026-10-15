@@ -1611,7 +1611,7 @@ void WaylandCompositor::setDisplayPowerState(bool on) {
     // deep-idle holds, after the backlight-after-CRTC ordering fix in
     // DisplayManagerCpp::setScreenState + forceBacklightOn(). Set
     // MARATHON_DOZE_DPMS=0 to disable (e.g. bring-up on other panels).
-    static const bool enabled = envBool("MARATHON_DOZE_DPMS", true);
+    static const bool enabled = DeviceProfile::instance().dozeDpms();
     if (!enabled)
         return;
     if (!initAtomicDisplay())

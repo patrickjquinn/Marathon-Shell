@@ -1,4 +1,5 @@
 #include "powerpolicycontroller.h"
+#include "src/managers/deviceprofile.h"
 
 #include "powermanagercpp.h"
 #include "displaymanagercpp.h"
@@ -233,9 +234,10 @@ bool PowerPolicyController::enterDoze() {
     // cap_net_admin on /usr/sbin/iw at boot so this call works as
     // uid 1000 (the alternative — pkexec / nmcli reapply — needs
     // auth_admin which doesn't pass for the active session).
-    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
-                            {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
-                             QStringLiteral("power_save"), QStringLiteral("on")});
+    if (DeviceProfile::instance().wifiPowerSave())
+        QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
+                                {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
+                                 QStringLiteral("power_save"), QStringLiteral("on")});
 
     m_dozing = true;
     emit dozingChanged();
