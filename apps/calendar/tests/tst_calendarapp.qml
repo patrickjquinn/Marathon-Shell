@@ -277,6 +277,7 @@ TestCase {
         page.remove();
         const remorse = child(page, "remorse");
         verify(remorse.active);
+        compare(remorse.text, "Deleted Event 4");
         compare(Calendar.events.length, 1);
         remorse.trigger();
         compare(Calendar.events.length, 0);
