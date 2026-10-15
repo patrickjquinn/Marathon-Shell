@@ -196,7 +196,7 @@ ApplicationWindow {
                 mapCall("setCenter", fix.lat, fix.lon, 15);
                 return;
             }
-            Notices.show(qsTr("Finding your location. Make sure location is turned on, then try again."));
+            Notices.show(qsTr("Finding your location. If it doesn't appear, check that location is turned on."));
             if (location)
                 location.start();
         });
