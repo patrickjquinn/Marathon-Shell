@@ -116,6 +116,21 @@ TestCase {
         compare(e.location, "");
     }
 
+    function test_newEventTitleTakesKeysAtOnce() {
+        const app = makeApp([]);
+        const dialog = app.newEvent(new Date(2026, 4, 2));
+        tryCompare(dialog, "status", PageStatus.Active);
+        keyClick(Qt.Key_L);
+        compare(dialog.title, "l");
+    }
+
+    function test_editedEventTitleIsNotFocused() {
+        const app = makeApp([ev(1, { title: "Dentist" })]);
+        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/EventEditorDialog.qml"), { app: app, original: ev(1, { title: "Dentist" }), title: "Dentist" }, PageStackAction.Immediate);
+        tryCompare(dialog, "status", PageStatus.Active);
+        verify(!child(dialog, "titleField").activeFocus);
+    }
+
     function test_blockedAcceptFlagsTheTitle() {
         const app = makeApp([]);
         const dialog = app.newEvent(new Date(2026, 4, 2));
@@ -334,6 +349,14 @@ TestCase {
         app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
         child(app.pageStack.currentPage, "searchItem").clicked(null);
         compare(pushed(app, 3).objectName, "searchPage");
+    }
+
+    function test_searchTakesKeysAtOnce() {
+        const app = makeApp([ev(1, { title: "Dentist" })]);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), { app: app }, PageStackAction.Immediate);
+        tryCompare(page, "status", PageStatus.Active);
+        keyClick(Qt.Key_D);
+        compare(page.query, "d");
     }
 
     function test_searchPage() {

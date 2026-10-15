@@ -23,14 +23,23 @@ Page {
         header: Column {
             width: view.width
 
+            Connections {
+                target: page
+                function onStatusChanged() {
+                    if (page.status === PageStatus.Active && page.Window.activeFocusItem === page)
+                        searchField.forceActiveFocus();
+                }
+            }
+
             PageHeader {
                 title: qsTr("Search")
             }
             SearchField {
+                id: searchField
+
                 objectName: "searchField"
                 width: parent.width
                 placeholderText: qsTr("Search events")
-                focus: true
                 onTextChanged: page.query = text
                 EnterKey.iconSource: "image://theme/icon-m-enter-close"
                 EnterKey.onClicked: focus = false

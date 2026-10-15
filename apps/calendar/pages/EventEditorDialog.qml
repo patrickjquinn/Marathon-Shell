@@ -50,6 +50,8 @@ Dialog {
         Notices.show(qsTr("Add a title first"));
     }
     onAccepted: app.saveEvent(event())
+    onStatusChanged: if (status === PageStatus.Active && original === null && Window.activeFocusItem === dialog)
+        titleField.forceActiveFocus()
 
     Component {
         id: datePickerComponent
@@ -82,7 +84,6 @@ Dialog {
                 width: parent.width
                 label: qsTr("Title")
                 placeholderText: qsTr("Event title")
-                focus: dialog.original === null
                 errorHighlight: dialog.showErrors && text.trim() === ""
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: locationField.focus = true
