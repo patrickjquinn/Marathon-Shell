@@ -10,7 +10,7 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: cover.photo === ""
-        text: qsTr("Camera")
+        text: qsTr("No photos")
         icon.source: "image://theme/icon-l-camera"
     }
 
