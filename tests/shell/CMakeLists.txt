@@ -158,6 +158,7 @@ add_executable(test_shell_alarmmanager
     test_alarmmanager.cpp
     ../../shell/src/managers/alarmmanagercpp.cpp
     ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/powermanagercpp.cpp
     ../../shell/src/managers/hapticmanager.cpp
 )

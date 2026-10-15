@@ -194,6 +194,7 @@ add_executable(test_core_settingscontract
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
 )
 target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
 target_include_directories(test_core_settingscontract PRIVATE
@@ -209,6 +210,7 @@ add_executable(test_core_ipcclientnormalize
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
@@ -242,6 +244,7 @@ add_test(NAME Core_DeviceProfileCallAudio COMMAND test_core_deviceprofile_callau
 add_executable(test_core_lockdelaymigration
     test_lockdelaymigration.cpp
     ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
 )
 target_link_libraries(test_core_lockdelaymigration Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
 target_include_directories(test_core_lockdelaymigration PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
@@ -251,6 +254,7 @@ add_test(NAME Core_LockDelayMigration COMMAND test_core_lockdelaymigration)
 add_executable(test_core_settingsstore
     test_settingsstore.cpp
     ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_settingsstore PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_settingsstore Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
