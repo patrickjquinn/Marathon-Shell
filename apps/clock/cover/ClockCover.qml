@@ -43,32 +43,26 @@ CoverBackground {
         objectName: "coverPlaceholder"
         visible: root.mode === "idle"
         text: qsTr("No alarms")
+        icon.source: "image://theme/icon-l-alarm"
     }
 
     Column {
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
         visible: root.mode !== "idle"
+        spacing: Theme.paddingSmall
 
-        Label {
-            objectName: "coverTitle"
+        CoverHeadline {
+            objectName: "coverHeadline"
             width: parent.width
-            text: root.mode === "timer" ? Logic.formatCountdown(root.countdown.remaining)
+            value: root.mode === "timer" ? Logic.formatCountdown(root.countdown.remaining)
                 : root.mode === "stopwatch" ? Logic.formatCountdown(Math.floor(root.stopwatch.elapsed / 1000))
                 : root.next ? Format.formatDate(root.next.when, Formatter.TimeValue) : ""
-            font.pixelSize: Theme.fontSizeHuge
-            font.features: ({ "tnum": 1 })
-            fontSizeMode: Text.HorizontalFit
-        }
-        Label {
-            objectName: "coverSubtitle"
-            width: parent.width
-            text: root.mode === "timer" ? qsTr("Timer")
+            valueColor: root.mode === "timer" && !root.countdown.running ? Theme.secondaryHighlightColor : Theme.highlightColor
+            label: root.mode === "timer" ? qsTr("Timer")
                 : root.mode === "stopwatch" ? qsTr("Stopwatch")
                 : root.next ? root.next.alarm.label || qsTr("Alarm") : ""
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
         }
         Label {
             objectName: "coverDetail"
@@ -78,7 +72,7 @@ CoverBackground {
                 : root.mode === "timer" && !root.countdown.running ? qsTr("Paused")
                 : ""
             truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
+            font.pixelSize: Theme.fontSizeExtraSmall
             color: Theme.secondaryColor
         }
     }

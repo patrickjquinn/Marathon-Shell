@@ -49,7 +49,7 @@ TestCase {
         compare(t.cover.mode, "alarm");
         verify(!findChild(t.cover, "coverPlaceholder").visible);
         compare(t.cover.next.alarm.id, "b");
-        compare(findChild(t.cover, "coverSubtitle").text, "Standup");
+        compare(findChild(t.cover, "coverHeadline").label, "Standup");
     }
 
     function test_runningTimerWins() {
@@ -57,7 +57,7 @@ TestCase {
         t.countdown.set(90);
         t.countdown.start();
         compare(t.cover.mode, "timer");
-        compare(findChild(t.cover, "coverTitle").text, "1:30");
+        compare(findChild(t.cover, "coverHeadline").value, "1:30");
         const toggle = findChild(t.cover, "toggleTimer");
         compare(toggle.iconSource, "image://theme/icon-cover-pause");
         toggle.triggered();
