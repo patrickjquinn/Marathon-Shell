@@ -50,6 +50,7 @@ class AppLifecycleManager : public QObject {
     Q_INVOKABLE bool     minimizeForegroundApp();
 
     Q_INVOKABLE void     closeApp(const QString &appId, bool skipNativeClose = false);
+    Q_INVOKABLE void     prepareClose(const QString &appId);
     Q_INVOKABLE void     broadcastLowMemory();
 
     // Memory-pressure kill path: pick the longest-frozen app, SIGTERM with

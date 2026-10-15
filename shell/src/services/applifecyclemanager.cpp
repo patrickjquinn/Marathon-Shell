@@ -307,9 +307,16 @@ void AppLifecycleManager::broadcastLowMemory() {
     }
 }
 
+void AppLifecycleManager::prepareClose(const QString &appId) {
+    cancelIdleFreezeDebounce(appId);
+    if (lifecycleState(appId) == Frozen)
+        transitionTo(appId, BackgroundIdle);
+}
+
 void AppLifecycleManager::closeApp(const QString &appId, bool skipNativeClose) {
     if (appId.isEmpty())
         return;
+    prepareClose(appId);
 
     if (m_taskModel) {
         if (Task *task = m_taskModel->getTaskByAppId(appId)) {

@@ -121,6 +121,7 @@ Item {
                     if (taskCard.type === "native") {
                         if (typeof taskCard.compositor !== 'undefined' && taskCard.compositor && taskCard.surfaceId >= 0) {
                             Logger.info("TaskCard", "Closing native app via compositor, surfaceId: " + taskCard.surfaceId);
+                            AppLifecycleManager.prepareClose(taskCard.appId);
                             taskCard.compositor.closeWindow(taskCard.surfaceId);
                         }
                         TaskModel.closeTask(taskCard.id);
