@@ -10,4 +10,7 @@ QtObject {
     readonly property int staggerMicro: 0
     function durationFor(role) { return 0; }
     function easingFor(role) { return 0; }
+    function stiffnessSpatialFor(role) { return 4; }
+    function dampingSpatialFor(role) { return 0.5; }
+    readonly property real epsilon: 0.01
 }

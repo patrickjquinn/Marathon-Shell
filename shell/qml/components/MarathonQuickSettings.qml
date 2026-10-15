@@ -370,6 +370,7 @@ Item {
                 width: parent.width
 
                 MQSSlider {
+                    objectName: "brightnessSlider"
                     width: parent.width
                     iconName: "sun"
                     a11yName: "Brightness"

@@ -69,6 +69,7 @@ Item {
 
             Rectangle {
                 id: track
+                objectName: "sliderTrack"
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -123,13 +124,13 @@ Item {
                     anchors.fill: track
                     anchors.topMargin: -16
                     anchors.bottomMargin: -16
-                    // The Quick Settings shade is a Flickable at larger
-                    // display scales, and this hit area is padded 16px
-                    // vertically. Without this a slightly diagonal drag
-                    // hands the grab to the Flickable mid-gesture: the
-                    // press is cancelled and brightness sticks at whatever
-                    // partial value it had reached while the shade scrolls.
-                    preventStealing: true
+                    // Undecided until the finger passes the drag threshold:
+                    // sideways locks the slider against the shade's Flickable
+                    // and dismiss drag, vertical leaves the gesture to them.
+                    property bool dragging: false
+                    property real pressX: 0
+                    property real pressY: 0
+                    preventStealing: dragging
                     // Continuous haptic on every value-step. iOS pulses
                     // at every integer crossing on the Control Center
                     // slider — same idea: gives the dragged track a
@@ -137,15 +138,28 @@ Item {
                     property int _lastHapticStep: -1
                     onPressed: {
                         _lastHapticStep = -1;
-                        applyDragAt(mouseX);
+                        dragging = false;
+                        pressX = mouseX;
+                        pressY = mouseY;
                     }
                     onReleased: {
+                        if (!dragging)
+                            applyDragAt(mouseX);
+                        dragging = false;
                         // Release haptic = settle confirmation.
                         MHaptics.light();
                     }
+                    onCanceled: dragging = false
                     onPositionChanged: {
-                        if (pressed)
-                            applyDragAt(mouseX);
+                        if (!pressed)
+                            return;
+                        if (!dragging) {
+                            const dx = Math.abs(mouseX - pressX);
+                            if (dx < Qt.styleHints.startDragDistance || dx <= Math.abs(mouseY - pressY))
+                                return;
+                            dragging = true;
+                        }
+                        applyDragAt(mouseX);
                     }
                     // Not drag(): that is MouseArea's own grouped property.
                     function applyDragAt(x) {
