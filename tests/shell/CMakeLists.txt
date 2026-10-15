@@ -193,3 +193,25 @@ add_executable(test_shell_securitymanager
 target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Concurrent ${PAM_LIBRARY})
 target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
+
+# A background launch starts the app without bringing it to the front
+add_executable(test_shell_backgroundlaunch
+    test_backgroundlaunch.cpp
+    ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/services/applifecyclemanager.cpp
+    ../../shell/src/services/cgroupmanager.cpp
+    ../../shell/src/services/processstopper.cpp
+    ../../shell/src/models/taskmodel.cpp
+    ../../shell/src/models/appmodel.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/managers/screenmetrics.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_shell_backgroundlaunch Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
+target_include_directories(test_shell_backgroundlaunch PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+)
+add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)

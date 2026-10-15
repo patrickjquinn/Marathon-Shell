@@ -1762,6 +1762,7 @@ qint64 AppLaunchService::terminationPidForAppId(const QString &appId) const {
     return host > 0 ? host : pidForAppId(appId);
 }
 
+#if defined(HAVE_WAYLAND)
 void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                                   QWaylandXdgSurface *xdgSurface) {
     if (!surface) {
@@ -1887,6 +1888,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                    {effectiveAppId, appName, appIcon, QStringLiteral("native"),
                     QVariant::fromValue(qmlSurfaceObj), surfaceId});
 }
+#endif
 
 // The compositor's real app area once the shell has laid out; a client that
 // starts at its final size never lays out twice on open.
