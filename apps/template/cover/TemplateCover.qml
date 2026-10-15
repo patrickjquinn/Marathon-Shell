@@ -15,12 +15,14 @@ CoverBackground {
         text: qsTr("No items")
     }
 
-    Label {
+    CoverHeadline {
         objectName: "coverCount"
+        x: Theme.paddingLarge
+        y: Theme.paddingLarge
+        width: parent.width - 2 * Theme.paddingLarge
         visible: cover.count > 0
-        anchors.centerIn: parent
-        text: cover.count === 1 ? qsTr("1 item") : qsTr("%1 items").arg(cover.count)
-        font.pixelSize: Theme.fontSizeLarge
+        value: cover.count
+        label: cover.count === 1 ? qsTr("item") : qsTr("items")
     }
 
     CoverActionList {

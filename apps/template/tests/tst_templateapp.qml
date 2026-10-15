@@ -100,7 +100,8 @@ TestCase {
         c.count = 2;
         verify(!findChild(c, "coverPlaceholder").visible);
         verify(findChild(c, "coverCount").visible);
-        compare(findChild(c, "coverCount").text, "2 items");
+        compare(findChild(c, "coverCount").value, "2");
+        compare(findChild(c, "coverCount").label, "items");
         addSpy.target = c;
         addSpy.clear();
         findChild(c, "addAction").triggered();
