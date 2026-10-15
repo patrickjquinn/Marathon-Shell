@@ -16,7 +16,7 @@ MApp {
     property var surfaceItemRef: null
     readonly property bool keelApp: {
         const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
-        return !!info;
+        return !!info || AppLaunchService.isKeelHostApp(nativeAppId);
     }
 
     // Both of these are declared and driven by MApp. Redeclaring them here
