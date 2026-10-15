@@ -60,6 +60,7 @@ location (for host testing).
 | `PANEL_DPI` | `MARATHON_PANEL_DPI` | `0` | True panel DPI, used for the physical size the compositor advertises on `wl_output` (what Wayland clients such as Pacific scale web content by); 0 = the screen's reported size |
 | `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
+| `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
 
 ## The image seam (build-time selection)
 

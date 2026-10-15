@@ -158,6 +158,12 @@ void DeviceProfile::load() {
 
     if (conf.value("MARATHON_DOZE_DPMS", QStringLiteral("DOZE_DPMS"), s))
         m_dozeDpms = toBool(s, m_dozeDpms);
+    if (conf.value("MARATHON_SCREEN_TIMEOUT_MS", QStringLiteral("SCREEN_TIMEOUT_MS"), s)) {
+        bool      ok = false;
+        const int n  = s.toInt(&ok);
+        if (ok && n >= 0)
+            m_screenTimeoutMs = n;
+    }
     if (conf.value("MARATHON_WIFI_POWERSAVE", QStringLiteral("WIFI_POWERSAVE"), s))
         m_wifiPowerSave = toBool(s, m_wifiPowerSave);
 

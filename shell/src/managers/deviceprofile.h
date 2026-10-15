@@ -96,6 +96,10 @@ class DeviceProfile : public QObject {
     bool dozeDpms() const {
         return m_dozeDpms;
     }
+    // Default idle screen-off in ms; 0 = never.
+    int screenTimeoutMs() const {
+        return m_screenTimeoutMs;
+    }
     // Doze switches Wi-Fi power save on.
     bool wifiPowerSave() const {
         return m_wifiPowerSave;
@@ -129,4 +133,5 @@ class DeviceProfile : public QObject {
     qreal m_panelDpi     = 0;
     bool  m_dozeDpms      = true;
     bool  m_wifiPowerSave = true;
+    int   m_screenTimeoutMs = 300000;
 };
