@@ -129,6 +129,11 @@ target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
 target_include_directories(test_shell_sailfishlaunch PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SailfishLaunch COMMAND test_shell_sailfishlaunch)
 
+add_executable(test_shell_processtree test_processtree.cpp)
+target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
+target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
+
 # Status bar glyphs: real Phosphor names, state carried by the glyph
 add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
 target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)
