@@ -28,10 +28,10 @@ TestCase {
         return createTemporaryObject(coverComponent, test, { session: session });
     }
 
-    function test_showsTheLastThreeLines() {
-        const c = makeCover(["one", "two", "$ ls", "file.txt"]);
-        compare(findChild(c, "coverLines").count, 3);
-        compare(c.lines, ["two", "$ ls", "file.txt"]);
+    function test_showsTheLastSixLines() {
+        const c = makeCover(["one", "two", "three", "four", "five", "$ ls", "file.txt"]);
+        compare(findChild(c, "coverLines").count, 6);
+        compare(c.lines, ["two", "three", "four", "five", "$ ls", "file.txt"]);
         verify(!findChild(c, "coverPlaceholder").visible);
     }
 

@@ -12,7 +12,7 @@ CoverBackground {
     signal newSessionRequested
 
     function refresh() {
-        lines = session ? session.recentLines(3) : [];
+        lines = session ? session.recentLines(6) : [];
     }
 
     onSessionChanged: refresh()
@@ -29,7 +29,7 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: cover.lines.length === 0
-        text: qsTr("Terminal")
+        text: qsTr("No output")
         icon.source: "image://theme/icon-l-terminal"
     }
 
@@ -41,8 +41,6 @@ CoverBackground {
             margins: Theme.paddingLarge
             bottomMargin: cover.coverActionArea.height + Theme.paddingMedium
         }
-        spacing: Theme.paddingSmall
-
         Repeater {
             objectName: "coverLines"
             model: cover.lines
@@ -53,7 +51,7 @@ CoverBackground {
                 width: parent.width
                 text: modelData
                 font.family: "JetBrains Mono"
-                font.pixelSize: Theme.fontSizeMedium
+                font.pixelSize: Theme.fontSizeExtraSmall
                 truncationMode: TruncationMode.Fade
             }
         }
