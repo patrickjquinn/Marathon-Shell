@@ -43,7 +43,7 @@ TestCase {
         const tabs = tabsOf(makeApp());
         compare(tabs.count, 4);
         compare(tabs.model.get(0).title, "Alarms");
-        compare(tabs.model.get(1).title, "World clock");
+        compare(tabs.model.get(1).title, "World");
         compare(tabs.model.get(2).title, "Stopwatch");
         compare(tabs.model.get(3).title, "Timer");
         compare(tabs.currentIndex, 0);

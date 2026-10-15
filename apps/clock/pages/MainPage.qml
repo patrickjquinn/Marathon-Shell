@@ -21,7 +21,7 @@ Page {
         model: ListModel {
             Component.onCompleted: {
                 append({ title: qsTr("Alarms"), page: alarmsTab });
-                append({ title: qsTr("World clock"), page: worldClockTab });
+                append({ title: qsTr("World"), page: worldClockTab });
                 append({ title: qsTr("Stopwatch"), page: stopwatchTab });
                 append({ title: qsTr("Timer"), page: timerTab });
             }
