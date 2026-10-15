@@ -47,17 +47,19 @@ CoverBackground {
                 objectName: "coverNoteTitle"
                 width: parent.width
                 text: cover.latest ? Store.titleOf(Store.text(cover.latest)) || qsTr("Untitled") : ""
-                wrapMode: Text.Wrap
+                wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 font.pixelSize: Theme.fontSizeSmall
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Theme.fontSizeExtraSmall
                 color: Theme.highlightColor
             }
             Label {
                 objectName: "coverNoteBody"
                 width: parent.width
                 text: cover.lines.join("\n").trim()
-                wrapMode: Text.Wrap
+                wrapMode: Text.WordWrap
                 font.pixelSize: Theme.fontSizeExtraSmall
                 lineHeight: 1.1
             }
