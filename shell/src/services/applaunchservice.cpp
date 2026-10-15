@@ -303,8 +303,14 @@ void AppLaunchService::setCompositor(QObject *obj) {
             QObject::connect(
                 wc, &WaylandCompositor::dialogCreated, this,
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
-                    const qint64  pid   = surface->client()->processId();
-                    const QString appId = appIdForPid(pid);
+                    const qint64 pid   = surface->client()->processId();
+                    QString      appId = appIdForPid(pid);
+                    // A hosted app (marathon-keel-host) runs as the registered
+                    // process's child.
+                    for (auto it = m_pidToAppId.cbegin(); appId.isEmpty() && it != m_pidToAppId.cend(); ++it) {
+                        if (isDescendantPid(pid, it.key()))
+                            appId = it.value();
+                    }
                     // Only an app the shell runs may put a window over others.
                     if (appId.isEmpty()) {
                         qWarning() << "[AppLaunchService] Dialog surfaceId" << surfaceId
