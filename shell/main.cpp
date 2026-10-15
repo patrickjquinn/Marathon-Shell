@@ -52,6 +52,7 @@
 #include "src/managers/deviceprofile.h"
 #include "src/managers/displaymanagercpp.h"
 #include "src/managers/powerkeylistener.h"
+#include "src/services/wakeonkeyfilter.h"
 #include "src/services/inputboost.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
@@ -870,6 +871,11 @@ int main(int argc, char *argv[]) {
                          powerBatteryHandler->handlePowerButtonPress(
                              false, screenOn, QStringLiteral("power key on ") + device);
                      });
+    if (DeviceProfile::instance().wakeOnKey()) {
+        app.installEventFilter(new WakeOnKeyFilter(
+            [powerBatteryHandler]() { return powerBatteryHandler->screenOff(); },
+            [powerBatteryHandler]() { powerBatteryHandler->wakeFromKey(); }, &app));
+    }
     auto *audioPolicyController =
         new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
     qmlRegisterSingletonInstance<AudioPolicyController>(

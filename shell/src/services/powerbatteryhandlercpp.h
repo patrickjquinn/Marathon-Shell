@@ -30,6 +30,11 @@ class PowerBatteryHandlerCpp : public QObject {
     // what blanked the screen the instant the menu appeared.
     void notePowerButtonDown();
 
+    bool screenOff() const;
+    // WAKE_ON_KEY: a keyboard key while the screen is off. A power press in
+    // flight decides the screen state on its release instead.
+    void wakeFromKey();
+
   signals:
     void lockRequested();
 

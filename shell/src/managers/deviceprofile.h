@@ -109,6 +109,10 @@ class DeviceProfile : public QObject {
     bool wifiPowerSave() const {
         return m_wifiPowerSave;
     }
+    // A key press on a physical keyboard wakes a blanked screen.
+    bool wakeOnKey() const {
+        return m_wakeOnKey;
+    }
 
   private:
     explicit DeviceProfile(QObject *parent = nullptr);
@@ -140,4 +144,5 @@ class DeviceProfile : public QObject {
     bool  m_wifiPowerSave = true;
     int   m_screenTimeoutMs = 300000;
     int   m_panelDepth      = 8;
+    bool  m_wakeOnKey       = false;
 };

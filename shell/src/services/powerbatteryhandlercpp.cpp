@@ -6,6 +6,7 @@
 #include "powerpolicycontroller.h"
 
 #include <QDateTime>
+#include <QDebug>
 
 PowerBatteryHandlerCpp::PowerBatteryHandlerCpp(PowerPolicyController   *powerPolicy,
                                                DisplayPolicyController *displayPolicy,
@@ -87,6 +88,20 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
 
     if (m_haptics)
         m_haptics->medium();
+}
+
+bool PowerBatteryHandlerCpp::screenOff() const {
+    return (m_displayPolicy && !m_displayPolicy->screenOn()) ||
+        (m_powerPolicy && m_powerPolicy->dozing());
+}
+
+void PowerBatteryHandlerCpp::wakeFromKey() {
+    const bool powerHeld =
+        m_pressDownMs > 0 && QDateTime::currentMSecsSinceEpoch() - m_pressDownMs < 5000;
+    if (powerHeld || !screenOff())
+        return;
+    qInfo() << "[PowerBatteryHandler] screen on by keyboard key";
+    turnScreenOn();
 }
 
 void PowerBatteryHandlerCpp::turnScreenOn() {

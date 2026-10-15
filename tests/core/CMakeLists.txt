@@ -252,6 +252,17 @@ target_link_libraries(test_core_deviceprofile_callaudio Qt6::Test Qt6::Core)
 target_include_directories(test_core_deviceprofile_callaudio PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_DeviceProfileCallAudio COMMAND test_core_deviceprofile_callaudio)
 
+# WAKE_ON_KEY: a key wakes a blanked screen without reaching apps
+add_executable(test_core_wakeonkeyfilter
+    test_wakeonkeyfilter.cpp
+    ../../shell/src/services/wakeonkeyfilter.cpp
+)
+set_target_properties(test_core_wakeonkeyfilter PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_wakeonkeyfilter Qt6::Test Qt6::Gui Qt6::GuiPrivate)
+target_include_directories(test_core_wakeonkeyfilter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_WakeOnKeyFilter COMMAND test_core_wakeonkeyfilter)
+set_tests_properties(Core_WakeOnKeyFilter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # The old auto-lock switch carried into the lock delay
 add_executable(test_core_lockdelaymigration
     test_lockdelaymigration.cpp
