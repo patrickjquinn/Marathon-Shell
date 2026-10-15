@@ -9,7 +9,7 @@ QtObject {
     property string deviceModel: "Purism Librem 5"
     property string displayResolution: "720x1440"
     property string displayRefreshRate: "60 Hz"
-    property string displayDpi: "268.0"
+    property string displayDpi: "268 dpi"
     property string displayScale: "2.00"
     property var openSourceLicenses: [{ title: "Marathon OS", items: [{ title: "Marathon Shell", subtitle: "Core shell and system apps", value: "Apache-2.0" }] }]
 

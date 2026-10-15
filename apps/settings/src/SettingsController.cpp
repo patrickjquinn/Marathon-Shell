@@ -64,7 +64,7 @@ SettingsController::SettingsController(QObject *parent)
                                     QStringLiteral("BSD-3-Clause")));
     m_openSourceLicenses.append(makeSection(QStringLiteral("Marathon OS"), coreItems));
     m_openSourceLicenses.append(
-        makeSection(QStringLiteral("Third-Party Components"), thirdPartyItems));
+        makeSection(QStringLiteral("Third-party components"), thirdPartyItems));
     QTimer::singleShot(0, this, &SettingsController::resolveDependencies);
 }
 
@@ -586,7 +586,7 @@ void SettingsController::updateSystemInfo() {
         const QSize size     = screen->size();
         m_displayResolution  = QStringLiteral("%1x%2").arg(size.width()).arg(size.height());
         m_displayRefreshRate = QString::number(screen->refreshRate(), 'f', 0) + " Hz";
-        m_displayDpi         = QString::number(screen->physicalDotsPerInch(), 'f', 1);
+        m_displayDpi         = QString::number(screen->physicalDotsPerInch(), 'f', 0) + " dpi";
         m_displayScale       = QString::number(screen->devicePixelRatio(), 'f', 2);
     } else {
         m_displayResolution.clear();
