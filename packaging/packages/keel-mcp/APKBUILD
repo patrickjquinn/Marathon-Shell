@@ -1,0 +1,35 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# keel-mcp (Shipwright keel/actions/mcp): the MCP server for the Keel Actions
+# of the apps on the device. pilotd starts /usr/bin/keel-mcp --stdio when it
+# is installed. Built from a Shipwright commit like shoal-pilotd;
+# scripts/qemu/lib/build-keel-mcp-apk.sh stages a local checkout.
+pkgname=keel-mcp
+pkgver=0.1.0
+pkgrel=0
+_commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
+pkgdesc="MCP server for the Keel Actions of Marathon apps"
+url="https://github.com/patrickjquinn/shipwright-open"
+arch="aarch64 x86_64"
+license="MIT"
+depends="dbus"
+makedepends="cargo"
+source="keel-mcp-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz"
+builddir="$srcdir/shipwright-open-$_commit"
+# The tests need a session bus and the Keel Actions test app; they run in
+# Shipwright's CI.
+options="!check net"
+
+build() {
+	export CARGO_TARGET_DIR="$builddir/target"
+	cargo build --release --locked -p keel-mcp
+}
+
+package() {
+	install -Dm755 target/release/keel-mcp "$pkgdir"/usr/bin/keel-mcp
+	install -d "$pkgdir"/usr/share/keel/actions
+	install -Dm644 LICENSES/MIT.txt "$pkgdir"/usr/share/licenses/$pkgname/MIT.txt
+}
+
+sha512sums="
+SKIP  keel-mcp-$_commit.tar.gz
+"
