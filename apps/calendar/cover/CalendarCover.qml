@@ -104,7 +104,7 @@ CoverBackground {
             width: parent.width
             visible: cover.next.length === 0
             text: qsTr("No more events today")
-            wrapMode: Text.Wrap
+            wrapMode: Text.WordWrap
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
         }
