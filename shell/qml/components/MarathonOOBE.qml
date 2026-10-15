@@ -60,6 +60,17 @@ Item {
 
     signal setupComplete
 
+    // The page isn't in a focus chain of its own; hand it focus for typed digits.
+    function focusPasscode() {
+        if (visible && currentPage === 5)
+            passcodePage.forceActiveFocus();
+        else if (currentPage !== 5)
+            passcodePage.focus = false;
+    }
+
+    onCurrentPageChanged: focusPasscode()
+    onVisibleChanged: focusPasscode()
+
     component StepTitle: Silica.Label {
         Layout.fillWidth: true
         Layout.leftMargin: Silica.Theme.horizontalPageMargin
@@ -991,6 +1002,20 @@ Item {
                     passcodePage.confirmedPin = passcodePage.confirmedPin.slice(0, -1);
                 if (typeof HapticManager !== 'undefined')
                     HapticManager.light();
+            }
+
+            Keys.onPressed: function (event) {
+                if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
+                    passcodePage.appendDigit(String.fromCharCode(event.key));
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
+                    passcodePage.deleteDigit();
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    if (passcodePage.currentPin.length >= passcodePage.requiredLength)
+                        passcodePage.tryAdvance();
+                    event.accepted = true;
+                }
             }
 
             function tryAdvance() {

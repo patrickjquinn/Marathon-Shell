@@ -45,3 +45,4 @@ singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml
 MNowBar 1.0 ../../../../../shell/qml/ui/MNowBar.qml
+MMarathonMark 1.0 ../../../../../shell/qml/ui/MMarathonMark.qml
