@@ -2521,9 +2521,11 @@ Item {
     // dithers: break gradient bands over everything, apps included.
     Image {
         anchors.fill: parent
-        source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
+        // Ordered dither: an 8x8 Bayer threshold scaled to one step of the
+        // panel's depth, so the panel's truncation rounds instead of bands.
+        source: "file:///usr/share/marathon-shell/wallpapers/dither-bayer.png"
         fillMode: Image.Tile
-        opacity: 0.035
+        opacity: (1 << (8 - DeviceProfile.panelDepth)) / 255
         smooth: false
         cache: true
         visible: DeviceProfile.panelDepth < 8
