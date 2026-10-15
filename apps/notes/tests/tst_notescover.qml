@@ -13,16 +13,17 @@ TestCase {
     Component { id: cover; NotesCover {} }
     SignalSpy { id: newSpy; signalName: "newNoteRequested" }
 
-    function test_listsLatestTitles() {
-        const c = createTemporaryObject(cover, this, { notes: [{ id: 2, title: "Groceries" }, { id: 1, title: "Ideas" }] });
-        const labels = findChild(c, "coverNotes");
-        compare(labels.count, 2);
+    function test_showsLatestNote() {
+        const c = createTemporaryObject(cover, this, { notes: [{ id: 2, title: "Groceries", content: "Groceries\nMilk\nBread" }, { id: 1, title: "Ideas", content: "Ideas" }] });
+        compare(findChild(c, "coverNoteTitle").text, "Groceries");
+        compare(findChild(c, "coverNoteBody").text, "Milk\nBread");
         verify(!findChild(c, "coverPlaceholder").visible);
     }
 
-    function test_atMostThree() {
-        const c = createTemporaryObject(cover, this, { notes: [{ id: 4, title: "a" }, { id: 3, title: "b" }, { id: 2, title: "c" }, { id: 1, title: "d" }] });
-        compare(findChild(c, "coverNotes").count, 3);
+    function test_legacyTitleKeptApart() {
+        const c = createTemporaryObject(cover, this, { notes: [{ id: 1, title: "Trip", content: "Book ferry" }] });
+        compare(findChild(c, "coverNoteTitle").text, "Trip");
+        compare(findChild(c, "coverNoteBody").text, "Book ferry");
     }
 
     function test_placeholderWhenEmpty() {

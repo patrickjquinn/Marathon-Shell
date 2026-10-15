@@ -2,40 +2,73 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import "../NotesStore.js" as Store
 
+// The latest note, as written: its first line, then as much of the rest as fits.
 CoverBackground {
     id: cover
 
     property var notes: []
+    readonly property var latest: notes.length > 0 ? notes[0] : null
+    readonly property var lines: {
+        if (!latest)
+            return [];
+        const all = Store.text(latest).split("\n");
+        return all.slice(all.findIndex(l => l.trim() !== "") + 1);
+    }
 
     signal newNoteRequested
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
-        visible: cover.notes.length === 0
+        visible: cover.latest === null
         text: qsTr("No notes")
-        icon.source: "image://theme/icon-m-note"
+        icon.source: "image://theme/icon-l-note"
     }
 
-    Column {
-        x: Theme.paddingLarge
-        y: Theme.paddingMedium
-        width: parent.width - 2 * Theme.paddingLarge
-        spacing: Theme.paddingSmall
+    Item {
+        id: page
 
-        Repeater {
-            objectName: "coverNotes"
-            model: cover.notes.slice(0, 3)
+        visible: cover.latest !== null
+        clip: true
+        anchors {
+            fill: parent
+            leftMargin: Theme.paddingLarge
+            rightMargin: Theme.paddingLarge
+            topMargin: Theme.paddingLarge
+            bottomMargin: cover.coverActionArea.height
+        }
+
+        Column {
+            width: parent.width
+            spacing: Theme.paddingSmall
 
             Label {
-                required property var modelData
-
+                objectName: "coverNoteTitle"
                 width: parent.width
-                text: modelData.title || qsTr("Untitled")
-                truncationMode: TruncationMode.Fade
-                font.pixelSize: Theme.fontSizeMedium
+                text: cover.latest ? Store.titleOf(Store.text(cover.latest)) || qsTr("Untitled") : ""
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.highlightColor
+            }
+            Label {
+                objectName: "coverNoteBody"
+                width: parent.width
+                text: cover.lines.join("\n").trim()
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                lineHeight: 1.1
             }
         }
+    }
+
+    OpacityRampEffect {
+        sourceItem: page
+        direction: OpacityRamp.TopToBottom
+        offset: 0.6
+        slope: 2.5
     }
 
     CoverActionList {
