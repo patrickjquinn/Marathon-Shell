@@ -82,6 +82,17 @@ TestCase {
         compare(p.text, "No matching notes");
     }
 
+    function test_searchTakesKeys() {
+        const app = makeApp([note(1, { title: "Groceries", content: "milk" }), note(2, { title: "Ideas" })]);
+        const field = findChild(view(app, "notesView").headerItem, "searchField");
+        mouseClick(field);
+        keyClick(Qt.Key_M);
+        keyClick(Qt.Key_I);
+        compare(field.text, "mi");
+        compare(app.pageStack.currentPage.shown.map(n => n.id), [1]);
+        verify(field.activeFocus);
+    }
+
     function test_tapOpensEditor() {
         const app = makeApp([note(1), note(2)]);
         mouseClick(delegateAt(view(app, "notesView"), 0));

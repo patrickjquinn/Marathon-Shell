@@ -85,6 +85,19 @@ TestCase {
         verify(findChild(list, "peoplePlaceholder").enabled);
     }
 
+    function test_searchTakesKeys() {
+        const app = makeApp();
+        const list = openPeople(app);
+        const search = findChild(list, "searchField");
+        tryVerify(() => Math.abs(search.mapToItem(testCase, 0, 0).x) < 1);
+        mouseClick(search);
+        keyClick(Qt.Key_G);
+        keyClick(Qt.Key_R);
+        compare(search.text, "gr");
+        tryCompare(list, "count", 1);
+        verify(search.activeFocus);
+    }
+
     function test_withoutPermissionAsksOnOpen() {
         Permissions.granted = false;
         const app = makeApp();

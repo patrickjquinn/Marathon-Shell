@@ -172,6 +172,18 @@ TestCase {
         tryVerify(() => app.pageStack.depth === 1);
     }
 
+    function test_addCitySearchTakesKeys() {
+        const app = makeApp();
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        let field = null;
+        tryVerify(() => (field = findChild(page, "citySearch")) !== null && field.visible);
+        mouseClick(field);
+        keyClick(Qt.Key_R);
+        keyClick(Qt.Key_O);
+        compare(field.text, "ro");
+        verify(field.activeFocus);
+    }
+
     function test_cityTime() {
         const app = makeApp();
         compare(app.cityTime({ name: "London", tz: "Europe/London" }, new Date()).diff, "Local");
