@@ -11,6 +11,10 @@ Page {
 
     property Calculator calc
     property bool scientific: true
+    // Keys shrink on short screens so the display always fits above them.
+    readonly property real keyScale: Math.min(1, (height - 2 * Theme.paddingMedium - Theme.itemSizeLarge
+                                                  - 2.8 * Theme.fontSizeMedium - Theme.paddingLarge)
+                                                 / (5 * Theme.itemSizeLarge + (scientific ? 2 * Theme.itemSizeSmall : 0)))
 
     function tap(k) {
         feedback.play();
@@ -243,7 +247,7 @@ Page {
                     required property string modelData
 
                     width: functionKeys.width / functionKeys.columns
-                    height: Theme.itemSizeSmall
+                    height: Theme.itemSizeSmall * page.keyScale
                     key: modelData
                     kind: "function"
                     onClicked: page.tap(key)
@@ -275,7 +279,7 @@ Page {
                     required property var modelData
 
                     width: keypad.width / keypad.columns
-                    height: Theme.itemSizeLarge
+                    height: Theme.itemSizeLarge * page.keyScale
                     key: modelData.key
                     kind: modelData.kind
                     onClicked: page.tap(key)

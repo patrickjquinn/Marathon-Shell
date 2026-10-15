@@ -11,10 +11,11 @@ TestCase {
     width: 720; height: 1440
 
     Component { id: appComponent; CalculatorApp { width: 720; height: 1440 } }
+    Component { id: squareAppComponent; CalculatorApp { width: 720; height: 658 } }
     Component { id: valueStub; QtObject { property var value } }
 
-    function make() {
-        const app = createTemporaryObject(appComponent, this, {
+    function make(component) {
+        const app = createTemporaryObject(component || appComponent, this, {
             modeStore: createTemporaryObject(valueStub, this, { value: true }),
             historyStore: createTemporaryObject(valueStub, this, { value: "[]" })
         });
@@ -49,6 +50,13 @@ TestCase {
         compare(t.calc.displayText, "15");
         compare(findChild(t.page, "display").text, "15");
         compare(findChild(t.page, "expression").text, "7 + 8");
+    }
+
+    function test_displayFitsOnSquareScreen() {
+        const t = make(squareAppComponent);
+        verify(t.page.scientific);
+        const display = findChild(t.page, "display");
+        verify(display.mapToItem(t.page, 0, 0).y >= 0, "display above the top of the page");
     }
 
     function test_keysAreAccessibleButtons() {
