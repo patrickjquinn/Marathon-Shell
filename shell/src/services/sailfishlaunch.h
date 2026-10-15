@@ -9,6 +9,10 @@
 // when they declare Sailjail permissions, a sandbox built from them.
 namespace SailfishLaunch {
 
+inline bool isHosted(const QString &command) {
+    return command.startsWith(QStringLiteral("marathon-keel-host "));
+}
+
 inline QString command(const QVariantMap &app, const QString &exec) {
     if (!app.value(QStringLiteral("sailfish")).toBool())
         return exec;

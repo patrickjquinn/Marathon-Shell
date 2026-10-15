@@ -21,6 +21,13 @@ class TestSailfishLaunch : public QObject {
                  QStringLiteral("marathon-keel-host --app-id harbour-foo --sailjail Internet,Pictures "
                                 "--org org.example --app foo -- harbour-foo"));
     }
+    void hostedCommandsAreRecognised() {
+        QVERIFY(SailfishLaunch::isHosted(
+            SailfishLaunch::command({{"id", "shipwright-pacific"}, {"sailfish", true}},
+                                    QStringLiteral("shipwright-pacific"))));
+        QVERIFY(!SailfishLaunch::isHosted(QStringLiteral("marathon-app-runner --app-id foo")));
+        QVERIFY(!SailfishLaunch::isHosted(QStringLiteral("foot")));
+    }
     void otherAppsRunAsTheyAre() {
         const QVariantMap app{{"id", "foot"}};
         QCOMPARE(SailfishLaunch::command(app, QStringLiteral("foot")), QStringLiteral("foot"));

@@ -8,6 +8,8 @@
 #include "src/wayland/wldrm.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/managers/deviceprofile.h"
+#include "src/services/processtree.h"
+#include "src/services/sailfishlaunch.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -527,7 +529,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
 
     env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
-    if (actualCommand.contains("marathon-app-runner")) {
+    if (actualCommand.contains("marathon-app-runner") || SailfishLaunch::isHosted(actualCommand)) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
     }
 
@@ -710,6 +712,28 @@ void WaylandCompositor::closeWindow(int surfaceId) {
     QWaylandSurface *surface = m_surfaceMap[surfaceId];
     if (!surface) {
         qWarning() << "[WaylandCompositor] Surface is null for ID:" << surfaceId;
+        return;
+    }
+
+    // A Keel app under marathon-keel-host is closed by its host: SIGTERM is
+    // keel-shell's close (PROTOCOL.md section 4). Closed itself, the app's
+    // window would go and the app would stay behind its cover.
+    const qint64 clientPid = m_surfaceIdToPid.value(surfaceId, -1);
+    for (auto it = m_processes.cbegin(); it != m_processes.cend(); ++it) {
+        QPointer<QProcess> host(it.key());
+        if (!SailfishLaunch::isHosted(it.value()) || host->state() == QProcess::NotRunning ||
+            !isDescendantPid(clientPid, host->processId()))
+            continue;
+        qInfo() << "[WaylandCompositor] Closing hosted app via its Keel host, PID"
+                << host->processId();
+        host->setProperty("marathonCloseRequested", true);
+        host->terminate();
+        QTimer::singleShot(5000, this, [host]() {
+            if (host && host->state() != QProcess::NotRunning) {
+                host->setProperty("marathonForceKilled", true);
+                host->kill();
+            }
+        });
         return;
     }
 
