@@ -41,8 +41,8 @@ TestCase {
         cover.store.pendingUpdates = [{ "app_id": "org.example.A" }, { "app_id": "org.example.B" }];
         compare(cover.mode, "updates");
         verify(!findChild(cover, "coverPlaceholder").visible);
-        compare(findChild(cover, "coverTitle").text, "2");
-        compare(findChild(cover, "coverSubtitle").text, "updates available");
+        compare(findChild(cover, "coverHeadline").value, "2");
+        compare(findChild(cover, "coverHeadline").label, "updates available");
         findChild(cover, "updateAllAction").triggered();
         compare(cover.store.opened, ["marathon-store://update-all/x"]);
     }
@@ -54,12 +54,12 @@ TestCase {
         cover.store.appstreamCache = cache;
         cover.store.installApp("org.gnome.Maps");
         compare(cover.mode, "job");
-        compare(findChild(cover, "coverTitle").text, "Waiting");
-        compare(findChild(cover, "coverSubtitle").text, "Maps");
+        compare(findChild(cover, "coverHeadline").value, "Waiting");
+        compare(findChild(cover, "coverHeadline").label, "Maps");
         const jobs = {};
         jobs["org.gnome.Maps"] = { "state": "installing", "percent": 42, "ts": 1 };
         cover.store.jobs = jobs;
-        compare(findChild(cover, "coverTitle").text, "42%");
+        compare(findChild(cover, "coverHeadline").value, "42%");
     }
 
     function test_cancelFromCover() {
@@ -67,6 +67,6 @@ TestCase {
         cover.store.installApp("org.gnome.Maps");
         findChild(cover, "cancelAction").triggered();
         compare(cover.store.opened[1], "marathon-store://cancel/org.gnome.Maps");
-        compare(findChild(cover, "coverTitle").text, "Cancelling");
+        compare(findChild(cover, "coverHeadline").value, "Cancelling");
     }
 }

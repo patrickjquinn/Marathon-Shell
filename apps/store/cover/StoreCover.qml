@@ -17,33 +17,18 @@ CoverBackground {
     CoverPlaceholder {
         objectName: "coverPlaceholder"
         visible: root.mode === "idle"
-        text: qsTr("App Store")
+        text: qsTr("No updates")
         icon.source: "image://theme/icon-l-package"
     }
 
-    Column {
+    CoverHeadline {
+        objectName: "coverHeadline"
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        spacing: Theme.paddingSmall
         visible: root.mode !== "idle"
-
-        Label {
-            objectName: "coverTitle"
-            width: parent.width
-            text: root.mode === "job" ? (root.job.state === "removing" ? qsTr("Removing") : root.job.state === "cancelling" ? qsTr("Cancelling") : root.job.percent >= 0 ? root.job.percent + "%" : qsTr("Waiting")) : root.updates
-            font.pixelSize: Theme.fontSizeHuge
-            fontSizeMode: Text.HorizontalFit
-        }
-        Label {
-            objectName: "coverSubtitle"
-            width: parent.width
-            text: root.mode === "job" ? root.store.nameOf(root.jobId) : root.updates === 1 ? qsTr("update available") : qsTr("updates available")
-            font.pixelSize: Theme.fontSizeMedium
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
-        }
+        value: root.mode === "job" ? (root.job.state === "removing" ? qsTr("Removing") : root.job.state === "cancelling" ? qsTr("Cancelling") : root.job.percent >= 0 ? root.job.percent + "%" : qsTr("Waiting")) : root.updates
+        label: root.mode === "job" ? root.store.nameOf(root.jobId) : root.updates === 1 ? qsTr("update available") : qsTr("updates available")
     }
 
     CoverActionList {
