@@ -15,7 +15,9 @@ CoverBackground {
         id: line
 
         property alias icon: icon.source
-        property alias text: label.text
+        property alias name: nameLabel.text
+        property alias text: stateLabel.text
+        property bool on
 
         width: parent.width
         spacing: Theme.paddingMedium
@@ -26,14 +28,27 @@ CoverBackground {
             anchors.verticalCenter: parent.verticalCenter
             width: Theme.iconSizeSmall
             height: Theme.iconSizeSmall
+            color: line.on ? Theme.highlightColor : Theme.secondaryColor
         }
-        Label {
-            id: label
-
+        Column {
             width: line.width - icon.width - line.spacing
             anchors.verticalCenter: parent.verticalCenter
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
+
+            Label {
+                id: nameLabel
+
+                width: parent.width
+                truncationMode: TruncationMode.Fade
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            Label {
+                id: stateLabel
+
+                width: parent.width
+                truncationMode: TruncationMode.Fade
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: line.on ? Theme.highlightColor : Theme.secondaryColor
+            }
         }
     }
 
@@ -41,22 +56,28 @@ CoverBackground {
         x: Theme.paddingLarge
         y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        spacing: Theme.paddingMedium
+        spacing: Theme.paddingLarge
 
         StateLine {
             objectName: "coverWifi"
             icon: Network.wifiEnabled ? "image://theme/icon-s-wlan" : "image://theme/icon-s-wlan-off"
+            name: qsTr("Wi-Fi")
             text: Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid)
+            on: Network.wifiEnabled
         }
         StateLine {
             objectName: "coverBluetooth"
             icon: "image://theme/icon-s-bluetooth"
+            name: qsTr("Bluetooth")
             text: Logic.bluetoothSummary(Bluetooth.enabled, Bluetooth.pairedDevices)
+            on: Bluetooth.enabled
         }
         StateLine {
             objectName: "coverBattery"
             icon: "image://theme/icon-s-battery"
+            name: qsTr("Battery")
             text: Logic.batterySummary(Power.batteryLevel, Power.isCharging)
+            on: Power.isCharging
         }
     }
 
