@@ -19,10 +19,20 @@ Page {
         header: Column {
             width: list.width
 
+            Connections {
+                target: root
+                function onStatusChanged() {
+                    if (root.status === PageStatus.Active && root.Window.activeFocusItem === root)
+                        citySearch.forceActiveFocus();
+                }
+            }
+
             PageHeader {
                 title: qsTr("Add city")
             }
             SearchField {
+                id: citySearch
+
                 objectName: "citySearch"
                 width: parent.width
                 placeholderText: qsTr("Search cities")

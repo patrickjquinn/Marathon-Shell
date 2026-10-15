@@ -184,6 +184,14 @@ TestCase {
         verify(field.activeFocus);
     }
 
+    function test_addCitySearchTakesKeysAtOnce() {
+        const app = makeApp();
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        tryCompare(page, "status", PageStatus.Active);
+        keyClick(Qt.Key_R);
+        compare(page.query, "r");
+    }
+
     function test_cityTime() {
         const app = makeApp();
         compare(app.cityTime({ name: "London", tz: "Europe/London" }, new Date()).diff, "Local");
