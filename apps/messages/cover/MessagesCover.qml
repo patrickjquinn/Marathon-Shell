@@ -57,7 +57,7 @@ CoverBackground {
                 Label {
                     width: parent.width
                     text: conversation.modelData.lastMessage
-                    wrapMode: Text.Wrap
+                    wrapMode: Text.WordWrap
                     maximumLineCount: root.unread > 0 ? 2 : 1
                     elide: Text.ElideRight
                     font.pixelSize: Theme.fontSizeExtraSmall
