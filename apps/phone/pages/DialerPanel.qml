@@ -61,11 +61,13 @@ Item {
     }
 
     Column {
+        id: numberColumn
+
         anchors {
             left: parent.left
             right: parent.right
             bottom: keypad.top
-            bottomMargin: Theme.paddingLarge
+            bottomMargin: Theme.paddingLarge - keypad.height * (1 - keypad.scale)
         }
         spacing: Theme.paddingSmall
 
@@ -147,6 +149,9 @@ Item {
             bottom: callButton.top
             bottomMargin: Theme.paddingLarge
         }
+        // Shrinks on short screens so the number row fits above it.
+        scale: Math.min(1, (root.height - numberColumn.height - callButton.height - 5 * Theme.paddingLarge) / height)
+        transformOrigin: Item.Bottom
         vanityDialNumbers: ["", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz", "", "+", ""]
         onPressed: keyFeedback.play()
         onPressAndHold: function (number) {

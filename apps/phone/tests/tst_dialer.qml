@@ -27,6 +27,14 @@ TestCase {
             height: 1440
         }
     }
+    Component {
+        id: squareAppComponent
+
+        PhoneApp {
+            width: 720
+            height: 658
+        }
+    }
 
     function init() {
         Telephony.reset();
@@ -35,8 +43,8 @@ TestCase {
         Permissions.reset();
     }
 
-    function makeApp(props) {
-        const app = createTemporaryObject(appComponent, testCase, Object.assign({ callLogSeen: seenStub }, props || {}));
+    function makeApp(props, component) {
+        const app = createTemporaryObject(component || appComponent, testCase, Object.assign({ callLogSeen: seenStub }, props || {}));
         tryVerify(() => app.pageStack.currentPage !== null);
         return app;
     }
@@ -214,4 +222,20 @@ TestCase {
         compare(app.dialedNumber, "0871234567");
         compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
     }
+
+    function test_numberRowClearsTabBarOnSquareScreen() {
+        const app = makeApp({}, squareAppComponent);
+        dialer(app);
+        type(app, "555");
+        const page = app.pageStack.currentPage;
+        const y = (name, dy) => {
+            const item = findChild(page, name);
+            return item.mapToItem(page, 0, dy ? item.height : 0).y;
+        };
+        tryVerify(() => y("matchLabel", true) <= y("keypad"), 2000, "number row over the keypad");
+        verify(y("numberLabel") >= y("tabBar", true), "number row under the tab bar");
+        verify(y("backspaceButton") >= y("tabBar", true));
+        verify(y("callButton", true) <= page.height);
+    }
+
 }
