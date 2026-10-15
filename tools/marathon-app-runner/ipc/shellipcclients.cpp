@@ -118,7 +118,7 @@ ContactsClient::ContactsClient(QObject *parent)
 }
 
 void ContactsClient::setContacts(const QVariantList &v) {
-    m_contacts = v;
+    m_contacts = normalizeListDeep(v);
     emit contactsChanged();
 }
 
@@ -156,7 +156,7 @@ QVariantList ContactsClient::searchContacts(const QString &query) {
         qWarning() << "[ContactsClient] SearchContacts failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeListDeep(r.value());
 }
 
 QVariantMap ContactsClient::getContact(int id) {
@@ -165,7 +165,7 @@ QVariantMap ContactsClient::getContact(int id) {
         qWarning() << "[ContactsClient] GetContact failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeMapDeep(r.value());
 }
 
 QVariantMap ContactsClient::getContactByNumber(const QString &phoneNumber) {
@@ -174,7 +174,7 @@ QVariantMap ContactsClient::getContactByNumber(const QString &phoneNumber) {
         qWarning() << "[ContactsClient] GetContactByNumber failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeMapDeep(r.value());
 }
 
 CallHistoryClient::CallHistoryClient(QObject *parent)
@@ -196,7 +196,7 @@ CallHistoryClient::CallHistoryClient(QObject *parent)
 }
 
 void CallHistoryClient::setHistory(const QVariantList &v) {
-    m_history = v;
+    m_history = normalizeListDeep(v);
     emit historyChanged();
 }
 
@@ -235,7 +235,7 @@ QVariantMap CallHistoryClient::getCallById(int id) {
         qWarning() << "[CallHistoryClient] GetCallById failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeMapDeep(r.value());
 }
 
 QVariantList CallHistoryClient::getCallsByNumber(const QString &number) {
@@ -244,7 +244,7 @@ QVariantList CallHistoryClient::getCallsByNumber(const QString &number) {
         qWarning() << "[CallHistoryClient] GetCallsByNumber failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeListDeep(r.value());
 }
 
 TelephonyClient::TelephonyClient(const QString &appId, QObject *parent)
@@ -1229,7 +1229,7 @@ QVariant SettingsClient::get(const QString &key, const QVariant &defaultValue) {
         return defaultValue;
     QDBusReply<QDBusVariant> r =
         m_iface.call("Get", key, QVariant::fromValue(QDBusVariant(defaultValue)));
-    return r.isValid() ? r.value().variant() : defaultValue;
+    return r.isValid() ? normalizeDbusVariantDeep(r.value().variant()) : defaultValue;
 }
 void SettingsClient::set(const QString &key, const QVariant &value) {
     if (!ensurePermissionForKey(key))
@@ -1341,7 +1341,7 @@ QVariant SecurityClient::v(const QString &k, const QVariant &fallback) const {
 }
 
 void SecurityClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -1678,7 +1678,7 @@ void DisplayClient::refresh() {
 }
 
 void DisplayClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -1887,7 +1887,7 @@ QVariant AudioClient::v(const QString &k, const QVariant &fallback) const {
 }
 
 void AudioClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     m_streamModel->setStreams(v("streams").toList());
     emit stateChanged();
 }
@@ -2065,7 +2065,7 @@ void PowerClient::refresh() {
 }
 
 void PowerClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -2383,7 +2383,7 @@ bool NetworkClient::isHotspotActive() {
 }
 
 void SmsClient::setConversations(const QVariantList &v) {
-    m_conversations = v;
+    m_conversations = normalizeListDeep(v);
     emit conversationsChanged();
 }
 
@@ -2416,7 +2416,7 @@ QVariantList SmsClient::getMessages(const QString &conversationId) {
         qWarning() << "[SmsClient] GetMessages failed:" << r.error().message();
         return {};
     }
-    return r.value();
+    return normalizeListDeep(r.value());
 }
 
 void SmsClient::deleteConversation(const QString &conversationId) {
@@ -3052,7 +3052,7 @@ void AlarmClient::refresh() {
 void AlarmClient::onAlarmsChanged() {
     QDBusReply<QVariantList> r = m_iface.call("GetAlarms");
     if (r.isValid()) {
-        m_alarms = r.value();
+        m_alarms = normalizeListDeep(r.value());
         emit alarmsChanged();
     }
 }
@@ -3060,7 +3060,7 @@ void AlarmClient::onAlarmsChanged() {
 void AlarmClient::onActiveAlarmsChanged() {
     QDBusReply<QVariantList> r = m_iface.call("GetActiveAlarms");
     if (r.isValid()) {
-        m_activeAlarms = r.value();
+        m_activeAlarms = normalizeListDeep(r.value());
         emit activeAlarmsChanged();
     }
 }
@@ -3125,13 +3125,13 @@ UpdateClient::UpdateClient(QObject *parent)
 void UpdateClient::refresh() {
     QDBusReply<QVariantMap> r = m_iface.call("GetState");
     if (r.isValid()) {
-        m_state = r.value();
+        m_state = normalizeMapDeep(r.value());
         emit stateChanged();
     }
 }
 
 void UpdateClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -3179,7 +3179,7 @@ void DavClient::refresh() {
 void DavClient::refreshAccounts() {
     QDBusReply<QVariantList> r = m_iface.call("ListAccounts");
     if (r.isValid()) {
-        m_accounts = r.value();
+        m_accounts = normalizeListDeep(r.value());
         emit accountsChanged();
     }
 }
@@ -3187,7 +3187,7 @@ void DavClient::refreshAccounts() {
 void DavClient::refreshState() {
     QDBusReply<QVariantMap> r = m_iface.call("GetState");
     if (r.isValid()) {
-        m_state = r.value();
+        m_state = normalizeMapDeep(r.value());
         emit stateChanged();
     }
 }
@@ -3197,7 +3197,7 @@ void DavClient::onAccountsChanged() {
 }
 
 void DavClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -3254,13 +3254,13 @@ AppStoreClient::AppStoreClient(QObject *parent)
 void AppStoreClient::refresh() {
     QDBusReply<QVariantMap> r = m_iface.call("GetState");
     if (r.isValid()) {
-        m_state = r.value();
+        m_state = normalizeMapDeep(r.value());
         emit stateChanged();
     }
 }
 
 void AppStoreClient::onStateChanged(const QVariantMap &state) {
-    m_state = state;
+    m_state = normalizeMapDeep(state);
     emit stateChanged();
 }
 
@@ -3272,8 +3272,7 @@ void AppStoreClient::refreshCatalog() {
 // JS engine can't see the inner QVariantMap keys until we qdbus_cast
 // them back. We pull the raw reply via QDBusReply<QVariantList> (so
 // QDBus does the type coercion) and then run the result through
-// normalizeListDeep — same path ContactsClient.setContacts uses for
-// the same problem. Without this, every modelData.name read in QML
+// normalizeListDeep. Without this, every modelData.name read in QML
 // came back undefined even though the row count was correct.
 QVariantList AppStoreClient::searchApps(const QString &query) {
     QDBusReply<QVariantList> r = m_iface.call("SearchApps", query);

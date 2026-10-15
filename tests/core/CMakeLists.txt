@@ -203,6 +203,21 @@ target_include_directories(test_core_settingscontract PRIVATE
 target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
 
+# Runner IPC clients hand QML plain maps and lists, not QDBusArgument
+add_executable(test_core_ipcclientnormalize
+    test_ipcclientnormalize.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+)
+set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_ipcclientnormalize PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Core_IpcClientNormalize COMMAND test_core_ipcclientnormalize)
+
 # D-Bus reply containers normalize without demarshalling the wrong type
 add_executable(test_core_dbusnormalize
     test_dbusnormalize.cpp
