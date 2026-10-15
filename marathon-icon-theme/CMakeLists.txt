@@ -3,7 +3,7 @@
 # this writes a copy per size class and pixel ratio with that pixel size.
 set(_theme_out ${CMAKE_CURRENT_BINARY_DIR}/themes)
 set(_sizes xs:24 s:32 splus:48 m:64 l:96 cover:32)
-set(_ratios 1.0:100 1.25:125 1.5:150 1.75:175 2.0:200)
+set(_ratios 0.5:50 0.75:75 1.0:100 1.25:125 1.5:150 1.75:175 2.0:200)
 
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/icon-map.txt _map REGEX "^[a-z]")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/icon-map.txt)
@@ -31,8 +31,8 @@ endforeach()
 
 install(DIRECTORY ${_theme_out}/ DESTINATION ${CMAKE_INSTALL_PREFIX}/share/themes/sailfish-default/silica)
 
-# Marathon's interface size scales Silica's ratio in steps of 0.05, and Keel
-# looks icons up in z<ratio> exactly. Link every such ratio to the nearest
+# Silica's ratio follows Marathon's scale continuously, and Keel looks icons
+# up in z<ratio> to two decimals. Link every such ratio to the nearest
 # quarter-step directory above.
 install(CODE [[
     set(_root "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/themes/sailfish-default/silica")
@@ -48,10 +48,10 @@ install(CODE [[
         endif()
         set(${out} "z${_whole}.${_frac}" PARENT_SCOPE)
     endfunction()
-    foreach(_h RANGE 50 300 5)
+    foreach(_h RANGE 25 300)
         math(EXPR _q "(${_h} + 12) / 25 * 25")
-        if(_q LESS 100)
-            set(_q 100)
+        if(_q LESS 50)
+            set(_q 50)
         elseif(_q GREATER 200)
             set(_q 200)
         endif()
