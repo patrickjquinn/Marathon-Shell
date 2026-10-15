@@ -443,6 +443,23 @@ if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     fi
 fi
 
+# ---- Previous shell ----------------------------------------------------------
+#
+# The shell runs in its own user scope, outside greetd's session, so on a
+# greetd restart the old shell can still be exiting when this one starts. The
+# kernel makes only the first opener of the card DRM master and never promotes
+# a later fd, so a shell that opens the card early is left with every commit
+# failing EACCES. Wait for the old one to exit and release master.
+if command -v pgrep >/dev/null 2>&1; then
+    _i=0
+    while pgrep -u "$(id -u)" -f '^/usr/bin/marathon-shell-bin' >/dev/null 2>&1 && [ "$_i" -lt 50 ]; do
+        sleep 0.2
+        _i=$((_i + 1))
+    done
+    [ "$_i" -gt 0 ] && echo "marathon-shell-session: waited $((_i * 200)) ms for the previous shell to exit" >&2
+    unset _i
+fi
+
 # Send the shell's stdout/stderr to the journal. Otherwise they are the VT
 # greetd started the session on, and fbcon draws every log line on the CPU
 # even while the shell owns the display: on the PinePhone each scroll held
