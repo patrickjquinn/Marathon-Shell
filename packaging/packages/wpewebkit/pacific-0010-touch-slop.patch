@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The touch slop is the embedder's.
+#
+# WPE's gesture controller turns a touch into a scroll once it has moved a
+# scroll line step, 40 px of the touch points' device pixels: 16 dp on the
+# Jolla Phone (2.5x), twice Android's 8 dp. Until then the page did not move,
+# and then it jumped by all 40 px. PACIFIC_TOUCH_SLOP_PX sets it (Pacific's
+# web view sets 8 dp from the screen's density); without it, upstream's 40.
+# Touch-down to the first frame that moves, dragging: 42-44 ms instead of
+# 59-62 ms on OSNews and The Verge.
+#
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
+@@ -29,6 +29,7 @@
+ #if USE(LIBWPE) && ENABLE(TOUCH_EVENTS)
+ 
+ #include <WebCore/Scrollbar.h>
++#include <cstdlib>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebKit {
+@@ -68,9 +69,21 @@
+             int32_t deltaY = touchPoint->y - m_start.y;
+             uint32_t deltaTime = touchPoint->time - m_start.time;
+ 
+-            int pixelsPerLineStep = WebCore::Scrollbar::pixelsPerLineStep();
+-            bool overThreshold = std::abs(deltaX) >= pixelsPerLineStep
+-                || std::abs(deltaY) >= pixelsPerLineStep
++            // Pacific (patch 0010): the touch slop, in the touch points'
++            // device pixels, from PACIFIC_TOUCH_SLOP_PX (the embedder sets 8
++            // dp, Android's). Upstream's 40 px (a scroll line step) is 16 dp
++            // on a 2.5x phone: the page did not move for the first 40 px of a
++            // drag, then jumped by all of it.
++            static const int slop = [] {
++                if (const char* env = getenv("PACIFIC_TOUCH_SLOP_PX")) {
++                    int px = atoi(env);
++                    if (px >= 1 && px <= 200)
++                        return px;
++                }
++                return WebCore::Scrollbar::pixelsPerLineStep();
++            }();
++            bool overThreshold = std::abs(deltaX) >= slop
++                || std::abs(deltaY) >= slop
+                 || deltaTime >= scrollCaptureThreshold;
+             if (!overThreshold)
+                 break;

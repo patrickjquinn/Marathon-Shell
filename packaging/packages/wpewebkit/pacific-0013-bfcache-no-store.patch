@@ -1,0 +1,150 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Back is instant on pages that say Cache-Control: no-store.
+#
+# WebKit never keeps an HTTPS no-store page in the back/forward cache, and
+# most news sites send it (The Verge, OSNews). Back reloaded the page from
+# the network: on the Jolla Phone the old page stayed on screen for about
+# 2.5 s while the back button had already gone, and people took the button
+# for broken. Chrome caches these pages since 2025 under conditions that
+# keep a logged-out page from coming back; this does the same. A no-store
+# page is restored only within three minutes and only if the HttpOnly
+# cookies its URL would be sent are unchanged (sessions live in those;
+# pages' scripts cannot set them, so analytics cookies do not count).
+# PACIFIC_BFCACHE_NO_STORE=0 keeps WebKit's refusal.
+#
+--- a/Source/WebCore/history/BackForwardCache.cpp
++++ b/Source/WebCore/history/BackForwardCache.cpp
+@@ -26,6 +26,9 @@
+ #include "config.h"
+ #include "BackForwardCache.h"
+ 
++#include <cstdlib>
++#include <cstring>
++
+ #include "BackForwardController.h"
+ #include "CachedPage.h"
+ #include "DeviceMotionController.h"
+@@ -153,7 +156,15 @@
+         logBackForwardCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::isErrorPageKey());
+         isCacheable = false;
+     }
+-    if (frame.isMainFrame() && document && document->url().protocolIs("https"_s) && documentLoader->response().cacheControlContainsNoStore()) {
++    // Pacific (patch 0013): pages that say no-store are cached too, as
++    // Chrome does since 2025, under its conditions: CachedPage gives them
++    // three minutes and drops them if the site's HttpOnly cookies changed
++    // (a log-out). PACIFIC_BFCACHE_NO_STORE=0 keeps WebKit's refusal.
++    static const bool cacheNoStore = [] {
++        const char* env = getenv("PACIFIC_BFCACHE_NO_STORE");
++        return !env || strcmp(env, "0");
++    }();
++    if (!cacheNoStore && frame.isMainFrame() && document && document->url().protocolIs("https"_s) && documentLoader->response().cacheControlContainsNoStore()) {
+         PCLOG("   -Frame is HTTPS, and cache control prohibits storing"_s);
+         logBackForwardCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::httpsNoStoreKey());
+         isCacheable = false;
+--- a/Source/WebCore/history/CachedPage.cpp
++++ b/Source/WebCore/history/CachedPage.cpp
+@@ -42,6 +42,10 @@
+ #include "NavigationNavigationType.h"
+ #include "Node.h"
+ #include "Page.h"
++#include <wtf/text/MakeString.h>
++#include <wtf/text/StringBuilder.h>
++#include "CookieJar.h"
++#include "Cookie.h"
+ #include "PageTransitionEvent.h"
+ #include "ScriptDisallowedScope.h"
+ #include "SelectionRestorationMode.h"
+@@ -60,9 +64,45 @@
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(CachedPage);
+ 
++// Pacific (patch 0013): the HttpOnly cookies sent with requests for `url`,
++// as the network process has them (the ones a log-in or log-out changes;
++// pages' own scripts cannot set or see them, so analytics do not count).
++static String httpOnlyCookies(Page& page, Document& document, const URL& url)
++{
++    Vector<Cookie> cookies;
++    if (!page.cookieJar().getRawCookies(document, url, cookies))
++        return "unavailable"_s;
++    Vector<String> lines;
++    for (auto& cookie : cookies) {
++        if (cookie.httpOnly)
++            lines.append(makeString(cookie.domain, ' ', cookie.path, ' ', cookie.name, '=', cookie.value));
++    }
++    std::ranges::sort(lines, codePointCompareLessThan);
++    StringBuilder builder;
++    for (auto& line : lines) {
++        builder.append(line);
++        builder.append('\n');
++    }
++    return builder.toString();
++}
++
+ CachedPage::CachedPage(Page& page)
+     : m_page(page)
+     , m_expirationTime(MonotonicTime::now() + page.settings().backForwardCacheExpirationInterval())
++    , m_noStore([&] {
++        RefPtr frame = page.localMainFrame();
++        RefPtr loader = frame ? frame->loader().documentLoader() : nullptr;
++        return loader && loader->response().cacheControlContainsNoStore();
++    }())
++    , m_noStoreURL([&] {
++        RefPtr frame = page.localMainFrame();
++        return m_noStore && frame && frame->document() ? frame->document()->url() : URL();
++    }())
++    , m_noStoreCookies([&] {
++        RefPtr frame = page.localMainFrame();
++        RefPtr document = frame ? frame->document() : nullptr;
++        return m_noStore && document ? httpOnlyCookies(page, *document, m_noStoreURL) : String();
++    }())
+     , m_cachedMainFrame(makeUnique<CachedFrame>(protect(page.mainFrame())))
+     , m_loadedSubresourceDomains([&] {
+         RefPtr localFrame = page.localMainFrame();
+@@ -235,7 +275,20 @@
+ 
+ bool CachedPage::hasExpired() const
+ {
+-    return MonotonicTime::now() > m_expirationTime;
++    if (MonotonicTime::now() > m_expirationTime)
++        return true;
++    if (!m_noStore)
++        return false;
++    // Pacific (patch 0013), Chrome's rules for no-store pages: three
++    // minutes, and not if the site's HttpOnly cookies changed meanwhile.
++    // Asked through the page's current document (the cached one has no
++    // frame); a cross-site one may see other cookies, so the page is
++    // dropped, the safe way.
++    if (MonotonicTime::now() > m_expirationTime - m_page->settings().backForwardCacheExpirationInterval() + 3_min)
++        return true;
++    RefPtr frame = m_page->localMainFrame();
++    RefPtr document = frame ? frame->document() : nullptr;
++    return !document || httpOnlyCookies(m_page.get(), *document, m_noStoreURL) != m_noStoreCookies;
+ }
+ 
+ } // namespace WebCore
+--- a/Source/WebCore/history/CachedPage.h
++++ b/Source/WebCore/history/CachedPage.h
+@@ -30,7 +30,9 @@
+ #include <wtf/CheckedRef.h>
+ #include <wtf/MonotonicTime.h>
+ #include <wtf/TZoneMalloc.h>
++#include <wtf/URL.h>
+ #include <wtf/WeakRef.h>
++#include <wtf/text/WTFString.h>
+ 
+ namespace WebCore {
+ 
+@@ -77,6 +79,11 @@
+ 
+     WeakRef<Page> m_page;
+     MonotonicTime m_expirationTime;
++    // Pacific (patch 0013): a no-store page, kept only while the HttpOnly
++    // cookies its URL would be sent are the same (m_noStoreCookies).
++    bool m_noStore { false };
++    URL m_noStoreURL;
++    String m_noStoreCookies;
+     std::unique_ptr<CachedFrame> m_cachedMainFrame;
+     std::optional<BackForwardItemIdentifier> m_itemID;
+ #if ENABLE(VIDEO)

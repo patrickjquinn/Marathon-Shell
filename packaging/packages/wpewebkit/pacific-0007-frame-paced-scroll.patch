@@ -1,0 +1,142 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Scroll animations step with the frames, by whole refresh periods.
+#
+# Atlantic's independent scroll (webkit-independent-scroll.patch) ticks the
+# scrolling thread on a free-running timer that drifts against the frames:
+# some frames composite without a new scroll position and the next one moves
+# twice as far. ThreadedCompositor::frameComplete(), which the embedder
+# paces to the display, now ticks the scrolling tree (displayDidRefresh);
+# the timer only covers a pause in the frames. Those acknowledgements jitter
+# by a few ms, so each tick advances the animation by whole refresh periods
+# (WEBKIT_INDEPENDENT_SCROLL_TICK_MS, which the webview sets from the
+# display): one, or as many as passed after a missed frame, kept within a
+# period of the real time and never backwards. Snapping to a fixed grid
+# instead put two jittered ticks on the same point.
+#
+# Flinging on the Jolla Phone (90 Hz), frames composited without moving,
+# 150-500 ms after each of eight flings, two runs: OSNews 0.0/3.3% against
+# 8.5/7.9% on the timer, The Verge 1.8/0.9% against 8.0/59%, with 90
+# composites a second on The Verge against 75/91.
+# PACIFIC_FRAME_PACED_SCROLL=0 keeps the timer alone. With
+# ATLANTIC_FRAME_TRACE=1 the compositor logs the scroll position of every
+# frame it composites.
+#
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -651,6 +651,23 @@
+     if (m_suspendedCount > 0)
+         return;
+ 
++#if ENABLE(SCROLLING_THREAD)
++    // Shipwright (patch 0007): the scroll position each frame composites, to
++    // see judder (frames that do not move next to frames that move twice).
++    if (atlFrameTrace()) {
++        RefPtr<WebCore::ScrollingTree> scrollingTree;
++        {
++            Locker locker { m_scrollingTreeLock };
++            scrollingTree = m_scrollingTree;
++        }
++        if (scrollingTree) {
++            struct timespec ts;
++            clock_gettime(CLOCK_MONOTONIC, &ts);
++            fprintf(stderr, "[ftrace] web composite y=%.1f t=%.1f\n", scrollingTree->mainFrameScrollPosition().y(), ts.tv_sec * 1000.0 + ts.tv_nsec / 1.0e6);
++        }
++    }
++#endif
++
+     OptionSet<CompositionReason> reasons;
+     bool shouldNotifiyDidComposite = false;
+     {
+@@ -850,6 +867,26 @@
+ {
+     ASSERT(m_workQueue->runLoop().isCurrent());
+ 
++#if ENABLE(SCROLLING_THREAD)
++    // Shipwright (patch 0007): the embedder acknowledges a frame as the
++    // display takes it, so this is the display's rhythm: a running scroll
++    // animation steps here, once for every frame, instead of on a timer of
++    // its own that drifts against the frames.
++    static const bool framePacedScroll = [] {
++        const char* env = getenv("PACIFIC_FRAME_PACED_SCROLL");
++        return !env || strcmp(env, "0");
++    }();
++    if (framePacedScroll) {
++        RefPtr<WebCore::ScrollingTree> scrollingTree;
++        {
++            Locker locker { m_scrollingTreeLock };
++            scrollingTree = m_scrollingTree;
++        }
++        if (scrollingTree)
++            scrollingTree->displayDidRefresh(scrollingTree->displayID());
++    }
++#endif
++
+     Locker locker { m_state.lock };
+     WTFEmitSignpost(this, FrameComplete, "reasons: %s, state: %s, waiting for tiles: %s", reasonsToString(m_state.reasons).ascii().data(), stateToString(m_state.state).characters(), m_state.isWaitingForTiles ? "yes" : "no");
+ 
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -38,6 +38,7 @@
+ #include "ScrollingTreeOverflowScrollProxyNode.h"
+ #include "ScrollingTreeScrollingNode.h"
+ #include <cstdlib>
++#include <cmath>
+ #include <cstring>
+ #include <wtf/RunLoop.h>
+ #include <wtf/SetForScope.h>
+@@ -683,6 +684,13 @@
+         return;
+     }
+ 
++    // Shipwright (patch 0007): while the compositor's frames drive the
++    // scroll (ThreadedCompositor::frameComplete), this timer only covers a
++    // pause in them; a tick of its own between two frames would put two
++    // scroll steps in one frame and none in the next.
++    if (MonotonicTime::now() - m_lastDisplayDidRefreshTime < independentTickInterval() * 1.5)
++        return;
++
+     displayDidRefreshOnScrollingThread();
+ }
+ 
+@@ -695,7 +703,26 @@
+     
+     auto now = MonotonicTime::now();
+     m_lastDisplayDidRefreshTime = now;
+-    serviceScrollAnimations(now);
++    // Shipwright (patch 0007): a frame is shown on the display's grid, not
++    // when its tick happens to run, so each tick advances the animation by
++    // whole refresh periods: one, or as many as passed after a missed frame.
++    // Ticks jitter with the embedder's acknowledgements and scroll positions
++    // did too. The animation time stays within a period of the real time and
++    // never goes backwards.
++    auto animationTime = now;
++    static const bool framePacedScroll = [] {
++        const char* env = getenv("PACIFIC_FRAME_PACED_SCROLL");
++        return !env || strcmp(env, "0");
++    }();
++    if (framePacedScroll && m_animationTime && now - m_animationTime < 100_ms) {
++        auto period = independentTickInterval();
++        double periods = std::max(1.0, std::round((now - m_animationTime) / period));
++        animationTime = std::clamp(m_animationTime + period * periods, now - period, now + period / 2);
++        if (animationTime < m_animationTime)
++            animationTime = m_animationTime;
++    }
++    m_animationTime = animationTime;
++    serviceScrollAnimations(animationTime);
+ 
+     // Independent scrolling: commit the latest scroll offsets into the compositor
+     // scene every refresh, even while Idle. Upstream skips Idle because it expects
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -152,6 +152,9 @@
+     Condition m_waitingForBeganEventCondition;
+     
+     MonotonicTime m_lastDisplayDidRefreshTime;
++    // Shipwright (patch 0007): scroll animation time, stepped by
++    // whole refresh periods.
++    MonotonicTime m_animationTime;
+ 
+     // Dynamically allocated because it has to use the ScrollingThread's runloop.
+     std::unique_ptr<RunLoop::Timer> m_delayedRenderingUpdateDetectionTimer WTF_GUARDED_BY_LOCK(m_treeLock);

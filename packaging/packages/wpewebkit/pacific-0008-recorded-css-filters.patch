@@ -1,0 +1,185 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# CSS filters are recorded with the page, not applied on the main thread.
+#
+# A layer with a CSS filter (filter: drop-shadow(), blur(), saturate(), ...)
+# was painted into a buffer and filtered there, on the main thread, each time
+# a tile with it was recorded: flinging The Verge, half of the WebProcess
+# main thread's time was Skia blurring drop shadows (FEDropShadowSkiaApplier).
+# Apple's ports record such filters as a style on a transparency layer
+# (FilterRenderingMode::GraphicsContext, CGStyle); with Skia that is
+# saveLayer with an SkImageFilter, which runs when the recorded tile is
+# played back on the painting threads. Drop-shadow, Gaussian blur and the
+# matrix, saturate and hue-rotate colour matrices take that path when they
+# work in sRGB (as CSS filter functions do; SVG filters, linearRGB by
+# default, keep theirs). The style's radii are kernel sizes; Skia is given the
+# standard deviation they came from. Rendering matched the old path to within
+# blur rounding (at most 15/255).
+#
+# Flinging The Verge on the Jolla Phone: the main thread used 2.6 s of CPU in
+# 7.8 s instead of 4.3 s, and 77 frames a second with no pause over 25 ms
+# reached the screen while moving, against 74 with 7.
+# PACIFIC_RECORDED_FILTERS=0 turns it off.
+#
+--- a/Source/WebCore/page/Page.cpp
++++ b/Source/WebCore/page/Page.cpp
+@@ -4914,6 +4914,20 @@
+         modes.add(FilterRenderingMode::Accelerated);
+ #endif
+ 
++#if USE(SKIA)
++    // Pacific (patch 0008): a CSS drop-shadow, blur or colour-matrix filter is
++    // recorded as a Skia image filter on a transparency layer, and runs when
++    // the tile is painted (on the painting threads), instead of the layer
++    // being painted into a buffer and filtered on the main thread at once.
++    // PACIFIC_RECORDED_FILTERS=0 turns it off.
++    static const bool recordedFilters = [] {
++        const char* env = getenv("PACIFIC_RECORDED_FILTERS");
++        return !env || strcmp(env, "0");
++    }();
++    if (recordedFilters && !context.hasDropShadow() && context.renderingMode() != RenderingMode::PDFDocument)
++        modes.add(FilterRenderingMode::GraphicsContext);
++#endif
++
+     UNUSED_PARAM(context);
+ 
+ #if USE(GRAPHICS_CONTEXT_FILTERS)
+--- a/Source/WebCore/platform/graphics/filters/SourceGraphic.cpp
++++ b/Source/WebCore/platform/graphics/filters/SourceGraphic.cpp
+@@ -51,7 +51,7 @@
+ #if USE(CORE_IMAGE) || USE(SKIA)
+     modes.add(FilterRenderingMode::Accelerated);
+ #endif
+-#if USE(GRAPHICS_CONTEXT_FILTERS)
++#if USE(GRAPHICS_CONTEXT_FILTERS) || USE(SKIA)
+     modes.add(FilterRenderingMode::GraphicsContext);
+ #endif
+     return modes & preferredFilterRenderingModes;
+--- a/Source/WebCore/platform/graphics/filters/FEDropShadow.cpp
++++ b/Source/WebCore/platform/graphics/filters/FEDropShadow.cpp
+@@ -150,6 +150,12 @@
+     if (m_stdX == m_stdY)
+         modes.add(FilterRenderingMode::GraphicsContext);
+ #endif
++#if USE(SKIA)
++    // Pacific (patch 0008): a Skia drop-shadow image filter, in sRGB as CSS
++    // filter functions are.
++    if (m_stdX == m_stdY && operatingColorSpace() == DestinationColorSpace::SRGB())
++        modes.add(FilterRenderingMode::GraphicsContext);
++#endif
+     return modes & preferredFilterRenderingModes;
+ }
+ 
+--- a/Source/WebCore/platform/graphics/filters/FEGaussianBlur.cpp
++++ b/Source/WebCore/platform/graphics/filters/FEGaussianBlur.cpp
+@@ -179,6 +179,12 @@
+     if (m_stdX == m_stdY)
+         modes.add(FilterRenderingMode::GraphicsContext);
+ #endif
++#if USE(SKIA)
++    // Pacific (patch 0008): a Skia blur image filter (transparent edges, as
++    // edgeMode none), in sRGB as CSS filter functions are.
++    if (m_edgeMode == EdgeModeType::None && operatingColorSpace() == DestinationColorSpace::SRGB())
++        modes.add(FilterRenderingMode::GraphicsContext);
++#endif
+     return modes & preferredFilterRenderingModes;
+ }
+ 
+--- a/Source/WebCore/platform/graphics/filters/FEColorMatrix.cpp
++++ b/Source/WebCore/platform/graphics/filters/FEColorMatrix.cpp
+@@ -158,6 +158,15 @@
+         || m_type == ColorMatrixType::FECOLORMATRIX_TYPE_HUEROTATE)
+         modes.add(FilterRenderingMode::GraphicsContext);
+ #endif
++#if USE(SKIA)
++    // Pacific (patch 0008): a Skia colour-matrix image filter, in sRGB as CSS
++    // filter functions are.
++    if ((m_type == ColorMatrixType::FECOLORMATRIX_TYPE_MATRIX
++        || m_type == ColorMatrixType::FECOLORMATRIX_TYPE_SATURATE
++        || m_type == ColorMatrixType::FECOLORMATRIX_TYPE_HUEROTATE)
++        && operatingColorSpace() == DestinationColorSpace::SRGB())
++        modes.add(FilterRenderingMode::GraphicsContext);
++#endif
+     return modes & preferredFilterRenderingModes;
+ }
+ 
+--- a/Source/WebCore/platform/graphics/skia/GraphicsContextSkia.h
++++ b/Source/WebCore/platform/graphics/skia/GraphicsContextSkia.h
+@@ -139,7 +139,7 @@
+     void setupFillSource(SkPaint&);
+     void setupStrokeSource(SkPaint&);
+ 
+-    void saveLayer(float, CompositeMode);
++    void saveLayer(float, CompositeMode, sk_sp<SkImageFilter> = nullptr);
+     void restoreLayer();
+ 
+     enum class ShadowStyle : uint8_t { Outset, Inset };
+--- a/Source/WebCore/platform/graphics/skia/GraphicsContextSkia.cpp
++++ b/Source/WebCore/platform/graphics/skia/GraphicsContextSkia.cpp
+@@ -45,6 +45,7 @@
+ #include "SkiaRecordingResult.h"
+ #include "SkiaUtilities.h"
+ #include <cmath>
++#include <numbers>
+ #include <ranges>
+ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+ #include <skia/core/SkColorFilter.h>
+@@ -839,7 +840,7 @@
+     m_canvas.setMatrix(ctm);
+ }
+ 
+-void GraphicsContextSkia::saveLayer(float opacity, CompositeMode compositeMode)
++void GraphicsContextSkia::saveLayer(float opacity, CompositeMode compositeMode, sk_sp<SkImageFilter> imageFilter)
+ {
+     pushSkiaState();
+     auto& currentState = m_skiaStateStack.last();
+@@ -850,6 +851,7 @@
+     SkPaint paint;
+     paint.setAlphaf(opacity);
+     paint.setBlendMode(SkiaUtilities::toSkiaBlendMode(compositeMode.blendMode, compositeMode.operation));
++    paint.setImageFilter(WTF::move(imageFilter));
+     if (m_enableStateReplayTracking) [[unlikely]]
+         currentState.layerPaint = paint;
+ 
+@@ -873,12 +875,40 @@
+     setAlpha(alpha);
+ }
+ 
++// Pacific (patch 0008): the filter a GraphicsStyle stands for (a CSS filter
++// recorded with FilterRenderingMode::GraphicsContext). Its radii are kernel
++// sizes (FEGaussianBlur::calculateUnscaledKernelSize); Skia takes the
++// standard deviation.
++static sk_sp<SkImageFilter> imageFilterForStyle(const GraphicsStyle& style)
++{
++    static const float gaussianKernelFactor = 3 / 4.f * sqrtf(2 * std::numbers::pi_v<float>);
++    return WTF::switchOn(style,
++        [&](const GraphicsDropShadow& shadow) -> sk_sp<SkImageFilter> {
++            const float sigma = shadow.radius / gaussianKernelFactor;
++            const Color color = shadow.color.colorWithAlphaMultipliedBy(shadow.opacity);
++            return SkImageFilters::DropShadow(shadow.offset.width(), shadow.offset.height(), sigma, sigma, color, nullptr);
++        },
++        [&](const GraphicsGaussianBlur& blur) -> sk_sp<SkImageFilter> {
++            return SkImageFilters::Blur(blur.radius.width() / gaussianKernelFactor, blur.radius.height() / gaussianKernelFactor, nullptr);
++        },
++        [&](const GraphicsColorMatrix& matrix) -> sk_sp<SkImageFilter> {
++            return SkImageFilters::ColorFilter(SkColorFilters::Matrix(matrix.values.data()), nullptr);
++        });
++}
++
+ void GraphicsContextSkia::beginTransparencyLayer(float opacity)
+ {
+     if (!makeGLContextCurrentIfNeeded())
+         return;
+ 
+     GraphicsContext::beginTransparencyLayer(opacity);
++    // The style applies to the layer as a whole when it ends, and not to
++    // what is drawn in it (as with CGContextSetStyle and CG layers).
++    if (auto style = this->style()) {
++        saveLayer(opacity, m_state.compositeMode(), imageFilterForStyle(*style));
++        setStyle(std::nullopt);
++        return;
++    }
+     saveLayer(opacity, m_state.compositeMode());
+ }
+ 

@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Scroll animations run on one clock: the frames.
+#
+# Patch 0007 ticks the scrolling tree from ThreadedCompositor::frameComplete,
+# but the display link kept ticking it too, 0.3-6 ms after each frame's tick.
+# Each frame showed the position of whichever tick ran last, and the stepped
+# animation time sat against its +period/2 clamp: on the Qt path, fling
+# steps between frames varied by 0.58-0.78 of their size on The Verge and
+# OSNews. The compositor now calls ThreadedScrollingTree::frameDidComplete(),
+# and displayDidRefresh() returns while a frame ticked within 1.5 periods,
+# so the display link only covers a pause in the frames. Step spread: 0.21
+# (The Verge) and 0.16 (OSNews) on the Qt path; Wikipedia on the direct path
+# 0.29, with 4% of frames jumping instead of 17%.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -860,8 +860,26 @@
+     }
+ }
+ 
++void ThreadedScrollingTree::frameDidComplete()
++{
++    m_lastFrameTick = MonotonicTime::now().secondsSinceEpoch().value();
++    if (!hasRecentActivity())
++        return;
++    ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
++        protectedThis->displayDidRefreshOnScrollingThread();
++    });
++}
++
+ void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
+ {
++    // Pacific (patch 0011): frames tick the animations (frameDidComplete);
++    // the display link is another clock, out of step with them: it made two
++    // ticks a frame, and each frame showed the position of whichever ran
++    // last (steps of 0.5 ms, then 10 ms). It ticks only when frames pause.
++    auto sinceFrameTick = MonotonicTime::now().secondsSinceEpoch() - Seconds(m_lastFrameTick.load());
++    if (sinceFrameTick < independentTickInterval() * 1.5)
++        return;
++
+     bool scrollingThreadIsActive = hasRecentActivity();
+ 
+     // We're on the EventDispatcher thread or in the ThreadedCompositor thread here.
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -32,6 +32,7 @@
+ #include <WebCore/ScrollingStateTree.h>
+ #include <WebCore/ScrollingTree.h>
+ #include <wtf/Condition.h>
++#include <atomic>
+ #include <wtf/Deque.h>
+ #include <wtf/RefPtr.h>
+ #include <wtf/RunLoop.h>
+@@ -52,6 +53,12 @@
+ 
+     WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>) override;
+ 
++    // Pacific (patch 0011): the compositor's frame acknowledgement (patch
++    // 0007), one per frame shown: ticks scroll animations. While these come,
++    // displayDidRefresh() from the display link is ignored, a second clock
++    // that ticked the animations again a few ms after each frame.
++    void frameDidComplete();
++
+     // Pacific (patch 0009): touch scrolling resampled to the display's
+     // frames. A drag's moves arrive at the touchscreen's rate (110-125 Hz)
+     // against a 90 Hz panel, so applying each as it came moved one frame by
+@@ -182,6 +189,9 @@
+     Seconds m_touchScrollClockOffset; // smallest arrival - event time seen: event clock to now
+     FloatSize m_touchScrollPartial; // the front event's share applied already
+     bool m_touchScrollQueueable { false };
++    // Pacific (patch 0011): when frameDidComplete() last ticked (seconds of
++    // MonotonicTime; written on the compositor thread).
++    std::atomic<double> m_lastFrameTick { 0 };
+     // Shipwright (patch 0007): scroll animation time, stepped by
+     // whole refresh periods.
+     MonotonicTime m_animationTime;
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -40,6 +40,7 @@
+ #include <WebCore/Page.h>
+ #include <WebCore/PlatformDisplay.h>
+ #include <WebCore/ScrollingTree.h>
++#include <WebCore/ThreadedScrollingTree.h>
+ #include <WebCore/Settings.h>
+ #include <WebCore/SkiaCompositingLayer.h>
+ #include <WebCore/SkiaDamageRegion.h>
+@@ -882,7 +883,9 @@
+             Locker locker { m_scrollingTreeLock };
+             scrollingTree = m_scrollingTree;
+         }
+-        if (scrollingTree)
++        if (RefPtr threaded = dynamicDowncast<WebCore::ThreadedScrollingTree>(scrollingTree.get()))
++            threaded->frameDidComplete();
++        else if (scrollingTree)
+             scrollingTree->displayDidRefresh(scrollingTree->displayID());
+     }
+ #endif

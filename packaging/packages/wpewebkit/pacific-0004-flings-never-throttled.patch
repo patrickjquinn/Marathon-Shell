@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A fling is never throttled with the offscreen animations (patch 0001).
+#
+# On the scrolling thread LayerTreeHost::requestComposition() forwards a
+# fling step only when that thread flagged a layer change, and during
+# flings on some pages the flag stays unset: the step is applied but shown
+# only by the next composite for another reason. With an animation on
+# screen that is every frame; once Wikipedia's header (and its pulsating
+# dot) has scrolled away, patch 0001 ticked those composites at 10 Hz and
+# flings ran at 10 frames a second on the Jolla Phone. The scrolling thread
+# now notes every step: the compositor does not throttle within 250 ms of
+# one, and a step that arrives while it does is composited at once.
+#
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
+@@ -90,6 +90,8 @@
+     void setSize(const WebCore::IntSize&, float);
+     void requestCompositionForRenderingUpdate(Function<void()>&&);
+     void requestComposition(WebCore::CompositionReason);
++    // The scrolling thread moved a layer (a fling step, any thread).
++    void scrollingThreadDidApplyScroll();
+ #if ENABLE(SCROLLING_THREAD)
+     void setScrollingTree(RefPtr<WebCore::ScrollingTree>&&);
+     static bool compositeScrollSyncEnabled();
+@@ -198,6 +200,8 @@
+     // every frame. Compositor thread only.
+     RunLoop::Timer m_invisibleAnimationTimer;
+     unsigned m_invisibleAnimationFrames { 0 };
++    std::atomic<double> m_lastScrollingThreadScroll { 0 };
++    std::atomic<bool> m_throttlingInvisibleAnimations { false };
+     std::unique_ptr<WebCore::TextureMapper> m_textureMapper;
+ 
+     struct {
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -596,14 +596,22 @@
+         static const bool debugAnimations = getenv("PACIFIC_DEBUG_ANIMATIONS");
+         if (debugAnimations)
+             fprintf(stderr, "[pacific] animation frame: reasons=%u invisible=%d\n", reasons.toRaw(), invisible ? 1 : 0);
+-        m_invisibleAnimationFrames = invisible ? m_invisibleAnimationFrames + 1 : 0;
++        // Never while the page scrolls: a fling's steps can reach the
++        // compositor only through these frames (patch 0004).
++        const bool scrolling = MonotonicTime::now().secondsSinceEpoch().value() - m_lastScrollingThreadScroll.load() < 0.25;
++        m_invisibleAnimationFrames = invisible && !scrolling ? m_invisibleAnimationFrames + 1 : 0;
+         if (m_invisibleAnimationFrames >= 3) {
++            m_throttlingInvisibleAnimations = true;
+             if (!m_invisibleAnimationTimer.isActive())
+                 m_invisibleAnimationTimer.startOneShot(100_ms);
+-        } else
++        } else {
++            m_throttlingInvisibleAnimations = false;
+             requestComposition(CompositionReason::Animation);
+-    } else
++        }
++    } else {
+         m_invisibleAnimationFrames = 0;
++        m_throttlingInvisibleAnimations = false;
++    }
+ 
+     return TargetContents::Valid;
+ }
+@@ -749,6 +757,14 @@
+     scheduleUpdateLocked();
+ }
+ 
++void ThreadedCompositor::scrollingThreadDidApplyScroll()
++{
++    m_lastScrollingThreadScroll = MonotonicTime::now().secondsSinceEpoch().value();
++    // Throttled to 10 Hz: the step is shown now, and full rate resumes.
++    if (m_throttlingInvisibleAnimations.exchange(false))
++        requestComposition(CompositionReason::AsyncScrolling);
++}
++
+ void ThreadedCompositor::requestComposition(CompositionReason reason)
+ {
+     if (atlFrameTrace()) {
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
+@@ -532,6 +532,8 @@
+ #if ENABLE(SCROLLING_THREAD)
+     if (ScrollingThread::isCurrentThread()) {
+         m_sceneState->flushPendingState();
++        if (reason == CompositionReason::AsyncScrolling)
++            m_compositor->scrollingThreadDidApplyScroll();
+         if (!m_compositionRequiredInScrollingThread)
+             return;
+         m_compositionRequiredInScrollingThread = false;

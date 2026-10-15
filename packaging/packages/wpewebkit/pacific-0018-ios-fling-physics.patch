@@ -1,0 +1,494 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Flings that behave as iOS's: caught by a touch, launched at the finger's
+# speed, and stacking when flicked again.
+#
+# Measured on the Jolla Phone with a train of ten 100 ms flicks, each
+# landing while the last fling coasts, and a flick caught by a resting
+# finger (Pacific's pacific-env also sets WEBKIT_KINETIC_DECEL_FRICTION to
+# 2, iOS's 0.998 a millisecond):
+#
+# - A finger landing on a coasting page stops it at once (MayBegin to the
+#   scrolling tree, which stops the kinetic animation and keeps its velocity
+#   for a next flick), and the tap is not a click: a tap to stop the page
+#   opened the link under it. Upstream stopped the fling only when a drag
+#   passed the touch slop or 200 ms, so a resting finger let the page coast
+#   on for a second. Now it stops 12-16 ms after the finger lands. The UI
+#   process models the fling from the drag that started it; a caught tap
+#   closes its MayBegin with Cancelled.
+# - A fling launches at the finger's speed over its last 50 ms, not its
+#   mean over 150 ms (a thumb still speeds up as it lets go): 0.8x the
+#   finger's speed -> 1.05x. PACIFIC_FLING_VELOCITY_WINDOW_MS (0: upstream).
+# - Stacked flicks compound: the animation remembered the flick's own
+#   velocity, not the stacked one it ran with, so every flick of the train
+#   launched at about 3300 px/s.
+#
+# - A finger that rests before it lifts does not fling: a drag that stopped
+#   150 ms then lifted still flung 80-100 css px. Over 40 ms between the
+#   last move and the lift, no fling (PACIFIC_FLING_PAUSE_MS).
+# - Flicks carry as iOS's: 0.000816 |v|^1.967 of the velocity the page had
+#   when the finger caught it (Flutter's measurement of iOS; 2000 px/s
+#   carries 2530), not upstream's linear share of the velocity it would
+#   have had if never caught; a finger that caught the page and rested
+#   100 ms starts afresh (PACIFIC_FLING_CARRY_PAUSE_MS); the ceiling is
+#   25000 px/s. The ten-flick train now builds 2.1, 3.8, 5.3, 9.4, 12.8,
+#   then about 20 css px/ms. PACIFIC_FLING_CARRY=linear keeps upstream's.
+#
+# PACIFIC_FLING_TRACE=1 logs each fling's own and inherited velocity.
+#
+--- a/Source/WebCore/platform/ScrollAnimationKinetic.h	2026-10-11 08:34:07.250677350 +0100
++++ b/Source/WebCore/platform/ScrollAnimationKinetic.h	2026-10-11 08:49:34.823198524 +0100
+@@ -75,7 +75,7 @@
+     FloatSize initialVelocity() { return m_initialVelocity; }
+     FloatPoint initialOffset() { return m_initialOffset; }
+ 
+-    FloatSize accumulateVelocityFromPreviousGesture(const MonotonicTime, const FloatPoint&, const FloatSize&);
++    FloatSize accumulateVelocityFromPreviousGesture(const MonotonicTime, const FloatPoint&, const FloatSize&, std::optional<MonotonicTime> at = std::nullopt);
+ 
+ private:
+     void serviceAnimation(MonotonicTime) final;
+--- a/Source/WebCore/platform/ScrollAnimationKinetic.cpp	2026-10-11 07:02:43.262047322 +0100
++++ b/Source/WebCore/platform/ScrollAnimationKinetic.cpp	2026-10-11 08:49:34.825535428 +0100
+@@ -29,7 +29,9 @@
+ 
+ #include "PlatformWheelEvent.h"
+ #include "ScrollExtents.h"
++#include <algorithm>
+ #include <cmath>
++#include <cstdio>
+ #include <cstdlib>
+ #include <cstring>
+ #include <optional>
+@@ -206,7 +208,9 @@
+             if (v >= 0.0 && v <= 100000.0)
+                 return v;
+         }
+-        return 10000.0;
++        // Pacific (patch 0018): 25000 with iOS's carry (Atlantic's 10000
++        // stopped repeated flicks building at all).
++        return 25000.0;
+     }();
+     return value;
+ }
+@@ -236,11 +240,71 @@
+     m_scrollHistory.clear();
+ }
+ 
++// Pacific (patch 0018): a fling launches at the finger's speed as it
++// lifted, as on iOS, not its mean over the gesture's last 150 ms: a thumb
++// is still speeding up when it lets go, and the mean launched flings at 0.8x
++// the finger's speed (Jolla Phone, 100 ms flicks). Only the moves of the
++// last PACIFIC_FLING_VELOCITY_WINDOW_MS (default 50; 0 for upstream's
++// whole history) count.
++static Seconds flingVelocityWindow()
++{
++    static const Seconds window = [] {
++        const char* env = getenv("PACIFIC_FLING_VELOCITY_WINDOW_MS");
++        double ms = env ? atof(env) : 50;
++        return Seconds::fromMilliseconds(std::clamp(ms, 0.0, 150.0));
++    }();
++    return window;
++}
++
+ FloatSize ScrollAnimationKinetic::computeVelocity()
+ {
+     if (m_scrollHistory.isEmpty())
+         return { };
+ 
++    // Pacific (patch 0018): a finger that stopped before it lifted does not
++    // fling, as on iOS. Only moves count since the late-end-event fix, so
++    // a drag that rested 150 ms then lifted still flung 80-100 css px at
++    // the speed it had before the rest. Over PACIFIC_FLING_PAUSE_MS
++    // (default 40) between the last move and the lift: no fling.
++    static const Seconds flingPause = [] {
++        const char* env = getenv("PACIFIC_FLING_PAUSE_MS");
++        return Seconds::fromMilliseconds(env ? atof(env) : 40);
++    }();
++    if (kineticEndEventFixEnabled() && flingPause > 0_s) {
++        std::optional<MonotonicTime> lastMotion, lift;
++        for (const auto& scrollEvent : m_scrollHistory) {
++            if (wheelEventHasMotion(scrollEvent))
++                lastMotion = scrollEvent.timestamp();
++            else
++                lift = scrollEvent.timestamp();
++        }
++        if (lastMotion && lift && *lift - *lastMotion > flingPause) {
++            m_scrollHistory.clear();
++            return { };
++        }
++    }
++
++    if (flingVelocityWindow() > 0_s) {
++        std::optional<MonotonicTime> lastMotion;
++        for (const auto& scrollEvent : m_scrollHistory) {
++            if (wheelEventHasMotion(scrollEvent))
++                lastMotion = scrollEvent.timestamp();
++        }
++        // Keep at least two moves, so there is an interval to divide by.
++        size_t motions = 0;
++        for (const auto& scrollEvent : m_scrollHistory)
++            motions += wheelEventHasMotion(scrollEvent);
++        if (lastMotion && motions > 2) {
++            auto from = *lastMotion - flingVelocityWindow();
++            m_scrollHistory.removeAllMatching([&](const PlatformWheelEvent& event) {
++                if (!wheelEventHasMotion(event) || event.timestamp() >= from || motions <= 2)
++                    return false;
++                --motions;
++                return true;
++            });
++        }
++    }
++
+     // Velocity is defined by the samples that carry motion. A trailing zero-delta
+     // end event contributes nothing to the numerator, so letting its timestamp set
+     // `last` would stretch the denominator and under-report the fling — the same
+@@ -308,8 +372,20 @@
+ 
+     auto extents = m_client.scrollExtentsForAnimation(*this);
+ 
++    // Pacific (patch 0018): iOS's carry. A flick on a page still coasting
++    // the same way adds 0.000816 |v|^1.967 of the caught velocity v (the
++    // curve Flutter's iOS physics measured; 2000 px/s carries 2530, 5000
++    // carries 15000), so repeated flicks speed up as on an iPhone. The
++    // ceiling below bounds it. PACIFIC_FLING_CARRY=linear keeps upstream's.
++    static const bool iosCarry = [] {
++        const char* env = getenv("PACIFIC_FLING_CARRY");
++        return !env || strcmp(env, "linear");
++    }();
+     auto accumulateVelocity = [&](double velocity, double previousVelocity) -> double {
+-        if ((std::signbit(previousVelocity) == std::signbit(velocity))
++        if (iosCarry) {
++            if (previousVelocity && velocity && std::signbit(previousVelocity) == std::signbit(velocity))
++                velocity += std::copysign(std::min(0.000816 * std::pow(std::abs(previousVelocity), 1.967), 40000.0), velocity);
++        } else if ((std::signbit(previousVelocity) == std::signbit(velocity))
+             && (std::abs(velocity) >= std::abs(previousVelocity * velocityAccumulationFloor))) {
+             double minVelocity = previousVelocity * velocityAccumulationFloor;
+             double maxVelocity = previousVelocity * velocityAccumulationCeil;
+@@ -332,17 +408,32 @@
+         return velocity;
+     };
+ 
++    static const bool trace = getenv("PACIFIC_FLING_TRACE");
++    if (trace) {
++        fprintf(stderr, "[fling] start v=%.0f prev=%.0f px/s t=%.1f\n", velocity.height(), previousVelocity.height(),
++            MonotonicTime::now().secondsSinceEpoch().milliseconds());
++    }
++
++    // Pacific (patch 0018): the fling remembers the velocity it runs with,
++    // stacked flicks included, for the next flick to add to. It kept the
++    // flick's own, so stacking never compounded: ten quick flicks on the
++    // Jolla Phone all launched at about 3300 px/s, where iOS keeps building.
++    // The ceiling above bounds it.
++    FloatSize accumulated { mayHScroll ? static_cast<float>(accumulateVelocity(velocity.width(), previousVelocity.width())) : 0.0f,
++        mayVScroll ? static_cast<float>(accumulateVelocity(velocity.height(), previousVelocity.height())) : 0.0f };
++    m_initialVelocity = accumulated;
++
+     if (mayHScroll) {
+         m_horizontalData = PerAxisData(extents.minimumScrollOffset().x(),
+             extents.maximumScrollOffset().x(),
+-            initialOffset.x(), accumulateVelocity(velocity.width(), previousVelocity.width()));
++            initialOffset.x(), accumulated.width());
+     } else
+         m_horizontalData = std::nullopt;
+ 
+     if (mayVScroll) {
+         m_verticalData = PerAxisData(extents.minimumScrollOffset().y(),
+             extents.maximumScrollOffset().y(),
+-            initialOffset.y(), accumulateVelocity(velocity.height(), previousVelocity.height()));
++            initialOffset.y(), accumulated.height());
+     } else
+         m_verticalData = std::nullopt;
+ 
+@@ -386,9 +477,9 @@
+     return textStream.release();
+ }
+ 
+-FloatSize ScrollAnimationKinetic::accumulateVelocityFromPreviousGesture(const MonotonicTime lastStartTime, const FloatPoint& lastInitialOffset, const FloatSize& lastInitialVelocity)
++FloatSize ScrollAnimationKinetic::accumulateVelocityFromPreviousGesture(const MonotonicTime lastStartTime, const FloatPoint& lastInitialOffset, const FloatSize& lastInitialVelocity, std::optional<MonotonicTime> at)
+ {
+-    auto elapsedTime = MonotonicTime::now() - lastStartTime;
++    auto elapsedTime = at.value_or(MonotonicTime::now()) - lastStartTime;
+     auto extents = m_client.scrollExtentsForAnimation(*this);
+ 
+     auto horizontalData = PerAxisData(extents.minimumScrollOffset().x(),
+--- a/Source/WebCore/platform/ScrollingEffectsController.h	2026-10-11 08:34:07.246502479 +0100
++++ b/Source/WebCore/platform/ScrollingEffectsController.h	2026-10-11 08:49:34.827678521 +0100
+@@ -286,6 +286,10 @@
+         MonotonicTime startTime;
+         FloatPoint initialOffset;
+         FloatSize initialVelocity;
++        // Pacific (patch 0018): when the fling was caught, and when the
++        // next gesture first moved.
++        MonotonicTime stoppedAt;
++        std::optional<MonotonicTime> resumedAt;
+     } m_previousKineticAnimationInfo;
+ #endif
+ 
+--- a/Source/WebCore/platform/ScrollingEffectsController.cpp	2026-10-11 08:34:07.248550162 +0100
++++ b/Source/WebCore/platform/ScrollingEffectsController.cpp	2026-10-11 08:49:34.829455161 +0100
+@@ -26,6 +26,8 @@
+ #include "config.h"
+ #include "ScrollingEffectsController.h"
+ 
++#include <cstdlib>
++
+ #include "KeyboardScrollingAnimator.h"
+ #include "LayoutSize.h"
+ #include "Logging.h"
+@@ -294,13 +296,23 @@
+ #if ENABLE(KINETIC_SCROLLING)
+ bool ScrollingEffectsController::processWheelEventForKineticScrolling(const PlatformWheelEvent& event)
+ {
+-    if (CheckedPtr kineticAnimation = dynamicDowncast<ScrollAnimationKinetic>(m_currentAnimation.get())) {
+-        m_previousKineticAnimationInfo.startTime = kineticAnimation->startTime();
+-        m_previousKineticAnimationInfo.initialOffset = kineticAnimation->initialOffset();
+-        m_previousKineticAnimationInfo.initialVelocity = kineticAnimation->initialVelocity();
++    // Pacific (patch 0018): only a fling still running is caught, and its
++    // velocity counts as it was when caught (as iOS's), not as if it had
++    // coasted on until the next flick ended. Upstream recorded a finished
++    // fling again on every event, and the moment it was stopped was lost.
++    CheckedPtr runningKinetic = dynamicDowncast<ScrollAnimationKinetic>(m_currentAnimation.get());
++    if (runningKinetic && runningKinetic->isActive()) {
++        m_previousKineticAnimationInfo.startTime = runningKinetic->startTime();
++        m_previousKineticAnimationInfo.initialOffset = runningKinetic->initialOffset();
++        m_previousKineticAnimationInfo.initialVelocity = runningKinetic->initialVelocity();
++        m_previousKineticAnimationInfo.stoppedAt = MonotonicTime::now();
++        m_previousKineticAnimationInfo.resumedAt = std::nullopt;
+ 
+-        kineticAnimation->stop();
++        runningKinetic->stop();
+     }
++    if (!m_previousKineticAnimationInfo.initialVelocity.isZero() && !m_previousKineticAnimationInfo.resumedAt
++        && (event.deltaX() || event.deltaY()))
++        m_previousKineticAnimationInfo.resumedAt = MonotonicTime::now();
+ 
+     if (!event.hasPreciseScrollingDeltas()) {
+         m_scrollHistory.clear();
+@@ -331,8 +343,20 @@
+ 
+     FloatSize previousVelocity;
+     if (!m_previousKineticAnimationInfo.initialVelocity.isZero()) {
+-        previousVelocity = kineticAnimation->accumulateVelocityFromPreviousGesture(m_previousKineticAnimationInfo.startTime,
+-            m_previousKineticAnimationInfo.initialOffset, m_previousKineticAnimationInfo.initialVelocity);
++        // A finger that caught the page and rested before flicking again
++        // starts afresh, as on iOS (PACIFIC_FLING_CARRY_PAUSE_MS, default
++        // 100: the touch slop and the resampling delay come before the first
++        // move of a quick re-flick).
++        static const Seconds carryPause = [] {
++            const char* env = getenv("PACIFIC_FLING_CARRY_PAUSE_MS");
++            return Seconds::fromMilliseconds(env ? atof(env) : 100);
++        }();
++        auto& info = m_previousKineticAnimationInfo;
++        bool rested = info.resumedAt && *info.resumedAt - info.stoppedAt > carryPause;
++        if (!rested) {
++            previousVelocity = kineticAnimation->accumulateVelocityFromPreviousGesture(info.startTime,
++                info.initialOffset, info.initialVelocity, info.stoppedAt);
++        }
+         m_previousKineticAnimationInfo.initialVelocity = FloatSize();
+     }
+ 
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h	2026-10-11 07:02:43.263263320 +0100
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h	2026-10-11 08:49:34.831414318 +0100
+@@ -28,6 +28,7 @@
+ #if USE(LIBWPE) && ENABLE(TOUCH_EVENTS)
+ 
+ #include "WebWheelEvent.h"
++#include <optional>
+ #include <wpe/wpe.h>
+ #include <wtf/TZoneMalloc.h>
+ #include <wtf/Vector.h>
+@@ -72,8 +73,15 @@
+     // Pacific (patch 0015): a touch the page handled itself (no gesture),
+     // so the controller still knows which fingers are down.
+     void trackFinger(const struct wpe_input_touch_event_raw*);
++    // Pacific (patch 0018): whether the page is likely still coasting from
++    // the last fling at `time` (touch clock, ms), and catching it: the touch
++    // that landed then stops the page and is not a click.
++    bool flingMovingAt(uint32_t time) const;
++    void catchFling(uint32_t downTime);
+ 
+ private:
++    void recordAxisMotion(uint32_t time, int32_t dx, int32_t dy);
++
+     GesturedEvent m_gesturedEvent { GesturedEvent::None };
+ 
+     struct {
+@@ -102,6 +110,19 @@
+     Vector<int32_t, 4> m_fingers;
+     int32_t m_primaryId { -1 };
+     bool m_multiTouch { false };
++
++    // Pacific (patch 0018): the drag's last moves (touch clock), the
++    // finger's speed when it lifted (px/ms) and when, and the touch-down a
++    // fling was caught by.
++    struct AxisMotion {
++        uint32_t time;
++        int32_t dx;
++        int32_t dy;
++    };
++    Vector<AxisMotion, 16> m_axisMotions;
++    float m_flingSpeed { 0 };
++    uint32_t m_flingTime { 0 };
++    std::optional<uint32_t> m_caughtDownTime;
+ };
+ 
+ } // namespace WebKit
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp	2026-10-11 07:02:43.264431486 +0100
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp	2026-10-11 08:49:34.833472778 +0100
+@@ -29,6 +29,7 @@
+ #if USE(LIBWPE) && ENABLE(TOUCH_EVENTS)
+ 
+ #include <WebCore/Scrollbar.h>
++#include <cmath>
+ #include <cstdlib>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+@@ -57,6 +58,53 @@
+     }
+ }
+ 
++// Pacific (patch 0018): iOS's touch on a moving page. A finger landing on a
++// page still coasting from a fling stops it at once and is not a click (a
++// tap to stop a page must not open the link under it). Upstream only
++// stopped the fling when the next drag passed the touch slop (or 200 ms),
++// so a resting finger let the page coast on, and a tap clicked.
++//
++// The fling runs in the WebProcess; here it is modelled from the drag that
++// started it: the finger's speed over its last 50 ms, decaying as the
++// kinetic animation does (WEBKIT_KINETIC_DECEL_FRICTION), until it is
++// slower than the animation's own end (a pixel a frame at 90 Hz).
++static double kineticFriction()
++{
++    static const double friction = [] {
++        if (const char* env = getenv("WEBKIT_KINETIC_DECEL_FRICTION")) {
++            double v = atof(env);
++            if (v >= 0.3 && v <= 8.0)
++                return v;
++        }
++        return 4.0;
++    }();
++    return friction;
++}
++
++static constexpr uint32_t flingVelocityWindow { 50 };
++static constexpr float flingStoppedSpeed { 0.09f }; // px/ms
++
++void TouchGestureController::recordAxisMotion(uint32_t time, int32_t dx, int32_t dy)
++{
++    m_axisMotions.append({ time, dx, dy });
++    while (m_axisMotions.size() > 1 && time - m_axisMotions.first().time > 2 * flingVelocityWindow)
++        m_axisMotions.removeAt(0);
++}
++
++bool TouchGestureController::flingMovingAt(uint32_t time) const
++{
++    if (m_flingSpeed <= 0 || time < m_flingTime)
++        return false;
++    double seconds = (time - m_flingTime) / 1000.0;
++    return m_flingSpeed * std::exp(-kineticFriction() * seconds) > flingStoppedSpeed;
++}
++
++void TouchGestureController::catchFling(uint32_t downTime)
++{
++    m_flingSpeed = 0;
++    m_caughtDownTime = downTime;
++}
++
+ TouchGestureController::EventVariant TouchGestureController::handleEvent(const struct wpe_input_touch_event_raw* touchPoint)
+ {
+     // Pacific (patch 0015): a gesture is one finger's. The controller took
+@@ -159,6 +207,8 @@
+ 
+             // Over threshold, bump the gestured event and directly fall through to handling it.
+             m_gesturedEvent = GesturedEvent::Axis;
++            m_axisMotions.clear();
++            m_caughtDownTime = std::nullopt;
+             [[fallthrough]];
+         }
+         case GesturedEvent::Axis:
+@@ -204,6 +254,7 @@
+                 2, (touchPoint->y - m_offset.y), 0
+             };
+ #endif
++            recordAxisMotion(touchPoint->time, touchPoint->x - m_offset.x, touchPoint->y - m_offset.y);
+             m_offset.x = touchPoint->x;
+             m_offset.y = touchPoint->y;
+             return generatedEvent;
+@@ -218,6 +269,26 @@
+             break;
+         case GesturedEvent::Click:
+         {
++            if (m_caughtDownTime && *m_caughtDownTime == m_start.time) {
++                // The touch stopped a fling: not a click. The MayBegin that
++                // stopped it is closed (as a trackpad's is when no scroll
++                // follows), or the scrolling tree stays latched to that
++                // gesture and the next drag did not scroll.
++                m_caughtDownTime = std::nullopt;
++                m_gesturedEvent = GesturedEvent::None;
++                AxisEvent cancelled;
++                cancelled.phase = WebWheelEvent::Phase::Cancelled;
++#if WPE_CHECK_VERSION(1, 5, 0)
++                cancelled.event.base = {
++                    static_cast<enum wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth),
++                    touchPoint->time, m_start.x, m_start.y, 0, 0, 0
++                };
++                cancelled.event.x_axis = cancelled.event.y_axis = 0;
++#else
++                cancelled.event = { wpe_input_axis_event_type_motion, touchPoint->time, m_start.x, m_start.y, 0, 0, 0 };
++#endif
++                return cancelled;
++            }
+             bool generateClick = true;
+ 
+ #if ENABLE(CONTEXT_MENUS)
+@@ -251,6 +322,25 @@
+         case GesturedEvent::Axis:
+         {
+             m_gesturedEvent = GesturedEvent::None;
++            {
++                // The finger's speed as it lifted, over its last 50 ms.
++                int32_t dx = 0, dy = 0;
++                std::optional<uint32_t> from;
++                for (auto& motion : m_axisMotions) {
++                    if (touchPoint->time - motion.time > flingVelocityWindow)
++                        continue;
++                    if (!from) {
++                        from = motion.time;
++                        continue; // its move happened before the window
++                    }
++                    dx += motion.dx;
++                    dy += motion.dy;
++                }
++                uint32_t span = from && touchPoint->time > *from ? touchPoint->time - *from : 0;
++                m_flingSpeed = span ? std::hypot(static_cast<float>(dx), static_cast<float>(dy)) / span : 0;
++                m_flingTime = touchPoint->time;
++                m_axisMotions.clear();
++            }
+ 
+             AxisEvent generatedEvent;
+             generatedEvent.phase = WebWheelEvent::Phase::Ended;
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp	2026-10-11 07:02:43.265583237 +0100
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp	2026-10-11 08:49:34.835512985 +0100
+@@ -250,6 +250,21 @@
+                     view.m_touchSequenceGeneration++;
+                     view.m_touchSequenceHandledLocally = false;
+                     view.m_touchDownEvent = *touchPoint;
++                    // Pacific (patch 0018): a finger landing on a page still
++                    // coasting stops it now, as on iOS (MayBegin stops the
++                    // kinetic animation in the scrolling tree, which keeps its
++                    // velocity for the next flick to add to), without waiting
++                    // for the page's reply to the touch or for a drag.
++                    if (touchGestureController.flingMovingAt(touchPoint->time)) {
++                        touchGestureController.catchFling(touchPoint->time);
++#if WPE_CHECK_VERSION(1, 5, 0)
++                        struct wpe_input_axis_2d_event stop = { };
++                        stop.base = { static_cast<enum wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth),
++                            touchPoint->time, touchPoint->x, touchPoint->y, 0, 0, 0 };
++                        page.handleNativeWheelEvent(WebKit::NativeWebWheelEvent(&stop.base, page.deviceScaleFactor(),
++                            WebWheelEvent::Phase::MayBegin, WebWheelEvent::Phase::None));
++#endif
++                    }
+                 } else if (touchAckTimeoutMs && !view.m_touchSequenceHandledLocally
+                     && touchGestureController.gesturedEvent() != TouchGestureController::GesturedEvent::Axis
+                     && !view.m_pendingTouchEventAcks.isEmpty()

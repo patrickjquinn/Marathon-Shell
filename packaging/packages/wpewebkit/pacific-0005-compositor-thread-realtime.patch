@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The compositor thread runs at real-time priority, like the scrolling thread.
+#
+# It puts every frame on screen, but ran as an ordinary thread, competing
+# with the four CPU painting threads and the page's own threads. WTF already
+# makes UserInteractive threads SCHED_RR (as for "Core: Scrolling") and
+# demotes them all on SIGXCPU, so a runaway thread cannot take a core.
+# PACIFIC_COMPOSITOR_REALTIME=0 leaves it ordinary.
+#
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -99,8 +99,19 @@
+     return adoptRef(*new ThreadedCompositor(webPage, layerTreeHost, sceneState));
+ }
+ 
++// Shipwright: the compositor thread puts every frame on screen, so it is
++// scheduled like the scrolling thread (real time, SCHED_RR; WTF demotes all
++// real-time threads on SIGXCPU). With tiles painted on four CPU threads it
++// otherwise competed with them and the page's own threads for a core.
++// PACIFIC_COMPOSITOR_REALTIME=0 leaves it an ordinary thread.
++static WorkQueue::QOS compositorQOS()
++{
++    const char* env = getenv("PACIFIC_COMPOSITOR_REALTIME");
++    return env && !strcmp(env, "0") ? WorkQueue::QOS::Default : WorkQueue::QOS::UserInteractive;
++}
++
+ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTreeHost, CoordinatedSceneState& sceneState)
+-    : m_workQueue(WorkQueue::create("org.webkit.ThreadedCompositor"_s))
++    : m_workQueue(WorkQueue::create("org.webkit.ThreadedCompositor"_s, compositorQOS()))
+     , m_layerTreeHost(&layerTreeHost)
+     , m_useSkia(webPage.corePage()->settings().useSkiaForComposition())
+     , m_surface(AcceleratedSurface::create(webPage, [this] { frameComplete(); }, AcceleratedSurface::RenderingPurpose::Composited, m_useSkia))

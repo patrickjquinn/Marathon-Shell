@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# wpe_sfos_set_safe_area_insets(): env(safe-area-inset-*) for WPE.
+#
+# WebCore supports the CSS safe-area constants on every port
+# (Page::setUnobscuredSafeAreaInsets feeds ConstantPropertyMap), but only
+# Cocoa reaches them, through its visible-content-rect updates. Phones with
+# a notch need them: Pacific keeps ordinary pages below the notch and gives
+# viewport-fit=cover pages the whole screen with the notch as the top inset,
+# as Safari does. A new WebPage message carries the insets; the embedder
+# sets them again after a navigation that changes web process.
+#
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.messages.in
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.messages.in
+@@ -706,6 +706,8 @@
+ 
+     SetUseColorAppearance(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
+ 
++    SetUnobscuredSafeAreaInsets(WebCore::FloatBoxExtent insets)
++
+ #if HAVE(APP_ACCENT_COLORS)
+     SetAccentColor(WebCore::Color color)
+ #endif
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.h
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.h
+@@ -930,6 +930,7 @@
+ 
+     // FIXME(site-isolation): Calls to these should be removed in favour of setting via WebPageProxy.
+     void scalePage(double scale, const WebCore::IntPoint& origin);
++    void setUnobscuredSafeAreaInsets(const WebCore::FloatBoxExtent&);
+     void scaleView(double scale);
+ 
+     double pageScaleFactor() const;
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.cpp
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.cpp
+@@ -3118,6 +3118,13 @@
+ 
+ #endif
+ 
++// SFOS: env(safe-area-inset-*) from the embedder (wpe_sfos_set_safe_area_insets).
++void WebPage::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
++{
++    if (RefPtr page = m_page.get())
++        page->setUnobscuredSafeAreaInsets(insets);
++}
++
+ void WebPage::scalePage(double scale, const IntPoint& origin)
+ {
+     didScalePage(scale, origin);
+--- a/Source/WebKit/UIProcess/WebPageProxy.h
++++ b/Source/WebKit/UIProcess/WebPageProxy.h
+@@ -1581,6 +1581,7 @@
+     double NODELETE maxPageZoomFactor() const;
+ 
+     void scalePage(double scale, const WebCore::IntPoint& origin, CompletionHandler<void()>&&);
++    void setUnobscuredSafeAreaInsetsForEmbedder(const WebCore::FloatBoxExtent&);
+     void scalePageInViewCoordinates(double scale, const WebCore::IntPoint& centerInViewCoordinates);
+     void scalePageRelativeToScrollPosition(double scale, const WebCore::IntPoint& origin);
+     double NODELETE pageScaleFactor() const;
+--- a/Source/WebKit/UIProcess/WebPageProxy.cpp
++++ b/Source/WebKit/UIProcess/WebPageProxy.cpp
+@@ -6675,6 +6675,17 @@
+     return m_pageScaleFactor;
+ }
+ 
++// SFOS: see wpe_sfos_set_safe_area_insets(). Sent to every process showing
++// the page; a page in a new process gets it again from the embedder.
++void WebPageProxy::setUnobscuredSafeAreaInsetsForEmbedder(const FloatBoxExtent& insets)
++{
++    if (!hasRunningProcess())
++        return;
++    forEachWebContentProcess([&] (auto& process, auto pageID) {
++        process.send(Messages::WebPage::SetUnobscuredSafeAreaInsets(insets), pageID);
++    });
++}
++
+ void WebPageProxy::scalePage(double scale, const IntPoint& origin, CompletionHandler<void()>&& completionHandler)
+ {
+     ASSERT(scale > 0);
+--- a/Source/WebKit/UIProcess/API/glib/WebKitWebView.cpp
++++ b/Source/WebKit/UIProcess/API/glib/WebKitWebView.cpp
+@@ -6188,6 +6188,17 @@
+     page->scalePageInViewCoordinates(scale, WebCore::IntPoint(static_cast<int>(centerX * anchor), static_cast<int>(centerY * anchor)));
+ }
+ 
++// SFOS: the screen edges the page should keep its content clear of, in CSS
++// pixels: a notch or a rounded corner. Pages read them as
++// env(safe-area-inset-top) etc. (with viewport-fit=cover, as on iOS). The
++// embedder sets them again after a navigation that changes web process.
++extern "C" __attribute__((visibility("default")))
++void wpe_sfos_set_safe_area_insets(WebKitWebView* webView, double top, double right, double bottom, double left)
++{
++    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
++    getPage(webView).setUnobscuredSafeAreaInsetsForEmbedder(WebCore::FloatBoxExtent(top, right, bottom, left));
++}
++
+ // SFOS: the page scale factor currently committed for @web_view. The embedder
+ // reads this to start a new pinch from the scale the last one left behind.
+ // WebPageProxy resets it to 1 on every main-frame commit, so this reports 1.0

@@ -1,0 +1,500 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Zero-copy CPU tiles: painted straight into memory the GPU samples.
+#
+# With tiles painted on the CPU (pacific-env, PACIFIC_GPU_MODE=mali) each new
+# tile was copied into a GPU texture on the compositor thread
+# (glTexSubImage2D). As the phones that scrolled well on one core did, a
+# whole tile is painted into a gralloc buffer (libhybris
+# EGL_HYBRIS_native_buffer2, mapped cached for the CPU) from a pool, and the
+# compositor shows it through that buffer's EGLImage: no upload, no copy.
+# Buffers and their EGLImages are made once and reused (a buffer per tile
+# cost the main thread a fifth of its time, importing each into the driver a
+# third of the compositor's), 50 ms after the last frame that showed them. A
+# later partial update is copied into the same buffer on the CPU. The pool
+# holds at most a sixth of the open-files limit in buffers (384 at most): each
+# costs about three descriptors, and at the limit (1024 on Sailfish) a long
+# scroll left no descriptor for the next frame buffer and the page froze;
+# tiles past it take the upload path. Partial
+# and low-res paints, GPU painting and systems without libhybris keep the
+# upload path. eglCreateImageKHR, not EGL 1.5's eglCreateImage: Mali
+# crashes on images of native buffers made with the latter.
+# PACIFIC_ZERO_COPY_TILES=0 turns it off.
+#
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedTileBuffer.h
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedTileBuffer.h
+@@ -52,6 +52,7 @@
+ namespace WebCore {
+ class BitmapTexture;
+ class GLFence;
++class NativeTileMemory;
+ 
+ class CoordinatedTileBuffer : public ThreadSafeRefCounted<CoordinatedTileBuffer> {
+ public:
+@@ -113,15 +114,30 @@
+ class CoordinatedUnacceleratedTileBuffer final : public CoordinatedTileBuffer {
+ public:
+     WEBCORE_EXPORT static Ref<CoordinatedTileBuffer> create(const IntSize&, Flags);
++    // Pacific: a whole tile painted on the CPU straight into a gralloc buffer
++    // (libhybris EGL_HYBRIS_native_buffer2) that the compositor samples
++    // through an EGLImage, with no upload. A plain buffer when that is not
++    // available or PACIFIC_ZERO_COPY_TILES=0.
++    WEBCORE_EXPORT static Ref<CoordinatedTileBuffer> createZeroCopy(const IntSize&, Flags);
+     WEBCORE_EXPORT virtual ~CoordinatedUnacceleratedTileBuffer();
+ 
+-    int stride() const { return m_size.width() * 4; }
++    int stride() const { return m_stride; }
+ 
+-    const unsigned char* data() const { return m_data.span().data(); }
+-    unsigned char* data() { return m_data.mutableSpan().data(); }
++    const unsigned char* data() const { return m_mapped ? m_mapped : m_data.span().data(); }
++    unsigned char* data() { return m_mapped ? m_mapped : m_data.mutableSpan().data(); }
++
++    bool hasNativeMemory() const { return !!m_native; }
++    // The EGLImage of the gralloc buffer, made on first use and kept with the
++    // pooled buffer (compositor thread), or null.
++    WEBCORE_EXPORT void* nativeImage();
++    // Copies rows of BGRA pixels into the gralloc buffer at rect (a later
++    // partial update of a tile shown from this buffer).
++    WEBCORE_EXPORT bool writeToNativeBuffer(const unsigned char* source, int sourceStride, const IntRect&);
+ 
+ private:
+-    CoordinatedUnacceleratedTileBuffer(const IntSize&, Flags);
++    CoordinatedUnacceleratedTileBuffer(const IntSize&, Flags, bool zeroCopy);
++
++    void completePainting() final;
+ 
+     bool isBackedByOpenGL() const final { return false; }
+     IntSize size() const final { return m_size; }
+@@ -133,6 +149,9 @@
+ 
+     MallocSpan<unsigned char> m_data;
+     IntSize m_size;
++    int m_stride { 0 };
++    RefPtr<NativeTileMemory> m_native;
++    unsigned char* m_mapped { nullptr };
+ 
+     enum class PaintingState {
+         InProgress,
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedTileBuffer.cpp
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedTileBuffer.cpp
+@@ -29,7 +29,16 @@
+ #include "config.h"
+ #include "CoordinatedTileBuffer.h"
+ 
++#include <algorithm>
+ #include <cstdlib>
++#include <cstring>
++#include <sys/resource.h>
++
++#if USE(LIBEPOXY)
++#include <epoxy/egl.h>
++#else
++#include <EGL/egl.h>
++#endif
+ 
+ #if USE(COORDINATED_GRAPHICS)
+ 
+@@ -47,6 +56,9 @@
+ #include <skia/gpu/ganesh/gl/GrGLDirectContext.h>
+ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+ #include <wtf/MainThread.h>
++#include <wtf/MonotonicTime.h>
++#include <wtf/NeverDestroyed.h>
++#include <optional>
+ 
+ #if USE(LIBEPOXY)
+ #include <epoxy/gl.h>
+@@ -110,16 +122,210 @@
+     });
+ }
+ 
++// Pacific: libhybris's EGL_HYBRIS_native_buffer2 (eglplatformcommon.cpp):
++// gralloc buffers the CPU can map and EGL can make an image of.
++namespace {
++using HybrisCreateNativeBuffer = unsigned (*)(int width, int height, int usage, int format, int* stride, void** buffer);
++using HybrisLockNativeBuffer = unsigned (*)(void* buffer, int usage, int left, int top, int width, int height, void** vaddr);
++using HybrisNativeBufferCall = unsigned (*)(void* buffer);
++// GRALLOC_USAGE_SW_READ_OFTEN | SW_WRITE_OFTEN: a cached mapping (Skia reads
++// the destination to blend); GRALLOC_USAGE_HW_TEXTURE.
++constexpr int kNativeBufferCPUUsage = 0x3 | 0x30;
++constexpr int kNativeBufferUsage = kNativeBufferCPUUsage | 0x100;
++constexpr int kHALPixelFormatBGRA8888 = 5;
++
++struct HybrisNativeBuffers {
++    HybrisCreateNativeBuffer create { nullptr };
++    HybrisLockNativeBuffer lock { nullptr };
++    HybrisNativeBufferCall unlock { nullptr };
++    HybrisNativeBufferCall release { nullptr };
++    bool available { false };
++};
++
++const HybrisNativeBuffers& hybrisNativeBuffers()
++{
++    static const HybrisNativeBuffers buffers = [] {
++        HybrisNativeBuffers b;
++        const char* env = getenv("PACIFIC_ZERO_COPY_TILES");
++        if (env && !strcmp(env, "0"))
++            return b;
++        b.create = reinterpret_cast<HybrisCreateNativeBuffer>(eglGetProcAddress("eglHybrisCreateNativeBuffer"));
++        b.lock = reinterpret_cast<HybrisLockNativeBuffer>(eglGetProcAddress("eglHybrisLockNativeBuffer"));
++        b.unlock = reinterpret_cast<HybrisNativeBufferCall>(eglGetProcAddress("eglHybrisUnlockNativeBuffer"));
++        b.release = reinterpret_cast<HybrisNativeBufferCall>(eglGetProcAddress("eglHybrisReleaseNativeBuffer"));
++        b.available = b.create && b.lock && b.unlock && b.release;
++        return b;
++    }();
++    return buffers;
++}
++} // namespace
++
++// Pacific: gralloc tile memory, allocated once and reused, with its EGLImage
++// made once: allocating a buffer per tile cost the main thread a fifth of its
++// time and importing each one into the driver a third of the compositor's.
++class NativeTileMemory : public ThreadSafeRefCounted<NativeTileMemory> {
++public:
++    static RefPtr<NativeTileMemory> acquire(const IntSize&);
++
++    ~NativeTileMemory()
++    {
++        if (m_image)
++            destroyImage(m_image);
++        hybrisNativeBuffers().release(m_buffer);
++    }
++
++    void* buffer() const { return m_buffer; }
++    const IntSize& size() const { return m_size; }
++    int stride() const { return m_stride; }
++
++    void* image()
++    {
++        if (!m_image) {
++            constexpr unsigned nativeBufferTarget = 0x3140; // EGL_NATIVE_BUFFER_ANDROID
++            using CreateImageKHR = void* (*)(EGLDisplay, EGLContext, unsigned, EGLClientBuffer, const EGLint*);
++            static const auto createImage = reinterpret_cast<CreateImageKHR>(eglGetProcAddress("eglCreateImageKHR"));
++            // eglCreateImageKHR: the EGL 1.5 eglCreateImage makes an image of a
++            // native buffer the Mali driver then crashes on.
++            if (createImage)
++                m_image = createImage(PlatformDisplay::sharedDisplay().eglDisplay(), EGL_NO_CONTEXT, nativeBufferTarget, static_cast<EGLClientBuffer>(m_buffer), nullptr);
++        }
++        return m_image;
++    }
++
++private:
++    NativeTileMemory(void* buffer, const IntSize& size, int stride)
++        : m_buffer(buffer)
++        , m_size(size)
++        , m_stride(stride)
++    {
++    }
++
++    static void destroyImage(void* image)
++    {
++        using DestroyImageKHR = EGLBoolean (*)(EGLDisplay, void*);
++        static const auto destroy = reinterpret_cast<DestroyImageKHR>(eglGetProcAddress("eglDestroyImageKHR"));
++        if (destroy)
++            destroy(PlatformDisplay::sharedDisplay().eglDisplay(), image);
++    }
++
++    void* m_buffer { nullptr };
++    IntSize m_size;
++    int m_stride { 0 };
++    void* m_image { nullptr };
++    // When the pool first saw it unused; reused 50 ms later, after any frame
++    // still showing it has gone.
++    std::optional<MonotonicTime> m_freeSince;
++
++    friend struct NativeTilePool;
++};
++
++struct NativeTilePool {
++    static constexpr size_t maxFreeBytes = 48 * 1024 * 1024;
++    // Buffers in use are bounded too: each costs the process about three
++    // file descriptors (dma-buf, gralloc_extra and its mapping), and at the
++    // open-files limit the next frame buffer cannot be imported and the page
++    // stops updating. A sixth of the limit, and no more than 384 (a 512px
++    // tile is 1 MiB); tiles past it take the upload path.
++    static size_t maxBuffers()
++    {
++        static const size_t cap = [] {
++            struct rlimit files;
++            size_t byFiles = getrlimit(RLIMIT_NOFILE, &files) ? 170 : static_cast<size_t>(files.rlim_cur) / 6;
++            return std::min<size_t>(byFiles, 384);
++        }();
++        return cap;
++    }
++    Lock lock;
++    Vector<Ref<NativeTileMemory>> entries;
++};
++
++static NativeTilePool& nativeTilePool()
++{
++    static NeverDestroyed<NativeTilePool> pool;
++    return pool;
++}
++
++RefPtr<NativeTileMemory> NativeTileMemory::acquire(const IntSize& size)
++{
++    const auto& hybris = hybrisNativeBuffers();
++    if (!hybris.available)
++        return nullptr;
++    auto& pool = nativeTilePool();
++    const auto now = MonotonicTime::now();
++    {
++        Locker locker { pool.lock };
++        size_t freeBytes = 0;
++        RefPtr<NativeTileMemory> found;
++        for (auto& entry : pool.entries) {
++            if (entry->refCount() > 1) {
++                entry->m_freeSince = std::nullopt;
++                continue;
++            }
++            if (!entry->m_freeSince)
++                entry->m_freeSince = now;
++            if (!found && entry->m_size == size && now - *entry->m_freeSince >= 50_ms) {
++                found = entry.ptr();
++                entry->m_freeSince = std::nullopt;
++                continue;
++            }
++            freeBytes += entry->m_stride * entry->m_size.height();
++        }
++        // Oldest free entries go past the cap.
++        if (freeBytes > NativeTilePool::maxFreeBytes) {
++            pool.entries.removeAllMatching([&](auto& entry) {
++                if (freeBytes <= NativeTilePool::maxFreeBytes || entry->refCount() > 1 || entry.ptr() == found.get())
++                    return false;
++                freeBytes -= entry->m_stride * entry->m_size.height();
++                return true;
++            });
++        }
++        if (found)
++            return found;
++        if (pool.entries.size() >= NativeTilePool::maxBuffers())
++            return nullptr;
++    }
++    int stridePixels = 0;
++    void* buffer = nullptr;
++    if (!hybris.create(size.width(), size.height(), kNativeBufferUsage, kHALPixelFormatBGRA8888, &stridePixels, &buffer) || !buffer)
++        return nullptr;
++    Ref memory = adoptRef(*new NativeTileMemory(buffer, size, stridePixels * 4));
++    Locker locker { pool.lock };
++    pool.entries.append(memory.copyRef());
++    return memory;
++}
++
+ Ref<CoordinatedTileBuffer> CoordinatedUnacceleratedTileBuffer::create(const IntSize& size, Flags flags)
+ {
+-    return adoptRef(*new CoordinatedUnacceleratedTileBuffer(size, flags));
++    return adoptRef(*new CoordinatedUnacceleratedTileBuffer(size, flags, false));
++}
++
++Ref<CoordinatedTileBuffer> CoordinatedUnacceleratedTileBuffer::createZeroCopy(const IntSize& size, Flags flags)
++{
++    return adoptRef(*new CoordinatedUnacceleratedTileBuffer(size, flags, true));
+ }
+ 
+-CoordinatedUnacceleratedTileBuffer::CoordinatedUnacceleratedTileBuffer(const IntSize& size, Flags flags)
++CoordinatedUnacceleratedTileBuffer::CoordinatedUnacceleratedTileBuffer(const IntSize& size, Flags flags, bool zeroCopy)
+     : CoordinatedTileBuffer(flags)
+     , m_size(size)
++    , m_stride(size.width() * 4)
+ {
+     const auto checkedArea = size.area() * 4;
++    if (zeroCopy) {
++        if (auto memory = NativeTileMemory::acquire(size)) {
++            void* vaddr = nullptr;
++            if (hybrisNativeBuffers().lock(memory->buffer(), kNativeBufferCPUUsage, 0, 0, size.width(), size.height(), &vaddr) && vaddr) {
++                m_native = WTF::move(memory);
++                m_mapped = static_cast<unsigned char*>(vaddr);
++                m_stride = m_native->stride();
++            }
++        }
++    }
++    if (m_mapped) {
++        Locker locker { s_layersMemoryUsageLock };
++        s_currentLayersMemoryUsage += checkedArea;
++        s_maxLayersMemoryUsage = std::max(s_maxLayersMemoryUsage, s_currentLayersMemoryUsage);
++        return;
++    }
+     // Atlantic: the tile pixels are fully overwritten before the buffer is ever
+     // composited - the Skia raster task clears the whole canvas (canvas->clear)
+     // and paints it, on a worker thread - so zeroing here, on the MAIN thread in
+@@ -146,6 +352,9 @@
+ 
+ CoordinatedUnacceleratedTileBuffer::~CoordinatedUnacceleratedTileBuffer()
+ {
++    // The memory goes back to the pool with the last reference.
++    if (m_native && m_mapped)
++        hybrisNativeBuffers().unlock(m_native->buffer());
+     const auto checkedArea = m_size.area().value() * 4;
+     {
+         Locker locker { s_layersMemoryUsageLock };
+@@ -153,6 +362,40 @@
+     }
+ }
+ 
++void CoordinatedUnacceleratedTileBuffer::completePainting()
++{
++    // Unlocking flushes the CPU's writes for the GPU.
++    if (m_mapped) {
++        m_surface = nullptr;
++        hybrisNativeBuffers().unlock(m_native->buffer());
++        m_mapped = nullptr;
++    }
++    CoordinatedTileBuffer::completePainting();
++}
++
++void* CoordinatedUnacceleratedTileBuffer::nativeImage()
++{
++    return m_native && !m_mapped ? m_native->image() : nullptr;
++}
++
++bool CoordinatedUnacceleratedTileBuffer::writeToNativeBuffer(const unsigned char* source, int sourceStride, const IntRect& rect)
++{
++    if (!m_native || m_mapped || rect.isEmpty())
++        return false;
++    if (rect.x() < 0 || rect.y() < 0 || rect.maxX() > m_size.width() || rect.maxY() > m_size.height())
++        return false;
++    const auto& hybris = hybrisNativeBuffers();
++    void* vaddr = nullptr;
++    if (!hybris.lock(m_native->buffer(), kNativeBufferCPUUsage, rect.x(), rect.y(), rect.width(), rect.height(), &vaddr) || !vaddr)
++        return false;
++    // The mapping is of the whole buffer whatever the locked region.
++    auto* base = static_cast<unsigned char*>(vaddr);
++    for (int row = 0; row < rect.height(); ++row)
++        memcpy(base + (rect.y() + row) * m_stride + rect.x() * 4, source + row * sourceStride, rect.width() * 4);
++    hybris.unlock(m_native->buffer());
++    return true;
++}
++
+ #if USE(SKIA)
+ SkCanvas* CoordinatedUnacceleratedTileBuffer::canvas()
+ {
+@@ -161,7 +404,7 @@
+         auto imageInfo = SkImageInfo::Make(m_size.width(), m_size.height(), kBGRA_8888_SkColorType, alphaType, SkColorSpace::MakeSRGB());
+         // FIXME: ref buffer and unref on release proc?
+         auto properties = FontRenderOptions::singleton().createSurfaceProps();
+-        m_surface = SkSurfaces::WrapPixels(imageInfo, data(), imageInfo.minRowBytes64(), &properties);
++        m_surface = SkSurfaces::WrapPixels(imageInfo, data(), stride(), &properties);
+     }
+     return m_surface->getCanvas();
+ }
+--- a/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.h
++++ b/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.h
+@@ -105,7 +105,7 @@
+     Ref<CoordinatedTileBuffer> replay(const GraphicsLayerCoordinated&, Ref<SkiaRecordingResult>&&, const IntRect& tileRect, const IntRect& dirtyRect, float lowResScale = 1.0f);
+ 
+ private:
+-    Ref<CoordinatedTileBuffer> createBuffer(RenderingMode, const IntSize&, bool contentsOpaque) const;
++    Ref<CoordinatedTileBuffer> createBuffer(RenderingMode, const IntSize&, bool contentsOpaque, bool wholeTile = false) const;
+     void paintIntoGraphicsContext(const GraphicsLayer&, GraphicsContext&, const IntRect&, bool contentsOpaque, float contentsScale) const;
+     static IntSize lowResBufferSize(const IntSize& fullSize, float lowResScale);
+     // Scale actually used when painting a low-res tile: bufferSize/fullSize, i.e.
+--- a/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
+@@ -421,7 +421,7 @@
+     return mode;
+ }
+ 
+-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::createBuffer(RenderingMode renderingMode, const IntSize& size, bool contentsOpaque) const
++Ref<CoordinatedTileBuffer> SkiaPaintingEngine::createBuffer(RenderingMode renderingMode, const IntSize& size, bool contentsOpaque, bool wholeTile) const
+ {
+     if (renderingMode == RenderingMode::Accelerated) {
+         if (canUseDDL())
+@@ -443,7 +443,12 @@
+         return CoordinatedAcceleratedTileBuffer::create(WTF::move(texture));
+     }
+ 
+-    return CoordinatedUnacceleratedTileBuffer::create(size, contentsOpaque ? CoordinatedTileBuffer::NoFlags : CoordinatedTileBuffer::SupportsAlpha);
++    // A whole tile painted on the CPU goes into memory the GPU samples as it
++    // is (Pacific); a partial update is copied into it (SkiaBackingStore).
++    const auto flags = contentsOpaque ? CoordinatedTileBuffer::NoFlags : CoordinatedTileBuffer::SupportsAlpha;
++    if (wholeTile)
++        return CoordinatedUnacceleratedTileBuffer::createZeroCopy(size, flags);
++    return CoordinatedUnacceleratedTileBuffer::create(size, flags);
+ }
+ 
+ RefPtr<SkiaGPUAtlas> SkiaPaintingEngine::createAtlas(const SkiaImageAtlasLayout& layout, AtlasUploadCondition& uploadCondition)
+@@ -581,7 +586,7 @@
+     if (useDDLBuffer)
+         lowResScale = 1.0f;
+     auto bufferSize = useDDLBuffer ? tileRect.size() : lowResBufferSize(dirtyRect.size(), lowResScale);
+-    auto buffer = createBuffer(renderingMode, bufferSize, recording->contentsOpaque());
++    auto buffer = createBuffer(renderingMode, bufferSize, recording->contentsOpaque(), dirtyRect == tileRect && lowResScale >= 1.0f);
+     buffer->beginPainting();
+ 
+     auto rasterTask = [platformLayer = WTF::move(platformLayer), buffer = Ref { buffer }, tileRect, dirtyRect, bufferSize, lowResScale, recording = WTF::move(recording), threadSafeGrContext = WTF::move(threadSafeGrContext)]() mutable {
+--- a/Source/WebCore/platform/graphics/skia/SkiaBackingStore.h
++++ b/Source/WebCore/platform/graphics/skia/SkiaBackingStore.h
+@@ -103,6 +103,9 @@
+         sk_sp<SkSurface> m_surface;
+         RefPtr<BitmapTexture> m_texture;
+         mutable sk_sp<SkImage> m_cachedImage;
++        // Pacific: the gralloc buffer m_texture shows (zero-copy CPU tiles),
++        // which partial updates are written into.
++        RefPtr<CoordinatedTileBuffer> m_nativeBacking;
+     };
+ 
+     HashMap<uint32_t, Tile> m_tiles;
+--- a/Source/WebCore/platform/graphics/skia/SkiaBackingStore.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaBackingStore.cpp
+@@ -44,6 +44,12 @@
+ #include <wtf/SystemTracing.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
++#if USE(LIBEPOXY)
++#include <epoxy/egl.h>
++#else
++#include <EGL/egl.h>
++#endif
++
+ namespace WebCore {
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(SkiaBackingStore);
+@@ -240,9 +246,14 @@
+         m_rect = unscaledTileRect;
+         m_texture = nullptr;
+         m_surface = nullptr;
++        m_nativeBacking = nullptr;
+     }
+ 
+     if (buffer.isBackedByOpenGL()) {
++        if (m_nativeBacking) {
++            m_nativeBacking = nullptr;
++            m_texture = nullptr;
++        }
+         auto& acceleratedBuffer = static_cast<CoordinatedAcceleratedTileBuffer&>(buffer);
+         acceleratedBuffer.serverWait();
+ 
+@@ -278,6 +289,31 @@
+         }
+     } else {
+         auto& unacceleratedBuffer = static_cast<CoordinatedUnacceleratedTileBuffer&>(buffer);
++        const bool wholeTile = dirtyRect.size() == tileRect.size();
++        // Pacific zero-copy: a whole tile painted into a gralloc buffer is
++        // shown from it through an EGLImage, with no upload.
++        if (unacceleratedBuffer.hasNativeMemory() && wholeTile) {
++            if (auto image = unacceleratedBuffer.nativeImage()) {
++                OptionSet<BitmapTexture::Flags> flags;
++                if (buffer.supportsAlpha())
++                    flags.add(BitmapTexture::Flags::SupportsAlpha);
++                m_texture = BitmapTexture::create(static_cast<EGLImage>(image), tileRect.size(), flags);
++                m_nativeBacking = &buffer;
++                m_cachedImage = nullptr;
++                WTFEndSignpost(this, SkiaBackingStoreTileUpdate);
++                return;
++            }
++        }
++        if (m_nativeBacking) {
++            // A partial update of a tile shown from a gralloc buffer is
++            // written into that buffer; a whole one replaces it.
++            if (!wholeTile && static_cast<CoordinatedUnacceleratedTileBuffer&>(*m_nativeBacking).writeToNativeBuffer(unacceleratedBuffer.data(), unacceleratedBuffer.stride(), dirtyRect)) {
++                WTFEndSignpost(this, SkiaBackingStoreTileUpdate);
++                return;
++            }
++            m_nativeBacking = nullptr;
++            m_texture = nullptr;
++        }
+         ensureTexture(tileRect.size(), buffer);
+         m_texture->updateContents(unacceleratedBuffer.data(), dirtyRect, { }, unacceleratedBuffer.stride(), buffer.pixelFormat());
+     }

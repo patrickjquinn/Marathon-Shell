@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# wpe_sfos_set_obscured_content_insets(): the embedder's toolbar over the page.
+#
+# Pacific's auto-hiding toolbar floats over the page, as Safari's does: the
+# page keeps its size while the bar slides, since resizing it mid-fling left
+# a blank band. But the page did not know the bar was there: position:
+# fixed elements at the bottom (cookie banners' buttons, YouTube's and
+# other sites' bottom navigation) were under it, and a page's last lines
+# could not scroll clear of it. WebCore has obscured content insets for
+# this (Safari on the Mac), and WebPageProxy carries them to every web
+# process, but WPE had no API. This adds one. With fixed layout, WPE's
+# viewport handling, the layout viewport was still the whole view, so it
+# now leaves the insets out (in document pixels at the view scale): fixed
+# elements sit above the bar. Each change lays the page out again; Pacific
+# changes them once scrolling stops, as Chrome does with its toolbar.
+#
+--- a/Source/WebCore/page/LocalFrameView.cpp
++++ b/Source/WebCore/page/LocalFrameView.cpp
+@@ -1979,7 +1979,27 @@
+ 
+ LayoutSize LocalFrameView::baseLayoutViewportSize() const
+ {
+-    return renderView() ? renderView()->borderBoxSize() : size();
++    LayoutSize size = renderView() ? renderView()->borderBoxSize() : this->size();
++    // Pacific (patch 0012): with fixed layout (WPE's viewport handling) the
++    // initial containing block is the whole view, toolbars included, and
++    // the obscured content insets (wpe_sfos_set_obscured_content_insets)
++    // only reached scrolling. Position: fixed elements are laid out against
++    // the layout viewport, so they went under a toolbar that covers the
++    // page: cookie banners' buttons, sites' bottom navigation. The layout
++    // viewport leaves the insets out, in document pixels at the view's
++    // scale (not pinch zoom, which never changes the layout viewport).
++    if (useFixedLayout() && m_frame->isMainFrame()) {
++        if (RefPtr page = m_frame->page()) {
++            auto insets = page->obscuredContentInsets();
++            float scale = page->viewScaleFactor() > 0 ? page->viewScaleFactor() : 1;
++            if (!insets.isZero()) {
++                size.expand(-LayoutUnit::fromFloatRound((insets.left() + insets.right()) / scale),
++                    -LayoutUnit::fromFloatRound((insets.top() + insets.bottom()) / scale));
++                size = size.expandedTo(LayoutSize());
++            }
++        }
++    }
++    return size;
+ }
+ 
+ void LocalFrameView::updateLayoutViewport()
+--- a/Source/WebKit/UIProcess/API/glib/WebKitWebView.cpp
++++ b/Source/WebKit/UIProcess/API/glib/WebKitWebView.cpp
+@@ -6199,6 +6199,18 @@
+     getPage(webView).setUnobscuredSafeAreaInsetsForEmbedder(WebCore::FloatBoxExtent(top, right, bottom, left));
+ }
+ 
++// Pacific (patch 0012): the parts of the view the embedder's own controls
++// cover, in CSS pixels at the view's scale, such as a toolbar floating over
++// the bottom of the page. The page still draws under them, but it can
++// scroll its last content clear of them and position: fixed elements stay
++// out from under them. Kept across process swaps by WebPageProxy.
++extern "C" __attribute__((visibility("default")))
++void wpe_sfos_set_obscured_content_insets(WebKitWebView* webView, double top, double right, double bottom, double left)
++{
++    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
++    getPage(webView).setObscuredContentInsets(WebCore::FloatBoxExtent(top, right, bottom, left));
++}
++
+ // SFOS: the page scale factor currently committed for @web_view. The embedder
+ // reads this to start a new pinch from the scale the last one left behind.
+ // WebPageProxy resets it to 1 on every main-frame commit, so this reports 1.0
