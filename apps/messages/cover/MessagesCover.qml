@@ -1,54 +1,69 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../MessagesLogic.js" as Logic
 
+// Unread messages lead with their count and the latest of them; otherwise
+// the most recent conversations.
 CoverBackground {
     id: root
 
     property var conversations: []
     readonly property int unread: Logic.unreadTotal(conversations)
-    readonly property var latest: conversations.length > 0 ? conversations[0] : null
+    readonly property var shown: unread > 0 ? conversations.filter(c => c.unreadCount > 0).slice(0, 1) : conversations.slice(0, 3)
 
     signal newMessageRequested
 
     CoverPlaceholder {
         objectName: "coverPlaceholder"
-        visible: root.latest === null
+        visible: root.conversations.length === 0
         text: qsTr("No messages")
         icon.source: "image://theme/icon-l-message"
     }
 
     Column {
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        visible: root.latest !== null
-        spacing: Theme.paddingSmall
+        spacing: Theme.paddingMedium
 
-        Label {
+        CoverHeadline {
             objectName: "coverUnread"
             width: parent.width
-            text: root.unread > 0 ? qsTr("%n unread", "", root.unread) : qsTr("No new messages")
-            color: root.unread > 0 ? Theme.highlightColor : Theme.primaryColor
-            font.pixelSize: root.unread > 0 ? Theme.fontSizeLarge : Theme.fontSizeMedium
-            wrapMode: Text.Wrap
+            visible: root.unread > 0
+            value: root.unread
+            label: qsTr("unread")
         }
-        Label {
-            objectName: "coverSender"
-            width: parent.width
-            text: root.latest ? Logic.displayName(root.latest) : ""
-            truncationMode: TruncationMode.Fade
-            font.pixelSize: Theme.fontSizeMedium
-        }
-        Label {
-            width: parent.width
-            text: root.latest ? root.latest.lastMessage : ""
-            truncationMode: TruncationMode.Fade
-            maximumLineCount: 2
-            wrapMode: Text.Wrap
-            font.pixelSize: Theme.fontSizeMedium
-            color: Theme.secondaryColor
+
+        Repeater {
+            objectName: "coverConversations"
+            model: root.shown
+
+            Column {
+                id: conversation
+
+                required property var modelData
+
+                width: parent.width
+
+                Label {
+                    objectName: "coverSender"
+                    width: parent.width
+                    text: Logic.displayName(conversation.modelData)
+                    truncationMode: TruncationMode.Fade
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+                Label {
+                    width: parent.width
+                    text: conversation.modelData.lastMessage
+                    wrapMode: Text.Wrap
+                    maximumLineCount: root.unread > 0 ? 2 : 1
+                    elide: Text.ElideRight
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                }
+            }
         }
     }
 

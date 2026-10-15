@@ -19,14 +19,15 @@ TestCase {
             { id: "b", contactName: "", contactNumber: "+15551234567", lastMessage: "yo", unreadCount: 1 }
         ] });
         compare(c.unread, 3);
-        compare(findChild(c, "coverUnread").text, "3 unread");
+        compare(findChild(c, "coverUnread").value, "3");
+        compare(findChild(c, "coverConversations").count, 1);
         compare(findChild(c, "coverSender").text, "Alice");
         verify(!findChild(c, "coverPlaceholder").visible);
     }
 
     function test_noUnread() {
         const c = createTemporaryObject(cover, this, { conversations: [{ id: "b", contactName: "", contactNumber: "+15551234567", lastMessage: "yo", unreadCount: 0 }] });
-        compare(findChild(c, "coverUnread").text, "No new messages");
+        verify(!findChild(c, "coverUnread").visible);
         compare(findChild(c, "coverSender").text, "+1 555 123 4567");
     }
 
