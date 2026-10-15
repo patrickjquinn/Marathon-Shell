@@ -10,8 +10,9 @@ CoverBackground {
 
     Column {
         x: Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
+        spacing: Theme.paddingSmall
 
         Label {
             objectName: "coverExpression"
@@ -19,7 +20,7 @@ CoverBackground {
             horizontalAlignment: Text.AlignRight
             truncationMode: TruncationMode.Fade
             text: cover.calc.expressionText
-            font.pixelSize: Theme.fontSizeMedium
+            font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
         }
         Label {
@@ -30,8 +31,10 @@ CoverBackground {
             minimumPixelSize: Theme.fontSizeMedium
             wrapMode: cover.calc.errorText !== "" ? Text.Wrap : Text.NoWrap
             text: cover.calc.displayText
-            font.pixelSize: Theme.fontSizeExtraLarge
-            color: cover.calc.errorText !== "" ? Theme.errorColor : Theme.primaryColor
+            font.pixelSize: cover.calc.errorText !== "" ? Theme.fontSizeMedium : Theme.fontSizeHuge
+            font.weight: Font.Light
+            font.features: ({ "tnum": 1 })
+            color: cover.calc.errorText !== "" ? Theme.errorColor : Theme.highlightColor
         }
     }
 
