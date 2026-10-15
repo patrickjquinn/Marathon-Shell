@@ -98,13 +98,17 @@ function search(query) {
     const wanted = words(query);
     if (wanted.length === 0)
         return [];
-    const found = [];
+    const matches = (hay) => wanted.every(w => hay.some(h => h.indexOf(w) === 0));
+    // Entries whose own title matches come first: Enter opens the first.
+    const byTitle = [];
+    const others = [];
     sections.forEach(section => section.entries.forEach(entry => {
-        const hay = words(entry.title + " " + section.title + " " + entry.keywords);
-        if (wanted.every(w => hay.some(h => h.indexOf(w) === 0)))
-            found.push(Object.assign({ section: section.title }, entry));
+        if (!matches(words(entry.title + " " + section.title + " " + entry.keywords)))
+            return;
+        const hit = Object.assign({ section: section.title }, entry);
+        (matches(words(entry.title)) ? byTitle : others).push(hit);
     }));
-    return found;
+    return byTitle.concat(others);
 }
 
 // Signal strength 0-100 to the Sailfish wlan strength icons.
