@@ -29,10 +29,15 @@ TestCase {
     SignalSpy { id: keyboardSpy; target: nav; signalName: "toggleKeyboard" }
     SignalSpy { id: leftSpy; target: nav; signalName: "swipeLeft" }
     SignalSpy { id: rightSpy; target: nav; signalName: "swipeRight" }
+    SignalSpy { id: pilotSpy; target: nav; signalName: "pilotRequested" }
+    SignalSpy { id: backSpy; target: nav; signalName: "swipeBack" }
 
     function init() {
         UIStore.closeQuickSettings();
         nav.isAppOpen = false;
+        nav.pilotEnabled = true;
+        pilotSpy.clear();
+        backSpy.clear();
         homeSpy.clear();
         searchSpy.clear();
         keyboardSpy.clear();
@@ -96,6 +101,78 @@ TestCase {
         drag(q.x, q.y, 200, 0);
         compare(rightSpy.count, 1);
         compare(searchSpy.count, 0);
+    }
+
+    function hold(x, y, ms) {
+        mousePress(nav, x, y);
+        wait(ms);
+    }
+
+    function test_holdAsksPilot() {
+        hold(nav.width / 2, nav.height / 2, 400);
+        verify(nav.pilotLit);
+        compare(pilotSpy.count, 0);
+        tryCompare(pilotSpy, "count", 1);
+        mouseRelease(nav, nav.width / 2, nav.height / 2);
+        verify(!nav.pilotLit);
+        compare(nav.pilotCharge, 0);
+        compare(homeSpy.count, 0);
+        compare(searchSpy.count, 0);
+        verify(!UIStore.quickSettingsOpen);
+    }
+
+    function test_holdThenDragDoesNothingMore() {
+        nav.isAppOpen = true;
+        hold(nav.width / 2, nav.height / 2, 700);
+        compare(pilotSpy.count, 1);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, nav.width / 2 - 25 * i, nav.height / 2, 16);
+        mouseRelease(nav, nav.width / 2 - 200, nav.height / 2);
+        compare(backSpy.count, 0);
+        compare(nav.backProgress, 0);
+        compare(pilotSpy.count, 1);
+    }
+
+    function test_noPilotWhenDisabled() {
+        nav.pilotEnabled = false;
+        hold(nav.width / 2, nav.height / 2, 700);
+        mouseRelease(nav, nav.width / 2, nav.height / 2);
+        compare(pilotSpy.count, 0);
+        verify(!nav.pilotLit);
+    }
+
+    function test_holdOnAButtonIsNotPilot() {
+        const k = findChild(nav, "keyboardButton");
+        const p = k.mapToItem(nav, k.width / 2, k.height / 2);
+        hold(p.x, p.y, 700);
+        mouseRelease(nav, p.x, p.y);
+        compare(pilotSpy.count, 0);
+        compare(keyboardSpy.count, 1);
+    }
+
+    function test_gesturesAndTapsAreNotPilot() {
+        nav.isAppOpen = true;
+        mouseClick(nav, nav.width / 2, nav.height / 2);
+        drag(nav.width / 2, nav.height / 2, -200, 0);
+        drag(nav.width / 2, nav.height / 2, 200, 0);
+        drag(nav.width / 2, nav.height - 5, 0, -80);
+        drag(nav.width / 2, nav.height / 2, 0, 40);
+        wait(700);
+        compare(pilotSpy.count, 0);
+        compare(backSpy.count, 1);
+        compare(rightSpy.count, 1);
+        verify(UIStore.quickSettingsOpen);
+    }
+
+    function test_slowSwipeIsNotPilot() {
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        wait(200);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, nav.width / 2 + 25 * i, nav.height / 2, 16);
+        wait(600);
+        mouseRelease(nav, nav.width / 2 + 200, nav.height / 2);
+        compare(pilotSpy.count, 0);
+        compare(rightSpy.count, 1);
     }
 
     function test_pillIsTheNotch() {

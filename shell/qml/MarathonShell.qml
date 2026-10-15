@@ -1133,6 +1133,12 @@ Item {
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
+        pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen
+        onPilotRequested: {
+            // The Wayland client is the app itself, not its sandbox or Keel host.
+            const s = UIStore.appWindowOpen && appWindow.waylandSurface ? (appWindow.waylandSurface.surface || appWindow.waylandSurface) : null;
+            PilotClient.showSheetFor(s && s.client ? s.client.processId : 0);
+        }
         onToggleKeyboard: {
             Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active);
             virtualKeyboard.active = !virtualKeyboard.active;
@@ -2372,6 +2378,12 @@ Item {
     // to the real DisplayManager night-light state via SystemControlStore.
     // No MouseArea → never intercepts input. This is what makes the Night
     // tile actually do something on screen.
+    Binding {
+        target: PilotClient
+        property: "watching"
+        value: !SessionStore.isLocked
+    }
+
     Rectangle {
         id: nightLightOverlay
         anchors.fill: parent

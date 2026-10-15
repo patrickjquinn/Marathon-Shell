@@ -18,6 +18,11 @@ Rectangle {
     property bool keyboardVisible: false
     property bool searchActive: false
     property bool pinScreenMode: false
+    // Touch and hold asks Shipwright Pilot (pilotRequested) while true.
+    property bool pilotEnabled: false
+    // Held still: lit, and the charge rises until Pilot is asked.
+    property bool pilotLit: false
+    property real pilotCharge: 0
 
     // ── Predictive back progress (0..1) ───────────────────────────
     // Drives appWindowContainer scale + opacity in MarathonShell while
@@ -50,6 +55,7 @@ Rectangle {
     signal startPageTransition
     signal toggleKeyboard
     signal toggleSearch
+    signal pilotRequested
 
     height: Constants.navBarHeight
     color: Silica.Theme.overlayBackgroundColor
@@ -62,7 +68,7 @@ Rectangle {
     }
 
     // Shipwright Pilot's bottom-edge notch: a slim highlight pill in a halo
-    // of wider, fainter ones.
+    // of wider, fainter ones, which brightens and widens while held.
     Item {
         id: indicator
 
@@ -78,20 +84,54 @@ Rectangle {
         x: targetX + dragX
         y: targetY - dragY
 
+        // Light rising above the thumb that covers the pill.
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.verticalCenter
+            anchors.bottomMargin: -navBar.height / 2
+            width: Silica.Theme.itemSizeHuge * 1.8
+            height: Silica.Theme.itemSizeExtraLarge * 1.6
+            radius: width / 2
+            visible: navBar.pilotCharge > 0
+            opacity: navBar.pilotCharge
+            scale: 0.6 + 0.4 * navBar.pilotCharge
+            transformOrigin: Item.Bottom
+            gradient: Gradient {
+                GradientStop {
+                    position: 0.0
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.0)
+                }
+                GradientStop {
+                    position: 0.55
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.18)
+                }
+                GradientStop {
+                    position: 1.0
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.55)
+                }
+            }
+        }
+
         Repeater {
             model: 3
 
             Rectangle {
                 required property int index
-                readonly property real spread: index * Silica.Theme.paddingSmall
+                readonly property real spread: index * Silica.Theme.paddingSmall * (navBar.pilotLit ? 1.6 : 1)
 
                 anchors.centerIn: parent
-                width: indicator.width * 0.55 + 2 * spread
+                width: indicator.width * (navBar.pilotLit ? 0.75 : 0.55) + 2 * spread
                 height: Silica.Theme.paddingSmall + 2 * spread
                 radius: height / 2
                 color: Silica.Theme.highlightColor
-                opacity: index === 0 ? 0.6 : 0.16 / index
+                opacity: (index === 0 ? 0.6 : 0.16 / index) * (navBar.pilotLit ? 1.6 : 1)
                 antialiasing: Constants.enableAntialiasing
+
+                Behavior on width {
+                    NumberAnimation {
+                        duration: MMotion.quick
+                    }
+                }
             }
         }
 
@@ -191,6 +231,8 @@ Rectangle {
         // a true cumulative diffY for isVerticalGesture detection and
         // release-time decisions.
         property real prevDiffY: 0
+        // The hold asked Pilot: the rest of this touch does nothing.
+        property bool pilotAsked: false
 
         anchors.fill: parent
         anchors.topMargin: 0
@@ -206,6 +248,15 @@ Rectangle {
             isVerticalGesture = false;
             isHorizontalGesture = false;
             prevDiffY = 0;
+            stopPilot();
+        }
+
+        function stopPilot() {
+            pilotAsked = false;
+            pilotStill.stop();
+            pilotCharging.stop();
+            navBar.pilotLit = false;
+            navBar.pilotCharge = 0;
         }
 
         function pressedOn(button) {
@@ -225,8 +276,13 @@ Rectangle {
             isVerticalGesture = false;
             isHorizontalGesture = false;
             prevDiffY = 0;
+            stopPilot();
+            if (navBar.pilotEnabled && !pressedOn(searchButton) && !pressedOn(keyboardButton))
+                pilotStill.restart();
         }
         onPositionChanged: mouse => {
+            if (pilotAsked)
+                return;
             var now = Date.now();
             var dt = now - lastTime;
             if (dt > 0) {
@@ -244,6 +300,7 @@ Rectangle {
                     isVerticalGesture = true;
                 else
                     isHorizontalGesture = true;
+                stopPilot();
             }
             if (isVerticalGesture) {
                 navBar.currentY = diffY;
@@ -288,6 +345,11 @@ Rectangle {
             }
         }
         onReleased: mouse => {
+            if (pilotAsked) {
+                resetGesture();
+                return;
+            }
+            stopPilot();
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
             Logger.gesture("NavBar", "released", {
@@ -420,6 +482,38 @@ Rectangle {
             }
             // Unconditional — the branch chain above has non-resetting gaps.
             resetGesture();
+        }
+    }
+
+    // A still touch lights the pill, and asks Pilot once the charge is up;
+    // a swipe locks an axis first and cancels it.
+    Timer {
+        id: pilotStill
+
+        interval: 300
+        onTriggered: {
+            navBar.pilotLit = true;
+            pilotCharging.restart();
+        }
+    }
+
+    SequentialAnimation {
+        id: pilotCharging
+
+        NumberAnimation {
+            target: navBar
+            property: "pilotCharge"
+            from: 0
+            to: 1
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+        ScriptAction {
+            script: {
+                navMouseArea.pilotAsked = true;
+                HapticManager.medium();
+                navBar.pilotRequested();
+            }
         }
     }
 
