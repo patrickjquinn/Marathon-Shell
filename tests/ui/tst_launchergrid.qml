@@ -8,14 +8,22 @@ TestCase {
     // 720x1440 at 150 %: the launcher icon is 1.5x its 86 px base.
     function test_capacityAtLargeScale() {
         const icon = 86 * 1.5;
-        compare(LauncherGrid.columns(720, icon, 0), 3);
+        compare(LauncherGrid.columns(720, icon, 0), 4);
         compare(LauncherGrid.rows(1440, icon), 4);
     }
 
-    // 720x720 (HackberryPi): four rows, not three stretched ones.
+    // 720 px wide phones at their default pixel ratios: PinePhone 1.20,
+    // Librem 5 1.30, QEMU 1.35.
+    function test_tallPhones() {
+        for (const ratio of [1.2, 1.3, 1.35])
+            compare(LauncherGrid.columns(720, Math.round(86 * ratio), 0), 5, "ratio " + ratio);
+    }
+
+    // 720x720 HackberryPi at ratio 1.15: all 15 pinned apps on one page.
     function test_squareScreen() {
-        compare(LauncherGrid.columns(720, 73, 0), 6);
-        compare(LauncherGrid.rows(720, 73), 4);
+        const icon = Math.round(86 * 1.15);
+        compare(LauncherGrid.columns(720, icon, 0), 5);
+        compare(LauncherGrid.rows(720, icon), 3);
     }
 
     function test_forcedColumns() {
