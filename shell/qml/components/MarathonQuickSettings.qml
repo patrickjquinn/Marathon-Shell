@@ -13,10 +13,6 @@ Item {
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
 
-    // What the content needs; the shell opens the shade this far, as
-    // Sailfish's top menu, with the screen dimmed below it.
-    readonly property real preferredHeight: shadeScroll.contentHeight
-
     // The shade's fully-open height, supplied by the shell. `height` grows
     // from 0 while the shade opens, so it cannot be used to decide whether
     // the content overflows -- every open would briefly look like overflow

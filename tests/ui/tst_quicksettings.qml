@@ -10,14 +10,14 @@ TestCase {
 
     Window {
         width: 720
-        height: 720
+        height: Math.max(720, Math.min(fit.height, 1400))
         visible: true
 
         MarathonQuickSettings {
             id: qs
             width: 720
             height: UIStore.quickSettingsHeight
-            maxHeight: Math.min(fit.height, preferredHeight)
+            maxHeight: fit.height
         }
 
         QtObject {
@@ -63,7 +63,7 @@ TestCase {
     }
 
     function test_contentOverflows() {
-        verify(qs.preferredHeight > qs.maxHeight, "content " + qs.preferredHeight + " vs " + qs.maxHeight);
+        verify(scroll().contentHeight > qs.maxHeight, "content " + scroll().contentHeight + " vs " + qs.maxHeight);
         verify(scroll().interactive);
     }
 
@@ -120,6 +120,18 @@ TestCase {
         UIStore.quickSettingsHeight = qs.maxHeight;
         verify(!scroll().interactive);
         data.touch ? touchDrag(500, -400, data.x) : mouseDrag(500, -400, data.x);
+        verify(!UIStore.quickSettingsOpen);
+    }
+
+    // The shade opens to the space it is given, not to its content.
+    function test_shortContentFillsShade() {
+        fit.height = scroll().contentHeight + 200;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        compare(qs.height, fit.height);
+        verify(!scroll().interactive);
+        const img = grabImage(qs);
+        compare(img.pixel(360, qs.height - 10).a, 1, "opaque below the content");
+        touchDrag(qs.height - 20, -300, 360);
         verify(!UIStore.quickSettingsOpen);
     }
 
