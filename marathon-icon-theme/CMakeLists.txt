@@ -1,4 +1,4 @@
-# Marathon icon theme: Phosphor Light glyphs under Sailfish icon names, where
+# Marathon icon theme: Phosphor Thin glyphs under Sailfish icon names, where
 # Keel's theme image provider looks for them. One SVG per glyph is checked in;
 # this writes a copy per size class and pixel ratio with that pixel size.
 set(_theme_out ${CMAKE_CURRENT_BINARY_DIR}/themes)

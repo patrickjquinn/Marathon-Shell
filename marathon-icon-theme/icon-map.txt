@@ -1,4 +1,4 @@
-# Sailfish icon base name (after icon-<size>-) -> Phosphor Light glyph.
+# Sailfish icon base name (after icon-<size>-) -> Phosphor Thin glyph.
 # Every image://theme/icon-* name Keel's Silica and Marathon's QML use must
 # resolve here (tests/lint/check-icon-map.sh).
 about info

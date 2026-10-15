@@ -14,7 +14,7 @@ from fontTools.ttLib import TTFont
 
 here = Path(__file__).resolve().parent
 repo = here.parent
-font = TTFont(repo / "shell/qml/ui/fonts/Phosphor-Light.ttf")
+font = TTFont(repo / "shell/qml/ui/fonts/Phosphor-Thin.ttf")
 glyphs_js = (repo / "shell/qml/ui/PhosphorGlyphs.js").read_text()
 codepoints = {name: int(cp, 16) for name, cp in re.findall(r'"([a-z0-9-]+)": "\\u([0-9A-Fa-f]{4})"', glyphs_js)}
 
