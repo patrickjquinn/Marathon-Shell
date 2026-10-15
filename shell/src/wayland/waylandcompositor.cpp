@@ -239,7 +239,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     setCompositorRealtimePriority();
 
-    // ── Present pipeline (opt-in: MARATHON_PRESENT_PIPELINE) ──────────
+    // ── Present pipeline (opt-out: MARATHON_PRESENT_PIPELINE=0) ───────
     // Default QtWayland throttles client scroll to ~15fps on this in-process
     // compositor: it sends wl_surface.frame callbacks from afterRendering
     // (frame END, cross-thread-queued to the GUI loop) and the on-demand
@@ -247,7 +247,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // ~1 vblank to be scheduled and its callback arrives only after our frame
     // -- a serialized ~4-vblank round trip (measured: client swap blocks
     // ~67ms, both sides idle). This collapses it to a 1-frame pipeline.
-    m_presentPipeline = envBool("MARATHON_PRESENT_PIPELINE", false);
+    m_presentPipeline = envBool("MARATHON_PRESENT_PIPELINE", true);
     if (m_presentPipeline && m_window && m_output) {
         m_output->setAutomaticFrameCallback(false);
         // beforeSynchronizing runs on the render thread while the GUI thread
@@ -262,6 +262,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                     m_output->sendFrameCallbacks();
             },
             Qt::DirectConnection);
+        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks)";
+    }
+
+    // Opt-in (MARATHON_PRESENT_FREERUN): unthrottled where swap doesn't block
+    // on vblank (software backend, Xvfb): ~3 compositor frames per commit.
+    m_presentFreeRun = m_presentPipeline && envBool("MARATHON_PRESENT_FREERUN", false);
+    if (m_presentFreeRun) {
         // While a client is actively committing, free-run the on-demand loop
         // at vsync so its just-committed buffer composites on the very next
         // vblank instead of the scheduler sleeping and missing it. Credits are
@@ -278,8 +285,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 }
             },
             Qt::DirectConnection);
-        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame "
-                   "callbacks + commit-gated vsync free-run)";
+        qInfo() << "[WaylandCompositor] Present free-run ENABLED (commit-gated vsync)";
     }
 
     m_discardFrontBuffer = envBool("MARATHON_DISCARD_FRONT", false);
@@ -824,7 +830,7 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     connect(surface, &QWaylandSurface::redraw, this,
             [this]() { m_clientCommitCount.fetchAndAddRelaxed(1); });
 
-    if (m_presentPipeline) {
+    if (m_presentFreeRun) {
         // Each client commit (redraw) refreshes the free-run credits and
         // schedules a frame, keeping the compositor at vsync while the app
         // animates. 4 frames (~64ms) of tail bridges brief commit gaps (fling

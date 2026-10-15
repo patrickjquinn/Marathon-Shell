@@ -178,13 +178,15 @@ class WaylandCompositor : public QWaylandCompositor {
     int                                     m_nextSurfaceId;
     bool                                    m_hasIdleInhibitor;
 
-    // Present-pipeline (MARATHON_PRESENT_PIPELINE): removes the ~4-vblank
-    // app<->compositor round-trip that throttles client scroll to ~15fps on
-    // this in-process compositor (client swap blocks ~67ms, both sides idle).
-    // Sends wl_surface.frame at frame START (beforeSynchronizing) so the
-    // client renders concurrently, and free-runs the compositor at vsync
-    // while a client is actively committing so its buffer lands next vblank.
+    // Present-pipeline (MARATHON_PRESENT_PIPELINE, default on): removes the
+    // ~4-vblank app<->compositor round-trip that throttles client scroll to
+    // ~15fps on this in-process compositor (client swap blocks ~67ms, both
+    // sides idle). Sends wl_surface.frame at frame START (beforeSynchronizing)
+    // so the client renders concurrently. MARATHON_PRESENT_FREERUN also
+    // free-runs the compositor at vsync while a client is actively committing
+    // so its buffer lands next vblank.
     bool                                    m_presentPipeline = false;
+    bool                                    m_presentFreeRun  = false;
     QSize                                   m_appViewportSize;
     QSize                                   appConfigureSize() const;
     // Frames of vsync free-run remaining before the compositor idles back to
