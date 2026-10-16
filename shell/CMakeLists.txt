@@ -118,6 +118,8 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/pilotclient.h
     src/services/pilotclient.cpp
+    src/services/weatherclient.h
+    src/services/weatherclient.cpp
     src/services/automatictimezone.h
     src/services/automatictimezone.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
@@ -327,9 +329,9 @@ set(QML_FILES
     qml/ui/MTopHairline.qml
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
+    qml/core/BatteryWarning.js
     qml/core/LauncherGrid.js
 )
-    qml/core/BatteryWarning.js
 
 set(JSON_FILES
     qml/keyboard/Layouts/languages/en_US.json
@@ -516,6 +518,8 @@ qt6_add_qml_module(marathon-shell
         src/services/surfaceregistry.h
         src/services/pilotclient.cpp
         src/services/pilotclient.h
+        src/services/weatherclient.cpp
+        src/services/weatherclient.h
         src/services/domainsuggestions.cpp
         src/services/domainsuggestions.h
         src/services/emojipredictor.cpp
