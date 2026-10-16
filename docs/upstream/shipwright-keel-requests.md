@@ -168,3 +168,28 @@ pulley glow, a dimming Rectangle for modal panels) would keep the feedback
 without shaders.
 
 Marathon today: oneplus6 loses those effects until its backend is fixed.
+
+## 12. Theme resolves the ambience type once per process
+
+Theme looks up the `Keel.Ambience` type id once, in a `static const` in
+`theme.cpp`. If a Theme is created before anything has imported `Keel`, it
+never sees the ambience for the rest of the process, so colours and the
+wallpaper stay at their defaults. A full qmltestrunner run hits this.
+
+Proposal: resolve the type lazily, retrying until it is registered, or
+register `Keel.Ambience` from the Silica plugin's own initialisation.
+
+Marathon today: tests import `Keel` before Silica to work around it.
+
+## 13. Page-stack depth and the previous page for host back
+
+To draw a host back gesture the way Silica's PageStack does, the host needs to
+know, before back is sent, whether it will pop a page or leave the app, and
+needs something to show underneath while the page is dragged.
+
+Proposal: alongside request 6, expose the page-stack depth (a property or a
+`Shell1` signal on change) and a snapshot or texture of the page below the
+current one.
+
+Marathon today: during a back drag the app moves aside over a dimmed home,
+whether back will pop a page or leave the app.
