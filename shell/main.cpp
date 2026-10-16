@@ -766,6 +766,11 @@ int main(int argc, char *argv[]) {
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
                                                 hapticManager);
+    hapticManager->setEnabled(settingsManager->vibrationEnabled());
+    QObject::connect(settingsManager, &SettingsManager::vibrationEnabledChanged, hapticManager,
+                     [hapticManager, settingsManager] {
+                         hapticManager->setEnabled(settingsManager->vibrationEnabled());
+                     });
     {
         auto *ngf = new NgfService(
             [hapticManager](const QList<int> &pattern) { hapticManager->vibratePattern(pattern); },
