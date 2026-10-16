@@ -852,11 +852,12 @@ Item {
             if (isDragging && !unlockDrag.unlocking)
                 unlockDrag.move(Math.max(0, Math.min(lockScreen.swipeTravel, base + totalDelta)));
         }
+        // The swipe can unlock (or bring up the PIN pad) inside onReleased;
+        // its composed click must not then land on whatever is now under the finger.
+        onClicked: mouse => mouse.accepted = isDragging
         onReleased: mouse => {
-            if (unlockDrag.unlocking) {
-                isDragging = false;
+            if (unlockDrag.unlocking)
                 return;
-            }
             if (isDragging) {
                 if (unlockDrag.release()) {
                     HapticManager.medium();
@@ -869,7 +870,6 @@ Item {
                 unlockDrag.release();
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
             }
-            isDragging = false;
         }
     }
 

@@ -9,6 +9,7 @@ QtObject {
     readonly property int flickDecelerationFast: 8000
     readonly property int staggerMicro: 0
     function durationFor(role) { return 0; }
+    function gate(running) { return running; }
     function easingFor(role) { return 0; }
     function stiffnessSpatialFor(role) { return 4; }
     function dampingSpatialFor(role) { return 0.5; }

@@ -5,4 +5,5 @@ QtObject {
     function info() {}
     function warn() {}
     function gesture() {}
+    function state() {}
 }
