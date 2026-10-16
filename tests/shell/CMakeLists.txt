@@ -34,6 +34,19 @@ target_link_libraries(test_shell_sinkvolume Qt6::Test Qt6::Core)
 target_include_directories(test_shell_sinkvolume PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
 add_test(NAME Shell_SinkVolume COMMAND test_shell_sinkvolume)
 
+# MPRIS2Controller against fake players on a private session bus
+find_program(DBUS_RUN_SESSION dbus-run-session)
+if(DBUS_RUN_SESSION)
+    find_package(Qt6 REQUIRED COMPONENTS DBus)
+    add_executable(test_shell_mpris2controller
+        test_mpris2controller.cpp
+        ../../shell/src/managers/mpris2controller.cpp
+    )
+    target_link_libraries(test_shell_mpris2controller Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+    target_include_directories(test_shell_mpris2controller PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+    add_test(NAME Shell_MPRIS2Controller COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_mpris2controller>)
+endif()
+
 # AppModel tests (data model with validation)
 add_executable(test_shell_appmodel
     test_appmodel.cpp

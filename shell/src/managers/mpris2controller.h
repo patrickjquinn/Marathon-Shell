@@ -4,14 +4,17 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include <QDBusInterface>
-#include <QDBusConnection>
+#include <QDBusContext>
+#include <QDBusMessage>
 #include <QTimer>
-#include <QMap>
 #include <QVariantMap>
+#include <functional>
 #include <qqml.h>
 
-class MPRIS2Controller : public QObject {
+// Every D-Bus call here is asynchronous: a player can be busy, or blocked
+// on the compositor (a GTK client's wl_display_roundtrip before its first
+// map), and a blocking call from the GUI thread would deadlock the shell.
+class MPRIS2Controller : public QObject, protected QDBusContext {
     Q_OBJECT
     QML_ELEMENT
     QML_SINGLETON
@@ -119,28 +122,30 @@ class MPRIS2Controller : public QObject {
     void playerListChanged(const QStringList &players);
 
   private slots:
-    void updatePlaybackStatus();
-    void updateMetadata();
-    void updatePosition();
-    void updateCapabilities();
     void onPropertiesChanged(const QString &interfaceName, const QVariantMap &changedProperties,
                              const QStringList &invalidatedProperties);
-    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner) const;
-    void onDBusServiceRegistered(const QString &serviceName);
-    void onDBusServiceUnregistered(const QString &serviceName);
+    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 
   private:
+    void            callAsync(const QDBusMessage                            &call,
+                              const std::function<void(const QDBusMessage &)> &onReply);
+    void            callPlayer(const QString &method, const QVariantList &args = {});
+    void            getAll(const QString &interface);
+    void            refreshSoon();
+    void            pollPosition();
+    void            onPlayerList(const QStringList &names);
     void            connectToPlayer(const QString &busName);
     void            disconnectFromPlayer();
-    void            setupDBusMonitoring();
-    QString         extractMetadataString(const QVariantMap &metadata, const QString &key);
-    qint64          extractMetadataInt64(const QVariantMap &metadata, const QString &key);
-    QStringList     extractMetadataStringList(const QVariantMap &metadata, const QString &key);
+    void            applyRootProperties(const QVariantMap &props);
+    void            applyPlayerProperties(const QVariantMap &props);
+    void            applyMetadata(const QVariantMap &metadata);
 
-    QDBusInterface *m_playerInterface;
     QTimer         *m_positionTimer;
+    bool            m_positionInFlight = false;
 
     QString         m_currentBusName;
+    QString         m_currentOwner;
+    QString         m_trackId;
     bool            m_hasActivePlayer;
     QString         m_playerName;
     QString         m_desktopEntry;

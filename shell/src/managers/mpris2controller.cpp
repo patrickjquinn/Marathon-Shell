@@ -1,24 +1,56 @@
 #include "mpris2controller.h"
 #include <QDebug>
-#include <QDBusMessage>
-#include <QDBusReply>
-#include <QDBusMetaType>
+#include <QDBusArgument>
+#include <QDBusConnection>
 #include <QDBusObjectPath>
-#include <QUrl>
+#include <QDBusPendingCallWatcher>
+#include <QDBusVariant>
 #include <utility>   // std::as_const
+
+namespace {
+    const QString kPrefix     = QStringLiteral("org.mpris.MediaPlayer2.");
+    const QString kPath       = QStringLiteral("/org/mpris/MediaPlayer2");
+    const QString kRoot       = QStringLiteral("org.mpris.MediaPlayer2");
+    const QString kPlayer     = QStringLiteral("org.mpris.MediaPlayer2.Player");
+    const QString kProperties = QStringLiteral("org.freedesktop.DBus.Properties");
+    const QString kBus        = QStringLiteral("org.freedesktop.DBus");
+    const QString kBusPath    = QStringLiteral("/org/freedesktop/DBus");
+
+    QVariant unwrap(const QVariant &v) {
+        if (v.userType() == qMetaTypeId<QDBusVariant>())
+            return v.value<QDBusVariant>().variant();
+        return v;
+    }
+
+    QVariantMap toMap(const QVariant &value) {
+        const QVariant v = unwrap(value);
+        if (v.userType() == qMetaTypeId<QDBusArgument>())
+            return qdbus_cast<QVariantMap>(v.value<QDBusArgument>());
+        return v.toMap();
+    }
+
+    QStringList toStringList(const QVariant &value) {
+        const QVariant v = unwrap(value);
+        if (v.userType() == qMetaTypeId<QDBusArgument>())
+            return qdbus_cast<QStringList>(v.value<QDBusArgument>());
+        if (v.canConvert<QStringList>())
+            return v.toStringList();
+        return {v.toString()};
+    }
+
+    QString toPath(const QVariant &value) {
+        const QVariant v = unwrap(value);
+        if (v.userType() == qMetaTypeId<QDBusObjectPath>())
+            return v.value<QDBusObjectPath>().path();
+        return v.toString();
+    }
+}
 
 MPRIS2Controller::MPRIS2Controller(QObject *parent)
     : QObject(parent)
-    , m_playerInterface(nullptr)
-    , m_positionTimer(nullptr)
+    , m_positionTimer(new QTimer(this))
     , m_hasActivePlayer(false)
-    , m_playerName("")
-    , m_desktopEntry("")
     , m_playbackStatus("Stopped")
-    , m_trackTitle("")
-    , m_trackArtist("")
-    , m_trackAlbum("")
-    , m_albumArtUrl("")
     , m_trackLength(0)
     , m_position(0)
     , m_canPlay(false)
@@ -26,199 +58,145 @@ MPRIS2Controller::MPRIS2Controller(QObject *parent)
     , m_canGoNext(false)
     , m_canGoPrevious(false)
     , m_canSeek(false) {
-    qDebug() << "[MPRIS2Controller] Initializing";
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    bus.connect(kBus, kBusPath, kBus, "NameOwnerChanged", this,
+                SLOT(onNameOwnerChanged(QString, QString, QString)));
+    // Any sender: naming the player's well-known name makes QtDBus resolve
+    // its owner synchronously. The slot filters on the current owner.
+    bus.connect(QString(), kPath, kProperties, "PropertiesChanged", this,
+                SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
 
-    setupDBusMonitoring();
-
-    m_positionTimer = new QTimer(this);
     m_positionTimer->setInterval(1000);
-    connect(m_positionTimer, &QTimer::timeout, this, &MPRIS2Controller::updatePosition);
+    connect(m_positionTimer, &QTimer::timeout, this, &MPRIS2Controller::pollPosition);
 
-    // scanForPlayers() at startup catches players already on the bus when
-    // the shell starts; setupDBusMonitoring() above subscribes to
-    // NameOwnerChanged so new players are detected the moment they
-    // register. A periodic poll on top was pure overhead — wake up every
-    // 10s, scan the entire D-Bus session-bus name list, find nothing new.
-    // Removed 2026-06-25 after observing ~2 D-Bus round-trips/s at idle.
+    // Players already on the bus; later ones arrive by NameOwnerChanged.
     scanForPlayers();
-
-    qInfo() << "[MPRIS2Controller] Initialized and monitoring for media players";
 }
 
-MPRIS2Controller::~MPRIS2Controller() {
-    disconnectFromPlayer();
+MPRIS2Controller::~MPRIS2Controller() = default;
+
+void MPRIS2Controller::callAsync(const QDBusMessage                              &call,
+                                 const std::function<void(const QDBusMessage &)> &onReply) {
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher, onReply] {
+        watcher->deleteLater();
+        if (watcher->isError()) {
+            qDebug() << "[MPRIS2Controller]" << watcher->error().message();
+            return;
+        }
+        onReply(watcher->reply());
+    });
 }
 
-void MPRIS2Controller::setupDBusMonitoring() {
-
-    QDBusConnection::sessionBus().connect("org.freedesktop.DBus", "/org/freedesktop/DBus",
-                                          "org.freedesktop.DBus", "NameOwnerChanged", this,
-                                          SLOT(onNameOwnerChanged(QString, QString, QString)));
-
-    qDebug() << "[MPRIS2Controller] D-Bus monitoring enabled";
-}
-
-void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &oldOwner,
-                                          const QString &newOwner) const {
-    Q_UNUSED(oldOwner);
-
-    if (!name.startsWith("org.mpris.MediaPlayer2."))
+void MPRIS2Controller::callPlayer(const QString &method, const QVariantList &args) {
+    if (!m_hasActivePlayer)
         return;
+    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, kPath, kPlayer, method);
+    call.setArguments(args);
+    QDBusConnection::sessionBus().send(call);
+}
 
-    if (newOwner.isEmpty()) {
-        qDebug() << "[MPRIS2Controller] Media player removed:" << name;
-    } else {
-        qDebug() << "[MPRIS2Controller] New media player detected:" << name;
-    }
+void MPRIS2Controller::getAll(const QString &interface) {
+    const QString busName = m_currentBusName;
+    QDBusMessage  call = QDBusMessage::createMethodCall(busName, kPath, kProperties, "GetAll");
+    call << interface;
+    callAsync(call, [this, busName, interface](const QDBusMessage &reply) {
+        if (busName != m_currentBusName || reply.arguments().isEmpty())
+            return;
+        const QVariantMap props = toMap(reply.arguments().constFirst());
+        if (interface == kRoot) {
+            applyRootProperties(props);
+            return;
+        }
+        applyPlayerProperties(props);
+        if (!m_hasActivePlayer) {
+            m_hasActivePlayer = true;
+            m_positionTimer->start();
+            qInfo() << "[MPRIS2Controller] Connected to" << m_playerName;
+            emit activePlayerChanged();
+        }
+    });
+}
 
-    // Defer the rescan to a fresh event-loop turn. scanForPlayers() ->
-    // connectToPlayer() constructs a QDBusInterface, whose ctor makes a
-    // BLOCKING introspection call on the session bus. Running that
-    // reentrantly from inside this NameOwnerChanged dispatch fails
-    // (QDBusInterface::isValid() comes back false) and the player is
-    // dropped with no retry -- so a player that registers while the shell
-    // is already running is seen but never adopted, and the NowBar stays
-    // "Nothing playing". Only players present at startup were picked up,
-    // because that scan runs from the ctor (not reentrant). The queued
-    // singleShot(0) breaks the reentrancy: the scan runs after this
-    // dispatch unwinds, when a blocking introspection call is safe.
-    // (Removal needs no introspection, so it worked either way.)
-    QTimer::singleShot(0, this, &MPRIS2Controller::scanForPlayers);
+// Players that don't emit PropertiesChanged for a command still settle.
+void MPRIS2Controller::refreshSoon() {
+    QTimer::singleShot(150, this, [this] {
+        if (!m_currentBusName.isEmpty())
+            getAll(kPlayer);
+    });
 }
 
 void MPRIS2Controller::scanForPlayers() {
+    callAsync(QDBusMessage::createMethodCall(kBus, kBusPath, kBus, "ListNames"),
+              [this](const QDBusMessage &reply) {
+                  if (!reply.arguments().isEmpty())
+                      onPlayerList(reply.arguments().constFirst().toStringList());
+              });
+}
 
-    QDBusMessage call = QDBusMessage::createMethodCall(
-        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
-
-    QDBusReply<QStringList> reply = QDBusConnection::sessionBus().call(call);
-
-    if (!reply.isValid()) {
-        return;
+void MPRIS2Controller::onPlayerList(const QStringList &names) {
+    QStringList players;
+    for (const QString &name : names) {
+        if (name.startsWith(kPrefix))
+            players.append(name);
     }
-
-    QStringList services = reply.value();
-    QStringList mprisPlayers;
-
-    for (const QString &service : std::as_const(services)) {
-        if (service.startsWith("org.mpris.MediaPlayer2.")) {
-            mprisPlayers.append(service);
-        }
-    }
-
-    if (mprisPlayers != m_availablePlayers) {
-        m_availablePlayers = mprisPlayers;
+    if (players != m_availablePlayers) {
+        m_availablePlayers = players;
         emit playerListChanged(m_availablePlayers);
-
-        qDebug() << "[MPRIS2Controller] Found" << mprisPlayers.size()
-                 << "media players:" << mprisPlayers;
     }
-
-    if (!m_hasActivePlayer && !mprisPlayers.isEmpty()) {
-        connectToPlayer(mprisPlayers.first());
-    }
-
-    if (m_hasActivePlayer && !mprisPlayers.contains(m_currentBusName)) {
-        qInfo() << "[MPRIS2Controller] Current player" << m_currentBusName << "disappeared";
+    if (!m_currentBusName.isEmpty() && !players.contains(m_currentBusName))
         disconnectFromPlayer();
+    if (m_currentBusName.isEmpty() && !players.isEmpty())
+        connectToPlayer(players.constFirst());
+}
 
-        if (!mprisPlayers.isEmpty()) {
-            connectToPlayer(mprisPlayers.first());
-        }
+void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &oldOwner,
+                                          const QString &newOwner) {
+    Q_UNUSED(oldOwner);
+    if (!name.startsWith(kPrefix))
+        return;
+    if (name == m_currentBusName)
+        disconnectFromPlayer();
+    if (m_currentBusName.isEmpty() && !newOwner.isEmpty()) {
+        connectToPlayer(name);
+        m_currentOwner = newOwner;
     }
+    scanForPlayers();
 }
 
 void MPRIS2Controller::connectToPlayer(const QString &busName) {
     qInfo() << "[MPRIS2Controller] Connecting to player:" << busName;
+    m_currentBusName = busName;
+    m_currentOwner.clear();
 
-    disconnectFromPlayer();
+    QString name = busName.mid(kPrefix.size());
+    name         = name.left(name.indexOf('.'));
+    m_playerName = name.left(1).toUpper() + name.mid(1);
+    m_desktopEntry = name.toLower();
 
-    m_playerInterface =
-        new QDBusInterface(busName, "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player",
-                           QDBusConnection::sessionBus(), this);
-
-    if (!m_playerInterface->isValid()) {
-        qWarning() << "[MPRIS2Controller] Failed to connect to" << busName << ":"
-                   << m_playerInterface->lastError().message();
-        // m_playerInterface is parented to this; Qt will delete it on destruction
-        m_playerInterface = nullptr;
-        return;
-    }
-
-    m_currentBusName  = busName;
-    m_hasActivePlayer = true;
-
-    QString name = busName;
-    name.remove("org.mpris.MediaPlayer2.");
-    int dotIndex = name.indexOf('.');
-    if (dotIndex != -1) {
-        name = name.left(dotIndex);
-    }
-    m_playerName = name.at(0).toUpper() + name.mid(1);
-
-    QDBusInterface rootInterface(busName, "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2",
-                                 QDBusConnection::sessionBus());
-    if (rootInterface.isValid()) {
-        m_desktopEntry = rootInterface.property("DesktopEntry").toString();
-    } else {
-        m_desktopEntry.clear();
-    }
-
-    if (m_desktopEntry.isEmpty()) {
-
-        m_desktopEntry = name.toLower();
-    }
-
-    qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
-
-    qInfo() << "[MPRIS2Controller] Connected to" << m_playerName;
-
-    QDBusConnection::sessionBus().connect(
-        busName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "PropertiesChanged",
-        this, SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
-
-    updatePlaybackStatus();
-    updateMetadata();
-    updateCapabilities();
-    updatePosition();
-
-    m_positionTimer->start();
-
-    // No metadata-refresh timer. The PropertiesChanged subscription set
-    // up at the top of this function delivers every title / artist /
-    // album / artwork change push-style (mandated by the MPRIS2 spec).
-    // The previous 2-second poll was burning ~43200 D-Bus calls/day per
-    // player for a property set that, in steady state, doesn't change
-    // for the duration of the track. If a player ships a broken
-    // PropertiesChanged emitter, that's an upstream bug to fix in the
-    // player — not a justification to poll forever in every host.
-
-    emit activePlayerChanged();
+    QDBusMessage owner = QDBusMessage::createMethodCall(kBus, kBusPath, kBus, "GetNameOwner");
+    owner << busName;
+    callAsync(owner, [this, busName](const QDBusMessage &reply) {
+        if (busName == m_currentBusName && !reply.arguments().isEmpty())
+            m_currentOwner = reply.arguments().constFirst().toString();
+    });
+    getAll(kRoot);
+    getAll(kPlayer);
 }
 
 void MPRIS2Controller::disconnectFromPlayer() {
-    if (m_playerInterface) {
-
-        if (!m_currentBusName.isEmpty()) {
-            QDBusConnection::sessionBus().disconnect(
-                m_currentBusName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties",
-                "PropertiesChanged", this,
-                SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
-        }
-
-        m_positionTimer->stop();
-        // m_playerInterface is parented to this; Qt will delete it on destruction
-        m_playerInterface = nullptr;
-        m_currentBusName.clear();
-        m_hasActivePlayer = false;
-        m_playerName.clear();
-        m_desktopEntry.clear();
-        m_playbackStatus = "Stopped";
-
+    const bool wasActive = m_hasActivePlayer;
+    m_positionTimer->stop();
+    m_currentBusName.clear();
+    m_currentOwner.clear();
+    m_hasActivePlayer = false;
+    m_playerName.clear();
+    m_desktopEntry.clear();
+    m_playbackStatus = "Stopped";
+    if (wasActive) {
         emit activePlayerChanged();
         emit playbackStatusChanged();
-
-        qDebug() << "[MPRIS2Controller] Disconnected from player";
     }
 }
 
@@ -226,333 +204,162 @@ void MPRIS2Controller::onPropertiesChanged(const QString     &interfaceName,
                                            const QVariantMap &changedProperties,
                                            const QStringList &invalidatedProperties) {
     Q_UNUSED(invalidatedProperties);
-
-    if (interfaceName != "org.mpris.MediaPlayer2.Player")
+    if (m_currentOwner.isEmpty() || (calledFromDBus() && message().service() != m_currentOwner))
         return;
+    if (interfaceName == kPlayer)
+        applyPlayerProperties(changedProperties);
+    else if (interfaceName == kRoot)
+        applyRootProperties(changedProperties);
+}
 
-    if (changedProperties.contains("PlaybackStatus")) {
-        const QString status = changedProperties.value("PlaybackStatus").toString();
+void MPRIS2Controller::applyRootProperties(const QVariantMap &props) {
+    const QString entry = unwrap(props.value("DesktopEntry")).toString();
+    const QString identity = unwrap(props.value("Identity")).toString();
+    bool          changed  = false;
+    if (!entry.isEmpty() && entry != m_desktopEntry) {
+        m_desktopEntry = entry;
+        changed        = true;
+    }
+    if (!identity.isEmpty() && identity != m_playerName) {
+        m_playerName = identity;
+        changed      = true;
+    }
+    if (changed && m_hasActivePlayer)
+        emit activePlayerChanged();
+}
+
+void MPRIS2Controller::applyPlayerProperties(const QVariantMap &props) {
+    if (props.contains("PlaybackStatus")) {
+        const QString status = unwrap(props.value("PlaybackStatus")).toString();
         if (!status.isEmpty() && status != m_playbackStatus) {
             m_playbackStatus = status;
             emit playbackStatusChanged();
-            qDebug() << "[MPRIS2Controller] Playback status:" << status;
         }
     }
 
-    if (changedProperties.contains("CanPlay") || changedProperties.contains("CanPause") ||
-        changedProperties.contains("CanGoNext") || changedProperties.contains("CanGoPrevious") ||
-        changedProperties.contains("CanSeek")) {
-        updateCapabilities();
-    }
-
-    if (changedProperties.contains("Metadata")) {
-        updateMetadata();
-    }
-}
-
-void MPRIS2Controller::updatePlaybackStatus() {
-    if (!m_playerInterface)
-        return;
-
-    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, "/org/mpris/MediaPlayer2",
-                                                       "org.freedesktop.DBus.Properties", "Get");
-    call << "org.mpris.MediaPlayer2.Player" << "PlaybackStatus";
-
-    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
-    QString                  status;
-    if (reply.isValid()) {
-        status = reply.value().variant().toString();
-    } else {
-
-        status = m_playerInterface->property("PlaybackStatus").toString();
-    }
-
-    if (!status.isEmpty() && status != m_playbackStatus) {
-        m_playbackStatus = status;
-        emit playbackStatusChanged();
-        qDebug() << "[MPRIS2Controller] Playback status:" << status;
-    }
-}
-
-void MPRIS2Controller::updateMetadata() {
-    if (!m_playerInterface)
-        return;
-
-    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, "/org/mpris/MediaPlayer2",
-                                                       "org.freedesktop.DBus.Properties", "Get");
-    call << "org.mpris.MediaPlayer2.Player" << "Metadata";
-
-    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
-    QVariantMap              metadata;
-
-    if (reply.isValid()) {
-
-        QVariant innerValue = reply.value().variant();
-
-        if (innerValue.canConvert<QVariantMap>()) {
-            metadata = innerValue.value<QVariantMap>();
-        } else if (innerValue.canConvert<QDBusArgument>()) {
-
-            QDBusArgument arg = innerValue.value<QDBusArgument>();
-            if (arg.currentType() == QDBusArgument::MapType) {
-                arg >> metadata;
-            }
+    bool capsChanged = false;
+    auto cap         = [&](const char *key, bool &field) {
+        if (!props.contains(key))
+            return;
+        const bool v = unwrap(props.value(key)).toBool();
+        if (v != field) {
+            field       = v;
+            capsChanged = true;
         }
-    } else {
-
-        QVariant val = m_playerInterface->property("Metadata");
-        if (val.canConvert<QVariantMap>()) {
-            metadata = val.value<QVariantMap>();
-        } else if (val.canConvert<QDBusArgument>()) {
-            const QDBusArgument arg = val.value<QDBusArgument>();
-            arg >> metadata;
-        }
-    }
-
-    QString     title   = extractMetadataString(metadata, "xesam:title");
-    QStringList artists = extractMetadataStringList(metadata, "xesam:artist");
-    QString     artist  = artists.isEmpty() ? "" : artists.first();
-    QString     album   = extractMetadataString(metadata, "xesam:album");
-    QString     artUrl  = extractMetadataString(metadata, "mpris:artUrl");
-    qint64      length  = extractMetadataInt64(metadata, "mpris:length");
-
-    bool        changed = false;
-
-    if (title != m_trackTitle) {
-        m_trackTitle = title;
-        changed      = true;
-    }
-
-    if (artist != m_trackArtist) {
-        m_trackArtist = artist;
-        changed       = true;
-    }
-
-    if (album != m_trackAlbum) {
-        m_trackAlbum = album;
-        changed      = true;
-    }
-
-    if (artUrl != m_albumArtUrl) {
-        m_albumArtUrl = artUrl;
-        changed       = true;
-    }
-
-    if (length != m_trackLength) {
-        m_trackLength = length;
-        changed       = true;
-    }
-
-    if (changed) {
-        emit metadataChanged();
-        qDebug() << "[MPRIS2Controller] Now playing:" << m_trackArtist << "-" << m_trackTitle;
-    }
-}
-
-void MPRIS2Controller::updatePosition() {
-    if (!m_playerInterface || m_playbackStatus != "Playing") {
-        return;
-    }
-
-    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, "/org/mpris/MediaPlayer2",
-                                                       "org.freedesktop.DBus.Properties", "Get");
-    call << "org.mpris.MediaPlayer2.Player" << "Position";
-
-    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
-    if (!reply.isValid())
-        return;
-
-    const qint64 pos = reply.value().variant().toLongLong();
-    if (pos != m_position) {
-        m_position = pos;
-        emit positionChanged();
-    }
-}
-
-void MPRIS2Controller::updateCapabilities() {
-    if (!m_playerInterface)
-        return;
-
-    bool canPlay       = m_playerInterface->property("CanPlay").toBool();
-    bool canPause      = m_playerInterface->property("CanPause").toBool();
-    bool canGoNext     = m_playerInterface->property("CanGoNext").toBool();
-    bool canGoPrevious = m_playerInterface->property("CanGoPrevious").toBool();
-    bool canSeek       = m_playerInterface->property("CanSeek").toBool();
-
-    bool changed = false;
-
-    if (canPlay != m_canPlay) {
-        m_canPlay = canPlay;
-        changed   = true;
-    }
-    if (canPause != m_canPause) {
-        m_canPause = canPause;
-        changed    = true;
-    }
-    if (canGoNext != m_canGoNext) {
-        m_canGoNext = canGoNext;
-        changed     = true;
-    }
-    if (canGoPrevious != m_canGoPrevious) {
-        m_canGoPrevious = canGoPrevious;
-        changed         = true;
-    }
-    if (canSeek != m_canSeek) {
-        m_canSeek = canSeek;
-        changed   = true;
-    }
-
-    if (changed) {
+    };
+    cap("CanPlay", m_canPlay);
+    cap("CanPause", m_canPause);
+    cap("CanGoNext", m_canGoNext);
+    cap("CanGoPrevious", m_canGoPrevious);
+    cap("CanSeek", m_canSeek);
+    if (capsChanged)
         emit capabilitiesChanged();
-        qDebug() << "[MPRIS2Controller] Capabilities - Play:" << canPlay << "Pause:" << canPause
-                 << "Next:" << canGoNext << "Prev:" << canGoPrevious;
+
+    if (props.contains("Metadata"))
+        applyMetadata(toMap(props.value("Metadata")));
+
+    if (props.contains("Position")) {
+        const qint64 pos = unwrap(props.value("Position")).toLongLong();
+        if (pos != m_position) {
+            m_position = pos;
+            emit positionChanged();
+        }
     }
 }
 
-void MPRIS2Controller::onDBusServiceRegistered(const QString &serviceName) {
+void MPRIS2Controller::applyMetadata(const QVariantMap &metadata) {
+    const QStringList artists = toStringList(metadata.value("xesam:artist"));
+    const QString     title   = unwrap(metadata.value("xesam:title")).toString();
+    const QString     artist  = artists.isEmpty() ? QString() : artists.constFirst();
+    const QString album  = unwrap(metadata.value("xesam:album")).toString();
+    const QString artUrl = unwrap(metadata.value("mpris:artUrl")).toString();
+    const qint64  length = unwrap(metadata.value("mpris:length")).toLongLong();
+    m_trackId            = toPath(metadata.value("mpris:trackid"));
 
-    if (serviceName.startsWith("org.mpris.MediaPlayer2.")) {
-        qDebug() << "[MPRIS2Controller] New media player detected:" << serviceName;
-        scanForPlayers();
-    }
+    if (title == m_trackTitle && artist == m_trackArtist && album == m_trackAlbum &&
+        artUrl == m_albumArtUrl && length == m_trackLength)
+        return;
+    m_trackTitle  = title;
+    m_trackArtist = artist;
+    m_trackAlbum  = album;
+    m_albumArtUrl = artUrl;
+    m_trackLength = length;
+    emit metadataChanged();
 }
 
-void MPRIS2Controller::onDBusServiceUnregistered(const QString &serviceName) {
-
-    if (serviceName.startsWith("org.mpris.MediaPlayer2.")) {
-        qDebug() << "[MPRIS2Controller] Media player removed:" << serviceName;
-        scanForPlayers();
-    }
+void MPRIS2Controller::pollPosition() {
+    if (!m_hasActivePlayer || m_playbackStatus != "Playing" || m_positionInFlight)
+        return;
+    m_positionInFlight    = true;
+    const QString busName = m_currentBusName;
+    QDBusMessage  call    = QDBusMessage::createMethodCall(busName, kPath, kProperties, "Get");
+    call << kPlayer << QStringLiteral("Position");
+    auto *watcher =
+        new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, busName] {
+        watcher->deleteLater();
+        m_positionInFlight = false;
+        const QDBusMessage reply = watcher->reply();
+        if (watcher->isError() || busName != m_currentBusName || reply.arguments().isEmpty())
+            return;
+        applyPlayerProperties({{"Position", unwrap(reply.arguments().constFirst())}});
+    });
 }
 
 void MPRIS2Controller::play() {
-    if (!m_playerInterface || !m_canPlay)
+    if (!m_canPlay)
         return;
-
-    qDebug() << "[MPRIS2Controller] Calling Play()";
-    m_playerInterface->asyncCall("Play");
-    updatePlaybackStatus();
+    callPlayer("Play");
+    refreshSoon();
 }
 
 void MPRIS2Controller::pause() {
-    if (!m_playerInterface || !m_canPause)
+    if (!m_canPause)
         return;
-
-    qDebug() << "[MPRIS2Controller] Calling Pause()";
-    m_playerInterface->asyncCall("Pause");
-    updatePlaybackStatus();
+    callPlayer("Pause");
+    refreshSoon();
 }
 
 void MPRIS2Controller::playPause() {
-    if (!m_playerInterface)
-        return;
-
-    qDebug() << "[MPRIS2Controller] Calling PlayPause()";
-    m_playerInterface->asyncCall("PlayPause");
-
-    QTimer::singleShot(150, this, &MPRIS2Controller::updatePlaybackStatus);
+    callPlayer("PlayPause");
+    refreshSoon();
 }
 
 void MPRIS2Controller::stop() {
-    if (!m_playerInterface)
-        return;
-
-    qDebug() << "[MPRIS2Controller] Calling Stop()";
-    m_playerInterface->asyncCall("Stop");
-    updatePlaybackStatus();
+    callPlayer("Stop");
+    refreshSoon();
 }
 
 void MPRIS2Controller::next() {
-    if (!m_playerInterface)
-        return;
-
     const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
-
     if (m_canSeek && m_trackLength > podcastThreshold) {
-        qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength
-                << "us), seeking +30s";
         seek(30000000);
     } else if (m_canGoNext) {
-        qDebug() << "[MPRIS2Controller] Calling Next()";
-        m_playerInterface->asyncCall("Next");
-
-        QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+        callPlayer("Next");
+        refreshSoon();
     }
 }
 
 void MPRIS2Controller::previous() {
-    if (!m_playerInterface)
-        return;
-
     const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
-
     if (m_canSeek && m_trackLength > podcastThreshold) {
-        qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength
-                << "us), seeking -10s";
         seek(-10000000);
     } else if (m_canGoPrevious) {
-        qDebug() << "[MPRIS2Controller] Calling Previous()";
-        m_playerInterface->asyncCall("Previous");
-
-        QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+        callPlayer("Previous");
+        refreshSoon();
     }
 }
 
 void MPRIS2Controller::seek(qint64 offset) {
-    if (!m_playerInterface || !m_canSeek)
+    if (!m_canSeek)
         return;
-
-    qDebug() << "[MPRIS2Controller] Seeking by" << offset << "microseconds";
-    m_playerInterface->asyncCall("Seek", offset);
-    updatePosition();
+    callPlayer("Seek", {offset});
+    pollPosition();
 }
 
 void MPRIS2Controller::setPosition(qint64 position) {
-    if (!m_playerInterface || !m_canSeek)
+    if (!m_canSeek || m_trackId.isEmpty())
         return;
-
-    qDebug() << "[MPRIS2Controller] Setting position to" << position;
-
-    QVariant        metadataVar = m_playerInterface->property("Metadata");
-    QVariantMap     metadata    = qdbus_cast<QVariantMap>(metadataVar);
-    QDBusObjectPath trackId     = metadata.value("mpris:trackid").value<QDBusObjectPath>();
-
-    m_playerInterface->asyncCall("SetPosition", QVariant::fromValue(trackId), position);
-    updatePosition();
-}
-
-QString MPRIS2Controller::extractMetadataString(const QVariantMap &metadata, const QString &key) {
-    if (metadata.contains(key)) {
-        return metadata.value(key).toString();
-    }
-    return QString();
-}
-
-qint64 MPRIS2Controller::extractMetadataInt64(const QVariantMap &metadata, const QString &key) {
-    if (metadata.contains(key)) {
-        return metadata.value(key).toLongLong();
-    }
-    return 0;
-}
-
-QStringList MPRIS2Controller::extractMetadataStringList(const QVariantMap &metadata,
-                                                        const QString     &key) {
-    if (metadata.contains(key)) {
-        QVariant value = metadata.value(key);
-
-        if (value.canConvert<QStringList>()) {
-            return value.toStringList();
-        }
-
-        if (value.userType() == qMetaTypeId<QDBusVariant>()) {
-            QDBusVariant dbusVar    = value.value<QDBusVariant>();
-            QVariant     innerValue = dbusVar.variant();
-            if (innerValue.canConvert<QStringList>()) {
-                return innerValue.toStringList();
-            }
-        }
-
-        return QStringList() << value.toString();
-    }
-    return QStringList();
+    callPlayer("SetPosition", {QVariant::fromValue(QDBusObjectPath(m_trackId)), position});
+    pollPosition();
 }
