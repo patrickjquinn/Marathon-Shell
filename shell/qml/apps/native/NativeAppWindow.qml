@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import "../../components" as ShellComponents
 import MarathonOS.Shell
 import QtQuick
+import Sailfish.Silica 1.0 as Silica
 
 MApp {
     id: nativeAppWindow
@@ -128,15 +129,16 @@ MApp {
                     revealHold.restart();
             }
 
+            // Laid out as MarathonAppWindow's splash, so the icon stays launcher-size through the hand-off.
             Column {
                 anchors.centerIn: parent
-                spacing: 24
+                spacing: Silica.Theme.paddingLarge
 
                 MAppIcon {
                     id: splashIcon
 
                     loadAsync: false
-                    size: Math.round(128 * Constants.scaleFactor)
+                    size: Silica.Theme.iconSizeLauncher
                     source: nativeAppWindow.nativeAppIcon && nativeAppWindow.nativeAppIcon !== "" ? nativeAppWindow.nativeAppIcon : ""
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: source !== ""
@@ -144,16 +146,17 @@ MApp {
 
                 GlyphIcon {
                     name: "grid-3x3"
-                    size: Math.round(128 * Constants.scaleFactor)
+                    size: Silica.Theme.iconSizeLauncher
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: splashIcon.source === "" || splashIcon.status === Image.Error
                 }
 
-                // Same height as the shell splash's spinner slot, so the icon doesn't shift at hand-off.
-                Item {
-                    width: 1
-                    height: Math.round(28 * Constants.scaleFactor)
+                // Holds the shell splash's spinner slot.
+                Silica.BusyIndicator {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    size: Silica.BusyIndicatorSize.Small
+                    running: false
                 }
             }
         }
