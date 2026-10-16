@@ -5,8 +5,6 @@ import "ViewKeys.js" as ViewKeys
 S.SilicaListView {
     id: root
 
-    maximumFlickVelocity: 7500 * S.Theme.pixelRatio
-
     // Silica declares these views against QtQuick 2.0, which predates
     // these properties, so they can only be set by name.
     Binding { target: root; property: "activeFocusOnTab"; value: true }

@@ -5,9 +5,6 @@ import "ViewKeys.js" as ViewKeys
 S.SilicaFlickable {
     id: root
 
-    // Jolla's 7500 px/s per pixel ratio; Keel's Theme matches it only at 1.5.
-    maximumFlickVelocity: 7500 * S.Theme.pixelRatio
-
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.
     property bool _hasTabStops
