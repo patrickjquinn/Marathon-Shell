@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
@@ -317,7 +316,8 @@ Item {
         }
 
         // The cover fills the glass; a live preview keeps the app's shape,
-        // centred when wider than the card. One layer rounds both corners.
+        // centred when wider than the card. Both draw through rounded
+        // WindowTextureItems, so the card needs no layer.
         Item {
             id: cardContent
 
@@ -325,13 +325,6 @@ Item {
             width: glass.width
             height: coverView.available ? glass.height : Math.min(glass.height, glass.width * (Constants.screenWidth > 0 ? Constants.screenHeight / Constants.screenWidth : 1))
             visible: !taskCard.docking
-            layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: previewMask
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
-            }
 
             Item {
                 anchors.fill: parent
@@ -344,6 +337,7 @@ Item {
                     appId: taskCard.appId
                     compositor: taskCard.compositor
                     shown: taskCard.taskSwitcherVisible
+                    radius: glass.radius
                 }
 
                 Loader {
@@ -466,6 +460,7 @@ Item {
                                     smooth: false
                                     format: ShaderEffectSource.RGBA
                                     samples: 0
+                                    opacity: liveTexture.ready ? 0 : 1
                                     onVisibleChanged: {
                                         if (visible)
                                             liveSnapshot.scheduleUpdate();
@@ -494,6 +489,7 @@ Item {
                                     width: parentAspect >= appAspect ? parent.height / appAspect : parent.width
                                     height: parentAspect >= appAspect ? parent.height : parent.width * appAspect
                                     visible: taskCard.hasWaylandSurface
+                                    opacity: liveTexture.ready ? 0 : 1
                                     active: taskCard.nativeSurfaceActive
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
@@ -542,24 +538,22 @@ Item {
                                     }
                                 }
 
-                                ShaderEffectSource {
-                                    id: registeredSurfacePreview
+                                // Draws whichever of the views above has the app's
+                                // frame, cropped to the card from the top and
+                                // rounded; the views stay at opacity 0 to keep their
+                                // textures current. The registered surface is the
+                                // fallback while the card has no view of its own,
+                                // and only while the page is on screen.
+                                WindowTextureItem {
+                                    id: liveTexture
 
-                                    anchors.fill: nativeSurfaceLoader
-                                    sourceItem: taskCard.registeredSurfaceItem
-                                    // Mirror only when the card is on screen and has
-                                    // no view of its own. Declared after the loader, so
-                                    // a stale `visible` here paints over it; and
-                                    // useRegisteredSurface tracks the registry alone, so
-                                    // without the page term this reads true precisely
-                                    // when the page is off screen.
-                                    visible: taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface && !taskCard.nativeSurfaceActive
-                                    live: registeredSurfacePreview.visible
-                                    recursive: true
-                                    hideSource: false
-                                    smooth: false
-                                    format: ShaderEffectSource.RGBA
-                                    samples: 0
+                                    readonly property real appAspect: liveSnapshot.appAspect
+                                    readonly property real cardAspect: liveSnapshot.parentAspect
+
+                                    anchors.fill: parent
+                                    source: taskCard.nativeSurfaceActive ? taskCard.nativeSurfaceItem : taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface ? taskCard.registeredSurfaceItem : previewContainer.liveApp !== null ? liveSnapshot : null
+                                    radius: glass.radius
+                                    sourceRect: cardAspect >= appAspect ? Qt.rect((1 - appAspect / cardAspect) / 2, 0, appAspect / cardAspect, 1) : Qt.rect(0, 0, 1, cardAspect / appAspect)
                                 }
 
                                 Rectangle {
@@ -615,16 +609,6 @@ Item {
             hideSource: shown
             opacity: shown ? 1 : 0
             visible: !taskCard.docking
-        }
-
-        Rectangle {
-            id: previewMask
-
-            anchors.fill: cardContent
-            radius: glass.radius
-            antialiasing: true
-            visible: false
-            layer.enabled: true
         }
 
         Rectangle {

@@ -11,6 +11,7 @@ QtObject {
     property real launchTime: 0
     // MarathonTaskSwitcher; answers cardRect(appId) and revealCard(appId).
     property var switcher: null
+    readonly property real cardRadius: switcher ? switcher.coverRadius : 0
     // The app whose card the flying window stands in for; its card hides its cover.
     property string dockingAppId: ""
 

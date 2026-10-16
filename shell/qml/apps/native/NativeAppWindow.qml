@@ -15,6 +15,12 @@ MApp {
     property int surfaceId: -1
     property bool isNative: true
     property var surfaceItemRef: null
+    property Item ambienceItem: null
+    readonly property Item backdropItem: keelApp ? ambienceItem : null
+    // The shell draws the backdrop and surface itself (rounded, while the
+    // window lands on its card); the originals only keep their textures.
+    property bool texturesRequested: false
+    property bool drawnByTexture: false
     readonly property bool keelApp: {
         const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
         return !!info || AppLaunchService.isKeelHostApp(nativeAppId);
@@ -41,11 +47,17 @@ MApp {
         id: contentContainer
 
         anchors.fill: parent
-        color: nativeAppWindow.keelApp ? "transparent" : MColors.background
+        color: nativeAppWindow.keelApp || nativeAppWindow.drawnByTexture ? "transparent" : MColors.background
 
         ShellComponents.KeelAmbienceBackground {
+            id: ambience
+
             anchors.fill: parent
+            opacity: nativeAppWindow.drawnByTexture ? 0 : 1
+            // A texture to draw even before the wallpaper has loaded.
+            layer.enabled: ready || nativeAppWindow.texturesRequested
             visible: nativeAppWindow.keelApp
+            Component.onCompleted: nativeAppWindow.ambienceItem = ambience
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
         }
@@ -58,6 +70,7 @@ MApp {
             surfaceObj: nativeAppWindow.waylandSurface
             surfaceId: nativeAppWindow.surfaceId
             isMinimized: nativeAppWindow.isMinimized
+            opacity: nativeAppWindow.drawnByTexture ? 0 : 1
             onSurfaceDestroyed: {
                 if (nativeAppWindow.isMinimized) {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");

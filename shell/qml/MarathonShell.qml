@@ -1541,6 +1541,66 @@ Item {
                     UIStore.closeApp();
                 }
             }
+
+            // Rounds the landing window to its card: the app's backdrop and
+            // surface are drawn through the crop with the cover's corners,
+            // the originals hidden once these have their textures.
+            Item {
+                id: dockCorners
+
+                readonly property var app: appWindow.appContainer ? appWindow.appContainer["appInstance"] : null
+                readonly property Item surface: app && app.surfaceItemRef ? app.surfaceItemRef : null
+                readonly property bool active: appWindowContainer.dock > 0 && surface !== null
+                readonly property bool ready: surfaceCorners.ready && (backdropCorners.source === null || backdropCorners.ready)
+                // The cover's radius in the shrinking container's pixels.
+                readonly property real radius: WindowOrigins.cardRadius * appWindowContainer.dock / (1 + (appWindowContainer.dockScale - 1) * appWindowContainer.dock)
+
+                // The part of item inside the crop, normalized.
+                function crop(item) {
+                    if (!item || item.width <= 0 || item.height <= 0)
+                        return Qt.rect(0, 0, 1, 1);
+                    appWindow.x, appWindow.y; // mapToItem tracks no geometry
+                    var r = item.mapToItem(cardBorder, 0, 0, item.width, item.height);
+                    return Qt.rect(-r.x / r.width, -r.y / r.height, cardBorder.width / r.width, cardBorder.height / r.height);
+                }
+
+                anchors.fill: parent
+                visible: active
+
+                WindowTextureItem {
+                    id: backdropCorners
+
+                    anchors.fill: parent
+                    source: dockCorners.active && dockCorners.app.backdropItem ? dockCorners.app.backdropItem : null
+                    radius: dockCorners.radius
+                    sourceRect: dockCorners.crop(source)
+                }
+
+                WindowTextureItem {
+                    id: surfaceCorners
+
+                    anchors.fill: parent
+                    source: dockCorners.active ? dockCorners.surface : null
+                    radius: dockCorners.radius
+                    sourceRect: dockCorners.crop(source)
+                }
+
+                Binding {
+                    target: dockCorners.app
+                    property: "texturesRequested"
+                    value: dockCorners.active
+                    when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
+
+                Binding {
+                    target: dockCorners.app
+                    property: "drawnByTexture"
+                    value: dockCorners.active && dockCorners.ready
+                    when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
+            }
         }
 
         // The edge shadow the drawn-aside app casts on home.

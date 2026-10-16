@@ -11,6 +11,7 @@ Item {
     property string appId
     property var compositor: null
     property bool shown: false
+    property real radius: 0
     property int _coverRevision: 0
     // A binding, so a card that is handed another app drops the old cover.
     readonly property WaylandSurface coverSurface: {
@@ -46,5 +47,17 @@ Item {
         surface: root.coverSurface
         inputEventsEnabled: false
         scale: width > 0 && height > 0 ? Math.min(root.width / width, root.height / height) : 1
+        opacity: coverTexture.ready ? 0 : 1
+    }
+
+    // Draws the cover rounded; the item above keeps its texture current.
+    WindowTextureItem {
+        id: coverTexture
+
+        anchors.centerIn: parent
+        width: coverItem.width * coverItem.scale
+        height: coverItem.height * coverItem.scale
+        source: coverItem
+        radius: root.radius
     }
 }

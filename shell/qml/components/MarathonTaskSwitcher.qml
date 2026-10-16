@@ -8,6 +8,8 @@ Item {
     id: taskSwitcher
 
     readonly property bool haveWayland: HAVE_WAYLAND
+    // TaskCard's cover corners.
+    readonly property real coverRadius: Silica.Theme.paddingMedium
     // Whether this page is the one on screen. `visible` cannot answer that:
     // a MarathonPageView delegate is translated off screen rather than
     // hidden, so it stays true from creation to destruction. Defaults true
