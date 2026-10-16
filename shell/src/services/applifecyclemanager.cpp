@@ -213,7 +213,7 @@ void AppLifecycleManager::wakeApp(const QString &appId) {
         return;
     cancelIdleFreezeDebounce(appId);
     transitionTo(appId, BackgroundIdle);
-    startIdleFreezeDebounce(appId);
+    startIdleFreezeDebounce(appId, true);
 }
 
 void AppLifecycleManager::launchAppWithRoute(const QString &appId, const QString &route,
@@ -434,18 +434,24 @@ void AppLifecycleManager::onForegroundExit(const QString &appId) {
     }
 }
 
-void AppLifecycleManager::startIdleFreezeDebounce(const QString &appId) {
+// A debounce of 0 (Doze) freezes at once, except where the app needs time:
+// woken to do work, or not yet showing its first surface.
+void AppLifecycleManager::startIdleFreezeDebounce(const QString &appId, bool grace) {
     auto it = m_appStates.find(appId);
     if (it == m_appStates.end())
         return;
     cancelIdleFreezeDebounce(appId);
 
-    if (m_idleFreezeDebounceMs <= 0)
+    const int delayMs = m_idleFreezeDebounceMs > 0 || !grace ? m_idleFreezeDebounceMs : 10000;
+    if (delayMs <= 0) {
+        if (it->state == BackgroundIdle)
+            freezeApp(appId);
         return;
+    }
 
     QTimer *timer = new QTimer(this);
     timer->setSingleShot(true);
-    timer->setInterval(m_idleFreezeDebounceMs);
+    timer->setInterval(delayMs);
     const QString &capturedAppId = appId;
     connect(timer, &QTimer::timeout, this, [this, capturedAppId, timer]() {
         auto state = m_appStates.find(capturedAppId);
@@ -508,7 +514,7 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
         Task *task = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
         if (!task || task->surfaceId() < 0) {
             qCInfo(lcLifecycle) << appId << "freeze deferred: no mapped surface yet";
-            startIdleFreezeDebounce(appId);
+            startIdleFreezeDebounce(appId, true);
             return;
         }
     }

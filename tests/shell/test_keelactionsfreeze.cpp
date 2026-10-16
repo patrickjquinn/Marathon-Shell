@@ -157,6 +157,57 @@ class TestKeelActionsFreeze : public QObject {
         QTest::qWait(50);
         QVERIFY(runner->calls.isEmpty());
     }
+
+    // Doze sets the debounce to 0.
+    void zeroDebounceFreezesAtOnce() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launcher->registerPidForAppId(4194303, "plain");
+        tasks->launchTask("plain", "plain", QString(), QStringLiteral("marathon"), 7);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QCOMPARE(state("plain"), int(AppLifecycleManager::Frozen));
+    }
+
+    void zeroDebounceStillReleasesTheName() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launcher->registerPidForAppId(4194301, "notes");
+        tasks->launchTask("notes", "notes", QString(), QStringLiteral("marathon"), 7);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QTRY_COMPARE(runner->calls, QStringList{"PrepareFreeze"});
+        QCOMPARE(state("notes"), int(AppLifecycleManager::BackgroundIdle));
+        runner->answerFreeze();
+        QTRY_COMPARE(state("notes"), int(AppLifecycleManager::Frozen));
+    }
+
+    void zeroDebounceSparesAnAppPlayingAudio() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launcher->registerPidForAppId(4194303, "plain");
+        tasks->launchTask("plain", "plain", QString(), QStringLiteral("marathon"), 7);
+        lifecycle->addCapability("plain", "audio-playback");
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QCOMPARE(state("plain"), int(AppLifecycleManager::BackgroundActive));
+        lifecycle->removeCapability("plain", "audio-playback");
+        QCOMPARE(state("plain"), int(AppLifecycleManager::Frozen));
+    }
+
+    void zeroDebounceWaitsForTheFirstSurface() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launcher->registerPidForAppId(4194303, "plain");
+        tasks->launchTask("plain", "plain", QString(), QStringLiteral("marathon"), -1);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QTest::qWait(50);
+        QCOMPARE(state("plain"), int(AppLifecycleManager::BackgroundIdle));
+    }
+
+    void zeroDebounceLetsAWokenAppWork() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launcher->registerPidForAppId(4194303, "plain");
+        tasks->launchTask("plain", "plain", QString(), QStringLiteral("marathon"), 7);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QCOMPARE(state("plain"), int(AppLifecycleManager::Frozen));
+        QVERIFY(launcher->startAppInBackground(app("plain")));
+        QTest::qWait(50);
+        QCOMPARE(state("plain"), int(AppLifecycleManager::BackgroundIdle));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestKeelActionsFreeze)

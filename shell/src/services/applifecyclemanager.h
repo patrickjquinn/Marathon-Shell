@@ -120,7 +120,7 @@ class AppLifecycleManager : public QObject {
     // helpers below decide which state to enter on background events.
     void                              transitionTo(const QString &appId, LifecycleState newState);
     void                              onForegroundExit(const QString &appId);
-    void                              startIdleFreezeDebounce(const QString &appId);
+    void                              startIdleFreezeDebounce(const QString &appId, bool grace = false);
     void                              cancelIdleFreezeDebounce(const QString &appId);
     void                              freezeApp(const QString &appId);
     void                              writeOomScoreAdj(const QString &appId, LifecycleState state);
