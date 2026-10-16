@@ -36,6 +36,12 @@ Item {
     // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
     // fanning out signals. Updated explicitly from updateRegisteredSurface().
     property bool useRegisteredSurface: false
+    // An upward drag on the cover closes the app unless the grid needs it to scroll.
+    property bool swipeClaimsDrag: true
+    // The switcher holds a minimising window over this card's cover.
+    readonly property bool docking: WindowOrigins.dockingAppId !== "" && WindowOrigins.dockingAppId === taskCard.appId
+    // Showing the last captured cover: the card is on its way out.
+    property bool frozen: false
 
     signal closed
     signal taskClosed(string appId)
@@ -59,6 +65,62 @@ Item {
         });
     }
 
+    function coverSceneRect() {
+        return glass.mapToItem(null, 0, 0, glass.width, glass.height);
+    }
+
+    function open() {
+        Logger.info("TaskCard", "Opening: " + taskCard.appId);
+        WindowOrigins.markLaunch(glass, true);
+        var appId = taskCard.appId;
+        var appTitle = taskCard.title;
+        var appIcon = taskCard.icon;
+        var appType = taskCard.type;
+        Qt.callLater(function () {
+            if (appType !== "native")
+                AppLifecycleManager.restoreApp(appId);
+            else
+                AppLifecycleManager.bringToForeground(appId);
+            UIStore.restoreApp(appId, appTitle, appIcon);
+            taskCard.closed();
+        });
+    }
+
+    function flyDistance() {
+        return Math.max(cardRoot.height, cardRoot.mapToItem(null, 0, cardRoot.height).y);
+    }
+
+    function freeze() {
+        coverSnapshot.scheduleUpdate();
+        frozen = true;
+    }
+
+    function closeTask() {
+        Logger.info("TaskCard", "Closing task: " + taskCard.appId + " type: " + taskCard.type);
+        if (taskCard.type === "native") {
+            if (typeof taskCard.compositor !== 'undefined' && taskCard.compositor && taskCard.surfaceId >= 0) {
+                Logger.info("TaskCard", "Closing native app via compositor, surfaceId: " + taskCard.surfaceId);
+                AppLifecycleManager.prepareClose(taskCard.appId);
+                taskCard.compositor.closeWindow(taskCard.surfaceId);
+            }
+            TaskModel.closeTask(taskCard.id);
+        } else {
+            AppLifecycleManager.closeApp(taskCard.appId);
+        }
+        // A close that left the task in place brings its card back.
+        restoreTimer.restart();
+    }
+
+    function reset() {
+        closeAnimation.stop();
+        restoreTimer.stop();
+        swipe.stop();
+        swipe.value = 0;
+        cardRoot.closing = false;
+        cardRoot.dismissing = false;
+        frozen = false;
+    }
+
     function updateRegisteredSurface() {
         if (taskCard.surfaceId <= 0) {
             registeredSurfaceItem = null;
@@ -79,51 +141,80 @@ Item {
         refreshNativeSurface();
         updateRegisteredSurface();
     }
+    // The app can exit before its card has animated out; the card keeps its last face.
+    GridView.onRemove: freeze()
+    GridView.onReused: reset()
     Component.onCompleted: {
         refreshNativeSurface();
         updateRegisteredSurface();
+    }
+
+    // Swipe-to-close: value is the cover's upward travel in px.
+    GestureTracker {
+        id: swipe
+
+        from: 0
+        commitDistance: cardRoot.height * 0.3
+        settleDuration: MMotion.moderate
+        // Close as soon as the cover has faded out; the spring's tail is invisible.
+        onValueChanged: {
+            if (cardRoot.dismissing && cardRoot.opacity === 0) {
+                swipe.stop();
+                cardRoot.dismissing = false;
+                cardRoot.closing = true;
+                taskCard.closeTask();
+            }
+        }
+        onSettled: {
+            if (cardRoot.dismissing) {
+                cardRoot.dismissing = false;
+                cardRoot.closing = true;
+                taskCard.closeTask();
+            }
+        }
+    }
+
+    Timer {
+        id: restoreTimer
+
+        interval: 1000
+        onTriggered: taskCard.reset()
     }
 
     Item {
         id: cardRoot
 
         property bool closing: false
+        property bool dismissing: false
 
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: swipe.value
         // The cell's width, or narrower where the cover's shape would overrun its height.
         width: Math.max(0, Math.min(taskCard.width - 2 * Theme.paddingSmall, (taskCard.height - 2 * Theme.paddingSmall - taskCard.bannerHeight) * Theme.coverSizeLarge.width / Theme.coverSizeLarge.height))
         height: glass.height + bannerRect.height
         readonly property bool pressed: (previewTapArea.pressed || handleTapArea.pressed) && !taskCard.suppressTapOpen
 
+        property real closeFade: closing ? 0 : 1
+
         scale: closing ? 0.7 : (pressed ? 0.97 : 1)
-        opacity: closing ? 0 : 1
+        opacity: closeFade * (1 - Math.min(1, -swipe.value / Math.max(1, swipe.commitDistance * 2.5)))
 
         SequentialAnimation {
             id: closeAnimation
 
             ScriptAction {
-                script: cardRoot.closing = true
+                script: {
+                    taskCard.freeze();
+                    cardRoot.closing = true;
+                }
             }
 
             PauseAnimation {
-                duration: 250
+                duration: MMotion.moderate
             }
 
             ScriptAction {
-                script: {
-                    Logger.info("TaskCard", "Closing task: " + taskCard.appId + " type: " + taskCard.type);
-                    if (taskCard.type === "native") {
-                        if (typeof taskCard.compositor !== 'undefined' && taskCard.compositor && taskCard.surfaceId >= 0) {
-                            Logger.info("TaskCard", "Closing native app via compositor, surfaceId: " + taskCard.surfaceId);
-                            AppLifecycleManager.prepareClose(taskCard.appId);
-                            taskCard.compositor.closeWindow(taskCard.surfaceId);
-                        }
-                        TaskModel.closeTask(taskCard.id);
-                    } else {
-                        AppLifecycleManager.closeApp(taskCard.appId);
-                    }
-                    cardRoot.closing = false;
-                }
+                script: taskCard.closeTask()
             }
         }
 
@@ -139,42 +230,78 @@ Item {
             color: Qt.rgba(0, 0, 0, 0.55)
             radius: Theme.paddingMedium
             antialiasing: true
+            visible: !taskCard.docking
         }
 
+        // Taps open the app; an upward drag carries the cover off to close it.
         MouseArea {
             id: previewTapArea
 
             property real pressX: 0
             property real pressY: 0
+            property real pressValue: 0
+            property bool swiping: false
+
+            // In taskCard coordinates: the cover moves under the finger.
+            function cardPoint(mouse) {
+                return mapToItem(taskCard, mouse.x, mouse.y);
+            }
 
             anchors.fill: glass
             z: 50
+            enabled: !cardRoot.dismissing && !cardRoot.closing
             preventStealing: false
             propagateComposedEvents: true
             onPressed: mouse => {
-                pressX = mouse.x;
-                pressY = mouse.y;
+                var p = cardPoint(mouse);
+                pressX = p.x;
+                pressY = p.y;
+                pressValue = swipe.value;
+                swiping = false;
+                preventStealing = taskCard.swipeClaimsDrag;
+                swipe.to = -taskCard.flyDistance();
+                swipe.press();
                 mouse.accepted = true;
             }
-            onReleased: mouse => {
-                var deltaX = Math.abs(mouse.x - pressX);
-                var deltaY = Math.abs(mouse.y - pressY);
-                if (!taskCard.suppressTapOpen && deltaX < 15 && deltaY < 15) {
-                    mouse.accepted = true;
-                    Logger.info("TaskCard", "TAP on preview - Opening: " + taskCard.appId);
-                    var appId = taskCard.appId;
-                    var appTitle = taskCard.title;
-                    var appIcon = taskCard.icon;
-                    var appType = taskCard.type;
-                    Qt.callLater(function () {
-                        if (appType !== "native")
-                            AppLifecycleManager.restoreApp(appId);
-                        else
-                            AppLifecycleManager.bringToForeground(appId);
-                        UIStore.restoreApp(appId, appTitle, appIcon);
-                        taskCard.closed();
-                    });
+            onPositionChanged: mouse => {
+                var p = cardPoint(mouse);
+                var dx = p.x - pressX;
+                var dy = p.y - pressY;
+                if (!swiping && Math.abs(dy) > Qt.styleHints.startDragDistance && Math.abs(dy) > Math.abs(dx)) {
+                    if (dy < 0 && taskCard.swipeClaimsDrag)
+                        swiping = true;
+                    else
+                        preventStealing = false;
                 }
+                if (swiping) {
+                    var v = pressValue + dy;
+                    swipe.move(v < 0 ? v : v * 0.2);
+                }
+            }
+            onReleased: mouse => {
+                var commit = swipe.release();
+                if (swiping) {
+                    swiping = false;
+                    if (commit) {
+                        taskCard.freeze();
+                        cardRoot.dismissing = true;
+                        swipe.settleTo(swipe.to, Math.min(swipe.velocity, -swipe.flingVelocity));
+                    } else {
+                        swipe.settleTo(0);
+                    }
+                    return;
+                }
+                var p = cardPoint(mouse);
+                if (!taskCard.suppressTapOpen && Math.abs(p.x - pressX) < 15 && Math.abs(p.y - pressY) < 15) {
+                    mouse.accepted = true;
+                    taskCard.open();
+                }
+            }
+            onCanceled: {
+                swipe.release();
+                if (swiping)
+                    swipe.settleTo(0);
+                swiping = false;
             }
         }
 
@@ -186,6 +313,7 @@ Item {
             color: "transparent"
             border.width: 1
             border.color: cardRoot.pressed ? Theme.highlightColor : Theme.rgba(Theme.primaryColor, 0.1)
+            visible: !taskCard.docking
         }
 
         // The cover fills the glass; a live preview keeps the app's shape,
@@ -196,6 +324,7 @@ Item {
             anchors.centerIn: glass
             width: glass.width
             height: coverView.available ? glass.height : Math.min(glass.height, glass.width * (Constants.screenWidth > 0 ? Constants.screenHeight / Constants.screenWidth : 1))
+            visible: !taskCard.docking
             layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
             layer.effect: MultiEffect {
                 maskEnabled: true
@@ -473,6 +602,21 @@ Item {
             }
         }
 
+        // The cover's last face, refreshed when the switcher opens and as
+        // the card starts to close; shown once the app behind it may be gone.
+        ShaderEffectSource {
+            id: coverSnapshot
+
+            anchors.fill: cardContent
+            sourceItem: cardContent
+            readonly property bool shown: taskCard.frozen && GraphicsInfo.api !== GraphicsInfo.Software
+
+            live: false
+            hideSource: shown
+            opacity: shown ? 1 : 0
+            visible: !taskCard.docking
+        }
+
         Rectangle {
             id: previewMask
 
@@ -524,19 +668,7 @@ Item {
                     var deltaY = Math.abs(mouse.y - pressY);
                     if (!taskCard.suppressTapOpen && deltaX < 15 && deltaY < 15) {
                         mouse.accepted = true;
-                        Logger.info("TaskCard", "TAP on handle - Opening: " + taskCard.appId);
-                        var appId = taskCard.appId;
-                        var appTitle = taskCard.title;
-                        var appIcon = taskCard.icon;
-                        var appType = taskCard.type;
-                        Qt.callLater(function () {
-                            if (appType !== "native")
-                                AppLifecycleManager.restoreApp(appId);
-                            else
-                                AppLifecycleManager.bringToForeground(appId);
-                            UIStore.restoreApp(appId, appTitle, appIcon);
-                            taskCard.closed();
-                        });
+                        taskCard.open();
                     }
                 }
             }
@@ -624,14 +756,14 @@ Item {
 
         Behavior on scale {
             NumberAnimation {
-                duration: cardRoot.closing ? 250 : MMotion.quick
+                duration: cardRoot.closing ? MMotion.moderate : MMotion.quick
                 easing.type: Easing.OutCubic
             }
         }
 
-        Behavior on opacity {
+        Behavior on closeFade {
             NumberAnimation {
-                duration: 250
+                duration: MMotion.moderate
                 easing.type: Easing.OutCubic
             }
         }

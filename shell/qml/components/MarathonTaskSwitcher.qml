@@ -21,11 +21,37 @@ Item {
 
     signal closed
 
+    // Scene rect of an app's cover in the grid; empty when it has no card.
+    function cardRect(appId) {
+        for (var i = 0; i < taskGrid.count; ++i) {
+            var card = taskGrid.itemAtIndex(i) as TaskCard;
+            if (card && card.appId === appId)
+                return card.coverSceneRect();
+        }
+        return Qt.rect(0, 0, 0, 0);
+    }
+
+    function revealCard(appId) {
+        for (var i = 0; i < taskGrid.count; ++i) {
+            var card = taskGrid.itemAtIndex(i) as TaskCard;
+            if (card && card.appId === appId) {
+                taskGrid.positionViewAtIndex(i, GridView.Contain);
+                return;
+            }
+        }
+    }
+
     scale: visible ? 1 : 0.95
+    Component.onCompleted: WindowOrigins.switcher = taskSwitcher
+    Component.onDestruction: {
+        if (WindowOrigins.switcher === taskSwitcher)
+            WindowOrigins.switcher = null;
+    }
 
     MouseArea {
         property real startX: 0
         property real startY: 0
+        property real startTime: 0
         property real currentY: 0
         property bool isDragging: false
         property bool isVertical: false
@@ -38,6 +64,7 @@ Item {
         onPressed: function (mouse) {
             startX = mouse.x;
             startY = mouse.y;
+            startTime = Date.now();
             currentY = mouse.y;
             isDragging = false;
             isVertical = false;
@@ -69,7 +96,7 @@ Item {
         onReleased: function (mouse) {
             if (isDragging && isVertical) {
                 var deltaY = currentY - startY;
-                var deltaTime = Date.now() - startY;
+                var deltaTime = Date.now() - startTime;
                 var velocity = deltaY / (deltaTime || 1);
                 if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
                     Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)");
@@ -190,7 +217,55 @@ Item {
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
             gridMoving: taskGrid.moving
             gridDragging: taskGrid.dragging
+            swipeClaimsDrag: !taskGrid.interactive || taskGrid.atYEnd
             onClosed: taskSwitcher.closed()
+        }
+
+        add: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: MMotion.durationFor("entrance")
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                property: "scale"
+                from: 0.9
+                to: 1
+                duration: MMotion.durationFor("entrance")
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        remove: Transition {
+            NumberAnimation {
+                property: "opacity"
+                to: 0
+                duration: MMotion.quick
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                property: "scale"
+                to: 0.9
+                duration: MMotion.quick
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        // Neighbours close the gap; an interrupted add still ends opaque.
+        displaced: Transition {
+            NumberAnimation {
+                properties: "x,y"
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                properties: "opacity,scale"
+                to: 1
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
+            }
         }
     }
 

@@ -23,6 +23,13 @@ Rectangle {
     property var activeDialogs: []
     property bool isClosing: false
     property Component dialogOverlayComponent
+    // Open: 0 sits on the icon or card it came from, 1 is in place.
+    property real zoom: 1
+    property real zoomScaleFrom: 1
+    property real zoomXFrom: 0
+    property real zoomYFrom: 0
+    readonly property real zoomScale: zoomScaleFrom + (1 - zoomScaleFrom) * zoom
+    readonly property bool zooming: zoomIn.running
 
     signal closed
     signal retryRequested(string appId)
@@ -104,7 +111,7 @@ Rectangle {
             appWindow.visible = true;
             appWindow.focusApp();
             if (appWindow.opacity < 1)
-                slideIn.start();
+                appWindow.startZoom();
 
             return;
         }
@@ -197,7 +204,7 @@ Rectangle {
         }
         visible = true;
         focusApp();
-        slideIn.start();
+        appWindow.startZoom();
         var totalTime = Date.now() - launchStartTime;
         Logger.info("AppWindow", " " + name + " launched in " + totalTime + "ms");
     }
@@ -254,6 +261,23 @@ Rectangle {
         slideOut.start();
     }
 
+    // Scale + translate from the launch origin: the surface keeps its size.
+    function startZoom() {
+        var origin = WindowOrigins.takeLaunch();
+        var r = origin && parent && width > 0 ? parent.mapFromItem(null, origin.rect.x, origin.rect.y, origin.rect.width, origin.rect.height) : null;
+        if (r && r.width > 0) {
+            zoomScaleFrom = r.width / width;
+            zoomXFrom = r.x - x;
+            // A card shows the app's top; an icon is the middle of the window it becomes.
+            zoomYFrom = (origin.fromCard ? r.y : r.y + (r.height - height * zoomScaleFrom) / 2) - y;
+        } else {
+            zoomScaleFrom = 0.92;
+            zoomXFrom = width * (1 - zoomScaleFrom) / 2;
+            zoomYFrom = height * (1 - zoomScaleFrom) / 2;
+        }
+        zoomIn.restart();
+    }
+
     function _unminimize(instance) {
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
@@ -281,13 +305,22 @@ Rectangle {
         instance.visible = true;
         appWindow.visible = true;
         appWindow.focusApp();
-        slideIn.start();
+        appWindow.startZoom();
         Logger.info("AppWindow", "Instance re-attached successfully: " + id);
     }
 
-    anchors.fill: parent
     color: MColors.surface
     focus: true
+    transform: [
+        Scale {
+            xScale: appWindow.zoomScale
+            yScale: appWindow.zoomScale
+        },
+        Translate {
+            x: appWindow.zoomXFrom * (1 - appWindow.zoom)
+            y: appWindow.zoomYFrom * (1 - appWindow.zoom)
+        }
+    ]
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed");
@@ -318,9 +351,13 @@ Rectangle {
     Rectangle {
         id: loadingSplash
 
+        readonly property bool showing: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
+
         anchors.fill: parent
         color: "black"
-        visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
+        // Cross-fades into the app's first frame.
+        opacity: showing ? 1 : 0
+        visible: opacity > 0
         z: 1000
 
         KeelAmbienceBackground {
@@ -330,6 +367,9 @@ Rectangle {
         }
 
         Column {
+            // Same size on screen as the launcher icon it grew from, and
+            // pulsing until the app shows its first frame.
+            scale: splashPulse.value / appWindow.zoomScale
             anchors.centerIn: parent
             spacing: Silica.Theme.paddingLarge
 
@@ -360,21 +400,55 @@ Rectangle {
             Silica.BusyIndicator {
                 anchors.horizontalCenter: parent.horizontalCenter
                 size: Silica.BusyIndicatorSize.Small
-                running: loadingSplash.visible && slowLaunch.fired
+                running: loadingSplash.showing && slowLaunch.fired
                 opacity: running ? 1 : 0
             }
         }
 
+        // The pulse gives up after 5 s and the busy indicator takes over.
         Timer {
             id: slowLaunch
 
             property bool fired: false
 
-            interval: 1000
-            running: loadingSplash.visible
+            interval: 5000
+            running: loadingSplash.showing
             onRunningChanged: if (running)
                 fired = false
             onTriggered: fired = true
+        }
+
+        SequentialAnimation {
+            id: splashPulse
+
+            property real value: 1
+
+            running: loadingSplash.showing && !slowLaunch.fired && !MMotion.reduceMotion
+            loops: Animation.Infinite
+            onRunningChanged: if (!running)
+                value = 1
+
+            NumberAnimation {
+                target: splashPulse
+                property: "value"
+                to: 1.08
+                duration: MMotion.durationFor("pulse") / 2
+                easing.type: Easing.InOutSine
+            }
+            NumberAnimation {
+                target: splashPulse
+                property: "value"
+                to: 1
+                duration: MMotion.durationFor("pulse") / 2
+                easing.type: Easing.InOutSine
+            }
+        }
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: MMotion.durationFor("nav")
+                easing.type: Easing.InOutQuad
+            }
         }
     }
 
@@ -430,31 +504,25 @@ Rectangle {
         }
     }
 
-    // Open + close: opacity AND scale, not opacity alone. A pure fade
-    // reads as "a panel appeared"; pairing it with a 0.92→1.0 scale
-    // reads as "the app emerged" — iOS Spotlight-style. The scale axis
-    // is compositor-only (no relayout), and the curve is the canonical
-    // "modal" role from MMotion so the open feels coherent with the
-    // rest of the system's modals.
     ParallelAnimation {
-        id: slideIn
+        id: zoomIn
 
+        NumberAnimation {
+            target: appWindow
+            property: "zoom"
+            from: 0
+            to: 1
+            duration: MMotion.dur(MMotion.slow)
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingDecelerateCurve
+        }
         NumberAnimation {
             target: appWindow
             property: "opacity"
             from: 0
             to: 1
-            duration: MMotion.durationFor("modal")
+            duration: MMotion.dur(MMotion.slow) / 2
             easing.type: Easing.OutQuad
-        }
-        NumberAnimation {
-            target: appWindow
-            property: "scale"
-            from: 0.92
-            to: 1.0
-            duration: MMotion.durationFor("modal")
-            easing.type: Easing.Bezier
-            easing.bezierCurve: MMotion.easingCurveFor("modal")
         }
     }
 

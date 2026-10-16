@@ -75,6 +75,12 @@ Item {
         readonly property Item contentColumn: contentColumn
         readonly property Item iconBox: iconBox
 
+        // The window grows out of this icon.
+        function launch() {
+            WindowOrigins.markLaunch(iconBox, false);
+            appGrid.appLaunched(appData);
+        }
+
         width: iconGrid.width / appGrid.columns
         height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.rowSpacing) / appGrid.rows
 
@@ -82,7 +88,7 @@ Item {
         Accessible.name: appData ? appData.name : ""
         Accessible.ignored: !appData
         Accessible.onPressAction: if (appData)
-            appGrid.appLaunched(appData)
+            iconCell.launch()
 
         // Staggered entrance — every home grid icon fades up in a
         // light wave on first paint. Index-based delay means the
@@ -214,7 +220,7 @@ Item {
                 }
                 if (!isSearchGesture && !held && Math.abs(dragDistance) < 15) {
                     if (iconCell.appData) {
-                        appGrid.appLaunched(iconCell.appData);
+                        iconCell.launch();
                         HapticManager.medium();
                     }
                 }

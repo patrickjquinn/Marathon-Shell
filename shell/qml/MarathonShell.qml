@@ -20,7 +20,7 @@ Item {
     // An app at rest covers everything but the status bar, whose glass lets
     // the wallpaper show through. The wallpaper is clipped to that strip
     // then, instead of being shaded full-screen under every app frame.
-    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && navBar.backProgress === 0 && appWindowContainer.scale === 1 && appWindowContainer.opacity === 1 && appWindow.scale === 1 && appWindow.opacity === 1
+    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && navBar.backProgress === 0 && appWindowContainer.dock === 0 && appWindowContainer.opacity === 1 && !appWindow.zooming && appWindow.scale === 1 && appWindow.opacity === 1
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -595,7 +595,8 @@ Item {
             }
 
             PropertyChanges {
-                mainContent.visible: backExit.running
+                // Home and the switcher stay drawn while a window grows out of them or shrinks onto a card.
+                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0
                 mainContent.enabled: false
             }
 
@@ -1281,6 +1282,7 @@ Item {
                 pageView.currentIndex = 1;
                 Router.goToFrames();
             }
+            WindowOrigins.revealCard(UIStore.currentAppId);
         }
         onMinimizeApp: {
             Logger.info("Shell", "NavBar minimize gesture detected");
@@ -1364,13 +1366,39 @@ Item {
         z: -1
     }
 
+    // Dims home under a window growing out of it, and lifts as one shrinks onto its card.
+    Rectangle {
+        anchors.fill: parent
+        z: Constants.zIndexAppWindow
+        color: "black"
+        visible: appWindow.zooming || appWindowContainer.dock > 0
+        opacity: appWindow.zooming ? 0.5 * appWindow.zoom : 0.5 * (1 - appWindowContainer.dock)
+    }
+
     Item {
         id: appWindowContainer
 
-        property real finalScale: 0.65
-        property real currentGestureScale: 1 - (navBar.gestureProgress * 0.35)
-        property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
-        property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
+        // 0: full screen; 1: sitting on the app's switcher card. The swipe
+        // drives it while the finger is down, snapIntoGridAnimation after.
+        // TODO(t2): follow the thumb sideways once the nav bar exposes its x travel.
+        readonly property real gestureDock: navBar.gestureProgress * 0.7
+        property real dockAnimated: 0
+        readonly property real dock: shell.isTransitioningToActiveFrames ? dockAnimated : gestureDock
+        property bool landed: false
+        // Shell coordinates of the cover the app lands on, re-read each
+        // step: the switcher page slides in under the window.
+        readonly property rect dockCard: {
+            if (dock <= 0)
+                return Qt.rect(0, 0, 0, 0);
+            var r = WindowOrigins.cardRect(UIStore.currentAppId);
+            if (r.width > 0)
+                return shell.mapFromItem(null, r.x, r.y, r.width, r.height);
+            var s = 0.65;
+            return Qt.rect(width * (1 - s) / 2, height * (1 - s) / 2 + Constants.safeAreaTop * s, width * s, appWindow.height * s);
+        }
+        readonly property real dockScale: dockCard.width > 0 ? dockCard.width / width : 1
+        // The part of the app the cover shows, in unscaled px from its top.
+        readonly property real dockHeight: dockCard.width > 0 ? dockCard.height / dockScale : appWindow.height
 
         // Apps render full-screen behind the navBar so their content (gradients,
         // backgrounds, hero images) bleeds to the bottom edge. The first
@@ -1383,8 +1411,16 @@ Item {
         anchors.fill: parent
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
-        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)
-        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1)
+        transform: [
+            Scale {
+                xScale: 1 + (appWindowContainer.dockScale - 1) * appWindowContainer.dock
+                yScale: 1 + (appWindowContainer.dockScale - 1) * appWindowContainer.dock
+            },
+            Translate {
+                x: appWindowContainer.dockCard.x * appWindowContainer.dock
+                y: (appWindowContainer.dockCard.y - Constants.safeAreaTop * appWindowContainer.dockScale) * appWindowContainer.dock
+            }
+        ]
         // Single entry point for bringing UIStore's current app on screen,
         // shared by the currentAppId and appWindowOpen signal paths.
         function showForegroundApp(reason) {
@@ -1444,48 +1480,25 @@ Item {
             enabled: UIStore !== null
         }
 
-        Rectangle {
+        // Crops the window to what the card shows as it lands; a scissor
+        // clip, not a layer, so the gesture costs no offscreen pass.
+        Item {
             id: cardBorder
 
-            anchors.fill: parent
-            color: "transparent"
-            radius: Constants.borderRadiusSmall
-            border.width: appWindowContainer.showCardFrame ? Constants.borderWidthThin : 0
-            border.color: Qt.rgba(255, 255, 255, 0.12)
-            layer.enabled: appWindowContainer.showCardFrame
-            clip: true
-
-            MTopHairline {
-                visible: appWindowContainer.showCardFrame
-                radius: parent.radius
-                color: Qt.rgba(255, 255, 255, 0.03)
-                lineWidth: 1
-            }
-
-            Rectangle {
-                id: appCardBackground
-
-                anchors.fill: parent
-                color: MColors.background
-                radius: parent.radius
-                opacity: appWindowContainer.showCardFrame ? 1 : 0
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
+            width: parent.width
+            y: Constants.safeAreaTop * appWindowContainer.dock
+            height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
+            clip: appWindowContainer.dock > 0
 
             MarathonAppWindow {
                 id: appWindow
 
                 onRetryRequested: id => Qt.callLater(() => AppLaunchService.launchApp(id, shell.compositor, appWindow))
 
-                anchors.fill: parent
-                anchors.topMargin: Constants.safeAreaTop
-                anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
+                x: 0
+                y: Constants.safeAreaTop - cardBorder.y
+                width: appWindowContainer.width
+                height: appWindowContainer.height - Constants.safeAreaTop - Constants.safeAreaBottom - virtualKeyboard.reservedHeight
                 visible: true
                 onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
@@ -1496,107 +1509,6 @@ Item {
                 onClosed: {
                     Logger.info("AppWindow", "Closed: " + appWindow.appName);
                     UIStore.closeApp();
-                }
-            }
-
-            Behavior on border.width {
-                NumberAnimation {
-                    duration: 200
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
-
-        Rectangle {
-            id: appCardFrameOverlay
-
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: Constants.touchTargetSmall
-            color: MColors.surface
-            opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1 / Math.max(0.1, appWindowContainer.opacity)) : 0
-            visible: opacity > 0
-            z: 100
-
-            Rectangle {
-                width: parent.width
-                height: Math.round(6 * Constants.scaleFactor)
-                color: parent.color
-                anchors.top: parent.top
-            }
-
-            Row {
-                anchors.fill: parent
-                anchors.leftMargin: Constants.spacingSmall
-                anchors.rightMargin: Constants.spacingSmall
-                spacing: Constants.spacingSmall
-
-                MAppIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: appWindow.appIcon
-                    size: Constants.iconSizeMedium
-                }
-
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - Math.round(80 * Constants.scaleFactor)
-                    spacing: Math.round(2 * Constants.scaleFactor)
-
-                    Text {
-                        text: appWindow.appName
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.DemiBold
-                        font.family: MTypography.fontFamily
-                        elide: Text.ElideRight
-                        width: parent.width
-                    }
-
-                    Text {
-                        text: "Running"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeXSmall
-                        font.family: MTypography.fontFamily
-                        opacity: 0.7
-                    }
-                }
-
-                Item {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Constants.iconSizeMedium
-                    height: Constants.iconSizeMedium
-
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: Math.round(28 * Constants.scaleFactor)
-                        height: Math.round(28 * Constants.scaleFactor)
-                        radius: Constants.borderRadiusSmall
-                        color: MColors.surface
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "×"
-                            color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeLarge
-                            font.weight: Font.Bold
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -8
-                            onClicked: {
-                                UIStore.closeApp();
-                            }
-                        }
-                    }
-                }
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 200
-                    easing.type: Easing.OutCubic
                 }
             }
         }
@@ -1614,7 +1526,7 @@ Item {
 
         anchors.fill: parent
         anchors.topMargin: Constants.safeAreaTop
-        anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
+        anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.reservedHeight
         z: Constants.zIndexKeelDialog
         visible: !SessionStore.isLocked
         backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
@@ -1633,21 +1545,20 @@ Item {
         }
     }
 
-    ParallelAnimation {
+    // Finishes a minimise: the window lands on its card, the card's cover
+    // appears under it, and the window fades off the cover.
+    SequentialAnimation {
         id: snapIntoGridAnimation
 
-        property real velocity: -1000
-
-        function startWithVelocity(v) {
-            velocity = v;
-            // Spring-driven scale settles at finalScale based on physics,
-            // not a hand-tuned duration. The velocity feeds into the
-            // spring's initial impulse so a confident swipe still feels
-            // faster than a slow one. Opacity stays time-based (effects
-            // family per M3 Expressive — colour/opacity must not ring).
-            opacityAnim.duration = Math.max(120, 260 - (Math.min(2, Math.abs(v) / 1000) * 80));
+        // velocity: px/s, negative upward.
+        function startWithVelocity(velocity) {
+            appWindowContainer.dockAnimated = appWindowContainer.gestureDock;
+            appWindowContainer.landed = false;
+            pageView.currentIndex = 1;
             Router.goToFrames();
-            start();
+            var remaining = (1 - appWindowContainer.dockAnimated) * shell.height * 0.6;
+            dockStep.duration = MMotion.reduceMotion ? MMotion.micro : Math.max(MMotion.quick, Math.min(MMotion.slow, 1000 * remaining / Math.max(1, Math.abs(velocity))));
+            restart();
         }
 
         onFinished: {
@@ -1661,28 +1572,41 @@ Item {
             else if (UIStore.appWindowOpen)
                 UIStore.minimizeApp();
             shell.isTransitioningToActiveFrames = false;
+            appWindowContainer.landed = false;
+            appWindowContainer.dockAnimated = 0;
+            appWindowContainer.opacity = 1;
         }
 
         NumberAnimation {
-            id: scaleAnim
+            id: dockStep
 
             target: appWindowContainer
-            property: "scale"
-            to: appWindowContainer.finalScale
-            duration: 260
-            easing.type: Easing.OutCubic
+            property: "dockAnimated"
+            to: 1
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingDecelerateCurve
+        }
+
+        ScriptAction {
+            script: appWindowContainer.landed = true
         }
 
         NumberAnimation {
-            id: opacityAnim
-
             target: appWindowContainer
             property: "opacity"
-            to: 1
-            duration: 300
-            easing.type: Easing.Bezier
-            easing.bezierCurve: MMotion.predictiveBackCurve
+            to: 0
+            duration: MMotion.dur(MMotion.fast)
+            easing.type: Easing.InOutQuad
         }
+    }
+
+    // The card under a minimising window hides its cover until the window lands.
+    Binding {
+        target: WindowOrigins
+        property: "dockingAppId"
+        value: UIStore.currentAppId
+        when: appWindowContainer.dock > 0 && !appWindowContainer.landed
+        restoreMode: Binding.RestoreValue
     }
 
     MarathonQuickSettings {
@@ -2461,7 +2385,7 @@ Item {
     Binding {
         target: shell.compositor
         property: "appViewportSize"
-        value: Qt.size(Math.round(appWindow.width), Math.round(appWindow.height + virtualKeyboard.height))
+        value: Qt.size(Math.round(appWindow.width), Math.round(appWindow.height + virtualKeyboard.reservedHeight))
         when: shell.compositor !== null && appWindow.width > 0
     }
 
