@@ -4,7 +4,7 @@ After=bluetooth.service
 Requires=bluetooth.service
 
 [Service]
-Type=oneshot
+Type=exec
 ExecStart=/usr/libexec/marathon-hackberry-speaker
 
 [Install]
