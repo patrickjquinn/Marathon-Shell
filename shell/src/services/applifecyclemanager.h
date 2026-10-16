@@ -92,6 +92,10 @@ class AppLifecycleManager : public QObject {
     void systemBackUnhandled();
     void allAppsStopped();
 
+  protected:
+    // The unified cgroup path of a process, from /proc/<pid>/cgroup.
+    virtual QString cgroupOfPid(qint64 pid) const;
+
   private:
     struct AppState {
         LifecycleState state          = Unregistered;
@@ -123,12 +127,17 @@ class AppLifecycleManager : public QObject {
     void                              startIdleFreezeDebounce(const QString &appId, bool grace = false);
     void                              cancelIdleFreezeDebounce(const QString &appId);
     void                              freezeApp(const QString &appId);
+    void                              setAppFrozen(const QString &appId, bool frozen);
     void                              writeOomScoreAdj(const QString &appId, LifecycleState state);
     static int                        oomScoreForState(LifecycleState state);
 
     QPointer<TaskModel>               m_taskModel;
     QPointer<AppLaunchService>        m_appLaunchService;
     CgroupManager                    *m_cgroup = nullptr;
+    QString                           m_shellCgroup;
+    // Native apps that run in their own systemd scope (flatpak's, or a
+    // launcher's): appId to unit name. systemd freezes those.
+    QHash<QString, QString>           m_appScopes;
 
     QHash<QString, QPointer<QObject>> m_appRegistry;
     QHash<QString, AppState>          m_appStates;
