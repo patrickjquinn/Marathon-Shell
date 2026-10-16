@@ -155,6 +155,8 @@ set(SOURCES
     src/services/ngfservice.cpp
     src/services/toolkittheme.h
     src/services/toolkittheme.cpp
+    src/services/toolkitthemewriter.h
+    src/services/toolkitthemewriter.cpp
     src/dbus/portalsettings.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp

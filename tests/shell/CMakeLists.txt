@@ -154,6 +154,12 @@ target_compile_definitions(test_shell_toolkittheme PRIVATE
     MARATHON_TOOLKIT_THEMES="${CMAKE_SOURCE_DIR}/shell/toolkit-themes")
 add_test(NAME Shell_ToolkitTheme COMMAND test_shell_toolkittheme)
 
+add_executable(test_shell_toolkitthemewriter test_toolkitthemewriter.cpp
+    ../../shell/src/services/toolkitthemewriter.cpp ../../shell/src/services/toolkittheme.cpp)
+target_link_libraries(test_shell_toolkitthemewriter Qt6::Test Qt6::Core Qt6::Gui)
+target_include_directories(test_shell_toolkitthemewriter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_ToolkitThemeWriter COMMAND test_shell_toolkitthemewriter)
+
 # Sailfish apps launch under marathon-keel-host
 add_executable(test_shell_sailfishlaunch test_sailfishlaunch.cpp)
 target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)

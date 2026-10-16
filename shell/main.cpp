@@ -71,6 +71,7 @@
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
+#include "src/services/toolkitthemewriter.h"
 #include "src/services/ngfservice.h"
 #include "src/dbus/portalsettings.h"
 #include "src/managers/bluetoothmanager.h"
@@ -1222,9 +1223,25 @@ int main(int argc, char *argv[]) {
         ipc->setModemManager(modemManager);
         ipc->setFlashlightManager(flashlightManager);
         auto *portalSettings = new PortalSettings(&app);
-        portalSettings->setAmbience(ambienceService->ambience());
+        // Files first: GTK 3 reloads its theme when the portal flips
+        // Marathon to Marathon-dark, and must find the new colours.
+        auto applyAmbience = [portalSettings,
+                              themeWriter = ToolkitThemeWriter(
+                                  QStandardPaths::writableLocation(
+                                      QStandardPaths::GenericConfigLocation),
+                                  QStandardPaths::writableLocation(
+                                      QStandardPaths::GenericDataLocation))](
+                                 const QVariantMap &ambience) {
+            const QVariantMap appearance = PortalSettings::appearance(ambience);
+            if (appearance.contains(QStringLiteral("accent-color")))
+                themeWriter.write(appearance.value(QStringLiteral("accent-color")).value<QColor>(),
+                                  appearance.value(QStringLiteral("color-scheme")).toUInt() != 2);
+            portalSettings->setGtk3Theme(themeWriter.gtk3ThemeInstalled());
+            portalSettings->setAmbience(ambience);
+        };
+        applyAmbience(ambienceService->ambience());
         QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,
-                         &PortalSettings::setAmbience);
+                         applyAmbience);
         if (!QDBusConnection::sessionBus().registerObject(
                 QStringLiteral("/org/freedesktop/portal/desktop"), portalSettings,
                 QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
