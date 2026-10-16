@@ -1,18 +1,25 @@
 #!/bin/sh
-# Pair the HackberryPi's built-in Bluetooth speaker module once, then keep
-# trying to connect it: A2DP only connects once the user's audio server is up.
+# Keep the HackberryPi's built-in Bluetooth speaker module connected: pair it
+# once, then reconnect whenever it drops (boot, session restarts, the module
+# power-cycling). Leaves it alone while Bluetooth is switched off.
 NAME="XWF-M18-M28-M38"
-mac=$(bluetoothctl devices Paired 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
-if [ -z "$mac" ]; then
-    bluetoothctl --timeout 20 scan on >/dev/null 2>&1
-    mac=$(bluetoothctl devices 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
-    [ -n "$mac" ] || exit 0
-    bluetoothctl pair "$mac" >/dev/null 2>&1
-    bluetoothctl trust "$mac" >/dev/null 2>&1
-fi
-for _ in $(seq 1 36); do
-    bluetoothctl info "$mac" 2>/dev/null | grep -q "Connected: yes" && exit 0
-    bluetoothctl connect "$mac" >/dev/null 2>&1
-    sleep 5
+mac=""
+while :; do
+    if bluetoothctl show 2>/dev/null | grep -q "Powered: yes"; then
+        [ -n "$mac" ] || mac=$(bluetoothctl devices Paired 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+        if [ -z "$mac" ]; then
+            bluetoothctl --timeout 20 scan on >/dev/null 2>&1
+            mac=$(bluetoothctl devices 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+            if [ -n "$mac" ]; then
+                bluetoothctl pair "$mac" >/dev/null 2>&1
+                bluetoothctl trust "$mac" >/dev/null 2>&1
+            else
+                sleep 290
+            fi
+        fi
+        if [ -n "$mac" ] && ! bluetoothctl info "$mac" 2>/dev/null | grep -q "Connected: yes"; then
+            bluetoothctl connect "$mac" >/dev/null 2>&1
+        fi
+    fi
+    sleep 10
 done
-exit 0

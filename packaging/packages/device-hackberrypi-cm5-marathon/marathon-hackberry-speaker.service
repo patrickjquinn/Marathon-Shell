@@ -1,11 +1,13 @@
 [Unit]
-Description=Pair the HackberryPi's Bluetooth speaker module
+Description=Keep the HackberryPi's Bluetooth speaker module connected
 After=bluetooth.service
 Requires=bluetooth.service
 
 [Service]
 Type=exec
 ExecStart=/usr/libexec/marathon-hackberry-speaker
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
