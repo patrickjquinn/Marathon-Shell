@@ -505,6 +505,8 @@ Item {
                 mainContent.visible: SessionStore.checkSession()
                 mainContent.enabled: false
                 mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
+                // Home rises into place under the lifting lock screen.
+                mainContent.scale: 0.94 + 0.06 * lockScreen.swipeProgress
             }
 
             PropertyChanges {
@@ -618,10 +620,29 @@ Item {
             from: "locked"
             to: "home"
 
-            PropertyAction {
-                target: lockScreen
-                property: "visible"
-                value: false
+            // An unlock that skipped the swipe (PIN, D-Bus) still lifts the
+            // lock screen off a rising home instead of cutting to it.
+            SequentialAnimation {
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: lockScreen
+                        property: "swipeProgress"
+                        to: 1
+                        duration: MMotion.reduceMotion || lockScreen.swipeProgress >= 1 ? 0 : MMotion.moderate
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: mainContent
+                        properties: "opacity,scale"
+                        duration: MMotion.reduceMotion || lockScreen.swipeProgress >= 1 ? 0 : MMotion.moderate
+                        easing.type: Easing.OutCubic
+                    }
+                }
+                PropertyAction {
+                    target: lockScreen
+                    property: "visible"
+                    value: false
+                }
             }
         },
         Transition {

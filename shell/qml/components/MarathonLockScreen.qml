@@ -14,6 +14,8 @@ Item {
     property var compositor: null
 
     property real swipeProgress: 0
+    // Finger travel that takes swipeProgress from 0 to 1.
+    readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
     // Honour Settings → Display & Brightness → Screen Timeout for the
@@ -218,6 +220,9 @@ Item {
         anchors.fill: parent
         z: 1
         opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
+        transform: Translate {
+            y: -lockScreen.swipeProgress * lockScreen.swipeTravel
+        }
 
         // The ambience's wallpaper at full strength, as on Sailfish's lock
         // screen; always drawn, so nothing beneath shows through.
@@ -818,89 +823,74 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
-
-        Behavior on opacity {
-            enabled: lockScreen.swipeProgress > 0.5
-
-            NumberAnimation {
-                duration: 200
-                easing.type: Easing.OutCubic
-            }
-        }
     }
 
     MouseArea {
         property real startY: 0
-        property real lastY: 0
-        property real velocity: 0
+        property real base: 0
         property bool isDragging: false
-        property real lastTime: 0
 
         anchors.fill: parent
         z: 0
         propagateComposedEvents: true
         onPressed: mouse => {
             startY = mouse.y;
-            lastY = mouse.y;
-            velocity = 0;
             isDragging = false;
-            lastTime = Date.now();
+            if (unlockDrag.unlocking)
+                return;
+            unlockDrag.value = lockScreen.swipeProgress * lockScreen.swipeTravel;
+            unlockDrag.press();
+            base = unlockDrag.value;
             lockScreen.resetIdleTimer();
         }
         onPositionChanged: mouse => {
-            const deltaY = lastY - mouse.y;
-            const now = Date.now();
-            const deltaTime = now - lastTime;
-            if (deltaTime > 0)
-                velocity = deltaY / deltaTime;
-
-            lastY = mouse.y;
-            lastTime = now;
             const totalDelta = startY - mouse.y;
             if (totalDelta > 10) {
                 isDragging = true;
                 mouse.accepted = true;
             }
-            if (isDragging) {
-                const threshold = height * 0.15;
-                lockScreen.swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
-                if (lockScreen.swipeProgress > 0.5 && lockScreen.swipeProgress < 0.55)
-                    HapticManager.light();
-            }
+            if (isDragging && !unlockDrag.unlocking)
+                unlockDrag.move(Math.max(0, Math.min(lockScreen.swipeTravel, base + totalDelta)));
         }
         onReleased: mouse => {
+            if (unlockDrag.unlocking) {
+                isDragging = false;
+                return;
+            }
             if (isDragging) {
-                if (lockScreen.swipeProgress > 0.2 || velocity > 0.5) {
-                    lockScreen.swipeProgress = 1;
+                if (unlockDrag.release()) {
                     HapticManager.medium();
-                    unlockTimer.start();
+                    unlockDrag.unlocking = true;
+                    unlockDrag.settleTo(lockScreen.swipeTravel);
                 } else {
-                    lockScreen.swipeProgress = 0;
+                    unlockDrag.settleTo(0);
                 }
             } else {
+                unlockDrag.release();
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
             }
             isDragging = false;
-            velocity = 0;
         }
     }
 
-    Timer {
-        id: unlockTimer
+    GestureTracker {
+        id: unlockDrag
 
-        interval: 100
-        onTriggered: {
+        property bool unlocking: false
+
+        to: lockScreen.swipeTravel
+        commitDistance: 0.15 * Math.min(lockScreen.width, lockScreen.height)
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : MMotion.moderate
+        onValueChanged: if (unlockDrag.active || unlockDrag.settling)
+            lockScreen.swipeProgress = unlockDrag.progress
+        onWillCommitChanged: if (unlockDrag.active)
+            HapticManager.tick()
+        onSettled: {
+            if (!unlockDrag.unlocking)
+                return;
+            unlockDrag.unlocking = false;
             Logger.state("LockScreen", "unlocked", "dissolve complete");
             lockScreen.unlockRequested();
-        }
-    }
-
-    Behavior on swipeProgress {
-        enabled: lockScreen.swipeProgress < 1
-
-        SmoothedAnimation {
-            velocity: 8
-            duration: 150
         }
     }
 }
