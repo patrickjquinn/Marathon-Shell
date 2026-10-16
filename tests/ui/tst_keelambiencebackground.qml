@@ -59,6 +59,28 @@ TestCase {
         tryVerify(() => bg.ready, 5000);
     }
 
+    function test_anotherWallpaperCrossFades() {
+        tryVerify(() => bg.ready, 5000);
+        const before = findChild(bg, "wallpaper").source;
+        const previous = findChild(bg, "previousWallpaper");
+        bg.wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/carbon.svg");
+        compare(previous.source, before);
+        tryVerify(() => previous.visible && previous.opacity < 1, 5000);
+        verify(bg.ready);
+        tryVerify(() => !previous.visible && previous.source.toString() === "", 2000);
+        bg.wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/dawn.svg");
+        tryVerify(() => previous.source.toString() === "", 2000);
+    }
+
+    function test_resizeSwapsWithoutFading() {
+        tryVerify(() => bg.ready, 5000);
+        bg.anchors.fill = undefined;
+        bg.width = 300;
+        compare(findChild(bg, "previousWallpaper").opacity, 0);
+        bg.anchors.fill = bg.parent;
+        tryVerify(() => bg.ready, 5000);
+    }
+
     function test_noWallpaperDrawsNothingButTheBase() {
         bg.wallpaper = "";
         verify(!bg.ready);
