@@ -585,6 +585,14 @@ bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
     m_launchingApps.insert(appId);
     emit appLaunchStarted(appId, name);
 
+    // Still running, without a window: a second instance would only hand off
+    // to it and exit, so ask the running one for a window.
+    if ((type == "native" || type == "flatpak") && pidForAppId(appId) > 0 &&
+        appId.contains(QLatin1Char('.'))) {
+        activateRunningApp(appObj, comp, win);
+        return true;
+    }
+
     // A flatpak is a native Wayland client too; the compositor's launchApp
     // recognises its FLATPAK: exec and adds the socket arguments.
     if (type == "native" || type == "flatpak")
@@ -631,6 +639,47 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
     m_launchingApps.remove(appId);
     emit appLaunchCompleted(appId, name);
     return true;
+}
+
+// org.freedesktop.Application on the desktop id: a DBusActivatable app owns
+// that name, and GApplication and KDBusService serve the interface either
+// way. Anything else (no owner, no interface) starts the app as before.
+void AppLaunchService::activateRunningApp(const QVariantMap &app, QObject *compositorRef,
+                                          QObject *appWindowRef) {
+    const QString appId = app.value("id").toString();
+    if (m_appLifecycleManager)
+        QMetaObject::invokeMethod(m_appLifecycleManager, "wakeApp", Qt::DirectConnection,
+                                  Q_ARG(QString, appId));
+    QString path = QLatin1Char('/') + appId;
+    path.replace(QLatin1Char('.'), QLatin1Char('/')).replace(QLatin1Char('-'), QLatin1Char('_'));
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        appId, path, QStringLiteral("org.freedesktop.Application"), QStringLiteral("Activate"));
+    msg << QVariantMap();
+    msg.setAutoStartService(false);
+
+    QPointer<QObject> comp(compositorRef);
+    QPointer<QObject> win(appWindowRef);
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, app, appId, comp, win](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                if (w->isError()) {
+                    qInfo() << "[AppLaunchService] Activate" << appId
+                            << "failed:" << w->error().message() << "- starting it";
+                    launchNativeApp(app, comp, win);
+                    return;
+                }
+                qInfo() << "[AppLaunchService] Activated running app" << appId;
+                const QString name = app.value("name").toString();
+                const QString icon = app.value("icon").toString();
+                if (m_uiStore)
+                    invokeVoid(m_uiStore, "openApp", {appId, name, icon});
+                if (win)
+                    invokeVoid(win, "show",
+                               {appId, name, icon, QStringLiteral("native"), QVariant(), -1});
+                m_launchingApps.remove(appId);
+                emit appLaunchCompleted(appId, name);
+            });
 }
 
 bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObject *appWindowRef) {

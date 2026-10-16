@@ -29,11 +29,42 @@ class FakeCompositor : public QObject {
 
   public:
     QStringList      sent;
+    QStringList      spawned;
+    Q_INVOKABLE void launchApp(const QString &command) {
+        spawned << command;
+    }
     Q_INVOKABLE void sendNativeBack(int surfaceId, bool keelHosted) {
         sent << QStringLiteral("back %1 %2").arg(surfaceId).arg(keelHosted);
     }
     Q_INVOKABLE void sendNativeForward(int surfaceId, bool keelHosted) {
         sent << QStringLiteral("forward %1 %2").arg(surfaceId).arg(keelHosted);
+    }
+};
+
+// The app window and UIStore, as AppLaunchService calls them.
+class FakeShell : public QObject {
+    Q_OBJECT
+
+  public:
+    QStringList      shown;
+    Q_INVOKABLE void show(const QVariant &id, const QVariant &, const QVariant &, const QVariant &,
+                          const QVariant &, const QVariant &) {
+        shown << id.toString();
+    }
+    Q_INVOKABLE void openApp(const QVariant &, const QVariant &, const QVariant &) {}
+};
+
+// A running GApplication with no window.
+class FakeApplication : public QObject {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.Application")
+
+  public:
+    int activated = 0;
+
+  public slots:
+    void Activate(const QVariantMap &) {
+        ++activated;
     }
 };
 
@@ -182,6 +213,42 @@ class TestNativeLifecycle : public QObject {
         emit launcher->nativeBackUnhandled(7);
         QCOMPARE(leave.count(), 1);
         lifecycle->unregisterApp(radio);
+    }
+
+    void activatesARunningAppWithoutAWindow() {
+        FakeApplication app;
+        QDBusConnection bus =
+            QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("app"));
+        QVERIFY(bus.registerObject(QStringLiteral("/de/example/Radio"), &app,
+                                   QDBusConnection::ExportAllSlots));
+        QVERIFY(bus.registerService(radio));
+        FakeCompositor comp;
+        FakeShell      shell;
+        launcher->setCompositor(&comp);
+        launcher->setAppWindow(&shell);
+        launcher->registerPidForAppId(kPid, radio);
+
+        QVERIFY(launcher->launchApp(QVariantMap{
+            {"id", radio}, {"name", "Radio"}, {"type", "flatpak"}, {"exec", "FLATPAK:radio"}}));
+        QTRY_COMPARE(app.activated, 1);
+        QTRY_COMPARE(shell.shown, QStringList{radio});
+        QVERIFY(comp.spawned.isEmpty());
+        QVERIFY(!launcher->isAppLaunching(radio));
+        launcher->setCompositor(nullptr);
+        QDBusConnection::disconnectFromBus(QStringLiteral("app"));
+    }
+
+    void startsItWhenNothingAnswers() {
+        FakeCompositor comp;
+        FakeShell      shell;
+        launcher->setCompositor(&comp);
+        launcher->setAppWindow(&shell);
+        launcher->registerPidForAppId(kPid, radio);
+
+        QVERIFY(launcher->launchApp(QVariantMap{
+            {"id", radio}, {"name", "Radio"}, {"type", "flatpak"}, {"exec", "FLATPAK:radio"}}));
+        QTRY_COMPARE(comp.spawned, QStringList{"FLATPAK:radio"});
+        launcher->setCompositor(nullptr);
     }
 
     void neverFreezesTheShellsScope() {
