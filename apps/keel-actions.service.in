@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.@KEEL_APP@
+Exec=@MARATHON_ACTIVATE@ @KEEL_APP@
+SystemdService=marathon-activate@@KEEL_APP@.service

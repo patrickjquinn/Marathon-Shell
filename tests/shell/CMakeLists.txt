@@ -263,6 +263,22 @@ if(DBUS_RUN_SESSION)
         COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_keelactionsfreeze>)
 endif()
 
+# A call for a Keel app that is not running is bus-activated through the shell
+find_program(BUSCTL busctl)
+find_program(DBUS_DAEMON dbus-daemon)
+if(BUSCTL AND DBUS_DAEMON)
+    set(_services ${CMAKE_CURRENT_BINARY_DIR}/keel-activation-services)
+    set(MARATHON_ACTIVATE ${CMAKE_SOURCE_DIR}/systemd/marathon-activate)
+    foreach(KEEL_APP notes refused)
+        configure_file(${CMAKE_SOURCE_DIR}/apps/keel-actions.service.in
+            ${_services}/org.marathonos.${KEEL_APP}.service @ONLY)
+    endforeach()
+    add_executable(test_shell_keelactivation test_keelactivation.cpp)
+    target_link_libraries(test_shell_keelactivation Qt6::Test Qt6::Core Qt6::DBus)
+    target_compile_definitions(test_shell_keelactivation PRIVATE SERVICES_DIR="${_services}")
+    add_test(NAME Shell_KeelActivation COMMAND test_shell_keelactivation)
+endif()
+
 # Gesture engine: velocity window, commit decisions, settle spring
 add_executable(test_shell_gesturetracker
     test_gesturetracker.cpp

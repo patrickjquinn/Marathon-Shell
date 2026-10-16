@@ -15,4 +15,4 @@ add_marathon_app(${APP_NAME}
     QML_FILES ${QML_FILES}
 )
 
-install(FILES keel-actions.json DESTINATION share/keel/actions RENAME org.marathonos.notes.json)
+install_keel_actions(${APP_NAME} keel-actions.json)

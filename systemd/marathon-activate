@@ -1,0 +1,13 @@
+#!/bin/sh
+# Bus activation of org.marathonos.$1, a Marathon app serving Keel Actions:
+# the shell starts the app behind the one on screen, or thaws it, and the
+# activation is over once the app owns its name.
+app=$1
+[ "$(busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+	org.marathonos.Shell.Navigation1 StartAppInBackground s "$app")" = "b true" ] || exit 1
+i=0
+until busctl --user status "org.marathonos.$app" >/dev/null 2>&1; do
+	i=$((i + 1))
+	[ "$i" -le 100 ] || exit 1
+	sleep 0.2
+done

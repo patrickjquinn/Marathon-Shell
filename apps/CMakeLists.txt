@@ -222,6 +222,17 @@ function(add_marathon_app APP_NAME)
   endif()
 endfunction()
 
+# The app's Keel Actions manifest, and a session-bus activation file that has
+# the shell start or thaw the app for a call (marathon-activate, installed
+# with the shell).
+function(install_keel_actions APP_NAME MANIFEST)
+  set(KEEL_APP ${APP_NAME})
+  set(MARATHON_ACTIVATE ${CMAKE_INSTALL_PREFIX}/libexec/marathon-activate)
+  set(_service ${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.${APP_NAME}.service)
+  configure_file(${CMAKE_CURRENT_FUNCTION_LIST_DIR}/keel-actions.service.in ${_service} @ONLY)
+  install(FILES ${MANIFEST} DESTINATION share/keel/actions RENAME org.marathonos.${APP_NAME}.json)
+  install(FILES ${_service} DESTINATION share/dbus-1/services)
+endfunction()
 
 add_subdirectory(browser)
 add_subdirectory(settings)

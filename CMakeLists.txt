@@ -279,6 +279,14 @@ install(FILES systemd/marathon-shell.service
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user
 )
 
+# Bus activation of the apps' Keel Actions names (apps/keel-actions.service.in)
+install(FILES systemd/marathon-activate@.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user
+)
+install(PROGRAMS systemd/marathon-activate
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
+
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions

@@ -1,0 +1,8 @@
+# SystemdService= of /usr/share/dbus-1/services/org.marathonos.<app>.service.
+[Unit]
+Description=Start or wake Marathon app %i for a Keel Actions call
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-activate %i
+TimeoutStartSec=30
