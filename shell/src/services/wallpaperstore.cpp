@@ -8,9 +8,10 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
     : QObject(parent)
     , m_settingsManager(settingsManager) {
     // All 13 DS 2026 wallpapers from docs/redesign/marathonos/project/wallpapers.jsx,
-    // rendered to static SVG via scripts/build-wallpapers.py. Slate Aurora is the
-    // boot default. Order matches the design canvas (signature mark first, then
-    // structural pieces, then the gradient / atmospheric set, then dawn).
+    // rendered to static SVG via scripts/build-wallpapers.py, after Tidewater,
+    // the boot default (scripts/build-tidewater-wallpaper.py). Order matches the
+    // design canvas (signature mark first, then structural pieces, then the
+    // gradient / atmospheric set, then dawn).
     auto wp = [this](const char *name, const char *file, bool dark) -> QVariantMap {
         const QString rel = QStringLiteral("wallpapers/") + QLatin1String(file);
         const QString qrc = QStringLiteral("qrc:/wallpapers/") + QLatin1String(file);
@@ -21,6 +22,7 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
         };
     };
     m_wallpapers = {
+        wp("Tidewater", "tidewater.jpg", true),
         wp("Slate Aurora", "slate-aurora.svg", true),
         wp("Long Run", "long-run.svg", true),
         wp("Carbon", "carbon.svg", true),

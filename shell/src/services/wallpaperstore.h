@@ -48,7 +48,7 @@ class WallpaperStore : public QObject {
     void             refreshIsDark();
 
     SettingsManager *m_settingsManager;
-    QString          m_currentWallpaper = QStringLiteral("qrc:/wallpapers/slate-aurora.svg");
+    QString          m_currentWallpaper = QStringLiteral("qrc:/wallpapers/tidewater.jpg");
     bool             m_isDark           = true;
     QVariantList     m_wallpapers;
 };

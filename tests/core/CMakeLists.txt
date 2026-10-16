@@ -279,6 +279,16 @@ target_link_libraries(test_core_lockdelaymigration Qt6::Test Qt6::Core Qt6::DBus
 target_include_directories(test_core_lockdelaymigration PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_LockDelayMigration COMMAND test_core_lockdelaymigration)
 
+# New installs default to Tidewater; a chosen wallpaper stays
+add_executable(test_core_defaultwallpaper
+    test_defaultwallpaper.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+target_link_libraries(test_core_defaultwallpaper Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_defaultwallpaper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_DefaultWallpaper COMMAND test_core_defaultwallpaper)
+
 # Unstorable settings values neither poison the file nor reach QML
 add_executable(test_core_settingsstore
     test_settingsstore.cpp
