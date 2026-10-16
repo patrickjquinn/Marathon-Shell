@@ -225,3 +225,18 @@ current one.
 
 Marathon today: during a back drag the app moves aside over a dimmed home,
 whether back will pop a page or leave the app.
+
+## 14. Pilot: the on-screen app on a host without Sailjail entries
+
+pilotd's `ShowSheetFor(pid)` finds the app through `/proc/<pid>/cmdline` and a
+desktop entry with `[X-Sailjail]` names (`onscreen::app_for_pid`). A Marathon
+app is a `marathon-app-runner` with neither, and a pooled runner's command line
+does not name its app.
+
+Proposal: let the host say which Keel app a window belongs to, e.g. a
+`ShowSheetForApp(s appId)` beside `ShowSheetFor`, or an `[onscreen]` setting in
+`pilotd.toml` naming a D-Bus method that maps a pid to a Keel app id.
+
+Marathon today: shoal-pilotd's `0003-pilotd-marathon-onscreen.patch` calls the
+shell's `Navigation1.AppIdForPid` for a `marathon-app-runner` and uses
+`org.marathonos.<id>`.
