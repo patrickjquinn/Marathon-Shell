@@ -32,8 +32,8 @@ class WeatherClient : public QObject {
     QString state() const {
         return m_state;
     }
-    bool             fahrenheit() const;
-    bool             milesPerHour() const;
+    bool fahrenheit() const;
+    bool milesPerHour() const;
 
     // Reads the current values, then asks for newer ones; starts the service.
     Q_INVOKABLE void refresh();
