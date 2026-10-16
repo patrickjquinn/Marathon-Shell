@@ -1819,8 +1819,9 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
             const PendingLaunch &p = it.value();
             qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to PID" << pid
                     << "app" << p.appId;
-            // Tells the lifecycle the app is in the background.
-            if (m_backgroundLaunches.contains(p.appId))
+            // Seeds the lifecycle state and cgroup, as the child-process
+            // match below does; a background launch stays in the background.
+            if (m_backgroundLaunches.contains(p.appId) || p.type == QLatin1String("native"))
                 registerPidForAppId(pid, p.appId);
 
             if (m_taskModel) {
