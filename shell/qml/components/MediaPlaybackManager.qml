@@ -9,8 +9,9 @@ Item {
 
     readonly property bool hasMedia: MPRIS2Controller ? MPRIS2Controller.hasActivePlayer : false
     readonly property bool isPlaying: MPRIS2Controller ? MPRIS2Controller.isPlaying : false
-    readonly property string trackTitle: hasMedia ? (MPRIS2Controller.trackTitle || "Untitled") : ""
-    readonly property string artist: hasMedia ? (MPRIS2Controller.trackArtist || "") : ""
+    // A live stream may send only the station as its artist.
+    readonly property string trackTitle: hasMedia ? (MPRIS2Controller.trackTitle || MPRIS2Controller.trackArtist || MPRIS2Controller.playerName) : ""
+    readonly property string artist: hasMedia ? (MPRIS2Controller.trackTitle ? MPRIS2Controller.trackArtist : MPRIS2Controller.playerName) : ""
     readonly property string albumArt: hasMedia ? (MPRIS2Controller.albumArtUrl || "") : ""
     readonly property real progress: hasMedia ? MPRIS2Controller.position / 1e+06 : 0
     readonly property real duration: hasMedia ? MPRIS2Controller.trackLength / 1e+06 : 0
