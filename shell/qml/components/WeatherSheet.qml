@@ -14,6 +14,8 @@ Item {
 
     property bool open: false
     property bool choosing: false
+    property string wallpaper
+    property bool lightAmbience: false
 
     readonly property var forecast: WeatherClient.forecast
     readonly property var current: forecast.current || null
@@ -73,9 +75,9 @@ Item {
     KeelAmbienceBackground {
         width: sheet.Window.width
         height: sheet.Window.height
-        wallpaper: AmbienceService.wallpaperUrl
+        wallpaper: sheet.wallpaper
         toneOpacity: 0.62
-        light: AmbienceService.light
+        light: sheet.lightAmbience
     }
 
     // Swallow taps so the Hub underneath stays still.
