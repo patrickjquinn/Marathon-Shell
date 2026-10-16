@@ -73,6 +73,32 @@ Rectangle {
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
 
+        add: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: MMotion.durationFor("entrance")
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        // Rows make room for a new one; an interrupted add still ends opaque.
+        // A dismissed row animates its own exit (MHubRow).
+        displaced: Transition {
+            NumberAnimation {
+                property: "y"
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                property: "opacity"
+                to: 1
+                duration: MMotion.moderate
+                easing.type: Easing.OutCubic
+            }
+        }
+
         Silica.PullDownMenu {
             visible: list.count > 0
 
