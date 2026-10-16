@@ -3,6 +3,38 @@
 Things Marathon needs from Keel or Pacific that can't be done cleanly from this
 repo. Each has a Marathon-side workaround or gap noted.
 
+## Status (Shipwright's reply of 2026-10-16)
+
+| # | State |
+|---|---|
+| 1, 6 | Draft protocol on Shipwright's `system-back` branch; Marathon's review below |
+| 3, 7, 8, 9 | Released in Keel 0.1.0-32 |
+| 2, 4, 5 | Planned (5 after back) |
+| 10, 11, 12, 13 | Not started (11: Marathon is moving off the software backend) |
+
+Keel 0.1.0-33 adds `<app-id>/app.show` to every app; it needs keel-shell's
+`Activate()` to work under `marathon-keel-host`.
+
+### Review of the system-back draft (PROTOCOL.md 4.3)
+
+- **Progress 0–1 of the page's width: yes.** The pill's travel is shorter than
+  the page; the host maps it (full at about 40% of the width).
+- **500 ms for an app that never answers: fine for `BackRequested`, too long
+  for `BackStarted`.** The finger is already moving when the drag starts and the
+  host has to pick a visual (page follows inside the app, or the whole app moves
+  aside) within a frame or two. Proposal: the app publishes its back state ahead
+  of time, e.g. a `BackState(b pageWillFollow)` signal sent whenever it changes
+  (page-stack depth, `backNavigation`, a menu opening, a page with
+  `systemBack()`), so the host decides without a round trip. `BackStarted` stays
+  for the hand-off and `BackResult` confirms it; the host waits at most about
+  100 ms for that, then falls back to moving the app. This also covers
+  request 13.
+- **Reports during the drag: not needed.** One addition: after `BackCommitted`
+  or `BackCancelled`, a `BackFinished(u serial)` once the page's snap animation
+  ends, so the host can release the gesture and the pill at the same moment.
+- Marathon will send `BackRequested` instead of the Escape it injects today,
+  and fall back to minimising on `false` or timeout.
+
 ## 1. System back for hosted apps
 
 Keel has no entry point for a host's system back: nothing in keel/silica handles
