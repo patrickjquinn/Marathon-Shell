@@ -155,6 +155,12 @@ void DeviceProfile::load() {
         if (ok && v > 0.0)
             m_panelDpi = v;
     }
+    if (conf.value("MARATHON_NATIVE_SCALE", QStringLiteral("NATIVE_SCALE"), s)) {
+        bool        ok = false;
+        const qreal v  = s.toDouble(&ok);
+        if (ok && v > 0.0)
+            m_nativeScale = v;
+    }
 
     if (conf.value("MARATHON_DOZE_DPMS", QStringLiteral("DOZE_DPMS"), s))
         m_dozeDpms = toBool(s, m_dozeDpms);

@@ -93,6 +93,10 @@ class DeviceProfile : public QObject {
     qreal panelDpi() const {
         return m_panelDpi;
     }
+    // Wayland scale for native apps at the default interface size; 0 = DPI/160.
+    qreal nativeScale() const {
+        return m_nativeScale;
+    }
     // Doze powers the CRTC down (ACTIVE=0); false = backlight only.
     bool dozeDpms() const {
         return m_dozeDpms;
@@ -140,6 +144,7 @@ class DeviceProfile : public QObject {
     int m_runnerWidth  = 540;
     int   m_runnerHeight = 1140;
     qreal m_panelDpi     = 0;
+    qreal m_nativeScale     = 0;
     bool  m_dozeDpms      = true;
     bool  m_wifiPowerSave = true;
     int   m_screenTimeoutMs = 300000;

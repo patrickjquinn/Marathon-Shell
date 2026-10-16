@@ -58,6 +58,7 @@ location (for host testing).
 | `RUNNER_WIDTH` | `MARATHON_APP_WIDTH` | `540` | Initial app-runner canvas width (logical px) |
 | `RUNNER_HEIGHT` | `MARATHON_APP_HEIGHT` | `1140` | Initial app-runner canvas height (logical px) |
 | `PANEL_DPI` | `MARATHON_PANEL_DPI` | `0` | True panel DPI, used for the physical size the compositor advertises on `wl_output` (what Wayland clients such as Pacific scale web content by); 0 = the screen's reported size |
+| `NATIVE_SCALE` | `MARATHON_NATIVE_SCALE` | `0` | Wayland scale for native (GTK/Qt/Flatpak) apps at the default interface size; 0 = DPI/160. See `docs/NATIVE_APP_SCALE.md` |
 | `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 | `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
