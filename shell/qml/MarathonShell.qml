@@ -1617,6 +1617,7 @@ Item {
         anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
         z: Constants.zIndexKeelDialog
         visible: !SessionStore.isLocked
+        backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
         onShown: pilotGlow.overlayShown()
         onClosed: {
             if (count === 0 && UIStore.appWindowOpen)
