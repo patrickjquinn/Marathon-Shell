@@ -218,7 +218,8 @@ Item {
                     isSearchGesture = false;
                     return;
                 }
-                if (!isSearchGesture && !held && Math.abs(dragDistance) < 15) {
+                // A tap: a swipe the pager did not take still moved the finger.
+                if (!isSearchGesture && !held && Math.abs(dragDistance) < 15 && Math.abs(mouse.x - pressX) < 15) {
                     if (iconCell.appData) {
                         iconCell.launch();
                         HapticManager.medium();
