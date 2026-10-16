@@ -2,7 +2,7 @@
 # Built by crates/CMakeLists.txt; tools/marathon-mail-oauth stays its own crate.
 [workspace]
 resolver = "2"
-members = ["marathon-core-native", "marathon-store-handler"]
+members = ["marathon-core-native", "marathon-store-handler", "marathon-weatherd"]
 
 [workspace.package]
 version = "0.1.0"

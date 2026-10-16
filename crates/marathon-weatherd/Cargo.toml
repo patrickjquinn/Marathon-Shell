@@ -1,0 +1,20 @@
+[package]
+name = "marathon-weatherd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-io = "2.6.0"
+blocking = "1.7.0"
+futures-lite = "2.6.1"
+httpdate = "1.0.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tz-rs = "0.7.3"
+ureq = "3.4.2"
+zbus = { version = "5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
+
+[lints]
+workspace = true
