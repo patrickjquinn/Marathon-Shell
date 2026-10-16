@@ -7,40 +7,28 @@ import Sailfish.Silica 1.0 as Silica
 Item {
     id: peekComponent
 
-    property real peekProgress: 0
+    readonly property real peekProgress: peekDrag.progress
     property real peekThreshold: 0.4
     property bool isPeeking: false
     property bool isFullyOpen: false
-    property real gestureStartX: 0
-    property real gestureVelocity: 0
-    property real gestureLastX: 0
-    property real gestureLastTime: 0
+    // Where a running settle was caught when the finger came down.
+    property real gestureBase: 0
 
     signal closed
     signal fullyOpened
     signal notificationTapped(var notification)
 
     function startPeekGesture(x) {
-        gestureStartX = x;
-        gestureLastX = x;
-        gestureLastTime = Date.now();
         isPeeking = true;
-        Logger.info("Peek", "Gesture started from external capture");
+        peekDrag.press();
+        gestureBase = peekDrag.value;
     }
 
     function updatePeekGesture(deltaX) {
         if (!isPeeking)
             return;
 
-        var now = Date.now();
-        var deltaTime = now - gestureLastTime;
-        if (deltaTime > 0)
-            gestureVelocity = (deltaX - (gestureLastX - gestureStartX)) / deltaTime * 1000;
-
-        gestureLastX = gestureStartX + deltaX;
-        gestureLastTime = now;
-        peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
-        Logger.info("Peek", "Progress: " + (peekProgress * 100).toFixed(1) + "%, notif visible: " + (peekProgress < 0.35) + ", hub visible: " + (peekProgress >= 0.3));
+        peekDrag.move(Math.max(0, Math.min(peekDrag.to, gestureBase + deltaX)));
     }
 
     function endPeekGesture() {
@@ -48,22 +36,24 @@ Item {
             return;
 
         isPeeking = false;
-        var shouldOpen = (gestureVelocity > 300) || (peekProgress > peekThreshold);
+        var shouldOpen = peekDrag.release();
         if (shouldOpen)
             openPeek();
         else
             peekComponent.closePeek();
-        Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)");
+        Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + " (velocity: " + peekDrag.velocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)");
     }
 
     function openPeek() {
-        peekProgress = 1;
+        if (!isFullyOpen)
+            HapticManager.tick();
+        peekDrag.settleTo(peekDrag.to);
         isFullyOpen = true;
         fullyOpened();
     }
 
     function closePeek() {
-        peekProgress = 0;
+        peekDrag.settleTo(0);
         isFullyOpen = false;
         closed();
     }
@@ -249,9 +239,6 @@ Item {
             id: closeGestureArea
 
             property real startX: 0
-            property real lastX: 0
-            property real velocity: 0
-            property real lastTime: 0
             property bool isDragging: false
 
             anchors.right: parent.right
@@ -262,63 +249,37 @@ Item {
             z: 100
             onPressed: mouse => {
                 startX = mouse.x;
-                lastX = mouse.x;
-                lastTime = Date.now();
                 isDragging = false;
-                velocity = 0;
             }
             onPositionChanged: mouse => {
                 if (!isDragging) {
-                    var deltaX = mouse.x - startX;
-                    if (deltaX < -15) {
+                    if (mouse.x - startX < -15) {
                         isDragging = true;
-                        peekComponent.isPeeking = true;
                         startX = mouse.x;
-                        lastX = mouse.x;
-                        lastTime = Date.now();
-                        Logger.info("Peek", "Close drag started");
+                        peekComponent.startPeekGesture(mouse.x);
                     }
                 } else {
-                    var now = Date.now();
-                    var deltaTime = now - lastTime;
-                    if (deltaTime > 0)
-                        velocity = (mouse.x - lastX) / deltaTime * 1000;
-
-                    lastX = mouse.x;
-                    lastTime = now;
-                    var deltaX = mouse.x - startX;
-                    var maxDrag = hubPanelContainer.width;
-                    peekComponent.peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)));
+                    peekComponent.updatePeekGesture(mouse.x - startX);
                 }
             }
             onReleased: mouse => {
-                if (isDragging) {
-                    isDragging = false;
-                    peekComponent.isPeeking = false;
-                    if (peekComponent.peekProgress < 0.65 || velocity < -500) {
-                        Logger.info("Peek", "Closing from drag (progress: " + peekComponent.peekProgress + ", velocity: " + velocity + ")");
-                        peekComponent.closePeek();
-                    } else {
-                        Logger.info("Peek", "Snapping back open");
-                        peekComponent.peekProgress = 1;
-                    }
-                }
+                if (!isDragging)
+                    return;
+                isDragging = false;
+                peekComponent.isPeeking = false;
+                // Closing runs the other way along the tracker's range.
+                peekDrag.release();
+                if (peekDrag.decide(peekDrag.to - peekDrag.value, -peekDrag.velocity))
+                    peekComponent.closePeek();
+                else
+                    peekDrag.settleTo(peekDrag.to);
             }
             onCanceled: {
                 if (isDragging) {
                     isDragging = false;
                     peekComponent.isPeeking = false;
-                    peekComponent.peekProgress = 1;
+                    peekDrag.settleTo(peekDrag.to);
                 }
-            }
-        }
-
-        Behavior on x {
-            enabled: !peekComponent.isPeeking
-
-            NumberAnimation {
-                duration: 350
-                easing.type: Easing.OutCubic
             }
         }
     }
@@ -327,9 +288,6 @@ Item {
         id: gestureArea
 
         property real startX: 0
-        property real lastX: 0
-        property real velocity: 0
-        property real lastTime: 0
 
         anchors.left: parent.left
         anchors.top: parent.top
@@ -338,42 +296,21 @@ Item {
         enabled: !peekComponent.isFullyOpen
         onPressed: mouse => {
             startX = mouse.x;
-            lastX = mouse.x;
-            lastTime = Date.now();
-            peekComponent.isPeeking = true;
-            console.log("Peek gesture started from left edge");
+            peekComponent.startPeekGesture(mouse.x);
         }
-        onPositionChanged: mouse => {
-            if (!peekComponent.isPeeking)
-                return;
-
-            var absoluteX = gestureArea.x + mouse.x;
-            var deltaX = absoluteX - startX;
-            var now = Date.now();
-            var deltaTime = now - lastTime;
-            if (deltaTime > 0)
-                velocity = (absoluteX - lastX) / deltaTime * 1000;
-
-            lastX = absoluteX;
-            lastTime = now;
-            peekComponent.peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
-        }
-        onReleased: {
-            if (!peekComponent.isPeeking)
-                return;
-
-            peekComponent.isPeeking = false;
-            if (peekComponent.peekProgress > peekComponent.peekThreshold || velocity > 500) {
-                peekComponent.peekProgress = 1;
-                peekComponent.isFullyOpen = true;
-                peekComponent.fullyOpened();
-            } else {
-                peekComponent.closePeek();
-            }
-        }
+        onPositionChanged: mouse => peekComponent.updatePeekGesture(mouse.x - startX)
+        onReleased: peekComponent.endPeekGesture()
         onCanceled: {
             peekComponent.isPeeking = false;
             peekComponent.closePeek();
         }
+    }
+
+    GestureTracker {
+        id: peekDrag
+
+        to: peekComponent.width * 0.85
+        commitDistance: peekComponent.peekThreshold * to
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : Constants.animationSlow
     }
 }
