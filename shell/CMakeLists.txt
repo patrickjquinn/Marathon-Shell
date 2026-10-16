@@ -153,6 +153,8 @@ set(SOURCES
     src/services/ambiencederivation.cpp
     src/services/ambienceservice.cpp
     src/services/ngfservice.cpp
+    src/services/toolkittheme.h
+    src/services/toolkittheme.cpp
     src/dbus/portalsettings.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
@@ -765,3 +767,9 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon.portal
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xdg-desktop-portal/portals)
+# Default-ambience GTK 3 themes and KDE colour scheme (ToolkitTheme); the
+# shell rewrites the GTK files per user as the ambience changes.
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/toolkit-themes/themes/
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/themes)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/toolkit-themes/color-schemes/Marathon.colors
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/color-schemes)

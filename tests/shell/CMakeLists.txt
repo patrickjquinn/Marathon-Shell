@@ -145,6 +145,14 @@ target_link_libraries(test_shell_portalsettings Qt6::Test Qt6::Core Qt6::Gui Qt6
 target_include_directories(test_shell_portalsettings PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
 add_test(NAME Shell_PortalSettings COMMAND test_shell_portalsettings)
 
+# GTK / libadwaita / KDE colours derived from the ambience
+add_executable(test_shell_toolkittheme test_toolkittheme.cpp ../../shell/src/services/toolkittheme.cpp)
+target_link_libraries(test_shell_toolkittheme Qt6::Test Qt6::Core Qt6::Gui)
+target_include_directories(test_shell_toolkittheme PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+target_compile_definitions(test_shell_toolkittheme PRIVATE
+    MARATHON_TOOLKIT_THEMES="${CMAKE_SOURCE_DIR}/shell/toolkit-themes")
+add_test(NAME Shell_ToolkitTheme COMMAND test_shell_toolkittheme)
+
 # Sailfish apps launch under marathon-keel-host
 add_executable(test_shell_sailfishlaunch test_sailfishlaunch.cpp)
 target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
