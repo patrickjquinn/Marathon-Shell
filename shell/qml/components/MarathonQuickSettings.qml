@@ -384,14 +384,36 @@ Item {
             }
 
             MNowBar {
+                objectName: "nowPlaying"
+                readonly property bool active: MPRIS2Controller.hasActivePlayer
                 width: parent.width
                 height: Math.max(implicitHeight, Silica.Theme.itemSizeSmall)
                 variant: "music"
                 iconName: "music-note"
-                label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
-                sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
+                // A radio stream may have no title; its station is the artist.
+                label: active ? (MPRIS2Controller.trackTitle || MPRIS2Controller.trackArtist || MPRIS2Controller.playerName) : qsTr("Music")
+                sublabel: active ? (MPRIS2Controller.trackTitle ? MPRIS2Controller.trackArtist : MPRIS2Controller.playerName) : qsTr("Nothing playing · tap to open")
                 playing: MPRIS2Controller.isPlaying
-                onActivated: quickSettings.launchApp({ "id": "music", "name": "Music" })
+                controls: active
+                canGoPrevious: MPRIS2Controller.canGoPrevious
+                canGoNext: MPRIS2Controller.canGoNext
+                artworkSource: active ? MPRIS2Controller.albumArtUrl : ""
+                onActivated: {
+                    quickSettings.closed();
+                    quickSettings.launchApp({ "id": active && MPRIS2Controller.desktopEntry ? MPRIS2Controller.desktopEntry : "music" });
+                }
+                onPreviousClicked: {
+                    MHaptics.light();
+                    MPRIS2Controller.previous();
+                }
+                onPlayPauseClicked: {
+                    MHaptics.light();
+                    MPRIS2Controller.playPause();
+                }
+                onNextClicked: {
+                    MHaptics.light();
+                    MPRIS2Controller.next();
+                }
             }
 
             // ── Shortcuts, on the switch columns ─────────────────

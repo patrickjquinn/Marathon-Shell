@@ -220,6 +220,86 @@ TestCase {
 
     SignalSpy { id: launchSpy; target: qs; signalName: "launchApp" }
 
+    function nowPlaying() {
+        return findChild(qs, "nowPlaying");
+    }
+
+    function resetPlayer(active) {
+        MPRIS2Controller.hasActivePlayer = active;
+        MPRIS2Controller.isPlaying = active;
+        MPRIS2Controller.playerName = active ? "Shortwave" : "";
+        MPRIS2Controller.desktopEntry = active ? "de.haeckerfelix.Shortwave" : "";
+        MPRIS2Controller.trackTitle = "";
+        MPRIS2Controller.trackArtist = active ? "CJME News/Talk 980" : "";
+        MPRIS2Controller.canGoPrevious = false;
+        MPRIS2Controller.canGoNext = false;
+        MPRIS2Controller.calls = [];
+        fit.height = 5000;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        wait(0);
+    }
+
+    function cleanup() {
+        MPRIS2Controller.hasActivePlayer = false;
+        MPRIS2Controller.isPlaying = false;
+    }
+
+    function test_nothingPlayingOpensMusic() {
+        resetPlayer(false);
+        verify(!findChild(nowPlaying(), "playPauseButton").visible);
+        compare(nowPlaying().label, "Music");
+        launchSpy.clear();
+        mouseClick(findChild(nowPlaying(), "nowBarArea"));
+        compare(launchSpy.count, 1);
+        compare(launchSpy.signalArguments[0][0].id, "music");
+    }
+
+    // A radio station: no title, the station is the artist.
+    function test_playerShowsTrackAndControls() {
+        resetPlayer(true);
+        const bar = nowPlaying();
+        compare(bar.label, "CJME News/Talk 980");
+        compare(bar.sublabel, "Shortwave");
+        const play = findChild(bar, "playPauseButton");
+        verify(play.visible);
+        compare(play.iconName, "pause");
+        verify(!findChild(bar, "previousButton").visible);
+        verify(!findChild(bar, "nextButton").visible);
+
+        mouseClick(play);
+        compare(MPRIS2Controller.calls, ["playPause"]);
+        compare(play.iconName, "play");
+        verify(play.visible, "controls stay while paused");
+        compare(bar.label, "CJME News/Talk 980");
+
+        MPRIS2Controller.trackTitle = "Headlines";
+        compare(bar.label, "Headlines");
+        compare(bar.sublabel, "CJME News/Talk 980");
+    }
+
+    function test_previousAndNextFollowCapabilities() {
+        resetPlayer(true);
+        MPRIS2Controller.canGoPrevious = true;
+        MPRIS2Controller.canGoNext = true;
+        const prev = findChild(nowPlaying(), "previousButton");
+        const next = findChild(nowPlaying(), "nextButton");
+        verify(prev.visible && next.visible);
+        // Laid out on the next polish.
+        waitForItemPolished(prev.parent);
+        mouseClick(prev);
+        mouseClick(next);
+        compare(MPRIS2Controller.calls, ["previous", "next"]);
+    }
+
+    function test_tapOpensThePlayingApp() {
+        resetPlayer(true);
+        launchSpy.clear();
+        mouseClick(findChild(nowPlaying(), "nowBarArea"), 10, 10);
+        compare(launchSpy.count, 1);
+        compare(launchSpy.signalArguments[0][0].id, "de.haeckerfelix.Shortwave");
+        compare(MPRIS2Controller.calls, [], "the text is not a control");
+    }
+
     // AppLaunchService resolves an app by its "id" key.
     function test_settingsButtonLaunchesSettings() {
         launchSpy.clear();
