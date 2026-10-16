@@ -135,15 +135,19 @@ void HapticManager::setEnabled(bool enabled) {
 }
 
 void HapticManager::vibrate(int duration) {
+    rumble(duration, 0xFFFF);
+}
+
+void HapticManager::rumble(int durationMs, quint16 magnitude) {
     if (!m_available || !m_enabled) {
         return;
     }
 
-    qDebug() << "[HapticManager] Vibrating for" << duration << "ms";
+    qDebug() << "[HapticManager] Vibrating for" << durationMs << "ms";
 
-    writeVibrator(duration);
+    writeVibrator(durationMs, magnitude);
 
-    QTimer::singleShot(duration + 100, this, &HapticManager::cancelVibration);
+    QTimer::singleShot(durationMs + 100, this, &HapticManager::cancelVibration);
 }
 
 void HapticManager::light() {
@@ -156,6 +160,10 @@ void HapticManager::medium() {
 
 void HapticManager::heavy() {
     vibrate(50);
+}
+
+void HapticManager::tick() {
+    rumble(20, 25000);
 }
 
 void HapticManager::pattern(const QVariantList &durations) {
@@ -204,10 +212,10 @@ void HapticManager::cancelVibration() {
     writeVibrator(0);
 }
 
-void HapticManager::writeVibrator(int value) {
+void HapticManager::writeVibrator(int value, quint16 magnitude) {
     if (m_useEvdevFf) {
         if (value > 0)
-            playEvdevRumble(value);
+            playEvdevRumble(value, magnitude);
         else
             stopEvdevRumble();
         return;
@@ -224,7 +232,7 @@ void HapticManager::writeVibrator(int value) {
     file.close();
 }
 
-void HapticManager::playEvdevRumble(int durationMs) {
+void HapticManager::playEvdevRumble(int durationMs, quint16 magnitude) {
     if (m_ffFd < 0)
         return;
 
@@ -234,8 +242,8 @@ void HapticManager::playEvdevRumble(int durationMs) {
     std::memset(&effect, 0, sizeof(effect));
     effect.type                      = FF_RUMBLE;
     effect.id                        = m_ffEffectId;
-    effect.u.rumble.strong_magnitude = 0xFFFF;
-    effect.u.rumble.weak_magnitude   = 0xFFFF;
+    effect.u.rumble.strong_magnitude = magnitude;
+    effect.u.rumble.weak_magnitude   = magnitude;
     effect.replay.length             = static_cast<__u16>(qMax(1, durationMs));
     effect.replay.delay              = 0;
     if (::ioctl(m_ffFd, EVIOCSFF, &effect) < 0) {

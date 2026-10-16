@@ -38,6 +38,8 @@ class HapticManager : public QObject {
     Q_INVOKABLE void light();
     Q_INVOKABLE void medium();
     Q_INVOKABLE void heavy();
+    // A gesture crossing its commit point, either way: ngfd's drag_start.
+    Q_INVOKABLE void tick();
     Q_INVOKABLE void pattern(const QVariantList &durations);
     Q_INVOKABLE void vibratePattern(const QVariantList &durations, int repeat = 0);
     Q_INVOKABLE void stopVibration();
@@ -49,8 +51,9 @@ class HapticManager : public QObject {
   private:
     bool    detectVibrator();
     bool    detectEvdevRumble();   // Librem 5 pwm-vibrator: evdev FF_RUMBLE
-    void    writeVibrator(int value);
-    void    playEvdevRumble(int durationMs);
+    void    rumble(int durationMs, quint16 magnitude);
+    void    writeVibrator(int value, quint16 magnitude = 0xFFFF);
+    void    playEvdevRumble(int durationMs, quint16 magnitude);
     void    stopEvdevRumble() const;
 
     bool    m_available;
