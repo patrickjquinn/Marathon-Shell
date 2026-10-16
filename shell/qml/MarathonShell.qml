@@ -121,6 +121,8 @@ Item {
             pageView.currentIndex = 2;
             Router.goToAppPage(0);
         }
+        // The app leaves from where the finger left it.
+        navBar.backTracker.stop();
         backExit.start();
     }
 
@@ -596,7 +598,7 @@ Item {
 
             PropertyChanges {
                 // Home and the switcher stay drawn while a window grows out of them or shrinks onto a card.
-                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0
+                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0 || navBar.backProgress > 0
                 mainContent.enabled: false
             }
 
@@ -1480,6 +1482,14 @@ Item {
             enabled: UIStore !== null
         }
 
+        // Back: home shows dimmed under the app the finger draws aside.
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            visible: navBar.backTracker.value > 0
+            opacity: 0.5 * (1 - navBar.backProgress) * appWindow.opacity
+        }
+
         // Crops the window to what the card shows as it lands; a scissor
         // clip, not a layer, so the gesture costs no offscreen pass.
         Item {
@@ -1489,6 +1499,18 @@ Item {
             y: Constants.safeAreaTop * appWindowContainer.dock
             height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
             clip: appWindowContainer.dock > 0
+            // Back: the app follows the pill left and recedes to 0.9.
+            transform: [
+                Scale {
+                    origin.x: cardBorder.width / 2
+                    origin.y: cardBorder.height / 2
+                    xScale: 1 - 0.1 * navBar.backProgress
+                    yScale: 1 - 0.1 * navBar.backProgress
+                },
+                Translate {
+                    x: -navBar.backTracker.value
+                }
+            ]
 
             MarathonAppWindow {
                 id: appWindow
@@ -1509,6 +1531,30 @@ Item {
                 onClosed: {
                     Logger.info("AppWindow", "Closed: " + appWindow.appName);
                     UIStore.closeApp();
+                }
+            }
+        }
+
+        // The edge shadow the drawn-aside app casts on home.
+        Rectangle {
+            readonly property real s: 1 - 0.1 * navBar.backProgress
+
+            x: parent.width * (1 + s) / 2 - navBar.backTracker.value
+            y: parent.height * (1 - s) / 2
+            width: Constants.spacingXLarge
+            height: parent.height * s
+            visible: navBar.backTracker.value > 0
+            opacity: Math.min(1, navBar.backTracker.value / width) * appWindow.opacity
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+
+                GradientStop {
+                    position: 0
+                    color: Qt.rgba(0, 0, 0, 0.45)
+                }
+                GradientStop {
+                    position: 1
+                    color: "transparent"
                 }
             }
         }
@@ -2408,6 +2454,7 @@ Item {
         }
         onFinished: {
             UIStore.closeApp();
+            navBar.backTracker.value = 0;
             appWindow.opacity = 1;
             appWindow.scale = 1;
         }
