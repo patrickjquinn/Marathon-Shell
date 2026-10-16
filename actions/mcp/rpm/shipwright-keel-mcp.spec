@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    8
+Release:    9
 License:    MIT
 URL:        https://github.com/patrickjquinn/shipwright-open
 
@@ -58,6 +58,8 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Fri Oct 16 2026 Shipwright - 0.1.0-9
+- Lists every app's built-in app.show, which brings the app to the front and can open one of its pages.
 * Wed Oct 14 2026 Shipwright - 0.1.0-8
 - Asking an app that has never been opened (so its permissions were never allowed) answers at once that it has to be opened first, instead of timing out after a minute.
 - Looking for running apps no longer asks every program on the phone every 10 seconds; each is asked once, and again only when it restarts.

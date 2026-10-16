@@ -38,20 +38,38 @@ fn tools_list() -> Value {
         "io.modelcontextprotocol/clientCapabilities": {} } } })
 }
 
+/// keel-mcp under test, killed however the test ends: a failed assertion
+/// would otherwise leave it running, holding the test's output open (ctest
+/// then waits for it).
+struct Server(std::process::Child);
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// The notes app's six actions, its note.find and the built-in app.show,
+/// and the two plan tools.
+const TOOLS: usize = 10;
+
 #[test]
 fn stdio() {
     if !on_bus() {
         return;
     }
-    let mut child = Command::new(env!("CARGO_BIN_EXE_keel-mcp"))
-        .args(["--stdio", "--probe-seconds", "0", "--actions-dir"])
-        .arg(golden_dir())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = child.stdin.take().unwrap();
-    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut server = Server(
+        Command::new(env!("CARGO_BIN_EXE_keel-mcp"))
+            .args(["--stdio", "--probe-seconds", "0", "--actions-dir"])
+            .arg(golden_dir())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let mut stdin = server.0.stdin.take().unwrap();
+    let mut stdout = BufReader::new(server.0.stdout.take().unwrap());
     let init = exchange(
         &mut stdin,
         &mut stdout,
@@ -70,9 +88,9 @@ fn stdio() {
         &mut stdout,
         &json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }),
     );
-    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), TOOLS);
     drop(stdin);
-    child.wait().unwrap();
+    server.0.wait().unwrap();
 }
 
 #[test]
@@ -81,13 +99,15 @@ fn unix_socket() {
         return;
     }
     let socket = std::env::temp_dir().join(format!("keel-mcp-test-{}.sock", std::process::id()));
-    let mut child = Command::new(env!("CARGO_BIN_EXE_keel-mcp"))
-        .arg("--socket")
-        .arg(&socket)
-        .args(["--probe-seconds", "0", "--actions-dir"])
-        .arg(golden_dir())
-        .spawn()
-        .unwrap();
+    let _server = Server(
+        Command::new(env!("CARGO_BIN_EXE_keel-mcp"))
+            .arg("--socket")
+            .arg(&socket)
+            .args(["--probe-seconds", "0", "--actions-dir"])
+            .arg(golden_dir())
+            .spawn()
+            .unwrap(),
+    );
     let start = Instant::now();
     let stream = loop {
         if let Ok(s) = UnixStream::connect(&socket) {
@@ -105,10 +125,8 @@ fn unix_socket() {
     let list = exchange(&mut write, &mut read, &tools_list());
     assert_eq!(
         list["result"]["tools"].as_array().unwrap().len(),
-        9,
+        TOOLS,
         "{list}"
     );
-    child.kill().unwrap();
-    child.wait().unwrap();
     let _ = std::fs::remove_file(&socket);
 }

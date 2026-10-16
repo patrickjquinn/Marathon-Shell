@@ -61,7 +61,8 @@ private Q_SLOTS:
         QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
         const QJsonObject manifest = object(reply.arguments().value(0).toString());
         QCOMPARE(manifest.value(QLatin1String("appId")).toString(), Service);
-        QCOMPARE(manifest.value(QLatin1String("tools")).toArray().size(), 7);
+        // Six declared actions, the note's find tool and the built-in app.show.
+        QCOMPARE(manifest.value(QLatin1String("tools")).toArray().size(), 8);
     }
 
     void invoke()

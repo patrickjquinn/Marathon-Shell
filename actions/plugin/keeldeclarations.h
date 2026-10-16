@@ -174,6 +174,8 @@ public:
     bool enabled() const { return m_enabled; }
     int timeout() const { return m_timeout; }
     bool hasResult() const;
+    // For actions made in C++ (the built-in app.show); takes ownership.
+    void addParameter(KeelParam *param);
 
     // Dispatches an already created call (the registry's path).
     void dispatch(KeelCall *call);
@@ -326,6 +328,43 @@ private:
     QString m_description;
     QList<KeelParam *> m_arguments;
     QVariantList m_steps;
+    bool m_registered = false;
+};
+
+// A page app.show can open (settings, bookmarks, ...): the name is one of
+// app.show's `page` values; onShow opens it (the runtime has already shown
+// the window and raises it after).
+//     KeelPage { name: "bookmarks"; title: qsTr("Bookmarks")
+//                description: "Saved pages, with a search"
+//                onShow: window.pageStack.push(Qt.resolvedUrl("BookmarksPage.qml")) }
+class KeelPage : public QObject, public QQmlParserStatus
+{
+    Q_OBJECT
+    QML_ELEMENT
+    Q_INTERFACES(QQmlParserStatus)
+    Q_PROPERTY(QString name MEMBER m_name NOTIFY changed)
+    Q_PROPERTY(QString title MEMBER m_title NOTIFY changed)
+    Q_PROPERTY(QString description MEMBER m_description NOTIFY changed)
+
+public:
+    explicit KeelPage(QObject *parent = nullptr);
+    ~KeelPage() override;
+
+    void classBegin() override {}
+    void componentComplete() override;
+
+    QString name() const { return m_name; }
+    QString title() const { return m_title; }
+    QString description() const { return m_description; }
+
+Q_SIGNALS:
+    void changed();
+    void show();
+
+private:
+    QString m_name;
+    QString m_title;
+    QString m_description;
     bool m_registered = false;
 };
 

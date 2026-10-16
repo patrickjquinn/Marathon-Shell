@@ -70,6 +70,11 @@ KeelActionsAdaptor::KeelActionsAdaptor(KeelActionRegistry *registry)
         QCoreApplication::quit();
     });
     connect(registry, &KeelActionRegistry::activity, this, &KeelActionsAdaptor::touch);
+    // app.show made the app an ordinary one: it no longer quits when idle.
+    connect(registry, &KeelActionRegistry::headlessChanged, this, [this]() {
+        if (!m_registry->headless())
+            m_idle.stop();
+    });
 }
 
 bool KeelActionsAdaptor::start()

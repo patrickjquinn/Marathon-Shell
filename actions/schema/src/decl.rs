@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! Declarations (what `KeelAction`, `KeelEntity`, `KeelContext`,
-//! `KeelShortcut` and `#[keel::action]` say) and the manifest they generate.
+//! `KeelShortcut`, `KeelPage` and `#[keel::action]` say) and the manifest
+//! they generate, with the built-in `app.show` every app answers.
 //!
 //! The mapping is the one in `keel/actions/plugin/keeldeclarations.cpp`;
 //! change both together.
@@ -133,6 +134,15 @@ pub struct Shortcut {
     pub source: String,
 }
 
+/// A page `app.show` can open (`KeelPage`): settings, bookmarks and the like.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Page {
+    pub name: String,
+    pub title: Option<String>,
+    pub description: String,
+    pub source: String,
+}
+
 /// Everything an app declares.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct App {
@@ -141,6 +151,50 @@ pub struct App {
     pub entities: Vec<Entity>,
     pub context: bool,
     pub shortcuts: Vec<Shortcut>,
+    pub pages: Vec<Page>,
+}
+
+/// The action every app answers without declaring it: the runtime brings
+/// the app to the front (showing a window that D-Bus activation kept
+/// hidden) and opens the page asked for.
+pub const SHOW_ACTION: &str = "app.show";
+
+/// `app.show` for an app with these pages: `page` is one of their names.
+pub fn show_action(pages: &[Page]) -> Action {
+    let mut params = Vec::new();
+    if !pages.is_empty() {
+        let mut names: Vec<&Page> = pages.iter().collect();
+        names.sort_by(|a, b| a.name.cmp(&b.name));
+        let list: Vec<String> = names
+            .iter()
+            .map(|p| match &p.title {
+                Some(t) => format!("{} ({t}: {})", p.name, p.description),
+                None => format!("{} ({})", p.name, p.description),
+            })
+            .collect();
+        params.push(Param {
+            description: Some(format!("The page to open: {}.", list.join("; "))),
+            values: names.iter().map(|p| json!(p.name)).collect(),
+            ..Param::new("page", "string")
+        });
+    }
+    Action {
+        name: SHOW_ACTION.to_owned(),
+        title: Some("Show".to_owned()),
+        description: if pages.is_empty() {
+            "Bring the app to the front for the person, starting it if it is not running."
+                .to_owned()
+        } else {
+            "Bring the app to the front for the person, starting it if it is not running, \
+             and open one of its pages."
+                .to_owned()
+        },
+        idempotent: true,
+        not_destructive_because: Some("it only shows the app and one of its pages".to_owned()),
+        params,
+        source: "built in".to_owned(),
+        ..Action::default()
+    }
 }
 
 fn obj(pairs: Vec<(&str, Value)>) -> Map<String, Value> {
@@ -573,6 +627,7 @@ impl App {
     pub fn manifest(&self) -> Value {
         let id = &self.app_id;
         let mut tools: Vec<Value> = self.actions.iter().map(|a| a.tool(id)).collect();
+        tools.push(show_action(&self.pages).tool(id));
         tools.extend(self.entities.iter().map(|e| e.find_tool(id)));
         let entities: Vec<Value> = self.entities.iter().map(|e| e.manifest_entry(id)).collect();
         let prompts: Vec<Value> = self.shortcuts.iter().map(|s| s.prompt(id)).collect();

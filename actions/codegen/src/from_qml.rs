@@ -3,7 +3,7 @@
 
 //! Declarations from QML files (`import Keel.Actions 1.0`).
 
-use keel_actions_schema::decl::{Action, Entity, Param, Shortcut, Step};
+use keel_actions_schema::decl::{Action, Entity, Page, Param, Shortcut, Step};
 use serde_json::{Map, Number, Value};
 
 use crate::qml::{Document, QObject, QValue};
@@ -16,6 +16,7 @@ pub struct Found {
     pub entities: Vec<Entity>,
     pub contexts: usize,
     pub shortcuts: Vec<Shortcut>,
+    pub pages: Vec<Page>,
 }
 
 struct Reader<'a> {
@@ -67,6 +68,9 @@ const ACTION_KEYS: &[&str] = &[
 const ACTION_RUNTIME: &[&str] = &["enabled", "id", "objectName"];
 const ENTITY_KEYS: &[&str] = &["type", "title", "description", "properties"];
 const SHORTCUT_KEYS: &[&str] = &["name", "title", "description", "arguments", "steps"];
+const PAGE_KEYS: &[&str] = &["name", "title", "description"];
+/// `onShow` opens the page: run-time code, not part of the contract.
+const PAGE_RUNTIME: &[&str] = &["id", "objectName", "onShow"];
 
 /// JSON for a literal QML value (None for expressions and objects).
 pub fn to_json(value: &QValue) -> Option<Value> {
@@ -425,6 +429,22 @@ impl Reader<'_> {
         s
     }
 
+    fn page(&mut self, object: &QObject) -> Page {
+        let mut p = Page {
+            source: self.at(object.line),
+            ..Page::default()
+        };
+        for (key, value, line) in self.bindings(object, "KeelPage", PAGE_KEYS, PAGE_RUNTIME) {
+            match key {
+                "name" => p.name = self.string(value, line, key).unwrap_or_default(),
+                "title" => p.title = self.string(value, line, key),
+                "description" => p.description = self.string(value, line, key).unwrap_or_default(),
+                _ => {}
+            }
+        }
+        p
+    }
+
     fn walk(&mut self, object: &QObject, found: &mut Found) {
         match self.local_type(&object.type_name) {
             Some("KeelAction") => found.actions.push(self.action(object)),
@@ -434,6 +454,7 @@ impl Reader<'_> {
             }
             Some("KeelContext") => found.contexts += 1,
             Some("KeelShortcut") => found.shortcuts.push(self.shortcut(object)),
+            Some("KeelPage") => found.pages.push(self.page(object)),
             _ => {}
         }
         for child in &object.children {

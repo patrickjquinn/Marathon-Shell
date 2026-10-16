@@ -219,6 +219,7 @@ fn check(app: &App, diag: &mut Diagnostics) {
             );
         }
     }
+    check_pages(app, &names, diag);
     let mut types = std::collections::BTreeSet::new();
     for e in &app.entities {
         if !is_word(&e.type_name) {
@@ -272,6 +273,50 @@ fn check(app: &App, diag: &mut Diagnostics) {
                 }
                 rest = &after[end + 2..];
             }
+        }
+    }
+}
+
+/// app.show is built in, and its page names are words with a description.
+fn check_pages(app: &App, names: &std::collections::BTreeSet<String>, diag: &mut Diagnostics) {
+    if names.contains(keel_actions_schema::decl::SHOW_ACTION) {
+        if let Some(a) = app
+            .actions
+            .iter()
+            .find(|a| a.name == keel_actions_schema::decl::SHOW_ACTION)
+        {
+            diag.error(
+                a.source.clone(),
+                "app.show is built in: declare KeelPage items for the pages it opens instead",
+            );
+        }
+    }
+    let mut pages = std::collections::BTreeSet::new();
+    for p in &app.pages {
+        if !p.name.split('_').all(is_word) {
+            diag.error(
+                p.source.clone(),
+                format!(
+                    "page name \"{}\" is not lower-case words joined by _",
+                    p.name
+                ),
+            );
+        }
+        if !pages.insert(p.name.clone()) {
+            diag.error(
+                p.source.clone(),
+                format!("page \"{}\" is declared twice", p.name),
+            );
+        }
+        let n = p.description.chars().count();
+        if !(10..=200).contains(&n) {
+            diag.error(
+                p.source.clone(),
+                format!(
+                    "page \"{}\" needs a description of 10 to 200 characters (has {n})",
+                    p.name
+                ),
+            );
         }
     }
 }
@@ -332,6 +377,7 @@ impl Config {
                     app.entities.extend(found.entities);
                     app.context |= found.contexts > 0;
                     app.shortcuts.extend(found.shortcuts);
+                    app.pages.extend(found.pages);
                 }
                 Err(e) => diag.error(format!("{shown}:{}", e.line), e.message),
             }

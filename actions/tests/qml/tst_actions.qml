@@ -95,6 +95,35 @@ TestCase {
         verify(call.errorMessage.indexOf("schema") >= 0, call.errorMessage)
     }
 
+    // The built-in app.show: every app has it, with its KeelPage names as
+    // the page values; it opens the page asked for.
+    function test_show_is_built_in() {
+        const show = tool(KeelActions.describe(), "app.show")
+        verify(show !== null)
+        compare(show.title, "Show")
+        compare(show.annotations.destructiveHint, false)
+        compare(show.annotations.idempotentHint, true)
+        compare(show.inputSchema.properties.page.enum, ["settings", "trash"])
+        compare(show.inputSchema.required, undefined)
+    }
+
+    function test_show_opens_a_page() {
+        app.shownPages = []
+        const call = invoke("app.show", { page: "trash" })
+        tryCompare(call, "finished", true, 2000)
+        compare(call.errorCode, "")
+        compare(app.shownPages, ["trash"])
+        const plain = invoke("app.show", {})
+        tryCompare(plain, "finished", true, 2000)
+        compare(plain.errorCode, "")
+        compare(app.shownPages, ["trash"])
+    }
+
+    function test_show_refuses_an_unknown_page() {
+        const call = invoke("app.show", { page: "inbox" })
+        compare(call.errorCode, "InvalidArguments")
+    }
+
     function test_asynchronous_reply() {
         const call = invoke("notes.later", { text: "soon" })
         verify(!call.finished)

@@ -447,9 +447,9 @@ mod tests {
             ..Param::new("p", "entity")
         });
         let mut m = a.manifest();
-        // tools are sorted: 0 is note.find, 1 notes.delete.
-        m["tools"][1]["inputSchema"]["properties"]["x"] = json!({ "type": "string" });
-        m["tools"][1]["description"] = json!("Delete it.");
+        // tools are sorted: 0 is the built-in app.show, 1 note.find, 2 notes.delete.
+        m["tools"][2]["inputSchema"]["properties"]["x"] = json!({ "type": "string" });
+        m["tools"][2]["description"] = json!("Delete it.");
         let rules: Vec<_> = review(&m, Some("org.example.other"))
             .into_iter()
             .map(|f| f.rule)

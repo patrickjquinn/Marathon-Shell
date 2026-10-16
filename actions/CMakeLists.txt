@@ -27,7 +27,8 @@ qt_add_qml_module(keelactionsplugin
         plugin/keelnative.cpp plugin/keelnative.h
 )
 target_include_directories(keelactionsplugin PRIVATE plugin)
-target_link_libraries(keelactionsplugin PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::DBus ${CMAKE_DL_LIBS})
+# Qt Quick: app.show finds the app's window and its ApplicationWindow.
+target_link_libraries(keelactionsplugin PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus ${CMAKE_DL_LIBS})
 set_target_properties(keelactionsplugin PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON)

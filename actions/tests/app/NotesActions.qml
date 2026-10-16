@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 //
 // The Keel Actions test app's declarations: a small notes app with actions,
-// a note entity, a context and a shortcut. Used by the QML tests, the D-Bus
+// a note entity, a context, a shortcut and two pages for app.show. Used by the QML tests, the D-Bus
 // round trip and keel-mcp's conformance test, and as the generator's QML
 // golden input.
 import QtQuick 2.15
@@ -21,6 +21,8 @@ Item {
     property alias createEnabled: createAction.enabled
     property alias createAction: createAction
     property int nextId: 3
+    // Pages app.show opened, in order (the tests read it).
+    property var shownPages: []
 
     function findNote(id) {
         for (let i = 0; i < notes.length; ++i) {
@@ -170,5 +172,19 @@ Item {
         description: "Create a note titled Shopping with the items given."
         arguments: [ KeelParam { name: "items"; type: "string"; required: true; description: "What to buy" } ]
         steps: [ { action: "notes.create", arguments: { title: "Shopping", body: "{{items}}" } } ]
+    }
+
+    KeelPage {
+        name: "settings"
+        title: qsTr("Settings")
+        description: "The notes app's settings: sorting and the default tag."
+        onShow: root.shownPages = root.shownPages.concat(["settings"])
+    }
+
+    KeelPage {
+        name: "trash"
+        title: qsTr("Trash")
+        description: "Notes deleted in the last 30 days."
+        onShow: root.shownPages = root.shownPages.concat(["trash"])
     }
 }

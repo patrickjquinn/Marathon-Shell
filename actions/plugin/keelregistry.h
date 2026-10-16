@@ -29,6 +29,7 @@ class KeelAction;
 class KeelCall;
 class KeelContext;
 class KeelEntity;
+class KeelPage;
 class KeelShortcut;
 class QJSEngine;
 class QQmlEngine;
@@ -40,8 +41,9 @@ class KeelActionRegistry : public QObject
     QML_SINGLETON
     Q_PROPERTY(QString appId READ appId NOTIFY appIdChanged)
     // Started for D-Bus activation (--keel-actions or KEEL_ACTIONS_HEADLESS=1):
-    // the window stays hidden and the process quits when idle.
-    Q_PROPERTY(bool headless READ headless CONSTANT)
+    // the window stays hidden and the process quits when idle, until app.show
+    // shows it.
+    Q_PROPERTY(bool headless READ headless NOTIFY headlessChanged)
 
 public:
     static KeelActionRegistry *instance();
@@ -80,6 +82,13 @@ public:
     void removeContext(KeelContext *context);
     void addShortcut(KeelShortcut *shortcut);
     void removeShortcut(KeelShortcut *shortcut);
+    void addPage(KeelPage *page);
+    void removePage(KeelPage *page);
+
+    // The built-in app.show for the pages registered now (the generator's
+    // show_action() in keel/actions/schema/src/decl.rs; change both together).
+    static constexpr const char *ShowAction = "app.show";
+    QJsonObject showTool() const;
 
     // Shared by KeelAction::invoke() and invoke(): validation, routing and
     // the result check.
@@ -98,6 +107,7 @@ public:
 
 Q_SIGNALS:
     void appIdChanged();
+    void headlessChanged();
     // A call started or finished (the idle timer of headless mode listens).
     void activity();
 
@@ -108,6 +118,12 @@ private:
     bool declared(const QString &action) const;
     void flushPending(const QString &action);
     bool startNative(KeelCall *call);
+    // app.show: shows the window if D-Bus activation kept it hidden, opens
+    // the page asked for and raises the app.
+    void show(KeelCall *call);
+    void openPage(KeelPage *page, KeelCall *call);
+    void leaveHeadless();
+    static void raiseWindow();
     QJsonObject entityEntry(const QString &type) const;
 
     QString m_appId;
@@ -117,6 +133,9 @@ private:
     QHash<QString, QPointer<KeelEntity>> m_entities;
     QList<QPointer<KeelContext>> m_contexts;
     QList<QPointer<KeelShortcut>> m_shortcuts;
+    QHash<QString, QPointer<KeelPage>> m_pages;
+    // app.show calls waiting for their page to register.
+    QList<QPointer<KeelCall>> m_pendingPages;
     // Calls waiting for their action to register.
     QList<QPointer<KeelCall>> m_pending;
     // Entity lookups and searches waiting for their entity type to

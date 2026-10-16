@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    32
+Release:    33
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -160,6 +160,8 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Fri Oct 16 2026 Shipwright - 0.1.0-33
+- Every Keel app answers app.show, a Keel Action the framework adds to each app: it brings the app to the front, starting it if it is not running, and can open one of the pages the app offers (KeelPage). An app started in the background for an action shows its window and no longer closes itself after 30 seconds.
 * Fri Oct 16 2026 Shipwright - 0.1.0-32
 - Lists flick as fast as in Jolla's apps on every phone: on screens other than the Jolla Phone's (Xperia 10 II-IV, Jolla C2) they flicked a third slower.
 - Switches, sliders, progress bars and the page stack indicator glow on the GPU: their fades and the busy pulse no longer redraw the glow on the CPU and upload it every frame. The glow is the same; where a control sits between screen pixels its dither is now crisp instead of blurred.

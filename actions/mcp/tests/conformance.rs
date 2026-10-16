@@ -229,12 +229,15 @@ async fn conformance() {
     for name in [
         "org.example.notes__notes.create",
         "org.example.notes__note.find",
+        "org.example.notes__app.show",
         "keel__plan.validate",
         "keel__plan.run",
     ] {
         assert!(names.contains(&name), "{names:?}");
     }
-    assert_eq!(tools.len(), 9);
+    // The notes app's six actions, its note.find, the built-in app.show and the
+    // two plan tools.
+    assert_eq!(tools.len(), 10);
     for t in tools {
         let name = t["name"].as_str().unwrap();
         assert!(
@@ -450,7 +453,7 @@ async fn stateless_2026_07_28() {
         "io.modelcontextprotocol/clientCapabilities": {}
     });
     let tools = c.result("tools/list", json!({ "_meta": meta })).await;
-    assert_eq!(tools["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(tools["tools"].as_array().unwrap().len(), 10);
     // Every modern result says it is complete; lists say how long they
     // keep and for whom.
     assert_eq!(tools["resultType"], "complete", "{tools}");

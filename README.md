@@ -34,7 +34,7 @@ a Qt6 app a Lipstick citizen the way a native Silica app is (ADR-0016):
 | `nemo-compat/` | Qt6 builds of Nemo.DBus 2.0, Nemo.Notifications 1.0, Nemo.KeepAlive 1.1/1.2, Nemo.Configuration 1.0 plus `org.nemomobile.{dbus,notifications,keepalive,configuration}`; Keel's `org.nemomobile.lipstick 0.1` (`LauncherItem`); `Nemo.Policy`/`org.nemomobile.policy 1.0` (nemo-qml-plugin-policy on libresourceqt with Keel's QtDBus engine for the resource policy manager); no-op `Nemo.Ngf`/`org.nemomobile.ngf 1.0` (feedback events load, play nothing) | Upstream code with two Qt6 fixes; Nemo.Configuration uses Chum's mlite-qt6 (dconf) on the device and a JSON-file fallback on hosts; host tests pass; aarch64 RPM builds. |
 | `sailfishapp/` | `libkeel-sailfishapp`: `SailfishApp::application/createView/pathTo/pathToMainQml/main` for Qt6, `sailfishapp.pc`; English plurals for `qsTr("%n file(s)", "", n)` when no catalog translates them (`(s)`, or `(singular|plural)`); Keel's launcher (`keellauncher.h`: direct mode, the booster hand-over) | Host tests pass; aarch64 RPM builds (0.1.0-2; 0.1.0-3 with the launcher not yet built in the SDK). |
 | `qt5compat/` | Qt 5 QML API shims for unported apps, in Keel's own import directory (`/usr/lib64/keel/qt5compat`): `QtGraphicalEffects 1.x` (on Qt5Compat.GraphicalEffects), no-op `QtFeedback 5.0`, `RegExpValidator` and `VisualItemModel` under `QtQuick 2.0`..`2.14`, Qt 5 `MediaPlayer`/`VideoOutput`/`SoundEffect`/`Camera` under `QtMultimedia 5.x` | QML only; tests pass on Qt 6.4.2 and (before the `Camera` shim, which is tested on 6.4.2 only, without a camera) on 6.8.4 (qemu); aarch64 RPM builds. Reaches apps once keel-shell sets `QML_IMPORT_PATH` (one-line change, see `qt5compat/README.md`). Corpus tier B 7 -> 10 of 19; the `Camera` shim brought foilauth and yubikey to tier B in the seventh run. |
-| `actions/` | Keel Actions (ADR-0018): the `Keel.Actions 1.0` QML module (`KeelAction`, `KeelParam`, `KeelResult`, `KeelEntity`, `KeelContext`, `KeelShortcut`) with the in-app runtime; the `keel` Rust crate (`#[keel::action]`, `#[keel::entity]`); the schema crate (validator, Reef review rules, plan validation) and the generator behind `keel actions` | Host tests pass (ctest `keel_actions_*`; `cargo test -p keel -p keel-actions-schema -p keel-actions-codegen`). The build step is `keel actions`. See "Keel Actions" below. |
+| `actions/` | Keel Actions (ADR-0018): the `Keel.Actions 1.0` QML module (`KeelAction`, `KeelParam`, `KeelResult`, `KeelEntity`, `KeelContext`, `KeelShortcut`, `KeelPage`) with the in-app runtime; the `keel` Rust crate (`#[keel::action]`, `#[keel::entity]`); the schema crate (validator, Reef review rules, plan validation) and the generator behind `keel actions` | Host tests pass (ctest `keel_actions_*`; `cargo test -p keel -p keel-actions-schema -p keel-actions-codegen`). The build step is `keel actions`. See "Keel Actions" below. |
 | `rpm/` | `shipwright-keel-silica`, `-nemo-compat` (+ `-dbus`, `-configuration`), `-sailfishapp` (+ `-devel`), `-qt5compat` specs, `build-native.sh` | See "Device builds". |
 
 Provenance: `silica/PROVENANCE.md`, `nemo-compat/PROVENANCE.md`.
@@ -215,7 +215,25 @@ KeelShortcut {
     arguments: [ KeelParam { name: "items"; required: true } ]
     steps: [ { action: "notes.create", arguments: { title: "Shopping", body: "{{items}}" } } ]
 }
+
+KeelPage {                                // a page app.show can open
+    name: "settings"; title: qsTr("Settings")
+    description: "The notes app's settings: sorting and the default tag."
+    onShow: window.pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
+}
 ```
+
+- **Every app answers `app.show`** without declaring it: the generator adds
+  it to every manifest and the runtime handles it. It brings the app to the
+  front, starting it if it is not running; with `page`, one of the app's
+  `KeelPage` names, it also opens that page (the page's `onShow` pushes it;
+  the runtime has shown the window first and raises it after). An app that
+  D-Bus activation started headless shows its window and stops quitting
+  when idle: it is an ordinary running app from then on. A call for a page
+  whose `KeelPage` has not loaded yet waits for it, as other calls wait for
+  their action. Declaring an action named `app.show` is an error. Offer
+  only pages that make sense on their own: Keys offers none, so that no
+  call opens a vault page past its lock.
 
 - **Handlers answer through the call.** `onInvoked: (args, call)` gets the
   validated arguments; it answers with `call.reply(value)` or

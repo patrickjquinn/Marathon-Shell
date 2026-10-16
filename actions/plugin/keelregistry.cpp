@@ -16,7 +16,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQmlEngine>
+#include <QQuickItem>
+#include <QQuickWindow>
 #include <QTimer>
+#include <QWindow>
 
 #include <algorithm>
 
@@ -150,6 +153,7 @@ QJsonObject KeelActionRegistry::describe() const
         if (action)
             tools.append(action->tool(app));
     }
+    tools.append(showTool());
     QJsonArray entities;
     for (const QPointer<KeelEntity> &entity : m_entities) {
         if (!entity)
@@ -242,6 +246,10 @@ void KeelActionRegistry::start(KeelCall *call, KeelAction *target)
         return KeelSchema::validate(output, value);
     });
 
+    if (call->action() == QLatin1String(ShowAction)) {
+        show(call);
+        return;
+    }
     if (target) {
         target->dispatch(call);
         return;
@@ -474,4 +482,136 @@ void KeelActionRegistry::addShortcut(KeelShortcut *shortcut)
 void KeelActionRegistry::removeShortcut(KeelShortcut *shortcut)
 {
     m_shortcuts.removeAll(shortcut);
+}
+
+void KeelActionRegistry::addPage(KeelPage *page)
+{
+    m_pages.insert(page->name(), page);
+    const QList<QPointer<KeelCall>> pending = m_pendingPages;
+    m_pendingPages.clear();
+    for (const QPointer<KeelCall> &call : pending) {
+        if (!call || call->isFinished())
+            continue;
+        if (call->arguments().value(QStringLiteral("page")).toString() == page->name())
+            openPage(page, call);
+        else
+            m_pendingPages.append(call);
+    }
+}
+
+void KeelActionRegistry::removePage(KeelPage *page)
+{
+    if (m_pages.value(page->name()) == page)
+        m_pages.remove(page->name());
+}
+
+QJsonObject KeelActionRegistry::showTool() const
+{
+    QList<KeelPage *> pages;
+    for (const QPointer<KeelPage> &page : m_pages) {
+        if (page)
+            pages.append(page);
+    }
+    std::sort(pages.begin(), pages.end(), [](const KeelPage *a, const KeelPage *b) { return a->name() < b->name(); });
+    KeelAction action;
+    action.setProperty("name", QString::fromLatin1(ShowAction));
+    action.setProperty("title", QStringLiteral("Show"));
+    action.setProperty("idempotent", true);
+    action.setProperty("notDestructiveBecause", QStringLiteral("it only shows the app and one of its pages"));
+    if (pages.isEmpty()) {
+        action.setProperty("description",
+                           QStringLiteral("Bring the app to the front for the person, starting it if it is not running."));
+    } else {
+        action.setProperty("description",
+                           QStringLiteral("Bring the app to the front for the person, starting it if it is not running, "
+                                          "and open one of its pages."));
+        QStringList list;
+        QVariantList names;
+        for (const KeelPage *p : pages) {
+            list.append(p->title().isEmpty() ? p->name() + QStringLiteral(" (") + p->description() + QLatin1Char(')')
+                                             : p->name() + QStringLiteral(" (") + p->title() + QStringLiteral(": ")
+                                                   + p->description() + QLatin1Char(')'));
+            names.append(p->name());
+        }
+        auto *param = new KeelParam;
+        param->setProperty("name", QStringLiteral("page"));
+        param->setProperty("description", QStringLiteral("The page to open: ") + list.join(QStringLiteral("; "))
+                                              + QLatin1Char('.'));
+        param->setProperty("values", names);
+        action.addParameter(param);
+    }
+    return action.tool(appId());
+}
+
+void KeelActionRegistry::show(KeelCall *call)
+{
+    leaveHeadless();
+    const QString name = call->arguments().value(QStringLiteral("page")).toString();
+    if (name.isEmpty()) {
+        raiseWindow();
+        call->reply();
+        return;
+    }
+    if (KeelPage *page = m_pages.value(name)) {
+        openPage(page, call);
+        return;
+    }
+    // Declared in the manifest, its KeelPage not loaded yet (activation runs
+    // before the QML that declares it).
+    call->startTimer(RegistrationWaitMs);
+    m_pendingPages.append(call);
+}
+
+void KeelActionRegistry::openPage(KeelPage *page, KeelCall *call)
+{
+    Q_EMIT page->show();
+    raiseWindow();
+    call->reply();
+}
+
+void KeelActionRegistry::leaveHeadless()
+{
+    if (!m_headless)
+        return;
+    m_headless = false;
+    Q_EMIT headlessChanged();
+    // The launchers load the window's QML in headless mode and only skip
+    // showing it (keel/sailfishapp, the apps' launcher.cpp): show it as
+    // they would have.
+    const bool phone = qEnvironmentVariable("KEEL_DIRECT") == QLatin1String("1")
+                       || qEnvironmentVariable("KEEL_SHELL") == QLatin1String("1");
+    for (QWindow *window : QGuiApplication::topLevelWindows()) {
+        auto *quick = qobject_cast<QQuickWindow *>(window);
+        if (!quick || quick->isVisible() || quick->transientParent())
+            continue;
+        if (phone) {
+            quick->showFullScreen();
+        } else {
+            if (quick->width() <= 0 || quick->height() <= 0)
+                quick->resize(540, 960);
+            quick->show();
+        }
+        return;
+    }
+}
+
+void KeelActionRegistry::raiseWindow()
+{
+    // ApplicationWindow.activate() raises through Keel.Shell (Lipstick, or
+    // keel-shell); a plain window gets raise() and requestActivate().
+    for (QWindow *window : QGuiApplication::topLevelWindows()) {
+        auto *quick = qobject_cast<QQuickWindow *>(window);
+        if (!quick || !quick->isVisible() || quick->transientParent())
+            continue;
+        const QList<QQuickItem *> items = quick->contentItem()->childItems();
+        for (QQuickItem *item : items) {
+            if (item->metaObject()->indexOfMethod("activate()") >= 0) {
+                QMetaObject::invokeMethod(item, "activate");
+                return;
+            }
+        }
+        quick->raise();
+        quick->requestActivate();
+        return;
+    }
 }

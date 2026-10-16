@@ -17,6 +17,14 @@ add_test(NAME keel_actions_qml
 set_tests_properties(keel_actions_qml PROPERTIES
     ENVIRONMENT "${_keel_actions_test_env}" TIMEOUT 120)
 
+# app.show in a headless (D-Bus activated) app, for a page that loads late.
+add_test(NAME keel_actions_qml_show_headless
+    COMMAND ${KEEL_QMLTESTRUNNER} -import "${KEEL_QML_OUTPUT_DIR}"
+            -input "${CMAKE_CURRENT_SOURCE_DIR}/qml-show")
+set_tests_properties(keel_actions_qml_show_headless PROPERTIES
+    ENVIRONMENT "${_keel_actions_test_env};KEEL_ACTIONS_HEADLESS=1;KEEL_ACTIONS_MANIFEST=${CMAKE_CURRENT_SOURCE_DIR}/../codegen/tests/golden/qml-notes/actions.json"
+    TIMEOUT 120)
+
 # An entity declared in the installed manifest that registers late.
 add_test(NAME keel_actions_qml_late_entity
     COMMAND ${KEEL_QMLTESTRUNNER} -import "${KEEL_QML_OUTPUT_DIR}"

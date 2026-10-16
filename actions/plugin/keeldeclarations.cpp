@@ -196,6 +196,12 @@ QQmlListProperty<KeelParam> KeelAction::parameters()
     return listOf(this, &m_parameters);
 }
 
+void KeelAction::addParameter(KeelParam *param)
+{
+    param->setParent(this);
+    m_parameters.append(param);
+}
+
 bool KeelAction::hasResult() const
 {
     return m_returns && m_returns->type() != QLatin1String("none");
@@ -561,4 +567,21 @@ QJsonObject KeelShortcut::prompt(const QString &appId) const
     if (!m_title.isEmpty())
         prompt.insert(QStringLiteral("title"), m_title);
     return prompt;
+}
+
+KeelPage::KeelPage(QObject *parent)
+    : QObject(parent)
+{
+}
+
+KeelPage::~KeelPage()
+{
+    if (m_registered)
+        KeelActionRegistry::instance()->removePage(this);
+}
+
+void KeelPage::componentComplete()
+{
+    KeelActionRegistry::instance()->addPage(this);
+    m_registered = true;
 }
