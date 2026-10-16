@@ -392,9 +392,13 @@ impl PilotService {
         &self,
         pid: u32,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+        #[zbus(connection)] session: &zbus::Connection,
     ) -> fdo::Result<String> {
-        let app =
-            crate::onscreen::app_for_pid(pid).filter(|a| a.id != "org.shipwright.shoal-pilot");
+        let app = match crate::adapters::marathon::app_for_pid(session, pid).await {
+            Some(app) => Some(app),
+            None => crate::onscreen::app_for_pid(pid),
+        }
+        .filter(|a| a.id != "org.shipwright.shoal-pilot");
         let name = if let Some(app) = app {
             // Read what it shows now, before Pilot comes to the front.
             let pipeline = self.pipeline.clone();

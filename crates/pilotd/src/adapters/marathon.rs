@@ -42,6 +42,86 @@ fn bus_for(object: &str) -> &'static str {
     }
 }
 
+/// The Keel app of the process on top. A Marathon app runs as a
+/// `marathon-app-runner`, which has no desktop entry to match, and a pooled
+/// runner's command line names no app: the shell says which it is
+/// (`org.marathonos.<id>`). An Android app's window belongs to Android's
+/// process, so for any other process the shell's foreground app is used
+/// when it is an Android app (`deckard.<package>`, the name Deckard serves
+/// the app's Keel Actions under).
+pub async fn app_for_pid(session: &zbus::Connection, pid: u32) -> Option<crate::onscreen::App> {
+    let runner = std::fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|cmdline| {
+        let argv0 = cmdline.split(|b| *b == 0).next().unwrap_or_default();
+        argv0 == b"marathon-app-runner" || argv0.ends_with(b"/marathon-app-runner")
+    });
+    if !runner {
+        let data = std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
+            })?;
+        return android_in_front(session, &data).await;
+    }
+    let id: String = call(session, "Navigation", "AppIdForPid", &(pid,))
+        .await
+        .map_err(|e| log::info!("app of pid {pid}: {e}"))
+        .ok()?;
+    if id.is_empty() {
+        return None;
+    }
+    let id = format!("org.marathonos.{id}");
+    Some(crate::onscreen::App {
+        name: crate::onscreen::app_name(&id).unwrap_or_default(),
+        comment: crate::onscreen::app_comment(&id).unwrap_or_default(),
+        id,
+    })
+}
+
+/// The Android app in front (`Navigation1.GetForegroundApp`), named by the
+/// desktop entry Deckard writes for it under `data`/applications.
+pub async fn android_in_front(
+    session: &zbus::Connection,
+    data: &std::path::Path,
+) -> Option<crate::onscreen::App> {
+    let id: String = call(session, "Navigation", "GetForegroundApp", &())
+        .await
+        .map_err(|e| log::info!("foreground app: {e}"))
+        .ok()?;
+    let package = id.strip_prefix("deckard.")?;
+    if package.is_empty()
+        || !package
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_')
+    {
+        return None;
+    }
+    let name = std::fs::read_to_string(data.join("applications").join(format!("{id}.desktop")))
+        .ok()
+        .and_then(|text| desktop_name(&text))
+        .or_else(|| crate::onscreen::app_name(&id))
+        .unwrap_or_default();
+    Some(crate::onscreen::App {
+        name,
+        comment: String::new(),
+        id,
+    })
+}
+
+/// A desktop entry's `Name`.
+fn desktop_name(text: &str) -> Option<String> {
+    let mut section = "";
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            section = line;
+        } else if section == "[Desktop Entry]" {
+            if let Some(name) = line.strip_prefix("Name=") {
+                return Some(name.trim().to_owned()).filter(|n| !n.is_empty());
+            }
+        }
+    }
+    None
+}
+
 async fn call<B, R>(
     session: &zbus::Connection,
     object: &str,

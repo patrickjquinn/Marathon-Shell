@@ -250,3 +250,126 @@ async fn the_shells_services_back_the_adapters() {
         ]
     );
 }
+
+struct Navigation(Calls, u32);
+
+#[zbus::interface(name = "org.marathonos.Shell.Navigation1")]
+impl Navigation {
+    #[zbus(name = "AppIdForPid")]
+    fn app_id_for_pid(&self, pid: u32) -> String {
+        self.0.lock().unwrap().push(format!("pid {pid}"));
+        if pid == self.1 {
+            "notes".into()
+        } else {
+            String::new()
+        }
+    }
+}
+
+#[tokio::test]
+async fn the_shell_names_a_marathon_apps_process() {
+    let dir = tempfile::tempdir().unwrap();
+    let runner = dir.path().join("marathon-app-runner");
+    std::os::unix::fs::symlink("/bin/sleep", &runner).unwrap();
+    let mut app = std::process::Command::new(&runner)
+        .arg("30")
+        .spawn()
+        .unwrap();
+    let mut other = std::process::Command::new(&runner)
+        .arg("30")
+        .spawn()
+        .unwrap();
+
+    let bus = TestBus::start();
+    let client = bus.connect().await;
+    let calls: Calls = Arc::default();
+    let shell = bus.connect().await;
+    shell
+        .object_server()
+        .at(
+            "/org/marathonos/Shell/Navigation",
+            Navigation(calls.clone(), app.id()),
+        )
+        .await
+        .unwrap();
+    shell.request_name(marathon::SESSION).await.unwrap();
+
+    let found = marathon::app_for_pid(&client, app.id()).await.unwrap();
+    assert_eq!(
+        (found.id.as_str(), found.name.as_str()),
+        ("org.marathonos.notes", "Notes")
+    );
+    assert!(
+        marathon::app_for_pid(&client, other.id()).await.is_none(),
+        "not an app the shell runs"
+    );
+    assert!(
+        marathon::app_for_pid(&client, std::process::id())
+            .await
+            .is_none(),
+        "not a runner"
+    );
+    assert_eq!(
+        calls.lock().unwrap().clone(),
+        [format!("pid {}", app.id()), format!("pid {}", other.id())]
+    );
+
+    let _ = app.kill();
+    let _ = other.kill();
+    let _ = app.wait();
+    let _ = other.wait();
+}
+
+struct Foreground(Arc<Mutex<String>>);
+
+#[zbus::interface(name = "org.marathonos.Shell.Navigation1")]
+impl Foreground {
+    #[zbus(name = "GetForegroundApp")]
+    fn get_foreground_app(&self) -> String {
+        self.0.lock().unwrap().clone()
+    }
+}
+
+#[tokio::test]
+async fn the_shell_names_the_android_app_in_front() {
+    let data = tempfile::tempdir().unwrap();
+    std::fs::create_dir(data.path().join("applications")).unwrap();
+    std::fs::write(
+        data.path()
+            .join("applications/deckard.org.example.chat.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Chat\nExec=/usr/libexec/deckard-launch app launch org.example.chat\n",
+    )
+    .unwrap();
+
+    let bus = TestBus::start();
+    let client = bus.connect().await;
+    let shell = bus.connect().await;
+    let front = Arc::new(Mutex::new("deckard.org.example.chat".to_owned()));
+    shell
+        .object_server()
+        .at(
+            "/org/marathonos/Shell/Navigation",
+            Foreground(front.clone()),
+        )
+        .await
+        .unwrap();
+    shell.request_name(marathon::SESSION).await.unwrap();
+
+    let found = marathon::android_in_front(&client, data.path())
+        .await
+        .unwrap();
+    assert_eq!(
+        (found.id.as_str(), found.name.as_str()),
+        ("deckard.org.example.chat", "Chat")
+    );
+
+    for other in ["notes", "deckard.", "deckard.../x", "waydroid.org.example.chat", ""] {
+        *front.lock().unwrap() = other.to_owned();
+        assert!(
+            marathon::android_in_front(&client, data.path())
+                .await
+                .is_none(),
+            "{other:?} is not an Android app"
+        );
+    }
+}
