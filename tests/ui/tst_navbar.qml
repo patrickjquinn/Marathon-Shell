@@ -220,6 +220,27 @@ TestCase {
         compare(UIStore.quickSettingsHeight, 0);
     }
 
+    // The shade drag this touch started ends with the touch, even if the
+    // shade was shut under it or the touch was taken away.
+    function test_shadeDragEndsWithTheTouch_data() {
+        return [{ tag: "shut meanwhile", cancel: false }, { tag: "cancelled", cancel: true }];
+    }
+    function test_shadeDragEndsWithTheTouch(data) {
+        UIStore.openQuickSettings();
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        for (let i = 1; i <= 4; ++i)
+            mouseMove(nav, nav.width / 2, nav.height / 2 - 6 * i, 16);
+        verify(UIStore.quickSettingsDragging);
+        if (data.cancel) {
+            nav.enabled = false;
+            nav.enabled = true;
+        } else {
+            UIStore.closeQuickSettings();
+            mouseRelease(nav, nav.width / 2, nav.height / 2 - 24);
+        }
+        verify(!UIStore.quickSettingsDragging);
+    }
+
     function test_pillIsTheNotch() {
         const pill = findChild(nav, "navPill");
         verify(pill);

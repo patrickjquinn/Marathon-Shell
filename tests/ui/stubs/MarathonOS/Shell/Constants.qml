@@ -7,6 +7,8 @@ QtObject {
     readonly property bool isSquareScreen: false
     readonly property real statusBarHeight: 32
     readonly property real navBarHeight: 40
+    readonly property real quickSettingsDismissThreshold: 0.3
+    readonly property int animationSlow: 0
     readonly property real bottomBarHeight: 44
     readonly property bool enableAnimations: false
     readonly property real safeAreaTop: 0

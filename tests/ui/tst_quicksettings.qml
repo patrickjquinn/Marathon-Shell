@@ -16,7 +16,7 @@ TestCase {
         MarathonQuickSettings {
             id: qs
             width: 720
-            height: UIStore.quickSettingsHeight
+            height: drawnHeight
             maxHeight: fit.height
         }
 
@@ -40,6 +40,7 @@ TestCase {
 
     function init() {
         fit.height = 400;
+        UIStore.quickSettingsDragging = false;
         UIStore.quickSettingsOpen = true;
         UIStore.quickSettingsHeight = qs.maxHeight;
         scroll().cancelFlick();
@@ -287,6 +288,41 @@ TestCase {
         MPRIS2Controller.trackTitle = "Headlines";
         compare(bar.label, "Headlines");
         compare(bar.sublabel, "CJME News/Talk 980");
+    }
+
+    // Whoever dragged the shade and let go without deciding, it rests shut
+    // or fully open, never part-way.
+    function test_unfinishedDragComesToRest_data() {
+        return [{ tag: "closing", open: false }, { tag: "open", open: true }];
+    }
+    function test_unfinishedDragComesToRest(data) {
+        UIStore.quickSettingsOpen = data.open;
+        UIStore.quickSettingsDragging = true;
+        UIStore.quickSettingsHeight = 60;
+        compare(qs.drawnHeight, 60);
+        UIStore.quickSettingsDragging = false;
+        tryCompare(UIStore, "quickSettingsHeight", data.open ? qs.maxHeight : 0);
+        compare(UIStore.quickSettingsOpen, data.open);
+        tryCompare(qs, "drawnHeight", UIStore.quickSettingsHeight);
+        verify(!qs.tracker.active);
+    }
+
+    function test_closeDuringDragComesToRest() {
+        fit.height = 5000;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        const seq = touchEvent(qs);
+        seq.press(0, qs, 4, 300).commit();
+        for (let i = 1; i <= 5; ++i) {
+            wait(16);
+            seq.move(0, qs, 4, 300 - 20 * i).commit();
+        }
+        verify(UIStore.quickSettingsDragging);
+        UIStore.closeQuickSettings();
+        seq.release(0, qs, 4, 200).commit();
+        wait(50);
+        verify(!UIStore.quickSettingsDragging);
+        compare(UIStore.quickSettingsHeight, UIStore.quickSettingsOpen ? qs.maxHeight : 0);
+        tryCompare(qs, "drawnHeight", UIStore.quickSettingsHeight);
     }
 
     SignalSpy { id: closedSpy; target: qs; signalName: "closed" }

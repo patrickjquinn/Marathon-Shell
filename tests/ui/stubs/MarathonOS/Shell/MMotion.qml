@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 QtObject {
+    readonly property int micro: 0
     readonly property int quick: 0
     readonly property int fast: 0
     readonly property int moderate: 0

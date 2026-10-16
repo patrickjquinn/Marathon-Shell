@@ -61,6 +61,53 @@ Item {
         live: false
     }
 
+    // The drawn height: follows UIStore while a finger drags the shade and
+    // springs to each new height from the release velocity.
+    readonly property alias drawnHeight: shadeDrag.value
+    readonly property alias tracker: shadeDrag
+
+    // A drag always comes to rest shut or fully open.
+    function rest() {
+        if (UIStore.quickSettingsDragging)
+            return;
+        const h = UIStore.quickSettingsHeight;
+        if (h !== 0 && h !== maxHeight) {
+            if (UIStore.quickSettingsOpen)
+                UIStore.openQuickSettings();
+            else
+                UIStore.closeQuickSettings();
+        }
+        if (!shadeDrag.settling && shadeDrag.value !== UIStore.quickSettingsHeight)
+            shadeDrag.settleTo(UIStore.quickSettingsHeight);
+    }
+
+    GestureTracker {
+        id: shadeDrag
+
+        commitDistance: quickSettings.maxHeight * Constants.quickSettingsDismissThreshold
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : Constants.animationSlow
+    }
+
+    Connections {
+        function onQuickSettingsHeightChanged() {
+            if (UIStore.quickSettingsDragging)
+                shadeDrag.move(UIStore.quickSettingsHeight);
+            else
+                shadeDrag.settleTo(UIStore.quickSettingsHeight);
+        }
+        // Keeps the release velocity for the settle that follows. The drag's
+        // owner decides once this returns; rest() catches one that did not.
+        function onQuickSettingsDraggingChanged() {
+            if (UIStore.quickSettingsDragging)
+                return;
+            if (shadeDrag.active)
+                shadeDrag.release();
+            Qt.callLater(quickSettings.rest);
+        }
+
+        target: UIStore
+    }
+
     // Drag inside the shade for "follow-finger then snap" close. Grabs
     // the shade chrome (NOT tiles/sliders) and shrinks quickSettingsHeight
     // per-frame as the finger moves up; snaps open/closed on release.

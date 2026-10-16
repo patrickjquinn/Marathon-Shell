@@ -206,6 +206,8 @@ Rectangle {
         property real minimizeBase: 0
         // The pull down from the pill drives the quick settings shade.
         property bool pullingQuickSettings: false
+        // This touch is dragging the open shade closed.
+        property bool draggingQuickSettings: false
 
         anchors.fill: parent
         anchors.topMargin: 0
@@ -221,6 +223,10 @@ Rectangle {
                 pullingQuickSettings = false;
                 UIStore.quickSettingsDragging = false;
                 UIStore.closeQuickSettings();
+            }
+            if (draggingQuickSettings) {
+                draggingQuickSettings = false;
+                UIStore.quickSettingsDragging = false;
             }
             navBar.startX = 0;
             navBar.startY = 0;
@@ -288,6 +294,7 @@ Rectangle {
                 pillX.move(pillBaseX + diffX);
             if (isVerticalGesture) {
                 if (UIStore.quickSettingsOpen || (UIStore.quickSettingsHeight > 0 && !pullingQuickSettings)) {
+                    draggingQuickSettings = true;
                     if (!UIStore.quickSettingsDragging)
                         UIStore.quickSettingsDragging = true;
 
@@ -367,7 +374,7 @@ Rectangle {
                 resetGesture(false);
                 return;
             }
-            if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
+            if (draggingQuickSettings || ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture)) {
                 UIStore.quickSettingsDragging = false;
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400; // qmllint disable missing-property
                 // Dismiss on any of: upward fling, drag pulled the panel
