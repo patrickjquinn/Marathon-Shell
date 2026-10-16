@@ -16,6 +16,9 @@ const MET_URL: &str = "https://api.met.no/weatherapi/locationforecast/2.0/comple
 
 /// Used when a response carries no usable `Expires`.
 const DEFAULT_LIFETIME: i64 = 3600;
+/// MET can answer a 304 with the already-past `Expires` of the copy it is
+/// replacing; without a floor every Refresh would hit the API again.
+const MIN_LIFETIME: i64 = 600;
 
 pub fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
@@ -82,7 +85,7 @@ pub fn expires_at(header: Option<&str>, now: i64) -> i64 {
         .and_then(|h| httpdate::parse_http_date(h).ok())
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .and_then(|d| i64::try_from(d.as_secs()).ok())
-        .unwrap_or(now + DEFAULT_LIFETIME)
+        .map_or(now + DEFAULT_LIFETIME, |t| t.max(now + MIN_LIFETIME))
 }
 
 pub fn fetch_met(
@@ -159,6 +162,12 @@ mod tests {
         );
         assert_eq!(expires_at(None, 100), 100 + DEFAULT_LIFETIME);
         assert_eq!(expires_at(Some("garbage"), 100), 100 + DEFAULT_LIFETIME);
+        // An Expires already in the past still holds the cache for a while.
+        let now = 1_792_190_073 + 30;
+        assert_eq!(
+            expires_at(Some("Fri, 16 Oct 2026 22:34:33 GMT"), now),
+            now + MIN_LIFETIME
+        );
     }
 
     #[test]
