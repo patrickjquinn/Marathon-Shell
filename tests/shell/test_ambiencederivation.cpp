@@ -47,7 +47,7 @@ class TestAmbienceDerivation : public QObject {
         QVERIFY(c.isValid());
         QVERIFY(c.hsvHue() >= 155 && c.hsvHue() <= 185);
         QVERIFY(bundledHighlight(QStringLiteral("qrc:/wallpapers/slate-aurora.svg")).isValid());
-        QVERIFY(bundledHighlight(QStringLiteral("qrc:/wallpapers/tidewater.jpg")).isValid());
+        QVERIFY(bundledHighlight(QStringLiteral("qrc:/wallpapers/aurora-myvatn.jpg")).isValid());
     }
 
     void ownWallpaperHasNoChosenHighlight() {

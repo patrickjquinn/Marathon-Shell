@@ -445,7 +445,7 @@ qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
     FILES
-        resources/wallpapers/tidewater.jpg
+        resources/wallpapers/aurora-myvatn.jpg
         resources/wallpapers/slate-aurora.svg
         resources/wallpapers/carbon.svg
         resources/wallpapers/contour.svg

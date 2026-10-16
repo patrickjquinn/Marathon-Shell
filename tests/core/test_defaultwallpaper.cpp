@@ -23,10 +23,10 @@ class TestDefaultWallpaper : public QObject {
         qputenv("XDG_CONFIG_HOME", m_dir.path().toUtf8());
     }
 
-    void freshInstallGetsTidewater() {
+    void freshInstallGetsAurora() {
         reset();
         SettingsManager m;
-        QVERIFY2(m.wallpaperPath().endsWith("wallpapers/tidewater.jpg"), qPrintable(m.wallpaperPath()));
+        QVERIFY2(m.wallpaperPath().endsWith("wallpapers/aurora-myvatn.jpg"), qPrintable(m.wallpaperPath()));
     }
 
     void chosenWallpaperIsKept() {

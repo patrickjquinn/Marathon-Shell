@@ -70,7 +70,7 @@ QColor bundledHighlight(const QString &wallpaperPath) {
     // Each picks up its wallpaper's accent, which is Marathon teal on all of
     // them; Tundra leans to its sky, Dawn to its warmer glow.
     static const QHash<QString, QColor> highlights = {
-        {QStringLiteral("tidewater"), QColor(0x7d, 0xf0, 0xd4)},
+        {QStringLiteral("aurora-myvatn"), QColor(0x7d, 0xf0, 0xd4)},
         {QStringLiteral("slate-aurora"), QColor(0x7d, 0xf0, 0xd4)},
         {QStringLiteral("long-run"), QColor(0x7d, 0xf0, 0xd4)},
         {QStringLiteral("carbon"), QColor(0x7d, 0xe6, 0xcf)},

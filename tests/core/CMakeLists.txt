@@ -279,7 +279,7 @@ target_link_libraries(test_core_lockdelaymigration Qt6::Test Qt6::Core Qt6::DBus
 target_include_directories(test_core_lockdelaymigration PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_LockDelayMigration COMMAND test_core_lockdelaymigration)
 
-# New installs default to Tidewater; a chosen wallpaper stays
+# New installs default to the Mývatn aurora; a chosen wallpaper stays
 add_executable(test_core_defaultwallpaper
     test_defaultwallpaper.cpp
     ../../shell/src/managers/settingsmanager.cpp
