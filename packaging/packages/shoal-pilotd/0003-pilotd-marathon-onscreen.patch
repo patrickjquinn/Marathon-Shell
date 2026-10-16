@@ -1,0 +1,150 @@
+From 80af8e6e1426d67f3a0ee6e651240df78ba983c6 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 16 Oct 2026 15:31:54 +0100
+Subject: [PATCH] pilotd: on-screen context for Marathon apps
+
+ShowSheetFor maps the process of the window on top to its Keel app
+through a desktop entry with Sailjail names. A Marathon app runs as a
+marathon-app-runner, which has none, and a pooled runner's command
+line does not even name its app. For such a process pilotd asks the
+shell (Navigation1.AppIdForPid, which only admitted session services
+may call) and uses org.marathonos.<id>, the name the runner serves
+Keel Actions under. Any other process is matched as before.
+---
+ shoal/pilot/pilotd/src/adapters/marathon.rs | 24 +++++++
+ shoal/pilot/pilotd/src/dbus.rs              |  8 ++-
+ shoal/pilot/pilotd/tests/marathon.rs        | 69 +++++++++++++++++++++
+ 3 files changed, 99 insertions(+), 2 deletions(-)
+
+diff --git a/shoal/pilot/pilotd/src/adapters/marathon.rs b/shoal/pilot/pilotd/src/adapters/marathon.rs
+index 7383214..66ac974 100644
+--- a/shoal/pilot/pilotd/src/adapters/marathon.rs
++++ b/shoal/pilot/pilotd/src/adapters/marathon.rs
+@@ -33,6 +33,30 @@ pub fn present(session: &zbus::Connection) -> bool {
+     .unwrap_or(false)
+ }
+ 
++/// The Keel app (`org.marathonos.<id>`) of a Marathon app's process, a
++/// `marathon-app-runner`. It has no desktop entry to match, and a pooled
++/// runner's command line names no app: the shell says which it is.
++pub async fn app_for_pid(session: &zbus::Connection, pid: u32) -> Option<crate::onscreen::App> {
++    let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
++    let argv0 = cmdline.split(|b| *b == 0).next()?;
++    if argv0 != b"marathon-app-runner" && !argv0.ends_with(b"/marathon-app-runner") {
++        return None;
++    }
++    let id: String = call(session, "Navigation", "AppIdForPid", &(pid,))
++        .await
++        .map_err(|e| log::info!("app of pid {pid}: {e}"))
++        .ok()?;
++    if id.is_empty() {
++        return None;
++    }
++    let id = format!("org.marathonos.{id}");
++    Some(crate::onscreen::App {
++        name: crate::onscreen::app_name(&id).unwrap_or_default(),
++        comment: crate::onscreen::app_comment(&id).unwrap_or_default(),
++        id,
++    })
++}
++
+ async fn call<B, R>(
+     session: &zbus::Connection,
+     object: &str,
+diff --git a/shoal/pilot/pilotd/src/dbus.rs b/shoal/pilot/pilotd/src/dbus.rs
+index 405c24a..8dc0425 100644
+--- a/shoal/pilot/pilotd/src/dbus.rs
++++ b/shoal/pilot/pilotd/src/dbus.rs
+@@ -392,9 +392,13 @@ impl PilotService {
+         &self,
+         pid: u32,
+         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
++        #[zbus(connection)] session: &zbus::Connection,
+     ) -> fdo::Result<String> {
+-        let app =
+-            crate::onscreen::app_for_pid(pid).filter(|a| a.id != "org.shipwright.shoal-pilot");
++        let app = match crate::adapters::marathon::app_for_pid(session, pid).await {
++            Some(app) => Some(app),
++            None => crate::onscreen::app_for_pid(pid),
++        }
++        .filter(|a| a.id != "org.shipwright.shoal-pilot");
+         let name = if let Some(app) = app {
+             // Read what it shows now, before Pilot comes to the front.
+             let pipeline = self.pipeline.clone();
+diff --git a/shoal/pilot/pilotd/tests/marathon.rs b/shoal/pilot/pilotd/tests/marathon.rs
+index e83f64c..cc01eb3 100644
+--- a/shoal/pilot/pilotd/tests/marathon.rs
++++ b/shoal/pilot/pilotd/tests/marathon.rs
+@@ -249,3 +249,72 @@ async fn the_shells_services_back_the_adapters() {
+         ]
+     );
+ }
++
++struct Navigation(Calls, u32);
++
++#[zbus::interface(name = "org.marathonos.Shell.Navigation1")]
++impl Navigation {
++    #[zbus(name = "AppIdForPid")]
++    fn app_id_for_pid(&self, pid: u32) -> String {
++        self.0.lock().unwrap().push(format!("pid {pid}"));
++        if pid == self.1 {
++            "notes".into()
++        } else {
++            String::new()
++        }
++    }
++}
++
++#[tokio::test]
++async fn the_shell_names_a_marathon_apps_process() {
++    let dir = tempfile::tempdir().unwrap();
++    let runner = dir.path().join("marathon-app-runner");
++    std::os::unix::fs::symlink("/bin/sleep", &runner).unwrap();
++    let mut app = std::process::Command::new(&runner)
++        .arg("30")
++        .spawn()
++        .unwrap();
++    let mut other = std::process::Command::new(&runner)
++        .arg("30")
++        .spawn()
++        .unwrap();
++
++    let bus = TestBus::start();
++    let client = bus.connect().await;
++    let calls: Calls = Arc::default();
++    let shell = bus.connect().await;
++    shell
++        .object_server()
++        .at(
++            "/org/marathonos/Shell/Navigation",
++            Navigation(calls.clone(), app.id()),
++        )
++        .await
++        .unwrap();
++    shell.request_name(marathon::SHELL).await.unwrap();
++
++    let found = marathon::app_for_pid(&client, app.id()).await.unwrap();
++    assert_eq!(
++        (found.id.as_str(), found.name.as_str()),
++        ("org.marathonos.notes", "Notes")
++    );
++    assert!(
++        marathon::app_for_pid(&client, other.id()).await.is_none(),
++        "not an app the shell runs"
++    );
++    assert!(
++        marathon::app_for_pid(&client, std::process::id())
++            .await
++            .is_none(),
++        "not a runner"
++    );
++    assert_eq!(
++        calls.lock().unwrap().clone(),
++        [format!("pid {}", app.id()), format!("pid {}", other.id())]
++    );
++
++    let _ = app.kill();
++    let _ = other.kill();
++    let _ = app.wait();
++    let _ = other.wait();
++}

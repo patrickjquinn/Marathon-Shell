@@ -8,6 +8,8 @@
 # by its unit and executable (shoal-pilotd.service.json, installed to
 # /usr/share/marathon-shell/services) with the permissions listed there.
 # 0002 adds direct mode, which pilotd.toml (/etc/shoal-pilot) turns on.
+# 0003 asks the shell (Navigation1.AppIdForPid) which app a
+# marathon-app-runner is, for Pilot's on-screen context.
 #
 # Direct mode: the owner provides ~/.config/shoal-pilot/keys.env, mode
 # 0600 (pilotd refuses to start if group or others can read it):
@@ -18,7 +20,7 @@
 # Web search needs the relay. Speech (pilot-voice, pilot-tts) is not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -29,6 +31,7 @@ makedepends="cargo clang"
 source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
 	0001-pilotd-marathon-adapters.patch
 	0002-pilotd-direct-mode.patch
+	0003-pilotd-marathon-onscreen.patch
 	pilotd.toml
 	marathon-open
 	shoal-pilotd.service.json
