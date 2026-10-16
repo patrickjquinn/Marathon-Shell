@@ -431,6 +431,14 @@ qt_add_resources(marathon-shell "shell_images"
         resources/images/camera.svg
         resources/images/calendar.svg
 )
+# Baked with shaders/build-shaders.sh; the device build roots have no qsb.
+qt_add_resources(marathon-shell "shell_shaders"
+    PREFIX "/marathon/shaders"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+    FILES
+        shaders/windowcorner.vert.qsb
+        shaders/windowcorner.frag.qsb
+)
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
@@ -485,6 +493,9 @@ qt6_add_qml_module(marathon-shell
         src/services/router.h
         src/services/gesturetracker.cpp
         src/services/gesturetracker.h
+        src/components/windowtexturegeometry.h
+        src/components/windowtextureitem.cpp
+        src/components/windowtextureitem.h
         src/services/ambiencederivation.cpp
         src/services/ambiencederivation.h
         src/services/ambienceservice.cpp

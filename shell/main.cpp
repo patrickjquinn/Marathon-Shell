@@ -42,6 +42,7 @@
 #include "src/services/applifecyclemanager.h"
 #include "src/services/backgroundtaskobserver.h"
 #include "src/services/gesturetracker.h"
+#include "src/components/windowtextureitem.h"
 #include "src/services/memorypressuremonitor.h"
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
@@ -581,6 +582,7 @@ int main(int argc, char *argv[]) {
 
     qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
     qmlRegisterType<GestureTracker>("MarathonOS.Shell", 1, 0, "GestureTracker");
+    qmlRegisterType<WindowTextureItem>("MarathonOS.Shell", 1, 0, "WindowTextureItem");
 
     auto *sessionStore = new SessionStore(&app);
     qmlRegisterSingletonInstance<SessionStore>("MarathonOS.Shell", 1, 0, "SessionStore",

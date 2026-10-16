@@ -224,3 +224,20 @@ add_executable(test_shell_gesturetracker
 target_link_libraries(test_shell_gesturetracker Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_gesturetracker PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_GestureTracker COMMAND test_shell_gesturetracker)
+
+# WindowTextureItem: rounded, cropped texture geometry and the corner shader
+find_package(Qt6 REQUIRED COMPONENTS Quick)
+add_executable(test_shell_windowtextureitem
+    test_windowtextureitem.cpp
+    ../../shell/src/components/windowtextureitem.cpp
+)
+qt_add_resources(test_shell_windowtextureitem "test_shell_shaders"
+    PREFIX "/marathon/shaders"
+    BASE "${CMAKE_SOURCE_DIR}/shell/shaders"
+    FILES
+        ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.vert.qsb
+        ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.frag.qsb
+)
+target_link_libraries(test_shell_windowtextureitem Qt6::Test Qt6::Quick)
+add_test(NAME Shell_WindowTextureItem COMMAND test_shell_windowtextureitem)
+set_tests_properties(Shell_WindowTextureItem PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
