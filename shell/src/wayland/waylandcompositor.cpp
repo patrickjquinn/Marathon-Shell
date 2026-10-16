@@ -947,6 +947,13 @@ QSize WaylandCompositor::appConfigureSize() const {
     return (m_output && m_output->window()) ? m_output->window()->size() : QSize();
 }
 
+void WaylandCompositor::cancelTouch(QQuickItem *item) {
+    // QWaylandQuickItem::touchUngrabEvent sends the cancel and stops the
+    // client's points; their later moves stay with the shell.
+    if (item)
+        item->ungrabTouchPoints();
+}
+
 void WaylandCompositor::nudgeSurface(int surfaceId) {
     QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
     if (!surface)

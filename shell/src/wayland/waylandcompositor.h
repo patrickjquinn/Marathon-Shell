@@ -74,6 +74,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
     Q_INVOKABLE void     nudgeSurface(int surfaceId);
+    // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
+    Q_INVOKABLE void     cancelTouch(QQuickItem *item);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
     Q_INVOKABLE void     setCompositorActive(bool active);
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);

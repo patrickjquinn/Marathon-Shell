@@ -1585,6 +1585,14 @@ Item {
                     sourceRect: dockCorners.crop(source)
                 }
 
+                // A pill gesture takes the app's fingers (a second finger
+                // on the pill while one is in the app): it gets a cancel.
+                readonly property bool gestureStolen: navBar.gestureProgress > 0 || navBar.backTracker.value > 0
+                onGestureStolenChanged: {
+                    if (gestureStolen && surface && shell.compositor)
+                        shell.compositor.cancelTouch(surface);
+                }
+
                 Binding {
                     target: dockCorners.app
                     property: "texturesRequested"
