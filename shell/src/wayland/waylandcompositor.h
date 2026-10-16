@@ -86,6 +86,11 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     setCompositorActive(bool active);
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
     Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
+    // System back for a native app's window: dismisses its popup, closes its
+    // dialog or sends its toolkit's back key, then emits nativeBackUnhandled
+    // if the app showed no change (docs/NATIVE_APP_LIFECYCLE.md).
+    Q_INVOKABLE void     sendNativeBack(int surfaceId, bool keelHosted);
+    Q_INVOKABLE void     sendNativeForward(int surfaceId, bool keelHosted);
     Q_INVOKABLE bool     checkIdleInhibitors();
 
     // Emits xdg_toplevel.configure with state_suspended (9) added to or
@@ -114,6 +119,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
     void systemBackTriggered();
+    void nativeBackUnhandled(int surfaceId);
     void systemHomeTriggered();
     void userActivity();
     void nativeTextInputPanelRequested(bool show);
@@ -132,6 +138,8 @@ class WaylandCompositor : public QWaylandCompositor {
 
   private:
     QString focusedToolkit() const;
+    void    watchNativeBack(QWaylandSurface *surface, int surfaceId);
+    void    sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers);
     void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    configureCover(QWaylandXdgToplevel *toplevel) const;

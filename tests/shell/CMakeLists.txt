@@ -113,6 +113,12 @@ target_link_libraries(test_shell_keyrouting Qt6::Test Qt6::Core)
 target_include_directories(test_shell_keyrouting PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_KeyRouting COMMAND test_shell_keyrouting)
 
+# System back for native apps: the key per toolkit, and what counts as handled
+add_executable(test_shell_nativeback test_nativeback.cpp)
+target_link_libraries(test_shell_nativeback Qt6::Test Qt6::Core Qt6::Gui)
+target_include_directories(test_shell_nativeback PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
+add_test(NAME Shell_NativeBack COMMAND test_shell_nativeback)
+
 # Nemo.Ngf events to vibration patterns
 add_executable(test_shell_ngfevents test_ngfevents.cpp)
 target_link_libraries(test_shell_ngfevents Qt6::Test Qt6::Core)

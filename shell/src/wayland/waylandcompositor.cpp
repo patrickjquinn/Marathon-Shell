@@ -1,6 +1,7 @@
 #include "src/wayland/waylandcompositor.h"
 #include "src/wayland/keyrouting.h"
 #include "src/wayland/keelcover.h"
+#include "src/wayland/nativeback.h"
 #include "marathonappregistry.h"
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
@@ -1858,6 +1859,111 @@ void WaylandCompositor::injectKey(int key, int modifiers, bool pressed) {
     defaultSeat()->sendFullKeyEvent(&event);
     qInfo() << "[WaylandCompositor] Injected Key:" << key << "Modifiers:" << modifiers
             << "Pressed:" << pressed;
+}
+
+void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
+    QWaylandSurface *surface = m_surfaceMap.value(surfaceId);
+    if (!surface || !surface->client()) {
+        emit nativeBackUnhandled(surfaceId);
+        return;
+    }
+    watchNativeBack(surface, surfaceId);
+
+    // Transient UI goes first, through the protocol rather than a key the
+    // focused widget might take: the app's newest popup, else its newest
+    // child window.
+    QWaylandXdgPopup    *popup  = nullptr;
+    QWaylandXdgToplevel *dialog = nullptr;
+    for (auto it = m_xdgSurfaceMap.constBegin(); it != m_xdgSurfaceMap.constEnd(); ++it) {
+        const QWaylandXdgSurface *xdg = it.value();
+        if (!xdg || !xdg->surface() || xdg->surface() == surface ||
+            xdg->surface()->client() != surface->client() || !xdg->surface()->hasContent())
+            continue;
+        if (xdg->popup())
+            popup = xdg->popup();
+        else if (xdg->toplevel() && xdg->toplevel()->parentToplevel())
+            dialog = xdg->toplevel();
+    }
+    if (popup) {
+        popup->sendPopupDone();
+        return;
+    }
+    if (dialog) {
+        dialog->sendClose();
+        return;
+    }
+
+    QVariant toolkit = surface->property("nativeToolkit");
+    if (!toolkit.isValid()) {
+        QFile maps(QStringLiteral("/proc/%1/maps").arg(surface->client()->processId()));
+        toolkit = int(maps.open(QIODevice::ReadOnly) ? NativeBack::toolkitFromMaps(maps.readAll()) :
+                                                       NativeBack::Unknown);
+        surface->setProperty("nativeToolkit", toolkit);
+    }
+    sendKeyTo(surface, NativeBack::backKey(NativeBack::Toolkit(toolkit.toInt()), keelHosted),
+              Qt::NoModifier);
+}
+
+void WaylandCompositor::sendNativeForward(int surfaceId, bool keelHosted) {
+    QWaylandSurface *surface = m_surfaceMap.value(surfaceId);
+    if (!surface || !surface->client())
+        return;
+    if (keelHosted)
+        sendKeyTo(surface, Qt::Key_Right, Qt::AltModifier);
+    else
+        sendKeyTo(surface, Qt::Key_Forward, Qt::NoModifier);
+}
+
+// Wayland has no reply to a key: back counts as handled once the app shows a
+// change, and as unhandled if the watch window passes without one.
+void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId) {
+    static const int watchMs = [] {
+        bool      ok = false;
+        const int ms = qEnvironmentVariableIntValue("MARATHON_NATIVE_BACK_MS", &ok);
+        return ok && ms > 0 ? ms : NativeBack::kWatchMs;
+    }();
+    auto      *watch   = new QObject(this);
+    auto       settled = std::make_shared<bool>(false);
+    const auto changed = [watch, settled]() {
+        *settled = true;
+        watch->deleteLater();
+    };
+    connect(surface, &QWaylandSurface::damaged, watch, [surface, changed](const QRegion &damage) {
+        if (NativeBack::visibleChange(damage, surface->destinationSize()))
+            changed();
+    });
+    connect(surface, &QWaylandSurface::surfaceDestroyed, watch, changed);
+    if (auto *toplevel = surface->property("xdgToplevel").value<QWaylandXdgToplevel *>())
+        connect(toplevel, &QWaylandXdgToplevel::titleChanged, watch, changed);
+    QWaylandClient *client = surface->client();
+    for (const QPointer<QWaylandSurface> &other : std::as_const(m_surfaceMap)) {
+        if (other && other != surface && other->client() == client) {
+            connect(other, &QWaylandSurface::hasContentChanged, watch, changed);
+            connect(other, &QWaylandSurface::surfaceDestroyed, watch, changed);
+        }
+    }
+    connect(this, &QWaylandCompositor::surfaceCreated, watch,
+            [client, changed](QWaylandSurface *created) {
+                if (created->client() == client)
+                    changed();
+            });
+    QTimer::singleShot(watchMs, watch, [this, watch, settled, surfaceId]() {
+        if (!*settled)
+            emit nativeBackUnhandled(surfaceId);
+        watch->deleteLater();
+    });
+}
+
+// The key reaches the app even when another client holds keyboard focus.
+void WaylandCompositor::sendKeyTo(QWaylandSurface *surface, int key,
+                                  Qt::KeyboardModifiers modifiers) {
+    if (QWaylandSeat *seat = defaultSeat()) {
+        const QWaylandSurface *focus = seat->keyboardFocus();
+        if (!focus || focus->client() != surface->client())
+            seat->setKeyboardFocus(surface);
+    }
+    injectKey(key, int(modifiers), true);
+    injectKey(key, int(modifiers), false);
 }
 
 bool WaylandCompositor::checkIdleInhibitors() {
