@@ -47,7 +47,12 @@ void BackgroundTaskObserver::onMprisPlaybackChanged() {
         return;
     if (m_mpris->isPlaying()) {
         const QString busName = m_mpris->currentBusName();
-        const QString appId   = resolveAppIdForBusName(busName);
+        QString       appId   = resolveAppIdForBusName(busName);
+        // Sandboxed (flatpak) players reach the bus through xdg-dbus-proxy,
+        // whose pid is not the app's; fall back to the player's DesktopEntry.
+        const QString entry = m_mpris->desktopEntry();
+        if (appId.isEmpty() && !entry.isEmpty() && m_launch && m_launch->pidForAppId(entry) > 0)
+            appId = entry;
         if (appId.isEmpty()) {
             qCDebug(lcBgObs) << "playback active but no Marathon appId for bus" << busName;
             releaseAudioPlayback();
