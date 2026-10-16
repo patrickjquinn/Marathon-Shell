@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Keel.Actions 1.0
 import "../pages"
 
 TestCase {
@@ -96,6 +97,26 @@ TestCase {
         verify(store.notes[0].pinned);
         findChild(page, "pinNoteItem").clicked(null);
         verify(!store.notes[0].pinned);
+    }
+
+    function test_contextIsTheNoteOnScreen() {
+        const store = createTemporaryObject(storeStub, this, { notes: [{ id: 3, title: "T", content: "T\nB", timestamp: 1 }] });
+        const app = createTemporaryObject(appComponent, testCase);
+        tryVerify(() => app.pageStack.currentPage !== null);
+        compare(JSON.stringify(KeelActions.context()), "{}");
+
+        app.pageStack.push(pageComponent, { store: store, noteId: 3 }, PageStackAction.Immediate);
+        const page = app.pageStack.currentPage;
+        tryCompare(page, "status", PageStatus.Active);
+        compare(KeelActions.context().purpose, "editing a note");
+        compare(KeelActions.context().text, "T\nB");
+
+        findChild(page, "bodyField").text = "T\nB and C";
+        compare(KeelActions.context().text, "T\nB and C");
+
+        app.pageStack.push(Qt.createComponent("Sailfish.Silica", "Page"), {}, PageStackAction.Immediate);
+        tryCompare(page, "status", PageStatus.Inactive);
+        compare(JSON.stringify(KeelActions.context()), "{}");
     }
 
     function test_deleteWithRemorsePops() {

@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Keel.Actions 1.0
 import "../NotesStore.js" as Store
 
 Page {
@@ -45,6 +46,12 @@ Page {
         } else {
             bodyArea.forceActiveFocus();
         }
+    }
+
+    KeelContext {
+        purpose: "editing a note"
+        text: bodyArea.text
+        active: page.status === PageStatus.Active
     }
 
     Timer {

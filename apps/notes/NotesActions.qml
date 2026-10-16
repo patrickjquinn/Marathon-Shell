@@ -3,8 +3,8 @@ import Keel.Actions 1.0
 import "NotesStore.js" as Store
 
 // keel-actions.json is actions.json from Shipwright's
-//   keel actions --qml NotesActions.qml --app-id org.marathonos.notes \
-//       --exec /usr/bin/marathon-app-runner --out <dir>
+//   keel actions --qml NotesActions.qml --qml pages/NoteEditorPage.qml \
+//       --app-id org.marathonos.notes --exec /usr/bin/marathon-app-runner --out <dir>
 // regenerate it after changing a declaration.
 Item {
     id: root

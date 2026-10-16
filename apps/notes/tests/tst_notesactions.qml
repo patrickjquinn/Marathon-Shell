@@ -81,6 +81,7 @@ TestCase {
         xhr.send();
         const manifest = JSON.parse(xhr.responseText);
         compare(manifest.appId, "org.marathonos.notes");
+        compare(manifest.context.uri, "keel://org.marathonos.notes/context");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
         const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.notes/" + t.name.substring(prefix.length) }));

@@ -1,5 +1,8 @@
 {
   "appId": "org.marathonos.notes",
+  "context": {
+    "uri": "keel://org.marathonos.notes/context"
+  },
   "entities": [],
   "prompts": [],
   "tools": [
