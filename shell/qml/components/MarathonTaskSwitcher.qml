@@ -37,7 +37,7 @@ Item {
         for (var i = 0; i < taskGrid.count; ++i) {
             var card = taskGrid.itemAtIndex(i) as TaskCard;
             if (card && card.appId === appId) {
-                taskGrid.positionViewAtIndex(i, GridView.Contain);
+                taskGrid.showPage(Math.floor(i / 4));
                 return;
             }
         }
@@ -172,26 +172,45 @@ Item {
     GridView {
         id: taskGrid
 
-        snapMode: GridView.SnapOneRow
-        flickDeceleration: 1500
-        maximumFlickVelocity: 3000
-        anchors.fill: parent
-        anchors.margins: Silica.Theme.paddingLarge
-        // Two columns of cards in the cover's proportions: two rows a page
-        // where they fit (tall phones), otherwise one row of cards narrowed
-        // to the page's height (square screens). Rows are spread over the
-        // page so none is cut off.
-        readonly property bool overflows: contentHeight > height
-        readonly property real coverAspect: Silica.Theme.coverSizeLarge.height / Silica.Theme.coverSizeLarge.width
+        // Two by two cards a page, as BB10's active frames, filling their
+        // cells whatever the screen's shape; pages scroll vertically. The
+        // gap between cards and at the edges is paddingMedium.
+        readonly property real gap: Silica.Theme.paddingMedium
         readonly property real bannerHeight: Silica.Theme.iconSizeSmall + 2 * Silica.Theme.paddingSmall
-        readonly property real cardChrome: bannerHeight + 2 * Silica.Theme.paddingSmall
-        readonly property real cardHeight: Math.min(height, (cellWidth - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome)
-        readonly property int rowsPerPage: Math.max(1, Math.floor(height / cardHeight))
+        readonly property int rows: Math.ceil(count / 2)
+        readonly property int pages: Math.max(1, Math.ceil(rows / 2))
+        readonly property real pageHeight: 2 * cellHeight
+        // Every card's cover area; Keel covers are laid out at this size.
+        readonly property size coverSize: Qt.size(Math.max(0, cellWidth - gap), Math.max(0, cellHeight - gap - bannerHeight))
+        property int dragStartPage: 0
 
-        anchors.rightMargin: overflows ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
-        anchors.bottomMargin: Constants.bottomBarHeight + Silica.Theme.paddingLarge
-        cellWidth: width / 2
-        cellHeight: height / rowsPerPage
+        function showPage(page) {
+            pageAnimation.stop();
+            contentY = originY + Math.max(0, Math.min(page, pages - 1)) * pageHeight;
+        }
+
+        function settle() {
+            var page = dragStartPage;
+            var moved = contentY - originY - dragStartPage * pageHeight;
+            if (verticalVelocity > 500 || moved > pageHeight * 0.25)
+                page++;
+            else if (verticalVelocity < -500 || moved < -pageHeight * 0.25)
+                page--;
+            page = Math.max(0, Math.min(page, pages - 1));
+            pageAnimation.to = originY + page * pageHeight;
+            pageAnimation.restart();
+        }
+
+        anchors.fill: parent
+        anchors.margins: gap / 2
+        anchors.bottomMargin: Constants.bottomBarHeight + gap / 2
+        cellWidth: Math.floor(width / 2)
+        cellHeight: Math.floor(height / 2)
+        // Pads a part-filled last page so it can be paged to.
+        footer: Item {
+            width: 1
+            height: (taskGrid.pages * 2 - taskGrid.rows) * taskGrid.cellHeight
+        }
         clip: true
         Component.onCompleted: {
             console.log("[TaskSwitcher] GridView created, model count:", count);
@@ -199,7 +218,7 @@ Item {
         }
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
-        interactive: overflows
+        interactive: pages > 1
         boundsBehavior: Flickable.StopAtBounds
         model: TaskModel
         cacheBuffer: Math.max(0, height * 2)
@@ -208,11 +227,27 @@ Item {
         onFlickingChanged: Logger.info("TaskSwitcher", "GridView flicking: " + flicking)
         onMovingChanged: Logger.info("TaskSwitcher", "GridView moving: " + moving + ", contentY: " + contentY)
         onInteractiveChanged: Logger.info("TaskSwitcher", "GridView interactive changed: " + interactive + ", taskCount: " + TaskModel.taskCount)
+        onDragStarted: {
+            pageAnimation.stop();
+            dragStartPage = Math.round((contentY - originY) / pageHeight);
+        }
+        onDragEnded: settle()
+        onFlickStarted: cancelFlick()
+
+        NumberAnimation {
+            id: pageAnimation
+
+            target: taskGrid
+            property: "contentY"
+            duration: MMotion.moderate
+            easing.type: Easing.OutCubic
+        }
 
         delegate: TaskCard {
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
             bannerHeight: taskGrid.bannerHeight
+            coverSize: taskGrid.coverSize
             haveWayland: taskSwitcher.haveWayland
             compositor: taskSwitcher.compositor
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
@@ -271,9 +306,19 @@ Item {
     }
 
     TaskPageIndicator {
-        gridContentY: taskGrid.contentY
-        gridContentHeight: taskGrid.contentHeight
-        gridHeight: taskGrid.height
+        anchors.rightMargin: (taskGrid.gap - width) / 2
+        gridContentY: taskGrid.contentY - taskGrid.originY
+        gridContentHeight: taskGrid.pages * taskGrid.pageHeight
+        gridHeight: taskGrid.pageHeight
+    }
+
+    Binding {
+        target: taskSwitcher.compositor
+        property: "coverSize"
+        value: Qt.size(Math.floor(taskGrid.coverSize.width), Math.floor(taskGrid.coverSize.height))
+        when: taskSwitcher.compositor !== null && taskGrid.coverSize.height > 0
+        delayed: true
+        restoreMode: Binding.RestoreNone
     }
 
     Behavior on opacity {

@@ -18,6 +18,8 @@ Item {
     required property var waylandSurface
     property bool haveWayland: false
     property real bannerHeight: Theme.itemSizeSmall
+    // The cover area, the size Keel covers are laid out at.
+    property size coverSize
     property var compositor: null
     property bool taskSwitcherVisible: true
     property bool gridMoving: false
@@ -188,8 +190,7 @@ Item {
 
         anchors.centerIn: parent
         anchors.verticalCenterOffset: swipe.value
-        // The cell's width, or narrower where the cover's shape would overrun its height.
-        width: Math.max(0, Math.floor(Math.min(taskCard.width - 2 * Theme.paddingSmall, (taskCard.height - 2 * Theme.paddingSmall - taskCard.bannerHeight) * Theme.coverSizeLarge.width / Theme.coverSizeLarge.height)))
+        width: glass.width
         height: glass.height + bannerRect.height
         readonly property bool pressed: (previewTapArea.pressed || handleTapArea.pressed) && !taskCard.suppressTapOpen
 
@@ -217,14 +218,13 @@ Item {
             }
         }
 
-        // The cover's own shape (Theme.coverSizeLarge at the card's width).
         Rectangle {
             id: glass
 
             anchors.top: parent.top
             anchors.left: parent.left
-            anchors.right: parent.right
-            height: Math.round(width * Theme.coverSizeLarge.height / Theme.coverSizeLarge.width)
+            width: Math.floor(taskCard.coverSize.width)
+            height: Math.floor(taskCard.coverSize.height)
             // Neutral dark glass: the highlight colours only mark text and state.
             color: Qt.rgba(0, 0, 0, 0.55)
             radius: Theme.paddingMedium
@@ -318,15 +318,13 @@ Item {
             visible: !taskCard.docking
         }
 
-        // The cover fills the glass; a live preview keeps the app's shape,
-        // centred when wider than the card. Both draw through rounded
-        // WindowTextureItems, so the card needs no layer.
+        // The cover is laid out at the glass's size; a live preview fills it,
+        // cropped from the top. Both draw through rounded WindowTextureItems,
+        // so the card needs no layer.
         Item {
             id: cardContent
 
-            anchors.centerIn: glass
-            width: glass.width
-            height: coverView.available ? glass.height : Math.min(glass.height, glass.width * (Constants.screenWidth > 0 ? Constants.screenHeight / Constants.screenWidth : 1))
+            anchors.fill: glass
             visible: !taskCard.docking
 
             Item {
@@ -560,10 +558,7 @@ Item {
                                 }
 
                                 Rectangle {
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.fill: parent
                                     visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
                                     color: "transparent"
 
