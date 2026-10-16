@@ -284,9 +284,11 @@ add_executable(test_core_defaultwallpaper
     test_defaultwallpaper.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/services/wallpaperstore.cpp
 )
+set_target_properties(test_core_defaultwallpaper PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_defaultwallpaper Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_defaultwallpaper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+target_include_directories(test_core_defaultwallpaper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src ${CMAKE_SOURCE_DIR}/shell)
 add_test(NAME Core_DefaultWallpaper COMMAND test_core_defaultwallpaper)
 
 # Unstorable settings values neither poison the file nor reach QML

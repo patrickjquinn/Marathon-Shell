@@ -16,7 +16,7 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
         const QString rel = QStringLiteral("wallpapers/") + QLatin1String(file);
         const QString qrc = QStringLiteral("qrc:/wallpapers/") + QLatin1String(file);
         return QVariantMap{
-            {"name", QLatin1String(name)},
+            {"name", QString::fromUtf8(name)},
             {"path", resolveAssetPath(rel, qrc)},
             {"isDark", dark},
         };
