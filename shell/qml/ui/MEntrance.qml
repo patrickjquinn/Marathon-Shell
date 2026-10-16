@@ -69,41 +69,43 @@ Item {
     // soft "arrival" cue. Opacity rides the effects family (critical
     // damping; colour/opacity must not ring). Stagger comes from the
     // index * MMotion.staggerShort delay.
-    ParallelAnimation {
+    SequentialAnimation {
         id: animator
 
         PauseAnimation {
             duration: ent.index * ent.stagger
         }
 
-        SpringAnimation {
-            target: ent.target
-            property: "opacity"
-            from: 0
-            to: 1
-            spring: MMotion.stiffnessEffectsFor("entrance")
-            damping: MMotion.dampingEffectsFor("entrance")
-            epsilon: MMotion.epsilon
-        }
+        ParallelAnimation {
+            SpringAnimation {
+                target: ent.target
+                property: "opacity"
+                from: 0
+                to: 1
+                spring: MMotion.stiffnessEffectsFor("entrance")
+                damping: MMotion.dampingEffectsFor("entrance")
+                epsilon: MMotion.epsilon
+            }
 
-        SpringAnimation {
-            target: ent.target
-            property: "scale"
-            from: ent.startScale
-            to: 1.0
-            spring: MMotion.stiffnessSpatialFor("entrance")
-            damping: MMotion.dampingSpatialFor("entrance")
-            epsilon: MMotion.epsilon
-        }
+            SpringAnimation {
+                target: ent.target
+                property: "scale"
+                from: ent.startScale
+                to: 1.0
+                spring: MMotion.stiffnessSpatialFor("entrance")
+                damping: MMotion.dampingSpatialFor("entrance")
+                epsilon: MMotion.epsilon
+            }
 
-        SpringAnimation {
-            target: ent.target
-            property: "y"
-            from: (ent.target ? ent.target.y : 0)
-            to: (ent.target ? ent.target.y - ent.translateY : 0)
-            spring: MMotion.stiffnessSpatialFor("entrance")
-            damping: MMotion.dampingSpatialFor("entrance")
-            epsilon: MMotion.epsilonSpatial
+            SpringAnimation {
+                target: ent.target
+                property: "y"
+                from: (ent.target ? ent.target.y : 0)
+                to: (ent.target ? ent.target.y - ent.translateY : 0)
+                spring: MMotion.stiffnessSpatialFor("entrance")
+                damping: MMotion.dampingSpatialFor("entrance")
+                epsilon: MMotion.epsilonSpatial
+            }
         }
 
         onStopped: ent._played = true
