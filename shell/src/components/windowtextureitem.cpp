@@ -1,6 +1,7 @@
 #include "windowtextureitem.h"
 #include "windowtexturegeometry.h"
 
+#include <QGuiApplication>
 #include <QMultiHash>
 #include <QQuickWindow>
 #include <QSGGeometryNode>
@@ -38,11 +39,9 @@ namespace {
         }
         QSGMaterialShader *createShader(QSGRendererInterface::RenderMode) const override;
         int                compare(const QSGMaterial *other) const override {
-            const auto  *o = static_cast<const CornerMaterial *>(other);
-            const qint64 a = texture ? qint64(texture->comparisonKey()) : 0;
-            const qint64 b = o->texture ? qint64(o->texture->comparisonKey()) : 0;
-            if (a != b)
-                return a < b ? -1 : 1;
+            const auto *o = static_cast<const CornerMaterial *>(other);
+            if (key != o->key)
+                return key < o->key ? -1 : 1;
             if (edges != o->edges)
                 return edges.x() < o->edges.x() ||
                         (edges.x() == o->edges.x() && edges.y() < o->edges.y()) ?
@@ -52,7 +51,32 @@ namespace {
         }
 
         QSGTexture *texture = nullptr;
+        qint64      key     = 0;
         QPointF     edges{1, 1};
+    };
+
+    // Compares by a key taken at setTexture: the batch renderer compares
+    // materials while QtWayland has already deleted the texture they hold.
+    // Its own type, so it never batches with Qt's texture nodes, which hold
+    // the same deleted texture.
+    template <class Base>
+    class KeyedTextureMaterial : public Base {
+      public:
+        QSGMaterialType *type() const override {
+            static QSGMaterialType t;
+            return &t;
+        }
+        int compare(const QSGMaterial *other) const override {
+            const qint64 b = static_cast<const KeyedTextureMaterial *>(other)->m_key;
+            return m_key == b ? 0 : (m_key < b ? -1 : 1);
+        }
+        void setKeyedTexture(QSGTexture *texture) {
+            Base::setTexture(texture);
+            m_key = texture ? qint64(texture->comparisonKey()) : 0;
+        }
+
+      private:
+        qint64 m_key = 0;
     };
 
     class CornerShader : public QSGMaterialShader {
@@ -116,8 +140,9 @@ class WindowTextureNode : public QObject, public QSGNode {
     Q_OBJECT
 
   public:
-    WindowTextureNode(QQuickWindow *window, bool software)
-        : m_window(window)
+    WindowTextureNode(WindowTextureItem *item, QQuickWindow *window, bool software)
+        : m_item(item)
+        , m_window(window)
         , m_software(software)
         , m_bodyGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 0)
         , m_cornerGeometry(cornerAttributes(), 0) {
@@ -135,15 +160,10 @@ class WindowTextureNode : public QObject, public QSGNode {
         m_corners.setGeometry(&m_cornerGeometry);
         m_corners.setMaterial(&m_cornerMaterial);
         m_corners.setFlag(QSGNode::OwnedByParent, false);
-        appendChildNode(&m_body);
-        appendChildNode(&m_corners);
     }
 
     ~WindowTextureNode() override {
-        if (!m_software) {
-            removeChildNode(&m_body);
-            removeChildNode(&m_corners);
-        }
+        setAttached(false);
     }
 
     void setProvider(QSGTextureProvider *provider) {
@@ -153,9 +173,9 @@ class WindowTextureNode : public QObject, public QSGNode {
             disconnect(m_provider, nullptr, this, nullptr);
         m_provider = provider;
         if (provider) {
-            connect(provider, &QSGTextureProvider::textureChanged, this, &WindowTextureNode::apply,
+            connect(provider, &QSGTextureProvider::textureChanged, this, &WindowTextureNode::follow,
                     Qt::DirectConnection);
-            connect(provider, &QObject::destroyed, this, &WindowTextureNode::apply,
+            connect(provider, &QObject::destroyed, this, &WindowTextureNode::follow,
                     Qt::DirectConnection);
         }
     }
@@ -170,14 +190,16 @@ class WindowTextureNode : public QObject, public QSGNode {
         apply();
     }
 
-    bool hasTexture() const {
-        return m_texture != nullptr;
+    // Whether there is a texture, now reported to the item.
+    bool takeReady() {
+        m_reported = m_texture != nullptr;
+        return m_reported;
     }
 
     void preprocess() override {
         if (auto *dynamic = qobject_cast<QSGDynamicTexture *>(m_texture);
             dynamic && dynamic->updateTexture())
-            apply();
+            follow();
     }
 
   private:
@@ -187,6 +209,20 @@ class WindowTextureNode : public QObject, public QSGNode {
             applySoftware();
         else
             applyRhi();
+    }
+
+    // A texture came or went between the item's syncs: resync it so its
+    // ready follows. Queued through qApp, which outlives the item.
+    void follow() {
+        apply();
+        if ((m_texture != nullptr) != m_reported)
+            QMetaObject::invokeMethod(
+                qApp,
+                [item = m_item]() {
+                    if (item)
+                        item->update();
+                },
+                Qt::QueuedConnection);
     }
 
     void applySoftware() {
@@ -213,17 +249,35 @@ class WindowTextureNode : public QObject, public QSGNode {
                                                           QSGImageNode::NoTransform);
     }
 
+    // Out of the tree while there is no texture: no material is left
+    // holding a deleted one.
+    void setAttached(bool attached) {
+        if (attached == m_attached)
+            return;
+        m_attached = attached;
+        if (attached) {
+            appendChildNode(&m_body);
+            appendChildNode(&m_corners);
+        } else {
+            removeChildNode(&m_body);
+            removeChildNode(&m_corners);
+        }
+    }
+
+    void setMaterialTexture(QSGTexture *texture) {
+        m_opaque.setKeyedTexture(texture);
+        m_material.setKeyedTexture(texture);
+        m_cornerMaterial.texture = texture;
+        m_cornerMaterial.key     = texture ? qint64(texture->comparisonKey()) : 0;
+    }
+
     void applyRhi() {
         if (!m_texture) {
-            m_bodyGeometry.allocate(0);
-            m_cornerGeometry.allocate(0);
-            m_body.markDirty(QSGNode::DirtyGeometry);
-            m_corners.markDirty(QSGNode::DirtyGeometry);
+            setAttached(false);
+            setMaterialTexture(nullptr);
             return;
         }
-        m_opaque.setTexture(m_texture);
-        m_material.setTexture(m_texture);
-        m_cornerMaterial.texture = m_texture;
+        setMaterialTexture(m_texture);
         m_body.setOpaqueMaterial(m_texture->hasAlphaChannel() ? nullptr : &m_opaque);
 
         const QRectF tex = WindowTextureGeometry::textureRect(m_texture->normalizedTextureSubRect(),
@@ -238,26 +292,30 @@ class WindowTextureNode : public QObject, public QSGNode {
         m_cornerMaterial.edges = WindowTextureGeometry::cornerEdges(r, m_aaWidth);
         m_body.markDirty(QSGNode::DirtyGeometry | QSGNode::DirtyMaterial);
         m_corners.markDirty(QSGNode::DirtyGeometry | QSGNode::DirtyMaterial);
+        setAttached(true);
     }
 
-    QQuickWindow                *m_window;
-    const bool                   m_software;
-    QPointer<QSGTextureProvider> m_provider;
-    QSGTexture                  *m_texture = nullptr;
-    QRectF                       m_rect;
-    QRectF                       m_sourceRect;
-    bool                         m_flipY   = false;
-    qreal                        m_radius  = 0;
-    qreal                        m_aaWidth = 1;
+    QPointer<WindowTextureItem>                    m_item;
+    QQuickWindow                                  *m_window;
+    const bool                                     m_software;
+    QPointer<QSGTextureProvider>                   m_provider;
+    QSGTexture                                    *m_texture = nullptr;
+    QRectF                                         m_rect;
+    QRectF                                         m_sourceRect;
+    bool                                           m_flipY   = false;
+    qreal                                          m_radius  = 0;
+    qreal                                          m_aaWidth = 1;
 
-    QSGGeometryNode              m_body;
-    QSGGeometry                  m_bodyGeometry;
-    QSGOpaqueTextureMaterial     m_opaque;
-    QSGTextureMaterial           m_material;
-    QSGGeometryNode              m_corners;
-    QSGGeometry                  m_cornerGeometry;
-    CornerMaterial               m_cornerMaterial;
-    QSGImageNode                *m_image = nullptr;
+    QSGGeometryNode                                m_body;
+    QSGGeometry                                    m_bodyGeometry;
+    bool                                           m_attached = false;
+    bool                                           m_reported = false;
+    KeyedTextureMaterial<QSGOpaqueTextureMaterial> m_opaque;
+    KeyedTextureMaterial<QSGTextureMaterial>       m_material;
+    QSGGeometryNode                                m_corners;
+    QSGGeometry                                    m_cornerGeometry;
+    CornerMaterial                                 m_cornerMaterial;
+    QSGImageNode                                  *m_image = nullptr;
 };
 
 WindowTextureItem::WindowTextureItem(QQuickItem *parent)
@@ -347,7 +405,7 @@ QSGNode *WindowTextureItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeDat
     if (!node) {
         const bool software =
             window()->rendererInterface()->graphicsApi() == QSGRendererInterface::Software;
-        node = new WindowTextureNode(window(), software);
+        node = new WindowTextureNode(this, window(), software);
     }
     node->setProvider(provider);
 
@@ -364,7 +422,7 @@ QSGNode *WindowTextureItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeDat
     const qreal       scale = qSqrt(qAbs(m(0, 0) * m(1, 1) - m(0, 1) * m(1, 0)));
     node->setParams(boundingRect(), m_sourceRect, flipY, m_radius, scale > 0 ? 1 / scale : 1);
 
-    const bool ready = node->hasTexture();
+    const bool ready = node->takeReady();
     QMetaObject::invokeMethod(this, [this, ready]() { setReady(ready); }, Qt::QueuedConnection);
     return node;
 }

@@ -251,6 +251,25 @@ target_link_libraries(test_shell_windowtextureitem Qt6::Test Qt6::Quick)
 add_test(NAME Shell_WindowTextureItem COMMAND test_shell_windowtextureitem)
 set_tests_properties(Shell_WindowTextureItem PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# WindowTextureItem under QtWayland's commit pattern: texture deleted, then
+# textureChanged, inside the source's updatePaintNode. Null RHI: the batch
+# renderer without a GPU.
+add_executable(test_shell_windowtexturestress
+    test_windowtexturestress.cpp
+    ../../shell/src/components/windowtextureitem.cpp
+)
+qt_add_resources(test_shell_windowtexturestress "test_shell_stress_shaders"
+    PREFIX "/marathon/shaders"
+    BASE "${CMAKE_SOURCE_DIR}/shell/shaders"
+    FILES
+        ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.vert.qsb
+        ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.frag.qsb
+)
+target_link_libraries(test_shell_windowtexturestress Qt6::Test Qt6::Quick)
+add_test(NAME Shell_WindowTextureStress COMMAND test_shell_windowtexturestress)
+set_tests_properties(Shell_WindowTextureStress PROPERTIES ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QSG_RHI_BACKEND=null;QSG_RENDER_LOOP=basic")
+
 # Frame callbacks of hidden surfaces: about once a second
 add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)
 target_link_libraries(test_shell_hiddenframethrottle Qt6::Test Qt6::Core)
