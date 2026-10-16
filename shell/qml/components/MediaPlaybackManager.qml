@@ -16,6 +16,8 @@ Item {
     readonly property real progress: hasMedia ? MPRIS2Controller.position / 1e+06 : 0
     readonly property real duration: hasMedia ? MPRIS2Controller.trackLength / 1e+06 : 0
     readonly property real progressFraction: duration > 0 ? Math.max(0, Math.min(1, progress / duration)) : 0
+    // Stands in for missing art, as Shortwave draws a station: "CJME News/Talk" → "CN".
+    readonly property string initials: trackTitle.split(/\s+/).filter(w => /^\w/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join("")
 
     function formatTime(seconds) {
         const total = Math.max(0, Math.floor(seconds));
@@ -72,12 +74,27 @@ Item {
                     cache: true
                 }
 
+                Rectangle {
+                    objectName: "initialsTile"
+                    anchors.fill: parent
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.35)
+                    visible: mediaManager.albumArt.length === 0 && mediaManager.initials.length > 0
+
+                    Silica.Label {
+                        anchors.centerIn: parent
+                        text: mediaManager.initials
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeLarge
+                        font.bold: true
+                    }
+                }
+
                 GlyphIcon {
                     anchors.centerIn: parent
                     name: "music"
                     size: Silica.Theme.iconSizeSmall
                     color: Silica.Theme.secondaryColor
-                    visible: mediaManager.albumArt.length === 0
+                    visible: mediaManager.albumArt.length === 0 && mediaManager.initials.length === 0
                 }
             }
 
@@ -104,8 +121,11 @@ Item {
         }
 
         Row {
+            objectName: "progressRow"
             width: parent.width
             spacing: Silica.Theme.paddingMedium
+            // A live stream has no length to scrub through.
+            visible: mediaManager.duration > 0
 
             Silica.Label {
                 id: elapsed
