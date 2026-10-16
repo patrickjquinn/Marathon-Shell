@@ -253,6 +253,10 @@ set(QML_FILES
     qml/components/TaskPageIndicator.qml
     qml/components/MarathonPeek.qml
     qml/components/MarathonHub.qml
+    qml/components/HubWeather.qml
+    qml/components/WeatherHourlyChart.qml
+    qml/components/WeatherSheet.qml
+    qml/components/WeatherTile.qml
     qml/components/MarathonPinScreen.qml
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
@@ -330,6 +334,7 @@ set(QML_FILES
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
     qml/core/BatteryWarning.js
+    qml/core/Weather.js
     qml/core/LauncherGrid.js
 )
 

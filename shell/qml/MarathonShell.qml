@@ -57,6 +57,8 @@ Item {
         } else if (UIStore.quickSettingsOpen) {
             UIStore.closeQuickSettings();
             overlayClosed = true;
+        } else if (pageView.currentIndex === 0 && pageView.closeHubOverlay()) {
+            overlayClosed = true;
         }
         return overlayClosed;
     }

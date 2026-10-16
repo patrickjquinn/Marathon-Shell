@@ -17,11 +17,19 @@ Item {
     property int internalAppGridPage: 0
     property var compositor: null
     property bool initialPageSet: false
+    property bool hubOverlayOpen: false
 
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
     signal appLaunched(var app)
     signal appLongPressed(var app, rect sceneRect)
+
+    // Back over the Hub: true when the Hub closed something of its own.
+    function closeHubOverlay() {
+        const loader = pageView.itemAtIndex(0) as Loader;
+        const hub = loader ? loader.item as MarathonHub : null;
+        return hub !== null && hub.closeOverlay();
+    }
 
     function incrementCurrentIndex() {
         pageView.incrementCurrentIndex();
@@ -146,7 +154,8 @@ Item {
         orientation: ListView.Horizontal
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange
-        interactive: true
+        // The Hub's weather sheet keeps the pages still under it.
+        interactive: !pageViewContainer.hubOverlayOpen
         // pressDelay 200 ate fast horizontal flicks before the Flickable
         // could steal — the user reported swipe Drawer→Hub silently failed.
         // Per-icon MouseAreas already reject tap-on-release when drag > 15 px,
@@ -184,6 +193,7 @@ Item {
             id: hubComponent
 
             MarathonHub {
+                onOverlayOpenChanged: pageViewContainer.hubOverlayOpen = overlayOpen
                 onClosed: {
                     // Return to the home (first app-grid page = index 2).
                     pageView.currentIndex = 2;

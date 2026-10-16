@@ -49,3 +49,4 @@ MMarathonMark 1.0 ../../../../../shell/qml/ui/MMarathonMark.qml
 singleton WindowOrigins 1.0 ../../../../../shell/qml/core/WindowOrigins.qml
 GestureTracker 1.0 GestureTracker.qml
 WindowTextureItem 1.0 WindowTextureItem.qml
+singleton WeatherClient 1.0 WeatherClient.qml

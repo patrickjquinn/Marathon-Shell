@@ -13,6 +13,12 @@ Rectangle {
 
     property bool isInPeekMode: false
     property var agenda: []
+    readonly property bool overlayOpen: weatherSheet.open
+
+    // Back: true when it closed the weather.
+    function closeOverlay() {
+        return weatherSheet.back();
+    }
 
     function refreshAgenda() {
         let events = SettingsManagerCpp.get("calendar/events", []);
@@ -26,8 +32,18 @@ Rectangle {
         hub.agenda = Agenda.forDay(events, new Date());
     }
 
-    onVisibleChanged: if (visible) refreshAgenda()
-    Component.onCompleted: refreshAgenda()
+    onVisibleChanged: {
+        if (visible) {
+            refreshAgenda();
+            WeatherClient.refresh();
+        } else {
+            weatherSheet.open = false;
+        }
+    }
+    Component.onCompleted: {
+        refreshAgenda();
+        WeatherClient.refresh();
+    }
 
     // As the notification banner's tap: open the sender, or just mark read.
     function openNotification(notifId, appId) {
@@ -127,6 +143,11 @@ Rectangle {
                 font.pixelSize: Silica.Theme.fontSizeSmall
             }
 
+            HubWeather {
+                width: parent.width
+                onOpenRequested: weatherSheet.open = true
+            }
+
             Repeater {
                 model: hub.agenda
 
@@ -203,6 +224,13 @@ Rectangle {
             onActivated: hub.openNotification(model.id, appId)
             onDismissed: NotificationService.dismissNotification(model.id)
         }
+    }
+
+    WeatherSheet {
+        id: weatherSheet
+
+        width: parent.width
+        height: parent.height
     }
 
     // ── Helpers ─────────────────────────────────────────────
