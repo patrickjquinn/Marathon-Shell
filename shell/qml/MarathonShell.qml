@@ -1372,7 +1372,8 @@ Item {
         // 0: full screen; 1: sitting on the app's switcher card. The swipe
         // drives it while the finger is down, snapIntoGridAnimation after.
         // TODO(t2): follow the thumb sideways once the nav bar exposes its x travel.
-        readonly property real gestureDock: navBar.gestureProgress * 0.7
+        // Follows the finger over the travel snapIntoGridAnimation assumes for the rest.
+        readonly property real gestureDock: Math.min(1, navBar.minimizeTracker.value / (shell.height * 0.6))
         property real dockAnimated: 0
         readonly property real dock: shell.isTransitioningToActiveFrames ? dockAnimated : gestureDock
         property bool landed: false
@@ -1387,8 +1388,11 @@ Item {
             var s = 0.65;
             return Qt.rect(width * (1 - s) / 2, height * (1 - s) / 2 + Constants.safeAreaTop * s, width * s, appWindow.height * s);
         }
-        readonly property real dockScale: dockCard.width > 0 ? dockCard.width / width : 1
-        // The part of the app the cover shows, in unscaled px from its top.
+        // The window fills the card as the cover does: scaled to cover it,
+        // centred across and from its top, the overflow cropped.
+        readonly property real dockScale: dockCard.width > 0 ? Math.max(dockCard.width / width, dockCard.height / appWindow.height) : 1
+        // The part of the app the card shows, in unscaled px.
+        readonly property real dockWidth: dockCard.width > 0 ? dockCard.width / dockScale : width
         readonly property real dockHeight: dockCard.width > 0 ? dockCard.height / dockScale : appWindow.height
 
         // Apps render full-screen behind the navBar so their content (gradients,
@@ -1408,7 +1412,7 @@ Item {
                 yScale: 1 + (appWindowContainer.dockScale - 1) * appWindowContainer.dock
             },
             Translate {
-                x: appWindowContainer.dockCard.x * appWindowContainer.dock
+                x: (appWindowContainer.dockCard.x - (appWindowContainer.width - appWindowContainer.dockWidth) / 2 * appWindowContainer.dockScale) * appWindowContainer.dock
                 y: (appWindowContainer.dockCard.y - Constants.safeAreaTop * appWindowContainer.dockScale) * appWindowContainer.dock
             }
         ]
@@ -1484,7 +1488,8 @@ Item {
         Item {
             id: cardBorder
 
-            width: parent.width
+            x: (parent.width - appWindowContainer.dockWidth) / 2 * appWindowContainer.dock
+            width: parent.width - 2 * x
             y: Constants.safeAreaTop * appWindowContainer.dock
             height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
             clip: appWindowContainer.dock > 0
@@ -1506,7 +1511,7 @@ Item {
 
                 onRetryRequested: id => Qt.callLater(() => AppLaunchService.launchApp(id, shell.compositor, appWindow))
 
-                x: 0
+                x: -cardBorder.x
                 y: Constants.safeAreaTop - cardBorder.y
                 width: appWindowContainer.width
                 height: appWindowContainer.height - Constants.safeAreaTop - Constants.safeAreaBottom - virtualKeyboard.reservedHeight
