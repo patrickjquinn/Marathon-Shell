@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Weather
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-weatherd
+SystemdService=marathon-weatherd.service

@@ -56,6 +56,28 @@ add_custom_target(marathon_store_handler_cargo ALL
     VERBATIM)
 install(PROGRAMS "${MARATHON_STORE_HANDLER_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+# Weather service: org.marathonos.Weather on the session bus, bus-activated
+# into a systemd user unit.
+set(MARATHON_WEATHERD_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-weatherd")
+add_custom_target(marathon_weatherd_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-weatherd
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_WEATHERD_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-weatherd (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_WEATHERD_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-weatherd/data/marathon-weatherd.service.in
+    marathon-weatherd.service @ONLY)
+configure_file(marathon-weatherd/data/org.marathonos.Weather.service.in
+    org.marathonos.Weather.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-weatherd.service"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Weather.service"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}

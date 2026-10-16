@@ -1,0 +1,10 @@
+[Unit]
+Description=Marathon weather service (MET Norway forecasts)
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Weather
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-weatherd
+Restart=on-failure
+RestartSec=10
