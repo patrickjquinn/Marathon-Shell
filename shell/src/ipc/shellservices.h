@@ -558,6 +558,8 @@ class NavigationObject : public QObject, protected QDBusContext {
     bool StartAppInBackground(const QString &appId);
     bool Navigate(const QString &uri);
     bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
+    // The app a process belongs to, "" if none (Pilot's on-screen context).
+    QString AppIdForPid(uint pid);
 
     // Quick Settings shade control (marathon CLI `qs` verb). Lets a dev host
     // pull the shade over D-Bus, since top-edge touch injection never reaches

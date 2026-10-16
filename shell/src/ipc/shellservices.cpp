@@ -1883,6 +1883,15 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
     return ok;
 }
 
+// Services only (pilotd): an app could otherwise list what else is running.
+QString NavigationObject::AppIdForPid(uint pid) {
+    if (!callerAppIdOrEmpty().startsWith(ServiceCaller::kPrefix)) {
+        sendErrorReply(QDBusError::AccessDenied, "Only a session service may ask");
+        return {};
+    }
+    return m_launchService->appIdForPid(pid);
+}
+
 // Quick Settings shade control. No caller auth (see slot declaration): the
 // shade surfaces only system toggles the lock screen already gates, and
 // MarathonShell.qml refuses to open it while locked. mode: 0 hide, 1 show,
