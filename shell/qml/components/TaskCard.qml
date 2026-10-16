@@ -271,6 +271,9 @@ Item {
                         swiping = true;
                     else
                         preventStealing = false;
+                } else if (!swiping && Math.abs(dx) > Qt.styleHints.startDragDistance && Math.abs(dx) > Math.abs(dy)) {
+                    // Sideways is the pager's.
+                    preventStealing = false;
                 }
                 if (swiping) {
                     var v = pressValue + dy;
