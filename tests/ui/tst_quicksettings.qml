@@ -24,6 +24,18 @@ TestCase {
             id: fit
             property real height: 400
         }
+        QtObject {
+            id: shellStub
+            property real maxQuickSettingsHeight: fit.height
+        }
+    }
+
+    function initTestCase() {
+        UIStore.shellRef = shellStub;
+    }
+
+    function cleanupTestCase() {
+        UIStore.shellRef = null;
     }
 
     function init() {
@@ -275,6 +287,53 @@ TestCase {
         MPRIS2Controller.trackTitle = "Headlines";
         compare(bar.label, "Headlines");
         compare(bar.sublabel, "CJME News/Talk 980");
+    }
+
+    SignalSpy { id: closedSpy; target: qs; signalName: "closed" }
+
+    function test_tapOffTheControlsCloses_data() {
+        return [{ tag: "mouse", touch: false }, { tag: "touch", touch: true }];
+    }
+    function test_tapOffTheControlsCloses(data) {
+        closedSpy.clear();
+        if (data.touch) {
+            touchEvent(qs).press(0, qs, 4, 200).commit();
+            touchEvent(qs).release(0, qs, 4, 200).commit();
+        } else {
+            mouseClick(qs, 4, 200);
+        }
+        compare(closedSpy.count, 1);
+    }
+
+    // A media control is not a tap on the shade.
+    function test_transportTapLeavesShadeOpen_data() {
+        return [{ tag: "mouse", touch: false }, { tag: "touch", touch: true, jitter: 0 },
+                { tag: "touch jitter", touch: true, jitter: 4 }, { tag: "touch slide", touch: true, jitter: 14 }];
+    }
+    function test_transportTapLeavesShadeOpen(data) {
+        resetPlayer(true);
+        const play = findChild(nowPlaying(), "playPauseButton");
+        waitForItemPolished(play.parent);
+        const h = UIStore.quickSettingsHeight;
+        closedSpy.clear();
+        if (data.touch) {
+            const p = play.mapToItem(qs, play.width / 2, play.height / 2);
+            const seq = touchEvent(qs);
+            seq.press(0, qs, p.x, p.y).commit();
+            for (let i = 1; i <= 4; ++i) {
+                wait(16);
+                seq.move(0, qs, p.x + (i % 2) * data.jitter / 2, p.y - data.jitter * i / 4).commit();
+            }
+            seq.release(0, qs, p.x, p.y - data.jitter).commit();
+        } else {
+            mouseClick(play);
+        }
+        wait(50);
+        compare(MPRIS2Controller.calls, ["playPause"]);
+        compare(closedSpy.count, 0);
+        verify(!UIStore.quickSettingsDragging);
+        verify(UIStore.quickSettingsOpen);
+        compare(UIStore.quickSettingsHeight, h);
     }
 
     function test_previousAndNextFollowCapabilities() {

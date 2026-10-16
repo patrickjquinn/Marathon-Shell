@@ -41,8 +41,9 @@ Item {
         property string a11yName
 
         width: Silica.Theme.itemSizeExtraSmall
-        height: width
-        anchors.verticalCenter: parent.verticalCenter
+        height: root.height
+        // A control, not a drag on whatever holds the bar.
+        preventStealing: true
         Accessible.role: Accessible.Button
         Accessible.name: a11yName
         Accessible.onPressAction: clicked(null)

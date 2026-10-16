@@ -61,14 +61,6 @@ Item {
         live: false
     }
 
-    // Tap anywhere outside the tiles/sliders → dismiss. TapHandler composes
-    // with the MouseAreas inside MQSTile / MQSSlider — a tap that lands on
-    // a control is claimed by it first; a tap on the dim area reaches here.
-    TapHandler {
-        gesturePolicy: TapHandler.ReleaseWithinBounds
-        onTapped: quickSettings.closed()
-    }
-
     // Drag inside the shade for "follow-finger then snap" close. Grabs
     // the shade chrome (NOT tiles/sliders) and shrinks quickSettingsHeight
     // per-frame as the finger moves up; snaps open/closed on release.
@@ -263,6 +255,15 @@ Item {
 
         // The shade is hidden, not destroyed: reopen at the top.
         onVisibleChanged: if (!visible) contentY = 0
+
+        // A tap off the controls dismisses. An item beneath them, not a
+        // handler over them: a control that takes the press keeps the tap.
+        MouseArea {
+            objectName: "dismissTap"
+            width: shadeScroll.width
+            height: Math.max(shadeScroll.height, shadeScroll.contentHeight)
+            onClicked: quickSettings.closed()
+        }
 
         Column {
             id: content
