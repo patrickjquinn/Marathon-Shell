@@ -175,6 +175,51 @@ TestCase {
         compare(rightSpy.count, 1);
     }
 
+    function test_backFollowsTheFinger() {
+        nav.isAppOpen = true;
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, nav.width / 2 - 25 * i, nav.height / 2, 16);
+        verify(nav.backProgress > 0.3, "backProgress " + nav.backProgress);
+        compare(nav.backTracker.value, 200);
+        mouseRelease(nav, nav.width / 2 - 200, nav.height / 2);
+        compare(backSpy.count, 1);
+        compare(nav.backProgress, 0);
+    }
+
+    function test_shortSlowBackCancels() {
+        nav.isAppOpen = true;
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, nav.width / 2 - 3 * i, nav.height / 2, 40);
+        wait(120);
+        mouseRelease(nav, nav.width / 2 - 24, nav.height / 2);
+        compare(backSpy.count, 0);
+        compare(nav.backProgress, 0);
+    }
+
+    function test_pullDownDrawsTheShadeAlong() {
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        for (let i = 1; i <= 4; ++i)
+            mouseMove(nav, nav.width / 2, nav.height / 2 + 6 * i, 16);
+        verify(UIStore.quickSettingsDragging);
+        verify(UIStore.quickSettingsHeight > 0 && UIStore.quickSettingsHeight < 1000, "height " + UIStore.quickSettingsHeight);
+        mouseRelease(nav, nav.width / 2, nav.height / 2 + 24);
+        verify(!UIStore.quickSettingsDragging);
+        verify(UIStore.quickSettingsOpen);
+    }
+
+    function test_pullDownThenBackUpCancels() {
+        mousePress(nav, nav.width / 2, nav.height / 2);
+        for (let i = 1; i <= 4; ++i)
+            mouseMove(nav, nav.width / 2, nav.height / 2 + 6 * i, 16);
+        for (let i = 1; i <= 4; ++i)
+            mouseMove(nav, nav.width / 2, nav.height / 2 + 24 - 6 * i, 16);
+        mouseRelease(nav, nav.width / 2, nav.height / 2);
+        verify(!UIStore.quickSettingsOpen);
+        compare(UIStore.quickSettingsHeight, 0);
+    }
+
     function test_pillIsTheNotch() {
         const pill = findChild(nav, "navPill");
         verify(pill);

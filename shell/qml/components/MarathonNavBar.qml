@@ -9,12 +9,14 @@ Rectangle {
 
     property real startX: 0
     property real startY: 0
-    property real currentX: 0
-    property real currentY: 0
     property real shortSwipeThreshold: Constants.gestureSwipeShort
     property real longSwipeThreshold: Constants.gestureSwipeLong
     property bool isAppOpen: false
-    property real gestureProgress: 0
+    // Swipe up on an app: 0..1 over a quarter screen, the minimise path's input.
+    readonly property real gestureProgress: minimizeDrag.progress
+    readonly property GestureTracker minimizeTracker: minimizeDrag
+    // The finger's sideways travel (px) during a swipe up on an app.
+    property real minimizeThumbX: 0
     property bool keyboardVisible: false
     property bool searchActive: false
     property bool pinScreenMode: false
@@ -24,27 +26,11 @@ Rectangle {
     property bool pilotLit: false
     property real pilotCharge: 0
 
-    // ── Predictive back progress (0..1) ───────────────────────────
-    // Drives appWindowContainer scale + opacity in MarathonShell while
-    // the user holds + drags LEFT on the nav-bar pill. 0 = idle, 1 =
-    // committed (about to fire swipeBack on release). The shell binds
-    // this to backExitScaleStart→backExitScaleEnd (1.0 → 0.9) from
-    // MMotion via lerp so the foreground page shrinks proportionally
-    // to the gesture. On release: commit if >= 0.5 OR strong leftward
-    // velocity, otherwise spring back to 0 (cancel = rubber-band).
-    property real backProgress: 0
-    // Tunable: how far the finger must travel (px) to reach progress=1.
+    // Back: the pill's leftward travel with an app open, in px (backTracker)
+    // and 0..1 over backProgressTravel. The shell draws the app aside by it.
+    readonly property real backProgress: backDrag.progress
+    readonly property GestureTracker backTracker: backDrag
     readonly property real backProgressTravel: width * 0.55
-
-    // Eased settle on cancel only; tracks the finger 1:1 while pressed.
-    Behavior on backProgress {
-        enabled: !navMouseArea.pressed
-
-        NumberAnimation {
-            duration: MMotion.moderate
-            easing.type: Easing.OutCubic
-        }
-    }
 
     signal swipeLeft
     signal swipeRight
@@ -74,8 +60,8 @@ Rectangle {
 
         property real targetX: parent.width / 2 - width / 2
         property real targetY: parent.height / 2 - height / 2
-        property real dragX: navBar.currentX * 0.3
-        property real dragY: navBar.currentY * 0.3
+        property real dragX: pillX.value * 0.3
+        property real dragY: pillY.value * 0.3
 
         objectName: "navPill"
         width: Silica.Theme.itemSizeExtraLarge
@@ -133,24 +119,6 @@ Rectangle {
                         easing.type: MMotion.easingFor("tap")
                     }
                 }
-            }
-        }
-
-        Behavior on x {
-            enabled: !navMouseArea.pressed
-
-            NumberAnimation {
-                duration: MMotion.moderate
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on y {
-            enabled: !navMouseArea.pressed
-
-            NumberAnimation {
-                duration: MMotion.moderate
-                easing.type: Easing.OutCubic
             }
         }
     }
@@ -222,11 +190,6 @@ Rectangle {
     MouseArea {
         id: navMouseArea
 
-        property real velocityX: 0
-        property real velocityY: 0
-        property real lastX: 0
-        property real lastY: 0
-        property real lastTime: 0
         property bool isVerticalGesture: false
         property bool isHorizontalGesture: false
         // Previous-frame cumulative diffY. Lets the QS-drag path compute
@@ -236,18 +199,32 @@ Rectangle {
         property real prevDiffY: 0
         // The hold asked Pilot: the rest of this touch does nothing.
         property bool pilotAsked: false
+        // Where an interrupted settle was caught, so the press picks it up.
+        property real pillBaseX: 0
+        property real pillBaseY: 0
+        property real backBase: 0
+        property real minimizeBase: 0
+        // The pull down from the pill drives the quick settings shade.
+        property bool pullingQuickSettings: false
 
         anchors.fill: parent
         anchors.topMargin: 0
         z: 200
-        function resetGesture() {
-            navBar.currentX = 0;
-            navBar.currentY = 0;
-            navBar.gestureProgress = 0;
-            navBar.backProgress = 0;
+        // keepBack: swipeBack went out, and the shell owns the back settle.
+        function resetGesture(keepBack) {
+            pillX.settleTo(0);
+            pillY.settleTo(0);
+            minimizeDrag.settleTo(0);
+            if (!keepBack)
+                backDrag.settleTo(0);
+            if (pullingQuickSettings) {
+                pullingQuickSettings = false;
+                UIStore.quickSettingsDragging = false;
+                UIStore.closeQuickSettings();
+            }
             navBar.startX = 0;
             navBar.startY = 0;
-            velocityX = 0;
+            navBar.minimizeThumbX = 0;
             isVerticalGesture = false;
             isHorizontalGesture = false;
             prevDiffY = 0;
@@ -267,17 +244,21 @@ Rectangle {
         }
 
         // A grab stolen mid-drag ends here instead of in onReleased.
-        onCanceled: resetGesture()
+        onCanceled: resetGesture(false)
         onPressed: mouse => {
             navBar.startX = mouse.x;
             navBar.startY = mouse.y;
-            lastX = mouse.x;
-            lastY = mouse.y;
-            lastTime = Date.now();
-            velocityX = 0;
-            velocityY = 0;
+            pillX.press();
+            pillY.press();
+            backDrag.press();
+            minimizeDrag.press();
+            pillBaseX = pillX.value;
+            pillBaseY = pillY.value;
+            backBase = backDrag.value;
+            minimizeBase = minimizeDrag.value;
             isVerticalGesture = false;
             isHorizontalGesture = false;
+            pullingQuickSettings = false;
             prevDiffY = 0;
             stopPilot();
             if (navBar.pilotEnabled && !pressedOn(searchButton) && !pressedOn(keyboardButton))
@@ -286,29 +267,27 @@ Rectangle {
         onPositionChanged: mouse => {
             if (pilotAsked)
                 return;
-            var now = Date.now();
-            var dt = now - lastTime;
-            if (dt > 0) {
-                velocityX = (mouse.x - lastX) / dt * 1000;
-                velocityY = (mouse.y - lastY) / dt * 1000;
-            }
-            lastX = mouse.x;
-            lastY = mouse.y;
-            lastTime = now;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
             // Lock the axis once; a thumb arcs upward during a back swipe.
             if (!isVerticalGesture && !isHorizontalGesture && Math.max(Math.abs(diffX), Math.abs(diffY)) > 10) {
-                if (Math.abs(diffY) > Math.abs(diffX))
+                if (Math.abs(diffY) > Math.abs(diffX)) {
                     isVerticalGesture = true;
-                else
+                    pillX.settleTo(0);
+                    backDrag.settleTo(0);
+                } else {
                     isHorizontalGesture = true;
+                    pillY.settleTo(0);
+                    minimizeDrag.settleTo(0);
+                }
                 stopPilot();
             }
+            if (!isHorizontalGesture)
+                pillY.move(pillBaseY + diffY);
+            if (!isVerticalGesture)
+                pillX.move(pillBaseX + diffX);
             if (isVerticalGesture) {
-                navBar.currentY = diffY;
-                navBar.currentX = 0;
-                if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
+                if (UIStore.quickSettingsOpen || (UIStore.quickSettingsHeight > 0 && !pullingQuickSettings)) {
                     if (!UIStore.quickSettingsDragging)
                         UIStore.quickSettingsDragging = true;
 
@@ -324,41 +303,47 @@ Rectangle {
                     // runtime.
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
-                } else if (navBar.isAppOpen && diffY > 0) {
+                } else if (pullingQuickSettings || (diffY < 0 && !navBar.pinScreenMode && !SessionStore.isLocked)) {
+                    // The bar sits at the screen edge with only its own
+                    // height to travel, so the shade follows at a gain:
+                    // fully open at 40 % of the bar.
+                    pullingQuickSettings = true;
+                    UIStore.quickSettingsDragging = true;
+                    var shadeMax = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
+                    UIStore.quickSettingsHeight = shadeMax * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
+                } else if (navBar.isAppOpen) {
                     var oldProgress = navBar.gestureProgress;
-                    var progressThreshold = Constants.screenHeight * 0.25;
-                    navBar.gestureProgress = Math.min(1, diffY / progressThreshold);
+                    navBar.minimizeThumbX = diffX;
+                    minimizeDrag.move(Math.max(0, minimizeBase + diffY));
                     if (oldProgress <= 0.15 && navBar.gestureProgress > 0.15)
                         navBar.startPageTransition();
                 }
-            } else {
-                navBar.currentX = diffX;
-                navBar.currentY = 0;
-                navBar.gestureProgress = 0;
-                // Predictive back — only when an app is open and
-                // user is dragging LEFT (diffX < 0). Progress is
-                // the leftward distance normalised against backProgressTravel,
-                // clamped to [0, 1]. The shell listens to backProgress
-                // and shrinks appWindowContainer toward backExitScaleEnd.
-                if (navBar.isAppOpen && diffX < 0) {
-                    navBar.backProgress = Math.min(1, -diffX / Math.max(1, navBar.backProgressTravel));
-                } else if (navBar.backProgress !== 0) {
-                    navBar.backProgress = 0;
-                }
+            } else if (navBar.isAppOpen) {
+                backDrag.move(Math.max(0, backBase - diffX));
             }
         }
         onReleased: mouse => {
             if (pilotAsked) {
-                resetGesture();
+                resetGesture(false);
                 return;
             }
             stopPilot();
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
+            pillX.release();
+            pillY.release();
+            var horizontalCommit = pillX.decide(Math.abs(diffX), pillX.velocity * Math.sign(diffX));
+            var backCommit = backDrag.release();
+            var minimizeCommit = minimizeDrag.release();
+            // px/s, up and right positive.
+            var velocityX = pillX.velocity;
+            var velocityUp = pillY.velocity;
+            var projectedUp = diffY + velocityUp * 0.1;
             Logger.gesture("NavBar", "released", {
                 "diffX": diffX,
                 "diffY": diffY,
-                "velocity": velocityX,
+                "velocityX": velocityX,
+                "velocityUp": velocityUp,
                 "isAppOpen": navBar.isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
@@ -371,15 +356,25 @@ Rectangle {
                     navBar.toggleKeyboard();
                 }
             }
+            if (pullingQuickSettings) {
+                pullingQuickSettings = false;
+                UIStore.quickSettingsDragging = false;
+                // Any locked pull opens, unless the finger came back up.
+                if (-projectedUp > 10)
+                    UIStore.openQuickSettings();
+                else
+                    UIStore.closeQuickSettings();
+                resetGesture(false);
+                return;
+            }
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
-                Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400; // qmllint disable missing-property
-                // Dismiss on any of: upward fling (velocity < -500), drag
-                // pulled the panel below threshold, or a deliberate upward
-                // swipe of ≥40 px while QS is open (the documented
-                // swipe-up-from-nav dismissal).
-                var isFlingUp = velocityY < -500;
+                // Dismiss on any of: upward fling, drag pulled the panel
+                // below threshold, or a deliberate upward swipe of ≥40 px
+                // while QS is open (the documented swipe-up-from-nav
+                // dismissal).
+                var isFlingUp = velocityUp > 500;
                 var isDeliberateSwipeUp = UIStore.quickSettingsOpen && diffY > 40;
                 if (isFlingUp || isDeliberateSwipeUp || UIStore.quickSettingsHeight < threshold)
                     UIStore.closeQuickSettings();
@@ -388,104 +383,92 @@ Rectangle {
                 Logger.gesture("NavBar", "Quick Settings gesture end", {
                     "height": UIStore.quickSettingsHeight,
                     "diffY": diffY,
-                    "velocityY": velocityY,
+                    "velocityUp": velocityUp,
                     "flingUp": isFlingUp,
                     "deliberateUp": isDeliberateSwipeUp
                 });
-                navBar.startX = 0;
-                navBar.startY = 0;
-                velocityX = 0;
-                velocityY = 0;
-                isVerticalGesture = false;
-                prevDiffY = 0;
-                navBar.currentX = 0;
-                navBar.currentY = 0;
-                navBar.gestureProgress = 0;
-                return;
-            }
-            // Pull down on the pill: quick settings. The bar sits at the
-            // screen edge, so any locked downward drag commits.
-            if (isVerticalGesture && diffY < 0) {
-                if (!navBar.pinScreenMode && !SessionStore.isLocked)
-                    UIStore.openQuickSettings();
-                resetGesture();
+                resetGesture(false);
                 return;
             }
             if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
                 Logger.info("NavBar", "Closing Search with upward gesture");
                 UIStore.closeSearch();
-                navBar.startX = 0;
-                navBar.startY = 0;
-                velocityX = 0;
-                isVerticalGesture = false;
-                navBar.currentX = 0;
-                navBar.currentY = 0;
-                navBar.gestureProgress = 0;
+                resetGesture(false);
                 return;
             }
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
-                if (diffY > navBar.longSwipeThreshold) {
-                    Logger.info("NavBar", " LONG SWIPE UP TRIGGERED ");
-                    Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + navBar.longSwipeThreshold);
-                    Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
-                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
-                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
+                if (projectedUp > navBar.longSwipeThreshold && (!navBar.isAppOpen || minimizeCommit)) {
+                    Logger.info("NavBar", "Long swipe up, isAppOpen: " + navBar.isAppOpen);
                     navBar.longSwipeUp();
-                    navBar.currentX = 0;
-                    navBar.currentY = 0;
-                    navBar.gestureProgress = 0;
-                } else if (navBar.isAppOpen && (diffY > 100 || navBar.gestureProgress > 0.4)) {
-                    Logger.info("NavBar", "⬆⬆⬆ MINIMIZE GESTURE TRIGGERED ⬆⬆⬆");
-                    Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + navBar.gestureProgress);
-                    Logger.info("NavBar", "  isAppOpen: " + navBar.isAppOpen);
-                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
-                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                    navBar.minimizeApp(velocityY);
-                    navBar.currentX = 0;
-                    navBar.currentY = 0;
-                    navBar.gestureProgress = 0;
-                } else if (diffY > navBar.shortSwipeThreshold) {
+                    minimizeDrag.value = 0;
+                } else if (navBar.isAppOpen && minimizeCommit) {
+                    Logger.info("NavBar", "Minimise, diffY: " + diffY + ", velocityUp: " + velocityUp);
+                    navBar.minimizeApp(-velocityUp);
+                    minimizeDrag.value = 0;
+                } else if (projectedUp > navBar.shortSwipeThreshold) {
                     Logger.info("NavBar", "Short swipe up - Go home");
                     navBar.shortSwipeUp();
-                    navBar.currentX = 0;
-                    navBar.currentY = 0;
-                    navBar.gestureProgress = 0;
                 }
-            } else if (!isVerticalGesture && (Math.abs(diffX) > 50 || Math.abs(velocityX) > 500)) {
-                if (diffX < 0 || velocityX < 0) {
-                    Logger.gesture("NavBar", "swipeLeft", {
-                        "velocity": velocityX,
-                        "isAppOpen": navBar.isAppOpen,
+            } else if (isHorizontalGesture && navBar.isAppOpen && diffX < 0) {
+                // The shell may hold the app where it is (back out of the
+                // app), so the settle starts before swipeBack is sent.
+                backDrag.settleTo(0);
+                if (backCommit) {
+                    Logger.gesture("NavBar", "swipeBack", {
+                        "velocityX": velocityX,
                         "backProgress": navBar.backProgress
                     });
-                    if (navBar.isAppOpen)
-                        navBar.swipeBack();
-                    else
-                        navBar.swipeLeft();
+                    navBar.swipeBack();
+                }
+                resetGesture(true);
+                return;
+            } else if (isHorizontalGesture && horizontalCommit) {
+                if (diffX < 0) {
+                    navBar.swipeLeft();
                 } else {
                     Logger.gesture("NavBar", "swipeRight", {
-                        "velocity": velocityX,
+                        "velocityX": velocityX,
                         "isAppOpen": navBar.isAppOpen,
                         "diffX": diffX
                     });
                     navBar.swipeRight();
                 }
-                navBar.currentX = 0;
-                navBar.currentY = 0;
-                navBar.gestureProgress = 0;
-                // commit — shell pop transition takes over from here.
-                navBar.backProgress = 0;
-            } else {
-                Logger.info("NavBar", " GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY);
-                navBar.currentX = 0;
-                navBar.currentY = 0;
-                navBar.gestureProgress = 0;
-                // cancel — Behavior spring-snaps backProgress to 0.
-                navBar.backProgress = 0;
             }
-            // Unconditional — the branch chain above has non-resetting gaps.
-            resetGesture();
+            resetGesture(false);
         }
+    }
+
+    GestureTracker {
+        id: pillX
+
+        commitDistance: 50
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : MMotion.moderate
+    }
+
+    GestureTracker {
+        id: pillY
+
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : MMotion.moderate
+    }
+
+    GestureTracker {
+        id: backDrag
+
+        to: navBar.backProgressTravel
+        commitDistance: Silica.Theme.itemSizeMedium
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : MMotion.moderate
+        onWillCommitChanged: if (backDrag.active)
+            HapticManager.tick()
+    }
+
+    GestureTracker {
+        id: minimizeDrag
+
+        to: Constants.screenHeight * 0.25
+        commitDistance: 0.15 * Math.min(navBar.width, Constants.screenHeight)
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : MMotion.moderate
+        onWillCommitChanged: if (minimizeDrag.active)
+            HapticManager.tick()
     }
 
     // A still touch lights the pill, and asks Pilot once the charge is up;
@@ -517,27 +500,6 @@ Rectangle {
                 HapticManager.medium();
                 navBar.pilotRequested();
             }
-        }
-    }
-
-    Timer {
-        id: gestureProgressResetTimer
-
-        interval: 300
-        onTriggered: {
-            Logger.info("NavBar", "⏱ GESTURE PROGRESS RESET");
-            navBar.gestureProgress = 0;
-            navBar.currentX = 0;
-            navBar.currentY = 0;
-        }
-    }
-
-    Behavior on gestureProgress {
-        enabled: !navMouseArea.pressed && !gestureProgressResetTimer.running
-
-        NumberAnimation {
-            duration: MMotion.moderate
-            easing.type: Easing.OutCubic
         }
     }
 }

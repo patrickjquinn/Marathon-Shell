@@ -115,6 +115,10 @@ class GestureTracker : public QObject {
     void             move(qreal value, qreal tMs);
     Q_INVOKABLE bool release();
     bool             release(qreal tMs);
+    // shouldCommit with this tracker's thresholds, for a caller's own distance.
+    Q_INVOKABLE bool decide(qreal distance, qreal velocity) const {
+        return shouldCommit(distance, velocity, m_commitDistance, m_flingVelocity);
+    }
     Q_INVOKABLE void settleTo(qreal target);
     Q_INVOKABLE void settleTo(qreal target, qreal velocity);
     Q_INVOKABLE void stop();
