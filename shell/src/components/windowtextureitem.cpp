@@ -353,8 +353,11 @@ QSGNode *WindowTextureItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeDat
 
     bool flipY = false;
 #ifdef HAVE_WAYLAND
+    // The surface's own origin: the item's lags (it stays at the null
+    // buffer's bottom-left until a configure), and Qt draws by the buffer's.
     if (const auto *surfaceItem = qobject_cast<const QWaylandQuickItem *>(m_source.data()))
-        flipY = surfaceItem->origin() == QWaylandSurface::OriginBottomLeft;
+        flipY = surfaceItem->surface() &&
+            surfaceItem->surface()->origin() == QWaylandSurface::OriginBottomLeft;
 #endif
     // One screen pixel of fade at the arc, whatever the item's scale.
     const QMatrix4x4 &m     = data->transformNode->combinedMatrix();
