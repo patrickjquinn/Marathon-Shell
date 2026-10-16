@@ -49,6 +49,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // use it so a client's first frame is already at its final size.
     Q_PROPERTY(QSize appViewportSize READ appViewportSize WRITE setAppViewportSize NOTIFY
                    appViewportSizeChanged)
+    // Size Keel covers are configured to: the switcher card's cover area.
+    Q_PROPERTY(QSize coverSize READ coverSize WRITE setCoverSize NOTIFY coverSizeChanged)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window);
@@ -69,6 +71,10 @@ class WaylandCompositor : public QWaylandCompositor {
         return m_appViewportSize;
     }
     void setAppViewportSize(const QSize &size);
+    QSize coverSize() const {
+        return m_coverSize;
+    }
+    void setCoverSize(const QSize &size);
 
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
@@ -99,6 +105,7 @@ class WaylandCompositor : public QWaylandCompositor {
 
   signals:
     void appViewportSizeChanged();
+    void coverSizeChanged();
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     // A Keel app's dialog window (KeelDialog), not one of its tasks.
@@ -127,6 +134,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QString focusedToolkit() const;
     void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void    configureCover(QWaylandXdgToplevel *toplevel) const;
     void    mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
 
   private slots:
@@ -195,6 +203,8 @@ class WaylandCompositor : public QWaylandCompositor {
     bool                                    m_presentPipeline = false;
     bool                                    m_presentFreeRun  = false;
     QSize                                   m_appViewportSize;
+    QSize                                   m_coverSize;
+    QList<QPointer<QWaylandXdgToplevel>>    m_coverToplevels;
     QSize                                   appConfigureSize() const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),

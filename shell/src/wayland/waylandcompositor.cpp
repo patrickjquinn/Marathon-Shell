@@ -941,6 +941,25 @@ void WaylandCompositor::setAppViewportSize(const QSize &size) {
     emit appViewportSizeChanged();
 }
 
+void WaylandCompositor::setCoverSize(const QSize &size) {
+    if (size == m_coverSize)
+        return;
+    m_coverSize = size;
+    qInfo() << "[WaylandCompositor] Covers configured to" << size;
+    m_coverToplevels.removeAll(nullptr);
+    for (const QPointer<QWaylandXdgToplevel> &toplevel : std::as_const(m_coverToplevels))
+        configureCover(toplevel);
+    emit coverSizeChanged();
+}
+
+void WaylandCompositor::configureCover(QWaylandXdgToplevel *toplevel) const {
+    if (!toplevel)
+        return;
+    // Zero leaves the size to the app (keel/shell/PROTOCOL.md section 3).
+    toplevel->sendConfigure(m_coverSize.isEmpty() ? QSize(0, 0) : m_coverSize,
+                            QList<QWaylandXdgToplevel::State>());
+}
+
 QSize WaylandCompositor::appConfigureSize() const {
     if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
         return m_appViewportSize;
@@ -1234,8 +1253,9 @@ void WaylandCompositor::mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurf
 void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
     QWaylandSurface *surface = xdgSurface->surface();
     surface->setProperty("isCover", true);
-    // The app chooses its cover size; a zero size leaves it to the client.
-    toplevel->sendConfigure(QSize(0, 0), QList<QWaylandXdgToplevel::State>());
+    m_coverToplevels.removeAll(nullptr);
+    m_coverToplevels.append(toplevel);
+    configureCover(toplevel);
     QPointer<QWaylandSurface>     safeSurface(surface);
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
     // The app id can follow the title, so the cover is filed under it when it comes.
