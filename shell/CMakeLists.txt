@@ -207,6 +207,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/linuxdmabufv1.cpp
         src/wayland/wldrm.h
         src/wayland/wldrm.cpp
+        src/wayland/nativeclientscale.h
+        src/wayland/nativeclientscale.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
@@ -235,7 +237,8 @@ if(TARGET Qt6::WaylandCompositor)
         marathon_scan_protocol(commit-timing-v1       commit-timing-v1)
         marathon_scan_protocol(linux-dmabuf-v1        linux-dmabuf-v1)
         marathon_scan_protocol(wayland-drm            wayland-drm)
-        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1, linux-dmabuf-v1, wl_drm")
+        marathon_scan_protocol(fractional-scale-v1    fractional-scale-v1)
+        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1, linux-dmabuf-v1, wl_drm, fractional-scale-v1")
     else()
         message(WARNING "wayland-scanner not found - custom protocols disabled")
     endif()

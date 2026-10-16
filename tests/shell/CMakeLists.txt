@@ -379,3 +379,35 @@ set_tests_properties(Shell_WindowTextureStress PROPERTIES ENVIRONMENT
 add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)
 target_link_libraries(test_shell_hiddenframethrottle Qt6::Test Qt6::Core)
 add_test(NAME Shell_HiddenFrameThrottle COMMAND test_shell_hiddenframethrottle)
+
+# NativeClientScale: the scale native apps get, and a client being told it
+find_package(Qt6 COMPONENTS WaylandCompositor)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WAYLAND_CLIENT wayland-client)
+find_program(WAYLAND_SCANNER wayland-scanner)
+if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
+    set(_fractional_xml ${CMAKE_SOURCE_DIR}/shell/protocols/fractional-scale-v1.xml)
+    set(_fractional_gen ${CMAKE_CURRENT_BINARY_DIR}/fractional-scale)
+    file(MAKE_DIRECTORY ${_fractional_gen})
+    add_custom_command(
+        OUTPUT ${_fractional_gen}/fractional-scale-v1-server.h
+               ${_fractional_gen}/fractional-scale-v1-client.h
+               ${_fractional_gen}/fractional-scale-v1.c
+        COMMAND ${WAYLAND_SCANNER} server-header ${_fractional_xml} ${_fractional_gen}/fractional-scale-v1-server.h
+        COMMAND ${WAYLAND_SCANNER} client-header ${_fractional_xml} ${_fractional_gen}/fractional-scale-v1-client.h
+        COMMAND ${WAYLAND_SCANNER} private-code ${_fractional_xml} ${_fractional_gen}/fractional-scale-v1.c
+        DEPENDS ${_fractional_xml})
+    add_executable(test_shell_nativeclientscale
+        test_nativeclientscale.cpp
+        ../../shell/src/wayland/nativeclientscale.cpp
+        ${_fractional_gen}/fractional-scale-v1-server.h
+        ${_fractional_gen}/fractional-scale-v1-client.h
+        ${_fractional_gen}/fractional-scale-v1.c
+    )
+    target_link_libraries(test_shell_nativeclientscale
+        Qt6::Test Qt6::Gui Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_nativeclientscale PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/wayland ${_fractional_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_NativeClientScale COMMAND test_shell_nativeclientscale)
+    set_tests_properties(Shell_NativeClientScale PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
