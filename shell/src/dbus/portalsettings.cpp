@@ -97,6 +97,5 @@ QDBusVariant PortalSettings::ReadOne(const QString &ns, const QString &key) {
 }
 
 QDBusVariant PortalSettings::Read(const QString &ns, const QString &key) {
-    // The deprecated Read wraps the value in a second variant.
-    return QDBusVariant(QVariant::fromValue(ReadOne(ns, key)));
+    return ReadOne(ns, key);
 }

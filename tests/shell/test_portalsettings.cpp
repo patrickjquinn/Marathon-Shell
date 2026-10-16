@@ -38,6 +38,15 @@ class TestPortalSettings : public QObject {
                                          {QStringLiteral("org.gnome.*")}));
         Q_UNUSED(amb);
     }
+    // xdg-desktop-portal wraps a backend's Read reply itself, so the backend
+    // must answer with the bare value, as xdg-desktop-portal-gtk does.
+    void readIsWrappedOnce() {
+        PortalSettings s;
+        s.setAmbience(ambience("lightondark", "#ff8000"));
+        const QVariant v = s.Read(QStringLiteral("org.freedesktop.appearance"), QStringLiteral("color-scheme")).variant();
+        QCOMPARE(v.metaType(), QMetaType::fromType<uint>());
+        QCOMPARE(v.toUInt(), 1u);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestPortalSettings)
