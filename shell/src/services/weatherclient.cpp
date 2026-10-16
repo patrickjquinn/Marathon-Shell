@@ -11,9 +11,17 @@
 
 namespace {
 
-const QString kPath  = QStringLiteral("/org/marathonos/Weather");
-const QString kIface = QStringLiteral("org.marathonos.Weather1");
-const QString kProps = QStringLiteral("org.freedesktop.DBus.Properties");
+    QString path() {
+        return QStringLiteral("/org/marathonos/Weather");
+    }
+
+    QString iface() {
+        return QStringLiteral("org.marathonos.Weather1");
+    }
+
+    QString props() {
+        return QStringLiteral("org.freedesktop.DBus.Properties");
+    }
 
 } // namespace
 
@@ -31,7 +39,7 @@ WeatherClient *WeatherClient::create(QQmlEngine *engine, QJSEngine *) {
 WeatherClient::WeatherClient(const QDBusConnection &bus, QObject *parent)
     : QObject(parent)
     , m_bus(bus) {
-    m_bus.connect(serviceName(), kPath, kProps, QStringLiteral("PropertiesChanged"), this,
+    m_bus.connect(serviceName(), path(), props(), QStringLiteral("PropertiesChanged"), this,
                   SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
 }
 
@@ -45,8 +53,8 @@ bool WeatherClient::milesPerHour() const {
 
 void WeatherClient::refresh() {
     QDBusMessage getAll =
-        QDBusMessage::createMethodCall(serviceName(), kPath, kProps, QStringLiteral("GetAll"));
-    getAll << kIface;
+        QDBusMessage::createMethodCall(serviceName(), path(), props(), QStringLiteral("GetAll"));
+    getAll << iface();
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(getAll), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [this](QDBusPendingCallWatcher *call) {
@@ -63,7 +71,7 @@ void WeatherClient::refresh() {
 
 void WeatherClient::search(const QString &query) {
     QDBusMessage msg =
-        QDBusMessage::createMethodCall(serviceName(), kPath, kIface, QStringLiteral("Search"));
+        QDBusMessage::createMethodCall(serviceName(), path(), iface(), QStringLiteral("Search"));
     msg << query;
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg, 15000), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
@@ -93,7 +101,7 @@ void WeatherClient::setAutomatic() {
 
 void WeatherClient::onPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                         const QStringList &) {
-    if (interface == kIface)
+    if (interface == iface())
         apply(changed);
 }
 
@@ -112,7 +120,7 @@ void WeatherClient::apply(const QVariantMap &properties) {
 }
 
 void WeatherClient::call(const QString &method, const QVariantList &args) {
-    QDBusMessage msg = QDBusMessage::createMethodCall(serviceName(), kPath, kIface, method);
+    QDBusMessage msg = QDBusMessage::createMethodCall(serviceName(), path(), iface(), method);
     msg.setArguments(args);
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
