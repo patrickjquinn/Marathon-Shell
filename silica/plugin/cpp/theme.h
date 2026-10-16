@@ -203,7 +203,10 @@ public:
     QSize coverSizeSmall() const { return QSize(jsRound(148 * m_pixelRatio), jsRound(237 * m_pixelRatio)); }
 
     qreal flickDeceleration() const { return 1500 * m_pixelRatio; }
-    qreal maximumFlickVelocity() const { return measured() ? 11250 : 5000 * m_pixelRatio; }
+    // Jolla's 7500 per unit of pixel ratio (11250 measured at z1.5). Silica's
+    // Theme.qml has 5000, which flicked a third slower than Jolla's apps on
+    // every other ratio (Xperia 10 at 1.75, Jolla C2 at 1.0).
+    qreal maximumFlickVelocity() const { return 7500 * m_pixelRatio; }
     int startDragDistance() const { return jsRound(20 * m_pixelRatio); }
     int minimumPressHighlightTime() const { return 64; }
     qreal pageStackIndicatorWidth() const { return jsRound(36 * m_pixelRatio); }

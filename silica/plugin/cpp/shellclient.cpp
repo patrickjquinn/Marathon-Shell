@@ -224,12 +224,66 @@ void ShellClient::onCoverStatusChanged(int status)
     emit coverStatusChanged();
 }
 
+namespace {
+
+// Text size settings live beside the ambience's keys; changing them is not
+// an ambience change and applies at once, as in Jolla's apps.
+bool isAmbienceKey(const QString &key)
+{
+    return !key.startsWith(QLatin1String("/desktop/jolla/theme/font/"));
+}
+
+bool ambienceDiffers(const QVariantMap &a, const QVariantMap &b)
+{
+    for (auto it = a.constBegin(); it != a.constEnd(); ++it) {
+        if (isAmbienceKey(it.key()) && b.value(it.key()) != it.value())
+            return true;
+    }
+    for (auto it = b.constBegin(); it != b.constEnd(); ++it) {
+        if (isAmbienceKey(it.key()) && !a.contains(it.key()))
+            return true;
+    }
+    return false;
+}
+
+} // namespace
+
 void ShellClient::onAmbienceChanged(const QVariantMap &ambience)
 {
+    const QVariantMap &current = m_ambiencePending ? m_pendingAmbience : m_ambience;
+    if (ambience == current)
+        return;
+    // A window starts deferring in this signal's handler.
+    if (ambienceDiffers(ambience, current))
+        emit ambienceAboutToChange();
+    if (m_deferAmbience) {
+        m_pendingAmbience = ambience;
+        m_ambiencePending = true;
+        return;
+    }
+    m_ambiencePending = false;
+    m_pendingAmbience.clear();
     if (ambience == m_ambience)
         return;
     m_ambience = ambience;
     emit ambienceChanged();
+}
+
+void ShellClient::setDeferAmbience(bool defer)
+{
+    if (defer == m_deferAmbience)
+        return;
+    m_deferAmbience = defer;
+    emit deferAmbienceChanged();
+    if (!defer && m_ambiencePending) {
+        const QVariantMap pending = m_pendingAmbience;
+        m_ambiencePending = false;
+        m_pendingAmbience.clear();
+        if (pending != m_ambience) {
+            m_ambience = pending;
+            emit ambienceChanged();
+        }
+    }
 }
 
 void ShellClient::onDpiChanged(int dpi)

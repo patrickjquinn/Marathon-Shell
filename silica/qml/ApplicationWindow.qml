@@ -186,25 +186,53 @@ Item {
                     ? "image://keelambience/" + encodeURIComponent(defaultBackground.wallpaper)
                       + "?w=" + Math.round(width) + "&h=" + Math.round(height)
                     : ""
+            // Another ambience's wallpaper cross-fades in, as Silica's
+            // wallpaper window does: the one before fades out above it.
+            property url _shown
+            onSourceChanged: {
+                if (_shown.toString() !== "" && source.toString() !== "" && _shown !== source
+                        && window.QtWindow.Window.window && window.QtWindow.Window.window.visible) {
+                    previousWallpaper.source = _shown
+                    previousWallpaper.opacity = 1
+                    previousWallpaperFade.restart()
+                }
+                _shown = source
+            }
+        }
+        Image {
+            id: previousWallpaper
+            anchors.fill: parent
+            visible: opacity > 0 && status === Image.Ready && window.background.color.a === 0
+            opacity: 0
+            smooth: true
+            cache: true
+            NumberAnimation on opacity {
+                id: previousWallpaperFade
+                running: false
+                to: 0
+                duration: 400
+                easing.type: Easing.InOutQuad
+                onFinished: previousWallpaper.source = ""
+            }
         }
         // The compositor's tone: a dark ambience's wallpaper is dimmed to
         // about a third and tinted with the highlight dimmer; a light one is
         // washed towards white.
         Rectangle {
             anchors.fill: parent
-            visible: wallpaperImage.visible
+            visible: wallpaperImage.visible || previousWallpaper.visible
             color: defaultBackground.light ? "white" : "black"
             opacity: defaultBackground.light ? 0.45 : 0.62
         }
         Rectangle {
             anchors.fill: parent
-            visible: wallpaperImage.visible && !defaultBackground.light
+            visible: (wallpaperImage.visible || previousWallpaper.visible) && !defaultBackground.light
             color: Theme.highlightDimmerColor
             opacity: 0.12
         }
         Image {
             anchors.fill: parent
-            visible: wallpaperImage.visible
+            visible: wallpaperImage.visible || previousWallpaper.visible
             source: "qrc:/qt/qml/Sailfish/Silica/ambience/glass-dither.png"
             fillMode: Image.Tile
             smooth: false
@@ -336,6 +364,55 @@ Item {
         running: !window._firstFrameShown
         interval: 1000
         onTriggered: window._firstFrameShown = true
+    }
+
+    // Another ambience comes in as in Silica (its BSD ApplicationWindow.qml):
+    // the window (or an opaque current page) fades out over 400 ms, the new
+    // colours wait 600 ms (Shell.deferAmbience) so that they change unseen,
+    // and it fades back in over 400 ms.
+    property Item _ambienceFadeItem
+    Connections {
+        target: Shell
+        function onAmbienceAboutToChange() {
+            if (!window.QtWindow.Window.window || !window.QtWindow.Window.window.visible)
+                return
+            if (!ambienceChangeTimer.running) {
+                var page = stack.currentPage
+                window._ambienceFadeItem = page && page._opaqueBackground ? page : window
+                ambienceFadeIn.stop()
+                ambienceFadeOut.restart()
+            }
+            ambienceChangeTimer.restart()
+        }
+    }
+    Timer {
+        id: ambienceChangeTimer
+        interval: 600
+        onTriggered: {
+            ambienceFadeOut.complete()
+            ambienceFadeIn.restart()
+        }
+    }
+    Binding {
+        target: Shell
+        property: "deferAmbience"
+        value: ambienceChangeTimer.running
+    }
+    NumberAnimation {
+        id: ambienceFadeOut
+        target: window._ambienceFadeItem
+        property: "_windowOpacity"
+        to: 0
+        easing.type: Easing.InOutQuad
+        duration: 400
+    }
+    NumberAnimation {
+        id: ambienceFadeIn
+        target: window._ambienceFadeItem
+        property: "_windowOpacity"
+        to: 1
+        easing.type: Easing.InOutQuad
+        duration: 400
     }
 
     Loader {

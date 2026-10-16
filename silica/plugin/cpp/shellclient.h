@@ -69,6 +69,10 @@ class ShellClient : public QObject
     Q_PROPERTY(QString coverTitle READ coverTitle CONSTANT)
     Q_PROPERTY(bool coverEnabled READ coverEnabled CONSTANT)
     Q_PROPERTY(QVariantMap ambience READ ambience NOTIFY ambienceChanged)
+    // While true, a new ambience waits (Silica's ThemeTransaction.deferAmbience):
+    // ApplicationWindow holds it for the length of its fade out. Setting it
+    // false applies the latest one that arrived meanwhile.
+    Q_PROPERTY(bool deferAmbience READ deferAmbience WRITE setDeferAmbience NOTIFY deferAmbienceChanged)
 
 public:
     // keel-shell's CoverStatus property values (PROTOCOL.md: 0 inactive,
@@ -94,6 +98,8 @@ public:
     QString coverTitle() const { return m_coverTitle; }
     bool coverEnabled() const { return m_coverEnabled; }
     QVariantMap ambience() const { return m_ambience; }
+    bool deferAmbience() const { return m_deferAmbience; }
+    void setDeferAmbience(bool defer);
 
     // Connects to `address` (normally KEEL_SHELL_DBUS). Public for tests.
     Q_INVOKABLE bool connectTo(const QString &address);
@@ -131,6 +137,11 @@ signals:
     void coverStatusChanged();
     void dpiChanged();
     void ambienceChanged();
+    // Another ambience is arriving (not only another text size), before it
+    // is applied: a window that defers it in this signal's handler gets
+    // ambienceChanged() once it stops deferring.
+    void ambienceAboutToChange();
+    void deferAmbienceChanged();
     void closeRequested();
     void coverActionTriggered(int index);
 
@@ -182,6 +193,10 @@ private:
     QString m_coverTitle;
     bool m_coverEnabled = false;
     QVariantMap m_ambience;
+    // An ambience that arrived while deferAmbience was set.
+    QVariantMap m_pendingAmbience;
+    bool m_ambiencePending = false;
+    bool m_deferAmbience = false;
 };
 
 } // namespace keel

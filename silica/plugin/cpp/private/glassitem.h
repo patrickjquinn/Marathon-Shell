@@ -6,9 +6,12 @@
 // Silica's BSD QML (Switch, TextSwitch, ProgressBar, PageStackGlassIndicator):
 // color, backgroundColor, dimmed, brightness, radius, falloffRadius,
 // defaultFalloffRadius, ratio, dashed, dashLength, dashMargin, dashOffset.
-// Clean-room drawing (QPainter): a core of `radius` (a fraction of the
-// height) glowing out over `falloffRadius`, as a dot, or with `ratio` 0 a
-// capsule along the width; `backgroundColor` is a wider halo behind it.
+// Clean-room drawing: a core of `radius` (a fraction of the height) glowing
+// out over `falloffRadius`, as a dot, or with `ratio` 0 a capsule along the
+// width; `backgroundColor` is a wider halo behind it. Drawn on the GPU by a
+// scene-graph material (qml/shaders/glassitem.frag), so animating the colour,
+// brightness or falloff changes uniforms rather than pixels; the software
+// scene graph gets the same glow painted into an image, once per change.
 // Default size Theme.itemSizeExtraSmall square. Geometry and falloff curves
 // are Keel's; they are to be compared with Silica on device.
 #ifndef KEEL_GLASSITEM_H
@@ -17,10 +20,11 @@
 #include "palette.h"
 
 #include <QColor>
-#include <QQuickPaintedItem>
+#include <QImage>
+#include <QQuickItem>
 #include <QtQml/qqmlregistration.h>
 
-class KeelGlassItem : public QQuickPaintedItem
+class KeelGlassItem : public QQuickItem
 {
     Q_OBJECT
     QML_NAMED_ELEMENT(GlassItem)
@@ -83,7 +87,15 @@ public:
     void resetHighlighted();
     KeelPalette *palette() const { return m_palette; }
 
-    void paint(QPainter *painter) override;
+    // The glow's geometry in item units, shared by both ways of drawing it.
+    struct Shape {
+        qreal x0, x1, cy, core, falloff, strength;
+        bool dashed;
+        qreal dashStart, dashPeriod;
+    };
+    Shape shape() const;
+    // The glow as the software scene graph shows it (and as the tests read it).
+    QImage render() const;
 
 signals:
     void colorChanged();
@@ -103,6 +115,8 @@ signals:
 
 protected:
     void componentComplete() override;
+    QSGNode *updatePaintNode(QSGNode *old, UpdatePaintNodeData *) override;
+    void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override;
 
 private:
     template<typename T>
@@ -114,8 +128,8 @@ private:
         emit(this->*notify)();
         update();
     }
-    void paintGlow(QPainter *p, qreal x0, qreal x1, qreal cy, qreal core, qreal falloff,
-                   const QColor &color, qreal strength);
+    void paintGlow(QImage &image, QPoint origin, qreal x0, qreal x1, qreal cy, qreal core,
+                   qreal falloff, const QColor &color, qreal strength, const Shape *dashes) const;
 
     KeelPalette *m_palette;
     bool m_highlighted = false;

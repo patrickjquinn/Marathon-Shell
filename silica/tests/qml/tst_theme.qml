@@ -62,7 +62,9 @@ TestCase {
         verify(Theme.buttonWidthTiny < Theme.buttonWidthExtraSmall)
         verify(Theme.buttonWidthSmall < Theme.buttonWidthMedium)
         verify(Theme.coverSizeSmall.width < Theme.coverSizeLarge.width)
-        verify(Theme.maximumFlickVelocity > 0 && Theme.flickDeceleration > 0)
+        verify(Theme.flickDeceleration > 0)
+        // Jolla's speed at every ratio, not only the measured 1.5.
+        compare(Theme.maximumFlickVelocity, 7500 * Theme.pixelRatio)
         verify(Theme.startDragDistance > 0)
         verify(Theme.opacityFaint < Theme.opacityLow && Theme.opacityLow < Theme.opacityHigh
                && Theme.opacityHigh < Theme.opacityOverlay)

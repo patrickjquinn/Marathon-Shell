@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    31
+Release:    32
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -160,6 +160,11 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Fri Oct 16 2026 Shipwright - 0.1.0-32
+- Lists flick as fast as in Jolla's apps on every phone: on screens other than the Jolla Phone's (Xperia 10 II-IV, Jolla C2) they flicked a third slower.
+- Switches, sliders, progress bars and the page stack indicator glow on the GPU: their fades and the busy pulse no longer redraw the glow on the CPU and upload it every frame. The glow is the same; where a control sits between screen pixels its dither is now crisp instead of blurred.
+- Changing the ambience fades the app out and back in, as Jolla's apps do, instead of every colour snapping at once. A text size change still applies straight away.
+- "No bookmarks" and other empty-list texts keep clear of a search field at the top of the list, which covered them in landscape and with the keyboard open (Pacific's bookmarks, history and tabs; Mail and Messages search; Keys; Reef's catalogue).
 * Tue Oct 13 2026 Shipwright - 0.1.0-31
 - Text follows Settings > Display > Text size, as in Jolla's apps: Large, Huge and Gigantic make Keel apps' text bigger too, and a change applies straight away.
 - Apps open a little faster: the app's cover (what the app switcher shows) is made just after the app's first frame instead of alongside it.

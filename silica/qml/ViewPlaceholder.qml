@@ -33,6 +33,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ViewPlaceholder.qml
+// Modified by Shipwright: `y` kept clear of the flickable's header item (see below).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -53,7 +54,13 @@ SilicaItem {
 
     // stay centered in screen
     x: (flickable ? flickable.originX : 0) + (__silica_applicationwindow_instance._rotatingItem.width - width) / 2
-    y: (flickable ? flickable.originY : 0) + _yBase
+    // Modified by Shipwright: kept clear of the view's header (a search field
+    // under the page header), which a short screen, a landscape page or the
+    // keyboard brought down over the placeholder; elsewhere where Silica puts it.
+    y: Math.max((flickable ? flickable.originY : 0) + _yBase, _headerBottom)
+    readonly property real _headerBottom: flickable && flickable.headerItem
+                                          ? flickable.headerItem.y + flickable.headerItem.height + Theme.paddingLarge
+                                          : -Infinity
 
     width: flickable ? flickable.width : screen.width
     height: mainLabel.height + (hintLabel.text.length > 0 ? hintLabel.height : 0)

@@ -887,7 +887,7 @@ other non-BSD Silica types (Keel's clean-room C++ or QML); the Qt 5 to Qt 6 edit
 | `TouchInteractionHint.qml` | `qml/TouchInteractionHint.qml` | modified | 1 | HintReferenceCounter.js | Screen (C++) | signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places); `Screen.` qualified as `KeelSilica.Screen.` (6 places; Qt Quick's attached Screen shadows Silica's in Qt 6); the first PauseAnimation's duration is set only while the group is stopped (_startGroup), not bound to _interrupted, which the group's own ScriptActions change while it runs (Qt 6.4 crashed in QAnimationGroupJob::ungroupChild) |
 | `ValueButton.qml` | `qml/ValueButton.qml` | verbatim | 15 | - | Theme (C++) | - |
 | `VerticalScrollDecorator.qml` | `qml/VerticalScrollDecorator.qml` | modified | 1 | VerticalScrollBase | Theme (C++) | directory imports ("private", "..") import the module by name |
-| `ViewPlaceholder.qml` | `qml/ViewPlaceholder.qml` | verbatim | 1 | Util.js | SilicaItem (Keel QML), Theme (C++) | - |
+| `ViewPlaceholder.qml` | `qml/ViewPlaceholder.qml` | modified | 1 | Util.js | SilicaItem (Keel QML), Theme (C++) | `y` kept below the flickable's `headerItem` plus `Theme.paddingLarge` when Silica's place would overlap it (a search field header on a short or landscape screen) |
 | `Background/CommonKeyboardMaterials.qml` | - | not ported | 9 | - | Screen (C++) | - |
 | `Background/KeyboardBackground.qml` | - | not ported | 9 | - | Theme (C++) | - |
 | `Background/KeyboardMaterials.qml` | - | not ported | 5 | - | - | - |

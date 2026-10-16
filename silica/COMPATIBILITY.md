@@ -82,7 +82,7 @@ Enum holders that are not rows of their own: `Formatter` (with Format), `Dock` (
 | Type | Status | Notes |
 | --- | --- | --- |
 | AddAnimation | implemented | Silica's BSD QML (1.2.156). |
-| ApplicationWindow | implemented | Cover in a second top-level window per keel/shell/PROTOCOL.md; orientation from keel-shell; `_defaultPageOrientations`; `bottomMargin`; `background` group partial (color, image). The window's own children share `contentItem` with the page stack, as in Silica (a child with a negative `z`, such as a camera viewfinder, is under the pages). |
+| ApplicationWindow | implemented | Cover in a second top-level window per keel/shell/PROTOCOL.md; orientation from keel-shell; `_defaultPageOrientations`; `bottomMargin`; `background` group partial (color, image). The window's own children share `contentItem` with the page stack, as in Silica (a child with a negative `z`, such as a camera viewfinder, is under the pages). Another ambience comes in as in Silica: the window (or an opaque current page) fades out and back in over 400 ms each while the new colours wait 600 ms (`Shell.deferAmbience`); off the phone the wallpaper cross-fades. A text size change applies at once. |
 | BackgroundItem | implemented | Silica's BSD QML (1.2.156). |
 | BusyIndicator | implemented | Silica's BSD QML (1.2.156). |
 | BusyIndicatorSize | implemented | |
@@ -118,7 +118,7 @@ Enum holders that are not rows of their own: `Formatter` (with Format), `Dock` (
 | FadeAnimator | implemented | Silica's BSD QML (1.2.156). |
 | FirstTimeUseCounter | implemented | Silica's BSD QML (1.2.156); persists through `Nemo.Configuration` (keel/nemo-compat). |
 | Format | implemented | C++ singleton with the `Formatter` enum holder (FormatType, ArticleType, TextFormatType; names and values from the public API listing). `formatDate`, `formatDuration`, `formatFileSize`, `formatArticle`, `formatText`; English strings and layouts are Keel's own (QLocale). |
-| GlassItem | implemented | Native item in the private module (`plugin/cpp/private/glassitem.h`, clean-room); `qml/GlassItem.qml` exports it from `Sailfish.Silica` as Silica does. |
+| GlassItem | implemented | Native item in the private module (`plugin/cpp/private/glassitem.h`, clean-room), drawn on the GPU by a scene-graph material (`qml/shaders/glassitem.frag`; the software scene graph gets the same glow as an image); `qml/GlassItem.qml` exports it from `Sailfish.Silica` as Silica does. |
 | GridItem | implemented | Silica's BSD QML (1.2.156); the remorse container under the item is Keel's stand-in (Silica's is not open). |
 | HighlightImage | implemented | Silica's BSD QML (1.2.156). In a light ambience an untinted monochrome theme icon is drawn in the palette's primary colour (Keel's HighlightImageBase), as Sailfish's theme does. |
 | HorizontalScrollDecorator | implemented | Silica's BSD QML (1.2.156). |

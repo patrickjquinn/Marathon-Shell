@@ -11,13 +11,19 @@
 # "300 es" fragment shader next to Qt's "100 es" vertex shader fails to link
 # on the phone's Mali ("Shader languages do not match"), and the item draws
 # nothing (the pulley menu was empty). The software scene graph does not run
-# shaders; the QML falls back to plain drawing there.
+# shaders; the QML falls back to plain drawing there. The vertex shader of a
+# C++ scene-graph material (glassitem.vert) also needs the batchable variant
+# (-b): the batch renderer merges such nodes and asks for it, and without it
+# the item draws nothing ("Failed to build graphics pipeline state").
 #   QSB=/path/to/qsb keel/silica/qml/shaders/build-shaders.sh
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 qsb=${QSB:-qsb}
 for src in "$here"/*.vert "$here"/*.frag; do
-    "$qsb" --glsl "100 es,120,150" -o "$src.qsb" "$src"
+    batchable=""
+    case $(basename "$src") in glassitem.vert) batchable="-b" ;; esac
+    # shellcheck disable=SC2086 # $batchable is a flag or nothing
+    "$qsb" $batchable --glsl "100 es,120,150" -o "$src.qsb" "$src"
     # The compiled shader has its source's licence.
     sed -n 's|^// \(SPDX-[A-Za-z-]*: .*\)|\1|p' "$src" > "$src.qsb.license"
 done

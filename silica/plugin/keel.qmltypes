@@ -115,6 +115,8 @@ Module {
         Property { name: "coverTitle"; type: "QString"; isReadonly: true }
         Property { name: "coverEnabled"; type: "bool"; isReadonly: true }
         Property { name: "ambience"; type: "QVariantMap"; isReadonly: true }
+        Property { name: "deferAmbience"; type: "bool" }
+        Signal { name: "ambienceAboutToChange" }
         Signal { name: "closeRequested" }
         Signal {
             name: "coverActionTriggered"

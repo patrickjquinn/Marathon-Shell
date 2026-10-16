@@ -100,6 +100,7 @@ private slots:
     void orientation();
     void activation();
     void ambienceChanged();
+    void ambienceFade();
     void closeRequested();
     void cleanupTestCase();
 
@@ -325,6 +326,39 @@ void tst_ShellContract::ambienceChanged()
     // rgba() applies to the new ambience colour.
     QCOMPARE(probe("Theme.rgba(Theme.highlightColor, 0.5)").value<QColor>().name(QColor::HexArgb),
              QStringLiteral("#80ff0000"));
+}
+
+// Another ambience arrives as in Silica: the window fades out, the colours
+// change while it is hidden (600 ms deferred), and it fades back in. A text
+// size change is not another ambience and applies at once.
+void tst_ShellContract::ambienceFade()
+{
+    if (mode() != QLatin1String("shell"))
+        return;
+    QTRY_VERIFY(m_view->isVisible());
+    QTRY_COMPARE(probe("Shell.deferAmbience").toBool(), false);
+    QVariantMap ambience;
+    ambience.insert(QStringLiteral("/desktop/jolla/theme/color/highlight"), QStringLiteral("#00ff00"));
+    ambience.insert(QStringLiteral("/desktop/jolla/theme/color_scheme"), QStringLiteral("darkonlight"));
+    QMetaObject::invokeMethod(m_shell->object(), "setAmbience", Q_ARG(QVariantMap, ambience));
+    QTRY_COMPARE(probe("Shell.deferAmbience").toBool(), true);
+    // Still the old colour while the window fades out.
+    QCOMPARE(probe("Theme.highlightColor").value<QColor>(), QColor(Qt::red));
+    QTRY_VERIFY_WITH_TIMEOUT(root()->property("_windowOpacity").toReal() < 0.05, 1000);
+    QCOMPARE(probe("Theme.highlightColor").value<QColor>(), QColor(Qt::red));
+    // Green, as Keel derives it for a light ambience.
+    QTRY_VERIFY_WITH_TIMEOUT(probe("Theme.highlightColor").value<QColor>() != QColor(Qt::red), 1000);
+    QVERIFY(probe("Theme.highlightColor").value<QColor>().green() > 0);
+    QCOMPARE(probe("Theme.highlightColor").value<QColor>().red(), 0);
+    QTRY_COMPARE_WITH_TIMEOUT(root()->property("_windowOpacity").toReal(), 1.0, 1000);
+    QCOMPARE(probe("Shell.deferAmbience").toBool(), false);
+
+    ambience.insert(QStringLiteral("/desktop/jolla/theme/font/sizeCategory"), QStringLiteral("'huge'"));
+    QMetaObject::invokeMethod(m_shell->object(), "setAmbience", Q_ARG(QVariantMap, ambience));
+    QTRY_COMPARE(probe("Theme.fontSizeMedium").toReal() > 0, true);
+    QTest::qWait(100);
+    QCOMPARE(probe("Shell.deferAmbience").toBool(), false);
+    QCOMPARE(root()->property("_windowOpacity").toReal(), 1.0);
 }
 
 void tst_ShellContract::closeRequested()
