@@ -205,6 +205,19 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
         if (verifyCallerIsShell() && m_keelHost)
             m_keelHost->setCoverStatus(status);
     }
+    // Keel.Actions owns its name on this process's session-bus connection.
+    // While frozen the app holds no name, so a call for it is bus-activated
+    // and the shell thaws the app instead of the call hanging.
+    void PrepareFreeze() {
+        const QString name = qEnvironmentVariable("KEEL_ACTIONS_APP_ID");
+        if (verifyCallerIsShell() && !name.isEmpty())
+            m_actionsNameReleased = QDBusConnection::sessionBus().unregisterService(name);
+    }
+    void Thawed() {
+        if (verifyCallerIsShell() && m_actionsNameReleased)
+            m_actionsNameReleased = !QDBusConnection::sessionBus().registerService(
+                qEnvironmentVariable("KEEL_ACTIONS_APP_ID"));
+    }
 
   public:
     void setKeelHost(KeelHost *host) {
@@ -260,6 +273,7 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
     qint64            m_expectedShellPid  = -1;
     QPointer<QObject> m_root;
     bool              m_minimizeRequested = false;
+    bool              m_actionsNameReleased = false;
     QPointer<KeelHost> m_keelHost;
 };
 
