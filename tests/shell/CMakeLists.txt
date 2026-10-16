@@ -140,7 +140,8 @@ add_test(NAME Shell_KeelCover COMMAND test_shell_keelcover)
 
 # xdg-desktop-portal Settings backend (appearance from the ambience)
 find_package(Qt6 REQUIRED COMPONENTS Gui DBus)
-add_executable(test_shell_portalsettings test_portalsettings.cpp ../../shell/src/dbus/portalsettings.cpp)
+add_executable(test_shell_portalsettings test_portalsettings.cpp ../../shell/src/dbus/portalsettings.cpp
+    ../../shell/src/services/toolkittheme.cpp)
 target_link_libraries(test_shell_portalsettings Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus)
 target_include_directories(test_shell_portalsettings PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
 add_test(NAME Shell_PortalSettings COMMAND test_shell_portalsettings)
