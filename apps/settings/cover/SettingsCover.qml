@@ -19,7 +19,7 @@ CoverBackground {
         property alias text: stateLabel.text
         property bool on
 
-        width: parent.width
+        width: (lines.width - (lines.columns - 1) * lines.columnSpacing) / lines.columns
         spacing: Theme.paddingMedium
 
         Icon {
@@ -52,11 +52,16 @@ CoverBackground {
         }
     }
 
-    Column {
+    // Side by side on a wide cover, where three rows would run into the actions.
+    Grid {
+        id: lines
+
         x: Theme.paddingLarge
         y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        spacing: Theme.paddingLarge
+        columns: cover.width > cover.height ? 2 : 1
+        columnSpacing: Theme.paddingMedium
+        rowSpacing: Theme.paddingLarge
 
         StateLine {
             objectName: "coverWifi"
