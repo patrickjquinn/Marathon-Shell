@@ -65,7 +65,6 @@ MApp {
         ShellComponents.WaylandShellSurfaceItem {
             id: surfaceItem
 
-            anchors.fill: parent
             autoResize: true
             surfaceObj: nativeAppWindow.waylandSurface
             surfaceId: nativeAppWindow.surfaceId

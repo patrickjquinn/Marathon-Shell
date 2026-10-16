@@ -23,9 +23,12 @@ class WaylandCompositorManager : public QObject {
     void setAppRegistry(MarathonAppRegistry *registry) {
         m_appRegistry = registry;
     }
+    // Held until the compositor exists, which QML creates later.
+    void setNativeScale(qreal scale);
 
   private:
     MarathonAppRegistry *m_appRegistry = nullptr;
+    qreal                m_nativeScale = 1.0;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;
 #endif

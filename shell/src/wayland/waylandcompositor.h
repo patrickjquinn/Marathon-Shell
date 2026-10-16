@@ -30,6 +30,7 @@ class FifoManagerV1;
 class CommitTimingManagerV1;
 class LinuxDmabufManagerV1;
 class WlDrmManager;
+class NativeClientScale;
 struct wl_client;
 
 class MarathonAppRegistry;
@@ -51,6 +52,8 @@ class WaylandCompositor : public QWaylandCompositor {
                    appViewportSizeChanged)
     // Size Keel covers are configured to: the switcher card's cover area.
     Q_PROPERTY(QSize coverSize READ coverSize WRITE setCoverSize NOTIFY coverSizeChanged)
+    // Scale native (non-Marathon) clients draw at; see nativeclientscale.h.
+    Q_PROPERTY(qreal nativeScale READ nativeScale NOTIFY nativeScaleChanged)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window);
@@ -75,11 +78,14 @@ class WaylandCompositor : public QWaylandCompositor {
         return m_coverSize;
     }
     void setCoverSize(const QSize &size);
+    qreal                nativeScale() const;
+    void                 setNativeScale(qreal scale);
 
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
     Q_INVOKABLE void     nudgeSurface(int surfaceId);
+    Q_INVOKABLE bool     usesNativeScale(QWaylandSurface *surface) const;
     // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
     Q_INVOKABLE void     cancelTouch(QQuickItem *item);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
@@ -111,6 +117,7 @@ class WaylandCompositor : public QWaylandCompositor {
   signals:
     void appViewportSizeChanged();
     void coverSizeChanged();
+    void nativeScaleChanged();
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     // A Keel app's dialog window (KeelDialog), not one of its tasks.
@@ -187,6 +194,7 @@ class WaylandCompositor : public QWaylandCompositor {
     CommitTimingManagerV1                  *m_commitTimingManager      = nullptr;
     LinuxDmabufManagerV1                   *m_linuxDmabufManager       = nullptr;
     WlDrmManager                           *m_wlDrmManager             = nullptr;
+    NativeClientScale                      *m_nativeClientScale        = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;
@@ -213,7 +221,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QSize                                   m_appViewportSize;
     QSize                                   m_coverSize;
     QList<QPointer<QWaylandXdgToplevel>>    m_coverToplevels;
-    QSize                                   appConfigureSize() const;
+    QSize                                   appConfigureSize(QWaylandSurface *surface) const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.

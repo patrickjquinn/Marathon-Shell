@@ -7,6 +7,7 @@
 #include "src/wayland/fifov1.h"
 #include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/wldrm.h"
+#include "src/wayland/nativeclientscale.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
@@ -169,6 +170,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // names /dev/dri/renderD128 + advertises PRIME so Mesa renders on etnaviv
     // while buffers still import through Qt's v3 dmabuf. See wldrm.h.
     m_wlDrmManager = new WlDrmManager(this);
+
+    m_nativeClientScale = new NativeClientScale(this);
+    connect(m_nativeClientScale, &NativeClientScale::scaleChanged, this,
+            &WaylandCompositor::nativeScaleChanged);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
@@ -961,10 +966,26 @@ void WaylandCompositor::configureCover(QWaylandXdgToplevel *toplevel) const {
                             QList<QWaylandXdgToplevel::State>());
 }
 
-QSize WaylandCompositor::appConfigureSize() const {
+QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
+    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
     if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
-        return m_appViewportSize;
-    return (m_output && m_output->window()) ? m_output->window()->size() : QSize();
+        return NativeClientScale::toLogical(m_appViewportSize, scale);
+    return NativeClientScale::toLogical(
+        (m_output && m_output->window()) ? m_output->window()->size() : QSize(), scale);
+}
+
+qreal WaylandCompositor::nativeScale() const {
+    return m_nativeClientScale->scale();
+}
+
+void WaylandCompositor::setNativeScale(qreal scale) {
+    qInfo() << "[WaylandCompositor] Native client scale" << scale;
+    m_nativeClientScale->setScale(scale);
+}
+
+bool WaylandCompositor::usesNativeScale(QWaylandSurface *surface) const {
+    return surface && surface->client() &&
+        !m_nativeClientScale->isFirstParty(surface->client()->client());
 }
 
 void WaylandCompositor::cancelTouch(QQuickItem *item) {
@@ -1185,7 +1206,7 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     // output size up-front, the client always gets a first configure within
     // milliseconds of mapping and can proceed to attach + commit its buffer.
     {
-        const QSize initialSize = appConfigureSize();
+        const QSize initialSize = appConfigureSize(surface);
         if (initialSize.width() > 0 && initialSize.height() > 0) {
             QList<QWaylandXdgToplevel::State> states;
             states << QWaylandXdgToplevel::ActivatedState << QWaylandXdgToplevel::MaximizedState;
@@ -1195,7 +1216,18 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
         }
     }
 
-    emit                          surfaceCreated(surface, surfaceId, xdgSurface);
+    emit surfaceCreated(surface, surfaceId, xdgSurface);
+
+    // The shell-surface item answers these with the output size in its own
+    // units; a native-scale client is put back at its app-area size.
+    if (usesNativeScale(surface)) {
+        const auto resize = [this, surfaceId]() { nudgeSurface(surfaceId); };
+        connect(toplevel, &QWaylandXdgToplevel::setMaximized, this, resize, Qt::QueuedConnection);
+        connect(toplevel, &QWaylandXdgToplevel::unsetMaximized, this, resize, Qt::QueuedConnection);
+        connect(toplevel, &QWaylandXdgToplevel::setFullscreen, this, resize, Qt::QueuedConnection);
+        connect(toplevel, &QWaylandXdgToplevel::unsetFullscreen, this, resize,
+                Qt::QueuedConnection);
+    }
 
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
     QPointer<QWaylandSurface>     safeSurface(surface);
@@ -1245,7 +1277,7 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
 void WaylandCompositor::mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
     QWaylandSurface *surface = xdgSurface->surface();
     surface->setProperty("isDialog", true);
-    toplevel->sendConfigure(appConfigureSize(),
+    toplevel->sendConfigure(appConfigureSize(surface),
                             QList<QWaylandXdgToplevel::State>{QWaylandXdgToplevel::ActivatedState,
                                                               QWaylandXdgToplevel::MaximizedState});
     emit dialogCreated(surface, surface->property("surfaceId").toInt(), xdgSurface);
@@ -2074,11 +2106,10 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
         states << kStateSuspended;
 
     // Keep the size the client already has; a different one would relayout it on every resume.
-    QSize size = toplevel->xdgSurface() && toplevel->xdgSurface()->surface() ?
-        toplevel->xdgSurface()->surface()->destinationSize() :
-        QSize();
+    QWaylandSurface *surface = toplevel->xdgSurface()->surface();
+    QSize            size    = surface->destinationSize();
     if (size.isEmpty())
-        size = appConfigureSize();
+        size = appConfigureSize(surface);
     toplevel->sendConfigure(size, states);
     qInfo() << "[WaylandCompositor] xdg-suspend appId=" << appId << "suspended=" << suspended
             << "surfaceId=" << foundId;

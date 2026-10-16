@@ -670,7 +670,6 @@ Rectangle {
             property int dialogSurfaceId: -1
             property string ownerAppId
 
-            anchors.fill: parent
             z: 1000
             // Once its surface is gone the item paints an opaque placeholder,
             // which would black out every app shown after it.

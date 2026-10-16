@@ -134,6 +134,7 @@
 
 #ifdef HAVE_WAYLAND
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/nativeclientscale.h"
 #include "src/diag/fpsmonitor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
@@ -660,6 +661,20 @@ int main(int argc, char *argv[]) {
     if (debugEnabled || profileMode) {
         qInfo() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
     }
+#ifdef HAVE_WAYLAND
+    // Native apps follow the interface size too, from the DPI the shell scales by.
+    {
+        auto update = [compositorManager, settingsManager, screenMetrics]() {
+            compositorManager->setNativeScale(
+                NativeClientScale::fromDpi(screenMetrics->dpi(), settingsManager->userScaleFactor(),
+                                           DeviceProfile::instance().nativeScale()));
+        };
+        update();
+        QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged,
+                         compositorManager, update);
+        QObject::connect(screenMetrics, &ScreenMetrics::metricsChanged, compositorManager, update);
+    }
+#endif
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
 

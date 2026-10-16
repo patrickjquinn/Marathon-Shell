@@ -23,8 +23,17 @@ WaylandCompositor *WaylandCompositorManager::createCompositor(QQuickWindow *wind
 
     m_compositor = new WaylandCompositor(window);
     m_compositor->setAppRegistry(m_appRegistry);
+    m_compositor->setNativeScale(m_nativeScale);
     return m_compositor;
 #else
     return nullptr;
+#endif
+}
+
+void WaylandCompositorManager::setNativeScale(qreal scale) {
+    m_nativeScale = scale;
+#ifdef HAVE_WAYLAND
+    if (m_compositor)
+        m_compositor->setNativeScale(scale);
 #endif
 }

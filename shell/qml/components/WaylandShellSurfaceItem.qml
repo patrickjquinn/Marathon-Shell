@@ -21,6 +21,11 @@ ShellSurfaceItem {
         var s = _surfaceFromObj(surfaceObj);
         return s ? s.hasContent : false;
     }
+    // A native client draws in its own pixels, the shell's over nativeScale.
+    // The item takes the surface's size in those and is scaled up, so popups,
+    // subsurfaces and touch points map 1:1 onto the client's coordinates.
+    readonly property real clientScale: !isPreview && launchCompositor && launchCompositor.usesNativeScale(surface) ? launchCompositor.nativeScale : 1
+    readonly property size configureSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
 
     function scheduleSizeUpdate() {
         if (sizeUpdateScheduled)
@@ -75,14 +80,16 @@ ShellSurfaceItem {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: autoResize is false");
             return;
         }
-        if (width <= 0 || height <= 0) {
-            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: invalid size " + width + "x" + height);
+        var areaWidth = parent ? parent.width : 0;
+        var areaHeight = parent ? parent.height : 0;
+        if (areaWidth <= 0 || areaHeight <= 0) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: invalid size " + areaWidth + "x" + areaHeight);
             return;
         }
-        var expectedWidth = (Constants && Constants.screenWidth > 0) ? Constants.screenWidth : width;
+        var expectedWidth = (Constants && Constants.screenWidth > 0) ? Constants.screenWidth : areaWidth;
         var minWidth = Math.max(1, expectedWidth * 0.6);
-        if (width < minWidth) {
-            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: width " + width + " is below minimum (" + Math.round(minWidth) + "px) - waiting for layout completion");
+        if (areaWidth < minWidth) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: width " + areaWidth + " is below minimum (" + Math.round(minWidth) + "px) - waiting for layout completion");
             return;
         }
         var toplevel = _toplevelFromObj(surfaceObj);
@@ -101,7 +108,7 @@ ShellSurfaceItem {
             Qt.callLater(scheduleSizeUpdate);
             return;
         }
-        var newSize = Qt.size(Math.round(width), Math.round(height));
+        var newSize = configureSize;
         if (hasSentInitialSize && Math.abs(newSize.width - lastSentSize.width) < 2 && Math.abs(newSize.height - lastSentSize.height) < 2) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: size unchanged (" + newSize.width + "x" + newSize.height + " vs " + lastSentSize.width + "x" + lastSentSize.height + ")");
             return;
@@ -129,6 +136,10 @@ ShellSurfaceItem {
             forceActiveFocus();
     }
 
+    width: clientScale === 1 ? (parent ? parent.width : 0) : implicitWidth
+    height: clientScale === 1 ? (parent ? parent.height : 0) : implicitHeight
+    scale: clientScale
+    transformOrigin: Item.TopLeft
     autoCreatePopupItems: true
     // Keep the surface item visible from when it's mapped. The compositor now
     // sends an initial xdg_toplevel.configure from C++ (see handleXdgToplevelCreated
@@ -161,11 +172,7 @@ ShellSurfaceItem {
             Qt.callLater(_assertPrimary);
         }
     }
-    onWidthChanged: {
-        if (autoResize)
-            scheduleSizeUpdate();
-    }
-    onHeightChanged: {
+    onConfigureSizeChanged: {
         if (autoResize)
             scheduleSizeUpdate();
     }
