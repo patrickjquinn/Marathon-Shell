@@ -166,6 +166,8 @@ QVariantMap AppLifecycleManager::appInfoFromInstance(const QString &appId,
 void AppLifecycleManager::bringToForeground(const QString &appId) {
     if (appId.isEmpty())
         return;
+    if (m_taskModel)
+        m_taskModel->moveToFront(appId);
 
     // Demote the prior foreground app: BackgroundActive if it holds a
     // capability (music playing, call active, nav running), else BgIdle.

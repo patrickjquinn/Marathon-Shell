@@ -57,6 +57,27 @@ class TestTaskModel : public QObject {
         QCOMPARE(model.taskCount(), 3);
     }
 
+    // === CONTRACT: moveToFront makes an app the most recent ===
+
+    void moveToFront() {
+        TaskModel model;
+        model.launchTask("com.a", "A", "i", "marathon");
+        model.launchTask("com.b", "B", "i", "marathon");
+        model.launchTask("com.c", "C", "i", "marathon");
+        QSignalSpy moveSpy(&model, &QAbstractItemModel::rowsMoved);
+
+        model.moveToFront("com.a");
+        QCOMPARE(model.data(model.index(0), TaskModel::AppIdRole).toString(), QString("com.a"));
+        QCOMPARE(model.data(model.index(1), TaskModel::AppIdRole).toString(), QString("com.c"));
+        QCOMPARE(model.data(model.index(2), TaskModel::AppIdRole).toString(), QString("com.b"));
+        QCOMPARE(moveSpy.count(), 1);
+
+        model.moveToFront("com.a");
+        model.moveToFront("com.unknown");
+        QCOMPARE(moveSpy.count(), 1);
+        QCOMPARE(model.taskCount(), 3);
+    }
+
     // === CONTRACT: getTaskByAppId ===
 
     void getTaskByAppId() {

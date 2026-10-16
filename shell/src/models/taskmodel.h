@@ -141,6 +141,8 @@ class TaskModel : public QAbstractListModel {
                                  const QString &appIcon, const QString &appType, int surfaceId = -1,
                                  QObject *waylandSurface = nullptr);
     Q_INVOKABLE void  closeTask(const QString &taskId);
+    // The app's task becomes the first (most recently used).
+    Q_INVOKABLE void  moveToFront(const QString &appId);
     Q_INVOKABLE Task *getTask(const QString &taskId);
     Q_INVOKABLE Task *getTaskByAppId(const QString &appId);
     Q_INVOKABLE Task *getTaskBySurfaceId(int surfaceId);

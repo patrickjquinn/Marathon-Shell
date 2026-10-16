@@ -79,6 +79,15 @@ void TaskModel::launchTask(const QString &appId, const QString &appName, const Q
              << "- inserted at position 0 (newest first)";
 }
 
+void TaskModel::moveToFront(const QString &appId) {
+    const int index = m_tasks.indexOf(m_appIndex.value(appId, nullptr));
+    if (index <= 0)
+        return;
+    beginMoveRows(QModelIndex(), index, index, QModelIndex(), 0);
+    m_tasks.move(index, 0);
+    endMoveRows();
+}
+
 void TaskModel::closeTask(const QString &taskId) {
     Task *task = m_taskIndex.value(taskId, nullptr);
     if (!task) {
