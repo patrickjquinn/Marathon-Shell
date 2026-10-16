@@ -1570,13 +1570,22 @@ Item {
                 // The cover's radius in the shrinking container's pixels.
                 readonly property real radius: WindowOrigins.cardRadius * appWindowContainer.dock / (1 + (appWindowContainer.dockScale - 1) * appWindowContainer.dock)
 
-                // The part of item inside the crop, normalized.
-                function crop(item) {
+                // The part of item inside the crop, in the crop's pixels.
+                function part(item) {
                     if (!item || item.width <= 0 || item.height <= 0)
-                        return Qt.rect(0, 0, 1, 1);
+                        return Qt.rect(0, 0, cardBorder.width, cardBorder.height);
                     appWindow.x, appWindow.y; // mapToItem tracks no geometry
                     var r = item.mapToItem(cardBorder, 0, 0, item.width, item.height);
-                    return Qt.rect(-r.x / r.width, -r.y / r.height, cardBorder.width / r.width, cardBorder.height / r.height);
+                    var x = Math.max(0, r.x), y = Math.max(0, r.y);
+                    return Qt.rect(x, y, Math.max(0, Math.min(cardBorder.width, r.x + r.width) - x), Math.max(0, Math.min(cardBorder.height, r.y + r.height) - y));
+                }
+
+                // That part, normalized to item.
+                function crop(item, p) {
+                    if (!item || item.width <= 0 || item.height <= 0)
+                        return Qt.rect(0, 0, 1, 1);
+                    var r = item.mapToItem(cardBorder, 0, 0, item.width, item.height);
+                    return Qt.rect((p.x - r.x) / r.width, (p.y - r.y) / r.height, p.width / r.width, p.height / r.height);
                 }
 
                 anchors.fill: parent
@@ -1585,19 +1594,29 @@ Item {
                 WindowTextureItem {
                     id: backdropCorners
 
-                    anchors.fill: parent
+                    readonly property rect part: dockCorners.part(source)
+
+                    x: part.x
+                    y: part.y
+                    width: part.width
+                    height: part.height
                     source: dockCorners.active && dockCorners.app.backdropItem ? dockCorners.app.backdropItem : null
                     radius: dockCorners.radius
-                    sourceRect: dockCorners.crop(source)
+                    sourceRect: dockCorners.crop(source, part)
                 }
 
                 WindowTextureItem {
                     id: surfaceCorners
 
-                    anchors.fill: parent
+                    readonly property rect part: dockCorners.part(source)
+
+                    x: part.x
+                    y: part.y
+                    width: part.width
+                    height: part.height
                     source: dockCorners.active ? dockCorners.surface : null
                     radius: dockCorners.radius
-                    sourceRect: dockCorners.crop(source)
+                    sourceRect: dockCorners.crop(source, part)
                 }
 
                 // A pill gesture takes the app's fingers (a second finger
