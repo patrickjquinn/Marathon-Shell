@@ -25,6 +25,15 @@ target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
 
+# SinkVolume: volume and mute follow the current default sink
+add_executable(test_shell_sinkvolume
+    test_sinkvolume.cpp
+    ../../shell/src/managers/sinkvolume.cpp
+)
+target_link_libraries(test_shell_sinkvolume Qt6::Test Qt6::Core)
+target_include_directories(test_shell_sinkvolume PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+add_test(NAME Shell_SinkVolume COMMAND test_shell_sinkvolume)
+
 # AppModel tests (data model with validation)
 add_executable(test_shell_appmodel
     test_appmodel.cpp

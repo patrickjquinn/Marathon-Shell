@@ -72,6 +72,10 @@ set(SOURCES
     src/services/screenshotservicecpp.cpp
     src/managers/audiomanagercpp.h
     src/managers/audiomanagercpp.cpp
+    src/managers/sinkvolume.h
+    src/managers/sinkvolume.cpp
+    src/managers/pulsesinkbackend.h
+    src/managers/pulsesinkbackend.cpp
     src/managers/modemmanagercpp.h
     src/managers/modemmanagercpp.cpp
     src/managers/cellbroadcastmanager.h

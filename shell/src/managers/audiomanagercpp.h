@@ -5,8 +5,9 @@
 #include <QAbstractListModel>
 #include <functional>
 
-#include <pulse/pulseaudio.h>
 #include <qqml.h>
+
+class SinkVolume;
 
 struct AudioStream {
     int     id;
@@ -63,17 +64,12 @@ class AudioManagerCpp : public QObject {
 
   public:
     explicit AudioManagerCpp(QObject *parent = nullptr);
-    ~AudioManagerCpp() override;
 
     bool available() const {
         return m_available;
     }
-    double volume() const {
-        return m_currentVolume;
-    }
-    bool muted() const {
-        return m_muted;
-    }
+    double            volume() const;
+    bool              muted() const;
     AudioStreamModel *streams() {
         return m_streamModel;
     }
@@ -97,42 +93,21 @@ class AudioManagerCpp : public QObject {
     void streamsChanged();
     void isPlayingChanged();
 
-  private slots:
-    void updateFromPulse(double vol, bool isMuted);
-
   private:
     void        parseWpctlStatus(const QString &output);
-    void        applyPipeWireMute(bool muted, int attemptsLeft);
     void        runWpctl(const QStringList &args, const std::function<void(bool ok)> &done = {});
-    void        sendPendingVolume();
     void        updatePlaybackState();
 
-    bool        initPulseAudio();
-    void        cleanupPulseAudio();
-    void        requestDefaultSink();
-    static void paContextStateCallback(pa_context *c, void *userdata);
-    static void paSinkInfoCallback(pa_context *c, const pa_sink_info *i, int eol, void *userdata);
+    bool              m_available;
+    bool              m_isPipeWire;
+    bool              m_isPlaying;
+    AudioStreamModel *m_streamModel;
+    SinkVolume       *m_sinkVolume;
 
-    bool        m_available;
-    bool        m_isPipeWire;
-    double      m_currentVolume;
-    bool        m_muted;
-    bool        m_isPlaying;
-    AudioStreamModel     *m_streamModel;
-
-    // wpctl runs asynchronously. One status query and one sink-volume write
-    // are in flight at a time; requests that arrive meanwhile are folded
-    // into a single follow-up.
-    bool                  m_statusRunning  = false;
-    bool                  m_statusPending  = false;
-    bool                  m_volumeRunning  = false;
-    double                m_pendingVolume  = -1.0;
-
-    QString               m_defaultSinkName;
-    int                   m_sinkChannels;
-
-    pa_threaded_mainloop *m_pa_mainloop;
-    pa_context           *m_pa_context;
+    // wpctl runs asynchronously. One status query is in flight at a time;
+    // requests that arrive meanwhile are folded into a single follow-up.
+    bool              m_statusRunning = false;
+    bool              m_statusPending = false;
 };
 
 #endif

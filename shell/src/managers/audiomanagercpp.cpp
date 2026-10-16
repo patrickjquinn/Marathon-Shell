@@ -1,4 +1,6 @@
 #include "audiomanagercpp.h"
+#include "pulsesinkbackend.h"
+#include "sinkvolume.h"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include "platform.h"
@@ -8,7 +10,6 @@
 #include <QDBusConnection>
 #include <QDBusMetaType>
 #include <QProcess>
-#include <QTimer>
 #include <QRegularExpression>
 #include <utility>   // std::as_const
 
@@ -74,126 +75,48 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
     : QObject(parent)
     , m_available(false)
     , m_isPipeWire(false)
-    , m_currentVolume(0.6)
-    , m_muted(false)
     , m_isPlaying(false)
-    , m_streamModel(new AudioStreamModel(this))
-    , m_pa_mainloop(nullptr)
-    , m_pa_context(nullptr) {
+    , m_streamModel(new AudioStreamModel(this)) {
     qDebug() << "[AudioManagerCpp] Initializing";
 
     QProcess checkPipewire;
     checkPipewire.start("wpctl", {"status"});
     checkPipewire.waitForFinished(1000);
+    m_isPipeWire = checkPipewire.exitCode() == 0;
 
-    if (checkPipewire.exitCode() == 0) {
-        m_available  = true;
-        m_isPipeWire = true;
+    // The default sink is followed through libpulse (pipewire-pulse on
+    // PipeWire): the default can change at any time, e.g. to a headset.
+    auto *backend = new PulseSinkBackend(this);
+    m_sinkVolume  = new SinkVolume(backend, this);
+    connect(m_sinkVolume, &SinkVolume::volumeChanged, this, &AudioManagerCpp::volumeChanged);
+    connect(m_sinkVolume, &SinkVolume::mutedChanged, this, &AudioManagerCpp::mutedChanged);
+    const bool pulse = backend->start();
+    m_available      = m_isPipeWire || pulse;
+
+    if (m_isPipeWire) {
         qInfo() << "[AudioManagerCpp] PipeWire/WirePlumber available with per-app volume support";
-
-        QProcess process;
-        process.start("wpctl", {"get-volume", "@DEFAULT_AUDIO_SINK@"});
-        process.waitForFinished();
-        QString                         output = process.readAllStandardOutput();
-
-        static const QRegularExpression re("Volume: ([0-9.]+)");
-        QRegularExpressionMatch         match = re.match(output);
-        if (match.hasMatch()) {
-            m_currentVolume = match.captured(1).toDouble();
-        }
-
-        if (output.contains("[MUTED]")) {
-            m_muted = true;
-        }
-
         refreshStreams();
+    } else if (pulse) {
+        qInfo() << "[AudioManagerCpp] PulseAudio available (per-app volume not supported)";
     } else {
-
-        if (initPulseAudio()) {
-            m_available  = true;
-            m_isPipeWire = false;
-            qInfo() << "[AudioManagerCpp] PulseAudio available (per-app volume not supported)";
-        } else {
-            qInfo()
-                << "[AudioManagerCpp] Neither PipeWire nor PulseAudio available, using mock mode";
-        }
+        qInfo() << "[AudioManagerCpp] Neither PipeWire nor PulseAudio available, using mock mode";
     }
 }
 
-AudioManagerCpp::~AudioManagerCpp() {
-    cleanupPulseAudio();
+double AudioManagerCpp::volume() const {
+    return m_sinkVolume->volume();
+}
+
+bool AudioManagerCpp::muted() const {
+    return m_sinkVolume->muted();
 }
 
 void AudioManagerCpp::setVolume(double volume) {
-    if (!m_available) {
-        m_currentVolume = qBound(0.0, volume, 1.0);
-        emit volumeChanged();
-        return;
-    }
-
-    volume = qBound(0.0, volume, 1.0);
-
-    if (m_isPipeWire) {
-        // A slider drag calls this many times a second; only the newest
-        // value is sent once the write in flight finishes.
-        m_currentVolume = volume;
-        emit volumeChanged();
-        m_pendingVolume = volume;
-        sendPendingVolume();
-        return;
-    } else {
-
-        if (m_pa_context && m_pa_mainloop) {
-            if (m_defaultSinkName.isEmpty()) {
-                qWarning() << "[PulseAudio] Default sink name is empty!";
-                return;
-            }
-            pa_threaded_mainloop_lock(m_pa_mainloop);
-
-            pa_cvolume  cv;
-            pa_volume_t paVol = pa_sw_volume_from_linear(volume);
-            pa_cvolume_set(&cv, m_sinkChannels, paVol);
-
-            pa_context_set_sink_volume_by_name(m_pa_context, m_defaultSinkName.toUtf8().constData(),
-                                               &cv, nullptr, nullptr);
-
-            pa_threaded_mainloop_unlock(m_pa_mainloop);
-
-            m_currentVolume = volume;
-            emit volumeChanged();
-            qDebug() << "[AudioManagerCpp] Set volume to:" << volume << "(PulseAudio)";
-            return;
-        }
-    }
+    m_sinkVolume->setVolume(volume);
 }
 
 void AudioManagerCpp::setMuted(bool muted) {
-    if (!m_available) {
-        m_muted = muted;
-        emit mutedChanged();
-        return;
-    }
-
-    if (m_isPipeWire) {
-        m_muted = muted;
-        emit mutedChanged();
-        applyPipeWireMute(muted, 15);
-        return;
-    } else {
-
-        if (m_pa_context && m_pa_mainloop) {
-            pa_threaded_mainloop_lock(m_pa_mainloop);
-
-            pa_context_set_sink_mute_by_name(m_pa_context, m_defaultSinkName.toUtf8().constData(),
-                                             muted, nullptr, nullptr);
-
-            pa_threaded_mainloop_unlock(m_pa_mainloop);
-
-            m_muted = muted;
-            emit mutedChanged();
-            qDebug() << "[AudioManagerCpp] Set muted to:" << muted << "(PulseAudio)";
-        }
-    }
+    m_sinkVolume->setMuted(muted);
 }
 
 void AudioManagerCpp::setStreamVolume(int streamId, double volume) {
@@ -264,22 +187,6 @@ void AudioManagerCpp::refreshStreams() {
     process->start("wpctl", {"status"});
 }
 
-// At boot the shell restores mute before WirePlumber has a default sink;
-// retry until it does, unless the user has changed mute since.
-void AudioManagerCpp::applyPipeWireMute(bool muted, int attemptsLeft) {
-    runWpctl({"set-mute", "@DEFAULT_AUDIO_SINK@", muted ? "1" : "0"},
-             [this, muted, attemptsLeft](bool ok) {
-                 if (ok || m_muted != muted)
-                     return;
-                 if (attemptsLeft <= 1) {
-                     qWarning() << "[AudioManagerCpp] Failed to set mute";
-                     return;
-                 }
-                 QTimer::singleShot(2000, this,
-                                    [this, muted, attemptsLeft] { applyPipeWireMute(muted, attemptsLeft - 1); });
-             });
-}
-
 void AudioManagerCpp::runWpctl(const QStringList &args, const std::function<void(bool ok)> &done) {
     auto *process = new QProcess(this);
     connect(process, &QProcess::finished, this,
@@ -296,23 +203,6 @@ void AudioManagerCpp::runWpctl(const QStringList &args, const std::function<void
             done(false);
     });
     process->start("wpctl", args);
-}
-
-void AudioManagerCpp::sendPendingVolume() {
-    if (m_volumeRunning || m_pendingVolume < 0)
-        return;
-    const double volume = std::exchange(m_pendingVolume, -1.0);
-    m_volumeRunning     = true;
-    runWpctl({"set-volume", "@DEFAULT_AUDIO_SINK@", QString::number(volume)},
-             [this, volume](bool ok) {
-                 m_volumeRunning = false;
-                 if (ok)
-                     qDebug() << "[AudioManagerCpp] Set volume to:" << qRound(volume * 100)
-                              << "% (PipeWire)";
-                 else
-                     qWarning() << "[AudioManagerCpp] Failed to set volume";
-                 sendPendingVolume();
-             });
 }
 
 void AudioManagerCpp::parseWpctlStatus(const QString &output) {
@@ -383,111 +273,5 @@ void AudioManagerCpp::updatePlaybackState() {
         qInfo() << "[AudioManagerCpp] Playback state changed:"
                 << (isNowPlaying ? "PLAYING" : "STOPPED");
         emit isPlayingChanged();
-    }
-}
-
-bool AudioManagerCpp::initPulseAudio() {
-    m_pa_mainloop = pa_threaded_mainloop_new();
-    if (!m_pa_mainloop)
-        return false;
-
-    m_pa_context = pa_context_new(pa_threaded_mainloop_get_api(m_pa_mainloop), "AudioManagerCpp");
-
-    if (!m_pa_context) {
-        cleanupPulseAudio();
-        return false;
-    }
-
-    pa_context_set_state_callback(m_pa_context, &AudioManagerCpp::paContextStateCallback, this);
-
-    if (pa_context_connect(m_pa_context, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
-        cleanupPulseAudio();
-        return false;
-    }
-
-    if (pa_threaded_mainloop_start(m_pa_mainloop) < 0) {
-        cleanupPulseAudio();
-        return false;
-    }
-
-    return true;
-}
-
-void AudioManagerCpp::cleanupPulseAudio() {
-    if (m_pa_mainloop)
-        pa_threaded_mainloop_stop(m_pa_mainloop);
-    if (m_pa_context) {
-        pa_context_disconnect(m_pa_context);
-        pa_context_unref(m_pa_context);
-    }
-    if (m_pa_mainloop)
-        pa_threaded_mainloop_free(m_pa_mainloop);
-}
-
-void AudioManagerCpp::requestDefaultSink() {
-    pa_operation *o = pa_context_get_server_info(
-        m_pa_context,
-        [](pa_context *, const pa_server_info *info, void *userdata) {
-            if (!info || !info->default_sink_name)
-                return;
-
-            AudioManagerCpp *self = static_cast<AudioManagerCpp *>(userdata);
-
-            self->m_defaultSinkName = info->default_sink_name;
-            qInfo() << "[PulseAudio] Default sink:" << self->m_defaultSinkName;
-
-            pa_context_get_sink_info_by_name(self->m_pa_context,
-                                             self->m_defaultSinkName.toUtf8().constData(),
-                                             &AudioManagerCpp::paSinkInfoCallback, self);
-        },
-        this);
-
-    if (o)
-        pa_operation_unref(o);
-}
-
-void AudioManagerCpp::paContextStateCallback(pa_context *c, void *userdata) {
-    AudioManagerCpp *self = static_cast<AudioManagerCpp *>(userdata);
-
-    switch (pa_context_get_state(c)) {
-
-        case PA_CONTEXT_READY: self->requestDefaultSink(); break;
-
-        case PA_CONTEXT_FAILED:
-        case PA_CONTEXT_TERMINATED:
-            qWarning() << "[AudioManagerCpp] PulseAudio context failed/terminated";
-            break;
-
-        default: break;
-    }
-}
-
-void AudioManagerCpp::paSinkInfoCallback(pa_context *, const pa_sink_info *i, int eol,
-                                         void *userdata) {
-    if (eol < 0 || !i)
-        return;
-
-    AudioManagerCpp *self = static_cast<AudioManagerCpp *>(userdata);
-
-    if (QString(i->name) != self->m_defaultSinkName)
-        return;
-
-    self->m_sinkChannels = i->channel_map.channels;
-
-    double vol     = (double)pa_cvolume_avg(&i->volume) / PA_VOLUME_NORM;
-    bool   isMuted = i->mute;
-
-    QMetaObject::invokeMethod(self, "updateFromPulse", Qt::QueuedConnection, Q_ARG(double, vol),
-                              Q_ARG(bool, isMuted));
-}
-
-void AudioManagerCpp::updateFromPulse(double vol, bool isMuted) {
-    if (!qFuzzyCompare(m_currentVolume, vol)) {
-        m_currentVolume = vol;
-        emit volumeChanged();
-    }
-    if (m_muted != isMuted) {
-        m_muted = isMuted;
-        emit mutedChanged();
     }
 }
