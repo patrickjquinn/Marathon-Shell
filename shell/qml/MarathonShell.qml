@@ -113,16 +113,22 @@ Item {
         Router.goToFrames();
     }
 
+    // Back lands on home, so home is what shows under the app as it goes.
+    function revealHomeUnderApp() {
+        if (pageView.currentIndex < 2) {
+            pageView.jumpToIndex(2);
+            Router.goToAppPage(0);
+        }
+    }
+
     // Back on an app's root page: the app recedes and the home grid is underneath.
     function backOutOfApp() {
         if (!UIStore.appWindowOpen || backExit.running)
             return;
-        if (pageView.currentIndex < 2) {
-            pageView.currentIndex = 2;
-            Router.goToAppPage(0);
-        }
-        // The app leaves from where the finger left it.
+        revealHomeUnderApp();
+        // The app carries on from where the finger left it.
         navBar.backTracker.stop();
+        backExitSlide.to = navBar.backTracker.value > 0 ? navBar.backTracker.value + shell.width * 0.25 : 0;
         backExit.start();
     }
 
@@ -1476,6 +1482,13 @@ Item {
         }
 
         // Back: home shows dimmed under the app the finger draws aside.
+        Connections {
+            target: navBar.backTracker
+            function onValueChanged() {
+                if (navBar.backTracker.active && navBar.backTracker.value > 0 && UIStore.appWindowOpen)
+                    shell.revealHomeUnderApp();
+            }
+        }
         Rectangle {
             anchors.fill: parent
             color: "black"
@@ -1494,12 +1507,13 @@ Item {
             height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
             clip: appWindowContainer.dock > 0
             // Back: the app follows the pill left and recedes to 0.9.
+            readonly property real backShrink: Math.min(1, navBar.backTracker.value / (parent.width * 0.3))
             transform: [
                 Scale {
                     origin.x: cardBorder.width / 2
                     origin.y: cardBorder.height / 2
-                    xScale: 1 - 0.1 * navBar.backProgress
-                    yScale: 1 - 0.1 * navBar.backProgress
+                    xScale: 1 - 0.1 * cardBorder.backShrink
+                    yScale: 1 - 0.1 * cardBorder.backShrink
                 },
                 Translate {
                     x: -navBar.backTracker.value
@@ -1531,7 +1545,7 @@ Item {
 
         // The edge shadow the drawn-aside app casts on home.
         Rectangle {
-            readonly property real s: 1 - 0.1 * navBar.backProgress
+            readonly property real s: 1 - 0.1 * cardBorder.backShrink
 
             x: parent.width * (1 + s) / 2 - navBar.backTracker.value
             y: parent.height * (1 - s) / 2
@@ -2432,6 +2446,14 @@ Item {
     ParallelAnimation {
         id: backExit
 
+        NumberAnimation {
+            id: backExitSlide
+
+            target: navBar.backTracker
+            property: "value"
+            duration: MMotion.reduceMotion ? 0 : 180
+            easing.type: Easing.OutCubic
+        }
         NumberAnimation {
             target: appWindow
             property: "opacity"

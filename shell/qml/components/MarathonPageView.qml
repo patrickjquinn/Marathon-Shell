@@ -27,6 +27,15 @@ Item {
         pageView.incrementCurrentIndex();
     }
 
+    // Puts a page on screen at once, without the slide: for a page shown under an app.
+    function jumpToIndex(index) {
+        var duration = pageView.highlightMoveDuration;
+        pageView.highlightMoveDuration = 0;
+        pageView.currentIndex = index;
+        pageView.positionViewAtIndex(index, ListView.Beginning);
+        pageView.highlightMoveDuration = duration;
+    }
+
     function decrementCurrentIndex() {
         pageView.decrementCurrentIndex();
     }
