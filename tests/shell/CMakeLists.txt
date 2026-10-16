@@ -238,6 +238,31 @@ target_include_directories(test_shell_backgroundlaunch PRIVATE
 )
 add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
 
+# A Keel Actions app gives up its bus name before it is frozen, and is woken
+if(DBUS_RUN_SESSION)
+    add_executable(test_shell_keelactionsfreeze
+        test_keelactionsfreeze.cpp
+        ../../shell/src/services/applaunchservice.cpp
+        ../../shell/src/services/applifecyclemanager.cpp
+        ../../shell/src/services/cgroupmanager.cpp
+        ../../shell/src/services/processstopper.cpp
+        ../../shell/src/models/taskmodel.cpp
+        ../../shell/src/models/appmodel.cpp
+        ../../shell/src/managers/deviceprofile.cpp
+        ../../shell/src/managers/screenmetrics.cpp
+        ../../marathon-core/src/marathonappregistry.cpp
+    )
+    target_link_libraries(test_shell_keelactionsfreeze Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
+    target_include_directories(test_shell_keelactionsfreeze PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell
+        ${CMAKE_SOURCE_DIR}/shell/src/services
+        ${CMAKE_SOURCE_DIR}/shell/src/models
+        ${CMAKE_SOURCE_DIR}/marathon-core/src
+    )
+    add_test(NAME Shell_KeelActionsFreeze
+        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_keelactionsfreeze>)
+endif()
+
 # Gesture engine: velocity window, commit decisions, settle spring
 add_executable(test_shell_gesturetracker
     test_gesturetracker.cpp

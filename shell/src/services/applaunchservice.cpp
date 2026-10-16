@@ -1710,12 +1710,12 @@ static QString runnerServiceNameForAppId(const QString &appId) {
 // Must not block: this runs on the compositor thread, and the runner can be
 // waiting on a frame callback that only this thread sends.
 static QDBusPendingCall callRunnerLifecycle(const QString &appId, const char *method,
-                                            const QVariantList &args = {}) {
+                                            const QVariantList &args = {}, int timeoutMs = -1) {
     QDBusMessage msg = QDBusMessage::createMethodCall(
         runnerServiceNameForAppId(appId), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
         QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QString::fromLatin1(method));
     msg.setArguments(args);
-    return QDBusConnection::sessionBus().asyncCall(msg);
+    return QDBusConnection::sessionBus().asyncCall(msg, timeoutMs);
 }
 
 void AppLaunchService::sendBackToRunner(const QString &appId) {
@@ -1738,6 +1738,31 @@ void AppLaunchService::sendForwardToRunner(const QString &appId) {
 void AppLaunchService::setCoverVisible(const QString &appId, bool visible) {
     if (!appId.isEmpty())
         callRunnerLifecycle(appId, "SetCoverStatus", {visible ? 1 : 0});
+}
+
+bool AppLaunchService::servesKeelActions(const QString &appId) const {
+    return !appId.isEmpty() &&
+        !QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                QStringLiteral("keel/actions/org.marathonos.%1.json").arg(appId))
+             .isEmpty();
+}
+
+void AppLaunchService::prepareRunnerFreeze(const QString &appId, QObject *context,
+                                           const std::function<void()> &done) {
+    auto *watcher =
+        new QDBusPendingCallWatcher(callRunnerLifecycle(appId, "PrepareFreeze", {}, 1000), context);
+    connect(watcher, &QDBusPendingCallWatcher::finished, context,
+            [appId, done](QDBusPendingCallWatcher *w) {
+                if (w->isError())
+                    qWarning() << "[AppLaunchService] PrepareFreeze for" << appId
+                               << "failed:" << w->error().message();
+                w->deleteLater();
+                done();
+            });
+}
+
+void AppLaunchService::notifyRunnerThawed(const QString &appId) {
+    callRunnerLifecycle(appId, "Thawed");
 }
 
 qint64 AppLaunchService::hostPidForAppId(const QString &appId) const {

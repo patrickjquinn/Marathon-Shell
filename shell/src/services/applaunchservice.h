@@ -7,6 +7,8 @@
 #include <QHash>
 #include <qqml.h>
 
+#include <functional>
+
 class AppModel;
 class TaskModel;
 class QProcess;
@@ -192,6 +194,16 @@ class AppLaunchService : public QObject {
     // The process to SIGTERM to stop an app: a hosted app's host, which
     // turns SIGTERM into CloseRequested.
     qint64 terminationPidForAppId(const QString &appId) const;
+
+    // The app ships a Keel Actions manifest, so its runner owns
+    // org.marathonos.<appId> for Keel.Actions.
+    bool servesKeelActions(const QString &appId) const;
+    // Asks the runner to give up that name before the app is frozen; done
+    // runs on the reply, an error, or after a second without one.
+    void prepareRunnerFreeze(const QString &appId, QObject *context,
+                             const std::function<void()> &done);
+    // The app was thawed: its runner takes the name back.
+    void notifyRunnerThawed(const QString &appId);
 
   private:
     qint64                 hostPidForAppId(const QString &appId) const;

@@ -100,6 +100,9 @@ class AppLifecycleManager : public QObject {
         qint64         stateEnteredMs = 0;
         QSet<QString>  capabilities;
         QTimer        *idleFreezeTimer = nullptr;
+        // Bumped when a pending freeze is cancelled, so a PrepareFreeze
+        // reply that arrives after it does not freeze the app.
+        quint32        freezeSeq       = 0;
     };
 
     bool        ensureTaskExists(const QString &appId);
@@ -116,6 +119,7 @@ class AppLifecycleManager : public QObject {
     void                              onForegroundExit(const QString &appId);
     void                              startIdleFreezeDebounce(const QString &appId);
     void                              cancelIdleFreezeDebounce(const QString &appId);
+    void                              freezeApp(const QString &appId);
     void                              writeOomScoreAdj(const QString &appId, LifecycleState state);
     static int                        oomScoreForState(LifecycleState state);
 

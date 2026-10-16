@@ -445,9 +445,8 @@ void AppLifecycleManager::startIdleFreezeDebounce(const QString &appId) {
         if (state->idleFreezeTimer == timer)
             state->idleFreezeTimer = nullptr;
         timer->deleteLater();
-        if (state->state == BackgroundIdle) {
-            transitionTo(capturedAppId, Frozen);
-        }
+        if (state->state == BackgroundIdle)
+            freezeApp(capturedAppId);
     });
     it->idleFreezeTimer = timer;
     timer->start();
@@ -457,11 +456,31 @@ void AppLifecycleManager::cancelIdleFreezeDebounce(const QString &appId) {
     auto it = m_appStates.find(appId);
     if (it == m_appStates.end())
         return;
+    ++it->freezeSeq;
     if (it->idleFreezeTimer) {
         it->idleFreezeTimer->stop();
         it->idleFreezeTimer->deleteLater();
         it->idleFreezeTimer = nullptr;
     }
+}
+
+// A frozen app cannot answer, so a Keel Actions app gives up its bus name
+// first: a call for it then finds no owner and goes to bus activation.
+void AppLifecycleManager::freezeApp(const QString &appId) {
+    if (!m_appLaunchService || !m_appLaunchService->servesKeelActions(appId)) {
+        transitionTo(appId, Frozen);
+        return;
+    }
+    const quint32 seq = m_appStates.value(appId).freezeSeq;
+    m_appLaunchService->prepareRunnerFreeze(appId, this, [this, appId, seq]() {
+        auto it = m_appStates.find(appId);
+        if (it == m_appStates.end())
+            return;
+        if (it->freezeSeq == seq && it->state == BackgroundIdle)
+            transitionTo(appId, Frozen);
+        if (lifecycleState(appId) != Frozen)
+            m_appLaunchService->notifyRunnerThawed(appId);
+    });
 }
 
 void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newState) {
@@ -509,6 +528,8 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
         // interactive load spikes.
         m_cgroup->setAppUclampMin(appId, newState == Foreground ? 30 : 0);
     }
+    if (old == Frozen && m_appLaunchService && m_appLaunchService->servesKeelActions(appId))
+        m_appLaunchService->notifyRunnerThawed(appId);
 
     if (m_appLaunchService && (old == Foreground) != (newState == Foreground))
         m_appLaunchService->setAppActive(appId, newState == Foreground);
