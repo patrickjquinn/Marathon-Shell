@@ -207,6 +207,15 @@ void AppLifecycleManager::restoreApp(const QString &appId) {
     }
 }
 
+void AppLifecycleManager::wakeApp(const QString &appId) {
+    const int st = lifecycleState(appId);
+    if (st != Frozen && st != BackgroundIdle)
+        return;
+    cancelIdleFreezeDebounce(appId);
+    transitionTo(appId, BackgroundIdle);
+    startIdleFreezeDebounce(appId);
+}
+
 void AppLifecycleManager::launchAppWithRoute(const QString &appId, const QString &route,
                                              const QString &paramsJson) {
     if (!m_appLaunchService)

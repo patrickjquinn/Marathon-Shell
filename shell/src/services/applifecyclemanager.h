@@ -42,6 +42,9 @@ class AppLifecycleManager : public QObject {
 
     Q_INVOKABLE void     bringToForeground(const QString &appId);
     Q_INVOKABLE void     restoreApp(const QString &appId);
+    // Thaws a frozen background app without bringing it forward; it may
+    // freeze again after the debounce.
+    Q_INVOKABLE void     wakeApp(const QString &appId);
     Q_INVOKABLE void     launchAppWithRoute(const QString &appId, const QString &route,
                                             const QString &paramsJson);
 

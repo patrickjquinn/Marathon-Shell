@@ -492,8 +492,12 @@ bool AppLaunchService::startAppInBackground(const QVariant &app) {
     const QString appId = resolveAppObject(app).value("id").toString();
     if (!appId.isEmpty() &&
         (pidForAppId(appId) > 0 || m_launchingApps.contains(appId) ||
-         (m_taskModel && m_taskModel->getTaskByAppId(appId))))
+         (m_taskModel && m_taskModel->getTaskByAppId(appId)))) {
+        if (m_appLifecycleManager)
+            QMetaObject::invokeMethod(m_appLifecycleManager, "wakeApp", Qt::DirectConnection,
+                                      Q_ARG(QString, appId));
         return true;
+    }
     m_backgroundLaunches.insert(appId);
     m_startingInBackground = true;
     const bool ok          = launchApp(app, nullptr, nullptr);

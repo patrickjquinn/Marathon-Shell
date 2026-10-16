@@ -43,6 +43,10 @@ class TestKeelActionsFreeze : public QObject {
     AppLifecycleManager *lifecycle = nullptr;
     FakeRunner          *runner    = nullptr;
 
+    static QVariantMap   app(const QString &id) {
+        return {{"id", id}, {"name", id}, {"icon", id}, {"type", "marathon"}};
+    }
+
     // In front with a mapped window, then sent home: the freeze debounce runs.
     void sendHome(const QString &id, qint64 pid) {
         launcher->registerPidForAppId(pid, id);
@@ -102,6 +106,29 @@ class TestKeelActionsFreeze : public QObject {
         QTRY_COMPARE(state("notes"), int(AppLifecycleManager::Frozen));
     }
 
+    void wakesAFrozenAppAndRetakesTheName() {
+        sendHome("notes", 4194301);
+        QTRY_VERIFY(runner->pendingFreeze.type() == QDBusMessage::MethodCallMessage);
+        runner->answerFreeze();
+        QTRY_COMPARE(state("notes"), int(AppLifecycleManager::Frozen));
+
+        lifecycle->setIdleFreezeDebounceMs(60000);
+        QVERIFY(launcher->startAppInBackground(app("notes")));
+        QCOMPARE(state("notes"), int(AppLifecycleManager::BackgroundIdle));
+        QTRY_COMPARE(runner->calls, (QStringList{"PrepareFreeze", "Thawed"}));
+    }
+
+    void wakingCancelsAFreezeInFlight() {
+        sendHome("notes", 4194301);
+        QTRY_VERIFY(runner->pendingFreeze.type() == QDBusMessage::MethodCallMessage);
+        lifecycle->setIdleFreezeDebounceMs(60000);
+        QVERIFY(launcher->startAppInBackground(app("notes")));
+        runner->answerFreeze();
+
+        QTRY_COMPARE(runner->calls, (QStringList{"PrepareFreeze", "Thawed"}));
+        QCOMPARE(state("notes"), int(AppLifecycleManager::BackgroundIdle));
+    }
+
     void foregroundingCancelsAFreezeInFlight() {
         sendHome("notes", 4194301);
         QTRY_VERIFY(runner->pendingFreeze.type() == QDBusMessage::MethodCallMessage);
@@ -123,6 +150,11 @@ class TestKeelActionsFreeze : public QObject {
     void appWithoutActionsFreezesWithoutAsking() {
         sendHome("plain", 4194303);
         QTRY_COMPARE(state("plain"), int(AppLifecycleManager::Frozen));
+        QVERIFY(runner->calls.isEmpty());
+
+        QVERIFY(launcher->startAppInBackground(app("plain")));
+        QCOMPARE(state("plain"), int(AppLifecycleManager::BackgroundIdle));
+        QTest::qWait(50);
         QVERIFY(runner->calls.isEmpty());
     }
 };

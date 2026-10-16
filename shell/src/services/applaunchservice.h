@@ -62,7 +62,8 @@ class AppLaunchService : public QObject {
                                         const QString &paramsJson, QObject *compositorRef = nullptr,
                                         QObject *appWindowRef = nullptr);
     // Starts the app without bringing it on screen: its window becomes a
-    // task, the app in front stays. A running app is left where it is.
+    // task, the app in front stays. A running app is left where it is,
+    // thawed if it was frozen.
     Q_INVOKABLE bool startAppInBackground(const QVariant &app);
     bool             isBackgroundLaunch(const QString &appId) const {
         return m_backgroundLaunches.contains(appId);
