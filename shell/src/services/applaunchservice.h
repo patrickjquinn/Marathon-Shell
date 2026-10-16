@@ -177,6 +177,8 @@ class AppLaunchService : public QObject {
     void pidUnregistered(qint64 pid, const QString &appId);
     // The runner answered Back with "not handled", or could not be reached.
     void runnerBackUnhandled(const QString &appId);
+    // A native window showed no change after back (WaylandCompositor).
+    void nativeBackUnhandled(int surfaceId);
 
   public:
     Q_INVOKABLE bool isMarathonAppId(const QString &appId) const;

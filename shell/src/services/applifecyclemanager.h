@@ -116,7 +116,8 @@ class AppLifecycleManager : public QObject {
 
     static bool invokeVoid(QObject *obj, const char *method);
     static bool invokeBool(QObject *obj, const char *method, bool *out = nullptr);
-    static bool invokeInjectKey(QObject *compositor, int key, int modifiers, bool pressed);
+    // Back or forward to the foreground native app's window, in the compositor.
+    bool        invokeNative(QObject *app, const char *method) const;
 
     QVariantMap appInfoFromInstance(const QString &appId, QObject *instance) const;
 

@@ -295,6 +295,8 @@ void AppLaunchService::setCompositor(QObject *obj) {
                              });
             QObject::connect(wc, &WaylandCompositor::appClosed, this,
                              [this](qint64 pid) { onCompositorAppClosed(pid); });
+            QObject::connect(wc, &WaylandCompositor::nativeBackUnhandled, this,
+                             &AppLaunchService::nativeBackUnhandled);
             QObject::connect(
                 wc, &WaylandCompositor::surfaceCreated, this,
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {

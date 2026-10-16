@@ -49,6 +49,12 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
                     if (appId == m_foregroundAppId)
                         emit systemBackUnhandled();
                 });
+        connect(m_appLaunchService, &AppLaunchService::nativeBackUnhandled, this,
+                [this](int surfaceId) {
+                    const QObject *app = m_appRegistry.value(m_foregroundAppId);
+                    if (app && app->property("surfaceId").toInt() == surfaceId)
+                        emit systemBackUnhandled();
+                });
         connect(m_appLaunchService, &AppLaunchService::pidRegistered, this,
                 [this](qint64 pid, const QString &appId) {
                     // Runner-based apps (marathon-app-runner subprocess)
@@ -258,17 +264,10 @@ bool AppLifecycleManager::handleSystemBack() {
     if (!app)
         return false;
 
-    const bool isNative = app->property("isNative").toBool();
-    if (isNative) {
-        QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
-        if (compositor) {
-            if (invokeInjectKey(compositor, 0x01000000, 0, true) &&
-                invokeInjectKey(compositor, 0x01000000, 0, false)) {
-                return true;
-            }
-        }
-        return false;
-    }
+    // Asynchronous like the runner's Back: the compositor reports a window
+    // that showed no change as nativeBackUnhandled.
+    if (app->property("isNative").toBool())
+        return invokeNative(app, "sendNativeBack");
 
     bool handled = false;
     invokeBool(app, "handleBack", &handled);
@@ -290,17 +289,8 @@ bool AppLifecycleManager::handleSystemForward() {
     if (!app)
         return false;
 
-    const bool isNative = app->property("isNative").toBool();
-    if (isNative) {
-        QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
-        if (compositor) {
-            if (invokeInjectKey(compositor, 0x01000014, 0x08000000, true) &&
-                invokeInjectKey(compositor, 0x01000014, 0x08000000, false)) {
-                return true;
-            }
-        }
-        return false;
-    }
+    if (app->property("isNative").toBool())
+        return invokeNative(app, "sendNativeForward");
 
     bool handled = false;
     invokeBool(app, "handleForward", &handled);
@@ -756,10 +746,12 @@ bool AppLifecycleManager::invokeBool(QObject *obj, const char *method, bool *out
     return ok;
 }
 
-bool AppLifecycleManager::invokeInjectKey(QObject *compositor, int key, int modifiers,
-                                          bool pressed) {
-    if (!compositor)
+bool AppLifecycleManager::invokeNative(QObject *app, const char *method) const {
+    QObject  *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
+    const int surfaceId  = app->property("surfaceId").toInt();
+    if (!compositor || surfaceId <= 0)
         return false;
-    return QMetaObject::invokeMethod(compositor, "injectKey", Qt::DirectConnection, Q_ARG(int, key),
-                                     Q_ARG(int, modifiers), Q_ARG(bool, pressed));
+    return QMetaObject::invokeMethod(
+        compositor, method, Qt::DirectConnection, Q_ARG(int, surfaceId),
+        Q_ARG(bool, m_appLaunchService->isKeelHostApp(m_foregroundAppId)));
 }

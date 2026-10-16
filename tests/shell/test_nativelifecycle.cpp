@@ -23,6 +23,20 @@ class FakeSystemd : public QObject {
     }
 };
 
+// WaylandCompositor's native back and forward, as the lifecycle calls them.
+class FakeCompositor : public QObject {
+    Q_OBJECT
+
+  public:
+    QStringList      sent;
+    Q_INVOKABLE void sendNativeBack(int surfaceId, bool keelHosted) {
+        sent << QStringLiteral("back %1 %2").arg(surfaceId).arg(keelHosted);
+    }
+    Q_INVOKABLE void sendNativeForward(int surfaceId, bool keelHosted) {
+        sent << QStringLiteral("forward %1 %2").arg(surfaceId).arg(keelHosted);
+    }
+};
+
 class ScopedLifecycle : public AppLifecycleManager {
   public:
     using AppLifecycleManager::AppLifecycleManager;
@@ -53,6 +67,14 @@ class TestNativeLifecycle : public QObject {
         lifecycle->cgroups.insert(kPid, cgroup);
         launcher->registerPidForAppId(kPid, radio);
         tasks->launchTask(radio, radio, QString(), QStringLiteral("native"), 7);
+    }
+
+    // A native window in front, as MarathonAppWindow registers it.
+    void showWindow(QObject *window, int surfaceId) {
+        window->setProperty("isNative", true);
+        window->setProperty("surfaceId", surfaceId);
+        lifecycle->registerApp(radio, window);
+        lifecycle->bringToForeground(radio);
     }
 
     int state() const {
@@ -124,6 +146,44 @@ class TestNativeLifecycle : public QObject {
 
     // A process the shell started itself shares the shell's cgroup; freezing
     // that through systemd would freeze the shell.
+    void backGoesToTheWindow() {
+        FakeCompositor comp;
+        launcher->setCompositor(&comp);
+        QObject window;
+        showWindow(&window, 7);
+        QVERIFY(lifecycle->handleSystemBack());
+        QVERIFY(lifecycle->handleSystemForward());
+        QCOMPARE(comp.sent, (QStringList{"back 7 0", "forward 7 0"}));
+        lifecycle->unregisterApp(radio);
+        launcher->setCompositor(nullptr);
+    }
+
+    void backWithoutAWindowIsUnhandled() {
+        FakeCompositor comp;
+        launcher->setCompositor(&comp);
+        QObject window;
+        showWindow(&window, -1);
+        QVERIFY(!lifecycle->handleSystemBack());
+        QVERIFY(comp.sent.isEmpty());
+        lifecycle->unregisterApp(radio);
+        launcher->setCompositor(nullptr);
+    }
+
+    // Only the window still in front leaves; the user may have moved on.
+    void unhandledBackLeavesTheFrontApp() {
+        QObject window;
+        showWindow(&window, 7);
+        QSignalSpy leave(lifecycle, &AppLifecycleManager::systemBackUnhandled);
+        emit       launcher->nativeBackUnhandled(9);
+        QCOMPARE(leave.count(), 0);
+        emit launcher->nativeBackUnhandled(7);
+        QCOMPARE(leave.count(), 1);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        emit launcher->nativeBackUnhandled(7);
+        QCOMPARE(leave.count(), 1);
+        lifecycle->unregisterApp(radio);
+    }
+
     void neverFreezesTheShellsScope() {
         QFile self(QStringLiteral("/proc/self/cgroup"));
         QVERIFY(self.open(QIODevice::ReadOnly));
