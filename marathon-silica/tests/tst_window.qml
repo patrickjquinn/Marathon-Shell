@@ -191,6 +191,27 @@ TestCase {
         verify(!backdrop.visible);
     }
 
+    function test_pinnedDialogHeaderFrostsTheAmbience() {
+        const wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/dawn.svg");
+        const a = createTemporaryObject(app, testCase);
+        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        const d = a.pageStack.push(Qt.resolvedUrl("data/ScrollingDialog.qml"), {}, PageStackAction.Immediate);
+        tryCompare(d, "status", PageStatus.Active);
+        d.flickable.contentY = 400;
+        const backdrop = findChild(d.flickable.contentItem, "dialogHeaderBackdrop");
+        tryVerify(function () { return backdrop.visible; });
+        backdrop.wallpaper = wallpaper;
+        const image = findChild(backdrop, "dialogHeaderWallpaper");
+        verify(backdrop.clip);
+        verify(image.source.toString().startsWith("image://keelambience/" + encodeURIComponent(wallpaper)));
+        tryCompare(image, "status", Image.Ready, 5000);
+        const origin = image.mapToItem(null, 0, 0);
+        compare(origin.x, 0);
+        compare(origin.y, 0);
+        compare(image.width, a.width);
+        compare(image.height, a.height);
+    }
+
     function find(item, test) {
         if (test(item))
             return item;
