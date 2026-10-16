@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -50,6 +50,9 @@ depends="
 source="
 	flathub.flatpakrepo
 	marathon-flathub.conf
+	marathon-flatpak-overrides
+	marathon-flatpak-theming.conf
+	marathon-flatpak-theming-user.conf
 	"
 options="!check pmb:drm pmb:systemd"
 install="$pkgname.post-install"
@@ -67,8 +70,21 @@ package() {
 	# flatpak remote-add. Idempotent.
 	install -Dm644 "$srcdir/marathon-flathub.conf" \
 		"$pkgdir/usr/lib/tmpfiles.d/marathon-flathub.conf"
+
+	# Global Flatpak override exposing the shell's generated GTK styling
+	# and selecting KDE's platform theme, linked in for the system and the
+	# per-user installation (docs/NATIVE_APP_THEMING.md).
+	install -Dm644 "$srcdir/marathon-flatpak-overrides" \
+		"$pkgdir/usr/share/marathon/flatpak-overrides"
+	install -Dm644 "$srcdir/marathon-flatpak-theming.conf" \
+		"$pkgdir/usr/lib/tmpfiles.d/marathon-flatpak-theming.conf"
+	install -Dm644 "$srcdir/marathon-flatpak-theming-user.conf" \
+		"$pkgdir/usr/share/user-tmpfiles.d/marathon-flatpak-theming.conf"
 }
 sha512sums="
 SKIP  flathub.flatpakrepo
 SKIP  marathon-flathub.conf
+SKIP  marathon-flatpak-overrides
+SKIP  marathon-flatpak-theming.conf
+SKIP  marathon-flatpak-theming-user.conf
 "

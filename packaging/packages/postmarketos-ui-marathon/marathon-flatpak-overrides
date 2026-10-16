@@ -1,0 +1,14 @@
+# Flatpak overrides for every app, linked in as the system and per-user
+# "global" override (docs/NATIVE_APP_THEMING.md). Scheme, accent, fonts and
+# KDE colours reach apps through the Settings portal; this only exposes the
+# files the portal cannot carry and points Qt at KDE's platform theme.
+[Context]
+# libadwaita/GTK 4 read the ambience's named colours from gtk-4.0/gtk.css;
+# GTK 3 loads the Marathon and Marathon-dark themes from themes/.
+filesystems=xdg-config/gtk-4.0:ro;xdg-data/themes:ro;
+
+[Environment]
+# Qt loads KDE's platform theme, which reads org.kde.kdeglobals.* from the
+# portal, only on a KDE desktop. Qt apps without the plugin fall through to
+# xdgdesktopportal as before.
+QT_QPA_PLATFORMTHEME=kde
