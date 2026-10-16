@@ -241,3 +241,8 @@ qt_add_resources(test_shell_windowtextureitem "test_shell_shaders"
 target_link_libraries(test_shell_windowtextureitem Qt6::Test Qt6::Quick)
 add_test(NAME Shell_WindowTextureItem COMMAND test_shell_windowtextureitem)
 set_tests_properties(Shell_WindowTextureItem PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Frame callbacks of hidden surfaces: about once a second
+add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)
+target_link_libraries(test_shell_hiddenframethrottle Qt6::Test Qt6::Core)
+add_test(NAME Shell_HiddenFrameThrottle COMMAND test_shell_hiddenframethrottle)

@@ -7,6 +7,7 @@
 #include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/wldrm.h"
 #include "src/wayland/securitycontextv1.h"
+#include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
 #include "src/services/processtree.h"
 #include "src/services/sailfishlaunch.h"
@@ -38,6 +39,7 @@
 
 #include "util/frametiming.h"
 #include "util/rtprio.h"
+#include <algorithm>
 #include <utility>   // std::as_const
 
 static bool envBool(const char *name, bool defaultValue) {
@@ -250,6 +252,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     m_presentPipeline = envBool("MARATHON_PRESENT_PIPELINE", true);
     if (m_presentPipeline && m_window && m_output) {
         m_output->setAutomaticFrameCallback(false);
+        m_hiddenThrottle = envBool("MARATHON_HIDDEN_THROTTLE", true);
+        m_frameClock.start();
+        m_hiddenFrameTimer.setSingleShot(true);
+        m_hiddenFrameTimer.setInterval(int(m_frameThrottle.interval()));
+        connect(&m_hiddenFrameTimer, &QTimer::timeout, this,
+                [this]() { sendPacedFrameCallbacks(true); });
         // beforeSynchronizing runs on the render thread while the GUI thread
         // is blocked in sync -- the safe point to touch wl_display. Sending
         // the frame callback here (frame START, before our own present) hands
@@ -257,11 +265,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         // concurrently, instead of only after our frame completes.
         connect(
             m_window, &QQuickWindow::beforeSynchronizing, this,
-            [this]() {
-                if (m_output)
-                    m_output->sendFrameCallbacks();
-            },
-            Qt::DirectConnection);
+            [this]() { sendPacedFrameCallbacks(false); }, Qt::DirectConnection);
         qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks)";
     }
 
@@ -815,9 +819,62 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
     return m_surfaceMap.value(surfaceId, nullptr);
 }
 
+namespace {
+
+    // On screen: one of its views is shown, or drawn by a shown WindowTextureItem.
+    bool surfaceShown(const QWaylandSurface *surface) {
+        const QList<QWaylandView *> views = surface->views();
+        return std::any_of(views.cbegin(), views.cend(), [](const QWaylandView *view) {
+            const auto *item = qobject_cast<const QQuickItem *>(view->renderObject());
+            return item && (WindowTextureItem::isShown(item) || WindowTextureItem::isSampled(item));
+        });
+    }
+
+} // namespace
+
+// Runs on the render thread in beforeSynchronizing (GUI thread blocked), or
+// on the GUI thread from the idle timer: never both at once.
+void WaylandCompositor::sendPacedFrameCallbacks(bool idleTick) {
+    const qint64 now  = m_frameClock.elapsed();
+    bool         held = false;
+    const QList<QWaylandSurface *> all = QWaylandCompositor::surfaces();
+    for (QWaylandSurface *surface : all) {
+        if (!surface->hasContent() || !surface->primaryView())
+            continue;
+        if (!m_enteredSurfaces.contains(surface)) {
+            m_output->surfaceEnter(surface);
+            m_enteredSurfaces.insert(surface);
+        }
+        const bool shown = !m_hiddenThrottle || surfaceShown(surface);
+        if (idleTick && shown)
+            continue;
+        if (!m_frameThrottle.allow(surface, shown, now)) {
+            held = true;
+            continue;
+        }
+        if (idleTick)
+            surface->frameStarted();
+        surface->sendFrameCallbacks();
+    }
+    wl_display_flush_clients(display());
+    if (held)
+        QMetaObject::invokeMethod(
+            this,
+            [this]() {
+                if (!m_hiddenFrameTimer.isActive())
+                    m_hiddenFrameTimer.start();
+            },
+            Qt::QueuedConnection);
+}
+
 void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     if (wlVerbose())
         qDebug() << "[WaylandCompositor] Surface created:" << surface;
+
+    connect(surface, &QObject::destroyed, this, [this, surface]() {
+        m_enteredSurfaces.remove(surface);
+        m_frameThrottle.forget(surface);
+    });
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);

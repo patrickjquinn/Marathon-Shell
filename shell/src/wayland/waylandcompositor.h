@@ -19,6 +19,11 @@
 #include <QProcess>
 #include <QPointer>
 #include <QAtomicInt>
+#include <QElapsedTimer>
+#include <QSet>
+#include <QTimer>
+
+#include "src/wayland/hiddenframethrottle.h"
 
 class SecurityContextManagerV1;
 class FifoManagerV1;
@@ -193,6 +198,16 @@ class WaylandCompositor : public QWaylandCompositor {
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.
     QAtomicInt                              m_activeFrameCredits{0};
+
+    // Frame callbacks in the present pipeline: shown surfaces every frame,
+    // hidden ones (MARATHON_HIDDEN_THROTTLE, default on) about once a
+    // second, from the timer when the compositor itself is idle.
+    void                                    sendPacedFrameCallbacks(bool idleTick);
+    bool                                    m_hiddenThrottle = true;
+    HiddenFrameThrottle                     m_frameThrottle;
+    QElapsedTimer                           m_frameClock;
+    QTimer                                  m_hiddenFrameTimer;
+    QSet<QWaylandSurface *>                 m_enteredSurfaces;
 
     bool                                    m_discardFrontBuffer = false;
 
