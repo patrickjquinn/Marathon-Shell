@@ -84,11 +84,11 @@ img = top + (mid - top) * np.clip(y / 0.95, 0, 1)[..., None]
 sky = fbm(fw, fh, 3, 3)
 img = over(img, lin("#2a52d8"), 0.55 * blob(0.0, 0.55, 0.55, 0.45) * sky * 1.4)
 img = over(img, lin("#6a45d2"), 0.85 * blob(0.95, 0.38, 0.6, 0.42))
-img = over(img, lin("#ff9a66"), 0.90 * blob(0.92, 0.63, 0.30, 0.20))
-img = wave(img, 1.05, 0.55, 0.06, 1.1, 0.4, "#18338f", "#4a72e6")
-img = wave(img, 1.32, 0.50, 0.07, 0.9, 2.1, "#08566e", "#23b3b8")
-img = wave(img, 1.55, 0.40, 0.05, 1.3, 4.0, "#06464f", "#4fdcbc")
-img = wave(img, 1.80, 0.30, 0.05, 1.0, 1.0, "#071a40", "#2763b4")
+img = over(img, lin("#f08a5a"), 0.85 * blob(0.92, 0.63, 0.30, 0.20))
+img = wave(img, 1.05, 0.55, 0.06, 1.1, 0.4, "#18338f", "#3a5bcc")
+img = wave(img, 1.32, 0.50, 0.07, 0.9, 2.1, "#08566e", "#169aa6")
+img = wave(img, 1.55, 0.40, 0.05, 1.3, 4.0, "#06464f", "#1aa68a")
+img = wave(img, 1.80, 0.30, 0.05, 1.0, 1.0, "#071a40", "#2257a6")
 
 # A slow light-and-shadow wash, then upsample.
 img *= (0.82 + 0.36 * fbm(fw, fh, 2, 3))[..., None]
