@@ -178,20 +178,20 @@ Item {
         maximumFlickVelocity: 3000
         anchors.fill: parent
         anchors.margins: Silica.Theme.paddingLarge
-        // Cards keep the cover's proportions: two columns where two rows of
-        // them fit (tall phones), otherwise three, a row to a page (square
-        // screens). Rows are spread over the page so none is cut off.
+        // Two columns of cards in the cover's proportions: two rows a page
+        // where they fit (tall phones), otherwise one row of cards narrowed
+        // to the page's height (square screens). Rows are spread over the
+        // page so none is cut off.
         readonly property bool overflows: contentHeight > height
         readonly property real coverAspect: Silica.Theme.coverSizeLarge.height / Silica.Theme.coverSizeLarge.width
         readonly property real bannerHeight: Silica.Theme.iconSizeSmall + 2 * Silica.Theme.paddingSmall
         readonly property real cardChrome: bannerHeight + 2 * Silica.Theme.paddingSmall
-        readonly property int columns: 2 * ((width / 2 - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome) <= height ? 2 : 3
         readonly property real cardHeight: Math.min(height, (cellWidth - 2 * Silica.Theme.paddingSmall) * coverAspect + cardChrome)
         readonly property int rowsPerPage: Math.max(1, Math.floor(height / cardHeight))
 
         anchors.rightMargin: overflows ? Silica.Theme.paddingLarge + Silica.Theme.paddingSmall : Silica.Theme.paddingLarge
         anchors.bottomMargin: Constants.bottomBarHeight + Silica.Theme.paddingLarge
-        cellWidth: width / columns
+        cellWidth: width / 2
         cellHeight: height / rowsPerPage
         clip: true
         Component.onCompleted: {
