@@ -43,7 +43,6 @@ Item {
         }
     }
 
-    scale: visible ? 1 : 0.95
     Component.onCompleted: WindowOrigins.switcher = taskSwitcher
     Component.onDestruction: {
         if (WindowOrigins.switcher === taskSwitcher)
@@ -278,13 +277,6 @@ Item {
     }
 
     Behavior on opacity {
-        NumberAnimation {
-            duration: Constants.animationSlow
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    Behavior on scale {
         NumberAnimation {
             duration: Constants.animationSlow
             easing.type: Easing.OutCubic

@@ -189,7 +189,7 @@ Item {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: swipe.value
         // The cell's width, or narrower where the cover's shape would overrun its height.
-        width: Math.max(0, Math.min(taskCard.width - 2 * Theme.paddingSmall, (taskCard.height - 2 * Theme.paddingSmall - taskCard.bannerHeight) * Theme.coverSizeLarge.width / Theme.coverSizeLarge.height))
+        width: Math.max(0, Math.floor(Math.min(taskCard.width - 2 * Theme.paddingSmall, (taskCard.height - 2 * Theme.paddingSmall - taskCard.bannerHeight) * Theme.coverSizeLarge.width / Theme.coverSizeLarge.height)))
         height: glass.height + bannerRect.height
         readonly property bool pressed: (previewTapArea.pressed || handleTapArea.pressed) && !taskCard.suppressTapOpen
 

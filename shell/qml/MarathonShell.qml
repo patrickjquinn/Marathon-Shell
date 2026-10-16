@@ -1383,10 +1383,12 @@ Item {
         property real dockAnimated: 0
         readonly property real dock: shell.isTransitioningToActiveFrames ? dockAnimated : gestureDock
         property bool landed: false
+        // Bumped when the switcher is moved under the window.
+        property int dockCardEpoch: 0
         // Shell coordinates of the cover the app lands on, re-read each
         // step: the switcher page slides in under the window.
         readonly property rect dockCard: {
-            if (dock <= 0)
+            if (dock <= 0 || dockCardEpoch < 0)
                 return Qt.rect(0, 0, 0, 0);
             var r = WindowOrigins.cardRect(UIStore.currentAppId);
             if (r.width > 0)
@@ -1487,6 +1489,19 @@ Item {
             function onValueChanged() {
                 if (navBar.backTracker.active && navBar.backTracker.value > 0 && UIStore.appWindowOpen)
                     shell.revealHomeUnderApp();
+            }
+        }
+        // Minimise: the switcher is already in place under the app, its
+        // card settled, before the window takes its first step towards it.
+        Connections {
+            target: navBar.minimizeTracker
+            function onValueChanged() {
+                if (navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
+                    pageView.jumpToIndex(1);
+                    Router.goToFrames();
+                    WindowOrigins.revealCard(UIStore.currentAppId);
+                    appWindowContainer.dockCardEpoch++;
+                }
             }
         }
         Rectangle {
