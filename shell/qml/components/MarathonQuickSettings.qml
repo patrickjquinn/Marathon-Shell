@@ -391,7 +391,7 @@ Item {
                 label: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackTitle || "Now Playing") : "Music"
                 sublabel: MPRIS2Controller.isPlaying ? (MPRIS2Controller.trackArtist || "") : "Nothing playing · tap to open"
                 playing: MPRIS2Controller.isPlaying
-                onActivated: quickSettings.launchApp({ "appId": "music", "name": "Music" })
+                onActivated: quickSettings.launchApp({ "id": "music", "name": "Music" })
             }
 
             // ── Shortcuts, on the switch columns ─────────────────
@@ -428,7 +428,7 @@ Item {
         case "vibration":      SystemControlStore.toggleVibration(); break;
         case "settings":
             quickSettings.closed();
-            quickSettings.launchApp({ "appId": "settings", "name": "Settings" });
+            quickSettings.launchApp({ "id": "settings", "name": "Settings" });
             break;
         }
     }
@@ -444,7 +444,7 @@ Item {
     function doAction(id) {
         if (id.startsWith("app:")) {
             quickSettings.closed();
-            quickSettings.launchApp({ "appId": id.slice(4) });
+            quickSettings.launchApp({ "id": id.slice(4) });
             return;
         }
         switch (id) {

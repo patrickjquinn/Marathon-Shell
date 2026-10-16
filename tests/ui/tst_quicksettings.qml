@@ -217,4 +217,14 @@ TestCase {
         verify(scroll().contentY > y, "content scrolled");
         verify(Math.abs(SystemControlStore.brightness - before) < 10, "barely moved: " + SystemControlStore.brightness);
     }
+
+    SignalSpy { id: launchSpy; target: qs; signalName: "launchApp" }
+
+    // AppLaunchService resolves an app by its "id" key.
+    function test_settingsButtonLaunchesSettings() {
+        launchSpy.clear();
+        mouseClick(findChild(qs, "settingsButton"));
+        compare(launchSpy.count, 1);
+        compare(launchSpy.signalArguments[0][0].id, "settings");
+    }
 }
