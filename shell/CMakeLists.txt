@@ -329,6 +329,7 @@ set(QML_FILES
     qml/core/Agenda.js
     qml/core/LauncherGrid.js
 )
+    qml/core/BatteryWarning.js
 
 set(JSON_FILES
     qml/keyboard/Layouts/languages/en_US.json

@@ -1,4 +1,5 @@
 import "./components" as Comp
+import "./core/BatteryWarning.js" as BatteryWarning
 import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Window
@@ -916,27 +917,21 @@ Item {
     }
 
     Connections {
-        property int warnedAt: 101
+        readonly property var warning: ({
+                "warnedAt": 101,
+                "last": -1
+            })
 
         function onBatteryLevelChanged() {
             const level = SystemStatusStore.batteryLevel;
-            if (SystemStatusStore.isPluggedIn || level <= 0) {
-                warnedAt = 101;
+            const threshold = BatteryWarning.check(warning, level, SystemStatusStore.isPluggedIn);
+            if (threshold === 0)
                 return;
-            }
-            const threshold = level <= 5 ? 5 : level <= 10 ? 10 : level <= 20 ? 20 : 101;
-            if (threshold >= warnedAt || threshold === 101)
-                return;
-            warnedAt = threshold;
             NotificationService.sendNotification("system", "Battery at " + level + "%", SystemControlStore.isLowPowerMode ? "Plug in your phone soon." : "Turn on Battery Saver in Quick Settings to make it last longer, or plug in.", {
                 "category": "system",
                 "priority": threshold <= 10 ? "high" : "normal",
                 "icon": "battery-low"
             });
-        }
-        function onIsPluggedInChanged() {
-            if (SystemStatusStore.isPluggedIn)
-                warnedAt = 101;
         }
 
         target: SystemStatusStore
