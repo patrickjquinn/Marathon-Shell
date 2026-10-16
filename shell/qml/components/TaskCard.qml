@@ -446,7 +446,7 @@ Item {
 
                                     // Fill the card at the app's aspect from the top, so the
                                     // header shows; the card clips the overflow.
-                                    property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
+                                    property real appAspect: previewContainer.liveApp && previewContainer.liveApp.width > 0 && previewContainer.liveApp.height > 0 ? previewContainer.liveApp.height / previewContainer.liveApp.width : (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
                                     property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     anchors.top: parent.top
@@ -548,7 +548,10 @@ Item {
                                 WindowTextureItem {
                                     id: liveTexture
 
-                                    readonly property real appAspect: liveSnapshot.appAspect
+                                    // The texture's own shape: a surface's buffer, which
+                                    // can be any size, or the snapshot's.
+                                    readonly property size textureSize: source && source.surface ? source.surface.bufferSize : source ? Qt.size(source.width, source.height) : Qt.size(0, 0) // qmllint disable missing-property
+                                    readonly property real appAspect: textureSize.width > 0 && textureSize.height > 0 ? textureSize.height / textureSize.width : liveSnapshot.appAspect
                                     readonly property real cardAspect: liveSnapshot.parentAspect
 
                                     anchors.fill: parent
