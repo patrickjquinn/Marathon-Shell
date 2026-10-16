@@ -90,8 +90,9 @@ Rectangle {
     function show(id, name, icon, type, surface, sid) {
         var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
         if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
-            if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface) {
-                Logger.warn("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " surfaceId " + sid + " - creating overlay");
+            // A restore shows the app's own surface again; only another surface is a dialog.
+            if (appWindow.waylandSurface !== null && sid !== appWindow.surfaceId) {
+                Logger.warn("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " surfaceId " + sid + " (window " + appWindow.surfaceId + ") - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
                     "dialogSurface": surface,
                     "dialogSurfaceId": sid,
