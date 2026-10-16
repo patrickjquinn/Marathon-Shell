@@ -1669,9 +1669,9 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         y: Constants.statusBarHeight
-        height: UIStore.quickSettingsHeight
+        height: shadeDrag.value
         maxHeight: shell.maxQuickSettingsHeight
-        visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
+        visible: !SessionStore.isLocked && shadeDrag.value > 0
         z: Constants.zIndexQuickSettings
         clip: true
         homeBackdrop: wallpaperImage
@@ -1685,18 +1685,35 @@ Item {
         // The screen changed size while open (rotation).
         onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)
             UIStore.quickSettingsHeight = maxHeight
+    }
 
-        // reduceMotion collapses to an instant snap; otherwise a tokenized
-        // panel-duration decelerate. (Velocity handoff from the drag is a
-        // follow-up — see QS motion audit.)
-        Behavior on height {
-            enabled: !UIStore.quickSettingsDragging
+    // The shade's drawn height: follows UIStore while a finger drags it,
+    // and springs to each new height from the drag's release velocity.
+    GestureTracker {
+        id: shadeDrag
 
-            NumberAnimation {
-                duration: MMotion.reduceMotion ? MMotion.micro : Constants.animationSlow
-                easing.type: Easing.OutCubic
-            }
+        commitDistance: shell.quickSettingsThreshold
+        settleDuration: MMotion.reduceMotion ? MMotion.micro : Constants.animationSlow
+    }
+
+    Connections {
+        function onQuickSettingsHeightChanged() {
+            if (UIStore.quickSettingsDragging)
+                shadeDrag.move(UIStore.quickSettingsHeight);
+            else
+                shadeDrag.settleTo(UIStore.quickSettingsHeight);
         }
+        // Keeps the release velocity for the settle that follows.
+        function onQuickSettingsDraggingChanged() {
+            if (!UIStore.quickSettingsDragging && shadeDrag.active)
+                shadeDrag.release();
+        }
+        function onQuickSettingsOpenChanged() {
+            if (UIStore.quickSettingsOpen)
+                HapticManager.tick();
+        }
+
+        target: UIStore
     }
 
     MouseArea {
@@ -1704,9 +1721,6 @@ Item {
 
         property real startY: 0
         property bool isDraggingDown: false
-        property real lastY: 0
-        property real lastTime: 0
-        property real velocityY: 0
 
         anchors.top: parent.top
         anchors.left: parent.left
@@ -1721,20 +1735,10 @@ Item {
                 return;
             }
             startY = mouse.y;
-            lastY = mouse.y;
-            lastTime = Date.now();
-            velocityY = 0;
             isDraggingDown = false;
         }
         onPositionChanged: mouse => {
             var dragDistance = mouse.y - startY;
-            var now = Date.now();
-            var dt = now - lastTime;
-            if (dt > 0)
-                velocityY = (mouse.y - lastY) / dt * 1000;
-
-            lastY = mouse.y;
-            lastTime = now;
             if (dragDistance > 5 && !isDraggingDown) {
                 isDraggingDown = true;
                 UIStore.quickSettingsDragging = true;
@@ -1748,20 +1752,18 @@ Item {
         onReleased: mouse => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false;
-                var isFlingDown = velocityY > 500;
-                if (isFlingDown || UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
+                var open = shadeDrag.decide(UIStore.quickSettingsHeight, shadeDrag.velocity);
+                Logger.gesture("StatusBar", "dragEnd", {
+                    "height": UIStore.quickSettingsHeight,
+                    "velocity": shadeDrag.velocity,
+                    "open": open
+                });
+                if (open)
                     UIStore.openQuickSettings();
                 else
                     UIStore.closeQuickSettings();
-                Logger.gesture("StatusBar", "dragEnd", {
-                    "height": UIStore.quickSettingsHeight,
-                    "velocity": velocityY,
-                    "fling": isFlingDown
-                });
             }
             startY = 0;
-            lastY = 0;
-            velocityY = 0;
             isDraggingDown = false;
         }
         onCanceled: {
@@ -1785,10 +1787,10 @@ Item {
         id: quickSettingsOverlay
 
         anchors.fill: parent
-        anchors.topMargin: Constants.statusBarHeight + UIStore.quickSettingsHeight
+        anchors.topMargin: Constants.statusBarHeight + shadeDrag.value
         z: Constants.zIndexQuickSettingsOverlay
         enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
-        visible: enabled
+        visible: shadeDrag.value > 0 && !SessionStore.isLocked
         onClicked: {
             Logger.gesture("QuickSettings", "dimAreaTapClose", {});
             UIStore.closeQuickSettings();
@@ -1797,14 +1799,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: "#000000"
-            opacity: parent.enabled ? 0.3 : 0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Constants.animationFast
-                    easing.type: MMotion.easingFor("hover")
-                }
-            }
+            opacity: 0.3 * Math.min(1, shadeDrag.value / Math.max(1, shell.quickSettingsThreshold))
         }
     }
 
