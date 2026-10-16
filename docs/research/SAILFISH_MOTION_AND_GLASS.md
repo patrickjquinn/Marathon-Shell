@@ -146,7 +146,7 @@ Pilot halo, pager nudge, live Keel covers, cached backdrop blur.
 
 ## 4. Plan
 
-Status is maintained by the lead. Constraints for every item: works on all
+Status as of 2026-10-16 (shell r435, verified on the HackberryPi CM5 with injected touches and scanout captures; flips at 60 fps). Status is maintained by the lead. Constraints for every item: works on all
 device profiles (differences only via DeviceProfile keys); no `layer.samples`
 (etnaviv MSAA trap); no per-frame z/visible churn (Qt stacking walk); GLES2 on
 etnaviv/lima.
@@ -155,49 +155,49 @@ etnaviv/lima.
 
 | # | Item | Basis | Status |
 |---|---|---|---|
-| 1.1 | 6-value bezier curves in MMotion and every caller | S1 | planned |
-| 1.2 | Fix MEntrance stagger (sequential pause per delegate) | S5 | planned |
-| 1.3 | Velocity from a ~60 ms sample window; fix switcher `Date.now() - startY` | S4, Glacier | planned |
-| 1.4 | Easing on the bare Behaviors; collapse duration ladders onto MMotion tokens | S11 | planned |
-| 1.5 | Drop per-move `Logger.info` in Peek | Peek | planned |
-| 1.6 | Haptic ticks at gesture commit thresholds with ngfd's durations/magnitudes | §2 Haptics, S12 | planned |
+| 1.1 | 6-value bezier curves in MMotion and every caller | S1 | done |
+| 1.2 | Fix MEntrance stagger (sequential pause per delegate) | S5 | done |
+| 1.3 | Velocity from a ~60 ms sample window; fix switcher `Date.now() - startY` | S4, Glacier | done |
+| 1.4 | Easing on the bare Behaviors; collapse duration ladders onto MMotion tokens | S11 | done (bare Behaviors; ladders not yet collapsed) |
+| 1.5 | Drop per-move `Logger.info` in Peek | Peek | done |
+| 1.6 | Haptic ticks at gesture commit thresholds with ngfd's durations/magnitudes | §2 Haptics, S12 | done (tick tier; light/medium/heavy unchanged) |
 
 ### Tier 2: tracked gestures
 
 | # | Item | Basis | Status |
 |---|---|---|---|
-| 2.1 | Predictive back visual (1.0 → 0.9 scale + edge shadow, distance-scaled snap) in the shell | S2, PageStack | planned |
-| 2.2 | Settles seeded with release velocity (spring, or duration = remaining/velocity); press stops a running settle | S3, S4, Glacier | planned |
-| 2.3 | Minimise into the card's rect, no mid-gesture layer flip, no end pop | Minimise | planned |
-| 2.4 | Launch/restore from the icon/card rect (scale), splash → app cross-fade, home fades | S7, launcheritem | planned |
-| 2.5 | Pill down → QS tracked; QS release with velocity; scrim fades | QS | planned |
-| 2.6 | Peek release with velocity, progress animated | Peek | planned |
-| 2.7 | Lock follows the finger 1:1; unlock reveals home | Lock | planned |
-| 2.8 | Switcher swipe-to-close; neighbours animate (`displaced`) | Switcher, S6 | planned |
+| 2.1 | Predictive back visual (1.0 → 0.9 scale + edge shadow, distance-scaled snap) in the shell | S2, PageStack | done |
+| 2.2 | Settles seeded with release velocity (spring, or duration = remaining/velocity); press stops a running settle | S3, S4, Glacier | done (GestureTracker) |
+| 2.3 | Minimise into the card's rect, no mid-gesture layer flip, no end pop | Minimise | done |
+| 2.4 | Launch/restore from the icon/card rect (scale), splash → app cross-fade, home fades | S7, launcheritem | done |
+| 2.5 | Pill down → QS tracked; QS release with velocity; scrim fades | QS | done |
+| 2.6 | Peek release with velocity, progress animated | Peek | done |
+| 2.7 | Lock follows the finger 1:1; unlock reveals home | Lock | done |
+| 2.8 | Switcher swipe-to-close; neighbours animate (`displaced`) | Switcher, S6 | done |
 | 2.9 | Keel back drives Silica's page drag (Keel request 6) | Back | blocked on Keel |
 
 ### Tier 3: glass and aliveness
 
 | # | Item | Basis | Status |
 |---|---|---|---|
-| 3.1 | DialogHeaderBackdrop = crop of blurred ambience wallpaper; textured default wallpaper | Teal slab | planned |
+| 3.1 | DialogHeaderBackdrop = crop of blurred ambience wallpaper; textured default wallpaper | Teal slab | done (backdrop); textured default wallpaper awaiting decision |
 | 3.2 | PullDownMenu active tint at 0.3 | Teal slab | planned |
 | 3.3 | Overscroll opacity curve on shell lists | BoundsBehavior | planned |
-| 3.4 | ListView/GridView add/remove/displaced transitions (150 ms, Silica's) | S6 | planned |
-| 3.5 | Keyboard show/hide animated without per-frame relayout | Keyboard | planned |
-| 3.6 | Pilot glow pulse; KeelDialogLayer enter/exit | Other | planned |
+| 3.4 | ListView/GridView add/remove/displaced transitions (150 ms, Silica's) | S6 | partial (Hub, switcher) |
+| 3.5 | Keyboard show/hide animated without per-frame relayout | Keyboard | done |
+| 3.6 | Pilot glow pulse; KeelDialogLayer enter/exit | Other | partial (dialog frosts the app behind; glow pulse and enter/exit not done) |
 | 3.7 | Ambience change cross-fade (Keel request 8) | Silica 600/400 ms | blocked on Keel |
-| 3.8 | Flick velocity 7500·ratio (Keel request 9) | S9 | blocked on Keel |
+| 3.8 | Flick velocity 7500·ratio (Keel request 9) | S9 | done Marathon-side (Marathon.Silica override); Keel request 9 open |
 | 3.9 | oneplus6: GPU backend instead of global `QT_QUICK_BACKEND=software` | S10 | planned |
 
 ### Tier 4: compositor (structural)
 
 | # | Item | Basis | Status |
 |---|---|---|---|
-| 4.1 | Zero-copy live window textures (C++ QQuickItem over `QWaylandQuickItem::textureProvider()`) replacing `ShaderEffectSource { recursive: true }` in TaskCard | WindowPixmapItem | planned |
-| 4.2 | Rounded corners without MSAA (octagon + smoothstep corners) | WindowPixmapItem | planned |
-| 4.3 | Frame callbacks after render by default; hidden clients 1 Hz; wp_presentation | S8, lipstickcompositor | planned |
-| 4.4 | `wl_touch.cancel` when the shell steals a gesture | lipstickcompositorwindow | planned |
-| 4.5 | Hidden-vs-destroyed window split + one-shot cover snapshot on unmap, so close/minimise animate after exit | lipstickcompositorwindow | planned |
-| 4.6 | Wake touch hygiene (100 ms block, eat until fresh TouchBegin) | touchscreen | planned |
+| 4.1 | Zero-copy live window textures (C++ QQuickItem over `QWaylandQuickItem::textureProvider()`) replacing `ShaderEffectSource { recursive: true }` in TaskCard | WindowPixmapItem | done (WindowTextureItem) |
+| 4.2 | Rounded corners without MSAA (octagon + smoothstep corners) | WindowPixmapItem | done |
+| 4.3 | Frame callbacks after render by default; hidden clients 1 Hz; wp_presentation | S8, lipstickcompositor | done (wp_presentation not wired) |
+| 4.4 | `wl_touch.cancel` when the shell steals a gesture | lipstickcompositorwindow | done |
+| 4.5 | Hidden-vs-destroyed window split + one-shot cover snapshot on unmap, so close/minimise animate after exit | lipstickcompositorwindow | partial (cover snapshot on close) |
+| 4.6 | Wake touch hygiene (100 ms block, eat until fresh TouchBegin) | touchscreen | done |
 | 4.7 | Cache precompiled QML so the first page push doesn't stutter | Other | planned |
