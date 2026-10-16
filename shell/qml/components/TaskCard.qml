@@ -257,7 +257,7 @@ Item {
                 pressY = p.y;
                 pressValue = swipe.value;
                 swiping = false;
-                preventStealing = taskCard.swipeClaimsDrag;
+                preventStealing = false;
                 swipe.to = -taskCard.flyDistance();
                 swipe.press();
                 mouse.accepted = true;
@@ -267,13 +267,11 @@ Item {
                 var dx = p.x - pressX;
                 var dy = p.y - pressY;
                 if (!swiping && Math.abs(dy) > Qt.styleHints.startDragDistance && Math.abs(dy) > Math.abs(dx)) {
-                    if (dy < 0 && taskCard.swipeClaimsDrag)
+                    // Held only once it is a close: sideways is the pager's.
+                    if (dy < 0 && taskCard.swipeClaimsDrag) {
                         swiping = true;
-                    else
-                        preventStealing = false;
-                } else if (!swiping && Math.abs(dx) > Qt.styleHints.startDragDistance && Math.abs(dx) > Math.abs(dy)) {
-                    // Sideways is the pager's.
-                    preventStealing = false;
+                        preventStealing = true;
+                    }
                 }
                 if (swiping) {
                     var v = pressValue + dy;
