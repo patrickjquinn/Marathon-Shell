@@ -359,3 +359,14 @@ set_target_properties(test_core_automatictimezone PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_automatictimezone Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
 target_include_directories(test_core_automatictimezone PRIVATE ${CMAKE_SOURCE_DIR}/shell/src ${CMAKE_SOURCE_DIR}/shell)
 add_test(NAME Core_AutomaticTimeZone COMMAND test_core_automatictimezone)
+
+# Wake touch hygiene: no touch for 100 ms after wake, none until a fresh one
+add_executable(test_core_waketouchfilter
+    test_waketouchfilter.cpp
+    ../../shell/src/services/waketouchfilter.cpp
+)
+set_target_properties(test_core_waketouchfilter PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_waketouchfilter Qt6::Test Qt6::Gui)
+target_include_directories(test_core_waketouchfilter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Core_WakeTouchFilter COMMAND test_core_waketouchfilter)
+set_tests_properties(Core_WakeTouchFilter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -43,6 +43,7 @@
 #include "src/services/backgroundtaskobserver.h"
 #include "src/services/gesturetracker.h"
 #include "src/components/windowtextureitem.h"
+#include "src/services/waketouchfilter.h"
 #include "src/services/memorypressuremonitor.h"
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
@@ -753,6 +754,10 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<SensorManagerCpp>("MarathonOS.Shell", 1, 0, "SensorManagerCpp",
                                                    sensorManager);
     displayManager->setSensorManager(sensorManager);
+    auto *wakeTouchFilter = new WakeTouchFilter(&app);
+    app.installEventFilter(wakeTouchFilter);
+    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, wakeTouchFilter,
+                     &WakeTouchFilter::setScreenOn);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     // The device name is what other Bluetooth devices see.
     auto applyDeviceName = [bluetoothManager, settingsManager]() {

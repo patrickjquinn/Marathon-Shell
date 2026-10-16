@@ -110,6 +110,8 @@ set(SOURCES
     src/services/inputboost.cpp
     src/services/wakeonkeyfilter.h
     src/services/wakeonkeyfilter.cpp
+    src/services/waketouchfilter.h
+    src/services/waketouchfilter.cpp
     src/services/pilotclient.h
     src/services/pilotclient.cpp
     src/services/automatictimezone.h
