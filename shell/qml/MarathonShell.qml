@@ -16,7 +16,7 @@ Item {
     // opacity, not visible: an invisible Image gets no texture, so the shell
     // (which starts locked) uploaded the full-screen wallpaper mid-way
     // through the first unlock swipe, and lima tiles uploads on the CPU.
-    readonly property bool wallpaperCovered: (state === "locked" && lockScreen.swipeProgress === 0) || state === "pinEntry"
+    readonly property bool wallpaperCovered: (state === "locked" && lockScreen.swipeProgress === 0) || (state === "pinEntry" && pinScreen.opacity === 1)
     // An app at rest covers everything but the status bar, whose glass lets
     // the wallpaper show through. The wallpaper is clipped to that strip
     // then, instead of being shaded full-screen under every app frame.
@@ -497,10 +497,11 @@ Item {
                 }
             }
 
+            // With a PIN to enter, the pad fades in as the lock screen lifts.
             PropertyChanges {
-                pinScreen.visible: false
+                pinScreen.visible: !SessionStore.checkSession()
                 pinScreen.enabled: false
-                pinScreen.opacity: 0
+                pinScreen.opacity: SessionStore.checkSession() ? 0 : Math.pow(lockScreen.swipeProgress, 0.7)
             }
 
             PropertyChanges {
@@ -652,39 +653,27 @@ Item {
             from: "locked"
             to: "pinEntry"
 
-            ParallelAnimation {
-                NumberAnimation {
-                    target: lockScreen
-                    property: "swipeProgress"
-                    to: 1
-                    duration: 200
-                    easing.type: Easing.OutCubic
+            // The lock screen stays up until the pad has faded in over it.
+            SequentialAnimation {
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: lockScreen
+                        property: "swipeProgress"
+                        to: 1
+                        duration: MMotion.reduceMotion || lockScreen.swipeProgress >= 1 ? 0 : MMotion.moderate
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: pinScreen
+                        property: "opacity"
+                        duration: MMotion.reduceMotion || pinScreen.opacity >= 1 ? 0 : MMotion.moderate
+                        easing.type: Easing.OutCubic
+                    }
                 }
-
-                NumberAnimation {
-                    target: pinScreen
-                    property: "opacity"
-                    to: 1
-                    duration: 200
-                    easing.type: Easing.InCubic
-                }
-
                 PropertyAction {
                     target: lockScreen
                     property: "visible"
                     value: false
-                }
-
-                PropertyAction {
-                    target: lockScreen
-                    property: "enabled"
-                    value: false
-                }
-
-                PropertyAction {
-                    target: pinScreen
-                    property: "enabled"
-                    value: true
                 }
             }
         },
@@ -1896,7 +1885,7 @@ Item {
     Connections {
         target: SecurityManagerCpp
         function onAuthenticationSuccess() {
-            if (SessionStore.isLocked && !pinScreen.visible)
+            if (SessionStore.isLocked && !shell.showPinScreen)
                 SessionStore.unlock();
         }
     }

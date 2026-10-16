@@ -279,6 +279,8 @@ Item {
 
     Column {
         anchors.centerIn: parent
+        // Rises into place as the pad fades in.
+        scale: 0.94 + 0.06 * pinScreen.opacity
         anchors.verticalCenterOffset: pinScreen.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight) / 2) : Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100

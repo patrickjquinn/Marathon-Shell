@@ -214,23 +214,22 @@ Item {
         target: NotificationModel
     }
 
+    // The ambience's wallpaper at full strength, as on Sailfish's lock
+    // screen. It stays put while the content lifts, and dissolves into the
+    // shell's own copy of it.
     Item {
-        id: lockContent
-
         anchors.fill: parent
         z: 1
-        opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
-        transform: Translate {
-            y: -lockScreen.swipeProgress * lockScreen.swipeTravel
-        }
+        opacity: 1 - lockScreen.swipeProgress
 
-        // The ambience's wallpaper at full strength, as on Sailfish's lock
-        // screen; always drawn, so nothing beneath shows through.
         Rectangle {
             anchors.fill: parent
             color: "black"
+            visible: lockWallpaper.status !== Image.Ready
         }
         Image {
+            id: lockWallpaper
+
             anchors.fill: parent
             source: WallpaperStore.path
             fillMode: Image.PreserveAspectCrop
@@ -253,6 +252,17 @@ Item {
             // AppLifecycleManager — its surface texture does not change.
             // Sample once, then stop.
             live: false
+        }
+    }
+
+    Item {
+        id: lockContent
+
+        anchors.fill: parent
+        z: 1
+        opacity: 1 - Math.pow(lockScreen.swipeProgress, 0.7)
+        transform: Translate {
+            y: -lockScreen.swipeProgress * lockScreen.swipeTravel
         }
 
         MarathonStatusBar {
