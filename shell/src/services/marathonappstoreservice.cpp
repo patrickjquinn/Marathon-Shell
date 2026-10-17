@@ -320,14 +320,26 @@ void MarathonAppStoreService::handleDownloadFinished() {
 
     file.write(reply->readAll());
     file.close();
+    const QUrl signatureUrl(reply->request().url().toString() + ".minisig");
     reply->deleteLater();
 
     qDebug() << "[MarathonAppStoreService] Download complete:" << appId;
     emit downloadComplete(appId, packagePath);
 
-    if (m_installer) {
-        m_installer->installFromPackage(packagePath);
-    }
+    // The installer refuses a package without the detached signature the
+    // store serves beside it.
+    QFile::remove(packagePath + ".minisig");
+    QNetworkReply *signature = m_networkManager->get(QNetworkRequest(signatureUrl));
+    connect(signature, &QNetworkReply::finished, this, [this, signature, packagePath] {
+        signature->deleteLater();
+        if (signature->error() == QNetworkReply::NoError) {
+            QFile sig(packagePath + ".minisig");
+            if (sig.open(QIODevice::WriteOnly))
+                sig.write(signature->readAll());
+        }
+        if (m_installer)
+            m_installer->installFromPackage(packagePath);
+    });
 }
 
 QVariantList MarathonAppStoreService::getAvailableUpdates() {
