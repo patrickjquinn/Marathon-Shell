@@ -21,7 +21,8 @@ UpdateService::UpdateService(UpdateBackend *backend, std::function<UpdateConditi
     , m_autoCheckTimer(new QTimer(this))
     , m_currentVersion(QCoreApplication::applicationVersion())
     , m_osVersion(osVersion)
-    , m_bootId(bootId) {
+    , m_bootId(bootId)
+    , m_lastCheckedMs(QSettings().value(QStringLiteral("updates/lastChecked")).toLongLong()) {
     m_backend->setParent(this);
     connect(m_backend, &UpdateBackend::probed, this, &UpdateService::onProbed);
     connect(m_backend, &UpdateBackend::checked, this, &UpdateService::onChecked);
@@ -79,6 +80,11 @@ void UpdateService::onProbed(bool supported, const QString &installedVersion) {
     }
 }
 
+void UpdateService::markChecked() {
+    m_lastCheckedMs = QDateTime::currentMSecsSinceEpoch();
+    QSettings().setValue(QStringLiteral("updates/lastChecked"), m_lastCheckedMs);
+}
+
 void UpdateService::checkNow() {
     switch (m_state) {
         case State::Idle:
@@ -97,7 +103,7 @@ void UpdateService::checkNow() {
 void UpdateService::onChecked(const QString &version) {
     if (m_state != State::Checking)
         return;
-    m_lastCheckedMs = QDateTime::currentMSecsSinceEpoch();
+    markChecked();
     if (version.isEmpty()) {
         m_availableVersion.clear();
         setState(m_rolledBackVersion.isEmpty() ? State::UpToDate : State::RolledBack);
@@ -179,7 +185,7 @@ void UpdateService::onFailed(const QString &error) {
         return;
     qWarning() << "[UpdateService]" << stateName() << "failed:" << error;
     if (m_state == State::Checking)
-        m_lastCheckedMs = QDateTime::currentMSecsSinceEpoch();
+        markChecked();
     m_lastError = error;
     setState(State::Error);
 }

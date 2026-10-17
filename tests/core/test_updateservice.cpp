@@ -124,6 +124,15 @@ class TestUpdateService : public QObject {
         QCOMPARE(s->stateName(), QStringLiteral("upToDate"));
     }
 
+    void lastCheckedSurvivesARestart() {
+        UpdateService *s = make();
+        emit           backend->probed(true, QStringLiteral("26101701"));
+        s->checkNow();
+        emit backend->checked(QString());
+        QVERIFY(s->lastCheckedMs() > 0);
+        QCOMPARE(make()->lastCheckedMs(), s->lastCheckedMs());
+    }
+
     void checkFailureIsAnErrorYouCanRetry() {
         UpdateService *s = make();
         emit           backend->probed(true, QStringLiteral("26101701"));

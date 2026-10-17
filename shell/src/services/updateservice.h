@@ -51,7 +51,7 @@ struct UpdateConditions {
 // reports a rollback when the booted image is older than one it installed.
 //
 // Settings keys (group "updates"): autoCheck, installedVersion,
-// installedBootId.
+// installedBootId, lastChecked.
 class UpdateService : public QObject {
     Q_OBJECT
 
@@ -136,6 +136,7 @@ class UpdateService : public QObject {
 
   private:
     void           setState(State state);
+    void           markChecked();
     void           onProbed(bool supported, const QString &installedVersion);
     void           onChecked(const QString &version);
     void           onReleaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
