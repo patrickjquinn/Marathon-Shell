@@ -100,13 +100,12 @@ MApp {
             color: MColors.background
             z: 10
 
-            // A Qt client's FIRST committed buffer is usually its empty
-            // background, before content has laid out and painted — so
-            // hiding the splash the instant hasFirstFrame flips (revealReady)
-            // flashes a black frame and content "pops" in. Hold the splash a
-            // few frames past that first commit, then FADE it out so the
-            // hand-off reads as intentional rather than a dismiss-then-render.
+            // revealReady comes with the app's first commit, before the shell
+            // has drawn it: the splash fades once the shell has drawn three
+            // frames since, or after 250 ms if it has nothing else to draw.
             property bool _revealed: false
+            property int _framesSinceReady: -1
+
             opacity: _revealed ? 0 : 1
             visible: opacity > 0.001
             Behavior on opacity {
@@ -115,12 +114,25 @@ MApp {
                     easing.type: Easing.OutCubic
                 }
             }
+
+            function _hold() {
+                _framesSinceReady = 0;
+                revealHold.restart();
+            }
+
             Timer {
                 id: revealHold
-                // Long enough for the compositor to import the first buffer; at 90 ms
-                // the splash faded onto a few black frames on lima.
+
                 interval: 250
                 onTriggered: splashScreen._revealed = true
+            }
+            Connections {
+                target: splashScreen._framesSinceReady >= 0 && !splashScreen._revealed ? splashScreen.Window.window : null
+
+                function onAfterAnimating() {
+                    if (++splashScreen._framesSinceReady >= 3)
+                        splashScreen._revealed = true;
+                }
             }
             Connections {
                 target: nativeAppWindow
@@ -128,7 +140,7 @@ MApp {
                     // One-way: hasContent dips (suspend, buffer churn) after
                     // first reveal must not bring the splash back.
                     if (nativeAppWindow.revealReady && !splashScreen._revealed)
-                        revealHold.restart();
+                        splashScreen._hold();
                 }
             }
             // Restore path: the surface can already be live (revealReady true)
@@ -138,7 +150,7 @@ MApp {
             // transition that already happened; level-check it once at creation.
             Component.onCompleted: {
                 if (nativeAppWindow.revealReady && !splashScreen._revealed)
-                    revealHold.restart();
+                    splashScreen._hold();
             }
 
             // Laid out as MarathonAppWindow's splash, so the icon stays launcher-size through the hand-off.
