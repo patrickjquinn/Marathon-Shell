@@ -297,6 +297,10 @@ Item {
 
             property string pendingSsid: ""
             property bool firstScanDone: NetworkManagerCpp.availableNetworks.length > 0
+            // Connected as Settings' Wi-Fi page says: the scan can predate the connection.
+            readonly property var networks: NetworkManagerCpp.availableNetworks.map(n => Object.assign({}, n, {
+                        "connected": NetworkManagerCpp.wifiConnected && n.ssid === NetworkManagerCpp.wifiSsid
+                    })).sort((a, b) => b.connected - a.connected)
             // Compact: the title shares the rescan row to leave room for the list.
             readonly property bool titleInHeader: oobeRoot.compactLayout && SystemStatusStore.isWifiOn
             readonly property bool pageActive: oobeRoot.visible && oobeRoot.currentPage === 2 && SystemStatusStore.isWifiOn
@@ -475,7 +479,7 @@ Item {
                             width: parent.width
 
                             Repeater {
-                                model: NetworkManagerCpp.availableNetworks
+                                model: wifiPage.networks
 
                                 Silica.BackgroundItem {
                                     id: networkRow
@@ -483,10 +487,12 @@ Item {
                                     required property var modelData
                                     required property int index
 
+                                    readonly property bool connected: modelData.connected
                                     readonly property bool isPending: wifiPage.pendingSsid === modelData.ssid
-                                    readonly property bool rowEnabled: !modelData.connected && wifiPage.pendingSsid === ""
-                                    readonly property bool lit: modelData.connected || highlighted
+                                    readonly property bool rowEnabled: !connected && wifiPage.pendingSsid === ""
+                                    readonly property bool lit: connected || highlighted
 
+                                    objectName: "oobeNetwork-" + modelData.ssid
                                     width: parent.width
                                     height: Math.max(oobeRoot.compactLayout ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall, networkText.height + 2 * Silica.Theme.paddingMedium)
                                     enabled: networkRow.rowEnabled
@@ -536,7 +542,8 @@ Item {
                                         }
 
                                         Silica.Label {
-                                            visible: networkRow.modelData.connected || networkRow.isPending
+                                            objectName: "oobeNetworkStatus"
+                                            visible: networkRow.connected || networkRow.isPending
                                             text: networkRow.isPending ? "Connecting…" : "Connected"
                                             color: networkRow.isPending ? Silica.Theme.secondaryColor : Silica.Theme.secondaryHighlightColor
                                             font.pixelSize: Silica.Theme.fontSizeExtraSmall
@@ -560,7 +567,7 @@ Item {
 
                                         GlyphIcon {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.modelData.connected
+                                            visible: networkRow.modelData.secured && !networkRow.isPending && !networkRow.connected
                                             name: "lock"
                                             size: Silica.Theme.iconSizeExtraSmall
                                             color: Silica.Theme.secondaryColor
@@ -568,7 +575,7 @@ Item {
 
                                         GlyphIcon {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            visible: networkRow.modelData.connected
+                                            visible: networkRow.connected
                                             name: "check"
                                             size: Silica.Theme.iconSizeExtraSmall
                                             color: Silica.Theme.highlightColor
@@ -1285,6 +1292,7 @@ Item {
         }
 
         Silica.Button {
+            objectName: "oobeNext"
             width: (parent.width - parent.spacing) / 2
             color: Silica.Theme.highlightColor
             text: {
