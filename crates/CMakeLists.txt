@@ -95,6 +95,31 @@ configure_file(marathon-health/data/marathon-boot-health.service.in
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-boot-health.service"
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
 
+# Declared background work (docs/BACKGROUND_WORK.md): one binary, run as the
+# user generator, as tasks' ExecCondition=, and before suspend as root.
+set(MARATHON_BACKGROUND_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-background")
+add_custom_target(marathon_background_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-background
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_BACKGROUND_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-background (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+set(MARATHON_LIBEXECDIR ${CMAKE_INSTALL_PREFIX}/libexec)
+install(PROGRAMS "${MARATHON_BACKGROUND_BIN}" DESTINATION ${MARATHON_LIBEXECDIR})
+configure_file(marathon-background/data/marathon-background-wake.service.in
+    marathon-background-wake.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-background-wake.service"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+install(CODE "set(_lib \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd\")
+    file(MAKE_DIRECTORY \"\${_lib}/user-generators\" \"\${_lib}/system/sleep.target.wants\")
+    file(CREATE_LINK ${MARATHON_LIBEXECDIR}/marathon-background
+         \"\${_lib}/user-generators/marathon-background-generator\" SYMBOLIC)
+    file(CREATE_LINK ../marathon-background-wake.service
+         \"\${_lib}/system/sleep.target.wants/marathon-background-wake.service\" SYMBOLIC)")
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}

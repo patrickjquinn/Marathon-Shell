@@ -1,0 +1,14 @@
+[Unit]
+Description=Wake-up for Marathon background work due during suspend
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=@MARATHON_LIBEXECDIR@/marathon-background arm-wake
+# /run/marathon-background/wake: when it is armed, for the shell's resume.
+RuntimeDirectory=marathon-background
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=15
+
+[Install]
+WantedBy=sleep.target
