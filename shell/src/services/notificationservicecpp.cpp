@@ -221,7 +221,8 @@ NotificationServiceCpp::buildNotificationMapFromModel(Notification *notification
         map.insert("persistent", meta.value("persistent"));
         map.insert("replyTarget", meta.value("replyTarget"));
     } else {
-        map.insert("category", "message");
+        if (map.value("category").toString().isEmpty())
+            map.insert("category", "message");
         map.insert("priority", "normal");
         map.insert("persistent", false);
         map.insert("replyTarget", QString());

@@ -4,6 +4,8 @@
 #include "notificationmodel.h"
 #include "notificationtarget.h"
 #include "powermanagercpp.h"
+#include <QBuffer>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusError>
@@ -12,7 +14,50 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QCoreApplication>
+#include <QImage>
 #include <QTimer>
+
+namespace {
+
+    // image-data's (iiibiiay): width, height, rowstride, has_alpha,
+    // bits_per_sample, channels, bytes.
+    QImage imageFromHint(const QVariant &hint) {
+        if (!hint.canConvert<QDBusArgument>())
+            return {};
+        const QDBusArgument arg   = hint.value<QDBusArgument>();
+        int                 width = 0, height = 0, stride = 0, bits = 0, channels = 0;
+        bool                alpha = false;
+        QByteArray          bytes;
+        arg.beginStructure();
+        arg >> width >> height >> stride >> alpha >> bits >> channels >> bytes;
+        arg.endStructure();
+        if (width <= 0 || height <= 0 || bits != 8 || channels != (alpha ? 4 : 3) ||
+            stride < width * channels || qint64(stride) * height > bytes.size())
+            return {};
+        // copy(): the QImage would otherwise borrow the local bytes.
+        QImage image = QImage(reinterpret_cast<const uchar *>(bytes.constData()), width, height,
+                              stride, alpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888)
+                           .copy();
+        if (width <= 128 && height <= 128)
+            return image;
+        return image.scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+
+    // The spec's order: image-data, image-path, then app_icon. Pixels travel
+    // as a data URL so the Hub keeps them across restarts.
+    QString notificationIcon(const QString &appIcon, QVariantMap &hints) {
+        const QImage  image = imageFromHint(hints.take(QStringLiteral("image-data")));
+        const QString path  = hints.value(QStringLiteral("image-path")).toString();
+        if (image.isNull())
+            return path.isEmpty() ? appIcon : path;
+        QByteArray png;
+        QBuffer    buffer(&png);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png.toBase64());
+    }
+
+} // namespace
 
 FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database,
                                                    NotificationModel    *model,
@@ -108,15 +153,15 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
     }
 
     NotificationDatabase::NotificationRecord record;
+    record.metadata  = hints;
     record.appId     = appId;
     record.title     = summary;
     record.body      = body;
-    record.iconPath  = app_icon;
+    record.iconPath  = notificationIcon(app_icon, record.metadata);
     record.timestamp = QDateTime::currentDateTime();
     record.read      = false;
     record.dismissed = false;
 
-    record.metadata                   = hints;
     record.metadata["expire_timeout"] = expire_timeout;
 
     if (hints.contains("category")) {
@@ -160,8 +205,9 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
             // share one id space. They were independent counters, which
             // made the replaces_id dismissal below able to evict an
             // unrelated Hub row.
-            m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body, app_icon,
-                                           actionList, replyPlaceholder);
+            m_model->addNotificationWithId(static_cast<int>(id), appId, summary, body,
+                                           record.iconPath, actionList, replyPlaceholder,
+                                           record.metadata);
         } else {
             // saveNotification returns 0 on insert failure, and 0 is not a
             // valid id: two failures in a row would have put two rows under
@@ -169,7 +215,8 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
             // the notification still reaches the Hub.
             qWarning() << "[FreedesktopNotifications] Persist failed; "
                           "showing" << summary << "as transient";
-            m_model->addNotification(appId, summary, body, app_icon, actionList, replyPlaceholder);
+            m_model->addNotification(appId, summary, body, record.iconPath, actionList,
+                                     replyPlaceholder, record.metadata);
         }
     }
 

@@ -1,4 +1,6 @@
 #include <QTest>
+#include <QDBusArgument>
+#include <QImage>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include "freedesktopnotifications.h"
@@ -170,6 +172,75 @@ class TestFreedesktopNotify : public QObject {
 
     // The Hub keeps it, so it hasn't expired: a Nemo client that heard
     // "expired" forgets the id and its close() sends nothing.
+    void iconFollowsTheSpecOrder() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        const uint named  = fdn.Notify("chat", 0, "mail-unread", "Ada", "", {}, {}, -1);
+        const uint pathed = fdn.Notify("chat", 0, "mail-unread", "Ada", "", {},
+                                       {{"image-path", "/tmp/ada.png"}}, -1);
+
+        QCOMPARE(model.getNotification(int(named))->icon(), QString("mail-unread"));
+        QCOMPARE(model.getNotification(int(pathed))->icon(), QString("/tmp/ada.png"));
+    }
+
+    // The banner falls back to the category's icon, also after a restart.
+    void categoryIsKept() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        const uint               id =
+            fdn.Notify("mail", 0, "", "Ada", "", {}, {{"category", "email.arrived"}}, -1);
+        NotificationModel reloaded;
+        reloaded.loadFromDatabase(&db);
+
+        QCOMPARE(model.getNotification(int(id))->toMap().value("category").toString(),
+                 QString("email.arrived"));
+        QCOMPARE(reloaded.getNotification(int(id))->toMap().value("category").toString(),
+                 QString("email.arrived"));
+    }
+
+    // Raw pixels only arrive as a QDBusArgument, so this goes over a bus.
+    void imageDataBecomesTheIcon() {
+        if (!QDBusConnection::sessionBus().isConnected())
+            QSKIP("needs a session bus");
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QDBusConnection          server =
+            QDBusConnection::connectToBus(QDBusConnection::SessionBus, "notification-server");
+        QVERIFY(server.registerObject("/org/freedesktop/Notifications", &fdn,
+                                      QDBusConnection::ExportAllSlots));
+        QSignalSpy added(&model, &NotificationModel::notificationAdded);
+
+        // image-data's (iiibiiay): 2x2 RGBA, all red.
+        QDBusArgument pixels;
+        pixels.beginStructure();
+        pixels << 2 << 2 << 8 << true << 8 << 4 << QByteArray::fromHex("ff0000ff").repeated(4);
+        pixels.endStructure();
+        QDBusMessage call =
+            QDBusMessage::createMethodCall(server.baseService(), "/org/freedesktop/Notifications",
+                                           "org.freedesktop.Notifications", "Notify");
+        call << QString("chat") << 0u << QString("mail-unread") << QString("Ada") << QString()
+             << QStringList() << QVariantMap{{"image-data", QVariant::fromValue(pixels)}} << -1;
+        QDBusConnection::sessionBus().asyncCall(call);
+
+        QTRY_COMPARE(added.count(), 1);
+        const QString icon = model.getNotification(added.first().first().toInt())->icon();
+        const QString prefix("data:image/png;base64,");
+        QVERIFY(icon.startsWith(prefix));
+        const QImage decoded =
+            QImage::fromData(QByteArray::fromBase64(icon.mid(prefix.size()).toLatin1()));
+        QCOMPARE(decoded.size(), QSize(2, 2));
+        QCOMPARE(decoded.pixelColor(1, 1), QColor(Qt::red));
+        QDBusConnection::disconnectFromBus("notification-server");
+    }
+
     void timeoutDoesNotSignalClosed() {
         NotificationDatabase db;
         db.initialize();
@@ -200,5 +271,5 @@ class TestFreedesktopNotify : public QObject {
     }
 };
 
-QTEST_MAIN(TestFreedesktopNotify)
+QTEST_GUILESS_MAIN(TestFreedesktopNotify)
 #include "test_freedesktopnotify.moc"

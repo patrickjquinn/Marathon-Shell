@@ -67,6 +67,10 @@ class Notification : public QObject {
     void setReplyPlaceholder(const QString &text) {
         m_replyPlaceholder = text;
     }
+    // The freedesktop hints the banner and the Hub show.
+    void setHints(const QVariantMap &hints) {
+        m_category = hints.value("category").toString();
+    }
 
     QVariantMap toMap() const {
         return {{"id", m_id},
@@ -77,7 +81,8 @@ class Notification : public QObject {
                 {"timestamp", m_timestamp},
                 {"read", m_isRead},
                 {"actions", m_actions},
-                {"replyPlaceholder", m_replyPlaceholder}};
+                {"replyPlaceholder", m_replyPlaceholder},
+                {"category", m_category}};
     }
 
     void setIsRead(bool read) {
@@ -100,6 +105,7 @@ class Notification : public QObject {
     bool         m_isRead;
     QVariantList m_actions;
     QString      m_replyPlaceholder;
+    QString      m_category;
 };
 
 class NotificationModel : public QAbstractListModel {
@@ -137,16 +143,17 @@ class NotificationModel : public QAbstractListModel {
 
     Q_INVOKABLE int addNotification(const QString &appId, const QString &title, const QString &body,
                                     const QString &icon, const QVariantList &actions = {},
-                                    const QString &replyPlaceholder = {});
+                                    const QString     &replyPlaceholder = {},
+                                    const QVariantMap &hints            = {});
 
     // Same, but adopting an id minted elsewhere -- specifically the row id
     // NotificationDatabase::saveNotification() returns. The two used to be
     // independent counters, so a caller holding a database id could dismiss
     // an unrelated model row. Callers that persist should use this.
-    int             addNotificationWithId(int id, const QString &appId, const QString &title,
-                                          const QString &body, const QString &icon,
-                                          const QVariantList &actions          = {},
-                                          const QString      &replyPlaceholder = {});
+    int addNotificationWithId(int id, const QString &appId, const QString &title,
+                              const QString &body, const QString &icon,
+                              const QVariantList &actions     = {},
+                              const QString &replyPlaceholder = {}, const QVariantMap &hints = {});
     Q_INVOKABLE void          dismissNotification(int id);
     Q_INVOKABLE void          markAsRead(int id);
     Q_INVOKABLE void          dismissAllNotifications();

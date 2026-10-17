@@ -223,7 +223,7 @@ add_executable(test_shell_freedesktopnotify
     ../../shell/src/services/notificationtarget.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
-target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Sql Qt6::Qml Qt6::DBus)
+target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
 target_include_directories(test_shell_freedesktopnotify PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -232,7 +232,11 @@ target_include_directories(test_shell_freedesktopnotify PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/managers
     ${CMAKE_SOURCE_DIR}/shell/src
 )
-add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
+if(DBUS_RUN_SESSION)
+    add_test(NAME Shell_FreedesktopNotify COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_freedesktopnotify>)
+else()
+    add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
+endif()
 
 # AlarmManager: one-shot, hidden, exactly-timed alarms (countdown timers)
 find_package(Qt6 REQUIRED COMPONENTS Multimedia)

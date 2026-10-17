@@ -71,16 +71,17 @@ int NotificationModel::roleId(const QString &name) const {
 // construction, and both remain valid keys for dismiss/markAsRead.
 int NotificationModel::addNotification(const QString &appId, const QString &title,
                                        const QString &body, const QString &icon,
-                                       const QVariantList &actions,
-                                       const QString      &replyPlaceholder) {
+                                       const QVariantList &actions, const QString &replyPlaceholder,
+                                       const QVariantMap &hints) {
     return addNotificationWithId(m_nextTransientId--, appId, title, body, icon, actions,
-                                 replyPlaceholder);
+                                 replyPlaceholder, hints);
 }
 
 int NotificationModel::addNotificationWithId(int id, const QString &appId, const QString &title,
                                              const QString &body, const QString &icon,
                                              const QVariantList &actions,
-                                             const QString      &replyPlaceholder) {
+                                             const QString      &replyPlaceholder,
+                                             const QVariantMap  &hints) {
     // Only database-backed ids feed the persisted generator.
     if (id > 0 && id >= m_nextId) {
         m_nextId = id + 1;
@@ -90,6 +91,7 @@ int NotificationModel::addNotificationWithId(int id, const QString &appId, const
     Notification *notification = new Notification(id, appId, title, body, icon, this);
     notification->setActions(actions);
     notification->setReplyPlaceholder(replyPlaceholder);
+    notification->setHints(hints);
     m_notifications.prepend(notification);
     m_notificationIndex[id] = notification;
     endInsertRows();
@@ -227,6 +229,7 @@ void NotificationModel::loadFromDatabase(NotificationDatabase *database) {
         notification->setActions(record.actions);
         notification->setReplyPlaceholder(
             record.metadata.value("x-kde-reply-placeholder-text").toString());
+        notification->setHints(record.metadata);
 
         m_notifications.append(notification);
         m_notificationIndex[record.id] = notification;
