@@ -53,6 +53,7 @@ depends="
 	coreutils
 	util-linux
 	dbus
+	gnome-keyring
 	polkit
 	greetd
 	libcap
