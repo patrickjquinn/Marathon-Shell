@@ -44,4 +44,5 @@ if(Python3_FOUND)
     # Every test source is registered here, and every registered path exists
     add_test(NAME Lint_TestReachability COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/lint/check-test-reachability.py ${CMAKE_SOURCE_DIR})
     add_test(NAME Lint_TestReachabilityCheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/lint/test_check_test_reachability.py)
+    add_test(NAME Flash_PinePhone COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/flash/test_flash_pinephone.py)
 endif()

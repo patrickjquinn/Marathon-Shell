@@ -8,6 +8,7 @@ matching `build-*-image.sh` has produced an image artifact.
 | OnePlus 6 (enchilada) | `flash-oneplus6.sh` | **Ready, hardware-unverified** | fastboot (boot.img + sparse rootfs) |
 | Purism Librem 5 | `flash-librem5.sh` | **Ready, hardware-unverified** | `dd` to SD, or `uuu` SDP→Fastboot to eMMC |
 | HackberryPi CM5 | `flash-hackberry-cm5.sh` | **Ready, hardware-unverified** | `dd` to microSD |
+| PINE64 PinePhone | `flash-pinephone.sh` | **Ready, hardware-unverified** | `dd` to microSD, or to eMMC through JumpDrive |
 | Other Hackberry variants | `flash-hackberry-pi.sh` | **Wrapper** — dispatches to CM5; other variants not supported yet | n/a |
 
 "hardware-unverified" means the script follows the documented protocol
@@ -47,6 +48,23 @@ steps and waits for confirmation. `phone-boot.img` is auto-located
 in the build output directory (the orchestrator extracts it from
 the `u-boot-librem5` apk during the bake) or can be set via
 `UBOOT=…`.
+
+## PINE64 PinePhone (pine64-pinephone)
+
+```bash
+./scripts/build-pinephone-image.sh
+./scripts/flash/flash-pinephone.sh /dev/sdX            # newest build
+./scripts/flash/flash-pinephone.sh /dev/sdX image.raw  # or a given one
+```
+
+The image is the whole disk (pure MBR, U-Boot SPL at byte 8 KiB, ext4
+boot partition, root), so `dd` is the install. `/dev/sdX` is a microSD
+in a USB reader, or the eMMC that
+[JumpDrive](https://github.com/dreemurrs-embedded/Jumpdrive) exposes over
+USB-C. The phone always tries the microSD (upper slot) before the eMMC,
+so a good card recovers a bad eMMC install. The script refuses an image
+without an MBR, with a GPT, or without an Allwinner SPL at 8 KiB, and
+the host's own disk; a non-removable target needs `FORCE`.
 
 ## HackberryPi CM5
 
