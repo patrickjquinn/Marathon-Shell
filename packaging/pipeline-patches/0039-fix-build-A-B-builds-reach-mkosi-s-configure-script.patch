@@ -1,0 +1,48 @@
+From 62689e52855202001bb72facbc5752afb69a60c8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 17 Oct 2026 15:59:22 +0100
+Subject: [PATCH] fix(build): A/B builds reach mkosi's configure script
+
+PassEnvironment only forwards what is already in mkosi's environment,
+so MARATHON_IMAGE_LAYOUT from the caller never reached
+mkosi-configure.py and every A/B build quietly got the single-root
+layout. On the Pi the post-bake step then kept that image's GPT
+instead of converting it to MBR. Pass the layout with --environment
+like PMOS_DEVICE, and refuse an A/B Pi image with no autoboot
+partition.
+---
+ scripts/build-image.py | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 00d84c5..5546b36 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -144,6 +144,9 @@ def build_image(components: List[str], extra_args: List[str]):
+             f"--environment=PMOS_DEVICE={device_name}",
+             f"--environment=PMOS_VARIANT={ui_name}",
+         ] + extra_args
++        # PassEnvironment forwards only mkosi's own environment, not ours.
++        if layout := os.environ.get("MARATHON_IMAGE_LAYOUT"):
++            mkosi_cmd.insert(len(mkosi_cmd) - len(extra_args), f"--environment=MARATHON_IMAGE_LAYOUT={layout}")
+ 
+         print(f"Executing: {' '.join(mkosi_cmd)}")
+ 
+@@ -348,7 +351,13 @@ def build_image(components: List[str], extra_args: List[str]):
+                 print(f"warning: expected raw output not found at {raw_path}; skipping Pi MBR step")
+             elif os.environ.get("MARATHON_IMAGE_LAYOUT") == "ab":
+                 # A/B keeps the GPT: systemd-sysupdate only writes GPT
+-                # partitions.
++                # partitions. A single-root image left GPT would not boot.
++                import json
++                labels = [p.get("name") for p in json.loads(subprocess.run(
++                    ["sfdisk", "--json", raw_path], capture_output=True, text=True,
++                    check=True).stdout)["partitiontable"]["partitions"]]
++                if "marathon_autoboot" not in labels:
++                    sys.exit(f"Pi: MARATHON_IMAGE_LAYOUT=ab but {raw_path} has no A/B layout ({labels})")
+                 record_fat32_starts(raw_path)
+                 print("Pi: A/B GPT kept")
+             else:
+-- 
+2.55.0
+
