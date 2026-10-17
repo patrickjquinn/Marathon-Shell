@@ -28,6 +28,9 @@ class MarathonPermissionManager : public QObject {
     Q_PROPERTY(QString currentAppId READ currentAppId NOTIFY currentRequestChanged)
     Q_PROPERTY(QString currentPermission READ currentPermission NOTIFY currentRequestChanged)
     Q_PROPERTY(QStringList currentPermissions READ currentPermissions NOTIFY currentRequestChanged)
+    // Restricted permissions the app declared but cannot hold, shown in the
+    // prompt so the user knows they were refused.
+    Q_PROPERTY(QStringList currentRefused READ currentRefused NOTIFY currentRequestChanged)
 
   public:
     enum PermissionStatus : quint8 {
@@ -48,6 +51,11 @@ class MarathonPermissionManager : public QObject {
 
     Q_INVOKABLE void requestPermission(const QString &appId, const QString &permission);
     Q_INVOKABLE void requestPermissions(const QString &appId, const QStringList &permissions);
+    // Every permission the app declares that is not decided yet, in one
+    // prompt: called when it launches.
+    void requestDeclaredPermissions(const QString &appId);
+    // The prompt's answer for every permission it asks about.
+    Q_INVOKABLE void respond(bool granted);
 
     Q_INVOKABLE void setPermission(const QString &appId, const QString &permission, bool granted,
                                    bool remember = true);
@@ -85,6 +93,9 @@ class MarathonPermissionManager : public QObject {
     QStringList currentPermissions() const {
         return m_currentPermissions;
     }
+    QStringList currentRefused() const {
+        return m_currentRefused;
+    }
 
   signals:
     void permissionGranted(const QString &appId, const QString &permission);
@@ -116,6 +127,7 @@ class MarathonPermissionManager : public QObject {
     QString                               m_currentAppId;
     QString                               m_currentPermission;
     QStringList                           m_currentPermissions;
+    QStringList                                 m_currentRefused;
 
     QMap<QString, MarathonManifest::Permission> m_vocabulary;
 

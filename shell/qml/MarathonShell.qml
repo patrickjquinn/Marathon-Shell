@@ -90,7 +90,7 @@ Item {
 
     // Back on a permission prompt is Deny.
     function denyPermissionPrompt() {
-        PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true);
+        PermissionManager.respond(false);
     }
 
     function handleHomeKey() {

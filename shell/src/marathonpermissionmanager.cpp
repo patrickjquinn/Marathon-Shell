@@ -176,6 +176,11 @@ void MarathonPermissionManager::requestPermissions(const QString     &appId,
     }
 }
 
+void MarathonPermissionManager::requestDeclaredPermissions(const QString &appId) {
+    if (const MarathonAppRegistry::AppInfo *app = appInfo(appId))
+        requestPermissions(appId, app->permissions);
+}
+
 void MarathonPermissionManager::requestPermission(const QString &appId, const QString &requested) {
     const QString permission = canonical(requested);
     qDebug() << "[MarathonPermissionManager] Permission requested:" << appId << permission;
@@ -189,6 +194,9 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
     }
 
     PermissionStatus status = getPermissionStatus(appId, permission);
+    // A refusal the user has not been shown yet goes to the prompt.
+    const bool untold =
+        isRefused(app, permission) && !m_permissions.value(appId).contains(permission);
 
     if (status == Granted) {
         qDebug() << "[MarathonPermissionManager] Permission already granted";
@@ -196,7 +204,7 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
         return;
     }
 
-    if (status == Denied) {
+    if (status == Denied && !untold) {
         qDebug() << "[MarathonPermissionManager] Permission already denied";
         emit permissionDenied(appId, permission);
         return;
@@ -239,8 +247,10 @@ void MarathonPermissionManager::processPendingRequests() {
     // asked for storage again the moment it closed. Browser did exactly that
     // -- one dialog for "storage and network", then a second for "storage".
     QStringList                          batch;
+    QStringList                          refused;
     QStringList                          alreadyGranted;
     QStringList                          alreadyDenied;
+    const MarathonAppRegistry::AppInfo  *app = appInfo(appId);
     QMutableListIterator<PendingRequest> i(m_pendingRequests);
     while (i.hasNext()) {
         const PendingRequest &req = i.next();
@@ -248,7 +258,11 @@ void MarathonPermissionManager::processPendingRequests() {
             continue;
 
         const PermissionStatus status = getPermissionStatus(appId, req.permission);
-        if (status == Granted) {
+        if (isRefused(app, req.permission) &&
+            !m_permissions.value(appId).contains(req.permission)) {
+            if (!refused.contains(req.permission))
+                refused.append(req.permission);
+        } else if (status == Granted) {
             if (!alreadyGranted.contains(req.permission))
                 alreadyGranted.append(req.permission);
         } else if (status == Denied) {
@@ -266,7 +280,7 @@ void MarathonPermissionManager::processPendingRequests() {
     for (const QString &perm : alreadyDenied)
         emit permissionDenied(appId, perm);
 
-    if (batch.isEmpty()) {
+    if (batch.isEmpty() && refused.isEmpty()) {
         // Everything buffered for this app was already decided; move on to
         // the next app rather than showing an empty prompt.
         checkQueue();
@@ -279,7 +293,8 @@ void MarathonPermissionManager::processPendingRequests() {
     m_promptActive       = true;
     m_currentAppId       = appId;
     m_currentPermissions = batch;
-    m_currentPermission  = batch.first(); // Legacy compatibility, though UI should switch to list
+    m_currentRefused     = refused;
+    m_currentPermission  = batch.value(0); // Legacy compatibility, though UI should switch to list
 
     emit promptActiveChanged();
     emit currentRequestChanged();
@@ -289,6 +304,27 @@ void MarathonPermissionManager::processPendingRequests() {
     emit permissionsRequested(appId, batch);
 
     qDebug() << "[MarathonPermissionManager] Showing custom permission batch prompt";
+}
+
+void MarathonPermissionManager::respond(bool granted) {
+    if (!m_promptActive)
+        return;
+    const QString     appId   = m_currentAppId;
+    const QStringList asked   = m_currentPermissions;
+    const QStringList refused = m_currentRefused;
+    // Stored as denied: the user has been told, so it is not shown again.
+    for (const QString &permission : refused)
+        m_permissions[appId][permission] = false;
+    m_currentRefused.clear();
+    if (asked.isEmpty()) {
+        savePermissions();
+        closePrompt();
+        checkQueue();
+    } else {
+        setPermissions(appId, asked, granted, true);
+    }
+    for (const QString &permission : refused)
+        emit permissionDenied(appId, permission);
 }
 
 void MarathonPermissionManager::checkQueue() {
@@ -325,10 +361,10 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
     if (m_promptActive && appId == m_currentAppId) {
         for (const QString &perm : permissions)
             m_currentPermissions.removeAll(canonical(perm));
-        if (m_currentPermissions.isEmpty()) {
+        if (m_currentPermissions.isEmpty() && m_currentRefused.isEmpty()) {
             closePrompt();
         } else {
-            m_currentPermission = m_currentPermissions.first();
+            m_currentPermission = m_currentPermissions.value(0);
             emit currentRequestChanged();
         }
     }
@@ -361,6 +397,7 @@ void MarathonPermissionManager::closePrompt() {
     m_promptActive = false;
     m_currentAppId.clear();
     m_currentPermissions.clear();
+    m_currentRefused.clear();
     m_currentPermission.clear();
     emit promptActiveChanged();
     emit currentRequestChanged();

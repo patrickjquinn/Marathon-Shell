@@ -365,6 +365,71 @@ class TestPermissionManager : public QObject {
         QVERIFY(mgr.hasPermission("com.asking", "contacts"));
     }
 
+    // === CONTRACT: at launch every declared permission is granted, asked
+    // for, or shown as refused ===
+
+    void launchAsksForEveryDeclaredPermission() {
+        const QStringList   declared = {"system", "storage",       "network",  "telephony",
+                                        "sms",    "notifications", "contacts", "location"};
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("test", declared, true));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        QSignalSpy denied(&mgr, &MarathonPermissionManager::permissionDenied);
+
+        mgr.requestDeclaredPermissions("test");
+        // What the runner's clients ask for on their own, in the same breath.
+        mgr.requestPermission("test", "telephony");
+        mgr.requestPermission("test", "system");
+        QTRY_VERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentAppId(), QString("test"));
+        QCOMPARE(mgr.currentPermissions(),
+                 QStringList({"storage", "network", "telephony", "sms", "notifications", "contacts",
+                              "location"}));
+        QCOMPARE(mgr.currentRefused(), QStringList({"system"}));
+
+        mgr.respond(true);
+        QVERIFY(!mgr.promptActive());
+        for (const QString &p : declared)
+            QCOMPARE(mgr.hasPermission("test", p), p != "system");
+        QVERIFY(denied.count() >= 1);
+        QCOMPARE(denied.last().at(1).toString(), QString("system"));
+
+        mgr.requestDeclaredPermissions("test");
+        QTest::qWait(250);
+        QVERIFY(!mgr.promptActive());
+    }
+
+    void aRefusalAloneIsStillShown() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("com.fake.settings", {"system"}));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+
+        mgr.requestDeclaredPermissions("com.fake.settings");
+        QTRY_VERIFY(mgr.promptActive());
+        QVERIFY(mgr.currentPermissions().isEmpty());
+        QCOMPARE(mgr.currentRefused(), QStringList({"system"}));
+        mgr.respond(false);
+        QVERIFY(!mgr.promptActive());
+
+        QSignalSpy denied(&mgr, &MarathonPermissionManager::permissionDenied);
+        mgr.requestPermission("com.fake.settings", "system");
+        QCOMPARE(denied.count(), 1);
+        QTest::qWait(250);
+        QVERIFY(!mgr.promptActive());
+    }
+
+    void protectedAppsAreNotAsked() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("settings", {"system", "network", "storage"}, true, true));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        mgr.requestDeclaredPermissions("settings");
+        QTest::qWait(250);
+        QVERIFY(!mgr.promptActive());
+    }
+
     void cleanupTestCase() {
         cleanPermissions();
         QStandardPaths::setTestModeEnabled(false);

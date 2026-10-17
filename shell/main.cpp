@@ -1187,6 +1187,8 @@ int main(int argc, char *argv[]) {
 
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &MarathonPermissionManager::dismissForApp);
+    QObject::connect(appLaunchService, &AppLaunchService::appLaunchCompleted, permissionManager,
+                     &MarathonPermissionManager::requestDeclaredPermissions);
 
     auto *appStoreService = new MarathonAppStoreService(appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";

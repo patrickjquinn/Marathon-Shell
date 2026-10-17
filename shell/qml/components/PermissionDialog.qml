@@ -31,8 +31,10 @@ Item {
     // No publisher field in the manifest yet (see marathon-core/marathonappregistry.cpp).
     // For built-ins ("isProtected") the by-line is the OS itself; otherwise we fall back
     // to a derived name from the appId until manifests gain a publisher field.
-    property string permission: (PermissionManager && PermissionManager.currentPermission) ? PermissionManager.currentPermission : ""
     property var allPermissions: (PermissionManager && PermissionManager.currentPermissions) ? PermissionManager.currentPermissions : []
+    // Declared but restricted to protected system apps: listed, never offered.
+    property var refusedPermissions: (PermissionManager && PermissionManager.currentRefused) ? PermissionManager.currentRefused : []
+    readonly property bool asking: allPermissions.length > 0
 
     function permissionTitle(p) {
         return p ? PermissionManager.getPermissionLabel(p) : "";
@@ -66,26 +68,20 @@ Item {
         return PermissionManager.getPermissionDescription(p);
     }
 
-    function descriptionText() {
-        // The current single permission is the legacy single-prompt path.
-        // Modern callers (Browser cold-start, Maps first-launch) batch
-        // permission requests via currentPermissions — show all of them
-        // by name so the body matches the inline list above instead of
-        // mentioning only the first item and looking truncated.
-        const list = allPermissions && allPermissions.length > 0 ? allPermissions : (permission ? [permission] : []);
-        if (list.length === 0)
-            return "";
-
+    function phrase(list) {
         const titles = list.map(p => permissionTitle(p).toLowerCase());
-        let phrase;
-        if (titles.length === 1) {
-            phrase = titles[0];
-        } else if (titles.length === 2) {
-            phrase = titles[0] + " and " + titles[1];
-        } else {
-            phrase = titles.slice(0, -1).join(", ") + ", and " + titles[titles.length - 1];
-        }
-        return appName + " is requesting access to " + phrase + ".";
+        if (titles.length <= 2)
+            return titles.join(" and ");
+        return titles.slice(0, -1).join(", ") + ", and " + titles[titles.length - 1];
+    }
+
+    function descriptionText() {
+        const parts = [];
+        if (asking)
+            parts.push(qsTr("%1 is requesting access to %2.").arg(appName).arg(phrase(allPermissions)));
+        if (refusedPermissions.length > 0)
+            parts.push(asking ? qsTr("It also asked for %1, which only Marathon's system apps can have.").arg(phrase(refusedPermissions)) : qsTr("%1 asked for %2, which only Marathon's system apps can have.").arg(appName).arg(phrase(refusedPermissions)));
+        return parts.join(" ");
     }
 
     anchors.fill: parent
@@ -119,13 +115,14 @@ Item {
 
         Silica.BackgroundItem {
             objectName: "denyButton"
+            visible: permissionDialog.asking
             Accessible.role: Accessible.Button
             Accessible.name: qsTr("Deny")
-            Accessible.onPressAction: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
+            Accessible.onPressAction: PermissionManager.respond(false)
             anchors.left: parent.left
             width: parent.width / 2
             height: parent.height
-            onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, false, true)
+            onClicked: PermissionManager.respond(false)
 
             Silica.Label {
                 anchors.left: parent.left
@@ -139,18 +136,20 @@ Item {
         Silica.BackgroundItem {
             objectName: "allowButton"
             Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Allow")
-            Accessible.onPressAction: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
+            Accessible.name: allowLabel.text
+            Accessible.onPressAction: PermissionManager.respond(permissionDialog.asking)
             anchors.right: parent.right
             width: parent.width / 2
             height: parent.height
-            onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
+            onClicked: PermissionManager.respond(permissionDialog.asking)
 
             Silica.Label {
+                id: allowLabel
+
                 anchors.right: parent.right
                 anchors.rightMargin: Silica.Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Allow")
+                text: permissionDialog.asking ? qsTr("Allow") : qsTr("OK")
                 font.pixelSize: Silica.Theme.fontSizeLarge
                 color: Silica.Theme.highlightColor
             }
@@ -203,55 +202,28 @@ Item {
             }
 
             Silica.SectionHeader {
+                visible: permissionDialog.asking
                 text: qsTr("Permissions")
             }
 
             Repeater {
-                model: permissionDialog.allPermissions && permissionDialog.allPermissions.length > 0
-                       ? permissionDialog.allPermissions
-                       : (permissionDialog.permission ? [permissionDialog.permission] : [])
+                objectName: "askedPermissions"
+                model: permissionDialog.allPermissions
 
-                delegate: Item {
-                    id: permRow
+                delegate: PermissionRow {}
+            }
 
-                    required property string modelData
+            Silica.SectionHeader {
+                visible: permissionDialog.refusedPermissions.length > 0
+                text: qsTr("Not allowed")
+            }
 
-                    width: parent.width
-                    height: Math.max(Silica.Theme.itemSizeMedium, rowText.height + Silica.Theme.paddingMedium * 2)
+            Repeater {
+                objectName: "refusedPermissions"
+                model: permissionDialog.refusedPermissions
 
-                    GlyphIcon {
-                        id: rowIcon
-
-                        x: Silica.Theme.horizontalPageMargin
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: permissionDialog.permissionIconName(permRow.modelData)
-                        size: Silica.Theme.iconSizeSmall
-                        color: Silica.Theme.primaryColor
-                    }
-
-                    Column {
-                        id: rowText
-
-                        anchors.left: rowIcon.right
-                        anchors.leftMargin: Silica.Theme.paddingLarge
-                        anchors.right: parent.right
-                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Silica.Label {
-                            width: parent.width
-                            text: permissionDialog.permissionTitle(permRow.modelData)
-                            truncationMode: Silica.TruncationMode.Fade
-                        }
-                        Silica.Label {
-                            width: parent.width
-                            text: permissionDialog.permissionSubtitle(permRow.modelData)
-                            visible: text.length > 0
-                            wrapMode: Text.Wrap
-                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                            color: Silica.Theme.secondaryColor
-                        }
-                    }
+                delegate: PermissionRow {
+                    refused: true
                 }
             }
 
@@ -267,6 +239,51 @@ Item {
         }
 
         Silica.VerticalScrollDecorator {}
+    }
+
+    component PermissionRow: Item {
+        id: permRow
+
+        required property string modelData
+        property bool refused: false
+
+        width: parent ? parent.width : 0
+        height: Math.max(Silica.Theme.itemSizeMedium, rowText.height + Silica.Theme.paddingMedium * 2)
+        opacity: refused ? Silica.Theme.opacityHigh : 1
+
+        GlyphIcon {
+            id: rowIcon
+
+            x: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
+            name: permissionDialog.permissionIconName(permRow.modelData)
+            size: Silica.Theme.iconSizeSmall
+            color: Silica.Theme.primaryColor
+        }
+
+        Column {
+            id: rowText
+
+            anchors.left: rowIcon.right
+            anchors.leftMargin: Silica.Theme.paddingLarge
+            anchors.right: parent.right
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.verticalCenter: parent.verticalCenter
+
+            Silica.Label {
+                width: parent.width
+                text: permissionDialog.permissionTitle(permRow.modelData)
+                truncationMode: Silica.TruncationMode.Fade
+            }
+            Silica.Label {
+                width: parent.width
+                text: permRow.refused ? qsTr("Only Marathon's system apps can have this") : permissionDialog.permissionSubtitle(permRow.modelData)
+                visible: text.length > 0
+                wrapMode: Text.Wrap
+                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                color: Silica.Theme.secondaryColor
+            }
+        }
     }
 
     Behavior on opacity {
