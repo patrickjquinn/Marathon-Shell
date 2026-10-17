@@ -335,13 +335,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     m_window->installEventFilter(this);
 
-    // AUTO-LAUNCH TEST: only kick off if the optional dev helper is installed.
-    QTimer::singleShot(15000, this, [this]() {
-        if (QFile::exists("/usr/bin/marathon-app-debug")) {
-            qInfo() << "[WaylandCompositor] Auto-launching debug app";
-            launchApp("/usr/bin/marathon-app-debug");
-        }
-    });
+    // Dev helper, opt-in: a stray binary must not launch on a user's phone.
+    if (qEnvironmentVariableIntValue("MARATHON_AUTOLAUNCH_DEBUG_APP") == 1) {
+        QTimer::singleShot(15000, this, [this]() {
+            if (QFile::exists("/usr/bin/marathon-app-debug"))
+                launchApp("/usr/bin/marathon-app-debug");
+        });
+    }
 }
 
 WaylandCompositor::~WaylandCompositor() {
@@ -364,7 +364,7 @@ QQmlListProperty<QObject> WaylandCompositor::surfaces() {
 }
 
 void WaylandCompositor::launchApp(const QString &command, const QVariantMap &extraEnv) {
-    if (command.isEmpty()) {
+    if (!command.isEmpty()) {
         qDebug() << "[WaylandCompositor] Launching app:" << command;
         qDebug() << "[WaylandCompositor] Socket name:" << socketName();
         qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
