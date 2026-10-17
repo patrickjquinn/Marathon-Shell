@@ -1,202 +1,93 @@
 #include "marathonappverifier.h"
 #include <QDebug>
-#include <QDir>
-#include <QFile>
-#include <QProcess>
 #include <QStandardPaths>
 #include "marathon-core-native/src/lib.rs.h"
 #include <syslog.h>
+#include <vector>
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
-    : QObject(parent) {
-    initializeTrustedKeysDir();
+    : QObject(parent) {}
+
+QStringList MarathonAppVerifier::trustedKeyDirs() {
+    return {QStringLiteral("/usr/share/marathon/trusted-keys"),
+            QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+                QStringLiteral("/marathon/trusted-keys")};
 }
 
-QString MarathonAppVerifier::getTrustedKeysDir() {
-    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-        "/marathon/trusted-keys";
-}
-
-bool MarathonAppVerifier::initializeTrustedKeysDir() {
-    QString keysDir = getTrustedKeysDir();
-    QDir    dir;
-    if (!dir.exists(keysDir)) {
-        if (!dir.mkpath(keysDir)) {
-            qWarning() << "[MarathonAppVerifier] Failed to create trusted keys directory:"
-                       << keysDir;
-            return false;
-        }
-        qDebug() << "[MarathonAppVerifier] Created trusted keys directory:" << keysDir;
-    }
-    return true;
-}
-
-bool MarathonAppVerifier::isGPGAvailable() {
-    QProcess gpgCheck;
-    gpgCheck.start("gpg", QStringList() << "--version");
-
-    if (!gpgCheck.waitForStarted(3000)) {
-        m_lastError = "GPG is not available on this system";
-        return false;
-    }
-
-    gpgCheck.waitForFinished(3000);
-    return gpgCheck.exitCode() == 0;
+bool MarathonAppVerifier::unsignedAllowed() {
+    return qgetenv("MARATHON_ALLOW_UNSIGNED") == "1";
 }
 
 MarathonAppVerifier::VerificationResult
-MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
-                                         const QString &signaturePath) {
-    const QByteArray                         manifest  = manifestPath.toUtf8();
-    const QByteArray                         signature = signaturePath.toUtf8();
-    const QByteArray                         keysDir   = getTrustedKeysDir().toUtf8();
-    const marathon::native::SignatureVerdict verdict = marathon::native::verify_manifest_signature(
-        rust::Str(manifest.constData(), manifest.size()),
-        rust::Str(signature.constData(), signature.size()),
-        rust::Str(keysDir.constData(), keysDir.size()));
-    const QString detail = QString::fromUtf8(verdict.detail.data(), verdict.detail.size());
-
-    switch (verdict.check) {
-        case marathon::native::SignatureCheck::Valid:
-            syslog(LOG_AUTH | LOG_INFO, "[SECURITY] App signature verified: manifest=%s",
-                   manifest.constData());
-            return Valid;
-        case marathon::native::SignatureCheck::NoTrustedKeys:
-            if (qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES")) {
-                m_lastError = "No trusted keys configured (strict mode requires trusted keys)";
-                qWarning() << "[MarathonAppVerifier] Rejected: no trusted keys in strict mode";
-                syslog(LOG_AUTH | LOG_ALERT,
-                       "[SECURITY] App rejected - no trusted keys: manifest=%s",
-                       manifest.constData());
-                return UntrustedKey;
-            }
-            qWarning() << "[MarathonAppVerifier] No trusted keys configured, signature not checked";
-            syslog(LOG_AUTH | LOG_WARNING,
-                   "[SECURITY] App accepted without trusted key (dev mode): manifest=%s",
-                   manifest.constData());
-            return Valid;
-        case marathon::native::SignatureCheck::UntrustedKey:
-            m_lastError = "Package is signed by a key that is not trusted";
-            qWarning() << "[MarathonAppVerifier] Signature from untrusted key";
-            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] App signed by untrusted key: manifest=%s",
-                   manifest.constData());
-            return UntrustedKey;
-        case marathon::native::SignatureCheck::InvalidSignature:
-            m_lastError = "Invalid signature: " + detail;
-            qWarning() << "[MarathonAppVerifier] BAD signature detected:" << detail;
-            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Invalid app signature: manifest=%s",
-                   manifest.constData());
-            return InvalidSignature;
-        case marathon::native::SignatureCheck::Failed: break;
-    }
-    m_lastError = "Signature verification failed: " + detail;
-    qWarning() << "[MarathonAppVerifier] Verification failed:" << detail;
-    syslog(LOG_AUTH | LOG_WARNING, "[SECURITY] App signature verification failed: manifest=%s",
-           manifest.constData());
-    return VerificationFailed;
-}
-
-MarathonAppVerifier::VerificationResult
-MarathonAppVerifier::verifyDirectory(const QString &appDir) {
-    qDebug() << "[MarathonAppVerifier] Verifying directory:" << appDir;
-
+MarathonAppVerifier::verifyPackage(const QString &packagePath) {
     emit verificationStarted();
+    m_lastError.clear();
 
-    QDir dir(appDir);
-    if (!dir.exists()) {
-        m_lastError = "Directory does not exist: " + appDir;
+    const QByteArray          archive = packagePath.toUtf8();
+    std::vector<rust::String> dirs;
+    for (const QString &dir : trustedKeyDirs()) {
+        const QByteArray utf8 = dir.toUtf8();
+        dirs.emplace_back(utf8.constData(), utf8.size());
+    }
+    const marathon::native::PackageVerdict verdict = marathon::native::verify_package_signature(
+        rust::Str(archive.constData(), archive.size()),
+        rust::Slice<const rust::String>(dirs.data(), dirs.size()));
+    m_signerKeyId             = QString::fromUtf8(verdict.key_id.data(), verdict.key_id.size());
+    const QString      detail = QString::fromUtf8(verdict.detail.data(), verdict.detail.size());
+    const QByteArray   key    = m_signerKeyId.toUtf8();
+
+    VerificationResult result = VerificationFailed;
+    switch (verdict.check) {
+        case marathon::native::PackageCheck::Valid:
+            syslog(LOG_AUTH | LOG_INFO, "[SECURITY] Package signature verified: package=%s key=%s",
+                   archive.constData(), key.constData());
+            result = Valid;
+            break;
+        case marathon::native::PackageCheck::Unsigned:
+            if (unsignedAllowed()) {
+                qWarning() << "[MarathonAppVerifier] Unsigned package accepted because"
+                           << "MARATHON_ALLOW_UNSIGNED=1:" << packagePath;
+                syslog(LOG_AUTH | LOG_WARNING,
+                       "[SECURITY] Unsigned package allowed by MARATHON_ALLOW_UNSIGNED: package=%s",
+                       archive.constData());
+                result = AllowedUnsigned;
+                break;
+            }
+            m_lastError = "Package is not signed (no .minisig signature beside it)";
+            result      = SignatureMissing;
+            break;
+        case marathon::native::PackageCheck::InvalidSignature:
+            m_lastError = "Invalid signature: " + detail;
+            result      = InvalidSignature;
+            break;
+        case marathon::native::PackageCheck::UntrustedKey:
+            m_lastError = "Package is signed by key " + m_signerKeyId + ", which is not trusted";
+            result      = UntrustedKey;
+            break;
+        case marathon::native::PackageCheck::RevokedKey:
+            m_lastError = "Package is signed by key " + m_signerKeyId + ", which is revoked";
+            result      = RevokedKey;
+            break;
+        case marathon::native::PackageCheck::Failed:
+            m_lastError = "Signature verification failed: " + detail;
+            break;
+    }
+
+    if (!m_lastError.isEmpty()) {
+        qWarning() << "[MarathonAppVerifier] Rejected" << packagePath << ":" << m_lastError;
+        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Package rejected: package=%s reason=%s",
+               archive.constData(), m_lastError.toUtf8().constData());
         emit error(m_lastError);
-        emit verificationComplete(VerificationFailed);
-        return VerificationFailed;
     }
-
-    QString manifestPath = appDir + "/manifest.json";
-    if (!QFile::exists(manifestPath)) {
-        m_lastError = "manifest.json not found in directory";
-        emit error(m_lastError);
-        emit verificationComplete(ManifestMissing);
-        return ManifestMissing;
-    }
-
-    QString signaturePath = appDir + "/SIGNATURE.txt";
-    if (!QFile::exists(signaturePath)) {
-        bool strictMode = qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES");
-        if (strictMode) {
-            m_lastError = "SIGNATURE.txt not found (strict mode requires signatures)";
-            qWarning() << "[MarathonAppVerifier] Rejected: no signature in strict mode";
-            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Unsigned app rejected (strict mode): dir=%s",
-                   appDir.toUtf8().constData());
-            emit error(m_lastError);
-            emit verificationComplete(SignatureFileMissing);
-            return SignatureFileMissing;
-        }
-        qWarning() << "[MarathonAppVerifier] SIGNATURE.txt not found (allowing in dev mode)";
-        syslog(LOG_AUTH | LOG_WARNING, "[SECURITY] Unsigned app allowed (dev mode): dir=%s",
-               appDir.toUtf8().constData());
-        emit verificationComplete(Valid);
-        return Valid;
-    }
-
-    const VerificationResult result = verifySignatureFile(manifestPath, signaturePath);
-    if (result != Valid) {
-        emit error(m_lastError);
-        emit verificationComplete(result);
-        return result;
-    }
-
-    qDebug() << "[MarathonAppVerifier] Verification successful";
-    emit verificationComplete(Valid);
-    return Valid;
+    emit verificationComplete(result);
+    return result;
 }
 
-bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QString &signaturePath,
-                                       const QString &keyId) {
-    qDebug() << "[MarathonAppVerifier] Signing manifest:" << manifestPath;
-
-    if (!isGPGAvailable()) {
-        m_lastError = "GPG is not installed or not available";
-        return false;
-    }
-
-    if (!QFile::exists(manifestPath)) {
-        m_lastError = "Manifest file does not exist: " + manifestPath;
-        return false;
-    }
-
-    QProcess    gpgSign;
-    QStringList args;
-    args << "--detach-sign" << "--armor" << "--output" << signaturePath;
-
-    if (!keyId.isEmpty()) {
-        args << "--local-user" << keyId;
-    }
-
-    args << manifestPath;
-
-    gpgSign.start("gpg", args);
-
-    if (!gpgSign.waitForStarted(3000)) {
-        m_lastError = "Failed to start GPG signing process";
-        return false;
-    }
-
-    if (!gpgSign.waitForFinished(30000)) {
-        m_lastError = "GPG signing process timed out";
-        return false;
-    }
-
-    if (gpgSign.exitCode() != 0) {
-        QString output = QString::fromUtf8(gpgSign.readAllStandardError());
-        m_lastError    = "GPG signing failed: " + output;
-        qWarning() << "[MarathonAppVerifier] Signing failed:" << output;
-        return false;
-    }
-
-    if (!QFile::exists(signaturePath)) {
-        m_lastError = "Signature file was not created";
-        return false;
-    }
-
-    qDebug() << "[MarathonAppVerifier] Manifest signed successfully";
-    return true;
+bool MarathonAppVerifier::signPackage(const QString &packagePath, const QString &secretKeyPath) {
+    const QByteArray   archive = packagePath.toUtf8();
+    const QByteArray   key     = secretKeyPath.toUtf8();
+    const rust::String failure = marathon::native::sign_package(
+        rust::Str(archive.constData(), archive.size()), rust::Str(key.constData(), key.size()));
+    m_lastError = QString::fromUtf8(failure.data(), failure.size());
+    return m_lastError.isEmpty();
 }

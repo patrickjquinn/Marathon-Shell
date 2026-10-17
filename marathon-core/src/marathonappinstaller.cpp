@@ -123,6 +123,21 @@ bool MarathonAppInstaller::removeDirectory(const QString &path) {
 bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
     qDebug() << "[MarathonAppInstaller] Installing from directory:" << sourcePath;
 
+    const QByteArray sourceUtf8 = sourcePath.toUtf8();
+    if (!MarathonAppVerifier::unsignedAllowed()) {
+        qWarning() << "[MarathonAppInstaller] SECURITY: Unsigned directory install refused:"
+                   << sourcePath;
+        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Unsigned directory install refused: dir=%s",
+               sourceUtf8.constData());
+        emit installFailed("unknown",
+                           "A directory is not signed: install a signed package, or set "
+                           "MARATHON_ALLOW_UNSIGNED=1 for development");
+        return false;
+    }
+    syslog(LOG_AUTH | LOG_WARNING,
+           "[SECURITY] Unsigned directory install allowed by MARATHON_ALLOW_UNSIGNED: dir=%s",
+           sourceUtf8.constData());
+
     QString manifestPath = sourcePath + "/manifest.json";
     if (!validateManifest(manifestPath)) {
         emit installFailed("unknown", "Invalid or missing manifest.json");
@@ -222,30 +237,39 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
         return false;
     }
 
-    QString tempExtractPath = tempDir.path() + "/extracted";
-
-    qDebug() << "[MarathonAppInstaller] Extracting to temp:" << tempExtractPath;
-
-    if (!m_packager->extractPackage(packagePath, tempExtractPath)) {
-        QString error = "Failed to extract package: " + m_packager->lastError();
-        emit    installFailed("unknown", error);
+    // Check and unpack a private copy, so the archive can't be swapped
+    // between the signature check and extraction.
+    const QString packageCopy = tempDir.path() + "/package.marathon";
+    const QString signature   = packagePath + ".minisig";
+    if (!QFile::copy(packagePath, packageCopy) ||
+        (QFile::exists(signature) && !QFile::copy(signature, packageCopy + ".minisig"))) {
+        emit installFailed("unknown", "Failed to read package");
         return false;
     }
 
-    emit installProgress("extracting", 30);
-
-    qDebug() << "[MarathonAppInstaller] Verifying package signature...";
-    MarathonAppVerifier::VerificationResult verifyResult =
-        m_verifier->verifyDirectory(tempExtractPath);
-
-    if (verifyResult != MarathonAppVerifier::Valid) {
+    const MarathonAppVerifier::VerificationResult verifyResult =
+        m_verifier->verifyPackage(packageCopy);
+    if (verifyResult != MarathonAppVerifier::Valid &&
+        verifyResult != MarathonAppVerifier::AllowedUnsigned) {
         QString error = "Package verification failed: " + m_verifier->lastError();
         qWarning() << "[MarathonAppInstaller]" << error;
         emit installFailed("unknown", error);
         return false;
     }
 
-    emit    installProgress("verifying", 50);
+    emit    installProgress("verifying", 30);
+
+    QString tempExtractPath = tempDir.path() + "/extracted";
+
+    qDebug() << "[MarathonAppInstaller] Extracting to temp:" << tempExtractPath;
+
+    if (!m_packager->extractPackage(packageCopy, tempExtractPath)) {
+        QString error = "Failed to extract package: " + m_packager->lastError();
+        emit    installFailed("unknown", error);
+        return false;
+    }
+
+    emit    installProgress("extracting", 50);
 
     QString manifestPath = tempExtractPath + "/manifest.json";
     QFile   manifestFile(manifestPath);

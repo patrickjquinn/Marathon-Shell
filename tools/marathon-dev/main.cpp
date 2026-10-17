@@ -66,91 +66,60 @@ int packageCommand(const QStringList &args) {
     }
 }
 
-int signCommand(const QStringList &args) {
-    if (args.size() < 3) {
-        printError("Usage: marathon-dev sign <app-directory> [key-id]");
-        return 1;
-    }
-
-    const QString &appDir = args.at(2);
-    QString        keyId;
-
-    if (args.size() >= 4) {
-        keyId = args.at(3);
-    }
-
-    QString manifestPath  = appDir + "/manifest.json";
-    QString signaturePath = appDir + "/SIGNATURE.txt";
-
-    if (!QFile::exists(manifestPath)) {
-        printError("manifest.json not found in: " + appDir);
-        return 1;
-    }
-
-    printInfo("Signing manifest: " + manifestPath);
-    if (!keyId.isEmpty()) {
-        printInfo("Using GPG key: " + keyId);
-    }
-
-    MarathonAppVerifier verifier;
-
-    if (verifier.signManifest(manifestPath, signaturePath, keyId)) {
-        printSuccess("Manifest signed successfully");
-        printInfo("Signature saved to: " + signaturePath);
-        return 0;
-    } else {
-        printError("Failed to sign manifest: " + verifier.lastError());
-        printInfo("Make sure you have GPG installed and a valid key configured");
-        return 1;
-    }
+// minisign's own default secret key location.
+QString defaultSecretKey() {
+    return QDir::homePath() + "/.minisign/minisign.key";
 }
 
-int validateCommand(const QStringList &args) {
+int signCommand(const QStringList &args) {
     if (args.size() < 3) {
-        printError("Usage: marathon-dev validate <app-directory|package-file>");
+        printError("Usage: marathon-dev sign <package-file> [secret-key]");
         return 1;
     }
 
-    const QString &path = args.at(2);
-    QFileInfo      pathInfo(path);
+    const QString &packagePath = args.at(2);
+    const QString  secretKey   = args.size() >= 4 ? args.at(3) : defaultSecretKey();
 
-    printInfo("Validating: " + path);
+    printInfo("Signing package: " + packagePath);
+    printInfo("Using minisign key: " + secretKey);
 
-    MarathonAppVerifier                     verifier;
-    MarathonAppVerifier::VerificationResult result;
-
-    if (pathInfo.isDir()) {
-
-        result = verifier.verifyDirectory(path);
-    } else if (path.endsWith(".marathon")) {
-
-        printError("Direct package validation not supported yet");
-        printInfo("Extract the package first, then validate the directory");
+    MarathonAppVerifier verifier;
+    if (!verifier.signPackage(packagePath, secretKey)) {
+        printError("Failed to sign package: " + verifier.lastError());
+        printInfo("Create a key with: minisign -G");
         return 1;
-    } else {
-        printError("Unknown file type. Expected directory or .marathon package");
+    }
+    printSuccess("Signature saved to: " + packagePath + ".minisig");
+    return 0;
+}
+
+int verifyCommand(const QStringList &args) {
+    if (args.size() < 3) {
+        printError("Usage: marathon-dev verify <package-file>");
         return 1;
     }
 
+    const QString &packagePath = args.at(2);
+    printInfo("Verifying: " + packagePath);
+
+    MarathonAppVerifier                           verifier;
+    const MarathonAppVerifier::VerificationResult result = verifier.verifyPackage(packagePath);
     switch (result) {
         case MarathonAppVerifier::Valid:
-            printSuccess("Validation passed");
-            printInfo("App is ready for installation");
+            printSuccess("Signed by trusted key " + verifier.signerKeyId());
             return 0;
-
-        case MarathonAppVerifier::SignatureFileMissing:
-            printError("SIGNATURE.txt not found");
-            printInfo("Sign the app using: marathon-dev sign " + path);
+        case MarathonAppVerifier::AllowedUnsigned:
+            printInfo("Unsigned, accepted only because MARATHON_ALLOW_UNSIGNED=1");
+            return 0;
+        case MarathonAppVerifier::SignatureMissing:
+            printError(verifier.lastError());
+            printInfo("Sign it with: marathon-dev sign " + packagePath);
             return 1;
-
-        case MarathonAppVerifier::InvalidSignature:
-            printError("Invalid GPG signature");
-            printInfo(verifier.lastError());
+        case MarathonAppVerifier::UntrustedKey:
+            printError(verifier.lastError());
+            printInfo("Trusted keys live in: " + MarathonAppVerifier::trustedKeyDirs().join(", "));
             return 1;
-
-        case MarathonAppVerifier::ManifestMissing: printError("manifest.json not found"); return 1;
-
-        default: printError("Verification failed: " + verifier.lastError()); return 1;
+        default: printError(verifier.lastError()); return 1;
     }
 }
 
@@ -168,8 +137,10 @@ int installCommand(const QStringList &args) {
     MarathonAppRegistry  registry;
     MarathonAppScanner   scanner(&registry);
     MarathonAppInstaller installer(&registry, &scanner);
+    QObject::connect(&installer, &MarathonAppInstaller::installFailed,
+                     [](const QString &, const QString &error) { printError(error); });
 
-    bool                 success = false;
+    bool success = false;
 
     if (pathInfo.isDir()) {
 
@@ -256,7 +227,7 @@ ApplicationWindow {
 )")
                               .arg(appName, manifest["id"].toString());
 
-    QFile qmlFile(appId + "/" + appId.replace("-", "") + "App.qml");
+    QFile   qmlFile(appId + "/" + appId.replace("-", "") + "App.qml");
     if (qmlFile.open(QIODevice::WriteOnly)) {
         qmlFile.write(qmlTemplate.toUtf8());
         qmlFile.close();
@@ -286,8 +257,8 @@ ApplicationWindow {
     printInfo("  1. cd " + appId);
     printInfo("  2. Edit manifest.json with your app details");
     printInfo("  3. Implement your app in " + appId.replace("-", "") + "App.qml");
-    printInfo("  4. Test with: marathon-dev validate .");
-    printInfo("  5. Package with: marathon-dev package .");
+    printInfo("  4. Package with: marathon-dev package .");
+    printInfo("  5. Sign it with: marathon-dev sign <package>.marathon");
 
     return 0;
 }
@@ -299,15 +270,15 @@ void printHelp() {
     out << "Commands:\n";
     out << "  init <app-name>              Create a new app from template\n";
     out << "  package <app-dir> [output]   Package an app into .marathon file\n";
-    out << "  sign <app-dir> [key-id]      Sign an app's manifest with GPG\n";
-    out << "  validate <app-dir|package>   Validate an app or package\n";
+    out << "  sign <package> [secret-key]  Sign a package with a minisign key\n";
+    out << "  verify <package>             Check a package's signature\n";
     out << "  install <package|app-dir>    Install an app locally\n";
     out << "\n";
     out << "Examples:\n";
     out << "  marathon-dev init my-awesome-app\n";
     out << "  marathon-dev package ./my-app\n";
-    out << "  marathon-dev sign ./my-app\n";
-    out << "  marathon-dev validate ./my-app\n";
+    out << "  marathon-dev sign my-app.marathon ~/.minisign/minisign.key\n";
+    out << "  marathon-dev verify my-app.marathon\n";
     out << "  marathon-dev install my-app.marathon\n";
     out << Qt::endl;
 }
@@ -332,8 +303,8 @@ int main(int argc, char *argv[]) {
         return packageCommand(args);
     } else if (command == "sign") {
         return signCommand(args);
-    } else if (command == "validate") {
-        return validateCommand(args);
+    } else if (command == "verify") {
+        return verifyCommand(args);
     } else if (command == "install") {
         return installCommand(args);
     } else if (command == "help" || command == "--help" || command == "-h") {

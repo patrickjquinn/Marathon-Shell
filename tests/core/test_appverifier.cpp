@@ -1,111 +1,109 @@
 #include <QTest>
 #include <QDir>
 #include <QFile>
-#include <QProcess>
-#include <QStandardPaths>
 #include <QTemporaryDir>
 #include "marathonappverifier.h"
+#include "minisign_testkeys.h"
 
 class TestAppVerifier : public QObject {
     Q_OBJECT
 
     QTemporaryDir m_root;
-    QString       m_gnupgHome;
     QString       m_trustedKeysDir;
 
-    bool          gpg(const QStringList &args, QByteArray *out = nullptr) {
-        QProcess p;
-        p.start("gpg",
-                QStringList{"--homedir", m_gnupgHome, "--batch", "--yes", "--pinentry-mode",
-                            "loopback", "--passphrase", ""} +
-                    args);
-        p.waitForFinished(60000);
-        if (out)
-            *out = p.readAllStandardOutput();
-        return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
+    QString       package(const QString &name) {
+        const QString path = m_root.path() + "/" + name + ".marathon";
+        return TestKeys::write(path, "PK\x03\x04 pretend archive " + name.toUtf8()) ? path :
+                                                                                      QString();
     }
 
-    QString signedApp(const QString &uid) {
-        const QString dir = m_root.path() + "/app-" + uid;
-        QDir().mkpath(dir);
-        QFile m(dir + "/manifest.json");
-        if (!m.open(QIODevice::WriteOnly))
+    QString signedPackage(const QString &name, const TestKeys::Pair &key) {
+        const QString path    = package(name);
+        const QString keyPath = m_root.path() + "/" + name + ".key";
+        if (path.isEmpty() || !TestKeys::write(keyPath, key.secret))
             return {};
-        m.write(R"({"id":"org.test.app","name":"Test","entryPoint":"Main.qml"})");
-        m.close();
-        if (!gpg({"--local-user", uid, "--detach-sign", "--armor", "--output",
-                  dir + "/SIGNATURE.txt", dir + "/manifest.json"}))
-            return {};
-        return dir;
+        MarathonAppVerifier verifier;
+        return verifier.signPackage(path, keyPath) ? path : QString();
     }
 
   private slots:
     void initTestCase() {
-        if (QStandardPaths::findExecutable("gpg").isEmpty())
-            QSKIP("gpg not installed");
         QVERIFY(m_root.isValid());
-        m_gnupgHome = m_root.path() + "/gnupg";
-        QDir().mkpath(m_gnupgHome);
-        QFile::setPermissions(m_gnupgHome, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
-        qputenv("GNUPGHOME", m_gnupgHome.toUtf8());
         qputenv("XDG_CONFIG_HOME", (m_root.path() + "/config").toUtf8());
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
         m_trustedKeysDir = m_root.path() + "/config/marathon/trusted-keys";
+        QCOMPARE(MarathonAppVerifier::trustedKeyDirs().last(), m_trustedKeysDir);
+        QVERIFY(QDir().mkpath(m_trustedKeysDir));
+        QVERIFY(TestKeys::write(m_trustedKeysDir + "/alice.pub", TestKeys::alice.pub));
+        QVERIFY(TestKeys::write(m_trustedKeysDir + "/bob.pub", TestKeys::bob.pub));
+        QVERIFY(TestKeys::write(m_trustedKeysDir + "/revoked",
+                                QByteArray("# test revocation\n") + TestKeys::bob.id + "\n"));
+    }
 
-        QVERIFY(gpg({"--quick-gen-key", "alice@test", "ed25519", "sign", "never"}));
-        QVERIFY(gpg({"--quick-gen-key", "mallory@test", "ed25519", "sign", "never"}));
-
-        QByteArray key;
-        QVERIFY(gpg({"--armor", "--export", "alice@test"}, &key));
-        QDir().mkpath(m_trustedKeysDir);
-        QFile f(m_trustedKeysDir + "/trusted.asc");
-        QVERIFY(f.open(QIODevice::WriteOnly));
-        f.write(key);
+    void cleanup() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
     }
 
     void trustedKeySignatureIsValid() {
-        const QString dir = signedApp("alice@test");
-        QVERIFY(!dir.isEmpty());
+        const QString path = signedPackage("alice", TestKeys::alice);
+        QVERIFY(!path.isEmpty());
+        QVERIFY(QFile::exists(path + ".minisig"));
         MarathonAppVerifier verifier;
-        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::Valid);
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::Valid);
+        QCOMPARE(verifier.signerKeyId(), QString(TestKeys::alice.id));
     }
 
-    // The signer is in the user's keyring, so gpg reports a good signature,
-    // but the key is not in trusted-keys.
-    void untrustedKeySignatureIsRejected() {
-        const QString dir = signedApp("mallory@test");
-        QVERIFY(!dir.isEmpty());
+    void tamperedArchiveIsRejected() {
+        const QString path = signedPackage("tampered", TestKeys::alice);
+        QVERIFY(!path.isEmpty());
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::Append));
+        f.write(" ");
+        f.close();
         MarathonAppVerifier verifier;
-        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::UntrustedKey);
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::InvalidSignature);
     }
 
-    void tamperedManifestIsRejected() {
-        const QString dir = signedApp("alice@test");
-        QVERIFY(!dir.isEmpty());
-        QFile m(dir + "/manifest.json");
-        QVERIFY(m.open(QIODevice::Append));
-        m.write(" ");
-        m.close();
+    void untrustedKeyIsRejected() {
+        const QString path = signedPackage("mallory", TestKeys::mallory);
+        QVERIFY(!path.isEmpty());
         MarathonAppVerifier verifier;
-        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::InvalidSignature);
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::UntrustedKey);
+        QCOMPARE(verifier.signerKeyId(), QString(TestKeys::mallory.id));
     }
 
-    // Without trusted keys, dev mode treats a signed package like an unsigned
-    // one and strict mode refuses it.
-    void noTrustedKeysFollowsStrictMode() {
-        const QString dir = signedApp("mallory@test");
-        QVERIFY(!dir.isEmpty());
-        const QByteArray config = qgetenv("XDG_CONFIG_HOME");
-        qputenv("XDG_CONFIG_HOME", (m_root.path() + "/empty-config").toUtf8());
+    void revokedKeyIsRejected() {
+        const QString path = signedPackage("bob", TestKeys::bob);
+        QVERIFY(!path.isEmpty());
         MarathonAppVerifier verifier;
-        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::Valid);
-        qputenv("MARATHON_REQUIRE_SIGNATURES", "1");
-        QCOMPARE(verifier.verifyDirectory(dir), MarathonAppVerifier::UntrustedKey);
-        qunsetenv("MARATHON_REQUIRE_SIGNATURES");
-        qputenv("XDG_CONFIG_HOME", config);
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::RevokedKey);
     }
 
-    void cleanupTestCase() {
-        QProcess::execute("gpgconf", {"--homedir", m_gnupgHome, "--kill", "all"});
+    void unsignedIsRejectedUnlessOverridden() {
+        const QString path = package("unsigned");
+        QVERIFY(!path.isEmpty());
+        MarathonAppVerifier verifier;
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::SignatureMissing);
+        qputenv("MARATHON_ALLOW_UNSIGNED", "1");
+        QCOMPARE(verifier.verifyPackage(path), MarathonAppVerifier::AllowedUnsigned);
+    }
+
+    // The override waives the signature, not the checking of one that is there.
+    void overrideStillChecksSignatures() {
+        qputenv("MARATHON_ALLOW_UNSIGNED", "1");
+        MarathonAppVerifier verifier;
+        QCOMPARE(verifier.verifyPackage(signedPackage("mallory2", TestKeys::mallory)),
+                 MarathonAppVerifier::UntrustedKey);
+        QCOMPARE(verifier.verifyPackage(signedPackage("bob2", TestKeys::bob)),
+                 MarathonAppVerifier::RevokedKey);
+    }
+
+    void signingWithAMissingKeyFails() {
+        const QString       path = package("nokey");
+        MarathonAppVerifier verifier;
+        QVERIFY(!verifier.signPackage(path, m_root.path() + "/missing.key"));
+        QVERIFY(!verifier.lastError().isEmpty());
+        QVERIFY(!QFile::exists(path + ".minisig"));
     }
 };
 

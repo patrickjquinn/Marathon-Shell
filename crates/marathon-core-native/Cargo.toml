@@ -13,7 +13,6 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 cxx = "1.0.205"
 minisign = "0.10.0"
-pgp = { version = "0.21.0", default-features = false }
 walkdir = "2.5.0"
 zip = { version = "9.0.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
@@ -24,5 +23,4 @@ workspace = true
 cxx-build = "1.0.205"
 
 [dev-dependencies]
-rand = "0.8"
 tempfile = "3.27.0"

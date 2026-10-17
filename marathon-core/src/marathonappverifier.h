@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 class MarathonAppVerifier : public QObject {
     Q_OBJECT
@@ -9,25 +10,37 @@ class MarathonAppVerifier : public QObject {
   public:
     enum VerificationResult : quint8 {
         Valid,
+        AllowedUnsigned,
+        SignatureMissing,
         InvalidSignature,
         UntrustedKey,
-        TamperedManifest,
-        SignatureFileMissing,
-        ManifestMissing,
+        RevokedKey,
         VerificationFailed
     };
     Q_ENUM(VerificationResult)
 
     explicit MarathonAppVerifier(QObject *parent = nullptr);
 
-    Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyDirectory(const QString &appDir);
+    // Checks <packagePath>.minisig over the archive's bytes. Nothing reads
+    // the archive itself, so call this before extracting it.
+    Q_INVOKABLE MarathonAppVerifier::VerificationResult verifyPackage(const QString &packagePath);
 
-    Q_INVOKABLE bool        signManifest(const QString &manifestPath, const QString &signaturePath,
-                                         const QString &keyId = QString());
+    // Writes <packagePath>.minisig with a minisign secret key.
+    Q_INVOKABLE bool    signPackage(const QString &packagePath, const QString &secretKeyPath);
 
-    Q_INVOKABLE QString     lastError() const {
+    Q_INVOKABLE QString lastError() const {
         return m_lastError;
     }
+    // Id of the key the last verified package names, empty if unsigned.
+    Q_INVOKABLE QString signerKeyId() const {
+        return m_signerKeyId;
+    }
+
+    static QStringList trustedKeyDirs();
+    // MARATHON_ALLOW_UNSIGNED=1: the developer override for unsigned
+    // packages and directory installs. Signatures that are present are
+    // still checked.
+    static bool unsignedAllowed();
 
   signals:
     void verificationStarted();
@@ -35,11 +48,6 @@ class MarathonAppVerifier : public QObject {
     void error(const QString &message);
 
   private:
-    VerificationResult verifySignatureFile(const QString &manifestPath,
-                                           const QString &signaturePath);
-    bool    isGPGAvailable();
-    QString getTrustedKeysDir();
-    bool    initializeTrustedKeysDir();
-
     QString m_lastError;
+    QString m_signerKeyId;
 };

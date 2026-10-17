@@ -5,14 +5,19 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include "marathonappinstaller.h"
+#include "marathonapppackager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
+#include "marathonappverifier.h"
+#include "minisign_testkeys.h"
 
 class TestInstallerSecurity : public QObject {
     Q_OBJECT
 
   private:
-    bool writeFile(const QString &path, const QByteArray &data) {
+    QTemporaryDir m_home;
+
+    bool          writeFile(const QString &path, const QByteArray &data) {
         QDir().mkpath(QFileInfo(path).path());
         QFile f(path);
         if (!f.open(QIODevice::WriteOnly))
@@ -36,9 +41,126 @@ class TestInstallerSecurity : public QObject {
         writeFile(dir + "/" + entryPoint, "Item{}");
     }
 
+    // A .marathon package of a minimal app, signed with `key` unless null.
+    QString makePackage(const QString &name, const QString &id,
+                        const TestKeys::Pair *key = nullptr) {
+        QTemporaryDir src;
+        QJsonObject   m;
+        m["id"]         = id;
+        m["name"]       = "Test";
+        m["version"]    = "1.0.0";
+        m["entryPoint"] = "Main.qml";
+        m["icon"]       = "icon.svg";
+        writeFile(src.path() + "/manifest.json", QJsonDocument(m).toJson());
+        writeFile(src.path() + "/Main.qml", "Item{}");
+        QString             path = m_home.path() + "/" + name + ".marathon";
+        MarathonAppPackager packager;
+        if (!packager.createPackage(src.path(), path))
+            return {};
+        if (key) {
+            const QString       keyPath = m_home.path() + "/" + name + ".key";
+            MarathonAppVerifier verifier;
+            if (!writeFile(keyPath, key->secret) || !verifier.signPackage(path, keyPath))
+                return {};
+        }
+        return path;
+    }
+
+    QString installDir(const QString &id) {
+        return QDir::homePath() + "/.local/share/marathon-apps/" + id;
+    }
+
   private slots:
     void initTestCase() {
+        QVERIFY(m_home.isValid());
+        qputenv("HOME", m_home.path().toUtf8());
         QStandardPaths::setTestModeEnabled(true);
+        const QString keys = MarathonAppVerifier::trustedKeyDirs().last();
+        QVERIFY(QDir().mkpath(keys));
+        QVERIFY(writeFile(keys + "/alice.pub", TestKeys::alice.pub));
+    }
+
+    // Most cases below install from a directory, which is unsigned, so they
+    // run under the developer override; signature tests clear it first.
+    void init() {
+        qputenv("MARATHON_ALLOW_UNSIGNED", "1");
+    }
+
+    // === SECURITY CONTRACT: packages are verified before they are read ===
+
+    void installFromPackage_signedPackageInstalls() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
+        const QString pkg = makePackage("signed", "com.signed.app", &TestKeys::alice);
+        QVERIFY(!pkg.isEmpty());
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QVERIFY(installer.installFromPackage(pkg));
+        QVERIFY(QFile::exists(installDir("com.signed.app") + "/manifest.json"));
+    }
+
+    void installFromPackage_unsignedRejectedByDefault() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
+        const QString pkg = makePackage("unsigned", "com.unsigned.app");
+        QVERIFY(!pkg.isEmpty());
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QVERIFY(!installer.installFromPackage(pkg));
+        QCOMPARE(failSpy.count(), 1);
+        QVERIFY(failSpy.first().at(1).toString().contains("not signed"));
+        QVERIFY(!QDir(installDir("com.unsigned.app")).exists());
+
+        qputenv("MARATHON_ALLOW_UNSIGNED", "1");
+        QVERIFY(installer.installFromPackage(pkg));
+        QVERIFY(QDir(installDir("com.unsigned.app")).exists());
+    }
+
+    // The signed bytes are swapped for another valid package whose appId
+    // would trip the traversal check. The signature check must refuse it
+    // first, before the archive is opened.
+    void installFromPackage_tamperedRejectedBeforeParsing() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
+        const QString pkg   = makePackage("victim", "com.victim.app", &TestKeys::alice);
+        const QString other = makePackage("evil", "../evil", nullptr);
+        QVERIFY(!pkg.isEmpty() && !other.isEmpty());
+        QVERIFY(QFile::remove(pkg));
+        QVERIFY(QFile::copy(other, pkg));
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QSignalSpy           progressSpy(&installer, &MarathonAppInstaller::installProgress);
+        QVERIFY(!installer.installFromPackage(pkg));
+        QCOMPARE(failSpy.count(), 1);
+        QVERIFY2(failSpy.first().at(1).toString().contains("Invalid signature"),
+                 qPrintable(failSpy.first().at(1).toString()));
+        QCOMPARE(progressSpy.count(), 0);
+    }
+
+    void installFromPackage_untrustedKeyRejected() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
+        const QString pkg = makePackage("mallory", "com.mallory.app", &TestKeys::mallory);
+        QVERIFY(!pkg.isEmpty());
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QVERIFY(!installer.installFromPackage(pkg));
+        QVERIFY(!QDir(installDir("com.mallory.app")).exists());
+    }
+
+    void installFromDir_refusedWithoutOverride() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
+        QTemporaryDir sourceDir;
+        createApp(sourceDir.path(), "com.dir.app");
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QVERIFY(!installer.installFromDirectory(sourceDir.path()));
+        QCOMPARE(failSpy.count(), 1);
+        QVERIFY(!QDir(installDir("com.dir.app")).exists());
     }
 
     // === SECURITY CONTRACT: Path traversal via appId must be blocked ===
@@ -262,6 +384,7 @@ class TestInstallerSecurity : public QObject {
     }
 
     void cleanupTestCase() {
+        qunsetenv("MARATHON_ALLOW_UNSIGNED");
         QStandardPaths::setTestModeEnabled(false);
     }
 };
