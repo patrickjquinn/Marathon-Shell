@@ -112,7 +112,7 @@ fi
 # ---- 3. Backlight udev rule -----------------------------------------------
 
 log_step "3/9 Backlight udev rule"
-UDEV_SRC="$SCRIPT_DIR/90-backlight.rules"
+UDEV_SRC="$PROJECT_ROOT/udev/90-backlight.rules"
 UDEV_DST="/etc/udev/rules.d/90-backlight.rules"
 if [ -f "$UDEV_DST" ] && cmp -s "$UDEV_SRC" "$UDEV_DST" 2>/dev/null; then
     log_ok "Backlight rule already current"
