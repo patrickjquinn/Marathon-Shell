@@ -12,7 +12,7 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F6 | Calls | A declined call raises a "Missed Call" notification | verified fixed r459 — no Missed Call for a decline |
 | F7 | Permissions | "system" requested by test app is denied (restricted to system apps) — expected, but the prompt still lists it | check |
 | F8 | Notifications | "With icon" shows the default bell, not the app's custom icon | verified fixed r460 (R31) |
-| F9 | Compositor | journal spam: "Failed to move cursor on screen UNKNOWN1: -14" (hardware cursor ioctl) | open |
+| F9 | Compositor | journal spam: "Failed to move cursor on screen UNKNOWN1: -14" (hardware cursor ioctl) | fixed (R37) — the session sets a KMS config with hwcursor false; HIDECURSOR alone still moved the cursor plane |
 | F10 | Notifications | A notification arriving while a banner is on screen is sometimes never bannered (Important/Interactive dropped when sent back-to-back) | verified fixed r460 (R31) — queued, critical first |
 | F11 | Notifications | Actions (reply/dismiss/snooze) never shown — not in the banner, not in the Hub; app passes plain string ids | verified fixed r460 (R31) — ActionInvoked then NotificationClosed reason 2 |
 | F12 | Notifications | Clear all: Nemo.Notifications Notification.close() sends no CloseNotification on the bus (Keel nemo-compat, read-only here, or runner id handling) | verified fixed r460 (R31) — CloseNotification answered reason 3 |
@@ -24,18 +24,18 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F20 | Display | Increase from 78% leaves the 10-level backlight at 8/10 (88% truncated, not rounded) | open → R35 |
 | F21 | Display | After an app's Display1.SetScreenState(false) then (true): CRTC back on, but the shell still treats the screen as off and drops all touches (shell + apps) until the power key is pressed — user sees a lit, frozen screen | open → R35 |
 | F22 | Permissions | Test app (system permission denied) could still call Display1.SetScreenState; root busctl got Access denied for GetState | open → R28 |
-| F23 | Sensors | Flashlight shows a working Toggle on a device with no torch; it silently stays Off — should report "not available" | open (minor) |
-| F24 | Location | Test app Stop leaves "Active: Yes" (shared LocationManager kept alive by the shell) — confusing, maybe per-client state | open (minor) |
+| F23 | Sensors | Flashlight shows a working Toggle on a device with no torch; it silently stays Off — should report "not available" | fixed (R37) — test app shows Display.torchAvailable; the Toggle drove a shell-only object and apps have no torch call |
+| F24 | Location | Test app Stop leaves "Active: Yes" (shared LocationManager kept alive by the shell) — confusing, maybe per-client state | fixed (R37) — the runner's client ignored the shell's activeChanged value; active is the one shared GeoClue session, not per app |
 | F25 | Audio | marathon-audiod SetVolume on the Bluetooth A2DP sink (node 54, device 59) returns OK and audiod then reports the new level, but WirePlumber/wpctl show the sink unchanged; reading (wpctl→audiod) works. QS slider therefore moves without changing the volume | verified fixed r461 — SetVolume/SetMuted reach the BT sink, wpctl changes reach audiod, QS slider moves the sink |
 | F26 | Audio | Test app audio profiles: Silent/Vibrate/Normal leave "Current: unknown" and Silent does not mute the sink (no [MUTED] in wpctl) — mute likely the same broken write path as F25; profile name not exposed to apps | verified fixed r461 — label shows silent/vibrate/normal; Silent and Vibrate mute, Normal unmutes |
 | F27 | Alarms | Dismissing an alarm that fired while the phone was unlocked leaves the phone locked (same pattern as F5 for calls) | verified fixed r459 — same screen-on cause as F5 |
 | F28 | Lock | Receiving an SMS while unlocked (test app Multiple SMS) immediately shows the lock screen — with F5/F27 points to the event-wake path re-showing the lock screen when already awake | verified fixed r459 |
-| F29 | Calls | simulateCallStateChange: "Active call" shows no in-call indicator, "Ringing" shows no overlay; "End call" locks the phone (F5 family) | open → R32 |
+| F29 | Calls | simulateCallStateChange: "Active call" shows no in-call indicator, "Ringing" shows no overlay; "End call" locks the phone (F5 family) | End call fixed (R32); the states reach the shell, but "ringing" is MM ringing-out and there is no unlocked in-call indicator, so the test app says what each shows (R37) |
 | F30 | Screenshot | Test app "Take screenshot" calls ScreenshotService, which is not exposed to apps → throws, nothing captured. Apps should go through xdg-desktop-portal Screenshot (consent), which the shell's portal backend could implement | open |
 
-| F31 | Alarms | "Current alarms 1" still counted after the one-off test alarm was dismissed | open (minor) |
-| F32 | Audio | Dragging the QS volume slider also raises the volume OSD, drawn over the QS header with the date showing through | open (polish) |
-| F33 | Audio | Volume OSD and QS slider round differently for the same level (13% vs 14) | open (polish) |
+| F31 | Alarms | "Current alarms 1" still counted after the one-off test alarm was dismissed | fixed (R37) — a non-repeating alarm switches off once it rings (it rang again daily); the test app counts enabled alarms |
+| F32 | Audio | Dragging the QS volume slider also raises the volume OSD, drawn over the QS header with the date showing through | fixed (R37) — no OSD while quick settings is open |
+| F33 | Audio | Volume OSD and QS slider round differently for the same level (13% vs 14) | fixed (R37) — the QS slider rounds before it emits; setVolume(int) had truncated |
 
 ## Worked as intended
 
