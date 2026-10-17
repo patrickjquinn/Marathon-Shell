@@ -276,9 +276,6 @@ set(QML_FILES
     qml/components/MarathonPageView.qml
     qml/components/MarathonSearch.qml
     qml/components/WaylandShellSurfaceItem.qml
-    qml/components/ui/Button.qml
-    qml/components/ui/Input.qml
-    qml/components/ui/PageIndicator.qml
     qml/components/ui/ConfirmDialog.qml
     qml/components/NotificationToast.qml
     qml/components/SystemHUD.qml
@@ -327,7 +324,6 @@ set(QML_FILES
     qml/ui/GlyphIcon.qml
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
-    qml/ui/MCard.qml
     qml/ui/MCircularIconButton.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlass.qml
@@ -340,7 +336,6 @@ set(QML_FILES
     qml/ui/MQSTile.qml
     qml/ui/MRipple.qml
     qml/ui/MTabBar.qml
-    qml/ui/MTextInput.qml
     qml/ui/MTopHairline.qml
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
