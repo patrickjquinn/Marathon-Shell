@@ -10,7 +10,7 @@ ListModel {
     }
     // The real registry's getApp also carries the manifest's permissions.
     function getApp(appId) {
-        const perms = { settings: ["system", "network", "storage"], notes: ["storage"], weather: ["network", "location"] };
+        const perms = { settings: ["system", "network", "storage"], notes: ["storage"], weather: ["network", "location", "system"] };
         for (let i = 0; i < count; i++) {
             if (get(i).id === appId)
                 return Object.assign({}, get(i), { permissions: perms[appId] || [] });

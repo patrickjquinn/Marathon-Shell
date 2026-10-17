@@ -174,6 +174,21 @@ TestCase {
         const system = child(info, "permission-system");
         verify(!system.enabled);
         verify(system.checked);
+        verify(!child(info, "notAllowedHeader").visible);
+    }
+
+    // Only protected system apps hold a restricted permission; for any
+    // other app it is listed as not allowed, as the first-launch prompt does.
+    function test_restrictedPermissionsAreNotAllowed() {
+        const info = openInfo("weather");
+        compare(child(info, "permissions").count, 2);
+        compare(findChild(info, "permission-system"), null);
+        verify(child(info, "notAllowedHeader").visible);
+        compare(child(info, "refusedPermissions").count, 1);
+        const system = child(info, "refused-system");
+        verify(system.visible);
+        compare(system.label, "Label system");
+        compare(system.description, "Only Marathon's system apps can have this");
     }
 
     function test_liveAppInfoLinkReplacesOpenPages() {

@@ -11,6 +11,8 @@ Page {
     property string appId
     readonly property var app: Apps.getApp(appId) || ({})
     readonly property var notifications: (SettingsController.notificationApps || []).find(a => a.id === page.appId)
+    // Restricted permissions are held only by protected system apps.
+    readonly property var refused: page.app.isProtected ? [] : (page.app.permissions || []).filter(p => !!Permissions.describe(p).restricted)
 
     SilicaFlickable {
         anchors.fill: parent
@@ -51,7 +53,7 @@ Page {
             }
             Repeater {
                 objectName: "permissions"
-                model: page.app.permissions || []
+                model: (page.app.permissions || []).filter(p => !page.refused.includes(p))
 
                 TextSwitch {
                     id: permissionSwitch
@@ -84,6 +86,43 @@ Page {
                             if (appId === page.appId && permission === permissionSwitch.modelData)
                                 permissionSwitch.checked = false;
                         }
+                    }
+                }
+            }
+            SectionHeader {
+                objectName: "notAllowedHeader"
+                visible: page.refused.length > 0
+                text: qsTr("Not allowed")
+            }
+            Repeater {
+                objectName: "refusedPermissions"
+                model: page.refused
+
+                Column {
+                    id: refusedRow
+
+                    required property string modelData
+                    readonly property string label: Permissions.describe(modelData).label
+                    readonly property string description: qsTr("Only Marathon's system apps can have this")
+
+                    objectName: "refused-" + modelData
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    topPadding: Theme.paddingSmall
+                    bottomPadding: Theme.paddingSmall
+                    opacity: Theme.opacityHigh
+
+                    Label {
+                        width: parent.width
+                        text: refusedRow.label
+                        wrapMode: Text.Wrap
+                    }
+                    Label {
+                        width: parent.width
+                        text: refusedRow.description
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        color: Theme.secondaryColor
                     }
                 }
             }

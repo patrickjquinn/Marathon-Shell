@@ -15,7 +15,7 @@ QtObject {
         calls = [];
     }
     function describe(permission) {
-        return { label: "Label " + permission, description: "Description " + permission };
+        return { label: "Label " + permission, description: "Description " + permission, restricted: permission === "system" };
     }
     function hasPermission(appId, permission) {
         return !!granted[appId + "/" + permission];
