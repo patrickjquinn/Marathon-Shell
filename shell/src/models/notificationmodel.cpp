@@ -34,19 +34,23 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const {
         case IconRole: return notification->icon();
         case TimestampRole: return notification->timestamp();
         case IsReadRole: return notification->isRead();
+        case ActionsRole: return notification->actions();
+        case ActionIconsRole: return notification->actionIcons();
         default: return QVariant();
     }
 }
 
 QHash<int, QByteArray> NotificationModel::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[IdRole]        = "id";
-    roles[AppIdRole]     = "appId";
-    roles[TitleRole]     = "title";
-    roles[BodyRole]      = "body";
-    roles[IconRole]      = "icon";
-    roles[TimestampRole] = "timestamp";
-    roles[IsReadRole]    = "isRead";
+    roles[IdRole]          = "id";
+    roles[AppIdRole]       = "appId";
+    roles[TitleRole]       = "title";
+    roles[BodyRole]        = "body";
+    roles[IconRole]        = "icon";
+    roles[TimestampRole]   = "timestamp";
+    roles[IsReadRole]      = "isRead";
+    roles[ActionsRole]     = "actions";
+    roles[ActionIconsRole] = "actionIcons";
     return roles;
 }
 

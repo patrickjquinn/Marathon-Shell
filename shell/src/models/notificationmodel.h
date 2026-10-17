@@ -67,9 +67,13 @@ class Notification : public QObject {
     void setReplyPlaceholder(const QString &text) {
         m_replyPlaceholder = text;
     }
+    bool actionIcons() const {
+        return m_actionIcons;
+    }
     // The freedesktop hints the banner and the Hub show.
     void setHints(const QVariantMap &hints) {
-        m_category = hints.value("category").toString();
+        m_category    = hints.value("category").toString();
+        m_actionIcons = hints.value("action-icons").toBool();
     }
 
     QVariantMap toMap() const {
@@ -82,7 +86,8 @@ class Notification : public QObject {
                 {"read", m_isRead},
                 {"actions", m_actions},
                 {"replyPlaceholder", m_replyPlaceholder},
-                {"category", m_category}};
+                {"category", m_category},
+                {"actionIcons", m_actionIcons}};
     }
 
     void setIsRead(bool read) {
@@ -106,6 +111,7 @@ class Notification : public QObject {
     QVariantList m_actions;
     QString      m_replyPlaceholder;
     QString      m_category;
+    bool         m_actionIcons = false;
 };
 
 class NotificationModel : public QAbstractListModel {
@@ -123,7 +129,9 @@ class NotificationModel : public QAbstractListModel {
         BodyRole,
         IconRole,
         TimestampRole,
-        IsReadRole
+        IsReadRole,
+        ActionsRole,
+        ActionIconsRole
     };
     Q_ENUM(NotificationRoles)
 

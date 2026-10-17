@@ -53,6 +53,8 @@ class NotificationServiceCpp : public QObject {
     Q_INVOKABLE void         markAsRead(int id);
     Q_INVOKABLE void         clearAll();
     Q_INVOKABLE void         clickNotification(int id);
+    // An action button: the D-Bus server tells the sender and closes it.
+    Q_INVOKABLE void         triggerAction(int id, const QString &action);
     Q_INVOKABLE QVariantMap  getNotification(int id) const;
     Q_INVOKABLE QVariantList getUnreadNotifications() const;
     Q_INVOKABLE int          getNotificationCountForApp(const QString &appId) const;

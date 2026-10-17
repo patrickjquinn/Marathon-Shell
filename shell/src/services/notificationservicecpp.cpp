@@ -130,6 +130,11 @@ void NotificationServiceCpp::clickNotification(int id) {
     emit notificationClicked(id);
 }
 
+void NotificationServiceCpp::triggerAction(int id, const QString &action) {
+    markAsRead(id);
+    emit notificationActionTriggered(id, action);
+}
+
 QVariantMap NotificationServiceCpp::getNotification(int id) const {
     for (const QVariant &item : m_notifications) {
         const QVariantMap map = item.toMap();

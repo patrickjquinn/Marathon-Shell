@@ -133,6 +133,11 @@ void FreedesktopNotifications::activate(uint id, const QString &action) {
         const QDBusMessage call = NemoRemoteAction::decode(hint, &ok);
         if (ok)
             QDBusConnection::sessionBus().asyncCall(call);
+        // As the spec has it, an action closes the notification unless it is
+        // resident. A tap is closed by NotificationHandler once the app is open.
+        if (action != QLatin1String("default") &&
+            !record.metadata.value(QStringLiteral("resident")).toBool() && m_model)
+            m_model->dismissNotification(int(id));
         return;
     }
 }

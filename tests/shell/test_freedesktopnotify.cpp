@@ -186,6 +186,59 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(model.getNotification(int(pathed))->icon(), QString("/tmp/ada.png"));
     }
 
+    void actionClosesUnlessResident() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               invoked(&fdn, &FreedesktopNotifications::ActionInvoked);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+        const QStringList        actions{"default", "Open", "snooze", "Snooze"};
+
+        const uint               plain = fdn.Notify("chat", 0, "", "Ada", "", actions, {}, -1);
+        const uint               resident =
+            fdn.Notify("chat", 0, "", "Ada", "", actions, {{"resident", true}}, -1);
+        fdn.activate(plain, "snooze");
+        fdn.activate(resident, "snooze");
+        fdn.activate(resident, "default");
+
+        QCOMPARE(invoked.count(), 3);
+        QCOMPARE(invoked.first().at(0).toUInt(), plain);
+        QCOMPARE(invoked.first().at(1).toString(), QString("snooze"));
+        QVERIFY(!model.getNotification(int(plain)));
+        QCOMPARE(closed.count(), 1);
+        QCOMPARE(closed.first().at(0).toUInt(), plain);
+        QCOMPARE(closed.first().at(1).toUInt(), 2u);
+        QVERIFY(model.getNotification(int(resident)));
+    }
+
+    // A tap leaves the row for NotificationHandler, which opens the app first.
+    void tapLeavesTheRow() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        const uint               id = fdn.Notify("chat", 0, "", "Ada", "", {"default", "Open"}, {}, -1);
+        fdn.activate(id, "default");
+
+        QVERIFY(model.getNotification(int(id)));
+    }
+
+    void actionsReachTheHub() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        fdn.Notify("chat", 0, "", "Ada", "", {"call-start", "Call"}, {{"action-icons", true}}, -1);
+        const QModelIndex row = model.index(0, 0);
+
+        QCOMPARE(model.data(row, NotificationModel::ActionsRole).toList().size(), 1);
+        QVERIFY(model.data(row, NotificationModel::ActionIconsRole).toBool());
+        QVERIFY(model.roleNames().value(NotificationModel::ActionsRole) == "actions");
+    }
+
     // The banner falls back to the category's icon, also after a restart.
     void categoryIsKept() {
         NotificationDatabase db;
