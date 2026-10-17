@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Audio
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-audiod
+SystemdService=marathon-audiod.service

@@ -126,6 +126,28 @@ install(CODE "set(_lib \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd\")
     file(CREATE_LINK ../marathon-background-wake.service
          \"\${_lib}/system/sleep.target.wants/marathon-background-wake.service\" SYMBOLIC)")
 
+# Audio service: org.marathonos.Audio, a PipeWire client bus-activated into a
+# systemd user unit.
+set(MARATHON_AUDIOD_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-audiod")
+add_custom_target(marathon_audiod_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-audiod
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_AUDIOD_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-audiod (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_AUDIOD_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-audiod/data/marathon-audiod.service.in
+    marathon-audiod.service @ONLY)
+configure_file(marathon-audiod/data/org.marathonos.Audio.service.in
+    org.marathonos.Audio.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-audiod.service"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Audio.service"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}

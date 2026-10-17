@@ -1,0 +1,12 @@
+[Unit]
+Description=Marathon audio service (PipeWire levels and defaults)
+PartOf=graphical-session.target
+After=pipewire.service wireplumber.service
+Wants=wireplumber.service
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Audio
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-audiod
+Restart=on-failure
+RestartSec=2
