@@ -116,7 +116,7 @@ fn read_tasks(sources: &Sources, app_dir: &Path) -> Option<Vec<Task>> {
                 let declared = task::keel_declares(&keel, &t.action);
                 if !declared {
                     log(&format!(
-                        "{app_id}: task {:?} names action {:?}, which {} does not declare",
+                        "{app_id}: task {:?} names action {:?}, which {} does not declare as unattended",
                         t.id,
                         t.action,
                         keel_path.display()

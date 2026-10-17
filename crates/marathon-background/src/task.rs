@@ -174,15 +174,18 @@ fn validate(app_id: &str, app_name: &str, value: Value) -> Result<Task, String> 
     })
 }
 
-/// Whether the app's Keel Actions manifest (actions.json) declares `action`.
+/// Whether the app's Keel Actions manifest (actions.json) declares `action`
+/// as one that runs unattended: no one is there to confirm it.
 pub fn keel_declares(keel_manifest: &str, action: &str) -> bool {
     let Ok(value) = serde_json::from_str::<Value>(keel_manifest) else {
         return false;
     };
     value["tools"].as_array().is_some_and(|tools| {
-        tools
-            .iter()
-            .any(|tool| tool["_meta"]["org.shipwright.keel/action"] == action)
+        tools.iter().any(|tool| {
+            let meta = &tool["_meta"];
+            meta["org.shipwright.keel/action"] == action
+                && meta["org.shipwright.keel/confirm"] != true
+        })
     })
 }
 
@@ -333,5 +336,15 @@ mod tests {
         assert!(!keel_declares(keel, "mail.send"));
         assert!(!keel_declares("not json", "mail.sync"));
         assert!(!keel_declares(r#"{"tools": 3}"#, "mail.sync"));
+    }
+
+    #[test]
+    fn actions_that_ask_for_confirmation_cannot_run_in_the_background() {
+        let keel = r#"{"tools": [{"_meta": {"org.shipwright.keel/action": "mail.purge",
+                                            "org.shipwright.keel/confirm": true}},
+                                 {"_meta": {"org.shipwright.keel/action": "mail.sync",
+                                            "org.shipwright.keel/confirm": false}}]}"#;
+        assert!(!keel_declares(keel, "mail.purge"));
+        assert!(keel_declares(keel, "mail.sync"));
     }
 }
