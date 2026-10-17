@@ -3,17 +3,6 @@
 #
 # - Refresh ld cache (Marathon ships extra .so libs under /usr/lib).
 # - Reload udev so the 90-backlight.rules apply on the running system.
-# - setcap cap_sys_nice,cap_sys_resource on marathon-shell-bin:
-#     * cap_sys_resource — oom_score_adj=-800 (PERSISTENT_PROC bias)
-#     * cap_sys_nice     — QSGRenderThread elevation to SCHED_RR.
-#   Setting this in the APKBUILD's package() does work (apk preserves file
-#   caps via xattrs since 2.13) but doing it here is belt-and-braces against
-#   xattr stripping on weird rootfs (and idempotent).
-#
-# Note: /etc/security/limits.d/99-marathon-rtprio.conf grants rtprio via
-# pam_limits — but the greetd PAM chain (base-session) does NOT include
-# pam_limits, so the limits.d file never takes effect for the shell. File
-# caps are the only reliable path for RT scheduling here.
 
 if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
