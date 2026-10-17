@@ -1,0 +1,14 @@
+[Unit]
+Description=Say "Finishing update" on the boot splash after an OS update
+DefaultDependencies=no
+After=plymouth-start.service local-fs.target
+Before=plymouth-quit.service plymouth-quit-wait.service
+
+[Service]
+Type=oneshot
+StateDirectory=marathon-update-splash
+ExecStart=/usr/libexec/marathon-update-splash boot
+TimeoutStartSec=5
+
+[Install]
+WantedBy=sysinit.target

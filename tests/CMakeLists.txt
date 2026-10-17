@@ -28,6 +28,9 @@ add_test(NAME Lint_DevInit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-dev-i
 # The modem's suspend hook (marathon-base-config) against stub mmcli/systemctl
 add_test(NAME Script_ModemSleep COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-modem-sleep.sh ${CMAKE_SOURCE_DIR}/packaging/packages/marathon-base-config/marathon-modem-sleep)
 
+# The splash's "Finishing update…" after an OS update (marathon-plymouth-theme)
+add_test(NAME Script_UpdateSplash COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-update-splash.sh ${CMAKE_SOURCE_DIR}/packaging/packages/marathon-plymouth-theme/marathon-update-splash)
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")

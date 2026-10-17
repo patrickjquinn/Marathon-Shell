@@ -79,21 +79,39 @@ fun refresh_callback() {
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
+// ── Message above the progress bar ("Finishing update…" after an OS
+// update; `plymouth display-message`) ───────────────────────────────────
+message.sprite = Sprite();
+message.sprite.SetZ(10);
+
+fun display_message_callback(text) {
+    message.image = Image.Text(text, 1.0, 1.0, 1.0, 0.7, "Sans 12");
+    message.sprite.SetImage(message.image);
+    message.sprite.SetX(screen_width / 2 - message.image.GetWidth() / 2);
+    message.sprite.SetY(screen_height - 110 - 16 - message.image.GetHeight());
+    message.sprite.SetOpacity(1);
+}
+Plymouth.SetDisplayMessageFunction(display_message_callback);
+
+fun hide_message_callback(text) {
+    message.sprite.SetOpacity(0);
+}
+Plymouth.SetHideMessageFunction(hide_message_callback);
+
 // ── Quit handling — fades out cleanly when boot completes ─────────────
 fun quit_callback() {
     logo.sprite.SetOpacity(0);
     wordmark.sprite.SetOpacity(0);
     progress_track.sprite.SetOpacity(0);
     progress_fill.sprite.SetOpacity(0);
+    message.sprite.SetOpacity(0);
 }
 Plymouth.SetQuitFunction(quit_callback);
 
 // ── Password prompt (unused on Marathon — boot is non-interactive) ────
 // Defined as no-ops so plymouth doesn't fall back to its default theme
 // when the kernel boot needs to prompt (e.g. fsck repair).
-fun message_callback(text) { }
 fun display_password_callback(prompt, bullets) { }
 fun display_normal_callback() { }
-Plymouth.SetMessageFunction(message_callback);
 Plymouth.SetDisplayPasswordFunction(display_password_callback);
 Plymouth.SetDisplayNormalFunction(display_normal_callback);

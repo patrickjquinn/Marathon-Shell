@@ -1,0 +1,24 @@
+#!/bin/sh
+# "boot": while a new OS version boots before its shell has come up once
+# (the first boot after an update, and each retry of a trial boot), the
+# splash says "Finishing update…". "started": the shell is up; note this
+# version. Never fails, so it can never hold up a boot.
+
+os_release="${MARATHON_OS_RELEASE:-/usr/lib/os-release}"
+started="${STATE_DIRECTORY:-/var/lib/marathon-update-splash}/started-version"
+
+version=$(sed -n 's/^IMAGE_VERSION=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$os_release" 2>/dev/null)
+[ -n "$version" ] || exit 0
+
+case "$1" in
+boot)
+	last=$(cat "$started" 2>/dev/null)
+	if [ -n "$last" ] && [ "$last" != "$version" ]; then
+		plymouth display-message --text="Finishing update…" || true
+	fi
+	;;
+started)
+	echo "$version" > "$started" || true
+	;;
+esac
+exit 0

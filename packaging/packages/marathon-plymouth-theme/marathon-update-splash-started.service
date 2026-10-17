@@ -1,0 +1,9 @@
+[Unit]
+Description=Note the OS version whose shell has come up
+
+[Service]
+Type=oneshot
+# Stays active, so the path unit does not trigger it again.
+RemainAfterExit=yes
+StateDirectory=marathon-update-splash
+ExecStart=/usr/libexec/marathon-update-splash started

@@ -20,6 +20,10 @@ source="
 	marathon-logo.png
 	progress-track.png
 	progress-fill.png
+	marathon-update-splash
+	marathon-update-splash.service
+	marathon-update-splash-started.path
+	marathon-update-splash-started.service
 	"
 
 package() {
@@ -34,6 +38,22 @@ package() {
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-track.png"
 	install -Dm644 "$srcdir/progress-fill.png" \
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
+
+	# "Finishing update…" on the splash until a new OS version's shell has
+	# come up once (docs/OTA.md).
+	install -Dm755 "$srcdir/marathon-update-splash" \
+		"$pkgdir/usr/libexec/marathon-update-splash"
+	local _unit
+	for _unit in marathon-update-splash.service marathon-update-splash-started.path \
+		marathon-update-splash-started.service; do
+		install -Dm644 "$srcdir/$_unit" "$pkgdir/usr/lib/systemd/system/$_unit"
+	done
+	mkdir -p "$pkgdir/usr/lib/systemd/system/sysinit.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-update-splash.service \
+		"$pkgdir/usr/lib/systemd/system/sysinit.target.wants/marathon-update-splash.service"
+	ln -sf ../marathon-update-splash-started.path \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-update-splash-started.path"
 
 	# Override /usr/share/plymouth/plymouthd.defaults with our theme
 	# selection. This file is Plymouth's last-resort default lookup
@@ -86,8 +106,12 @@ package() {
 
 sha512sums="
 9f3b0121725bbf40cbe6288c6dd83807ea0175c3944694ac1bb01cb0e4d4aca67741a46664720aa55ae5d1ad0abbe8aeaa9502babef8e9d07495d91e0b48aebc  marathon.plymouth
-e3ca311ed0284111afbce1d743ef43924b4f60bf2882a16df8cbf2df0c859a7c368db5abc86641f45b5e95992a677ccec95597b488cc4b61faf07805fda59c97  marathon.script
+21de57bef581a1876869ebabbf246b522349a81fd086b5c18eeafc508d933b70c3d1e408b7456010e46533f086bf8146e89dd00ea7843793ea4eed9c1939b49d  marathon.script
 92bc51d97bba7cb6d8a73b567f0ed6487c1a7b678287177e1265bc0ace1e217dcd1854908e34ccfa0cb3de7b83f0ee1a97a102e0e43b92fdd19bf0b2e6356847  marathon-logo.png
 2bc10ce1294e1f59519d640b210825cfd4201daa170a00d8f9e7ebfdaa69afafd861994e3631ebc2059ca7ec5d327361b9bc2b6c0f25b0632c6924a51f2b2656  progress-track.png
 c78ba5dabf8b5daf2399bdb3f7de48ace351e2263ce1477253c41051c4d377beacf680f5f2fb4d29c6f5c9cd4b9ad939f264ac9fc11031c0d061f327980eccf9  progress-fill.png
+3aa54208b5980214e7ac2691724cfdc8a9746d9c6571bf8873fbbad38245beb8e722df2176d2000b2a95dde0921fee476cb87ad0089a9e4cc1fe0e520e036001  marathon-update-splash
+9f55b4072e460fa1dbaf3bd4df55a95fbe3232566736199ba93dbf88e47dffe303674b33f0c0541407b64d7ee2aa7c70357e52308753f9057103f2d82019e1fe  marathon-update-splash.service
+272a003d01f4081e0760f4ca24b544272281f6268affdfca2180fa4b5a071a68639ace169d1471368f40a484d0547b9adab49df36971095913e4670acd5ff746  marathon-update-splash-started.path
+42a3e92d22a69bfe1b7d99b1413fcf472ff53d038a9ecb1c16060d3b74cb30c967e56c05ac114b6e884c79c64139bc47e8f22a644facf7d741425e21870ce8da  marathon-update-splash-started.service
 "
