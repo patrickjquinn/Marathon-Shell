@@ -679,7 +679,9 @@ measurement: 1.5 GHz residency 58.8% → 11.7%, 100 MHz residency
 29.8% → 73.5%. Doze enter/wake timing unchanged (~300 ms). Ping in
 Doze with PSM on: 10/10, 14-39 ms RTT.
 
-Applied at boot via `marathon-cpu-governor.service` (packaging repo).
+Applied by tuned: marathon-base-config's `balanced` tuned profile sets the
+device profile's `CPU_GOVERNOR`, and tuned-ppd switches to `powersave` for
+Battery Saver.
 If ondemand ever causes touch-to-frame latency issues, either revert
 to schedutil or patch the kernel to skip RT-boost for non-DL tasks.
 

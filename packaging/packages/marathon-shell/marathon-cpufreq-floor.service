@@ -1,0 +1,21 @@
+[Unit]
+Description=Marathon — let InputBoost raise the cpufreq floor
+# The governor is tuned's (marathon-base-config's tuned profiles, switched
+# by tuned-ppd). This only opens scaling_min_freq to the input group so
+# the shell's InputBoost can hold the clock up while the user interacts:
+# ondemand ramps only when a ~100 ms sample is over 95% busy, and a frame's
+# work is a short burst, so without the boost gestures ran at low clocks
+# (on the PinePhone a swipe's median frame was 20.7 ms on a 14.4 ms panel).
+# 60-marathon-cpufreq.rules does the same on CPU add; this covers a
+# cpufreq driver that binds after the CPUs' coldplug events.
+DefaultDependencies=no
+After=local-fs.target
+Before=greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_min_freq; do chgrp input "$f" && chmod g+w "$f"; done; true'
+
+[Install]
+WantedBy=multi-user.target

@@ -117,7 +117,7 @@ source="
 	marathon-shell-oom-pin
 	systemd/marathon-shell-oom.service
 	marathon-iw-setcap.service
-	marathon-cpu-governor.service
+	marathon-cpufreq-floor.service
 	marathon-mm-tune.service
 	99-marathon-rtprio.conf
 	marathon-shell-tmpfiles.conf
@@ -300,13 +300,10 @@ package() {
 	install -Dm644 "$srcdir/marathon-iw-setcap.service" \
 		"$pkgdir/usr/lib/systemd/system/marathon-iw-setcap.service"
 
-	# Ondemand cpufreq governor — schedutil boosts to max on any
-	# RT-task wake, and the L5 stack has ~25 SCHED_FIFO threaded
-	# IRQ handlers firing ~1000 IRQs/s. Under schedutil the cluster
-	# sits at 1.5 GHz 58.8% of active time (measured 2026-07-01);
-	# under ondemand that drops to 11.7%. Estimated 500-800 mW save.
-	install -Dm644 "$srcdir/marathon-cpu-governor.service" \
-		"$pkgdir/usr/lib/systemd/system/marathon-cpu-governor.service"
+	# Opens scaling_min_freq to the input group for InputBoost. The
+	# governor itself is tuned's (marathon-base-config).
+	install -Dm644 "$srcdir/marathon-cpufreq-floor.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-cpufreq-floor.service"
 
 	# MM + I/O scheduler boot-time tuning (verified Pixel parity, not
 	# XDA folklore). Swappiness 100, page-cluster 0. (I/O scheduler is
@@ -326,7 +323,7 @@ package() {
 	# ModemManager et al). This is the deterministic, immutable-friendly
 	# enablement.
 	mkdir -p "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-	for _svc in marathon-shell-oom marathon-iw-setcap marathon-cpu-governor marathon-mm-tune; do
+	for _svc in marathon-shell-oom marathon-iw-setcap marathon-cpufreq-floor marathon-mm-tune; do
 		ln -sf "../$_svc.service" \
 			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
 	done

@@ -111,12 +111,12 @@ _check_oom_service() {
 }
 _fix_oom_service() { marathon::ssh 'systemctl restart marathon-shell-oom.service'; }
 
+# tuned owns the governor (ondemand in balanced, powersave in Battery Saver).
 _check_cpu_governor() {
-    marathon::ssh 'systemctl is-active marathon-cpu-governor.service' >/dev/null 2>&1 || \
-    marathon::ssh 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor' 2>/dev/null | grep -q ondemand
+    marathon::ssh 'systemctl is-active tuned.service tuned-ppd.service' >/dev/null 2>&1
 }
 _fix_cpu_governor() {
-    marathon::ssh 'systemctl restart marathon-cpu-governor.service 2>/dev/null || for g in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor; do echo ondemand > $g 2>/dev/null; done'
+    marathon::ssh 'systemctl restart tuned.service tuned-ppd.service'
 }
 
 _check_mm_tune() {
@@ -206,7 +206,7 @@ cmd_doctor() {
     echo "  --- boot-time services ---"
     _check iw_cap           "iw has cap_net_admin"
     _check oom_service      "marathon-shell-oom.service active"
-    _check cpu_governor     "cpufreq governor = ondemand"
+    _check cpu_governor     "cpufreq governor owned by tuned"
     _check mm_tune          "vm.swappiness = 100"
     echo
 

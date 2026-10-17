@@ -46,12 +46,10 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl start marathon-iw-setcap.service 2>/dev/null || true
 fi
 
-# Set cpufreq governor to ondemand — schedutil boosts to max on RT
-# task wakes and the L5 has ~25 threaded IRQ handlers running at
-# SCHED_FIFO. Ondemand cuts max-freq residency from 58.8% to 11.7%.
+# Let InputBoost raise the cpufreq floor (the governor is tuned's).
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl enable marathon-cpu-governor.service 2>/dev/null || true
-    systemctl start marathon-cpu-governor.service 2>/dev/null || true
+    systemctl enable marathon-cpufreq-floor.service 2>/dev/null || true
+    systemctl start marathon-cpufreq-floor.service 2>/dev/null || true
 fi
 
 # MM + eMMC I/O scheduler tuning (Pixel-parity). Idempotent; runs each
@@ -59,15 +57,6 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     systemctl enable marathon-mm-tune.service 2>/dev/null || true
     systemctl start marathon-mm-tune.service 2>/dev/null || true
-fi
-
-# Mask power-profiles-daemon if it slipped in via another dep. On
-# this hardware the ppd 'balanced'/'power-saver' profiles have a
-# PlatformDriver: placeholder — they don't actually change anything.
-# Keeping the daemon running just wastes ~1 MB RAM and an idle
-# DBus connection. Mask is no-op if ppd isn't installed.
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl mask power-profiles-daemon.service 2>/dev/null || true
 fi
 
 exit 0

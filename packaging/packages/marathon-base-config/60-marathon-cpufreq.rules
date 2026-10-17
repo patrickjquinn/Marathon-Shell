@@ -1,8 +1,6 @@
-# Marathon OS CPU Frequency Governor
-# Set ondemand governor (schedutil RT-boost pins freq at max on this SoC)
-
-ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
-  RUN+="/bin/sh -c 'echo ondemand > /sys/devices/system/cpu/%k/cpufreq/scaling_governor'"
+# Marathon OS CPU frequency
+# The governor is tuned's (the profiles in /etc/tuned/profiles, switched by
+# tuned-ppd): nothing else may write scaling_governor.
 
 # Let the shell's InputBoost raise the frequency floor while the user
 # interacts (the session user is in the input group). Re-applied here
