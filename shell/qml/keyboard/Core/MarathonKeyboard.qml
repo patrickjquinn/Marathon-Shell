@@ -218,8 +218,12 @@ Rectangle {
     }
 
     // App fields commit their hints after the keyboard opens, and switching fields keeps it open.
+    // Qt's text-input v2 reports the hints as changed on every commit, so only a real change counts.
     function refreshFieldHints() {
-        keyboard.fieldHints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
+        var hints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
+        if (hints === keyboard.fieldHints)
+            return;
+        keyboard.fieldHints = hints;
         inputContextInstance.detectInputMode();
         if (!keyboard.capsLock && keyboard.currentWord === "")
             keyboard.shifted = inputContextInstance.shouldAutoCapitalize;

@@ -121,6 +121,13 @@ TestCase {
         verify(keyboard.shifted);
     }
 
+    // Qt's text-input v2 reports the field's hints on every commit.
+    function test_unchangedHintsLeaveShiftAlone() {
+        type("hello ");
+        keyboard.refreshFieldHints();
+        verify(!keyboard.shifted);
+    }
+
     function test_predictionMidSentenceDoesNotShift() {
         type("say hel");
         keyboard.acceptPrediction("hello");
