@@ -99,7 +99,8 @@ QVariantMap PermissionClient::describe(const QString &permission) const {
     const QString name = MarathonManifest::canonicalPermission(permission);
     for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
         if (p.name == name)
-            return {{"label", p.label}, {"description", p.description}};
+            return {
+                {"label", p.label}, {"description", p.description}, {"restricted", p.restricted}};
     }
     return {{"label", permission}, {"description", QString()}};
 }

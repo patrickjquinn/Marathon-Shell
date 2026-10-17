@@ -121,6 +121,8 @@ class TestIpcClientNormalize : public QObject {
         QCOMPARE(phone.value("description").toString(), client.describe("telephony")["description"]);
         QVERIFY(!client.describe("secret-service").value("description").toString().isEmpty());
         QCOMPARE(client.describe("root").value("label").toString(), QStringLiteral("root"));
+        QVERIFY(client.describe("system").value("restricted").toBool());
+        QVERIFY(!phone.value("restricted").toBool());
     }
 
     void contactFieldsReachQml() {
