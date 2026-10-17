@@ -280,6 +280,9 @@ Item {
 
         anchors.left: parent.left
         anchors.top: parent.top
+        // Over an app, leave its page header's back indicator its taps, as
+        // Android excludes gesture regions an app claims.
+        anchors.topMargin: UIStore.appWindowOpen ? Constants.statusBarHeight + Silica.Theme.itemSizeLarge : 0
         anchors.bottom: parent.bottom
         width: Constants.spacingSmall
         enabled: !peekComponent.isFullyOpen

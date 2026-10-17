@@ -86,4 +86,23 @@ TestCase {
         verify(navBar.travelled > 200);
         verify(peek.isFullyOpen);
     }
+
+    function edgeSwipe(y) {
+        mousePress(peek, 2, y);
+        for (let i = 1; i <= 10; ++i)
+            mouseMove(peek, 2 + i * 30, y, 10);
+        mouseRelease(peek, 302, y);
+    }
+
+    // Over an app the strip leaves Keel's back indicator alone.
+    function test_edgeOverAnAppSkipsTheBackIndicator() {
+        UIStore.appWindowOpen = true;
+        peek.closePeek();
+        tryCompare(peek, "peekProgress", 0);
+        edgeSwipe(Constants.statusBarHeight + 20);
+        compare(peek.isFullyOpen, false);
+        edgeSwipe(peek.height / 2);
+        tryVerify(() => peek.isFullyOpen);
+        UIStore.appWindowOpen = false;
+    }
 }
