@@ -682,66 +682,13 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     });
 
-    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", false);
-
-    const QString dbusConfigPath = runtimeDir + "/marathon-dbus-restricted.conf";
-    if (useSandbox && !isRunner) {
-        QFile f(dbusConfigPath);
-        if (f.open(QIODevice::WriteOnly)) {
-            QTextStream out(&f);
-            out << "<busconfig>\n";
-            out << "  <type>session</type>\n";
-            out << "  <listen>unix:tmpdir=/tmp</listen>\n";
-            out << "  <policy context=\"default\">\n";
-            out << "    <allow send_destination=\"*\" eavesdrop=\"true\"/>\n";
-            out << "    <allow receive_sender=\"*\" eavesdrop=\"true\"/>\n";
-            out << "    <allow own=\"*\"/>\n";
-            out << "  </policy>\n";
-            out << "</busconfig>\n";
-            f.close();
-        }
+    if (needsShell) {
+        process->start("/bin/sh", {"-c", actualCommand});
+        return;
     }
-
-    QString       sandboxPath = QStringLiteral("marathon-sandbox");
-    const QDir    shellBinDir(QCoreApplication::applicationDirPath());
-    const QString devSandboxPath =
-        shellBinDir.filePath("../tools/marathon-sandbox/marathon-sandbox");
-    if (QFile::exists(devSandboxPath)) {
-        sandboxPath = devSandboxPath;
-    }
-
-    if (!needsShell) {
-        if (useSandbox) {
-            QStringList finalArgs;
-            QString     finalProgram;
-            if (!isRunner) {
-                finalProgram = "dbus-run-session";
-                finalArgs << "--config-file" << dbusConfigPath << "--" << sandboxPath << program
-                          << args;
-            } else {
-                finalProgram = sandboxPath;
-                finalArgs << program << args;
-            }
-            process->setProgram(finalProgram);
-            process->setArguments(finalArgs);
-        } else {
-            process->setProgram(program);
-            process->setArguments(args);
-        }
-        process->start();
-    } else {
-        if (useSandbox) {
-            if (!isRunner) {
-                process->start("dbus-run-session",
-                               {"--config-file", dbusConfigPath, "--", sandboxPath, "/bin/sh", "-c",
-                                actualCommand});
-            } else {
-                process->start(sandboxPath, {"/bin/sh", "-c", actualCommand});
-            }
-        } else {
-            process->start("/bin/sh", {"-c", actualCommand});
-        }
-    }
+    process->setProgram(program);
+    process->setArguments(args);
+    process->start();
 }
 
 void WaylandCompositor::closeWindow(int surfaceId) {

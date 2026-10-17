@@ -275,7 +275,7 @@ module; when in doubt, ship the apk.
 | `marathon-silica/` | `Marathon.Silica`: Keel's Silica plus accessibility, keyboard operation and missing components. |
 | `marathon-core/`, `marathon-services/` | Shared libraries and services. |
 | `crates/` | Rust workspace (`marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`). |
-| `tools/` | `marathon-app-runner`, `marathon-webview-runner`, `marathon-sandbox`, `marathon-mail-oauth`, ... |
+| `tools/` | `marathon-app-runner`, `marathon-webview-runner`, `marathon-mail-oauth`, ... |
 | `scripts/` | Build wrappers, `marathon` CLI, `device-snap.sh`, `hot-deploy.sh`, `flash/`, `qemu/`. |
 | `packaging/` | aports, pipeline patches, configs. See `packaging/README.md`. |
 | `docs/redesign/` | JSX design references. |

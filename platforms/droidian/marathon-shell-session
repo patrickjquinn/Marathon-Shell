@@ -88,10 +88,6 @@ export QSG_RHI_BACKEND=opengl
 # Set to 1 if EGL crashes (falls back to shm buffer integration)
 export MARATHON_FORCE_WAYLAND_SHM=${MARATHON_FORCE_WAYLAND_SHM:-0}
 
-# ===== Sandbox Configuration =====
-# NOTE: Sandbox may need to be disabled for libhybris compatibility on some devices
-export MARATHON_ENABLE_SANDBOX=${MARATHON_ENABLE_SANDBOX:-0}
-
 # ===== Logging =====
 if [ "$MARATHON_DEBUG" = "1" ]; then
     export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true"

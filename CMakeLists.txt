@@ -232,7 +232,6 @@ add_subdirectory(marathon-fonts)
 add_subdirectory(shell)
 add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
-add_subdirectory(tools/marathon-sandbox)
 add_subdirectory(tools/sailfish-qml)
 add_subdirectory(tools/sailfish-install)
 

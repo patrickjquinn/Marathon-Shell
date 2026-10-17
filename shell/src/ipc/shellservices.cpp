@@ -117,8 +117,8 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
 
     // Confirm the caller is a marathon-app-runner whose ANCESTOR is this
     // shell. The direct parent is almost never the shell — the launch
-    // chain is shell → marathon-sandbox → bwrap (outer) → bwrap (inner)
-    // → marathon-app-runner, so the immediate PPID is a bwrap helper.
+    // chain is shell → bwrap (outer) → bwrap (inner) → marathon-app-runner,
+    // so the immediate PPID is a bwrap helper.
     // Walk up the /proc PPID chain looking for the shell's PID; cap at
     // 8 hops so we don't churn on a runaway ancestor list. Without this
     // every D-Bus call from a sandboxed app fails the requireSystem /

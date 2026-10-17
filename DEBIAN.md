@@ -80,9 +80,7 @@ https://man.archlinux.org/man/landlock.7.en
 
 1) Force SHM buffers for clients on Pi OS:
    - `MARATHON_FORCE_WAYLAND_SHM=1`
-2) Disable sandbox to remove Landlock + dbus-run-session:
-   - `MARATHON_ENABLE_SANDBOX=0`
-3) Enable QML import trace to confirm module path failures:
+2) Enable QML import trace to confirm module path failures:
    - `QML_IMPORT_TRACE=1`
 
 These map directly to the failure options above and will hopefully let us quickly isolate whether the cause is

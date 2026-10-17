@@ -288,10 +288,10 @@ an update that adds permissions waits for the user's consent. See
 
 Native apps connect to the compositor's Wayland socket and are shown
 through `WaylandShellSurfaceItem`. The shell finds them from `.desktop`
-files in the standard locations, including Flatpak exports, and launches
-them through `marathon-sandbox` (Landlock; abstract-socket scoping is left
-off so clients can reach the compositor). GApplication `.desktop` entries
-are rewritten to run the binary directly. Snaps may need
+files in the standard locations, including Flatpak exports. Native
+packages run unconfined, as trusted system software; Flatpaks keep
+Flatpak's sandbox. GApplication `.desktop` entries are rewritten to run
+the binary directly. Snaps may need
 `snap connect APP:wayland :wayland`. XWayland is not supported.
 
 ## Project structure
