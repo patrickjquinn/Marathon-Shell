@@ -34,5 +34,11 @@ Finding numbers refer to the review's Findings table.
 | R27 | Audit possibly dead settings (dateFormat, statusBarClockPosition, showFrequentApps, appSortOrder, …) | new | 3 | todo | found by R19 |
 | R28 | Permission integrity: app cannot rewrite its own manifest to gain grants; one permission vocabulary; no silent denials | new | 2 | active | found by R13 + OEM run |
 | R29 | Gestures: short pull from the pill opens QS; Peek edge strip skips the back indicator | user | – | review | 1cbed1b4, e93992e8; device test in r456 |
-| R30 | OEM test-app findings (calls, permissions, lock-after-decline, …) | OEM run | – | active | scratchpad oem-findings; call fix 1c021236 |
+| R30 | OEM test-app findings (calls, permissions, lock-after-decline, …) | OEM run | – | active | docs/testing/OEM_TEST_HACKBERRYPI_2026-10-17.md; R31–R36 fixing; lock/decline/SMS/alarm verified r459 |
+| R31 | Notification actions, custom icons, banner queue | OEM F8,F10,F11 | – | active | |
+| R32 | Lock after decline/SMS/alarm; declined ≠ missed | OEM F5,F6,F27,F28 | – | done | verified on device r459 |
+| R33 | Keyboard: autocorrect keeps case; no capital after every space on device | OEM F14,F15 | – | active | |
+| R34 | Alarms wake the device (root-armed RTC timer); WakeManager | OEM | – | active | |
+| R35 | Display/power: one screen-state owner (frozen-touch bug), power-profiles-daemon, auto-brightness, backlight steps | OEM F18–F21 | – | active | |
+| R36 | marathon-audiod volume/mute on Bluetooth sinks; profile state | OEM F25,F26 | – | active | |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |

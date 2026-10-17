@@ -4,12 +4,12 @@ Every function in apps/test driven on the device with screenshots and the journa
 
 | # | Area | Finding | Status |
 |---|---|---|---|
-| F1 | Calls | Answer: overlay unloaded mid-handler (invalid context, hide not a function); Phone never opened | fixed 1c021236, verify on device |
-| F2 | Calls | Decline: same invalid-context error | fixed 1c021236, verify |
+| F1 | Calls | Answer: overlay unloaded mid-handler (invalid context, hide not a function); Phone never opened | verified fixed r459 |
+| F2 | Calls | Decline: same invalid-context error | verified fixed r459 |
 | F3 | Calls | callaudiod exits on devices with no earpiece; shell's SelectMode/EnableSpeaker calls wait for D-Bus timeout | → R09 audio agent |
 | F4 | Permissions | Launch prompt lists 5 of 8 manifest permissions (no contacts/location/notifications); contacts later denied silently without a prompt | open |
-| F5 | Calls | Declining a call while unlocked brings up the lock screen | open |
-| F6 | Calls | A declined call raises a "Missed Call" notification | open (minor) |
+| F5 | Calls | Declining a call while unlocked brings up the lock screen | verified fixed r459 (7f2b266b) |
+| F6 | Calls | A declined call raises a "Missed Call" notification | verified fixed r459 — no Missed Call for a decline |
 | F7 | Permissions | "system" requested by test app is denied (restricted to system apps) — expected, but the prompt still lists it | check |
 | F8 | Notifications | "With icon" shows the default bell, not the app's custom icon | open |
 | F9 | Compositor | journal spam: "Failed to move cursor on screen UNKNOWN1: -14" (hardware cursor ioctl) | open |
@@ -28,10 +28,12 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F24 | Location | Test app Stop leaves "Active: Yes" (shared LocationManager kept alive by the shell) — confusing, maybe per-client state | open (minor) |
 | F25 | Audio | marathon-audiod SetVolume on the Bluetooth A2DP sink (node 54, device 59) returns OK and audiod then reports the new level, but WirePlumber/wpctl show the sink unchanged; reading (wpctl→audiod) works. QS slider therefore moves without changing the volume | open → R36 |
 | F26 | Audio | Test app audio profiles: Silent/Vibrate/Normal leave "Current: unknown" and Silent does not mute the sink (no [MUTED] in wpctl) — mute likely the same broken write path as F25; profile name not exposed to apps | open → R36 |
-| F27 | Alarms | Dismissing an alarm that fired while the phone was unlocked leaves the phone locked (same pattern as F5 for calls) | open → R32 |
-| F28 | Lock | Receiving an SMS while unlocked (test app Multiple SMS) immediately shows the lock screen — with F5/F27 points to the event-wake path re-showing the lock screen when already awake | open → R32 |
+| F27 | Alarms | Dismissing an alarm that fired while the phone was unlocked leaves the phone locked (same pattern as F5 for calls) | verified fixed r459 — same screen-on cause as F5 |
+| F28 | Lock | Receiving an SMS while unlocked (test app Multiple SMS) immediately shows the lock screen — with F5/F27 points to the event-wake path re-showing the lock screen when already awake | verified fixed r459 |
 | F29 | Calls | simulateCallStateChange: "Active call" shows no in-call indicator, "Ringing" shows no overlay; "End call" locks the phone (F5 family) | open → R32 |
 | F30 | Screenshot | Test app "Take screenshot" calls ScreenshotService, which is not exposed to apps → throws, nothing captured. Apps should go through xdg-desktop-portal Screenshot (consent), which the shell's portal backend could implement | open |
+
+| F31 | Alarms | "Current alarms 1" still counted after the one-off test alarm was dismissed | open (minor) |
 
 ## Worked as intended
 
