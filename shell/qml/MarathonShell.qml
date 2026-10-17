@@ -1055,16 +1055,7 @@ Item {
             height: parent.height - Constants.statusBarHeight - Constants.navBarHeight
             z: Constants.zIndexMainContent + 10
 
-            // MarathonPageView owns the horizontal swipe:
-            //   page 0:   MarathonHub (notifications/messages)
-            //   page 1+:  MarathonAppGrid (iOS-style home icon grid,
-            //             paginated when more than 16 apps; page 1 is
-            //             the curated home per JSX HomePage1).
-            //
-            // The previous "Active Frames Home" page was a design
-            // confusion — Active Frames IS the task switcher and is
-            // reached by an app-minimise gesture, not by paging.
-            // MarathonActiveFramesHome.qml has been deleted.
+            // Pages: 0 the Hub, 1 Active Frames (the task switcher), 2+ the app grid.
             MarathonPageView {
                 id: pageView
 

@@ -1213,13 +1213,9 @@ int main(int argc, char *argv[]) {
     new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
                                telephonyService, &app);
 
-    // PSI memory pressure listener. Marathon's policy ladder mirrors the
-    // industry split: at Moderate (Linux PSI some-avg10 ≥ 5%) apps get a
-    // low-memory hint; at Critical (≥ 40%) we proactively kill the
-    // longest-frozen app, matching Android's lmkd-on-PSI behavior
-    // (psi_partial_stall_ms=70ms on high-perf devices triggers low-mem;
-    // 700ms triggers critical). systemd-oomd at the slice level is the
-    // belt-and-suspenders fallback if our listener dies.
+    // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
+    // (≥ 40%) kills the longest-frozen app. systemd-oomd on the slice is the
+    // fallback.
     auto *pressureMonitor = new MemoryPressureMonitor(&app);
     QObject::connect(pressureMonitor, &MemoryPressureMonitor::pressureLevelChanged,
                      appLifecycleManager,
