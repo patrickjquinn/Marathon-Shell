@@ -71,4 +71,3 @@ runner_pool = 1
 [profile]
 panel_dither = false
 cpu_governor = "ondemand"
-call_audio = "callaudiod"

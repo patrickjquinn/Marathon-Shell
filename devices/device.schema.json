@@ -167,7 +167,6 @@
         "render_node": {"type": "string", "pattern": "^/dev/dri/renderD[0-9]+$"},
         "cpu_governor": {"enum": ["ondemand", "schedutil", "conservative", "powersave", "performance"]},
         "brightness_floor": {"description": "Lowest backlight fraction that still lights the panel.", "type": "number", "minimum": 0, "maximum": 1},
-        "call_audio": {"enum": ["callaudiod", "ucm-profiles"]},
         "runner_width": {"type": "integer", "minimum": 1},
         "runner_height": {"type": "integer", "minimum": 1},
         "panel_dpi": {"description": "True panel DPI for the wl_output physical size.", "type": "number", "exclusiveMinimum": 0},

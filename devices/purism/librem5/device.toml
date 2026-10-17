@@ -87,4 +87,3 @@ runner_pool = 1
 panel_dither = false
 cpu_governor = "ondemand"
 brightness_floor = 0.28
-call_audio = "ucm-profiles"
