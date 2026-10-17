@@ -173,20 +173,6 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
         }
     }
 
-    // expire_timeout governs how long the on-screen BANNER shows, not how
-    // long the notification lives. This used to dismiss the database record
-    // and the model row as well, so every notification that carried a
-    // timeout -- which is most of them -- was deleted from the Hub a few
-    // seconds after arriving, and the notification centre could never
-    // accumulate anything. The banner already auto-hides on its own timer
-    // in NotificationToast.qml, so only the spec-required signal belongs
-    // here. Reason 1 = "the notification expired" per the freedesktop spec.
-    if (expire_timeout > 0) {
-        QTimer::singleShot(expire_timeout, this, [this, id]() {
-            emit NotificationClosed(id, 1);
-        });
-    }
-
     return id;
 }
 

@@ -168,6 +168,24 @@ class TestFreedesktopNotify : public QObject {
         QVERIFY(reloaded.getNotification(int(fresh))->isRead());
     }
 
+    // The Hub keeps it, so it hasn't expired: a Nemo client that heard
+    // "expired" forgets the id and its close() sends nothing.
+    void timeoutDoesNotSignalClosed() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+
+        const uint               id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, 20);
+        QTest::qWait(100);
+
+        QCOMPARE(closed.count(), 0);
+        QVERIFY(model.getNotification(int(id)));
+        fdn.CloseNotification(id);
+        QCOMPARE(closed.count(), 1);
+    }
+
     void replacingDoesNotSignalClosed() {
         NotificationDatabase db;
         db.initialize();
