@@ -77,6 +77,12 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-weatherd.service"
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Weather.service"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+install(FILES marathon-weatherd/data/marathon-bg-weather.timer
+    marathon-weatherd/data/marathon-bg-weather.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-bg-weather.timer \"\${_wants}/marathon-bg-weather.timer\" SYMBOLIC)")
 
 # Boot health check: holds boot-complete.target until the shell's first frame.
 set(MARATHON_HEALTH_BIN

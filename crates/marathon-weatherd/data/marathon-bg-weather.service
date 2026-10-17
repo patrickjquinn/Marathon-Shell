@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the weather forecast
+PartOf=graphical-session.target
+After=graphical-session.target
+
+# No network condition: offline, a refresh still moves "now" along from the
+# cached forecast.
+[Service]
+Type=oneshot
+Slice=background.slice
+ExecStart=busctl --user call org.marathonos.Weather /org/marathonos/Weather org.marathonos.Weather1 Refresh

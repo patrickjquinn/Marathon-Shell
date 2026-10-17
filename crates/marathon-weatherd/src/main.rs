@@ -4,9 +4,9 @@
 //! Nominatim, the device's position from `GeoClue2`. D-Bus calls queue
 //! commands for the main thread, which takes every queued command before it
 //! fetches, so a burst of calls costs one refresh; the last forecast
-//! is served from disk at start, and an hourly tick (on the monotonic clock,
-//! so it never wakes a suspended device) moves "now" along and refetches
-//! once MET's `Expires` has passed.
+//! is served from disk at start, and `marathon-bg-weather.timer` calls
+//! `Refresh` hourly to move "now" along and refetch once MET's `Expires` has
+//! passed.
 
 mod geoclue;
 mod http;
@@ -17,7 +17,7 @@ mod store;
 mod zones;
 
 use std::process::ExitCode;
-use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -341,10 +341,6 @@ fn publish(
     }
 }
 
-fn until_next_hour() -> Duration {
-    Duration::from_secs(3600 - now().rem_euclid(3600).unsigned_abs() + 5)
-}
-
 fn main() -> ExitCode {
     let store = Store::from_env();
     let agent = http::agent();
@@ -387,11 +383,10 @@ fn main() -> ExitCode {
     let mut relocate = false;
     loop {
         daemon.refresh(&conn, relocate);
-        relocate = match queue.recv_timeout(until_next_hour()) {
-            Ok(command) => daemon.apply_queued(command, queue.try_iter()),
-            Err(RecvTimeoutError::Timeout) => false,
-            Err(RecvTimeoutError::Disconnected) => return ExitCode::FAILURE,
+        let Ok(command) = queue.recv() else {
+            return ExitCode::FAILURE;
         };
+        relocate = daemon.apply_queued(command, queue.try_iter());
     }
 }
 

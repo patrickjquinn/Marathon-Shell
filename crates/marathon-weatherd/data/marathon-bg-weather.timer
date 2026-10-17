@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly weather refresh
+PartOf=graphical-session.target
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=graphical-session.target
