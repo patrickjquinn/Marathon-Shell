@@ -39,3 +39,26 @@ jobs:
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" docker.io/library/alpine:edge \
             /src/scripts/ci/build-and-test.sh
+
+  # Release notes are generated from commit subjects (cliff.toml), so every
+  # commit a pull request adds must be a Conventional Commit of a known type.
+  # Locally: git cliff origin/main..HEAD
+  commit-subjects:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check commit subjects with git-cliff
+        env:
+          RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -w /src -e RANGE docker.io/library/alpine:edge \
+            sh -c 'set -eu
+              apk add --no-cache -q git git-cliff
+              git config --global --add safe.directory /src
+              git cliff "$RANGE"'
