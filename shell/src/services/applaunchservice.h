@@ -151,6 +151,7 @@ class AppLaunchService : public QObject {
 #if defined(HAVE_WAYLAND)
     void onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                     QWaylandXdgSurface *xdgSurface);
+    QString sandboxAppIdFor(QWaylandSurface *surface) const;
 #endif
 
     QPointer<AppModel>            m_appModel;

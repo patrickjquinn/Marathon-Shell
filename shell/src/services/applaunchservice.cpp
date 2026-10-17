@@ -321,7 +321,9 @@ void AppLaunchService::setCompositor(QObject *obj) {
                 wc, &WaylandCompositor::dialogCreated, this,
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
                     const qint64 pid   = surface->client()->processId();
-                    QString      appId = appIdForPid(pid);
+                    QString      appId = sandboxAppIdFor(surface);
+                    if (appId.isEmpty())
+                        appId = appIdForPid(pid);
                     // A hosted app (marathon-keel-host) runs as the registered
                     // process's child.
                     for (auto it = m_pidToAppId.cbegin(); appId.isEmpty() && it != m_pidToAppId.cend(); ++it) {
@@ -1917,6 +1919,12 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     QObject *qmlSurfaceObj =
         xdgSurface ? static_cast<QObject *>(xdgSurface) : static_cast<QObject *>(surface);
 
+    // A sandboxed client is the app its sandbox says, whatever xdg app_id it
+    // sets, and matches that app's launch even outside its process tree.
+    const QString sandboxAppId = sandboxAppIdFor(surface);
+    if (!sandboxAppId.isEmpty())
+        xdgAppId = sandboxAppId;
+
     if (pid > 0) {
         auto it = m_activeByPid.find(pid);
         if (it != m_activeByPid.end()) {
@@ -1953,12 +1961,14 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
             const qint64 parentPid = it.key();
             if (parentPid <= 0)
                 continue;
-            if (!isDescendantPid(pid, parentPid))
+            const bool sameSandbox = !sandboxAppId.isEmpty() && it->appId == sandboxAppId;
+            if (!sameSandbox && !isDescendantPid(pid, parentPid))
                 continue;
 
             const PendingLaunch &p = it.value();
             qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to child PID" << pid
-                    << "(ancestor PID" << parentPid << ") app" << p.appId;
+                    << "(ancestor PID" << parentPid << ", sandbox app" << sandboxAppId << ") app"
+                    << p.appId;
 
             registerPidForAppId(pid, p.appId);
 
@@ -2021,6 +2031,11 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
         invokeVoid(m_appWindow, "show",
                    {effectiveAppId, appName, appIcon, QStringLiteral("native"),
                     QVariant::fromValue(qmlSurfaceObj), surfaceId});
+}
+
+QString AppLaunchService::sandboxAppIdFor(QWaylandSurface *surface) const {
+    auto *wc = qobject_cast<WaylandCompositor *>(m_compositor.data());
+    return wc && surface->client() ? wc->sandboxAppId(surface->client()->client()) : QString();
 }
 #endif
 

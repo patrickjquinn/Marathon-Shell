@@ -104,6 +104,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE QString openSandboxSocket(const QString &appId, const QString &instanceId);
     Q_INVOKABLE void    closeSandboxSocket(const QString &instanceId);
     Q_INVOKABLE void    assignSandboxApp(const QString &instanceId, const QString &appId);
+    // The app id the client's sandbox engine gave it, or empty.
+    QString sandboxAppId(wl_client *client) const;
 
     // Emits xdg_toplevel.configure with state_suspended (9) added to or
     // removed from the toplevel's state list. The xdg-shell v6 suspend

@@ -380,6 +380,10 @@ void WaylandCompositor::assignSandboxApp(const QString &instanceId, const QStrin
     m_securityContextManager->assignAppId(instanceId, appId);
 }
 
+QString WaylandCompositor::sandboxAppId(wl_client *client) const {
+    return m_securityContextManager->contextForClient(client).appId;
+}
+
 QQmlListProperty<QObject> WaylandCompositor::surfaces() {
     return QQmlListProperty<QObject>(this, &m_surfaces);
 }
