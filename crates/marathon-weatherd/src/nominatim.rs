@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(place.name, "Kilkee");
         assert_eq!(place.region, "County Clare, Ireland");
         assert!(parse_place(&json!({"lat": "1", "lon": "2", "address": {}})).is_none());
-        assert!(parse_search(&json!({"error": "x"})).is_empty());
+        assert_eq!(parse_search(&json!({"error": "x"})).len(), 0);
     }
 
     #[test]

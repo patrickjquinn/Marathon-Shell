@@ -229,10 +229,13 @@ mod tests {
     fn only_asc_and_gpg_files_are_keys() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("README"), "not a key").unwrap();
-        assert!(load_trusted_keys(dir.path()).unwrap().is_empty());
-        assert!(load_trusted_keys(&dir.path().join("missing"))
-            .unwrap()
-            .is_empty());
+        assert_eq!(load_trusted_keys(dir.path()).unwrap().len(), 0);
+        assert_eq!(
+            load_trusted_keys(&dir.path().join("missing"))
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]
