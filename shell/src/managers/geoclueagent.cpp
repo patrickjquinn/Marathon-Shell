@@ -31,7 +31,7 @@ GeoClueAgent::GeoClueAgent(const QDBusConnection &bus, Authorizer authorize, QOb
     auto *watcher =
         new QDBusServiceWatcher(kService, m_bus, QDBusServiceWatcher::WatchForRegistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, &GeoClueAgent::addAgent);
-    // Registering now would start GeoClue just to idle; it starts with its first client.
+    // Only if GeoClue already runs: registering would start it just to sit idle.
     if (m_bus.interface() && m_bus.interface()->isServiceRegistered(kService))
         addAgent();
 }
