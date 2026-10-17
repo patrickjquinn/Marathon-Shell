@@ -205,6 +205,19 @@ TestCase {
         verify(!notificationToast.shown);
     }
 
+    // A missed call's actions, as TelephonyIntegration names them.
+    function test_shellNotificationActionsById() {
+        notificationToast.showToast(message([{
+                "id": "call_back",
+                "label": "Call Back"
+            }, {
+                "id": "message",
+                "label": "Message"
+            }]));
+        mouseClick(bannerButton("call_back"));
+        compare(NotificationService.triggered, ["7:call_back"]);
+    }
+
     function test_replyLeadsTheButtonsAndOpensTheField() {
         notificationToast.showToast(message([{
                 "key": "inline-reply",

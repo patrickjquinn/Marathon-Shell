@@ -22,9 +22,15 @@ Row {
                 "label": qsTr("Reply")
             }
         ] : [];
-        for (const action of root.actions || [])
-            if (action && action.key && action.key !== "default" && action.key !== "inline-reply")
-                list.push(action);
+        // The shell's own notifications name an action by "id".
+        for (const action of root.actions || []) {
+            const key = action && (action.key || action.id);
+            if (key && key !== "default" && key !== "inline-reply")
+                list.push({
+                    "key": key,
+                    "label": action.label
+                });
+        }
         return list.slice(0, 3);
     }
 
