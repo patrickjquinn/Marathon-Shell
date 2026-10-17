@@ -29,9 +29,21 @@ void printInfo(const QString &message) {
     out << "\033[34mℹ\033[0m " << message << Qt::endl;
 }
 
-int packageCommand(const QStringList &args) {
+int packageCommand(QStringList args) {
+    QString   secretKey;
+    const int keyAt = args.indexOf("--key");
+    if (keyAt >= 0) {
+        if (keyAt + 1 >= args.size()) {
+            printError("--key needs a minisign secret key file");
+            return 1;
+        }
+        secretKey = args.takeAt(keyAt + 1);
+        args.removeAt(keyAt);
+    }
+
     if (args.size() < 3) {
-        printError("Usage: marathon-dev package <app-directory> [output-file]");
+        printError(
+            "Usage: marathon-dev package <app-directory> [output-file] [--key <secret-key>]");
         return 1;
     }
 
@@ -52,18 +64,30 @@ int packageCommand(const QStringList &args) {
 
     MarathonAppPackager packager;
 
-    if (packager.createPackage(appDir, outputFile)) {
-        printSuccess("Package created successfully: " + outputFile);
-
-        QFileInfo packageInfo(outputFile);
-        qint64    sizeKB = packageInfo.size() / 1024;
-        printInfo(QString("Package size: %1 KB").arg(sizeKB));
-
-        return 0;
-    } else {
+    if (!packager.createPackage(appDir, outputFile)) {
         printError("Failed to create package: " + packager.lastError());
         return 1;
     }
+    printSuccess("Package created successfully: " + outputFile);
+
+    QFileInfo packageInfo(outputFile);
+    qint64    sizeKB = packageInfo.size() / 1024;
+    printInfo(QString("Package size: %1 KB").arg(sizeKB));
+
+    // A signature left from an earlier build would not match the new archive.
+    QFile::remove(outputFile + ".minisig");
+    if (secretKey.isEmpty()) {
+        printInfo("Unsigned: sign it with marathon-dev sign " + outputFile +
+                  " before installing it");
+        return 0;
+    }
+    MarathonAppVerifier verifier;
+    if (!verifier.signPackage(outputFile, secretKey)) {
+        printError("Failed to sign package: " + verifier.lastError());
+        return 1;
+    }
+    printSuccess("Signed: " + outputFile + ".minisig");
+    return 0;
 }
 
 // minisign's own default secret key location.
@@ -281,8 +305,7 @@ ApplicationWindow {
     printInfo("  1. cd " + appId);
     printInfo("  2. Edit manifest.json with your app details");
     printInfo("  3. Implement your app in " + appId.replace("-", "") + "App.qml");
-    printInfo("  4. Package with: marathon-dev package .");
-    printInfo("  5. Sign it with: marathon-dev sign <package>.marathon");
+    printInfo("  4. Package and sign with: marathon-dev package . --key <secret-key>");
 
     return 0;
 }
@@ -293,7 +316,8 @@ void printHelp() {
     out << "Usage: marathon-dev <command> [options]\n\n";
     out << "Commands:\n";
     out << "  init <app-name>              Create a new app from template\n";
-    out << "  package <app-dir> [output]   Package an app into .marathon file\n";
+    out << "  package <app-dir> [output] [--key <secret-key>]\n";
+    out << "                               Package (and sign) an app as a .marathon file\n";
     out << "  sign <package> [secret-key]  Sign a package with a minisign key\n";
     out << "  verify <package>             Check a package's signature\n";
     out << "  install <package|app-dir> [--approve-permissions]\n";
@@ -301,7 +325,7 @@ void printHelp() {
     out << "\n";
     out << "Examples:\n";
     out << "  marathon-dev init my-awesome-app\n";
-    out << "  marathon-dev package ./my-app\n";
+    out << "  marathon-dev package ./my-app --key ~/.minisign/minisign.key\n";
     out << "  marathon-dev sign my-app.marathon ~/.minisign/minisign.key\n";
     out << "  marathon-dev verify my-app.marathon\n";
     out << "  marathon-dev install my-app.marathon\n";
