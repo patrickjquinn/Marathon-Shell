@@ -23,6 +23,7 @@ add_test(NAME Lint_WebEngineBackground COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint
 file(GLOB _app_manifests CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/*/manifest.json)
 list(TRANSFORM _app_manifests REPLACE "/manifest.json$" "")
 add_test(NAME Lint_AppManifests COMMAND marathon-dev lint --system-app ${_app_manifests})
+add_test(NAME Lint_DevInit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-dev-init.sh $<TARGET_FILE:marathon-dev>)
 
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.

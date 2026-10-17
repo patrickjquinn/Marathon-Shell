@@ -246,39 +246,41 @@ int initCommand(const QStringList &args) {
     }
 
     const QString &appName = args.at(2);
-    QString        appId   = appName.toLower().replace(" ", "-");
+    const QString  slug    = appName.toLower().replace(" ", "-");
+    const QString  appId   = "com.example." + slug;
+    const QString  entry   = QString(slug).remove(QLatin1Char('-')) + "App.qml";
 
     QDir           dir;
-    if (!dir.mkdir(appId)) {
-        printError("Failed to create directory: " + appId);
+    if (!dir.mkdir(slug)) {
+        printError("Failed to create directory: " + slug);
         return 1;
     }
 
-    dir.cd(appId);
+    dir.cd(slug);
     dir.mkdir("pages");
     dir.mkdir("components");
     dir.mkdir("assets");
 
     QJsonObject manifest;
+    manifest["manifestVersion"] = 1;
     manifest["id"]              = appId;
     manifest["name"]            = appName;
     manifest["version"]         = "1.0.0";
-    manifest["entryPoint"]      = appId.replace("-", "") + "App.qml";
+    manifest["entryPoint"]      = entry;
     manifest["icon"]            = "assets/icon.svg";
     manifest["author"]          = "Your Name";
     manifest["permissions"]     = QJsonArray();
     manifest["minShellVersion"] = "1.0.0";
     manifest["protected"]       = false;
+    manifest["testedOn"] =
+        QJsonObject{{"widths", QJsonArray{540}}, {"inputModes", QJsonArray{"touch"}}};
+    manifest["dataLifecycle"] = QJsonObject{{"appData", "remove"}, {"cache", "remove"}};
 
-    QFile manifestFile(appId + "/manifest.json");
+    QFile manifestFile(slug + "/manifest.json");
     if (manifestFile.open(QIODevice::WriteOnly)) {
         manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
         manifestFile.close();
     }
-
-    QString appFileName = appId.replace("-", "");
-    appFileName[0]      = appFileName[0].toUpper();
-    appFileName += "App.qml";
 
     QString qmlTemplate = QString(R"(import QtQuick
 import Sailfish.Silica 1.0
@@ -303,14 +305,14 @@ ApplicationWindow {
 )")
                               .arg(appName, manifest["id"].toString());
 
-    QFile   qmlFile(appId + "/" + appId.replace("-", "") + "App.qml");
+    QFile   qmlFile(slug + "/" + entry);
     if (qmlFile.open(QIODevice::WriteOnly)) {
         qmlFile.write(qmlTemplate.toUtf8());
         qmlFile.close();
     }
 
-    QString qmldirContent = QString("module %1\n").arg(appId);
-    QFile   qmldirFile(appId + "/qmldir");
+    QString qmldirContent = QString("module %1\n").arg(QString(slug).remove(QLatin1Char('-')));
+    QFile   qmldirFile(slug + "/qmldir");
     if (qmldirFile.open(QIODevice::WriteOnly)) {
         qmldirFile.write(qmldirContent.toUtf8());
         qmldirFile.close();
@@ -322,7 +324,7 @@ ApplicationWindow {
     <text x="256" y="320" font-family="Arial" font-size="200" fill="white" text-anchor="middle">A</text>
 </svg>)";
 
-    QFile   iconFile(appId + "/assets/icon.svg");
+    QFile   iconFile(slug + "/assets/icon.svg");
     if (iconFile.open(QIODevice::WriteOnly)) {
         iconFile.write(iconSVG.toUtf8());
         iconFile.close();
@@ -330,10 +332,11 @@ ApplicationWindow {
 
     printSuccess("App created: " + appId);
     printInfo("Next steps:");
-    printInfo("  1. cd " + appId);
+    printInfo("  1. cd " + slug);
     printInfo("  2. Edit manifest.json with your app details");
-    printInfo("  3. Implement your app in " + appId.replace("-", "") + "App.qml");
-    printInfo("  4. Package and sign with: marathon-dev package . --key <secret-key>");
+    printInfo("  3. Implement your app in " + entry);
+    printInfo("  4. Check it with: marathon-dev lint .");
+    printInfo("  5. Package and sign with: marathon-dev package . --key <secret-key>");
 
     return 0;
 }
