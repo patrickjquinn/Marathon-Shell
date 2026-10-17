@@ -3,6 +3,7 @@ import "./core/BatteryWarning.js" as BatteryWarning
 import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Window
+import Sailfish.Silica 1.0 as Silica
 
 Item {
     id: shell
@@ -1328,6 +1329,8 @@ Item {
 
         anchors.left: parent.left
         anchors.top: parent.top
+        // Over an app, the header's back indicator keeps its taps (as in MarathonPeek).
+        anchors.topMargin: UIStore.appWindowOpen ? Constants.statusBarHeight + Silica.Theme.itemSizeLarge : 0
         anchors.bottom: parent.bottom
         width: Constants.spacingSmall
         z: Constants.zIndexPeekGesture
