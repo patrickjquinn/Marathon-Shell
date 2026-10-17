@@ -47,7 +47,7 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F42 | Updates | Hub shows the "Software update" notification with "RU" initials instead of its update glyph (lock screen shows the glyph) | open (polish) |
 | F43 | OOBE | Network page does not mark the network the device is already connected to | open (polish) |
 | F44 | Updates | Release notes show "- " list markers as plain text | open (polish) |
-| F45 | Apps | Uninstall from Settings failed ("Failed to remove app files") since installs are read-only in sandboxes; Uninstall offered for built-in Test Suite | fixed (R41, c051ca4c..823ddb3c); device check pending |
+| F45 | Apps | Uninstall from Settings failed ("Failed to remove app files") since installs are read-only in sandboxes; Uninstall offered for built-in Test Suite | verified fixed on 26101707 (R41): "Crafted uninstalled", install/data/cache removed, ~/Documents kept, grants forgotten; built-in apps open no Uninstall menu |
 
 ## Worked as intended
 
