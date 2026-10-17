@@ -371,31 +371,35 @@ void AlarmManagerCpp::checkAlarms() {
     // Timers may fire marginally early.
     const QDateTime horizon = QDateTime::currentDateTime().addMSecs(50);
     QList<Alarm>    due;
-    bool            removedAny   = false;
-    bool            removedShown = false;
+    bool            changed      = false;
+    bool            shownChanged = false;
 
     for (int i = 0; i < m_alarms.size();) {
-        const Alarm &a = m_alarms[i];
+        Alarm &a = m_alarms[i];
         if (a.enabled) {
             const QDateTime t = calculateNextOccurrence(a, m_scheduledFrom);
             if (t <= horizon) {
                 due.append(a);
                 if (!m_lastFired.isValid() || t > m_lastFired)
                     m_lastFired = t;
-                if (a.oneShot) {
-                    removedAny = true;
-                    removedShown |= !a.hidden;
-                    m_alarms.removeAt(i);
-                    continue;
+                // A non-repeating alarm rings once: kept in the list, switched off.
+                if (a.oneShot || a.repeat.isEmpty()) {
+                    changed = true;
+                    shownChanged |= !a.hidden;
+                    if (a.oneShot) {
+                        m_alarms.removeAt(i);
+                        continue;
+                    }
+                    a.enabled = false;
                 }
             }
         }
         ++i;
     }
 
-    if (removedShown)
+    if (shownChanged)
         emit alarmsChanged();
-    if (removedAny)
+    if (changed)
         saveAlarms();
 
     for (const Alarm &a : std::as_const(due))

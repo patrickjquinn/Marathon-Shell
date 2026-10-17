@@ -130,6 +130,29 @@ class TestAlarmManager : public QObject {
         QCOMPARE(scheduled.takeLast().at(0).toLongLong(), 0);
     }
 
+    void aOneOffAlarmTurnsOffOnceItRings() {
+        AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
+        QTest::qWait(10);
+        QSignalSpy    triggered(&alarms, &AlarmManagerCpp::alarmTriggered);
+        const QString nextMinute = QTime::currentTime().addSecs(60).toString("HH:mm");
+        const QString once       = alarms.createAlarm(nextMinute, "Once", {}, {});
+        const QString daily = alarms.createAlarm(nextMinute, "Daily", {0, 1, 2, 3, 4, 5, 6}, {});
+
+        QTRY_COMPARE_WITH_TIMEOUT(triggered.count(), 2, 62000);
+        QVERIFY(alarms.dismissAlarm(once));
+        QVERIFY(alarms.dismissAlarm(daily));
+
+        QVERIFY(listed(alarms.alarms(), once));
+        const QJsonArray saved =
+            QJsonDocument::fromJson(m_settings->get("alarms/data").toString().toUtf8()).array();
+        QCOMPARE(saved.size(), 2);
+        for (const auto &v : saved) {
+            const QJsonObject a = v.toObject();
+            QCOMPARE(a["enabled"].toBool(), a["id"].toString() == daily);
+        }
+        QVERIFY(alarms.hasEnabledAlarm());
+    }
+
     void oneShotWithoutInstantIsRejected() {
         AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
         QTest::qWait(10);
