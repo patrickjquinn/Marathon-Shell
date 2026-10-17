@@ -66,6 +66,15 @@ TestCase {
         compare(field.text, "hi");
     }
 
+    function test_cursorKeysMoveTheCursor() {
+        type("abc");
+        keyboard.inputContext.sendCursorKey(Qt.Key_Left);
+        keyboard.inputContext.sendCursorKey(Qt.Key_Left);
+        compare(field.cursorPosition, 1);
+        keyboard.inputContext.sendCursorKey(Qt.Key_Right);
+        compare(field.cursorPosition, 2);
+    }
+
     function test_tappedKeyTypes() {
         keyboard.currentLayout = "qwerty";
         keyboard.shifted = false;

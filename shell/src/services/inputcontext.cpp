@@ -185,6 +185,21 @@ void InputContext::handleEnter() {
 }
 
 void InputContext::sendCursorKey(int key) {
+    struct Code {
+        Qt::Key key;
+        quint32 evdev;
+        quint32 keysym;
+    };
+    static constexpr Code codes[] = {
+        {Qt::Key_Escape, 1, 0xff1b}, {Qt::Key_Tab, 15, 0xff09},    {Qt::Key_Left, 105, 0xff51},
+        {Qt::Key_Up, 103, 0xff52},   {Qt::Key_Right, 106, 0xff53}, {Qt::Key_Down, 108, 0xff54},
+    };
+    for (const Code &code : codes) {
+        if (code.key == key) {
+            sendKey(code.key, code.evdev + 8, code.keysym);
+            break;
+        }
+    }
     emit cursorKeyPressed(key);
 }
 
