@@ -39,6 +39,7 @@ TestCase {
         pad.enabled = false;
         pad.clicks = 0;
         lockScreen.swipeProgress = 0;
+        DisplayPolicyControllerCpp.screenOn = true;
     }
 
     function test_unlockSwipeEndsWithoutAClick() {
@@ -50,6 +51,32 @@ TestCase {
         mouseRelease(lockScreen, 360, 300);
         verify(pad.enabled, "the swipe unlocked");
         compare(pad.clicks, 0);
+    }
+
+    function test_screenTurnedOnWhileOnLeavesTheSessionAlone() {
+        SessionStore.showLockScreen = false;
+        DisplayPolicyControllerCpp.turnScreenOn();
+        verify(!SessionStore.showLockScreen, "the lock screen stays down");
+    }
+
+    // An SMS (PowerPolicyController.wake) or D-Bus Display1.Wake re-asserts the panel directly.
+    function test_eventWakeOnALitScreenLeavesTheSessionAlone() {
+        SessionStore.showLockScreen = false;
+        DisplayManagerCpp.screenStateChanged(true);
+        verify(!SessionStore.showLockScreen);
+    }
+
+    function test_wakingTheScreenShowsTheLockScreen() {
+        DisplayPolicyControllerCpp.turnScreenOff("test");
+        SessionStore.showLockScreen = false;
+        DisplayPolicyControllerCpp.turnScreenOn();
+        verify(SessionStore.showLockScreen);
+    }
+
+    function test_resumeShowsTheLockScreen() {
+        SessionStore.showLockScreen = false;
+        DisplayPolicyControllerCpp.forceScreenOn();
+        verify(SessionStore.showLockScreen);
     }
 
     function test_tapStillReachesWhatIsBelow() {

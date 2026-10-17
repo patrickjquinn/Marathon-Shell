@@ -109,7 +109,6 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
         if (m_haptics)
             m_haptics->stopVibration();
         hideIncomingOverlay();
-        emit unlockRequested();
     }
 
     // Force-wake on call-end: proximity may have blanked the screen while we

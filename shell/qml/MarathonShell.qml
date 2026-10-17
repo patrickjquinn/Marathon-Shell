@@ -2655,11 +2655,6 @@ Item {
             shell.unloadCallOverlay();
         }
 
-        function onUnlockRequested() {
-            if (!SessionStore.isLocked && SessionStore.showLockScreen)
-                SessionStore.unlock();
-        }
-
         target: TelephonyIntegration
     }
 

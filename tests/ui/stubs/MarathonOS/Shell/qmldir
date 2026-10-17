@@ -9,6 +9,8 @@ singleton Constants 1.0 Constants.qml
 singleton HapticManager 1.0 HapticManager.qml
 singleton SecurityManagerCpp 1.0 SecurityManagerCpp.qml
 singleton SessionStore 1.0 SessionStore.qml
+singleton DisplayManagerCpp 1.0 DisplayManagerCpp.qml
+singleton DisplayPolicyControllerCpp 1.0 DisplayPolicyControllerCpp.qml
 singleton Logger 1.0 Logger.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
 singleton AppLifecycleManager 1.0 AppLifecycleManager.qml

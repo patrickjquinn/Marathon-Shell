@@ -13,6 +13,8 @@ TestCase {
         height: 720
         visible: true
 
+        MarathonLockScreen {}
+
         // As the shell: the call state changing unloads the overlay at once.
         Loader {
             id: host
@@ -29,10 +31,22 @@ TestCase {
 
             target: TelephonyService
         }
+
+        // As TelephonyIntegrationCpp: a call wakes the screen when it rings and when it ends.
+        Connections {
+            function onCallStateChanged() {
+                DisplayPolicyControllerCpp.turnScreenOn();
+            }
+
+            target: TelephonyService
+        }
     }
 
     function init() {
         UIStore.opened = [];
+        UIStore.appWindowOpen = true;
+        SessionStore.isLocked = false;
+        SessionStore.showLockScreen = false;
         TelephonyService.callState = "incoming";
         host.active = true;
         host.item.show("+1234567890", "");
@@ -59,5 +73,20 @@ TestCase {
         mouseClick(decline);
         compare(TelephonyService.callState, "idle");
         compare(UIStore.opened, []);
+    }
+
+    function test_declineWhileUnlockedReturnsToTheApp() {
+        mouseClick(button("Decline"));
+        verify(!SessionStore.isLocked);
+        verify(!SessionStore.showLockScreen, "no lock screen after the call");
+        verify(UIStore.appWindowOpen);
+    }
+
+    function test_declineWhileLockedStaysLocked() {
+        SessionStore.isLocked = true;
+        SessionStore.showLockScreen = true;
+        mouseClick(button("Decline"));
+        verify(SessionStore.isLocked);
+        verify(SessionStore.showLockScreen);
     }
 }

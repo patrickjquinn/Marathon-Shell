@@ -183,16 +183,24 @@ Item {
 
     Connections {
         function onScreenStateChanged(isOn) {
-            if (isOn) {
-                SessionStore.showLock();
-                if (lockScreen.visible) {
-                    Logger.info("LockScreen", "Screen turned on - starting idle timer");
-                    lockScreen.resetIdleTimer();
-                }
+            if (isOn && lockScreen.visible) {
+                Logger.info("LockScreen", "Screen turned on - starting idle timer");
+                lockScreen.resetIdleTimer();
             }
         }
 
         target: DisplayManagerCpp
+    }
+
+    // Only a wake brings the lock screen up; a call or notification
+    // re-asserting a screen that is already on leaves the session alone.
+    Connections {
+        function onScreenOnChanged() {
+            if (DisplayPolicyControllerCpp.screenOn)
+                SessionStore.showLock();
+        }
+
+        target: DisplayPolicyControllerCpp
     }
 
     // Visible-cards model — populated by refreshNotifications().
