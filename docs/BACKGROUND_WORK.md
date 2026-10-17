@@ -265,7 +265,9 @@ Alarms: set one in Clock a few minutes ahead, then as `user`
 `systemctl --user list-timers 'marathon-wake-alarm-*'` lists it at that
 time; as root `systemctl start marathon-background-wake.service` and
 `systemctl list-timers marathon-wake.timer` shows the same time (or an
-earlier background task).
+earlier background task). Lock with the power key: at the alarm time the
+screen comes on and the alarm rings, from Doze or, where the board suspends,
+after `systemctl suspend`, and it stays on until the alarm is dismissed.
 
 On a Librem 5 (modem): `systemctl suspend`, wake with the power key,
 then `journalctl -b -u marathon-modem-sleep` shows `state=healthy` (or
