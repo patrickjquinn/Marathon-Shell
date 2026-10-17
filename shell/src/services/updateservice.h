@@ -1,6 +1,7 @@
 #ifndef UPDATESERVICE_H
 #define UPDATESERVICE_H
 
+#include <QDateTime>
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -44,15 +45,21 @@ struct UpdateConditions {
     double batteryPercent = 0;
     // UPower device state: 1 charging, 4 fully charged, 5 pending charge.
     uint batteryState = 0;
+    // The screen is off and no call or alarm is ringing or active.
+    bool idle = false;
 };
 
 // Over-the-air updates of the OS image for Settings. Checks the signed
 // feed, gates downloads on an unmetered network and a charged battery, and
 // reports a rollback when the booted image is older than one it installed.
-// notice() fires once per version for each kind of news.
+// notice() fires once per version for each kind of news. With automatic
+// updates (on by default) an update downloads once the gates allow, and an
+// installed one restarts between 02:00 and 05:00 when the device is idle on
+// charge; "Tonight" asks for that restart without them.
 //
-// Settings keys (group "updates"): autoCheck, installedVersion,
-// installedBootId, lastChecked, lastSeenVersion, notice/<kind>.
+// Settings keys (group "updates"): autoCheck, autoUpdate, installedVersion,
+// installedBootId, lastChecked, lastSeenVersion, notice/<kind>,
+// tonightVersion.
 class UpdateService : public QObject {
     Q_OBJECT
 
@@ -68,6 +75,8 @@ class UpdateService : public QObject {
     Q_PROPERTY(QString rolledBackVersion READ rolledBackVersion NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
     Q_PROPERTY(qint64 lastCheckedMs READ lastCheckedMs NOTIFY stateChanged)
+    Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY stateChanged)
+    Q_PROPERTY(bool restartScheduled READ restartScheduled NOTIFY stateChanged)
 
   public:
     enum class State : quint8 {
@@ -96,7 +105,8 @@ class UpdateService : public QObject {
     Q_ENUM(Notice)
 
     UpdateService(UpdateBackend *backend, std::function<UpdateConditions()> conditions,
-                  const QString &osVersion, const QString &bootId, QObject *parent = nullptr);
+                  const QString &osVersion, const QString &bootId, std::function<QDateTime()> clock,
+                  QObject *parent = nullptr);
 
     State state() const {
         return m_state;
@@ -135,26 +145,45 @@ class UpdateService : public QObject {
     qint64 lastCheckedMs() const {
         return m_lastCheckedMs;
     }
+    bool autoUpdate() const {
+        return m_autoUpdate;
+    }
+    void setAutoUpdate(bool on);
+    bool restartScheduled() const;
+    // When the next overnight restart window opens; invalid if none is due.
+    QDateTime nextRestartWindow() const {
+        return m_nextRestartWindow;
+    }
 
     Q_INVOKABLE void checkNow();
     Q_INVOKABLE void install();
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void reboot();
+    // "Tonight": restart overnight for the installed update.
+    Q_INVOKABLE void scheduleRestart();
 
     // "metered", "battery" or "" when a download may start.
     static QString blockReason(const UpdateConditions &c);
     // IMAGE_VERSION from an os-release file.
     static QString imageVersion(const QString &osReleasePath);
 
+  public slots:
+    // Something an automatic download or an overnight restart waits for
+    // may have changed: the network, the charger, the screen, a call.
+    void reconsider();
+
   signals:
     void stateChanged();
     void rebootRequested();
     void notice(UpdateService::Notice kind, const QString &version);
+    void restartWindowChanged();
 
   private:
     void           setState(State state);
     void           markChecked();
     void           announce(Notice kind, const QString &version);
+    bool           autoInstall();
+    void           armRestart();
     void           onProbed(bool supported, const QString &installedVersion);
     void           onChecked(const QString &version);
     void           onReleaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
@@ -164,7 +193,9 @@ class UpdateService : public QObject {
 
     UpdateBackend *m_backend;
     std::function<UpdateConditions()> m_conditions;
+    std::function<QDateTime()>        m_clock;
     QTimer                           *m_autoCheckTimer;
+    QTimer                           *m_restartTimer;
 
     State                             m_state = State::Probing;
     QString                           m_currentVersion;
@@ -179,6 +210,10 @@ class UpdateService : public QObject {
     QString                           m_rolledBackVersion;
     QString                           m_lastError;
     qint64                            m_lastCheckedMs = 0;
+    bool                              m_autoUpdate    = true;
+    QString                           m_tonightVersion;
+    QString                           m_cancelledVersion;
+    QDateTime                         m_nextRestartWindow;
 };
 
 #endif

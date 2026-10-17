@@ -1236,7 +1236,8 @@ int main(int argc, char *argv[]) {
         QStringLiteral("/usr/lib/os-release");
     auto         *updateService =
         new UpdateService(new SysupdateBackend, &SysupdateBackend::systemConditions,
-                          UpdateService::imageVersion(osRelease), bootId, &app);
+                          UpdateService::imageVersion(osRelease), bootId,
+                          [] { return QDateTime::currentDateTime(); }, &app);
     QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
                      &PowerManagerCpp::restart);
     auto *davCalendarStore = new DavCalendarStore(&app);

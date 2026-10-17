@@ -11,18 +11,30 @@ namespace {
     constexpr int    kFirstCheckDelayMs   = 30 * 1000;
     constexpr int    kAutoCheckIntervalMs = 6 * 60 * 60 * 1000;
     constexpr double kMinBatteryPercent   = 30.0;
+    constexpr int    kRestartFromHour     = 2;
+    constexpr int    kRestartUntilHour    = 5;
+
+    bool             charging(const UpdateConditions &c) {
+        return c.batteryState == 1 || c.batteryState == 4 || c.batteryState == 5;
+    }
 } // namespace
 
 UpdateService::UpdateService(UpdateBackend *backend, std::function<UpdateConditions()> conditions,
-                             const QString &osVersion, const QString &bootId, QObject *parent)
+                             const QString &osVersion, const QString &bootId,
+                             std::function<QDateTime()> clock, QObject *parent)
     : QObject(parent)
     , m_backend(backend)
     , m_conditions(std::move(conditions))
+    , m_clock(std::move(clock))
     , m_autoCheckTimer(new QTimer(this))
+    , m_restartTimer(new QTimer(this))
     , m_currentVersion(QCoreApplication::applicationVersion())
     , m_osVersion(osVersion)
-    , m_bootId(bootId)
-    , m_lastCheckedMs(QSettings().value(QStringLiteral("updates/lastChecked")).toLongLong()) {
+    , m_bootId(bootId) {
+    QSettings s;
+    m_lastCheckedMs  = s.value(QStringLiteral("updates/lastChecked")).toLongLong();
+    m_autoUpdate     = s.value(QStringLiteral("updates/autoUpdate"), true).toBool();
+    m_tonightVersion = s.value(QStringLiteral("updates/tonightVersion")).toString();
     m_backend->setParent(this);
     connect(m_backend, &UpdateBackend::probed, this, &UpdateService::onProbed);
     connect(m_backend, &UpdateBackend::checked, this, &UpdateService::onChecked);
@@ -33,6 +45,8 @@ UpdateService::UpdateService(UpdateBackend *backend, std::function<UpdateConditi
 
     m_autoCheckTimer->setInterval(kAutoCheckIntervalMs);
     connect(m_autoCheckTimer, &QTimer::timeout, this, &UpdateService::checkNow);
+    m_restartTimer->setSingleShot(true);
+    connect(m_restartTimer, &QTimer::timeout, this, &UpdateService::armRestart);
 
     m_backend->probe();
 }
@@ -46,6 +60,7 @@ QString UpdateService::stateName() const {
 void UpdateService::setState(State state) {
     m_state = state;
     emit stateChanged();
+    armRestart();
 }
 
 void UpdateService::onProbed(bool supported, const QString &installedVersion) {
@@ -139,7 +154,8 @@ void UpdateService::onChecked(const QString &version) {
     }
     setState(State::Available);
     m_backend->fetchReleaseInfo(version);
-    announce(Notice::Available, version);
+    if (!autoInstall())
+        announce(Notice::Available, version);
 }
 
 void UpdateService::onReleaseInfo(const QString &version, qint64 downloadSize,
@@ -158,8 +174,7 @@ void UpdateService::onReleaseInfo(const QString &version, qint64 downloadSize,
 QString UpdateService::blockReason(const UpdateConditions &c) {
     if (c.metered == 1 || c.metered == 3)
         return QStringLiteral("metered");
-    const bool charging = c.batteryState == 1 || c.batteryState == 4 || c.batteryState == 5;
-    if (c.batteryPresent && !charging && c.batteryPercent < kMinBatteryPercent)
+    if (c.batteryPresent && !charging(c) && c.batteryPercent < kMinBatteryPercent)
         return QStringLiteral("battery");
     return {};
 }
@@ -182,7 +197,8 @@ void UpdateService::cancel() {
     if (m_state != State::Downloading)
         return;
     m_backend->cancel();
-    m_progress = 0;
+    m_cancelledVersion = m_availableVersion;
+    m_progress         = 0;
     setState(State::Available);
 }
 
@@ -222,6 +238,68 @@ void UpdateService::onFailed(const QString &error) {
 void UpdateService::reboot() {
     if (m_state == State::ReadyToReboot)
         emit rebootRequested();
+}
+
+void UpdateService::setAutoUpdate(bool on) {
+    if (on == m_autoUpdate)
+        return;
+    m_autoUpdate = on;
+    QSettings().setValue(QStringLiteral("updates/autoUpdate"), on);
+    emit stateChanged();
+    reconsider();
+}
+
+bool UpdateService::autoInstall() {
+    if (!m_autoUpdate || m_state != State::Available || m_availableVersion == m_cancelledVersion)
+        return false;
+    install();
+    return m_state == State::Downloading;
+}
+
+bool UpdateService::restartScheduled() const {
+    return m_state == State::ReadyToReboot &&
+        (m_autoUpdate || m_tonightVersion == m_availableVersion);
+}
+
+void UpdateService::scheduleRestart() {
+    if (m_state != State::ReadyToReboot)
+        return;
+    m_tonightVersion = m_availableVersion;
+    QSettings().setValue(QStringLiteral("updates/tonightVersion"), m_tonightVersion);
+    emit stateChanged();
+    armRestart();
+}
+
+void UpdateService::reconsider() {
+    autoInstall();
+    armRestart();
+}
+
+// Restarts now if this is the window and the device is idle on charge, and
+// sets the timer for the next window.
+void UpdateService::armRestart() {
+    QDateTime next;
+    if (restartScheduled()) {
+        const QDateTime now  = m_clock();
+        const int       hour = now.time().hour();
+        if (hour >= kRestartFromHour && hour < kRestartUntilHour) {
+            const UpdateConditions c = m_conditions();
+            if (c.idle && (!c.batteryPresent || charging(c))) {
+                qInfo() << "[UpdateService] restarting overnight into" << m_availableVersion;
+                emit rebootRequested();
+            }
+        }
+        next = QDateTime(now.date(), QTime(kRestartFromHour, 0));
+        if (now >= next)
+            next = next.addDays(1);
+        m_restartTimer->start(int(now.msecsTo(next)));
+    } else {
+        m_restartTimer->stop();
+    }
+    if (next != m_nextRestartWindow) {
+        m_nextRestartWindow = next;
+        emit restartWindowChanged();
+    }
 }
 
 QString UpdateService::imageVersion(const QString &osReleasePath) {
