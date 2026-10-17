@@ -272,7 +272,7 @@ Settings shows a version that failed its trials as rolled back, from the same
 | QEMU dev-sim (qemu-aarch64) | UEFI (AAVMF) → systemd-boot → UKI | yes, with `MARATHON_IMAGE_LAYOUT=ab` | validation on an image build (below); then make `ab` the QEMU default |
 | Librem 5 | U-Boot `boot.scr` → kernel + initramfs from ext4 partition 1 | no | either U-Boot's EFI loader → systemd-boot (duranium's plan; FAT write and EFI variables at runtime to verify), or U-Boot `bootcount`/`bootlimit`/`altbootcmd` choosing the slot, with marathon-health clearing `bootcount`/`upgrade_available` via `fw_setenv` |
 | PinePhone | U-Boot (our `u-boot-pinephone-marathon` fork) `boot.scr` | no | same as the Librem 5; we already build its U-Boot, so `CONFIG_BOOTCOUNT_LIMIT` is in reach |
-| Raspberry Pi 5 / HackberryPi CM5 | Pi firmware → `autoboot.txt` (`tryboot_a_b=1`) → the slot's FAT boot partition → mkinitfs → ext4 root slot by GPT label | yes, with `MARATHON_IMAGE_LAYOUT=ab` (GPT) | [validation on the HackberryPi](#hackberrypi-validation). One failed trial falls back; each version gets two |
+| Raspberry Pi 5 / HackberryPi CM5 | Pi firmware → `autoboot.txt` (`tryboot_a_b=1`) → the slot's FAT boot partition → mkinitfs → ext4 root slot by GPT label | yes, with `MARATHON_IMAGE_LAYOUT=ab` (GPT) | validated on the HackberryPi 2026-10-17 ([results](#hackberrypi-validation)). One failed trial falls back; each version gets two |
 | OnePlus 6 | Android boot.img → U-Boot → EFI | untested | the EFI path should work as on QEMU; needs a device |
 
 `AB_DEVICES` in `mkosi-configure.py` (`qemu-aarch64`, `raspberry-pi5`), with
@@ -351,7 +351,22 @@ are written. Each published version is about 2 GB.
 
 ## HackberryPi validation
 
-Not run yet. The host serves the feed at 192.168.68.78; the device is
+Run on 2026-10-17 (images 26101702 → 26101705 → 26101706), all steps passed:
+
+| Step | Result |
+|---|---|
+| 3. Image N (26101702), flashed in place over SSH from RAM | boots GPT on EEPROM 2025-06-13; six partitions, data grown to 16.5 GiB; tryboot 0, partition 2; `/etc` overlay and `/var`, `/home` on data |
+| 4. N+1 (26101705) | automatic check found it, downloaded in the background with progress and notes, "Restart to finish updating" notification; Restart now → one reboot (31 s) to tryboot 1, partition 3; "partition 3 committed"; `[all]` 3 / `[tryboot]` 2; Bluetooth pairing, files, settings and Wi-Fi kept; "Updated to Marathon 26101705" on the lock screen |
+| 5. Bad N+2 (26101706, no shell) | two trials on partition 2, each falling back after 60 s, the second armed by the early-boot catch-all; then "26101706 failed its trial boots; staying on 26101705"; `[all]` still 3; lock screen and Settings say it didn't start and went back |
+
+Found and fixed on the way: A/B builds never reached mkosi's configure
+script (patch 0039); systemd 262's sysupdate1 has `Acquire` + `Install`, not
+`Update`; duranium's first-boot `systemd-repart` ran on the Pi. One
+post-fallback boot stalled 90 s in `plymouth show-splash`, and the firmware
+sometimes stops at its "loading … starting" handoff; both predate A/B and are
+tracked in docs/testing/OEM_TEST_HACKBERRYPI_2026-10-17.md.
+
+The host serves the feed at 192.168.68.78; the device is
 `root@192.168.68.79`. Reading the tryboot flag and booted partition:
 `printf '%d\n' 0x$(od -An -tx1 -v /proc/device-tree/chosen/bootloader/tryboot | tr -d ' \n')`
 (likewise `partition`).

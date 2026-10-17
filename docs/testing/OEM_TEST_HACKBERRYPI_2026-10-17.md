@@ -42,6 +42,12 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F37 | Permissions | First-launch prompt: Alarms and Sensors show a generic shield icon; the footer line sits under the gesture bar | open (polish) |
 | F38 | Audio | Volume OSD raised on its own after a shell restart (audiod's first report / BT sink) | verified fixed r464 (dd519284) — no OSD after restart or unlock; an external change (wpctl 5%) still shows it |
 | F39 | Permissions | After Allow on the first-launch prompt, Alarms page still showed 0 alarms (one set): Alarm/Location/Sensor clients never re-read on grant | verified fixed r464 (c6f0952e) — after Allow the page shows the one enabled alarm |
+| F40 | Boot | Firmware sometimes stops at its "loading … loading … starting" handoff and needs a power cycle; seen repeatedly, before and after A/B | open |
+| F41 | Boot | One boot (after an A/B fallback) stalled 90 s in plymouth-start `show-splash` and never brought the network up | open (intermittent) |
+| F42 | Updates | Hub shows the "Software update" notification with "RU" initials instead of its update glyph (lock screen shows the glyph) | open (polish) |
+| F43 | OOBE | Network page does not mark the network the device is already connected to | open (polish) |
+| F44 | Updates | Release notes show "- " list markers as plain text | open (polish) |
+| F45 | Apps | Uninstall from Settings failed ("Failed to remove app files") since installs are read-only in sandboxes; Uninstall offered for built-in Test Suite | fixed (R41, c051ca4c..823ddb3c); device check pending |
 
 ## Worked as intended
 
