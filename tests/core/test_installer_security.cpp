@@ -188,6 +188,51 @@ class TestInstallerSecurity : public QObject {
         QVERIFY(QDir(dir).removeRecursively());
     }
 
+    // An install from before the layout change lived in its data directory,
+    // perhaps with a manifest the app rewrote itself.
+    void migration_movesLegacyInstallsOut() {
+        const QString     legacy = MarathonAppPaths::dataDir("com.legacy.app");
+        const QJsonObject m{
+            {"id", "com.legacy.app"}, {"name", "Legacy"},
+            {"version", "1.0.0"},     {"entryPoint", "Main.qml"},
+            {"protected", true},      {"permissions", QJsonArray({"network", "system"})}};
+        QVERIFY(writeFile(legacy + "/manifest.json", QJsonDocument(m).toJson()));
+        QVERIFY(writeFile(legacy + "/Main.qml", "Item{}"));
+        QVERIFY(writeFile(legacy + "/notes.db", "the app's data"));
+        QVERIFY(writeFile(MarathonAppPaths::dataDir("com.dataonly.app") + "/settings.ini", "x"));
+
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QCOMPARE(installer.migrateLegacyInstalls(), QStringList({"com.legacy.app"}));
+        QVERIFY(installer.migrateLegacyInstalls().isEmpty());
+
+        QVERIFY(QFile::exists(MarathonAppPaths::filesDir("com.legacy.app") + "/Main.qml"));
+        QVERIFY(QFile::exists(legacy + "/notes.db"));
+        QVERIFY(receipt("com.legacy.app").value("migrated").toBool());
+        QVERIFY(!QDir(MarathonAppPaths::installDir("com.dataonly.app")).exists());
+
+        const MarathonAppRegistry::AppInfo info = rescanned("com.legacy.app", registry);
+        QCOMPARE(info.absolutePath, MarathonAppPaths::filesDir("com.legacy.app"));
+        QVERIFY(!info.isProtected);
+        QVERIFY(!info.isSystem);
+        QVERIFY(installer.canUninstall("com.legacy.app"));
+    }
+
+    void migration_skipsWhenTheLegacyDirIsTheSystemDir() {
+        const QByteArray system = qgetenv("MARATHON_APPS_DIR");
+        qputenv("MARATHON_APPS_DIR", MarathonAppPaths::legacyInstalls().toUtf8());
+        QVERIFY(
+            writeFile(MarathonAppPaths::dataDir("devapp") + "/manifest.json", manifest("devapp")));
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QVERIFY(installer.migrateLegacyInstalls().isEmpty());
+        QVERIFY(!QDir(MarathonAppPaths::installDir("devapp")).exists());
+        qputenv("MARATHON_APPS_DIR", system);
+        QVERIFY(QDir(MarathonAppPaths::dataDir("devapp")).removeRecursively());
+    }
+
     void install_needsAReceipt() {
         QVERIFY(writeFile(MarathonAppPaths::filesDir("com.copied.app") + "/manifest.json",
                           manifest("com.copied.app")));

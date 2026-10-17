@@ -195,13 +195,15 @@ bool MarathonAppInstaller::removeDirectory(const QString &path) {
 
 // The receipt is what the user approved: the permissions the plan disclosed
 // and, for an update, consented to. The scanner trusts it, not the manifest.
-static bool writeReceipt(const QJsonObject &manifest, const QString &signer) {
-    const QString     appId = manifest.value("id").toString();
-    const QJsonObject receipt{{"id", appId},
-                              {"version", manifest.value("version").toString()},
-                              {"signer", signer},
-                              {"permissions", QJsonArray::fromStringList(permissionsOf(manifest))}};
-    QSaveFile         file(MarathonAppPaths::receiptPath(appId));
+static bool writeReceipt(const QJsonObject &manifest, const QString &signer, bool migrated) {
+    const QString appId = manifest.value("id").toString();
+    QJsonObject   receipt{{"id", appId},
+                          {"version", manifest.value("version").toString()},
+                          {"signer", signer},
+                          {"permissions", QJsonArray::fromStringList(permissionsOf(manifest))}};
+    if (migrated)
+        receipt.insert("migrated", true);
+    QSaveFile file(MarathonAppPaths::receiptPath(appId));
     return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(receipt).toJson()) > 0 &&
         file.commit();
 }
@@ -234,7 +236,7 @@ bool MarathonAppInstaller::place(const QJsonObject &manifest, const QString &sou
         emit installFailed(appId, "Failed to copy app files");
         return false;
     }
-    if (!writeReceipt(manifest, signer)) {
+    if (!writeReceipt(manifest, signer, false)) {
         removeDirectory(dest);
         emit installFailed(appId, "Failed to record the installation");
         return false;
@@ -450,4 +452,43 @@ bool MarathonAppInstaller::uninstallApp(const QString &appId) {
 
     qDebug() << "[MarathonAppInstaller] Successfully uninstalled:" << appId;
     return true;
+}
+
+// Installs used to live in the directory that is also the app's writable
+// data, so an app could rewrite its own manifest. Copy each into the
+// read-only install root with a receipt for the permissions its manifest
+// declares now; the old directory stays as the app's data. Returns the ids
+// whose manifest claimed "protected", which a non-system app never is: their
+// stored grants came from that claim.
+QStringList MarathonAppInstaller::migrateLegacyInstalls() {
+    const QString legacy = MarathonAppPaths::legacyInstalls();
+    if (QFileInfo(legacy).canonicalFilePath() ==
+        QFileInfo(MarathonAppPaths::systemApps()).canonicalFilePath())
+        return {};
+
+    QStringList       claimedProtected;
+    const QStringList dirs = QDir(legacy).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &appId : dirs) {
+        QFile manifestFile(legacy + "/" + appId + "/manifest.json");
+        if (QDir(MarathonAppPaths::installDir(appId)).exists() ||
+            !manifestFile.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonObject manifest = QJsonDocument::fromJson(manifestFile.readAll()).object();
+        if (manifest.value("id").toString() != appId ||
+            QFile::exists(MarathonAppPaths::systemApps() + "/" + appId + "/manifest.json"))
+            continue;
+
+        QDir().mkpath(MarathonAppPaths::installDir(appId));
+        if (!copyDirectory(legacy + "/" + appId, MarathonAppPaths::filesDir(appId)) ||
+            !writeReceipt(manifest, QString(), true)) {
+            qWarning() << "[MarathonAppInstaller] Failed to migrate" << appId;
+            removeDirectory(MarathonAppPaths::installDir(appId));
+            continue;
+        }
+        syslog(LOG_AUTH | LOG_NOTICE, "[SECURITY] Install moved out of its data directory: app=%s",
+               appId.toUtf8().constData());
+        if (manifest.value("protected").toBool())
+            claimedProtected.append(appId);
+    }
+    return claimedProtected;
 }

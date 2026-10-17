@@ -27,6 +27,7 @@ class MarathonAppInstaller : public QObject {
     Q_INVOKABLE bool    uninstallApp(const QString &appId);
     Q_INVOKABLE bool    canUninstall(const QString &appId);
     Q_INVOKABLE QString getInstallDirectory();
+    QStringList         migrateLegacyInstalls();
 
   signals:
     // plan: id, name, version, signer (key id, empty if unsigned), update,

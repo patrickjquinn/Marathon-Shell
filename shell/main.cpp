@@ -1157,6 +1157,10 @@ int main(int argc, char *argv[]) {
                                                             "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
 
+    // Before the first scan, which no longer looks in the old location.
+    for (const QString &appId : appInstaller->migrateLegacyInstalls())
+        permissionManager->forgetApp(appId);
+
     // The shell, weatherd and the portal (which asks the user itself) locate
     // freely; anything else needs the location permission.
     new GeoClueAgent(
