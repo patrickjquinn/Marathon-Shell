@@ -47,7 +47,6 @@ NativeClientScale::NativeClientScale(QWaylandCompositor *compositor)
     , m_display(static_cast<wl_display *>(compositor->display())) {
     m_global = wl_global_create(m_display, &wp_fractional_scale_manager_v1_interface, 1, this,
                                 &NativeClientScale::bindManager);
-    wl_display_set_global_filter(m_display, &NativeClientScale::filterGlobal, this);
     m_clientCreated                  = new ClientCreated{};
     m_clientCreated->self            = this;
     m_clientCreated->listener.notify = &NativeClientScale::clientCreated;
@@ -55,7 +54,6 @@ NativeClientScale::NativeClientScale(QWaylandCompositor *compositor)
 }
 
 NativeClientScale::~NativeClientScale() {
-    wl_display_set_global_filter(m_display, nullptr, nullptr);
     wl_global_destroy(m_global);
     wl_list_remove(&m_clientCreated->listener.link);
     delete m_clientCreated;
@@ -177,11 +175,6 @@ void NativeClientScale::sendOutputScale(void *data) {
     watch->pending = nullptr;
     wl_output_send_scale(watch->output, static_cast<int32_t>(std::ceil(watch->self->m_scale)));
     wl_output_send_done(watch->output);
-}
-
-bool NativeClientScale::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
-    auto *self = static_cast<NativeClientScale *>(data);
-    return global != self->m_global || !self->isFirstParty(const_cast<wl_client *>(client));
 }
 
 void NativeClientScale::bindManager(wl_client *client, void *data, uint32_t version, uint32_t id) {

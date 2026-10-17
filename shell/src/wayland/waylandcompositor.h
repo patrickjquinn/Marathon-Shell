@@ -166,6 +166,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleTextInputUpdate(Qt::InputMethodQueries queries);
 
   private:
+    static bool filterGlobal(const wl_client *client, const struct wl_global *global, void *data);
     void watchTextInputBinds();
     void setCompositorRealtimePriority();
     void calculateAndSetPhysicalSize();

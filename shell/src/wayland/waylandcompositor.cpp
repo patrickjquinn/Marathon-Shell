@@ -130,14 +130,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     m_textInputManagerV3 = new QWaylandTextInputManagerV3(this);
     watchTextInputBinds();
 
-    // wp_security_context_v1 — lets sandbox engines (marathon-app-runner,
-    // future Flatpak) tag connections with a fixed (engine, app_id,
-    // instance_id) triple. The compositor (and any portal proxies that
-    // consult it) can then enforce per-app policy independent of the
-    // client's own assertion. Runtime wiring (marathon-app-runner using
-    // this to make its bwrap'd apps connect on a separate FD) lands in a
-    // follow-up commit; this enables the global so the runtime side can
-    // be developed against a real implementation.
     m_securityContextManager = new SecurityContextManagerV1(this);
 
     // wp_fifo_v1 — queued-presentation barriers. Surfaces with
@@ -174,6 +166,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     m_nativeClientScale = new NativeClientScale(this);
     connect(m_nativeClientScale, &NativeClientScale::scaleChanged, this,
             &WaylandCompositor::nativeScaleChanged);
+    wl_display_set_global_filter(static_cast<wl_display *>(display()),
+                                 &WaylandCompositor::filterGlobal, this);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
@@ -345,6 +339,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 }
 
 WaylandCompositor::~WaylandCompositor() {
+    wl_display_set_global_filter(static_cast<wl_display *>(display()), nullptr, nullptr);
     // keyBegin/keyEnd, not keys(): the latter allocates an entire QList
     // just to walk it once, in a destructor.
     for (auto it = m_processes.keyBegin(), end = m_processes.keyEnd(); it != end; ++it) {
@@ -357,6 +352,12 @@ WaylandCompositor::~WaylandCompositor() {
         }
         process->deleteLater();
     }
+}
+
+bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
+    auto *self = static_cast<WaylandCompositor *>(data);
+    return self->m_securityContextManager->allowsGlobal(client, global) &&
+        self->m_nativeClientScale->allowsGlobal(client, global);
 }
 
 QQmlListProperty<QObject> WaylandCompositor::surfaces() {

@@ -423,4 +423,30 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
         ${CMAKE_SOURCE_DIR}/shell/src/wayland ${_fractional_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
     add_test(NAME Shell_NativeClientScale COMMAND test_shell_nativeclientscale)
     set_tests_properties(Shell_NativeClientScale PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # security-context-v1: sandboxed clients are tagged and miss privileged globals
+    set(_security_xml ${CMAKE_SOURCE_DIR}/shell/protocols/security-context-v1.xml)
+    set(_security_gen ${CMAKE_CURRENT_BINARY_DIR}/security-context)
+    file(MAKE_DIRECTORY ${_security_gen})
+    add_custom_command(
+        OUTPUT ${_security_gen}/security-context-v1-server.h
+               ${_security_gen}/security-context-v1-client.h
+               ${_security_gen}/security-context-v1.c
+        COMMAND ${WAYLAND_SCANNER} server-header ${_security_xml} ${_security_gen}/security-context-v1-server.h
+        COMMAND ${WAYLAND_SCANNER} client-header ${_security_xml} ${_security_gen}/security-context-v1-client.h
+        COMMAND ${WAYLAND_SCANNER} private-code ${_security_xml} ${_security_gen}/security-context-v1.c
+        DEPENDS ${_security_xml})
+    add_executable(test_shell_securitycontext
+        test_securitycontext.cpp
+        ../../shell/src/wayland/securitycontextv1.cpp
+        ${_security_gen}/security-context-v1-server.h
+        ${_security_gen}/security-context-v1-client.h
+        ${_security_gen}/security-context-v1.c
+    )
+    target_link_libraries(test_shell_securitycontext
+        Qt6::Test Qt6::Gui Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_securitycontext PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/wayland ${_security_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_SecurityContext COMMAND test_shell_securitycontext)
+    set_tests_properties(Shell_SecurityContext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

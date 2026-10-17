@@ -45,6 +45,10 @@ class NativeClientScale : public QObject {
     qreal scaleFor(wl_client *client) const {
         return isFirstParty(client) ? 1.0 : m_scale;
     }
+    // First-party clients do not see the fractional scale global.
+    bool allowsGlobal(const wl_client *client, const wl_global *global) const {
+        return global != m_global || !m_firstParty.contains(const_cast<wl_client *>(client));
+    }
 
   signals:
     void scaleChanged();
@@ -60,8 +64,6 @@ class NativeClientScale : public QObject {
     static void clientDestroyed(struct wl_listener *listener, void *data);
     static void outputDestroyed(struct wl_listener *listener, void *data);
     static void sendOutputScale(void *data);
-    static bool filterGlobal(const struct wl_client *client, const struct wl_global *global,
-                             void *data);
     static void bindManager(struct wl_client *client, void *data, uint32_t version, uint32_t id);
     static void getFractionalScale(struct wl_client *client, struct wl_resource *manager,
                                    uint32_t id, struct wl_resource *surface);

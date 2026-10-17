@@ -11,6 +11,7 @@
 #include <cstring>
 #include <thread>
 #include <wayland-client.h>
+#include <wayland-server-core.h>
 
 #include "fractional-scale-v1-client.h"
 #include "nativeclientscale.h"
@@ -187,6 +188,12 @@ class TestNativeClientScale : public QObject {
         QWaylandOutput output(&compositor, &window);
         auto          *scale = new NativeClientScale(&compositor);
         scale->setScale(1.5);
+        wl_display_set_global_filter(
+            static_cast<wl_display *>(compositor.display()),
+            [](const wl_client *client, const wl_global *global, void *data) {
+                return static_cast<NativeClientScale *>(data)->allowsGlobal(client, global);
+            },
+            scale);
 
         QProcess            probe;
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
