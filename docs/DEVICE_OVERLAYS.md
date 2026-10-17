@@ -207,6 +207,9 @@ validated in isolation.
    - udev rules, DT overlay(s), boot config, service drop-ins as needed.
    - A greetd drop-in if Qt needs device-specific env (KMS device pinning,
      `QT_QPA_EGLFS_INTEGRATION`, GPU library path).
+   - A modem without its own manager (unlike eg25-manager on the PinePhone):
+     link `marathon-modem-sleep.service` into `sleep.target.wants`, as the
+     Librem 5 does (`docs/BACKGROUND_WORK.md`).
 3. **Kernel**: reuse a mainline kernel if the SoC is upstream; else add a
    `linux-<vendor>-<model>-marathon` fork (precedent: the L5 fork with the
    RS9116 out-of-tree patch).
