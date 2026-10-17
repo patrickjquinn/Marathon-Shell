@@ -28,6 +28,7 @@ class AudioRoutingManager;
 class UpdateService;
 class DavSyncEngine;
 class MarathonAppStoreService;
+class MarathonAppInstaller;
 class AppLifecycleManager;
 class MarathonAppRegistry;
 
@@ -70,6 +71,9 @@ class ShellIpcServer : public QObject {
     void setPowerPolicy(PowerPolicyController *policy) {
         m_powerPolicy = policy;
     }
+    void setAppInstaller(MarathonAppInstaller *installer) {
+        m_appInstaller = installer;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -100,6 +104,7 @@ class ShellIpcServer : public QObject {
     UpdateService             *m_updateService       = nullptr;
     DavSyncEngine             *m_davSyncEngine       = nullptr;
     MarathonAppStoreService   *m_appStoreService     = nullptr;
+    MarathonAppInstaller      *m_appInstaller        = nullptr;
     AppLaunchService          *m_appLaunchService    = nullptr;
     AppLifecycleManager       *m_lifecycleManager    = nullptr;
     MarathonAppRegistry       *m_appRegistry         = nullptr;

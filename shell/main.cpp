@@ -1331,6 +1331,7 @@ int main(int argc, char *argv[]) {
         ipc->setModemManager(modemManager);
         ipc->setFlashlightManager(flashlightManager);
         ipc->setPowerPolicy(powerPolicyController);
+        ipc->setAppInstaller(appInstaller);
         auto *portalSettings = new PortalSettings(&app);
         // Files first: GTK 3 reloads its theme when the portal flips
         // Marathon to Marathon-dark, and must find the new colours.

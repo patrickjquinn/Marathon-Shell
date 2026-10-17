@@ -33,6 +33,7 @@
 #include "medialibrarymanager.h"
 #include "../services/updateservice.h"
 #include "../services/marathonappstoreservice.h"
+#include "marathonappinstaller.h"
 #include "../services/applifecyclemanager.h"
 #include "marathonappregistry.h"
 #include "davsyncengine.h"
@@ -2262,11 +2263,12 @@ QVariantMap DavObject::GetState() {
 // app-runner) reads via IPC. State change signals re-broadcast catalog
 // load + download progress so the Store's UI can stay live.
 
-AppStoreObject::AppStoreObject(MarathonAppStoreService   *appStore,
+AppStoreObject::AppStoreObject(MarathonAppStoreService *appStore, MarathonAppInstaller *installer,
                                MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
-    , m_appStore(appStore) {
+    , m_appStore(appStore)
+    , m_installer(installer) {
     if (m_appStore) {
         connect(m_appStore, &MarathonAppStoreService::catalogLoadedChanged, this,
                 [this]() { emit StateChanged(buildState()); });
@@ -2280,6 +2282,12 @@ AppStoreObject::AppStoreObject(MarathonAppStoreService   *appStore,
                 &AppStoreObject::DownloadComplete);
         connect(m_appStore, &MarathonAppStoreService::downloadFailed, this,
                 &AppStoreObject::DownloadFailed);
+    }
+    if (m_installer) {
+        connect(m_installer, &MarathonAppInstaller::uninstallComplete, this,
+                &AppStoreObject::UninstallComplete);
+        connect(m_installer, &MarathonAppInstaller::uninstallFailed, this,
+                &AppStoreObject::UninstallFailed);
     }
 }
 
@@ -2369,6 +2377,19 @@ void AppStoreObject::RunStoreUrl(const QString &url) {
     if (!QProcess::startDetached(QStringLiteral("/usr/bin/marathon-store-handler"), {url}))
         sendErrorReply(QDBusError::Failed,
                        QStringLiteral("Could not start marathon-store-handler"));
+}
+
+bool AppStoreObject::CanUninstall(const QString &appId) {
+    if (!requireSystem())
+        return false;
+    return m_installer && m_installer->canUninstall(appId);
+}
+
+void AppStoreObject::Uninstall(const QString &appId) {
+    if (!requireSystem())
+        return;
+    if (m_installer)
+        m_installer->uninstallApp(appId);
 }
 
 AppLifecycleObject::AppLifecycleObject(AppLifecycleManager *lifecycle,

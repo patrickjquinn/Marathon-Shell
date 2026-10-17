@@ -768,6 +768,7 @@ class DavObject : public IpcPermissionedService {
 };
 
 class MarathonAppStoreService;
+class MarathonAppInstaller;
 
 // Surfaces MarathonAppStoreService over D-Bus so the Store app (running
 // in the app-runner process) can query the catalog and ask the shell
@@ -779,8 +780,9 @@ class AppStoreObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppStore1")
 
   public:
-    AppStoreObject(MarathonAppStoreService *appStore, MarathonPermissionManager *permissions,
-                   AppLaunchService *launchService, QObject *parent = nullptr);
+    AppStoreObject(MarathonAppStoreService *appStore, MarathonAppInstaller *installer,
+                   MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                   QObject *parent = nullptr);
 
   public slots:
     QVariantMap  GetState();
@@ -797,6 +799,11 @@ class AppStoreObject : public IpcPermissionedService {
     // own sandbox gives it a private home, so flatpak --user must run from
     // the shell's side of that boundary.
     void RunStoreUrl(const QString &url);
+    // User installs are read-only inside every sandbox, so Settings removes
+    // them through the shell. The outcome arrives as UninstallComplete or
+    // UninstallFailed.
+    bool CanUninstall(const QString &appId);
+    void Uninstall(const QString &appId);
 
   signals:
     void StateChanged(const QVariantMap &state);
@@ -804,6 +811,8 @@ class AppStoreObject : public IpcPermissionedService {
     void DownloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
     void DownloadComplete(const QString &appId, const QString &packagePath);
     void DownloadFailed(const QString &appId, const QString &error);
+    void UninstallComplete(const QString &appId);
+    void UninstallFailed(const QString &appId, const QString &error);
 
   private:
     bool requireSystem() {
@@ -811,7 +820,8 @@ class AppStoreObject : public IpcPermissionedService {
     }
     QVariantMap              buildState() const;
 
-    MarathonAppStoreService *m_appStore = nullptr;
+    MarathonAppStoreService *m_appStore  = nullptr;
+    MarathonAppInstaller    *m_installer = nullptr;
 };
 
 // Lets apps (via marathon-app-runner) declare active background work like

@@ -115,8 +115,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *alarmObj = new AlarmObject(m_alarmManager, m_permissions, m_appLaunchService, this);
     auto *updatesObj = new UpdatesObject(m_updateService, m_permissions, m_appLaunchService, this);
     auto *davObj     = new DavObject(m_davSyncEngine, m_permissions, m_appLaunchService, this);
-    auto *appStoreObj =
-        new AppStoreObject(m_appStoreService, m_permissions, m_appLaunchService, this);
+    auto *appStoreObj = new AppStoreObject(m_appStoreService, m_appInstaller, m_permissions,
+                                           m_appLaunchService, this);
     auto *lifecycleObj =
         new AppLifecycleObject(m_lifecycleManager, m_appRegistry, m_appLaunchService, this);
 
