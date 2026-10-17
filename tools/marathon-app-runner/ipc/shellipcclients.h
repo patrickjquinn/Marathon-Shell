@@ -673,10 +673,15 @@ class DisplayClient : public QObject {
                    NOTIFY stateChanged)
     Q_PROPERTY(QString nightLightSchedule READ nightLightSchedule WRITE setNightLightSchedule NOTIFY
                    stateChanged)
+    // False once the shell refuses the system permission.
+    Q_PROPERTY(bool permitted READ permitted NOTIFY stateChanged)
 
   public:
     explicit DisplayClient(const QString &appId, QObject *parent = nullptr);
 
+    bool permitted() const {
+        return m_permitted;
+    }
     bool             available() const;
     bool             autoBrightnessEnabled() const;
     void             setAutoBrightnessEnabled(bool enabled);
@@ -704,6 +709,8 @@ class DisplayClient : public QObject {
 
   private slots:
     void onStateChanged(const QVariantMap &state);
+    void onPermissionGranted(const QString &appId, const QString &permission);
+    void onPermissionDenied(const QString &appId, const QString &permission);
 
   private:
     bool           ensureSystemPermission();
@@ -719,6 +726,7 @@ class DisplayClient : public QObject {
     bool           m_loggedFirstFailure  = false;
     bool           m_refreshInFlight     = false;
     bool           m_permissionRequested = false;
+    bool           m_permitted           = true;
 };
 
 class RemoteAudioStreamModel : public QAbstractListModel {
@@ -815,10 +823,15 @@ class PowerClient : public QObject {
     Q_PROPERTY(int estimatedBatteryTime READ estimatedBatteryTime NOTIFY stateChanged)
     Q_PROPERTY(QString powerProfile READ powerProfile NOTIFY stateChanged)
     Q_PROPERTY(bool powerProfilesSupported READ powerProfilesSupported NOTIFY stateChanged)
+    // False once the shell refuses the system permission.
+    Q_PROPERTY(bool permitted READ permitted NOTIFY stateChanged)
 
   public:
     explicit PowerClient(const QString &appId, QObject *parent = nullptr);
 
+    bool permitted() const {
+        return m_permitted;
+    }
     int              batteryLevel() const;
     bool             isCharging() const;
     bool             isPluggedIn() const;
@@ -841,6 +854,8 @@ class PowerClient : public QObject {
 
   private slots:
     void onStateChanged(const QVariantMap &state);
+    void onPermissionGranted(const QString &appId, const QString &permission);
+    void onPermissionDenied(const QString &appId, const QString &permission);
 
   private:
     bool           ensureSystemPermission();
@@ -857,6 +872,7 @@ class PowerClient : public QObject {
     bool           m_loggedFirstFailure  = false;
     bool           m_refreshInFlight     = false;
     bool           m_permissionRequested = false;
+    bool           m_permitted           = true;
 };
 
 class NetworkClient : public QObject {

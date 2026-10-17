@@ -1613,7 +1613,24 @@ DisplayClient::DisplayClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Display",
                                           "org.marathonos.Shell.Display1", "StateChanged", this,
                                           SLOT(onStateChanged(QVariantMap)));
+    connectPermissionGranted(this);
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell",
+                                          "/org/marathonos/Shell/Permissions",
+                                          "org.marathonos.Shell.Permissions1", "PermissionDenied",
+                                          this, SLOT(onPermissionDenied(QString, QString)));
     refresh();
+}
+
+void DisplayClient::onPermissionGranted(const QString &appId, const QString &permission) {
+    if (appId == m_appId && permission == "system")
+        refresh();
+}
+
+void DisplayClient::onPermissionDenied(const QString &appId, const QString &permission) {
+    if (appId != m_appId || permission != "system" || !m_permitted)
+        return;
+    m_permitted = false;
+    emit stateChanged();
 }
 
 bool DisplayClient::ensureSystemPermission() {
@@ -1624,13 +1641,16 @@ bool DisplayClient::ensureSystemPermission() {
         return false;
     if (r.value()) {
         m_permissionRequested = false;
+        m_permitted           = true;
         return true;
     }
     if (!m_permissionRequested) {
         m_permissionRequested = true;
         m_permIface.call("RequestPermission", m_appId, "system");
     }
-    QTimer::singleShot(750, this, &DisplayClient::refresh);
+    // Once refused, only PermissionGranted reads again.
+    if (m_permitted)
+        QTimer::singleShot(750, this, &DisplayClient::refresh);
     return false;
 }
 
@@ -1996,7 +2016,24 @@ PowerClient::PowerClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Power",
                                           "org.marathonos.Shell.Power1", "StateChanged", this,
                                           SLOT(onStateChanged(QVariantMap)));
+    connectPermissionGranted(this);
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell",
+                                          "/org/marathonos/Shell/Permissions",
+                                          "org.marathonos.Shell.Permissions1", "PermissionDenied",
+                                          this, SLOT(onPermissionDenied(QString, QString)));
     refresh();
+}
+
+void PowerClient::onPermissionGranted(const QString &appId, const QString &permission) {
+    if (appId == m_appId && permission == "system")
+        refresh();
+}
+
+void PowerClient::onPermissionDenied(const QString &appId, const QString &permission) {
+    if (appId != m_appId || permission != "system" || !m_permitted)
+        return;
+    m_permitted = false;
+    emit stateChanged();
 }
 
 bool PowerClient::ensureSystemPermission() {
@@ -2007,13 +2044,16 @@ bool PowerClient::ensureSystemPermission() {
         return false;
     if (r.value()) {
         m_permissionRequested = false;
+        m_permitted           = true;
         return true;
     }
     if (!m_permissionRequested) {
         m_permissionRequested = true;
         m_permIface.call("RequestPermission", m_appId, "system");
     }
-    QTimer::singleShot(750, this, &PowerClient::refresh);
+    // Once refused, only PermissionGranted reads again.
+    if (m_permitted)
+        QTimer::singleShot(750, this, &PowerClient::refresh);
     return false;
 }
 

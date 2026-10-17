@@ -314,6 +314,24 @@ target_include_directories(test_core_powerclient PRIVATE
 )
 add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
 
+# The runner's Power and Display clients say when the shell refuses them
+add_executable(test_core_refusedclients
+    test_refusedclients.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../marathon-core/src/marathonmanifest.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+set_target_properties(test_core_refusedclients PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_refusedclients Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+target_include_directories(test_core_refusedclients PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Core_RefusedClients COMMAND test_core_refusedclients)
+
 # The runner's Location client follows the shared session's state
 add_executable(test_core_locationclient
     test_locationclient.cpp
