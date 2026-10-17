@@ -55,6 +55,7 @@
 #include "src/services/motiondaemon.h"
 #include "src/services/automatictimezone.h"
 #include "src/managers/networkmanagercpp.h"
+#include "src/managers/waketimers.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
@@ -1235,12 +1236,39 @@ int main(int argc, char *argv[]) {
     const QString osRelease = QFile::exists(QStringLiteral("/etc/os-release")) ?
         QStringLiteral("/etc/os-release") :
         QStringLiteral("/usr/lib/os-release");
-    auto         *updateService =
-        new UpdateService(new SysupdateBackend, &SysupdateBackend::systemConditions,
-                          UpdateService::imageVersion(osRelease), bootId,
-                          [] { return QDateTime::currentDateTime(); }, &app);
+    auto         *updateService = new UpdateService(
+        new SysupdateBackend,
+        [displayPolicyController, powerPolicyController]() {
+            UpdateConditions c = SysupdateBackend::systemConditions();
+            c.idle             = !displayPolicyController->screenOn() &&
+                !powerPolicyController->hasActiveCalls() &&
+                !powerPolicyController->hasActiveAlarm();
+            return c;
+        },
+        UpdateService::imageVersion(osRelease), bootId, [] { return QDateTime::currentDateTime(); },
+        &app);
     QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
                      &PowerManagerCpp::restart);
+    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
+                     updateService, &UpdateService::reconsider);
+    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveAlarmChanged,
+                     updateService, &UpdateService::reconsider);
+    QObject::connect(displayPolicyController, &DisplayPolicyController::screenOnChanged,
+                     updateService, &UpdateService::reconsider);
+    QObject::connect(powerManager, &PowerManagerCpp::isPluggedInChanged, updateService,
+                     &UpdateService::reconsider);
+    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, updateService,
+                     &UpdateService::reconsider);
+    QObject::connect(networkManager, &NetworkManagerCpp::wifiConnectedChanged, updateService,
+                     &UpdateService::reconsider);
+    // A suspended device wakes for the restart window, as for an alarm.
+    auto *updateWake = new WakeTimers(QDBusConnection::sessionBus(), updateService);
+    QObject::connect(updateService, &UpdateService::restartWindowChanged, updateWake,
+                     [updateService, updateWake]() {
+                         const QDateTime at = updateService->nextRestartWindow();
+                         updateWake->set(QStringLiteral("update-restart"),
+                                         at.isValid() ? at.toSecsSinceEpoch() : 0);
+                     });
     if (freedesktopNotif)
         new UpdateNotifier(updateService, freedesktopNotif, navigationRouter, &app);
     auto *davCalendarStore = new DavCalendarStore(&app);
