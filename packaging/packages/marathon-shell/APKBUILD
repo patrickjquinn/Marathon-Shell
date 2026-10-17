@@ -121,7 +121,6 @@ source="
 	marathon-iw-setcap.service
 	marathon-cpu-governor.service
 	marathon-mm-tune.service
-	pam-marathon-shell
 	90-backlight.rules
 	99-marathon-rtprio.conf
 	marathon-shell-tmpfiles.conf
@@ -335,14 +334,6 @@ package() {
 			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
 	done
 
-	# PAM stack -- required for screen unlock + biometric auth.
-	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
-	# images (postmarketOS Duranium) keep /usr verifiable. A tmpfiles.d
-	# snippet symlinks the real path into /etc at first boot; on non-
-	# immutable images the same symlink exists and resolves through /usr.
-	install -Dm644 "$srcdir/pam-marathon-shell" \
-		"$pkgdir/usr/share/factory/etc/pam.d/marathon-shell"
-
 	# Backlight udev rule -- non-root brightness control.
 	install -Dm644 "$srcdir/90-backlight.rules" \
 		"$pkgdir/usr/lib/udev/rules.d/90-backlight.rules"
@@ -373,7 +364,6 @@ sha512sums="
 34fad6dcde02924afa5579115a9a97d9b83dedda2586e460b55a52ed622e2e81394317fe63c9307bc627e202931ab8f32e8c87426373d7b937e462be0c7cc97e  asyncfuture.tar.gz
 e6847b01f70a09a0243845158922aa0ac88d69e3bccec65a25da8de60d6ba5c2c606f936711fd70231642a58fc55d962730386c99eb476db65d7327c80b6c41b  marathon-shell-session
 03874bf9a73bb14067c85c49cd6f5857728a9c8b43d5e8f76ea7971ea5a22a015aeff193bc8653d4035bb1547a70cd92c9a98b595a5f66ea085def44b4a5a351  marathon-touchctl
-8aa49ad300745bba1549de017498c24ed40dad48bc46730b09fea1cef58668f41803a88f33b1d7214441e6f21b74394851a973b208b6b336e8bbcee54e7310c5  pam-marathon-shell
 6c7adb8400b3bb32fe108bfb5ebb0bbbaf1b3e08ebaaabaf2116c32b90f55f88340f88aad81b2d888c4c61c8ca745350c15182a90bcdf1305c51a43ecaa59133  90-backlight.rules
 8290f5c45f3ba269ae7c17c3204c569386eb0aac88dcff8a480bdca09c73fe6ea9f4007d9d01de54a2ce8844acca87601a1722581d5d8f5c65a0356ea978b055  99-marathon-rtprio.conf
 30813482a4c89137dfd85cd8ad9fd108c8b6bb44e1138a5d8c3a0d49143f11105f7e65e8a0f99d8e651409b5ff21e4830420e992d495e9b2e6ebeded817a516f  marathon-shell-tmpfiles.conf

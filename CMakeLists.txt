@@ -317,11 +317,11 @@ install(FILES udev/70-marathon-shell.rules
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/udev/rules.d
 )
 
-# Install PAM configuration (requires root privileges)
-# Note: This installs to /etc/pam.d which requires sudo
-# Manual installation: sudo cp pam.d/marathon-shell /etc/pam.d/marathon-shell
+# PAM stack for the lock screen. Packages ship it under factory/ and link
+# it into /etc with tmpfiles; on a host, scripts/install-pam-config.sh
+# copies it to /etc/pam.d.
 install(FILES pam.d/marathon-shell
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/pam.d
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/factory/etc/pam.d
 )
 
 # Install greetd configuration example
