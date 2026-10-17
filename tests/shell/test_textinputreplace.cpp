@@ -3,6 +3,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QTemporaryDir>
+#include <QWaylandInputMethodControl>
 #include <QWaylandQuickCompositor>
 #include <QWaylandQuickItem>
 #include <QWaylandQuickOutput>
@@ -247,6 +248,10 @@ class TestTextInputReplace : public QObject {
         };
         QTRY_COMPARE(QGuiApplication::focusObject(), &item);
         QTRY_VERIFY2(printed.contains(QLatin1String("FOCUSED")), qPrintable(printed));
+        // Qt clients drop commits until the compositor has seen their
+        // enable and enter state, as the shell's keyboard waits to show.
+        // The control's accessors are not exported; its property is.
+        QTRY_VERIFY(item.surface()->inputMethodControl()->property("enabled").toBool());
 
         InputContext context;
         context.insertText(QStringLiteral("I said teh"));
