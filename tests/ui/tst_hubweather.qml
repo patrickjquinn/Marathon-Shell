@@ -118,4 +118,15 @@ TestCase {
         tryVerify(() => sheet().open && sheet().choosing);
         tryVerify(() => findChild(hub, "weatherSearch").activeFocus);
     }
+
+    function test_reopensAtTheTop() {
+        WeatherClient.forecast = WeatherClient.sample();
+        sheet().open = true;
+        const flick = findChild(hub, "weatherFlick");
+        tryVerify(() => flick.contentHeight > flick.height);
+        flick.contentY = flick.originY - flick.topMargin + 200;
+        sheet().open = false;
+        sheet().open = true;
+        compare(flick.contentY, flick.originY - flick.topMargin);
+    }
 }

@@ -56,10 +56,12 @@ Item {
     }
 
     onOpenChanged: {
-        if (open)
+        if (open) {
+            flick.contentY = flick.originY - flick.topMargin;
             WeatherClient.refresh();
-        else
+        } else {
             choosing = false;
+        }
     }
 
     visible: x < width
