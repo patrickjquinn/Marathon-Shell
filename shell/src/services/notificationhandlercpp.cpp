@@ -1,16 +1,21 @@
 #include "notificationhandlercpp.h"
 
+#include "marathonappregistry.h"
 #include "navigationroutercpp.h"
 #include "notificationservicecpp.h"
 #include "telephonyservice.h"
 
+#include <QDebug>
+
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                                NavigationRouterCpp    *router,
-                                               TelephonyService *telephony, QObject *parent)
+                                               TelephonyService       *telephony,
+                                               MarathonAppRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_notifications(notifications)
     , m_router(router)
-    , m_telephony(telephony) {}
+    , m_telephony(telephony)
+    , m_registry(registry) {}
 
 void NotificationHandlerCpp::handleNotificationClick(int id) {
     const QVariantMap notification = findNotification(id);
@@ -86,5 +91,9 @@ void NotificationHandlerCpp::navigateToNotificationTarget(const QVariantMap &not
         return;
     }
 
+    if (!m_registry || !m_registry->hasApp(appId)) {
+        qWarning() << "[NotificationHandler] No installed app for notification from" << appId;
+        return;
+    }
     m_router->navigateToDeepLink(appId, "", {});
 }

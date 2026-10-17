@@ -98,6 +98,8 @@ set(SOURCES
     src/managers/rtscheduler.cpp
     src/dbus/freedesktopnotifications.h
     src/dbus/freedesktopnotifications.cpp
+    src/services/notificationtarget.h
+    src/services/notificationtarget.cpp
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
     src/marathonpermissionmanager.h

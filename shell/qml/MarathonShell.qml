@@ -1903,13 +1903,7 @@ Item {
             if (SessionStore.checkSession()) {
                 Logger.info("Shell", "Session valid, unlocking and navigating to notification");
                 SessionStore.unlock();
-                NotificationService.dismissNotification(notifId);
-                if (appId)
-                    NavigationRouter.navigateToDeepLink(appId, "", {
-                        "notificationId": notifId,
-                        "action": "view",
-                        "from": "lockscreen"
-                    });
+                NotificationService.clickNotification(notifId);
             } else {
                 Logger.info("Shell", "Session expired, requesting PIN");
                 shell.pendingNotification = {
@@ -2003,13 +1997,7 @@ Item {
             }
             if (shell.pendingNotification) {
                 Logger.info("Shell", "Executing pending notification action: " + shell.pendingNotification.title);
-                NotificationService.dismissNotification(shell.pendingNotification.id);
-                if (shell.pendingNotification.appId)
-                    NavigationRouter.navigateToDeepLink(shell.pendingNotification.appId, "", {
-                        "notificationId": shell.pendingNotification.id,
-                        "action": "view",
-                        "from": "lockscreen"
-                    });
+                NotificationService.clickNotification(shell.pendingNotification.id);
 
                 shell.pendingNotification = null;
             }

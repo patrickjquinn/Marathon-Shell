@@ -2,6 +2,7 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include "freedesktopnotifications.h"
+#include "marathonappregistry.h"
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
 #include "powermanagercpp.h"
@@ -49,6 +50,32 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(map.value("replyPlaceholder").toString(), QString("Reply to Ada"));
     }
 
+    // A tap can only open an app the notification names by its registry id.
+    void notificationsNameTheInstalledApp() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel   model;
+        MarathonAppRegistry registry;
+        registry.registerApp("messages", "Messages", "", 0, "", "", "1", true, {});
+        registry.registerApp("org.gnome.Maps", "Maps", "", 2, "", "", "1", false, {});
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        fdn.setAppRegistry(&registry);
+        QSignalSpy added(&model, &NotificationModel::notificationAdded);
+
+        const auto appOf = [&](int i) {
+            return model.getNotification(added.at(i).first().toInt())->toMap().value("appId");
+        };
+        fdn.Notify("Messages", 0, "", "Ada", "Hi", {}, {}, -1);
+        fdn.Notify("Maps", 0, "", "Turn left", "", {},
+                   {{"desktop-entry", QStringLiteral("org.gnome.Maps.desktop")}}, -1);
+        fdn.Notify("Thunderbird", 0, "", "Mail", "", {}, {}, -1);
+
+        QCOMPARE(added.count(), 3);
+        QCOMPARE(appOf(0).toString(), QString("messages"));
+        QCOMPARE(appOf(1).toString(), QString("org.gnome.Maps"));
+        QCOMPARE(appOf(2).toString(), QString("Thunderbird"));
+    }
+
     void replyEmitsNotificationReplied() {
         NotificationDatabase db;
         db.initialize();
@@ -79,7 +106,7 @@ class TestFreedesktopNotify : public QObject {
         FreedesktopNotifications fdn(&db, &model, nullptr);
         QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
 
-        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        const uint               id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
         QVERIFY(stored(db, id));
         model.dismissNotification(int(id));
 
@@ -95,8 +122,8 @@ class TestFreedesktopNotify : public QObject {
         NotificationModel        model;
         FreedesktopNotifications fdn(&db, &model, nullptr);
 
-        const uint a = fdn.Notify("chat", 0, "", "Ada", "1", {}, {}, -1);
-        const uint b = fdn.Notify("chat", 0, "", "Ada", "2", {}, {}, -1);
+        const uint               a = fdn.Notify("chat", 0, "", "Ada", "1", {}, {}, -1);
+        const uint               b = fdn.Notify("chat", 0, "", "Ada", "2", {}, {}, -1);
         model.dismissAllNotifications();
 
         QVERIFY(!stored(db, a));
@@ -110,7 +137,7 @@ class TestFreedesktopNotify : public QObject {
         FreedesktopNotifications fdn(&db, &model, nullptr);
         QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
 
-        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        const uint               id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
         fdn.CloseNotification(id);
 
         QVERIFY(!model.getNotification(int(id)));
@@ -121,16 +148,16 @@ class TestFreedesktopNotify : public QObject {
     void reloadKeepsTimeAndReadState() {
         NotificationDatabase db;
         db.initialize();
-        NotificationModel        model;
-        FreedesktopNotifications fdn(&db, &model, nullptr);
+        NotificationModel                        model;
+        FreedesktopNotifications                 fdn(&db, &model, nullptr);
 
         NotificationDatabase::NotificationRecord r{};
-        r.appId                 = "chat";
-        r.title                 = "Ada";
-        r.body                  = "Yesterday";
-        r.timestamp             = QDateTime::currentDateTime().addDays(-1);
-        const uint old          = db.saveNotification(r);
-        const uint fresh        = fdn.Notify("chat", 0, "", "Ada", "Now", {}, {}, -1);
+        r.appId          = "chat";
+        r.title          = "Ada";
+        r.body           = "Yesterday";
+        r.timestamp      = QDateTime::currentDateTime().addDays(-1);
+        const uint old   = db.saveNotification(r);
+        const uint fresh = fdn.Notify("chat", 0, "", "Ada", "Now", {}, {}, -1);
         model.markAsRead(int(fresh));
 
         NotificationModel reloaded;
@@ -148,7 +175,7 @@ class TestFreedesktopNotify : public QObject {
         FreedesktopNotifications fdn(&db, &model, nullptr);
         QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
 
-        const uint id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
+        const uint               id = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {}, -1);
         fdn.Notify("chat", id, "", "Ada", "Hi again", {}, {}, -1);
 
         QCOMPARE(closed.count(), 0);

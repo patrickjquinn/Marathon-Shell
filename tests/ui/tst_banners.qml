@@ -72,13 +72,13 @@ TestCase {
         };
     }
 
-    function test_tapOnMessageOpensTheApp() {
+    // NotificationHandler opens the app on the click; the banner must not too.
+    function test_tapOnMessageClicksItOnce() {
         notificationToast.showToast(message([]));
         wait(50);
         verify(!notificationToast.canReply);
         mouseClick(win.contentItem, 40, bannerY);
-        compare(NavigationRouter.deepLinks.length, 1);
-        compare(NavigationRouter.deepLinks[0].appId, "messages");
+        compare(NavigationRouter.deepLinks.length, 0);
         compare(NotificationService.clicked, [7]);
         verify(!notificationToast.showInlineReply);
     }
@@ -91,7 +91,7 @@ TestCase {
         wait(50);
         verify(notificationToast.canReply);
         mouseClick(win.contentItem, 40, bannerY);
-        compare(NavigationRouter.deepLinks.length, 1);
+        compare(NotificationService.clicked, [7]);
     }
 
     function test_swipeUpDismissesWithoutOpening() {

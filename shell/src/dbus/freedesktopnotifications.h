@@ -2,12 +2,14 @@
 #define FREEDESKTOPNOTIFICATIONS_H
 
 #include <QObject>
+#include <QPointer>
 #include <QDBusContext>
 #include <QDBusConnection>
 #include <QStringList>
 #include <QVariantMap>
 #include "notificationdatabase.h"
 
+class MarathonAppRegistry;
 class NotificationModel;
 class PowerManagerCpp;
 
@@ -21,6 +23,9 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     ~FreedesktopNotifications() override;
 
     bool registerService();
+
+    // Lets notifications name the installed app they came from.
+    void setAppRegistry(MarathonAppRegistry *registry);
 
     // A tap ("default") or an action button: tells the client, and makes the
     // D-Bus call a Nemo.Notifications client attached to that action.
@@ -52,6 +57,7 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     NotificationDatabase *m_database;
     NotificationModel    *m_model;
     PowerManagerCpp      *m_powerManager;
+    QPointer<MarathonAppRegistry> m_registry;
 
     QString               extractAppName(const QString &provided, const QVariantMap &hints);
 

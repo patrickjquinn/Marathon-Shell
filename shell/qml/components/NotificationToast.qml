@@ -215,13 +215,7 @@ Item {
                 const n = toastContainer.currentToast;
                 NotificationService.clickNotification(n.id);
                 NotificationModel.markAsRead(n.id);
-                if (n.appId)
-                    NavigationRouter.navigateToDeepLink(n.appId, "", {
-                        "notificationId": n.id,
-                        "action": "view",
-                        "from": "notification"
-                    });
-                else
+                if (!n.appId)
                     Router.goToHub();
                 toastContainer.dismissToast();
             }

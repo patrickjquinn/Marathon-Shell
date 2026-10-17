@@ -1114,6 +1114,7 @@ int main(int argc, char *argv[]) {
 
         freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
+        freedesktopNotif->setAppRegistry(appRegistry);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }
@@ -1195,7 +1196,7 @@ int main(int argc, char *argv[]) {
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
-                                         navigationRouter, telephonyService, &app);
+                                         navigationRouter, telephonyService, appRegistry, &app);
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,

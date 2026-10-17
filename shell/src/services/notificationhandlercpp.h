@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QVariantMap>
 
+class MarathonAppRegistry;
 class NotificationServiceCpp;
 class NavigationRouterCpp;
 class TelephonyService;
@@ -15,7 +16,7 @@ class NotificationHandlerCpp : public QObject {
   public:
     explicit NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                     NavigationRouterCpp *router, TelephonyService *telephony,
-                                    QObject *parent = nullptr);
+                                    MarathonAppRegistry *registry, QObject *parent = nullptr);
 
     Q_INVOKABLE void handleNotificationClick(int id);
     Q_INVOKABLE void handleNotificationAction(int id, const QString &action);
@@ -27,6 +28,7 @@ class NotificationHandlerCpp : public QObject {
     QPointer<NotificationServiceCpp> m_notifications;
     QPointer<NavigationRouterCpp>    m_router;
     QPointer<TelephonyService>       m_telephony;
+    QPointer<MarathonAppRegistry>    m_registry;
 };
 
 #endif

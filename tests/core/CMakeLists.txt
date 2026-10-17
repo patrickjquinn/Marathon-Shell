@@ -16,6 +16,19 @@ target_include_directories(test_core_appregistry PRIVATE
 )
 add_test(NAME Core_AppRegistry COMMAND test_core_appregistry)
 
+# Which installed app a notification belongs to
+add_executable(test_core_notificationtarget
+    test_notificationtarget.cpp
+    ../../shell/src/services/notificationtarget.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_core_notificationtarget Qt6::Test Qt6::Core)
+target_include_directories(test_core_notificationtarget PRIVATE
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+)
+add_test(NAME Core_NotificationTarget COMMAND test_core_notificationtarget)
+
 # AppPackager tests (validation, round-trip, archive symlink refusal)
 add_executable(test_core_apppackager
     test_apppackager.cpp

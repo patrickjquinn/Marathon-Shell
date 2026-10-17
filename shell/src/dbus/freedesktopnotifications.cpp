@@ -1,10 +1,14 @@
 #include "freedesktopnotifications.h"
 #include "nemoremoteaction.h"
+#include "marathonappregistry.h"
 #include "notificationmodel.h"
+#include "notificationtarget.h"
 #include "powermanagercpp.h"
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusError>
 #include <QDBusMessage>
+#include <QDBusReply>
 #include <QDateTime>
 #include <QDebug>
 #include <QCoreApplication>
@@ -67,6 +71,10 @@ bool FreedesktopNotifications::registerService() {
 
     qInfo() << "[FreedesktopNotifications] Registered org.freedesktop.Notifications on D-Bus";
     return true;
+}
+
+void FreedesktopNotifications::setAppRegistry(MarathonAppRegistry *registry) {
+    m_registry = registry;
 }
 
 void FreedesktopNotifications::activate(uint id, const QString &action) {
@@ -218,6 +226,18 @@ void FreedesktopNotifications::GetServerInformation(QString &name, QString &vend
 
 QString FreedesktopNotifications::extractAppName(const QString     &provided,
                                                  const QVariantMap &hints) {
+    // app_name is a display name the sender picks; the desktop-entry hint and
+    // the sender's own app scope say which installed app it really is.
+    QString senderApp;
+    if (calledFromDBus() && connection().interface()) {
+        const QDBusReply<uint> pid = connection().interface()->servicePid(message().service());
+        if (pid.isValid())
+            senderApp = NotificationTarget::appForPid(pid.value());
+    }
+    const QString installed = NotificationTarget::resolve(
+        {hints.value(QStringLiteral("desktop-entry")).toString(), senderApp, provided}, m_registry);
+    if (!installed.isEmpty())
+        return installed;
 
     if (hints.contains("desktop-entry")) {
         QString desktopEntry = hints.value("desktop-entry").toString();

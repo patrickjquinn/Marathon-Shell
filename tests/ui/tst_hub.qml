@@ -49,15 +49,14 @@ TestCase {
         return list.itemAtIndex(i);
     }
 
-    function test_tapOpensTheNotificationsApp() {
+    // NotificationHandler opens the app on the click; the Hub must not too.
+    function test_tapClicksTheNotificationOnce() {
         addNotification(42, "messages");
         tryVerify(() => row(0));
         mouseClick(row(0));
         compare(NotificationService.clicked, [42]);
         compare(NotificationModel.read, [42]);
-        compare(NavigationRouter.deepLinks.length, 1);
-        compare(NavigationRouter.deepLinks[0].appId, "messages");
-        compare(NavigationRouter.deepLinks[0].params.notificationId, 42);
+        compare(NavigationRouter.deepLinks.length, 0);
     }
 
     function test_tapInPeekClosesIt() {

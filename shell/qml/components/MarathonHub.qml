@@ -49,18 +49,11 @@ Rectangle {
         WeatherClient.refresh();
     }
 
-    // As the notification banner's tap: open the sender, or just mark read.
+    // NotificationHandler opens the sender's app, if one is installed.
     function openNotification(notifId, appId) {
         NotificationService.clickNotification(notifId);
         NotificationModel.markAsRead(notifId);
-        if (!appId)
-            return;
-        NavigationRouter.navigateToDeepLink(appId, "", {
-            "notificationId": notifId,
-            "action": "view",
-            "from": "hub"
-        });
-        if (isInPeekMode)
+        if (appId && isInPeekMode)
             closed();
     }
 
