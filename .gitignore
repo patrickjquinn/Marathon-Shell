@@ -29,6 +29,9 @@ libs_to_deploy.txt
 # Profiling output
 profile_data.qtd
 
+# Python bytecode from the build-time tools and their tests
+__pycache__/
+
 # Editor/scripted-edit backups
 *.bak
 *.orig
