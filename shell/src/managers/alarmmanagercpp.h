@@ -70,6 +70,8 @@ class AlarmManagerCpp : public QObject {
     void alarmTriggered(const QString &id, const QString &label);
     void alarmDismissed(const QString &id);
     void alarmSnoozed(const QString &id, int minutes);
+    // Seconds since the epoch, 0 when no alarm is set.
+    void nextAlarmScheduled(qint64 epochSecs);
 
   private slots:
     void checkAlarms();

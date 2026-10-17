@@ -56,6 +56,8 @@ set(SOURCES
     src/managers/networkmanagercpp.cpp
     src/managers/powermanagercpp.h
     src/managers/powermanagercpp.cpp
+    src/managers/waketimers.h
+    src/managers/waketimers.cpp
     src/controllers/powerpolicycontroller.h
     src/controllers/powerpolicycontroller.cpp
     src/services/powerbatteryhandlercpp.h

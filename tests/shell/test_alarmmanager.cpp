@@ -111,6 +111,25 @@ class TestAlarmManager : public QObject {
         alarms.stopAll();
     }
 
+    void theEarliestAlarmIsScheduledToWakeTheDevice() {
+        AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
+        QSignalSpy      scheduled(&alarms, &AlarmManagerCpp::nextAlarmScheduled);
+        QTRY_COMPARE(scheduled.count(), 1);
+        QCOMPARE(scheduled.takeLast().at(0).toLongLong(), 0);
+
+        const qint64  soon  = QDateTime::currentMSecsSinceEpoch() + 3600000;
+        const qint64  later = soon + 3600000;
+        const QString late  = alarms.createAlarm(QString(), "Later", {}, timerOptions(later));
+        QCOMPARE(scheduled.takeLast().at(0).toLongLong(), later / 1000);
+        const QString first = alarms.createAlarm(QString(), "Soon", {}, timerOptions(soon));
+        QCOMPARE(scheduled.takeLast().at(0).toLongLong(), soon / 1000);
+
+        QVERIFY(alarms.deleteAlarm(first));
+        QCOMPARE(scheduled.takeLast().at(0).toLongLong(), later / 1000);
+        QVERIFY(alarms.disableAlarm(late));
+        QCOMPARE(scheduled.takeLast().at(0).toLongLong(), 0);
+    }
+
     void oneShotWithoutInstantIsRejected() {
         AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
         QTest::qWait(10);

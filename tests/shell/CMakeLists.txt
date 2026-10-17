@@ -246,6 +246,7 @@ add_executable(test_shell_alarmmanager
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/hapticmanager.cpp
 )
 target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
@@ -253,14 +254,25 @@ target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/s
 add_test(NAME Shell_AlarmManager COMMAND test_shell_alarmmanager)
 set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# A resume at the time marathon-background armed is a background wake
+# A resume at the time marathon-background armed is a background wake,
+# unless an alarm is due
 add_executable(test_shell_backgroundwake
     test_backgroundwake.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/waketimers.cpp
 )
 target_link_libraries(test_shell_backgroundwake Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
 target_include_directories(test_shell_backgroundwake PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_BackgroundWake COMMAND test_shell_backgroundwake)
+
+# Wake-up timers are transient systemd user units, against a fake manager
+add_executable(test_shell_waketimers
+    test_waketimers.cpp
+    ../../shell/src/managers/waketimers.cpp
+)
+target_link_libraries(test_shell_waketimers Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_shell_waketimers PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+add_test(NAME Shell_WakeTimers COMMAND test_shell_waketimers)
 
 # SecurityManager: quick PIN failures count towards the lockout
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)

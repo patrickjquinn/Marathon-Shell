@@ -12,6 +12,8 @@
 #include <QDBusContext>
 #include <qqml.h>
 
+class WakeTimers;
+
 class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_OBJECT
     QML_NAMED_ELEMENT(PowerManagerService)
@@ -25,8 +27,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     static PowerManagerCpp *create(QQmlEngine *, QJSEngine *);
 
     // Whether a resume at nowSecs is the wake-up marathon-background armed
-    // (its time is in markerPath), not one the person caused.
-    static bool isBackgroundWake(const QString &markerPath, qint64 nowSecs);
+    // (its time is in markerPath), not one for the alarm due at alarmSecs or
+    // one the person caused.
+    static bool isBackgroundWake(const QString &markerPath, qint64 alarmSecs, qint64 nowSecs);
 
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
 
@@ -112,7 +115,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_INVOKABLE bool inhibitSuspend(const QString &who, const QString &why);
     Q_INVOKABLE void releaseInhibitor();
 
-    Q_INVOKABLE bool setRtcAlarm(qint64 epochTime);
+    // The next alarm, which wakes a suspended device with the screen on;
+    // 0 for none.
+    void             setAlarmWake(qint64 epochSecs);
 
     Q_INVOKABLE void updateActivity();
 
@@ -143,11 +148,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     void                    applyCPUGovernor(PowerProfile profile) const;
     void                    checkCPUGovernorSupport();
     void                    checkWakelockSupport();
-    void                    checkRtcAlarmSupport();
     void                    cleanupWakelocks();
     void                    setupDisplayDevice();
     bool                    writeToFile(const QString &path, const QString &content);
-    bool                    writeToRtcWakeAlarm(const QString &value);
 
     QDBusInterface         *m_upowerInterface;
     QDBusInterface         *m_displayDeviceInterface;
@@ -179,7 +182,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     bool                    m_wakelockSupported;
     QString                 m_fallbackMode;
 
-    bool                    m_rtcAlarmSupported;
+    WakeTimers             *m_wakeTimers;
+    qint64                  m_alarmWake = 0;
     QString                 m_criticalAction;
 };
 

@@ -1,4 +1,5 @@
 #include "powermanagercpp.h"
+#include "waketimers.h"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <QDebug>
@@ -45,7 +46,7 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_lastActivityTime(QDateTime::currentMSecsSinceEpoch())
     , m_wakelockSupported(false)
     , m_fallbackMode("none")
-    , m_rtcAlarmSupported(false)
+    , m_wakeTimers(new WakeTimers(QDBusConnection::sessionBus(), this))
     , m_criticalAction(QStringLiteral("PowerOff")) {
     qInfo() << "[PowerManagerCpp] Initializing";
 
@@ -90,7 +91,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     checkCPUGovernorSupport();
 
     checkWakelockSupport();
-    checkRtcAlarmSupport();
 
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(10000);
@@ -101,8 +101,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     qInfo() << "[PowerManagerCpp] Current power profile:" << m_powerProfileString;
     qInfo() << "[PowerManagerCpp] Wakelock support:"
             << (m_wakelockSupported ? "enabled" : "disabled (will use inhibitors)");
-    qInfo() << "[PowerManagerCpp] RTC alarm support:"
-            << (m_rtcAlarmSupported ? "enabled" : "disabled");
 }
 
 PowerManagerCpp::~PowerManagerCpp() {
@@ -214,13 +212,17 @@ void PowerManagerCpp::updateAggregateState() {
              << "% Charging:" << m_isCharging << "PluggedIn:" << m_isPluggedIn;
 }
 
-bool PowerManagerCpp::isBackgroundWake(const QString &markerPath, qint64 nowSecs) {
+bool PowerManagerCpp::isBackgroundWake(const QString &markerPath, qint64 alarmSecs,
+                                       qint64 nowSecs) {
+    const auto wokeFor = [nowSecs](qint64 t) { return nowSecs >= t - 10 && nowSecs <= t + 60; };
+    if (alarmSecs > 0 && wokeFor(alarmSecs))
+        return false;
     QFile marker(markerPath);
     if (!marker.open(QIODevice::ReadOnly))
         return false;
     bool         ok    = false;
     const qint64 armed = marker.readAll().trimmed().toLongLong(&ok);
-    return ok && nowSecs >= armed - 10 && nowSecs <= armed + 60;
+    return ok && wokeFor(armed);
 }
 
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
@@ -229,7 +231,7 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
         releaseInhibitor();
     } else {
         const bool background = isBackgroundWake(QStringLiteral("/run/marathon-background/wake"),
-                                                 QDateTime::currentSecsSinceEpoch());
+                                                 m_alarmWake, QDateTime::currentSecsSinceEpoch());
         qInfo() << "[PowerManagerCpp] System resumed from sleep"
                 << (background ? "for background work" : "");
         emit resumedFromSuspend(background);
@@ -608,57 +610,7 @@ bool PowerManagerCpp::writeToFile(const QString &path, const QString &content) {
     return true;
 }
 
-void PowerManagerCpp::checkRtcAlarmSupport() {
-
-    QFile rtcWakeAlarm("/sys/class/rtc/rtc0/wakealarm");
-    m_rtcAlarmSupported = rtcWakeAlarm.exists();
-
-    if (m_rtcAlarmSupported) {
-        qInfo() << "[PowerManagerCpp] RTC wakealarm support detected";
-
-        if (rtcWakeAlarm.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            rtcWakeAlarm.close();
-            qInfo() << "[PowerManagerCpp] RTC wakealarm write access granted";
-        } else {
-            qDebug() << "[PowerManagerCpp] RTC wakealarm write access denied";
-            m_rtcAlarmSupported = false;
-        }
-    } else {
-        qDebug() << "[PowerManagerCpp] RTC wakealarm interface not available";
-    }
-}
-
-bool PowerManagerCpp::setRtcAlarm(qint64 epochTime) {
-    if (!m_rtcAlarmSupported) {
-        qWarning() << "[PowerManagerCpp] RTC alarm not supported";
-        return false;
-    }
-
-    if (!writeToRtcWakeAlarm("0")) {
-        qWarning() << "[PowerManagerCpp] Failed to clear existing RTC alarm";
-        return false;
-    }
-
-    if (!writeToRtcWakeAlarm(QString::number(epochTime))) {
-        qWarning() << "[PowerManagerCpp] Failed to set RTC alarm";
-        return false;
-    }
-
-    QDateTime wakeTime = QDateTime::fromSecsSinceEpoch(epochTime);
-    qInfo() << "[PowerManagerCpp] RTC alarm set for:" << wakeTime.toString();
-    return true;
-}
-
-bool PowerManagerCpp::writeToRtcWakeAlarm(const QString &value) {
-    QFile file("/sys/class/rtc/rtc0/wakealarm");
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "[PowerManagerCpp] Failed to open wakealarm:" << file.errorString();
-        return false;
-    }
-
-    QTextStream out(&file);
-    out << value;
-    file.close();
-
-    return true;
+void PowerManagerCpp::setAlarmWake(qint64 epochSecs) {
+    m_alarmWake = epochSecs;
+    m_wakeTimers->set(QStringLiteral("alarm"), epochSecs);
 }

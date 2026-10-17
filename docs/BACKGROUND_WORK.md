@@ -149,12 +149,12 @@ supported`, result `resources`). So the system arms one on the users' behalf:
 3. It replaces the transient system timer `marathon-wake.timer`
    (`systemd-run --on-calendar=@T --timer-property=WakeSystem=true`), and
    writes `T` to `/run/marathon-background/wake`.
-4. On a low battery (below 20 %, on battery) it arms nothing.
+4. On a low battery (below 20 %, on battery) it arms only for an alarm.
 
 The wake-up is held by systemd in the kernel's alarmtimer
-(`CLOCK_REALTIME_ALARM`). The alarm clock writes `/sys/class/rtc/rtc0/wakealarm`
-directly; both are timers in the RTC core's queue, which programs the
-earliest, so neither overwrites the other.
+(`CLOCK_REALTIME_ALARM`, which needs `CAP_WAKE_ALARM`), which programs the
+RTC for its earliest timer. Nothing in Marathon writes
+`/sys/class/rtc/rtc0/wakealarm`, which is root's.
 
 After the RTC wakes the device, the user timer fires because its time has
 passed. The shell's `PowerManagerCpp` compares the resume time with
@@ -163,6 +163,27 @@ enters Doze instead of turning the screen on, so the task runs screen-off and
 the device stays dozing until the person wakes it. Nothing suspends it again;
 re-suspending after a maintenance window belongs with an auto-suspend policy,
 which Marathon does not have.
+
+### Alarms
+
+The alarm clock (`AlarmManagerCpp`) wakes the device through the same timer.
+For the next alarm the shell keeps one transient user timer,
+`marathon-wake-alarm-T.timer` (`OnCalendar=@T`, `RemainAfterElapse=no`,
+starting a `/bin/true` service), created with the user manager's
+`StartTransientUnit` on the session bus (`WakeTimers`). A new time stops the
+old timer and starts one with the new time in its name, since a stopped
+transient unit's name is not free at once. arm-wake takes it like any other
+`marathon-wake-*` timer, so the earliest of the alarms and the background
+tasks wins, and a low battery does not skip it.
+
+On resume the shell checks the alarm before the marker: a resume from 10 s
+before to 60 s after the next alarm turns the screen on, as a resume the
+person caused does, and the alarm rings; its monotonic `QTimer` stood still
+during the suspend, so `resumedFromSuspend` checks the alarms again.
+
+This is the split Android makes between `RTC_WAKEUP` work, which wakes the
+CPU, and `setAlarmClock()`, which also brings up the alarm's UI; on Sailfish
+`timed` holds both and asks mce for the display.
 
 ## The modem around suspend
 
@@ -231,7 +252,13 @@ tty1 on the devices: `cat /dev/vcs1`), the screen stays off, and the power
 key wakes it as usual. A plain `systemctl suspend` woken by the power key must
 still turn the screen on. With the battery below 20 % on battery,
 `arm-wake` must arm nothing (`systemctl list-timers marathon-wake.timer` is
-empty).
+empty) unless an alarm is set.
+
+Alarms: set one in Clock a few minutes ahead, then as `user`
+`systemctl --user list-timers 'marathon-wake-alarm-*'` lists it at that
+time; as root `systemctl start marathon-background-wake.service` and
+`systemctl list-timers marathon-wake.timer` shows the same time (or an
+earlier background task).
 
 On a Librem 5 (modem): `systemctl suspend`, wake with the power key,
 then `journalctl -b -u marathon-modem-sleep` shows `state=healthy` (or
@@ -255,4 +282,10 @@ and `journalctl -b -u eg25-manager` shows its suspend and resume.
 - eg25-manager's suspend handling (`src/suspend.c`).
   <https://gitlab.com/mobian1/eg25-manager>
 - systemd.timer(5) (`WakeSystem=`, `Persistent=`), systemd.service(5)
-  (`ExecCondition=`), systemd-suspend.service(8), systemd.generator(7).
+  (`ExecCondition=`), systemd-suspend.service(8), systemd.generator(7),
+  org.freedesktop.systemd1(5) (`StartTransientUnit`).
+- Android `AlarmManager` (`RTC_WAKEUP`, `setAlarmClock()`).
+  <https://developer.android.com/develop/background-work/services/alarms/schedule>
+- Sailfish `timed`, the alarm and wake-up daemon.
+  <https://github.com/sailfishos/timed>,
+  <https://docs.sailfishos.org/Reference/Core_Areas_and_APIs/Apps_and_MW/Alarms/>

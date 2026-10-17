@@ -810,6 +810,8 @@ int main(int argc, char *argv[]) {
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
+    QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, powerManager,
+                     &PowerManagerCpp::setAlarmWake);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
     auto *securityManager = new SecurityManager(&app);

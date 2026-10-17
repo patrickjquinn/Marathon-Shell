@@ -323,13 +323,11 @@ void AlarmManagerCpp::scheduleNextAlarm() {
     }
 
     m_checkTimer->stop();
+    emit nextAlarmScheduled(found ? nextTime.toSecsSinceEpoch() : 0);
     if (found) {
         qint64 ms = now.msecsTo(nextTime);
         if (ms < 0)
             ms = 0;
-
-        if (m_power)
-            m_power->setRtcAlarm(nextTime.toSecsSinceEpoch());
 
         m_checkTimer->start(ms);
         qInfo() << "[AlarmManagerCpp] Next alarm in" << ms / 1000 << "seconds";
