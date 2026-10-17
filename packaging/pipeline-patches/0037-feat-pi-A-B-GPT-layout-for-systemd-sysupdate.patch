@@ -1,0 +1,200 @@
+From 23df536b670f502783ef6afd9d0fec4a5b564fe7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 17 Oct 2026 15:16:33 +0100
+Subject: [PATCH] feat(pi): A/B GPT layout for systemd-sysupdate
+
+The Pi 5 / CM5 images are a single MBR root, so they cannot update
+themselves. systemd-sysupdate only writes partitions on a GPT disk
+("Disk %s has no GPT disk label, not suitable."), and the Pi 5 bootloader
+reads GPT (rpi-eeprom 2712 release notes, 2024-10-10 and 2025-01-22).
+
+MARATHON_IMAGE_LAYOUT=ab now builds raspberry-pi5 as the A/B layout the
+Raspberry Pi autoboot.txt documentation describes: partition 1 holds only
+autoboot.txt, partitions 2 and 3 are FAT boot slots, 4 and 5 are ext4
+root slots, and 6 is a data partition shared by both. Slot B is created
+empty here, labelled _empty, so sysupdate writes the first update into it.
+Each slot's partition label carries its IMAGE_VERSION, which is how
+sysupdate and the boot slot's cmdline find it.
+
+The GPT is kept, and each FAT32 partition gets its real start in the BPB's
+hidden sectors, as 0032 does on the MBR layout.
+---
+ .gitignore                          |  3 +++
+ mkosi.repart.ab-pi/00-autoboot.conf |  7 +++++++
+ mkosi.repart.ab-pi/10-boot-a.conf   |  8 ++++++++
+ mkosi.repart.ab-pi/11-boot-b.conf   |  5 +++++
+ mkosi.repart.ab-pi/20-root-a.conf   |  8 ++++++++
+ mkosi.repart.ab-pi/21-root-b.conf   |  5 +++++
+ mkosi.repart.ab-pi/30-data.conf     |  6 ++++++
+ scripts/build-image.py              | 25 +++++++++++++++++++++++++
+ scripts/mkosi-configure.py          | 12 ++++++++----
+ 9 files changed, 75 insertions(+), 4 deletions(-)
+ create mode 100644 mkosi.repart.ab-pi/00-autoboot.conf
+ create mode 100644 mkosi.repart.ab-pi/10-boot-a.conf
+ create mode 100644 mkosi.repart.ab-pi/11-boot-b.conf
+ create mode 100644 mkosi.repart.ab-pi/20-root-a.conf
+ create mode 100644 mkosi.repart.ab-pi/21-root-b.conf
+ create mode 100644 mkosi.repart.ab-pi/30-data.conf
+
+diff --git a/.gitignore b/.gitignore
+index 7aaaa09..9f8eeba 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,3 +14,6 @@ mkosi.extra/etc/NetworkManager/system-connections/
+ mkosi.extra/usr/share/factory/home/user/.ssh/
+ mkosi.extra/usr/lib/sysupdate.d/
+ mkosi.extra/usr/lib/systemd/import-pubring.pgp
++mkosi.extra/usr/share/marathon/ab/
++mkosi.extra/usr/share/mkinitfs/
++mkosi.extra/usr/lib/systemd/system.conf.d/
+diff --git a/mkosi.repart.ab-pi/00-autoboot.conf b/mkosi.repart.ab-pi/00-autoboot.conf
+new file mode 100644
+index 0000000..ac682b0
+--- /dev/null
++++ b/mkosi.repart.ab-pi/00-autoboot.conf
+@@ -0,0 +1,7 @@
++[Partition]
++Type=esp
++Label=marathon_autoboot
++Format=vfat
++CopyFiles=/usr/share/marathon/ab/autoboot:/
++SizeMinBytes=256M
++SizeMaxBytes=256M
+diff --git a/mkosi.repart.ab-pi/10-boot-a.conf b/mkosi.repart.ab-pi/10-boot-a.conf
+new file mode 100644
+index 0000000..5791710
+--- /dev/null
++++ b/mkosi.repart.ab-pi/10-boot-a.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=ebd0a0a2-b9e5-4433-87c0-68b6b72699c7
++Label=marathon_%A_boot
++Format=vfat
++CopyFiles=/boot:/
++SizeMinBytes=512M
++SizeMaxBytes=512M
++SplitName=boot.%U
+diff --git a/mkosi.repart.ab-pi/11-boot-b.conf b/mkosi.repart.ab-pi/11-boot-b.conf
+new file mode 100644
+index 0000000..f9733d1
+--- /dev/null
++++ b/mkosi.repart.ab-pi/11-boot-b.conf
+@@ -0,0 +1,5 @@
++[Partition]
++Type=ebd0a0a2-b9e5-4433-87c0-68b6b72699c7
++Label=_empty
++SizeMinBytes=512M
++SizeMaxBytes=512M
+diff --git a/mkosi.repart.ab-pi/20-root-a.conf b/mkosi.repart.ab-pi/20-root-a.conf
+new file mode 100644
+index 0000000..bd87bfe
+--- /dev/null
++++ b/mkosi.repart.ab-pi/20-root-a.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=root
++Label=marathon_%A_root
++Format=ext4
++CopyFiles=/
++SizeMinBytes=6G
++SizeMaxBytes=6G
++SplitName=root.%U
+diff --git a/mkosi.repart.ab-pi/21-root-b.conf b/mkosi.repart.ab-pi/21-root-b.conf
+new file mode 100644
+index 0000000..dab0226
+--- /dev/null
++++ b/mkosi.repart.ab-pi/21-root-b.conf
+@@ -0,0 +1,5 @@
++[Partition]
++Type=root
++Label=_empty
++SizeMinBytes=6G
++SizeMaxBytes=6G
+diff --git a/mkosi.repart.ab-pi/30-data.conf b/mkosi.repart.ab-pi/30-data.conf
+new file mode 100644
+index 0000000..b675eca
+--- /dev/null
++++ b/mkosi.repart.ab-pi/30-data.conf
+@@ -0,0 +1,6 @@
++[Partition]
++Type=var
++Label=marathon_data
++Format=ext4
++SizeMinBytes=1G
++SizeMaxBytes=1G
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index fe81ff8..00d84c5 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -42,6 +42,26 @@ def validate_and_extract_components(components):
+     return device_name, ui_name
+ 
+ 
++def record_fat32_starts(raw_path):
++    """Write each FAT32 partition's start into its BPB hidden sectors (and
++    the backup boot sector), as the Pi's MBR layout does for its one FAT."""
++    import json
++    table = json.loads(subprocess.run(
++        ["sfdisk", "--json", raw_path],
++        capture_output=True, text=True, check=True).stdout)["partitiontable"]
++    sector_size = table.get("sectorsize", 512)
++    with open(raw_path, "r+b") as f:
++        for part in table["partitions"]:
++            start = part["start"]
++            f.seek(start * sector_size + 0x52)
++            if f.read(8) != b"FAT32   ":
++                continue
++            for sector in (0, 6):
++                f.seek((start + sector) * sector_size + 0x1C)
++                f.write(start.to_bytes(4, "little"))
++            print(f"Pi: FAT32 at sector {start} records its start")
++
++
+ def build_image(components: List[str], extra_args: List[str]):
+     start_time = time.time()
+ 
+@@ -326,6 +346,11 @@ def build_image(components: List[str], extra_args: List[str]):
+             )
+             if not os.path.exists(raw_path):
+                 print(f"warning: expected raw output not found at {raw_path}; skipping Pi MBR step")
++            elif os.environ.get("MARATHON_IMAGE_LAYOUT") == "ab":
++                # A/B keeps the GPT: systemd-sysupdate only writes GPT
++                # partitions.
++                record_fat32_starts(raw_path)
++                print("Pi: A/B GPT kept")
+             else:
+                 print(f"Pi: converting {raw_path} GPT → pure MBR")
+                 # Read the image as a file we can seek into. Don't loop-mount
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 6a196b2..ee6b7a0 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -6,9 +6,13 @@ import os
+ import subprocess
+ import sys
+ 
+-# Devices that boot UEFI -> systemd-boot -> UKI, so systemd-boot's boot
+-# counting can roll an A/B image back.
+-AB_DEVICES = ("qemu-aarch64",)
++# Devices whose boot chain can try a slot and fall back, and their A/B
++# partition layout. QEMU: UEFI -> systemd-boot -> UKI with boot counting.
++# Pi 5: firmware autoboot.txt tryboot_a_b picks one of two boot partitions.
++AB_DEVICES = {
++    "qemu-aarch64": "mkosi.repart.ab",
++    "raspberry-pi5": "mkosi.repart.ab-pi",
++}
+ 
+ 
+ def main() -> int:
+@@ -108,7 +112,7 @@ def main() -> int:
+             if len(repart) != 1:
+                 print(f"Error: expected one repart directory, got {repart}", file=sys.stderr)
+                 return 1
+-            config["RepartDirectories"] = [os.path.join(os.path.dirname(repart[0]), "mkosi.repart.ab")]
++            config["RepartDirectories"] = [os.path.join(os.path.dirname(repart[0]), AB_DEVICES[device])]
+         elif layout != "single":
+             print(f"Error: MARATHON_IMAGE_LAYOUT={layout}; expected single or ab", file=sys.stderr)
+             return 1
+-- 
+2.55.0
+
