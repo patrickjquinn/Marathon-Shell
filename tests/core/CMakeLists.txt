@@ -365,6 +365,12 @@ target_link_libraries(test_core_weatherclient Qt6::Test Qt6::Core Qt6::DBus Qt6:
 target_include_directories(test_core_weatherclient PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Core_WeatherClient COMMAND test_core_weatherclient)
 
+# The shell as GeoClue's agent
+add_executable(test_core_geoclueagent test_geoclueagent.cpp ../../shell/src/managers/geoclueagent.cpp)
+target_link_libraries(test_core_geoclueagent Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_core_geoclueagent PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+add_test(NAME Core_GeoClueAgent COMMAND test_core_geoclueagent)
+
 # Automatic time zone: nearest zone.tab city to the location fix
 add_executable(test_core_automatictimezone
     test_automatictimezone.cpp

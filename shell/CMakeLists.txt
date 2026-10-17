@@ -130,6 +130,8 @@ set(SOURCES
     src/managers/rotationmanager.cpp
     src/managers/locationmanager.h
     src/managers/locationmanager.cpp
+    src/managers/geoclueagent.h
+    src/managers/geoclueagent.cpp
     src/managers/clipboardmanagercpp.h
     src/managers/clipboardmanagercpp.cpp
     src/managers/hapticmanager.h

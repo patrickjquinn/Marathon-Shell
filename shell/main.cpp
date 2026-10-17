@@ -100,6 +100,7 @@
 #include "src/managers/mpris2controller.h"
 #include "src/managers/rotationmanager.h"
 #include "src/managers/locationmanager.h"
+#include "src/managers/geoclueagent.h"
 #include "src/managers/clipboardmanagercpp.h"
 #include "src/managers/hapticmanager.h"
 #include "src/managers/flashlightmanagercpp.h"
@@ -1139,6 +1140,19 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<MarathonPermissionManager>("MarathonOS.Shell", 1, 0,
                                                             "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
+
+    // The shell, weatherd and the portal (which asks the user itself) locate
+    // freely; anything else needs the location permission.
+    new GeoClueAgent(
+        QDBusConnection::systemBus(),
+        [permissionManager](const QString &desktopId) {
+            static const QStringList kSystem = {QStringLiteral("org.marathon.Shell"),
+                                                QStringLiteral("marathon-weather"),
+                                                QStringLiteral("xdg-desktop-portal")};
+            return kSystem.contains(desktopId) ||
+                permissionManager->hasPermission(desktopId, QStringLiteral("location"));
+        },
+        &app);
 
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &MarathonPermissionManager::dismissForApp);
