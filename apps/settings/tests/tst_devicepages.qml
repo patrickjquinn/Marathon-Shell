@@ -152,6 +152,15 @@ TestCase {
         muteSwitch.clicked(null);
         verify(!Audio.muted);
         compare(child(s.page, "ringtoneButton").value, "Classic");
+
+        // The tones' own levels, apart from the media volume.
+        compare(child(s.page, "alarmVolumeSlider").value, 90);
+        compare(child(s.page, "notificationVolumeSlider").value, 70);
+        s.page.setToneVolume("alarmVolume", 15);
+        compare(Settings.alarmVolume, 0.15);
+        compare(child(s.page, "alarmVolumeSlider").value, 15);
+        s.page.setToneVolume("ringtoneVolume", 120);
+        compare(Settings.ringtoneVolume, 1);
         const vibration = child(s.page, "vibrationSwitch");
         verify(vibration.checked);
         vibration.clicked(null);

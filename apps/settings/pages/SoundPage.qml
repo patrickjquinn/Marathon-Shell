@@ -12,6 +12,12 @@ Page {
         Audio.setVolume(Math.max(0, Math.min(100, percent)) / 100);
     }
 
+    // Ringtones, notifications and alarms have their own levels, which the
+    // media volume does not scale.
+    function setToneVolume(key, percent) {
+        Settings[key] = Math.max(0, Math.min(100, percent)) / 100;
+    }
+
     function pickSound(type) {
         pageStack.push(Qt.resolvedUrl("SoundPickerPage.qml"), { soundType: type });
     }
@@ -32,7 +38,7 @@ Page {
             Slider {
                 objectName: "volumeSlider"
                 width: parent.width
-                label: qsTr("Volume")
+                label: qsTr("Media volume")
                 minimumValue: 0
                 maximumValue: 100
                 stepSize: 1
@@ -47,7 +53,7 @@ Page {
             TextSwitch {
                 objectName: "muteSwitch"
                 text: qsTr("Mute")
-                description: qsTr("Silence all sounds")
+                description: qsTr("Alarms, ringtones and notifications keep their own volume")
                 automaticCheck: false
                 checked: Audio.muted
                 onClicked: Audio.setMuted(!Audio.muted)
@@ -63,17 +69,51 @@ Page {
                 value: Settings.formatSoundName(Settings.ringtone)
                 onClicked: page.pickSound("ringtone")
             }
+            Slider {
+                objectName: "ringtoneVolumeSlider"
+                visible: Modem.available
+                width: parent.width
+                label: qsTr("Ringtone volume")
+                minimumValue: 0
+                maximumValue: 100
+                stepSize: 1
+                value: Logic.percent(Settings.ringtoneVolume)
+                valueText: qsTr("%1%").arg(Math.round(sliderValue))
+                onReleased: page.setToneVolume("ringtoneVolume", value)
+            }
             ValueButton {
                 objectName: "notificationSoundButton"
                 label: qsTr("Notification sound")
                 value: Settings.formatSoundName(Settings.notificationSound)
                 onClicked: page.pickSound("notification")
             }
+            Slider {
+                objectName: "notificationVolumeSlider"
+                width: parent.width
+                label: qsTr("Notification volume")
+                minimumValue: 0
+                maximumValue: 100
+                stepSize: 1
+                value: Logic.percent(Settings.notificationVolume)
+                valueText: qsTr("%1%").arg(Math.round(sliderValue))
+                onReleased: page.setToneVolume("notificationVolume", value)
+            }
             ValueButton {
                 objectName: "alarmSoundButton"
                 label: qsTr("Alarm sound")
                 value: Settings.formatSoundName(Settings.alarmSound)
                 onClicked: page.pickSound("alarm")
+            }
+            Slider {
+                objectName: "alarmVolumeSlider"
+                width: parent.width
+                label: qsTr("Alarm volume")
+                minimumValue: 0
+                maximumValue: 100
+                stepSize: 1
+                value: Logic.percent(Settings.alarmVolume)
+                valueText: qsTr("%1%").arg(Math.round(sliderValue))
+                onReleased: page.setToneVolume("alarmVolume", value)
             }
 
             SectionHeader {

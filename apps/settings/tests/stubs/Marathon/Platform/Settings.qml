@@ -13,6 +13,9 @@ QtObject {
     property string ringtone: "/sounds/ring_classic.wav"
     property string notificationSound: "/sounds/chime.wav"
     property string alarmSound: "/sounds/alarm_dawn.wav"
+    property real ringtoneVolume: 0.8
+    property real notificationVolume: 0.7
+    property real alarmVolume: 0.9
     property bool showNotificationsOnLockScreen: true
     property bool filterMobileFriendlyApps: true
     property bool searchNativeApps: false
@@ -43,6 +46,9 @@ QtObject {
         ringtone = "/sounds/ring_classic.wav";
         notificationSound = "/sounds/chime.wav";
         alarmSound = "/sounds/alarm_dawn.wav";
+        ringtoneVolume = 0.8;
+        notificationVolume = 0.7;
+        alarmVolume = 0.9;
         showNotificationsOnLockScreen = true;
         filterMobileFriendlyApps = true;
         searchNativeApps = false;
