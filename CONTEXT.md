@@ -1,152 +1,148 @@
 # Marathon Shell — Operational Context
 
-Operational quick-reference for driving, building, flashing, debugging and visually
-validating Marathon Shell. Companion to `README.md` (intro) and `docs/*.md` (deep
-dives). If something here drifts from the live tree, the tree wins — but tell
-someone, because this doc is supposed to be authoritative.
+Quick reference for building, flashing, driving and debugging Marathon.
+`README.md` is the introduction; `docs/*.md` are the deep dives. If this
+file disagrees with the tree, the tree wins — fix this file.
 
 ---
 
 ## 1. What this is
 
-Marathon Shell is a Qt6/QML mobile shell + Wayland compositor in **one process**,
-running on top of Alpine + duranium. It is the foreground of a "real phone OS"
-target: lockscreen → home → app grid → per-app windows → quick settings → status
-bar → keyboard → notifications, all rendered by `marathon-shell-bin`.
+Marathon Shell is a Qt 6 / QML mobile shell and Wayland compositor in **one
+process** (`marathon-shell-bin`), running on postmarketOS (Alpine) built
+through duranium/mkosi. The shell process hosts the compositor, the scene
+graph, all shell QML, the app launcher and window model, the app lifecycle
+manager (cgroup v2 freezer), and the system service singletons (audio,
+brightness, modem, Wi-Fi, location, ...). Apps run in their own processes
+(`marathon-app-runner`, sandboxed with bwrap) and connect as Wayland clients.
 
-In-process compositor is treated as a UX advantage, not a debt.
+The in-process compositor is treated as an advantage, not a debt.
 
-Primary branch for in-flight UX work: **`ux-overhaul`**. Never merge straight to
-`main`; that gate is human-controlled.
+The primary branch is **`main`**.
 
 ---
 
 ## 2. Hardware targets
 
-| Device          | SoC            | GPU                    | Display       | Status                  |
-|-----------------|----------------|------------------------|---------------|-------------------------|
-| Librem 5        | i.MX8MQ        | Vivante GC7000Lite GLES2 | 720x1440      | Primary mobile target   |
-| HackberryPi CM5 | BCM2712 (Pi 5) | VideoCore VII (v3d) GLES3 | HyperPixel 720x720 | Fallback dev hardware |
-| QEMU (aarch64)  | virt           | virgl (CPU fallback)   | 540x1140 sim  | Dev simulator           |
+Device overlays live in `packaging/packages/device-*-marathon`; each ships
+`/etc/marathon/device-profile.conf` (see `docs/DEVICE_OVERLAYS.md`).
+
+| Device              | Build target (`build-image.sh <target>`) | SoC / GPU                         | Display          | Status |
+|---------------------|------------------------------------------|-----------------------------------|------------------|--------|
+| Purism Librem 5     | `purism-librem5`                         | i.MX8MQ / Vivante GC7000L (etnaviv, GLES2) | 720x1440 | Primary phone |
+| PINE64 PinePhone    | `pine64-pinephone`                       | Allwinner A64 / Mali-400 (lima, GLES2) | 720x1440    | Boots to OOBE; active |
+| HackberryPi CM5     | `raspberry-pi5` + CM5 overlay (`build-hackberry-cm5-image.sh`) | BCM2712 / VideoCore VII (v3d) | HyperPixel 4 Square 720x720, BBQ physical keyboard | Active |
+| Raspberry Pi 5 / CM5 (no enclosure) | `raspberry-pi5`          | BCM2712 / v3d                     | HDMI             | Base port for the CM5 overlay |
+| QEMU aarch64        | `qemu-aarch64`                           | virtio-gpu-gl (virgl)             | 720x1440 default | Developer simulator |
+| OnePlus 6           | `oneplus-enchilada`                      | SDM845 / Adreno 630               | 1080x2280        | Dormant (overlay untouched since 2026-09) |
 
 ### Hardware quirks (load-bearing)
 
-- **L5 etnaviv MSAA trap** — `layer.samples: 4` collapses to ~2 fps on GC7000Lite.
-  Every `layer.samples` in the shell must be gated on the `MARATHON_LAYER_SAMPLES`
-  env (default 4, overridden to 0 on L5).
-- **L5 GLES2 ceiling** — no GLES3 until Mesa 26.2. WebEngine HW accel needs
-  `bwrap` allowing only `renderD128`, `MESA_LOADER=etnaviv`, and
-  `WLR_RENDER_DRM_DEVICE` set.
-  WPE WebKit + WPEBackend-fdo is the strategic bridge.
-- **L5 input devices** — `event0=gpio-keys`, `event1=bd718xx-pwrkey`,
-  `event2=pwm-vibrator`, `event3=snvs-powerkey`. KEY_POWER lives on bit 52 of
-  the EV_KEY mask, which is why the bare `KEY=...` line lists `10000000000000 0`.
-- **L5 audio default sink** — wireplumber picks HDMI by default; without the
-  Marathon priority rule (`50-marathon-l5-default-sink.conf` baked into the
-  `device-purism-librem5-marathon` aport) the device has zero audio. The rule
-  bumps `HiFi__Speaker__sink` priority to 2000.
-- **L5 partition surgery** — ext4 boot partition at sector 4096, label
-  `pmOS_boot`. The phone-boot.img blob is `dd`'d to byte offset 33 KiB
-  (33792 bytes) on the disk so the i.MX BootROM finds the IVT (Image Vector
-  Table, tag byte `0xd1`) where it expects it. This is what `build-image.py`
-  does that raw `mkosi build` doesn't.
-- **Pi 5 boot path** — pure MBR + FAT16 + 0x0e bootable + ext4 root labelled
-  `pmOS_root` + no-splash cmdline + pre-populated `/etc`. Drop any one and the
-  CM5 silently doesn't boot. Full recipe in
-- **Display blanking** — `/sys/class/graphics/fb0/blank` going to 4 (POWERDOWN)
-  is the kernel idle path, not our suspend path. Power-key handling lives in
-  the shell's `PowerKeyListener`; `systemd-logind` is set to
-  `HandlePowerKey=ignore` so it does NOT also fire.
-- **QT_IM_MODULE** — shell process uses `none` (eglfs is single-window, the
-  `qtvirtualkeyboard` IM plugin spawns a Raster QWindow and fails the eglfs
-  XOR check). App clients use `wayland`. Propagated correctly via the systemd
-  scope env passthrough.
+- **etnaviv MSAA** — `layer.samples: 4` drops the Librem 5 to ~2 fps.
+  Layer samples come from `GPU_MSAA` in the device profile (0 on the L5 and
+  PinePhone, 4 on the Pi), overridable with `MARATHON_LAYER_SAMPLES`. Never
+  hard-code `layer.samples`.
+- **L5 audio default sink** — WirePlumber picks HDMI unless
+  `50-marathon-l5-default-sink.conf` (in `device-purism-librem5-marathon`)
+  raises the speaker sink's priority.
+- **L5 disk layout** — `build-image.py` rebuilds the disk after mkosi: ext4
+  boot partition at sector 4096 (512 MiB, label `pmOS_boot`) and
+  `phone-boot.img` written at byte offset 33 KiB so the i.MX BootROM finds
+  U-Boot. Raw `mkosi build` skips this and the image will not boot.
+- **PinePhone disk layout** — pure MBR; `u-boot-sunxi-with-spl-528.bin`
+  at 8 KiB; board DTBs copied to `allwinner/` on the ext4 boot partition.
+- **Pi 5 / CM5 boot** — no UEFI. `build-image.py` converts the GPT to a pure
+  MBR (FAT32 boot, type 0x0c, bootable; ext4 root `pmOS_root`), and
+  `mkosi.finalize` stages `kernel_2712.img` + a plain-cpio `initramfs_2712`.
+  `linux-rpi` is pinned to 6.12.85 (6.18.35 NULL-derefs in the initrd).
+  `cgroup_enable=memory` must stay on the cmdline or the freezer and PSI are
+  dead.
+- **Power key** — handled by the shell's `PowerKeyListener`; device
+  `logind.conf` files set `HandlePowerKey=ignore` so logind does not also act.
+- **`QT_IM_MODULE`** — the shell runs with `none`; apps use `wayland`.
+  `qtvirtualkeyboard` in the shell's environment kills the eglfs shell.
 
 ---
 
-## 3. Process & compositor structure
+## 3. Process & session structure
 
-- `greetd` starts `marathon-shell` via a `systemd-run` scope, not a unit. Scope
-  inherits `marathon.slice` resource controls and is recreated on every login.
-- The shell process hosts: the Wayland compositor, scene graph, all QML, the
-  app launcher, the per-app windowing model, AppLifecycleManager (cgroup v2
-  freezer), every QML singleton/service (audio, brightness, modem, wifi, etc.),
-  WebEngine (when running), and the SIGUSR1 screenshot handler.
-- Wayland protocols beyond what Qt 6 ships: a vendored
-  `zwp_linux_dmabuf_v1 v4` with `main_device` feedback lives at
-  `shell/src/wayland/linuxdmabufv1.{h,cpp}` (~445 LOC). Eliminated the
-  QRhi/dmabuf null-texture failures end-to-end.
-- **Stdio** — shell stdout/stderr routes to the greetd pipe, NOT journald, which
-  is why `journalctl -u marathon-shell` is empty when you want it most. To see
-  `qDebug`/`qWarning` output, run the shell binary manually under SSH with
-  `QT_LOGGING_RULES='*=true'` and pipe to a file.
-- **Mail backend** — QMF 4.0.4 + `MailService` QML singleton +
-  `marathonoauth`/`marathonclassic` credential plugins + the
-  `marathon-mail-oauth` Rust helper — all baked into the duranium image.
+- `greetd` runs `marathon-shell-session` as `user`. The session script sets
+  the environment and execs the shell inside a `systemd-run --user --scope`
+  under `marathon.slice` when that slice exists.
+- The compositor socket is `$XDG_RUNTIME_DIR/marathon-wayland-0`
+  (`MARATHON_WL_SOCKET_NAME` overrides).
+- Wayland extensions beyond Qt: a vendored `zwp_linux_dmabuf_v1` v4 at
+  `shell/src/wayland/linuxdmabufv1.{h,cpp}`; see `docs/WAYLAND_PROTOCOLS.md`.
+- App lifecycle: warm runner pool, cgroup v2 freezer for backgrounded apps,
+  oom_score_adj ladder. See `docs/NATIVE_APP_LIFECYCLE.md`.
+- Mail: QMF 4.0.4 + `MailService` + the `marathonoauth`/`marathonclassic`
+  credential plugins + the `marathon-mail-oauth` Rust helper.
+- Rust services live in `crates/` (`marathon-weatherd`,
+  `marathon-store-handler`, `marathon-core-native`).
 
 ---
 
 ## 4. Build pipeline
 
-### Canonical build entry (the only entry)
+### Entry point
 
 ```bash
-cd ~/duranium-build/duranium
-./scripts/build-image.py device-purism-librem5-marathon ui-marathon --release=edge
-# or for Pi 5:
-./scripts/build-image.py device-hackberrypi-cm5-marathon ui-marathon --release=edge
+scripts/build-librem5-image.sh          # purism-librem5
+scripts/build-hackberry-cm5-image.sh    # raspberry-pi5 + HackberryPi overlay
+scripts/build-qemu-image.sh [--boot]    # qemu-aarch64
+scripts/build-oneplus6-image.sh         # oneplus-enchilada
+scripts/build-image.sh pine64-pinephone # no wrapper yet
+scripts/build-image.sh raspberry-pi5    # Pi 5 without the enclosure
 ```
 
-**Never** run raw `mkosi build`. It skips L5 partition surgery (ext4 boot at
-sector 4096, phone-boot.img dd'd to byte 33 KiB / 0xd1 IVT header) and the
-Pi MBR rewrite. The device will not boot.
+All wrappers call `scripts/build-image.sh <target>`, which:
+
+1. checks host tools (`scripts/qemu/lib/check-host.sh`);
+2. runs `packaging/pipeline-patches/bootstrap.sh` to clone upstream duranium
+   at the pinned commit and `git am` the patch series, plus a pinned mkosi;
+3. builds Marathon's apks into `mkosi.packages/` (cached by
+   `pkgver-pkgrel`; `FORCE_REBUILD=1` drops the cache);
+4. runs duranium's `scripts/build-image.py device-<target> ui-marathon`,
+   which runs mkosi and then the per-device disk surgery.
+
+**Never** run raw `mkosi build`, and never call `build-image.py` by hand for
+a device image — the wrappers stage the apks and overlays it needs.
 
 ### What lives where
 
-- `~/duranium-build/duranium/` — upstream duranium clone, pinned at commit
-  `394290c6`. Marathon's divergence is a 17-patch series applied by
-  `bootstrap.sh`.
-- `packaging/packages/` — Alpine APKBUILDs for every Marathon component
-  (shell, ui controls, device tunings, app images, mail helper, etc.). Bump
-  `pkgrel` per release; the orchestrator picks up the new APK at image bake.
-- `packaging/pipeline-patches/` — the patch series against duranium
-  upstream. If you need to edit duranium's mkosi config, edit a patch here.
-
-### Stable image references
-
-The current known-good L5 image is bookkept in
-`project_r180_stable_image.md` with the absolute path under
-`~/duranium-build/duranium/mkosi.output/.../*.raw` and the flash command.
+- `~/.cache/marathon-build/duranium/` — the patched duranium tree
+  (override the root with `MARATHON_BUILD_DIR`). It is **generated**: change
+  it with a numbered patch in `packaging/pipeline-patches/`, never by editing
+  it. Images land in `mkosi.output/<target>_marathon_edge/`.
+- `packaging/pipeline-patches/` — 33 patches (0001–0034; there is no 0011)
+  against duranium `394290c6`. Index in `packaging/pipeline-patches/README.md`.
+- `packaging/packages/` — the Alpine aports (shell, base config, device
+  overlays, kernel and U-Boot forks, QMF, Plymouth theme, Keel, Pacific,
+  Pilot, ...). Bump `pkgrel` for every change you want in an image.
+- `scripts/qemu/lib/build-*-apk.sh` — the per-aport builders the
+  orchestrator calls.
 
 ---
 
-## 5. Recovery & flashing
+## 5. Flashing & recovery
 
-### Librem 5 (uuu)
+- **Librem 5** — `scripts/flash/flash-librem5.sh sd /dev/sdX <image.raw>` or
+  `scripts/flash/flash-librem5.sh emmc <image.raw>` (uuu SDP → fastboot). The
+  uuu script needs both the SDPU and SDPS stages; if uuu hangs near 97 %, one
+  is missing. `phone-boot.img` is extracted next to the image by
+  `build-image.sh`. The recovery rig (uuu + Jumpdrive + a pmOS phosh image)
+  lives at `~/librem5-recovery/`, reproducible with
+  `packaging/scripts/setup-librem5-recovery.sh`.
+- **Pi 5 / HackberryPi CM5** — `scripts/flash/flash-hackberry-cm5.sh /dev/sdX`
+  picks the newest `raspberry-pi5_marathon_edge_*.raw` and `dd`s it. The root
+  partition grows to fill the card on first boot.
+- **PinePhone** — `dd` the `.raw` to a microSD card.
+- **OnePlus 6** — `scripts/flash/flash-oneplus6.sh` (fastboot). Unverified on
+  recent images.
+- **QEMU** — `scripts/build-qemu-image.sh --boot`, or `--boot-only` to boot
+  the last bake.
 
-Recovery rig lives at `~/librem5-recovery/`: `uuu` + Jumpdrive 0.8 + pmOS phosh
-reset image. Reproducible from a clean host with
-`scripts/setup-librem5-recovery.sh`. Notes:
-
-- The GCC 15 `<cstdint>` patch and `libstdc++-static` are load-bearing for the
-  current uuu build.
-- `scripts/flash/flash-librem5.sh` must include both **SDPU** and **SDPS** stages
-  from the canonical pmaports script — if uuu hangs at ~97% you are almost
-  certainly missing one of them.
-
-Hold VOLUME-UP while plugging USB-C to enter serial-download. uuu autodetects.
-
-### Pi 5 (HackberryPi CM5) — SD card
-
-`./scripts/build-image.py device-hackberrypi-cm5-marathon ...` produces a `.raw`.
-Flash with `dd` (or balenaEtcher) to the SD card. First boot regenerates SSH
-host keys; `marathon.local` resolves via avahi.
-
-### Recovery to pmOS
-
-If Marathon won't boot at all, the canonical recovery path is the pmOS phosh
-reset image staged in `~/librem5-recovery/`. Flash that, confirm phosh boots,
-then re-flash a Marathon image.
+See `scripts/flash/README.md` for each script's details.
 
 ---
 
@@ -155,267 +151,172 @@ then re-flash a Marathon image.
 ### SSH
 
 ```bash
-sshpass -p marathon ssh \
-  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  -o LogLevel=ERROR \
-  root@marathon.local
+sshpass -p marathon ssh -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null root@marathon.local
 ```
 
-- Hostname `marathon.local` (mDNS via avahi) — works over USB-OTG and Wi-Fi.
-- Fallback IP for USB CDC NCM cold boot: `192.168.0.10`.
-- Pi 5: same `root@marathon.local`.
+`marathon.local` comes from avahi. Over USB networking the device is
+`172.16.42.1` (the default in `scripts/hot-deploy.sh`).
 
-### Credentials
+### Credentials (dev images)
 
-| Account / context        | Value          |
-|--------------------------|----------------|
-| L5 / Pi 5 `root` SSH pw  | `marathon`     |
-| L5 / Pi 5 `user` SSH pw  | `marathon`     |
-| OOBE / lockscreen PIN    | `027602`       |
-| Fedora host sudo         | see `~/.marathon-secrets/askpass.sh` |
+| Context                     | Value      |
+|-----------------------------|------------|
+| `root` / `user` SSH password | `marathon` |
+| OOBE / lock-screen PIN      | `027602`   |
 
-Host sudo is surfaced via `~/.marathon-secrets/askpass.sh`. On every session,
-restore to `/tmp/askpass.sh` (chmod 700) — `/tmp` is tmpfs on Fedora.
+### The `marathon` CLI
 
-### Restart procedure
+`scripts/marathon` is the device driver: build, deploy, snap, unlock,
+launch, logs, doctor. Reference: `docs/DEV_CLI.md`.
+
+### Restarting the shell
 
 ```bash
-sshpass -p marathon ssh root@marathon.local 'systemctl restart greetd'
+ssh root@marathon.local 'systemctl restart greetd'
 ```
 
-**Never** `pkill marathon-shell` or `pkill -f marathon-shell-bin`. It leaves the
-Wayland socket half-deleted, and every subsequent app launch fails with
-`error: socket /run/user/0/wayland-1 already exists`.
+Never `pkill marathon-shell`: it leaves the Wayland socket half-deleted and
+later app launches fail.
 
-### Screenshotting
+### Screenshots
 
 ```bash
-scripts/device-snap.sh <label>
-# → $MARATHON_SNAP_DIR/<label>.png
-#   (default: $TMPDIR/marathon-snaps)
-# Override with: MARATHON_SNAP_DIR=/some/dir scripts/device-snap.sh foo
-# Override host: MARATHON_HOST=192.168.0.10  scripts/device-snap.sh foo
+scripts/device-snap.sh <label>     # → $MARATHON_SNAP_DIR/<label>.png
+MARATHON_HOST=<ip> scripts/device-snap.sh <label>
 ```
 
-The script does the right thing: SSH, `kill -USR1 $(pgrep marathon-shell-bin)`,
-poll `/tmp/marathon-shot.png` on the device until it's size-stable AND ends
-with the PNG IEND CRC marker (`ae426082`), scp to host, re-encode via
-ImageMagick to a clean sRGB/RGBA baseline file the Read tool accepts.
+Sends `SIGUSR1` to the shell, waits for `/tmp/marathon-shot.png` to be
+complete, copies it back and re-encodes it. Don't read `fb0`; the shell
+renders through DRM/KMS.
 
-- Never read `fb0` — the shell uses eglfs/DRM, fbdev is a black hole.
-- Never inline base64 PNGs — pull as a file, then `Read` it.
 ### Logs
 
-- Shell stdio: NOT in journald. Either restart the shell manually under SSH
-  with `QT_LOGGING_RULES='*=true' MARATHON_FORCE_DPI=160 ./marathon-shell-bin
-  2>&1 | tee /tmp/shell.log`, or scrape the greetd pipe if you can find the FD.
-- Other Marathon services: `journalctl -u <unit>` works normally.
+- Shell: `journalctl -t marathon-shell` (the session pipes the shell through
+  `systemd-cat --identifier=marathon-shell`). Release builds compile out
+  `qDebug`/`qInfo`, so only warnings and above appear. `MARATHON_DEBUG=1` in
+  the session enables full logging rules, but only a non-Release build has
+  the debug/info output to show.
+- The shell also appends to `~/.marathon/crash.log` (for `user`:
+  `/home/user/.marathon/crash.log`).
+- Other Marathon services: `journalctl -u <unit>` or `journalctl --user -u
+  <unit>`.
 
 ---
 
-## 7. Hot-deploy iteration loop
+## 7. Hot-deploy loop
 
-A full image bake is ~10-20 min. For QML / shell C++ iteration on an
-already-flashed device, push the deltas and restart greetd:
+A full image is 10–20 minutes. For iteration on a flashed device:
 
 ```bash
-# 1. Shell binary (C++ or shell QML changed; shell QML is compiled in)
-sshpass -p marathon scp build/shell/marathon-shell-bin \
-  root@marathon.local:/usr/bin/
-
-# 2. Shell libs (when shell libs changed)
-sshpass -p marathon scp build/lib*.so* root@marathon.local:/usr/lib/
-
-# 3. Bust the QML disk cache
-sshpass -p marathon ssh root@marathon.local \
-  'rm -rf /home/user/.cache/marathon-qml /root/.cache/marathon-qml'
-
-# 4. Restart
-sshpass -p marathon ssh root@marathon.local 'systemctl restart greetd'
-
-# 5. Verify
-scripts/device-snap.sh <label>
+scripts/hot-deploy.sh            # push apps/* to /usr/share/marathon-apps, bust QML cache, restart greetd
+scripts/hot-deploy.sh --bin      # also push build/marathon-shell-bin
 ```
 
-The per-app variant (the qrc-shadow trick where disk pushes to
-`/usr/share/marathon-apps/<app>/` are ignored until you also strip
-`prefer :/qrc/...` from the per-app qmldir) is documented at
+Shell QML is compiled into the binary, so shell QML changes need `--bin`
+(or a new apk). App QML pushed to disk can still be shadowed by the compiled
+module; when in doubt, ship the apk.
 
 ---
 
 ## 8. Design system & visual validation
 
-### Tokens (Marathon DS)
-
-- `MSpacing` — xs=5, sm=10, md=16, lg=20, xl=32
-- `MRadius`  — sm=2, md=4, lg=6, xl=8, pill=999
-- `MTypography` — sizeEyebrow=11, sizeCaption=12, sizeFootnote=13, sizeBody=17, sizeTitle3=22
-- `MColors` — marathonTealBright `#1de9b6`, marathonTealDark, tealBorder,
-  elev1 `#0a` (alpha), elev2 `#12`, elev3 `#1c`, textPrimary, whiteOverlay08/16
-- Primitives — `MCard` (double-edge stroke + drop shadow), `MGlass`
-  (backdrop blur), `MShadow`, `MGlow`, `MText` (Sora 200 parity), `MTopHairline`
-
-The full spec lives in `docs/UI_DESIGN_SYSTEM.md`. The
-`docs/redesign/ds-qml-guide.jsx` reference (Marathon QML Guide) is the source
-of truth for any net-new component.
-
-### Banned glyph
-
-The AI-sparkle / "sparkles" Lucide icon is banned everywhere in Marathon.
-OOBE first screen must show the Marathon product mark.
-
-### Visual validation
-
-For any QML redesign: launching + lint + build is NOT validation. You must
-`scripts/device-snap.sh` and diff against the source design.
-
-For host-side previews of QML, **always** export `MARATHON_FORCE_DPI=160`
-before running. Without it, host DPI inflates `scaleFactor` and design-px
-tokens overflow the locked 540×1140 canvas — the code is correct, the test is
-wrong.
+- `docs/UI_DESIGN_SYSTEM.md` is the design-system reference; check it before
+  adding tokens, motion or chrome.
+- The AI "sparkles" glyph is banned. OOBE shows the Marathon mark.
+- A QML redesign is validated by a screenshot compared with the design
+  (`scripts/device-snap.sh`, or `scripts/visual-validate.sh` on the host),
+  not by lint and build.
+- Host-side QML previews need `MARATHON_FORCE_DPI=160`; otherwise the host
+  DPI overflows the 540x1140 design canvas.
 
 ---
 
-## 9. Coding rules & commit hygiene
+## 9. Coding rules & commits
 
-- Follow `docs/CODING_RULES.md` sections A–G (anti-slop, Qt/QML anti-patterns,
-  atomic commits). Cite rule IDs in review and commit bodies.
-- **No generated-by / co-author trailers on commits.** Ever. Commit
-  messages are human attribution.
-- Atomic commits. One conceptual change per commit. Squash WIP locally.
-- For `tar` extracts during build / overlay assembly, always anchor with
-  `tar -C <dest>` — never rely on cwd. Prevents apk extracts from overwriting
-  source.
+- Follow `docs/CODING_RULES.md` sections A–G and cite rule IDs in reviews and
+  commit bodies.
+- No generated-by or co-author trailers on commits.
+- Small, atomic commits.
+- Anchor every `tar` extract with `-C <dest>`.
 
 ---
 
-## 10. Common foot-guns / gotchas
+## 10. Common foot-guns
 
-| Symptom                                          | Root cause / fix                                                                 |
-|--------------------------------------------------|----------------------------------------------------------------------------------|
-| Apps fail to launch after a restart              | You ran `pkill marathon-shell`. Reboot, never pkill. (§6)                       |
-| Image flashes but won't boot                     | You ran raw `mkosi build` instead of `build-image.py`. (§4)                     |
-| QML change "didn't land" on device               | Forgot step 3 or 4 in the hot-deploy loop. (§7)                                 |
-| uuu hangs at ~97% flash                          | Missing SDPU+SDPS stages in flash-librem5.sh. (§5)                              |
-| Marathon has zero audio                          | Default sink is HDMI; wireplumber rule missing or aport not rebuilt. (§2)       |
-| Visual test on host looks wrong (oversized)      | Forgot `MARATHON_FORCE_DPI=160`. (§8)                                           |
-| Shell drops to 2fps after a QML tweak            | New `layer.samples` not gated on `MARATHON_LAYER_SAMPLES`. (§2)                 |
-| Soft keyboard crashes shell                      | `QT_IM_MODULE=qtvirtualkeyboard` propagated to shell. Shell must use `none`. (§2) |
-| `journalctl -u marathon-shell` is empty          | Shell stdio routes to greetd pipe, not journald. Run manually under SSH. (§6)   |
-| `marathon.local` doesn't resolve                 | Cold-boot mDNS not up yet. Fall back to `192.168.0.10`. (§6)                    |
-| PNG from screenshot rejected by Read tool        | Use `scripts/device-snap.sh` — it re-encodes through magick. (§6)               |
-| Browser/Maps/WebEngine renders black             | etnaviv GLES2 vs Chromium GLES3 + dmabuf-v3 ceiling. See WPE / dmabuf-v4 work.  |
-| OOBE first screen shows sparkles                 | Banned glyph snuck in. Replace with Marathon product mark. (§8)                 |
+| Symptom                                    | Cause / fix |
+|--------------------------------------------|-------------|
+| App launches fail after a restart          | The shell was `pkill`ed. Restart greetd instead. (§6) |
+| Image flashes but won't boot               | Raw `mkosi build` skipped the disk surgery. Use the wrappers. (§4) |
+| Build ignores your edit to the duranium tree | The tree is generated. Write a pipeline patch. (§4) |
+| Shell QML change "didn't land"             | Shell QML is in the binary; use `hot-deploy.sh --bin`. (§7) |
+| uuu hangs near 97 %                        | Missing SDPU/SDPS stage. (§5) |
+| Librem 5 has no audio                      | Default sink is HDMI; device overlay rule missing. (§2) |
+| Host QML preview oversized                 | Missing `MARATHON_FORCE_DPI=160`. (§8) |
+| Shell drops to ~2 fps after a QML change   | Hard-coded `layer.samples`. (§2) |
+| Shell dies when the keyboard opens         | `QT_IM_MODULE=qtvirtualkeyboard` reached the shell. (§2) |
+| No debug lines in the journal              | Release build; only warnings are compiled in. (§6) |
 
 ---
 
 ## 11. Path reference
 
-### Repos / source trees
+### Source tree
 
-| Path                                              | What it is                                                        |
-|---------------------------------------------------|-------------------------------------------------------------------|
-| `~/Developer/Marathon-Shell/`                     | This repo. Shell C++ + QML, apps, scripts.                        |
-| `~/Developer/Marathon-Shell/shell/`               | Shell C++ source. Wayland glue at `shell/src/wayland/`.           |
-| `~/Developer/Marathon-Shell/shell/qml/theme/`, `shell/qml/ui/` | Shell theme singletons (MColors, MTypography, ...) and shell-only components. |
-| `~/Developer/Marathon-Shell/tools/marathon-webview-runner/` | WPE WebKit runner (Phase 2 validated). `main.cpp` is the dmabuf bridge entry. |
-| `~/Developer/Marathon-Shell/scripts/`             | Host-side scripts. `device-snap.sh`, `flash/`, `qemu/automation/`. |
-| `~/Developer/Marathon-Shell/docs/redesign/`       | JSX source-of-truth for next-gen surfaces (incl. `ds-qml-guide.jsx`). |
-| `~/Developer/Marathon-Shell/packaging/packages/` | 15 APKBUILDs (shell, ui controls, device tunings, app images, mail helper, etc.). |
-| `~/Developer/Marathon-Shell/packaging/pipeline-patches/`| 17-patch series applied by bootstrap.sh against duranium `394290c6`. |
-| `~/Developer/Marathon-Shell/packaging/devices/`  | Per-device config (L5, CM5, OnePlus 6, QEMU).                     |
-| `~/Developer/Marathon-Shell/packaging/scripts/`  | `setup-librem5-recovery.sh`, `build-cm5-pmbootstrap.sh`, `push-cm5.sh`, `sync-and-build-marathon.sh`, plus older `build-rootless-*.sh` variants (use `build-image.py` instead). |
-| `~/duranium-build/`                               | Build root. Not a repo itself — holds vendored duranium + mkosi.  |
-| `~/duranium-build/duranium/`                      | Upstream duranium clone, pinned at `394290c6` + Marathon patches. |
-| `~/duranium-build/duranium/scripts/build-image.py` | **Canonical build entry.** Always invoke via this.                |
-| `~/duranium-build/duranium/mkosi.images/`         | mkosi image definitions (per-image dirs).                         |
-| `~/duranium-build/duranium/mkosi.repart/`         | Partition layouts (incl. `mkosi.repart.librem5/`).                |
-| `~/duranium-build/duranium/mkosi.profiles/`       | Profile overlays (ui-marathon, device-purism-librem5-marathon, …).|
-| `~/duranium-build/duranium/mkosi.output/purism-librem5-marathon_marathon_edge/` | Where L5 `.raw` images land.       |
-| `~/duranium-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge/` | Where Pi 5 `.raw` images land. (See `r180_stable_image` memory for the bookmark file path.) |
-| `~/duranium-build/duranium/pmaports/`             | duranium-pinned pmaports tree (Alpine `device/`, `main/`, `modem/`, `cross/`). |
-| `~/duranium-build/mkosi-src/`                     | Vendored mkosi source — sometimes the build pulls from here rather than the system mkosi. |
-| `~/.local/var/pmbootstrap/`                       | pmbootstrap config + state.                                       |
-| `~/.local/var/pmbootstrap-work/`                  | pmbootstrap chroot caches (`cache_apk_aarch64`, `cache_ccache_aarch64`, distfiles, ccache, rust, go, sccache). |
-| `~/.local/var/pmbootstrap-venv/`                  | Python venv for pmbootstrap.                                      |
-| `~/.local/var/pmbootstrap-git/`                   | Git clones pmbootstrap manages (kernel etc.).                     |
-| `~/.cache/mkosi/`                                 | mkosi's own cache.                                                |
+| Path | What |
+|------|------|
+| `shell/` | Shell C++ (`shell/src/`) and QML (`shell/qml/`). `shell/main.cpp` is the entry. |
+| `apps/` | Bundled QML apps. |
+| `marathon-silica/` | `Marathon.Silica`: Keel's Silica plus accessibility, keyboard operation and missing components. |
+| `marathon-core/`, `marathon-services/` | Shared libraries and services. |
+| `crates/` | Rust workspace (`marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`). |
+| `tools/` | `marathon-app-runner`, `marathon-webview-runner`, `marathon-sandbox`, `marathon-mail-oauth`, ... |
+| `scripts/` | Build wrappers, `marathon` CLI, `device-snap.sh`, `hot-deploy.sh`, `flash/`, `qemu/`. |
+| `packaging/` | aports, pipeline patches, configs. See `packaging/README.md`. |
+| `docs/redesign/` | JSX design references. |
 
-### Recovery / flashing
+### Build cache
 
-| Path                                              | What it is                                                        |
-|---------------------------------------------------|-------------------------------------------------------------------|
-| `~/librem5-recovery/`                             | uuu rig for the Librem 5. Reproducible from `setup-librem5-recovery.sh`. |
-| `~/librem5-recovery/mfgtools/`                    | Built uuu binary lives here.                                      |
-| `~/librem5-recovery/mfgtools-build/`              | uuu build tree (GCC 15 cstdint patch + libstdc++-static applied).  |
-| `~/librem5-recovery/boot-purism-librem5.sh`       | Jumpdrive boot stage 1 (host → uuu → device into mass-storage).   |
-| `~/librem5-recovery/u-boot-librem5.bin`           | Jumpdrive u-boot.                                                 |
-| `~/librem5-recovery/kernel-librem5.gz`            | Jumpdrive kernel.                                                 |
-| `~/librem5-recovery/initramfs-purism-librem5.gz`  | Jumpdrive initramfs.                                              |
-| `~/librem5-recovery/dtbs/`                        | DTBs for Jumpdrive.                                               |
-| `~/librem5-recovery/purism-librem5.lst` + `purism-librem5.tar.xz` | uuu manifest + payload bundle.                     |
-| `~/librem5-recovery/20260620-0010-postmarketOS-edge-phosh-29-purism-librem5.img.xz` | pmOS phosh reset image (full-OS fallback). |
-| `~/Developer/Marathon-Shell/scripts/flash/flash-librem5.sh`     | Marathon's L5 flash wrapper. Must include SDPU + SDPS stages.    |
-| `~/Developer/Marathon-Shell/scripts/flash/flash-hackberry-cm5.sh` | Pi 5 / HackberryPi CM5 SD-card flash.                          |
-| `~/Developer/Marathon-Shell/scripts/flash/flash-hackberry-pi.sh` | Earlier HackberryPi variants.                                   |
-| `~/Developer/Marathon-Shell/scripts/flash/flash-oneplus6.sh`    | OnePlus 6 (legacy target).                                       |
+| Path | What |
+|------|------|
+| `~/.cache/marathon-build/duranium/` | Patched duranium tree (generated). |
+| `~/.cache/marathon-build/duranium/mkosi.packages/` | Locally built apks. |
+| `~/.cache/marathon-build/duranium/mkosi.output/<target>_marathon_edge/` | Built images. |
+| `~/.cache/marathon-build/mkosi-src/` | Pinned mkosi checkout. |
 
-### Secrets
+### On the device
 
-| Path                                              | What it is                                                        |
-|---------------------------------------------------|-------------------------------------------------------------------|
-| `~/.marathon-secrets/askpass.sh`                  | Persistent sudo askpass (prints the host sudo password). Source of truth — read it from there, never inline it here. |
-| `/tmp/askpass.sh`                                 | Session copy (chmod 700). Restore on every session (tmpfs).       |
-| `~/.marathon-secrets/marathon-snapshot@local-1.rsa` + `.pub` | Snapshot repo signing key + pubkey.                  |
-| `~/.marathon-secrets/SKYZMTGV.nmconnection.raw`   | Test Wi-Fi NetworkManager keyfile.                                |
+| Path | What |
+|------|------|
+| `/usr/bin/marathon-shell-bin` | Shell binary. |
+| `/usr/bin/marathon-shell-session` | Session script greetd runs. |
+| `/etc/marathon/device-profile.conf` | Device traits read by `DeviceProfile`. |
+| `/usr/share/marathon-apps/<app>/` | App files. |
+| `/home/user/.cache/marathon-qml/` | QML disk cache. |
+| `/home/user/.marathon/crash.log` | Shell log file. |
+| `/tmp/marathon-shot.png` | Latest `SIGUSR1` screenshot. |
 
-### On-device paths
+### Environment variables
 
-| Path on device                                    | What it is                                                        |
-|---------------------------------------------------|-------------------------------------------------------------------|
-| `/usr/bin/marathon-shell-bin`                     | Shell binary.                                                     |
-| `/usr/share/marathon-apps/<app>/`                 | App QML on disk (qrc-shadowed unless qmldir patched — see hot-deploy QRC trick memory). |
-| `/home/user/.cache/marathon-qml/`                 | User-side QML compile cache (bust on hot-deploy).                 |
-| `/root/.cache/marathon-qml/`                      | Root-side QML compile cache (bust on hot-deploy).                 |
-| `/etc/wireplumber/wireplumber.conf.d/50-marathon-l5-default-sink.conf` | Default-sink priority rule (Speaker > HDMI). Source: `packaging/packages/device-purism-librem5-marathon/`. |
-| `/etc/udev/rules.d/90-marathon-modem-wakeup.rules` | Modem USB power/wakeup rule (see L5 wakeup memory).             |
-| `/tmp/marathon-shot.png`                          | Where the SIGUSR1 handler writes the latest screenshot.           |
-| `/run/user/0/wayland-1`                           | Wayland socket. Killing the shell with `pkill` half-deletes this. |
-
-### Useful env vars
-
-| Variable                       | Purpose                                                          |
-|--------------------------------|------------------------------------------------------------------|
-| `MARATHON_FORCE_DPI=160`       | Lock `scaleFactor` for visual checks on host.                    |
-| `MARATHON_LAYER_SAMPLES=0`     | Disable QML `layer.samples` MSAA on etnaviv (L5).                |
-| `MARATHON_OOBE_START_PAGE=<n>` | Jump OOBE to a specific page for screenshot audits.              |
-| `MARATHON_SNAP_DIR=<dir>`      | Where `device-snap.sh` writes PNGs.                              |
-| `MARATHON_HOST=<host-or-ip>`   | Override the SSH target for `device-snap.sh` (default `marathon.local`). |
-| `QT_LOGGING_RULES='*=true'`    | Verbose Qt logging when running the shell manually under SSH.    |
-| `QT_IM_MODULE=none`            | For the shell process (eglfs single-window).                     |
-| `QT_IM_MODULE=wayland`         | For app clients (so the soft keyboard works).                    |
-| `MESA_LOADER=etnaviv`          | For WebEngine HW-accel via bwrap (L5).                           |
-| `WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128` | For WebEngine HW-accel via bwrap (L5).               |
-
-### Other useful scripts
-
-| Path                                              | What it does                                                       |
-|---------------------------------------------------|--------------------------------------------------------------------|
-| `~/Developer/Marathon-Shell/scripts/device-snap.sh` | SIGUSR1 screenshot → IEND-stable poll → magick re-encode → host.  |
-| `~/Developer/Marathon-Shell/scripts/qemu/automation/` | QEMU drive harness for matrix scenarios.                         |
-| `~/Developer/Marathon-Shell/scripts/qemu/verify-cm5-boot-artifacts.sh` | Sanity-check CM5 boot artifacts before flashing.       |
-| `~/Developer/Marathon-Shell/packaging/scripts/setup-librem5-recovery.sh` | Reproduce `~/librem5-recovery/` from a clean host.        |
-| `~/Developer/Marathon-Shell/packaging/scripts/build-cm5-pmbootstrap.sh` | Legacy CM5 build via pmbootstrap (superseded by build-image.py). |
-| `~/Developer/Marathon-Shell/packaging/scripts/push-cm5.sh`   | Push APKs to a flashed CM5 for hot-iter.                          |
+| Variable | Purpose |
+|----------|---------|
+| `MARATHON_FORCE_DPI` | Fix the DPI (160 for host previews; device profiles set their own). |
+| `MARATHON_LAYER_SAMPLES` | Override the device profile's MSAA sample count. |
+| `MARATHON_DEBUG=1` | Full Qt logging rules in the session. |
+| `MARATHON_BUILD_DIR` | Build cache root (default `~/.cache/marathon-build`). |
+| `FORCE_REBUILD=1` | Rebuild every apk. |
+| `MARATHON_HOST`, `MARATHON_SNAP_DIR` | Target and output for `device-snap.sh`. |
+| `MARATHON_WL_SOCKET_NAME` | Compositor socket name. |
 
 ---
 
 ## 12. Where to look next
 
-- `README.md` — project intro, repo layout
-- `docs/ARCHITECTURE.md` — shell process model, scene graph layers
-- `docs/IMAGE_BUILD_ARCHITECTURE.md` — duranium + in-tree `packaging/` relationship
-- `docs/WAYLAND_PROTOCOLS.md` — supported protocols + vendored extensions
-- `docs/UI_DESIGN_SYSTEM.md` — Marathon DS reference
-- `docs/CODING_RULES.md` — what to do and not do
-- `docs/redesign/` — JSX source-of-truth for the next-gen surfaces
+- `docs/ARCHITECTURE.md` — shell process model
+- `docs/BUILDING.md` — cold-clone build walkthrough
+- `docs/IMAGE_BUILD_ARCHITECTURE.md` — how the image pipeline is shaped
+- `docs/DEVICE_SUPPORT.md`, `docs/DEVICE_OVERLAYS.md` — devices and porting
+- `docs/NATIVE_APP_LIFECYCLE.md`, `docs/NATIVE_APP_THEMING.md`,
+  `docs/NATIVE_APP_SCALE.md` — native and Flatpak apps
+- `docs/WAYLAND_PROTOCOLS.md`, `docs/UI_DESIGN_SYSTEM.md`,
+  `docs/CODING_RULES.md`
