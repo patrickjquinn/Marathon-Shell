@@ -118,6 +118,12 @@ bool DisplayManagerCpp::detectBacklightDevice() {
     return false;
 }
 
+// The nearest hardware level, never a truncated one: the HackberryPi's
+// backlight has 10 levels, and truncating left a +10% step on the same one.
+int DisplayManagerCpp::backlightLevel(double user) const {
+    return qBound(1, qRound(brightnessUserToHw(user) * m_maxBrightness), m_maxBrightness);
+}
+
 double DisplayManagerCpp::brightness() const {
     // Live sysfs read on every binding evaluation. The cached m_brightness
     // drifts when systemd-logind or kernel auto-brightness writes the
@@ -147,10 +153,9 @@ void DisplayManagerCpp::forceBacklightOn() {
 
     // Target duty = user brightness remapped through the visible floor
     // (never below ~28% real). Waking to a lit panel is non-negotiable.
-    const int target = qBound(
-        1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness), m_maxBrightness);
+    const int target = backlightLevel(m_brightness);
 
-    auto writeFile = [](const QString &path, const QByteArray &val) {
+    auto      writeFile = [](const QString &path, const QByteArray &val) {
         QFile f(path);
         if (f.open(QIODevice::WriteOnly)) {
             f.write(val + "\n");
@@ -219,12 +224,10 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     if (m_rampTimer && m_rampTimer->isActive())
         m_rampTimer->stop();
 
-    // Store the USER value (what the slider shows); drive the hardware
-    // with the remapped value so 0% still lights the panel (~28% duty).
-    m_brightness = brightness;
-
-    const double hwBrightness    = brightnessUserToHw(brightness);
-    int          brightnessValue = static_cast<int>(hwBrightness * m_maxBrightness);
+    // Drive the hardware with the remapped value so 0% still lights the
+    // panel (~28% duty), and keep the USER value of the level it lands on.
+    const int brightnessValue = backlightLevel(brightness);
+    m_brightness = brightnessHwToUser(static_cast<double>(brightnessValue) / m_maxBrightness);
 
     QString      brightnessPath = backlightFile("brightness");
 
@@ -236,7 +239,7 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     args << "org.gnome.SettingsDaemon.Power.Screen";
     args << "Brightness";
 
-    int gsdValue = static_cast<int>(hwBrightness * 100.0);
+    const int gsdValue = qRound(brightnessValue * 100.0 / m_maxBrightness);
     args << QVariant::fromValue(QDBusVariant(gsdValue));
     message.setArguments(args);
 
@@ -276,7 +279,7 @@ void DisplayManagerCpp::setBrightness(double brightness) {
         stream << brightnessValue;
         file.close();
         qDebug() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "("
-                 << (brightness * 100) << "%) via sysfs";
+                 << (m_brightness * 100) << "%) via sysfs";
         emit brightnessChanged();
     } else {
         qDebug() << "[DisplayManagerCpp] Failed to set brightness: permission denied (sysfs) and "
@@ -506,9 +509,8 @@ void DisplayManagerCpp::rampStep() {
     const double e       = t * t * (3.0 - 2.0 * t);
     const double curUser = m_rampFromUser + (m_rampToUser - m_rampFromUser) * e;
 
-    const int    hwVal =
-        qBound(1, static_cast<int>(brightnessUserToHw(curUser) * m_maxBrightness), m_maxBrightness);
-    QFile f(backlightFile("brightness"));
+    const int    hwVal = backlightLevel(curUser);
+    QFile        f(backlightFile("brightness"));
     if (f.open(QIODevice::WriteOnly)) {
         f.write(QByteArray::number(hwVal) + "\n");
         f.close();
@@ -542,10 +544,8 @@ void DisplayManagerCpp::setCallProximityBlank(bool blank) {
     }
     if (!blank) {
         // Restore the pre-blank duty (through the visible floor).
-        const int target =
-            qBound(1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness),
-                   m_maxBrightness);
-        QFile br(backlightFile("brightness"));
+        const int target = backlightLevel(m_brightness);
+        QFile     br(backlightFile("brightness"));
         if (br.open(QIODevice::WriteOnly)) {
             br.write(QByteArray::number(target) + "\n");
             br.close();

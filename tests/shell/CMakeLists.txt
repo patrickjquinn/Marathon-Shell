@@ -620,3 +620,20 @@ target_include_directories(test_shell_powermanager PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
 add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
+
+# Brightness lands on hardware levels
+add_executable(test_shell_brightness
+    test_brightness.cpp
+    ../../shell/src/managers/displaymanagercpp.cpp
+    ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/rotationmanager.cpp
+    ../../shell/src/managers/sensormanagercpp.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
+    Qt6::Sensors)
+target_include_directories(test_shell_brightness PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell/src
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+)
+add_test(NAME Shell_Brightness COMMAND test_shell_brightness)
