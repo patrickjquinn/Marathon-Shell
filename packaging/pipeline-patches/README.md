@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 36 patches. **There is no 0011**: it vendored a loose
+There are 37 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -50,5 +50,6 @@ There are 36 patches. **There is no 0011**: it vendored a loose
 | 0035 | feat(qemu): A/B /usr layout for systemd-sysupdate | `MARATHON_IMAGE_LAYOUT=ab` restores duranium's erofs + verity `/usr` slots on QEMU, for OTA updates with rollback (docs/OTA.md). |
 | 0036 | fix(ota): trust only Marathon's sysupdate feed | Drops postmarketos-duranium's transfers and pmOS's signing key; Marathon's come from build-image.sh. |
 | 0037 | feat(pi): A/B GPT layout for systemd-sysupdate | `MARATHON_IMAGE_LAYOUT=ab` on raspberry-pi5: GPT, `autoboot.txt` partition, two FAT boot and two ext4 root slots, shared data partition (docs/OTA.md). |
+| 0038 | fix(finalize): A/B Pi slots name their own root and boot partition | Each boot slot's `cmdline.txt` names its root and boot partition by GPT label; `panic=10`, no `pmos.force-partition-resize`. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

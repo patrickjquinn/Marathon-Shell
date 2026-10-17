@@ -1,0 +1,46 @@
+From bf43440411b56e6ae07c0fe14281ec60cd2d35db Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 17 Oct 2026 15:16:58 +0100
+Subject: [PATCH] fix(finalize): A/B Pi slots name their own root and boot
+ partition
+
+On the A/B layout both boot slots' FAT filesystems are labelled pmOS_boot
+and both root slots' ext4 pmOS_root, so the mkinitfs init's label lookup
+could mount the other slot. Each boot slot's cmdline.txt now names its
+root and boot partition by GPT label, which carries the slot's
+IMAGE_VERSION; systemd-sysupdate sets that label when it writes a slot,
+so boot slot V always finds root slot V wherever it landed.
+
+pmos.force-partition-resize goes: it grows partition 2, which is a boot
+slot here. panic=10 turns a kernel panic on a trial boot into a reboot,
+which the Pi firmware sends back to the committed slot.
+---
+ mkosi.finalize | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index bc2ccd9..fc7cfbf 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -964,6 +964,18 @@ EOF
+     fi
+ fi
+ 
++# A/B Pi images (mkosi.repart.ab-pi): each boot slot names its own root
++# and boot partition by label, since both slots' filesystems carry the
++# pmOS_root/pmOS_boot labels. panic=10 lets a failed trial boot fall back.
++# pmos.force-partition-resize would grow partition 2, a boot slot.
++if [ -n "${PI_FIRMWARE_BOOT:-}" ] && [ "${MARATHON_IMAGE_LAYOUT:-single}" = ab ] \
++   && [ -f "$BUILDROOT/boot/cmdline.txt" ]; then
++    PI_AB_CMDLINE="$(tr -d '\n' < "$BUILDROOT/boot/cmdline.txt" | sed 's/ pmos.force-partition-resize//')"
++    echo "$PI_AB_CMDLINE panic=10 pmos_root=/dev/disk/by-partlabel/marathon_${IMAGE_VERSION}_root pmos_boot=/dev/disk/by-partlabel/marathon_${IMAGE_VERSION}_boot" \
++        > "$BUILDROOT/boot/cmdline.txt"
++    echo "info: A/B cmdline: $(cat "$BUILDROOT/boot/cmdline.txt")"
++fi
++
+ # After all DTB processing above, copy to standard location for mkosi
+ for kdir in "$BUILDROOT"/usr/lib/modules/*/; do
+     if [ -d "$kdir" ]; then
+-- 
+2.55.0
+
