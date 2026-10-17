@@ -6,6 +6,7 @@
 #include <QDBusInterface>
 #include <QDBusUnixFileDescriptor>
 #include <QTimer>
+#include <QHash>
 #include <QMap>
 #include <QSet>
 
@@ -151,6 +152,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     void                    cleanupWakelocks();
     void                    setupDisplayDevice();
     bool                    writeToFile(const QString &path, const QString &content);
+    QDBusUnixFileDescriptor takeInhibitor(const QString &who, const QString &why);
 
     QDBusInterface         *m_upowerInterface;
     QDBusInterface         *m_displayDeviceInterface;
@@ -178,7 +180,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     qint64                  m_lastActivityTime;
 
     QMap<QString, bool>     m_activeWakelocks;
+    // The lifelong delay lock, apart from the one each fallback wakelock holds.
     QDBusUnixFileDescriptor m_inhibitorFd;
+    QHash<QString, QDBusUnixFileDescriptor> m_wakelockInhibitors;
     bool                    m_wakelockSupported;
     QString                 m_fallbackMode;
 

@@ -590,3 +590,15 @@ target_include_directories(test_shell_screenstate PRIVATE
 add_test(NAME Shell_ScreenState COMMAND test_shell_screenstate)
 set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
     "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+
+# PowerManagerCpp against a fake logind: wakelocks and the lifelong inhibitor
+add_executable(test_shell_powermanager
+    test_powermanager.cpp
+    ../../shell/src/managers/powermanagercpp.cpp
+)
+target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_shell_powermanager PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell/src
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+)
+add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)

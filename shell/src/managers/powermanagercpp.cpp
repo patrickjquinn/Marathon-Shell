@@ -229,6 +229,7 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
     if (beforeSleep) {
         qInfo() << "[PowerManagerCpp] System preparing for sleep";
         releaseInhibitor();
+        m_wakelockInhibitors.clear();
     } else {
         const bool background = isBackgroundWake(QStringLiteral("/run/marathon-background/wake"),
                                                  m_alarmWake, QDateTime::currentSecsSinceEpoch());
@@ -237,10 +238,14 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
         emit resumedFromSuspend(background);
 
         for (auto it = m_activeWakelocks.begin(); it != m_activeWakelocks.end(); ++it) {
-            if (it.value()) {
-                qDebug() << "[PowerManagerCpp] Re-acquiring wakelock after resume:" << it.key();
+            if (!it.value())
+                continue;
+            qDebug() << "[PowerManagerCpp] Re-acquiring wakelock after resume:" << it.key();
+            if (m_fallbackMode == "inhibitor")
+                m_wakelockInhibitors.insert(
+                    it.key(), takeInhibitor("Marathon Shell", "Wakelock: " + it.key()));
+            else
                 writeToFile("/sys/power/wake_lock", it.key());
-            }
         }
 
         // Reacquire the lifelong delay-inhibit so the next suspend cycle
@@ -515,8 +520,9 @@ bool PowerManagerCpp::acquireWakelock(const QString &name) {
     }
 
     if (m_hasLogind) {
-        bool success = inhibitSuspend("Marathon Shell", "Wakelock: " + name);
-        if (success) {
+        const QDBusUnixFileDescriptor fd = takeInhibitor("Marathon Shell", "Wakelock: " + name);
+        if (fd.isValid()) {
+            m_wakelockInhibitors.insert(name, fd);
             m_activeWakelocks[name] = true;
             qInfo() << "[PowerManagerCpp] Acquired inhibitor lock for:" << name;
             emit activeWakelocksChanged();
@@ -544,8 +550,7 @@ bool PowerManagerCpp::releaseWakelock(const QString &name) {
             qWarning() << "[PowerManagerCpp] Failed to release wakelock:" << name;
         }
     } else if (m_fallbackMode == "inhibitor") {
-
-        releaseInhibitor();
+        m_wakelockInhibitors.remove(name);
         qInfo() << "[PowerManagerCpp] Released inhibitor lock for:" << name;
         success = true;
     }
@@ -558,24 +563,26 @@ bool PowerManagerCpp::releaseWakelock(const QString &name) {
     return success;
 }
 
-bool PowerManagerCpp::inhibitSuspend(const QString &who, const QString &why) {
+QDBusUnixFileDescriptor PowerManagerCpp::takeInhibitor(const QString &who, const QString &why) {
     if (!m_hasLogind) {
         qWarning() << "[PowerManagerCpp] Cannot inhibit - logind not available";
-        return false;
+        return {};
     }
 
     QDBusReply<QDBusUnixFileDescriptor> reply =
         m_logindInterface->call("Inhibit", "sleep", who, why, "delay");
-
-    if (reply.isValid()) {
-        m_inhibitorFd = reply.value();
-        qDebug() << "[PowerManagerCpp] Acquired inhibitor lock:" << who << "-" << why;
-        return true;
-    } else {
+    if (!reply.isValid()) {
         qWarning() << "[PowerManagerCpp] Failed to acquire inhibitor lock:"
                    << reply.error().message();
-        return false;
+        return {};
     }
+    qDebug() << "[PowerManagerCpp] Acquired inhibitor lock:" << who << "-" << why;
+    return reply.value();
+}
+
+bool PowerManagerCpp::inhibitSuspend(const QString &who, const QString &why) {
+    m_inhibitorFd = takeInhibitor(who, why);
+    return m_inhibitorFd.isValid();
 }
 
 void PowerManagerCpp::releaseInhibitor() {
