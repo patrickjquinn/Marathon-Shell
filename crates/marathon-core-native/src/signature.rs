@@ -106,7 +106,7 @@ impl TrustStore {
 }
 
 /// Checks `<archive>.minisig` over the bytes of `archive`. Only prehashed
-/// signatures (minisign's default since 0.8) are accepted.
+/// signatures (minisign's default; `minisign -S -l` makes the legacy kind) are accepted.
 pub fn verify(archive: &Path, store: &TrustStore) -> Verdict {
     let signature = signature_path(archive);
     let text = match fs::read_to_string(&signature) {

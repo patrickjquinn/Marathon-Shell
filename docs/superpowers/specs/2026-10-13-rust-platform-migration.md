@@ -56,6 +56,8 @@ Two behaviour changes:
 
 `signManifest`, the developer-side signing in `marathon-dev`, still uses the developer's own gpg key and agent.
 
+*Superseded (tracker R10):* the OpenPGP manifest check is gone. `marathon_core_native::signature` checks a minisign signature over the whole archive (`<package>.minisig`) before extraction, signatures are required (`MARATHON_ALLOW_UNSIGNED=1` is the developer override), keys can be revoked, and `marathon-dev` signs with the same crate. `marathon_core_native::permissions` holds the install-time wording for manifest permissions. See `docs/CODE_SIGNING_GUIDE.md`.
+
 **2. Archives**
 
 `marathon_core_native::archive` uses the `zip` crate:
@@ -84,7 +86,7 @@ What changes underneath:
 
 - `cargo test` and `cargo clippy -- -D warnings` pass in `crates/`.
 - ctest runs `Rust_Crates`.
-- `Core_AppVerifier`, `Core_AppPackager` and `Core_InstallerSecurity` stay green: the verifier test still generates its keys with gpg and now checks them through Rust.
+- `Core_AppVerifier`, `Core_AppPackager` and `Core_InstallerSecurity` stay green. (Since R10 the verifier tests use fixed minisign test keys, not gpg.)
 - The shell, app runner and `marathon-dev` still link against MarathonCore.
 
 ## Later waves

@@ -53,17 +53,30 @@ Developer or organization name.
 ## Optional Fields
 
 ### `permissions` (array of strings)
-System capabilities your app requires.
+System capabilities your app requires. At install time each one is shown to
+the user in the words below, with sensitive ones marked. A package that
+declares a permission not in this table is refused, and an update that adds
+permissions is held until the user agrees to the new ones. The words live in
+`crates/marathon-core-native/src/permissions.rs`.
 
-**Available permissions:**
-- `"system"` - System-level access (protected apps only)
-- `"network"` - Internet access
-- `"location"` - GPS/location services
-- `"storage"` - File system access
-- `"camera"` - Camera access
-- `"microphone"` - Microphone access
-- `"contacts"` - Contacts database
-- `"calendar"` - Calendar access
+| Permission | Shown as | What the user is told | Sensitive |
+|---|---|---|---|
+| `network` | Internet | Connect to the internet and devices on your network | |
+| `location` | Location | See where the device is | yes |
+| `camera` | Camera | Take photos and record video | yes |
+| `microphone` | Microphone | Record audio | yes |
+| `contacts` | Contacts | Read and change your contacts | yes |
+| `calendar` | Calendar | Read and change your calendar events | yes |
+| `storage` | Your files | Read and change every file in your home folder | yes |
+| `notifications` | Notifications | Show notifications | |
+| `alarms` | Alarms | Set alarms and timers | |
+| `telephony`, `phone` | Phone | Make and answer calls and see your call history | yes |
+| `sms` | Messages | Send and read SMS messages | yes |
+| `bluetooth` | Bluetooth | Connect to Bluetooth devices | |
+| `sensors` | Sensors | Read the motion and light sensors | |
+| `secret-service` | Passwords | Save and read passwords in your keyring | yes |
+| `system` | System settings | Change Wi-Fi, Bluetooth, display, sound, security and other device settings | yes |
+| `terminal` | Terminal | Run commands with full access to the system | yes |
 
 **Example:**
 ```json
@@ -283,6 +296,8 @@ The shell validates manifests during installation:
 
 **Required fields missing:** App will not load
 **Invalid JSON:** Installation fails
+**Unknown permission:** Installation fails
+**Update adding permissions:** Held until the user agrees to the new ones
 **Protected flag on third-party apps:** Ignored (requires system signature)
 
 ## Best Practices

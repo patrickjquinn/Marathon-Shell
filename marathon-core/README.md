@@ -15,7 +15,7 @@ Marathon-Shell (monorepo)
 ├── marathon-core/              ← Shared app management library
 │   ├── src/
 │   │   ├── marathonapppackager.{h,cpp}    # .marathon package creation
-│   │   ├── marathonappverifier.{h,cpp}    # GPG signature verification
+│   │   ├── marathonappverifier.{h,cpp}    # minisign package signatures
 │   │   ├── marathonappinstaller.{h,cpp}   # App installation logic
 │   │   ├── marathonappregistry.{h,cpp}    # App registry/catalog
 │   │   └── marathonappscanner.{h,cpp}     # App discovery/scanning
@@ -36,9 +36,10 @@ Marathon-Shell (monorepo)
 - Handles compression and file organization
 
 ### 2. `MarathonAppVerifier`
-- GPG signature verification
-- Package integrity checking
-- Security validation
+- Checks the minisign signature over a whole `.marathon` archive before it is opened
+- Trusted keys and a `revoked` list in `/usr/share/marathon/trusted-keys` and `~/.config/marathon/trusted-keys`
+- Signs packages for `marathon-dev`
+- See [docs/CODE_SIGNING_GUIDE.md](../docs/CODE_SIGNING_GUIDE.md)
 
 ### 3. `MarathonAppInstaller`
 - Installs apps from directories or packages
@@ -84,9 +85,9 @@ if (packager.packageDirectory("/path/to/app", "output.marathon")) {
 
 // Verify a package
 MarathonAppVerifier verifier;
-auto result = verifier.verifyDirectory("/path/to/app");
+auto result = verifier.verifyPackage("/path/to/app.marathon"); // reads app.marathon.minisig
 if (result == MarathonAppVerifier::Valid) {
-    qDebug() << "Signature valid";
+    qDebug() << "Signed by" << verifier.signerKeyId();
 }
 ```
 
@@ -102,7 +103,7 @@ if (result == MarathonAppVerifier::Valid) {
 ## Dependencies
 
 - **Qt6::Core**: Core Qt functionality
-- **System Tools**: `zip`, `unzip`, `gpg` (external processes)
+- **marathon-core-native** (`crates/`): archives (`zip`), signatures (`minisign`) and permission wording, through cxx
 
 ## Installation
 

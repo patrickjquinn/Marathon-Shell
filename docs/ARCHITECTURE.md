@@ -36,7 +36,7 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 ├------------------------------------------------------------┤
 │  Marathon Core Library (libmarathon-core.a)                      │
 │  ├── MarathonAppPackager                                         │
-│  ├── MarathonAppVerifier (GPG)                                   │
+│  ├── MarathonAppVerifier (minisign)                              │
 │  ├── MarathonAppInstaller                                        │
 │  └── Permission Manager                                          │
 ├------------------------------------------------------------┤
@@ -286,22 +286,23 @@ in-process QML loading for apps inside the shell.
 ```
 myapp.marathon (ZIP)
 ├── manifest.json
-├── SIGNATURE.txt          # GPG detached signature (optional)
 ├── MyApp.qml
 ├── qmldir
 ├── components/
 ├── pages/
 └── assets/
+myapp.marathon.minisig     # minisign signature over the whole archive (required)
 ```
 
 **Installation:**
 
 1. User installs via `marathon-dev install` or App Store
-2. `MarathonAppVerifier` checks GPG signature (if present)
-3. `MarathonAppPackager` extracts to temp directory
-4. `MarathonAppInstaller` validates manifest and permissions
-5. Files copied to `~/.local/share/marathon-apps/`
-6. App appears in App Grid on next scan
+2. `MarathonAppInstaller` copies the package and its `.minisig` to a private temp directory
+3. `MarathonAppVerifier` checks the signature over that copy against the trusted keys, before anything reads the archive
+4. `MarathonAppPackager` extracts the same copy to a temp directory
+5. `MarathonAppInstaller` validates the manifest, describes every permission (refusing unknown ones) and holds an update that adds permissions until the user approves them
+6. Files moved to `~/.local/share/marathon-apps/`
+7. App appears in App Grid on next scan
 
 ### Permission System
 
@@ -509,10 +510,10 @@ QML modules are built with `qt6_add_qml_module`, which:
 
 ### Code Signing
 
-- GPG signatures for Marathon apps
-- Verification during installation
-- Trust status displayed in App Store
-- Users can configure trusted keys
+- minisign signatures over whole `.marathon` packages, required by default
+- Verification before the archive is opened
+- Trusted keys in `/usr/share/marathon/trusted-keys` and `~/.config/marathon/trusted-keys`, with a `revoked` list
+- See [CODE_SIGNING_GUIDE.md](CODE_SIGNING_GUIDE.md)
 
 ## Performance Characteristics
 

@@ -5,7 +5,7 @@ This guide walks you through publishing your app to the Marathon App Store.
 ## Prerequisites
 
 - Completed app following Marathon guidelines
-- GPG key for code signing
+- A minisign key for code signing
 - Marathon Developer Account
 - App tested on real device
 
@@ -14,11 +14,8 @@ This guide walks you through publishing your app to the Marathon App Store.
 ### 1.1 Final Testing
 
 ```bash
-# Validate app structure and manifest
-marathon-dev validate ./my-app
-
-# Test installation
-marathon-dev install ./my-app
+# Test installation of the unpackaged app (directories are unsigned)
+MARATHON_ALLOW_UNSIGNED=1 marathon-dev install ./my-app
 
 # Test on actual device
 # Verify all features work correctly
@@ -52,47 +49,23 @@ Ensure your `manifest.json` is complete:
 
 ## Step 2: Code Signing
 
-### 2.1 Generate GPG Key (First Time Only)
+### 2.1 Make a minisign key (first time only)
 
 ```bash
-# Generate a new GPG key
-gpg --full-generate-key
-
-# Select:
-# - RSA and RSA (default)
-# - 4096 bits
-# - Key does not expire (or set expiration)
-# - Your name and email
+minisign -G     # ~/.minisign/minisign.key and ~/.minisign/minisign.pub
 ```
 
-### 2.2 Sign Your App
+You'll submit `minisign.pub` with your first app. See
+[CODE_SIGNING_GUIDE.md](CODE_SIGNING_GUIDE.md).
+
+## Step 3: Package and Sign Your App
 
 ```bash
-# Sign the manifest
-marathon-dev sign ./my-app [your-key-id]
+# Creates my-app.marathon and my-app.marathon.minisig
+marathon-dev package ./my-app my-app.marathon --key ~/.minisign/minisign.key
 
-# Verify signature was created
-ls -la ./my-app/SIGNATURE.txt
-```
-
-### 2.3 Export Public Key
-
-```bash
-# Export your public key
-gpg --armor --export your@email.com > my-public-key.asc
-
-# You'll submit this with your first app
-```
-
-## Step 3: Package Your App
-
-```bash
-# Create the .marathon package
-marathon-dev package ./my-app
-
-# This creates: my-app.marathon
-# Verify the package
-marathon-dev validate my-app.marathon
+# Check the signature against your device's trusted keys
+marathon-dev verify my-app.marathon
 ```
 
 ## Step 4: Create Developer Account
@@ -103,7 +76,7 @@ marathon-dev validate my-app.marathon
    - Name/Company name
    - Email address
    - Developer bio
-   - Upload your GPG public key
+   - Upload your minisign public key (`minisign.pub`)
 4. Verify your email
 5. Accept developer agreement
 
@@ -113,10 +86,10 @@ marathon-dev validate my-app.marathon
 
 1. Log in to Developer Portal
 2. Click "Submit New App"
-3. Upload your `.marathon` package
+3. Upload your `.marathon` package and its `.minisig`
 4. System will validate:
    - Package structure
-   - GPG signature
+   - minisign signature
    - Manifest completeness
 
 ### 5.2 Fill in Store Listing
@@ -181,8 +154,7 @@ cd my-app
 # "version": "1.1.0"
 
 # Package and sign
-marathon-dev sign .
-marathon-dev package .
+marathon-dev package . my-app.marathon --key ~/.minisign/minisign.key
 
 # Upload to developer portal
 # Select "Update Existing App"
@@ -277,9 +249,9 @@ Access at https://apps.marathonos.org/dashboard
 
 ### Signature Verification Fails
 
-- Ensure SIGNATURE.txt was created
-- Verify GPG key is correct
-- Re-sign if manifest was changed
+- Ship `my-app.marathon.minisig` with the package
+- Re-sign after any change to the package
+- Make sure the key you signed with is the one you registered
 
 ### App Rejected
 

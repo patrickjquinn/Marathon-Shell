@@ -1,436 +1,148 @@
 # Marathon Code Signing Guide
 
-Code signing ensures app integrity and authenticity on Marathon OS.
+Every `.marathon` package must be signed before Marathon installs it. The
+signature covers the whole archive, and the installer checks it before it
+opens the archive at all.
 
-## Why Code Signing?
+## How it works
 
-- **Authenticity**: Verify apps come from trusted developers
-- **Integrity**: Detect tampering or modification
-- **Security**: Protect users from malicious apps
-- **Trust**: Build confidence in the app ecosystem
+- The signature is a [minisign](https://jedisct1.github.io/minisign/)
+  detached signature (Ed25519) over the archive's bytes, stored next to the
+  package as `<package>.marathon.minisig`.
+- Installing copies the package and its signature into a private temporary
+  directory, checks the signature over that copy, and only then extracts the
+  same copy. A package that fails the check is never unpacked.
+- The signature must be made by a trusted key that is not revoked.
+- Only pre-hashed signatures are accepted. That is what `minisign -S` makes
+  by default; `minisign -S -l` makes the legacy kind, which is refused.
 
-## Overview
+The check lives in Rust (`crates/marathon-core-native/src/signature.rs`,
+using the [`minisign`](https://crates.io/crates/minisign) crate) and is
+called from `MarathonAppVerifier::verifyPackage`.
 
-Marathon uses GPG (GNU Privacy Guard) for code signing:
+## Making a key
 
-1. Developer signs `manifest.json` with private key
-2. Signature stored in `SIGNATURE.txt`
-3. Marathon verifies signature during installation
-4. Users can trust signed apps
-
-## Setup GPG
-
-### Install GPG
-
-```bash
-# Fedora/RHEL
-sudo dnf install gnupg2
-
-# Ubuntu/Debian
-sudo apt install gnupg
-
-# macOS
-brew install gnupg
-
-# Verify installation
-gpg --version
-```
-
-### Generate Key Pair
+Use the standard minisign tool (packaged as `minisign` on Alpine,
+postmarketOS, Fedora, Debian and Homebrew):
 
 ```bash
-# Generate new key
-gpg --full-generate-key
-
-# Follow prompts:
-# 1. Key type: RSA and RSA (default)
-# 2. Key size: 4096 bits
-# 3. Expiration: 0 = never expire (or set expiration)
-# 4. Real name: Your Name
-# 5. Email: your@email.com
-# 6. Comment: (optional, e.g., "Marathon Developer Key")
-# 7. Passphrase: Choose strong passphrase
+minisign -G          # writes ~/.minisign/minisign.key (password-protected)
+                     # and minisign.pub
+minisign -G -W       # the same without a password, e.g. for CI secrets
 ```
 
-Example session:
+The public key file looks like this; the hex after `public key:` is the key id:
+
 ```
-gpg (GnuPG) 2.3.8; Copyright (C) 2021 Free Software Foundation, Inc.
-
-Please select what kind of key you want:
-   (1) RSA and RSA (default)
-Your selection? 1
-
-RSA keys may be between 1024 and 4096 bits long.
-What keysize do you want? (3072) 4096
-
-Key is valid for? (0) 0
-
-Real name: Jane Developer
-Email address: jane@example.com
-Comment: Marathon Developer
+untrusted comment: minisign public key: BDC597FE8CF7F6F3
+RWTz9veM/pfFvaHGXJDKwGIRS/MP5g/syiBzHNpL/aymxdZvs/8LDhpF
 ```
 
-### List Your Keys
+Keep the secret key out of version control and back it up.
+
+## Signing
 
 ```bash
-# List public keys
-gpg --list-keys
+# Package and sign in one step
+marathon-dev package ./my-app my-app.marathon --key ~/.minisign/minisign.key
 
-# List private keys
-gpg --list-secret-keys
+# Sign an existing package (the key defaults to ~/.minisign/minisign.key)
+marathon-dev sign my-app.marathon [secret-key]
 
-# Output shows key ID, e.g.:
-# pub   rsa4096 2024-01-01 [SC]
-#       ABCD1234ABCD1234ABCD1234ABCD1234ABCD1234
-# uid           Jane Developer <jane@example.com>
+# The minisign CLI works too
+minisign -S -m my-app.marathon
 ```
 
-### Export Public Key
+`marathon-dev` asks for the key's password on the terminal if it has one.
+Re-packaging removes a `.minisig` left from an earlier build, since it would
+not match the new archive.
+
+Ship the `.minisig` with the package: a store serves it at the package URL
+plus `.minisig`, and a sideloaded package needs it in the same directory.
+
+## Verifying
 
 ```bash
-# Export public key (ASCII format)
-gpg --armor --export your@email.com > my-public-key.asc
-
-# This file will be submitted to Marathon developer portal
+marathon-dev verify my-app.marathon
+minisign -V -p minisign.pub -m my-app.marathon   # any minisign tool
 ```
 
-### Backup Keys
+`marathon-dev verify` checks against the device's trusted keys and prints
+the signing key id.
 
-**Important**: Backup your private key securely!
+## Trusted keys
+
+Marathon trusts the minisign public keys (`*.pub`) in:
+
+| Directory | Who puts keys there |
+|---|---|
+| `/usr/share/marathon/trusted-keys/` | The OS packages: Marathon's own release keys |
+| `~/.config/marathon/trusted-keys/` | The user: a developer trusting their own key |
+
+To trust your own key on a development device:
 
 ```bash
-# Export private key (KEEP SECURE!)
-gpg --armor --export-secret-keys your@email.com > private-key-backup.asc
-
-# Store in secure location:
-# - Encrypted USB drive
-# - Password manager
-# - Secure cloud storage with encryption
+mkdir -p ~/.config/marathon/trusted-keys
+cp ~/.minisign/minisign.pub ~/.config/marathon/trusted-keys/my-key.pub
 ```
 
-## Signing Your App
+Several keys can be trusted at once. To rotate, ship the new key, start
+signing with it, then revoke the old one.
 
-### Using marathon-dev Tool
+Older Marathon builds used OpenPGP keys (`*.asc`, `*.gpg`) in
+`~/.config/marathon/trusted-keys/`. Those files are ignored now; replace
+them with minisign `.pub` keys.
+
+A key file that does not parse stops every verification until it is fixed
+or removed, rather than being skipped.
+
+### Revocation
+
+A file named `revoked` in either trusted-keys directory lists key ids that
+are no longer trusted, one per line, `#` for comments:
+
+```
+# leaked 2026-10-02
+4D9129AD84930B56
+```
+
+A revocation in any directory applies to a key trusted in any other, so an
+OS update can withdraw a key a user added themselves. Ids that are not 16 hex
+digits are an error, so a typo cannot quietly drop a revocation.
+
+## The developer override
+
+`MARATHON_ALLOW_UNSIGNED=1` lets the installer accept:
+
+- a package with no `.minisig`, and
+- an install from an app directory (`marathon-dev install ./my-app`), which
+  has no archive to sign.
+
+It does not accept a signature that is invalid, untrusted or revoked: it
+waives the signature, not the check of one that is there. Every install it
+lets through is logged to syslog (`LOG_AUTH`, `[SECURITY] Unsigned ...`).
 
 ```bash
-# Navigate to your app directory
-cd my-app/
-
-# Sign with default key
-marathon-dev sign .
-
-# Or specify key ID
-marathon-dev sign . ABCD1234ABCD1234
+MARATHON_ALLOW_UNSIGNED=1 marathon-dev install ./my-app
 ```
 
-This creates `SIGNATURE.txt` in your app directory.
+## Permissions at install time
 
-### Manual Signing
-
-```bash
-# Sign manifest.json
-gpg --detach-sign --armor --output SIGNATURE.txt manifest.json
-
-# Verify signature
-gpg --verify SIGNATURE.txt manifest.json
-```
-
-### Sign Output
-
-```
-gpg: Signature made Mon 01 Jan 2024 12:00:00 PM PST
-gpg:                using RSA key ABCD1234ABCD1234ABCD1234ABCD1234ABCD1234
-gpg: Good signature from "Jane Developer <jane@email.com>" [ultimate]
-```
-
-## Verification
-
-### Verify Locally
-
-```bash
-# Verify your signature
-marathon-dev validate my-app/
-
-# Or manually with GPG
-gpg --verify my-app/SIGNATURE.txt my-app/manifest.json
-```
-
-### Marathon Verification Process
-
-When users install your app:
-
-1. Extract `.marathon` package
-2. Read `manifest.json` and `SIGNATURE.txt`
-3. Verify signature matches manifest
-4. Check if signing key is trusted
-5. If valid, proceed with installation
-6. If invalid, reject installation
-
-## Trust Management
-
-### Development Mode
-
-During development, Marathon accepts any valid signature (signed but not necessarily trusted).
-
-### Production Mode
-
-In production, Marathon only accepts:
-- Apps signed by verified developer keys (registered in developer portal)
-- System apps signed by Marathon OS master key
-
-### Add Trusted Keys
-
-Users can manually trust additional developer keys:
-
-```bash
-# Import developer's public key
-gpg --import developer-key.asc
-
-# Trust the key
-gpg --edit-key developer@example.com trust
-# Select trust level: 5 = I trust ultimately
-```
-
-## Key Management
-
-### Key Rotation
-
-If your key is compromised:
-
-1. **Revoke old key**:
-```bash
-# Generate revocation certificate
-gpg --output revoke.asc --gen-revoke your@email.com
-
-# Import and publish revocation
-gpg --import revoke.asc
-gpg --send-keys YOUR_KEY_ID
-```
-
-2. **Generate new key** (see Setup GPG section)
-
-3. **Update developer portal** with new public key
-
-4. **Re-sign all apps** with new key
-
-5. **Publish updates** so users get newly signed versions
-
-### Multiple Developers
-
-For team development:
-
-#### Option 1: Shared Key (Simpler)
-- Generate one key for the team
-- Securely share private key among team members
-- All apps signed with same key
-
-#### Option 2: Multiple Keys (More Secure)
-- Each developer has own key
-- Add all public keys to trusted keys
-- Apps can be signed by any team member
-- Better accountability
-
-## Best Practices
-
-### Security
-
- **Do**:
-- Use strong passphrase
-- Store private key securely
-- Backup key in multiple secure locations
-- Use 4096-bit keys
-- Set key expiration (e.g., 2 years)
-- Rotate keys periodically
-
- **Don't**:
-- Share private key publicly
-- Store key in version control
-- Use weak passphrase
-- Leave key unencrypted on disk
-
-### Signing Workflow
-
-```bash
-# 1. Develop app
-vim my-app/MyApp.qml
-
-# 2. Test thoroughly
-marathon-dev validate my-app/
-
-# 3. Update version in manifest.json
-# "version": "1.1.0"
-
-# 4. Sign manifest
-marathon-dev sign my-app/
-
-# 5. Package
-marathon-dev package my-app/
-
-# 6. Verify package
-marathon-dev validate my-app.marathon
-
-# 7. Upload to store
-```
-
-### Automation
-
-For CI/CD pipelines:
-
-```bash
-# Store GPG key as environment variable
-export GPG_PRIVATE_KEY="$(cat private-key.asc)"
-export GPG_PASSPHRASE="your-passphrase"
-
-# Import key in CI
-echo "$GPG_PRIVATE_KEY" | gpg --import --batch
-
-# Sign non-interactively
-echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 \
-  --detach-sign --armor --output SIGNATURE.txt manifest.json
-```
-
- **Security Note**: Use CI/CD secrets management, not plain text!
+Before installing, the installer describes every permission the package's
+`manifest.json` declares (see
+[APP_MANIFEST_SCHEMA.md](APP_MANIFEST_SCHEMA.md#permissions-array-of-strings)).
+A permission it has no description for refuses the install. An update that
+declares permissions the installed version does not have is held until the
+user agrees to them; `marathon-dev install` shows them and asks for
+`--approve-permissions`.
 
 ## Troubleshooting
 
-### "gpg: signing failed: No secret key"
-
-Your private key isn't available:
-
-```bash
-# Check if private key exists
-gpg --list-secret-keys
-
-# If missing, import from backup
-gpg --import private-key-backup.asc
-```
-
-### "gpg: signing failed: Inappropriate ioctl for device"
-
-GPG can't prompt for passphrase:
-
-```bash
-# Set GPG_TTY environment variable
-export GPG_TTY=$(tty)
-
-# Or use passphrase file (less secure)
-echo "passphrase" > passphrase.txt
-gpg --passphrase-file passphrase.txt --detach-sign manifest.json
-```
-
-### "gpg: BAD signature"
-
-Signature doesn't match manifest:
-
-- Manifest was modified after signing
-- Wrong signature file
-- Corrupted file
-
-Solution: Re-sign the manifest
-
-### "gpg: Can't check signature: No public key"
-
-Verifier doesn't have your public key:
-
-```bash
-# Send public key to keyserver
-gpg --send-keys YOUR_KEY_ID
-
-# Or export and share manually
-gpg --armor --export your@email.com > public-key.asc
-```
-
-## Advanced Topics
-
-### Subkeys
-
-Use subkeys for enhanced security:
-
-```bash
-# Generate signing subkey
-gpg --edit-key your@email.com
-gpg> addkey
-# Select (4) RSA (sign only)
-gpg> save
-
-# Separate master key from signing key
-# Store master key offline
-# Use signing subkey for daily signing
-```
-
-### Timestamping
-
-Add timestamp to signatures:
-
-```bash
-# Sign with timestamp
-gpg --detach-sign --armor --sig-notation timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --output SIGNATURE.txt manifest.json
-```
-
-### Hardware Tokens
-
-Use YubiKey or similar for key storage:
-
-```bash
-# Generate key on hardware token
-gpg --card-edit
-gpg/card> admin
-gpg/card> generate
-
-# Signing uses hardware token
-# Private key never leaves device
-```
-
-## Reference
-
-### File Structure
-
-```
-my-app/
-├── manifest.json       # App metadata
-├── SIGNATURE.txt       # GPG signature (detached)
-├── MyApp.qml
-└── assets/
-    └── icon.svg
-```
-
-### SIGNATURE.txt Format
-
-```
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEabcdef...
-...
------END PGP SIGNATURE-----
-```
-
-### Verification Command
-
-```bash
-gpg --verify SIGNATURE.txt manifest.json
-```
-
-Expected output:
-```
-gpg: Signature made Mon 01 Jan 2024 12:00:00 PM PST
-gpg:                using RSA key ABCD1234...
-gpg: Good signature from "Developer <dev@example.com>"
-```
-
-## Resources
-
-- **GPG Documentation**: https://gnupg.org/documentation/
-- **Best Practices**: https://riseup.net/en/security/message-security/openpgp/best-practices
-- **Key Management**: https://help.ubuntu.com/community/GnuPrivacyGuardHowto
-- **Marathon Developer Portal**: https://apps.marathonos.org
-
-## Support
-
-Questions about code signing:
-- **Email**: security@marathonos.org
-- **Forum**: https://forum.marathonos.org/c/development
-- **Documentation**: https://docs.marathonos.org/signing
-
-Remember: Keep your private key secure!
-
+| Message | Meaning |
+|---|---|
+| `Package is not signed` | No `.minisig` beside the package. Sign it, or use the override while developing. |
+| `Invalid signature` | The package changed after signing, the `.minisig` belongs to another file, or it is a legacy (`-l`) signature. Re-sign. |
+| `signed by key X, which is not trusted` | Add key X's `.pub` to a trusted-keys directory. |
+| `signed by key X, which is revoked` | Sign with a current key. |
+| `Failed to load trusted keys` | A `.pub` or `revoked` file in a trusted-keys directory does not parse. |
+| `Permissions with no description` | The manifest declares a permission Marathon does not know. |

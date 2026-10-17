@@ -35,7 +35,7 @@ pipeline under `packaging/`.
 | Compositor and shell | `shell/` | Qt 6 (QtWaylandCompositor) compositor and the QML shell UI in one process. Owns the gestures, Hub, task switcher, lock screen, quick settings, keyboard and the shell's D-Bus services (`org.marathonos.Shell`). |
 | UI framework | `marathon-silica/`, `packaging/packages/keel-silica` | Keel, Shipwright's Sailfish Silica for Qt 6, used unmodified, plus `Marathon.Silica`: accessibility, keyboard operation and the components Silica lacks. The shell and every bundled app use it. |
 | App runner | `tools/marathon-app-runner/` | `marathon-app-runner` and `marathon-keel-host` run each app in its own process and bubblewrap sandbox, with `Marathon.Platform` exposing the shell's services. |
-| App platform | `marathon-core/`, `tools/marathon-dev/` | `.marathon` packages: packaging, GPG signing, verification, install, discovery. |
+| App platform | `marathon-core/`, `tools/marathon-dev/` | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
 | Data services | `marathon-services/` | Telephony, SMS/MMS, contacts, call history, CalDAV/CardDAV sync, media library, mail (QMF). |
 | Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`, `marathon-mail-oauth`. |
 | Image pipeline | `packaging/`, `scripts/build-image.sh` | Alpine/postmarketOS aports and the duranium/mkosi pipeline that builds device images. |
@@ -266,15 +266,19 @@ and can be reviewed in Settings; see [docs/PERMISSION_GUIDE.md](docs/PERMISSION_
 
 ```bash
 marathon-dev init myapp                    # new app from the template
-marathon-dev package apps/myapp            # build a .marathon package
-marathon-dev sign apps/myapp [key-id]      # GPG-sign the manifest
-marathon-dev validate apps/myapp           # check an app or package
+marathon-dev package apps/myapp --key ~/.minisign/minisign.key
+                                           # build and sign a .marathon package
+marathon-dev sign myapp.marathon [key]     # sign an existing package
+marathon-dev verify myapp.marathon         # check its signature
 marathon-dev install myapp.marathon        # install locally
 ```
 
-A `.marathon` package is a ZIP with the app files, `manifest.json` and an
-optional `SIGNATURE.txt` (GPG detached signature).
-`MARATHON_REQUIRE_SIGNATURES` makes signatures mandatory. See
+A `.marathon` package is a ZIP with the app files and `manifest.json`, and
+needs a minisign signature over the whole archive beside it
+(`myapp.marathon.minisig`). The installer checks it before opening the
+archive and refuses unsigned packages unless `MARATHON_ALLOW_UNSIGNED=1` is
+set for development. At install time every declared permission is shown, and
+an update that adds permissions waits for the user's consent. See
 [docs/CODE_SIGNING_GUIDE.md](docs/CODE_SIGNING_GUIDE.md) and
 [docs/PUBLISHING_GUIDE.md](docs/PUBLISHING_GUIDE.md).
 
