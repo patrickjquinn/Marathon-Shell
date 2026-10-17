@@ -290,8 +290,9 @@ Native apps connect to the compositor's Wayland socket and are shown
 through `WaylandShellSurfaceItem`. The shell finds them from `.desktop`
 files in the standard locations, including Flatpak exports. Native
 packages run unconfined, as trusted system software; Flatpaks keep
-Flatpak's sandbox. GApplication `.desktop` entries are rewritten to run
-the binary directly. Snaps may need
+Flatpak's sandbox ([docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md)).
+GApplication `.desktop` entries are rewritten to run the binary
+directly. Snaps may need
 `snap connect APP:wayland :wayland`. XWayland is not supported.
 
 ## Project structure

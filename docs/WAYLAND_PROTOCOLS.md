@@ -50,6 +50,15 @@ for iface in wl_shell xdg_wm_base wp_viewporter zwp_text_input_manager_v2 zwp_id
 done
 ```
 
+## Sandboxed clients
+Clients that connect through a security-context-v1 socket (Marathon apps,
+Flatpak apps) do not see privileged globals: capture, data-control, input
+injection, layer-shell, session-lock, output control, foreign-toplevel and
+the security-context manager itself. A new global in one of those classes
+is hidden from them by interface name; add new privileged interfaces to
+`kPrivilegedInterfaces` in `shell/src/wayland/securitycontextv1.cpp`. See
+[SECURITY_MODEL.md](SECURITY_MODEL.md).
+
 ## Implementation notes
 - Protocol globals are created in `shell/src/wayland/waylandcompositor.cpp` constructor.
 - If a protocol is optional, it must be **gated** behind an env/config flag and **documented here**.

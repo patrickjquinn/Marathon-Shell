@@ -497,16 +497,12 @@ QML modules are built with `qt6_add_qml_module`, which:
 
 ### Sandboxing
 
-- Marathon apps run in same process (no sandboxing currently)
-- Permission system provides access control
-- Future: consider sandboxing via Flatpak or custom approach
-
-### Native Apps
-
-- Wayland protocol provides some isolation
-- Apps cannot access other app surfaces
-- Input events routed only to focused surface
-- Flatpak/Snap apps use container sandboxing
+- Marathon apps run in their own bwrap sandbox and reach the compositor
+  through a security-context-v1 socket that hides privileged globals
+- WebEngine apps keep Chromium's own sandbox inside bwrap
+- Flatpak apps keep Flatpak's sandbox; native packages are trusted and
+  run unconfined
+- See [SECURITY_MODEL.md](SECURITY_MODEL.md)
 
 ### Code Signing
 
