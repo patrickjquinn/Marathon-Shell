@@ -146,8 +146,13 @@ Rectangle {
             }
 
             HubWeather {
+                id: hubWeather
+
                 width: parent.width
-                onOpenRequested: weatherSheet.open = true
+                onOpenRequested: {
+                    weatherSheet.open = true;
+                    weatherSheet.choosing = hubWeather.current === null;
+                }
             }
 
             Repeater {

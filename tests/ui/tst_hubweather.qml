@@ -9,6 +9,8 @@ TestCase {
     when: windowShown
 
     Window {
+        id: window
+
         width: 720
         height: 720
         visible: true
@@ -105,5 +107,15 @@ TestCase {
         WeatherClient.state = "no-location";
         tryVerify(() => card().visible);
         verify(!findChild(hub, "weatherCaret").visible);
+    }
+
+    function test_noLocationOpensTheChooser() {
+        WeatherClient.state = "no-location";
+        window.requestActivate();
+        tryVerify(() => window.active);
+        settle();
+        mouseClick(findChild(hub, "weatherSummary"));
+        tryVerify(() => sheet().open && sheet().choosing);
+        tryVerify(() => findChild(hub, "weatherSearch").activeFocus);
     }
 }
