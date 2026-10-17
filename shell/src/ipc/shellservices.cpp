@@ -14,6 +14,8 @@
 #include "networkmanagercpp.h"
 #include "modemmanagercpp.h"
 #include "powermanagercpp.h"
+#include "powerpolicycontroller.h"
+#include "waketimers.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
@@ -894,11 +896,15 @@ void DisplayObject::Wake() {
     m_display->setScreenState(true);
 }
 
-PowerObject::PowerObject(PowerManagerCpp *power, MarathonPermissionManager *permissions,
-                         AppLaunchService *launchService, QObject *parent)
+PowerObject::PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
+                         MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                         QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
-    , m_power(power) {
+    , m_power(power)
+    , m_policy(policy)
+    , m_wakeTimers(new WakeTimers(QDBusConnection::sessionBus(), this)) {
     Q_ASSERT(m_power);
+    Q_ASSERT(m_policy);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
@@ -957,6 +963,38 @@ void PowerObject::Shutdown() {
     if (!requireSystem())
         return;
     m_power->shutdown();
+}
+
+bool PowerObject::Wake(const QString &reason) {
+    if (!requireSystem())
+        return false;
+    // Each reason holds a wakelock of that name.
+    static const QStringList reasons{QStringLiteral("alarm"), QStringLiteral("call"),
+                                     QStringLiteral("notification")};
+    if (!reasons.contains(reason)) {
+        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("Unknown wake reason"));
+        return false;
+    }
+    qInfo() << "[PowerObject]" << callerAppIdOrEmpty() << "wakes the screen for" << reason;
+    m_policy->wake(reason);
+    return true;
+}
+
+bool PowerObject::ScheduleWake(qint64 epochSecs, const QString &reason) {
+    if (!requireSystem())
+        return false;
+    if (epochSecs <= QDateTime::currentSecsSinceEpoch()) {
+        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("Wake time is not in the future"));
+        return false;
+    }
+    const QString app = callerAppIdOrEmpty();
+    qInfo() << "[PowerObject]" << app << "schedules a wake-up at" << epochSecs << "for" << reason;
+    // Answered once systemd has the timer.
+    setDelayedReply(true);
+    m_wakeTimers->set(
+        QStringLiteral("app-") + app, epochSecs,
+        [bus = connection(), call = message()](bool ok) { bus.send(call.createReply(ok)); });
+    return false;
 }
 
 static QVariantList audioStreamsToVariantList(AudioManagerCpp *audio) {

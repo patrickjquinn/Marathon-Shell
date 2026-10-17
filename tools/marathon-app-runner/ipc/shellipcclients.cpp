@@ -2108,6 +2108,18 @@ void PowerClient::shutdown() {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[PowerClient] Shutdown failed:" << r.errorMessage();
 }
+bool PowerClient::wake(const QString &reason) {
+    const QDBusReply<bool> r = m_iface.call("Wake", reason);
+    if (!r.isValid())
+        qWarning() << "[PowerClient] Wake failed:" << r.error().message();
+    return r.isValid() && r.value();
+}
+bool PowerClient::scheduleWake(const QDateTime &when, const QString &reason) {
+    const QDBusReply<bool> r = m_iface.call("ScheduleWake", when.toSecsSinceEpoch(), reason);
+    if (!r.isValid())
+        qWarning() << "[PowerClient] ScheduleWake failed:" << r.error().message();
+    return r.isValid() && r.value();
+}
 
 NetworkClient::NetworkClient(const QString &appId, QObject *parent)
     : QObject(parent)

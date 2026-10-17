@@ -265,6 +265,22 @@ target_include_directories(test_core_ipcclientnormalize PRIVATE
 )
 add_test(NAME Core_IpcClientNormalize COMMAND test_core_ipcclientnormalize)
 
+# The runner's Power client reports whether the shell woke the screen
+add_executable(test_core_powerclient
+    test_powerclient.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+set_target_properties(test_core_powerclient PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_powerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_powerclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
+
 # D-Bus reply containers normalize without demarshalling the wrong type
 add_executable(test_core_dbusnormalize
     test_dbusnormalize.cpp

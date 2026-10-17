@@ -35,6 +35,8 @@ class FlashlightManagerCpp;
 class NetworkManagerCpp;
 class ModemManagerCpp;
 class PowerManagerCpp;
+class PowerPolicyController;
+class WakeTimers;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
@@ -412,8 +414,9 @@ class PowerObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
 
   public:
-    PowerObject(PowerManagerCpp *power, MarathonPermissionManager *permissions,
-                AppLaunchService *launchService, QObject *parent = nullptr);
+    PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
+                MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                QObject *parent = nullptr);
 
   public slots:
     QVariantMap GetState();
@@ -422,6 +425,11 @@ class PowerObject : public IpcPermissionedService {
     void        Suspend();
     void        Restart();
     void        Shutdown();
+    // Turns the screen on as an alarm, call or notification does.
+    bool Wake(const QString &reason);
+    // Has a suspended device resume at epochSecs, in Doze as for background
+    // work; one per app, replacing the last.
+    bool ScheduleWake(qint64 epochSecs, const QString &reason);
 
   signals:
     void StateChanged(const QVariantMap &state);
@@ -430,9 +438,11 @@ class PowerObject : public IpcPermissionedService {
     bool requireSystem() {
         return requirePermission("Power", {"system"});
     }
-    QVariantMap      buildState() const;
+    QVariantMap            buildState() const;
 
-    PowerManagerCpp *m_power = nullptr;
+    PowerManagerCpp       *m_power      = nullptr;
+    PowerPolicyController *m_policy     = nullptr;
+    WakeTimers            *m_wakeTimers = nullptr;
 };
 
 class AudioObject : public IpcPermissionedService {

@@ -13,7 +13,7 @@ Page {
     property string lastAlarmId: ""
 
     function wake(reason) {
-        page.app.run("Wake: " + reason, () => WakeManager.wake(reason));
+        page.app.run("Wake: " + reason, () => Power.wake(reason));
     }
 
     SilicaFlickable {
@@ -87,7 +87,7 @@ Page {
                     onClicked: page.app.run("Schedule wake in 1 minute", () => {
                         const t = new Date();
                         t.setMinutes(t.getMinutes() + 1);
-                        WakeManager.scheduleWake(t, "test");
+                        return Power.scheduleWake(t, "test");
                     })
                 }
             }

@@ -4,6 +4,7 @@
 #include <QAbstractListModel>
 #include <QDBusInterface>
 #include <QDBusVariant>
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QVariantList>
 #include <QVariantMap>
@@ -829,6 +830,9 @@ class PowerClient : public QObject {
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void restart();
     Q_INVOKABLE void shutdown();
+    // Whether the shell took it.
+    Q_INVOKABLE bool wake(const QString &reason);
+    Q_INVOKABLE bool scheduleWake(const QDateTime &when, const QString &reason);
 
   signals:
     void stateChanged();

@@ -181,6 +181,13 @@ before to 60 s after the next alarm turns the screen on, as a resume the
 person caused does, and the alarm rings; its monotonic `QTimer` stood still
 during the suspend, so `resumedFromSuspend` checks the alarms again.
 
+System apps reach the same two paths over `org.marathonos.Shell.Power1`
+(permission `system`; the test suite's Alarms page uses them):
+`Wake(reason)` turns the screen on as an alarm, call or notification does
+(`PowerPolicyController::wake`, which leaves Doze), and
+`ScheduleWake(epochSecs, reason)` keeps one `marathon-wake-app-<id>-T` timer
+per app, so a suspended device resumes at that time, in Doze.
+
 This is the split Android makes between `RTC_WAKEUP` work, which wakes the
 CPU, and `setAlarmClock()`, which also brings up the alarm's UI; on Sailfish
 `timed` holds both and asks mce for the display.

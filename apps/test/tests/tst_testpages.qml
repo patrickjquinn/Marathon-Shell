@@ -112,10 +112,13 @@ TestCase {
         tryCompare(findChild(page, "alarmCount"), "value", String(Alarms.alarms.length));
         compare(app.passedTests, 1);
         compare(app.triggeredTests, 1);
-        // WakeManager lives only in the shell process.
-        tap(page, "wakeAlarm");
-        tap(page, "scheduleWake");
-        compare(app.failedTests, 2);
+        ["wakeAlarm", "wakeCall", "wakeNotification", "scheduleWake"].forEach(n => tap(page, n));
+        compare(calls(Power, "wake"), [["alarm"], ["call"], ["notification"]]);
+        const scheduled = calls(Power, "scheduleWake")[0];
+        verify(scheduled[0] > new Date());
+        compare(scheduled[1], "test");
+        compare(app.passedTests, 5);
+        compare(app.failedTests, 0);
     }
 
     function test_media() {

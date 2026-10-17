@@ -103,7 +103,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *btObj = new BluetoothObject(m_bluetoothManager, m_permissions, m_appLaunchService, this);
     auto *displayObj = new DisplayObject(m_displayManager, m_flashlightManager, m_permissions,
                                        m_appLaunchService, this);
-    auto *powerObj   = new PowerObject(m_powerManager, m_permissions, m_appLaunchService, this);
+    auto *powerObj =
+        new PowerObject(m_powerManager, m_powerPolicy, m_permissions, m_appLaunchService, this);
     auto *audioObj =
         new AudioObject(m_audioManager, m_audioPolicy, m_permissions, m_appLaunchService, this);
     auto *networkObj = new NetworkObject(m_networkManager, m_permissions, m_appLaunchService, this);

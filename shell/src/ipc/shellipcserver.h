@@ -16,6 +16,7 @@ class BluetoothManager;
 class DisplayManagerCpp;
 class NetworkManagerCpp;
 class PowerManagerCpp;
+class PowerPolicyController;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
@@ -66,6 +67,9 @@ class ShellIpcServer : public QObject {
     void setFlashlightManager(FlashlightManagerCpp *flashlight) {
         m_flashlightManager = flashlight;
     }
+    void setPowerPolicy(PowerPolicyController *policy) {
+        m_powerPolicy = policy;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -83,6 +87,7 @@ class ShellIpcServer : public QObject {
     BluetoothManager          *m_bluetoothManager    = nullptr;
     DisplayManagerCpp         *m_displayManager      = nullptr;
     PowerManagerCpp           *m_powerManager        = nullptr;
+    PowerPolicyController     *m_powerPolicy         = nullptr;
     AudioManagerCpp           *m_audioManager        = nullptr;
     AudioPolicyController     *m_audioPolicy         = nullptr;
     NetworkManagerCpp         *m_networkManager      = nullptr;
