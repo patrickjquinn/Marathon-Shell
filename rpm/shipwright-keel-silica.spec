@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    33
+Release:    34
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -40,6 +40,9 @@ BuildRequires:  qt6-qtbase-private-devel < 6.9
 # dconf through libdconf (keel/silica/plugin/cpp/keeldconf.h): Sailjail's
 # private-bin leaves sandboxed apps no dconf program.
 BuildRequires:  pkgconfig(dconf)
+# Direct mode unmaps a window before Qt takes it down
+# (ShellClient::unmapForLipstick): libwayland-client.
+BuildRequires:  wayland-devel
 # Qt's private API, Qt 6.8 only (< 6.9): keelplugin and silicaprivateplugin
 # link QtGui's and QtQuick's private API, and qt_add_qml_module compiles the
 # QML ahead of time against QQmlPrivate internals, none of which keeps its
@@ -160,6 +163,8 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Fri Oct 16 2026 Shipwright - 0.1.0-34
+- Closing an app no longer sometimes restarts the home screen and closes every other app with it. A fault in the home screen (Lipstick) could crash it while a window was going away; Keel apps now take their windows off the screen cleanly before closing them.
 * Fri Oct 16 2026 Shipwright - 0.1.0-33
 - Every Keel app answers app.show, a Keel Action the framework adds to each app: it brings the app to the front, starting it if it is not running, and can open one of the pages the app offers (KeelPage). An app started in the background for an action shows its window and no longer closes itself after 30 seconds.
 * Fri Oct 16 2026 Shipwright - 0.1.0-32

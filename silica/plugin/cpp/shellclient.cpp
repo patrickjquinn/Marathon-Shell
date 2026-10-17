@@ -19,6 +19,13 @@
 #endif
 
 #include <csignal>
+#if defined(KEEL_HAVE_QPA) && defined(KEEL_HAVE_WAYLAND)
+#include <cerrno>
+#include <poll.h>
+#include <wayland-client.h>
+#include <QElapsedTimer>
+#include <QThread>
+#endif
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -353,7 +360,103 @@ void ShellClient::prepareCoverWindow(QObject *object)
     }
     connect(window, &QWindow::visibilityChanged, this, &ShellClient::updateCoverStatus);
     connect(window, &QWindow::visibleChanged, this, &ShellClient::updateCoverStatus);
+    connect(window, &QWindow::visibleChanged, this, &ShellClient::onWindowVisibleChanged, Qt::UniqueConnection);
     updateCoverStatus();
+}
+
+void ShellClient::onWindowVisibleChanged(bool visible)
+{
+    if (!visible)
+        unmapForLipstick(qobject_cast<QWindow *>(sender()));
+}
+
+// Qt's Wayland client takes a window down (QWaylandWindow::reset(), on hide
+// and on destroy) by destroying its EGL buffers while the last one is still
+// attached, and only then the wl_surface. Lipstick (lipstick-qt5 0.37,
+// WindowPixmapItem::handleWindowSizeChanged()) gets the size change of the
+// lost buffer as a queued call and, about half the time, runs it after the
+// surface's window item is gone: a null dereference that restarts the home
+// screen and every app with it. So unmap the window first, while it is
+// whole: a null buffer and a commit, a roundtrip on a queue of our own (Qt's
+// event thread keeps reading the display) so that Lipstick has handled the
+// commit, and a moment for Lipstick to deliver what it queued for it. Called
+// from visibleChanged(false), which QWindow emits before it touches the
+// platform window.
+void ShellClient::unmapForLipstick(QWindow *window)
+{
+#if defined(KEEL_HAVE_QPA) && defined(KEEL_HAVE_WAYLAND)
+    static const bool enabled = qgetenv("KEEL_UNMAP_BEFORE_DESTROY") != "0";
+    if (!enabled || !window || !window->handle())
+        return;
+    QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
+    if (!native)
+        return;
+    auto *surface = static_cast<wl_surface *>(native->nativeResourceForWindow("surface", window));
+    auto *display = static_cast<wl_display *>(native->nativeResourceForIntegration("wl_display"));
+    if (!surface || !display)
+        return;
+    wl_surface_attach(surface, nullptr, 0, 0);
+    wl_surface_commit(surface);
+
+    wl_event_queue *queue = wl_display_create_queue(display);
+    auto *wrapper = static_cast<wl_display *>(wl_proxy_create_wrapper(display));
+    wl_proxy_set_queue(reinterpret_cast<wl_proxy *>(wrapper), queue);
+    bool done = false;
+    static const wl_callback_listener listener = {
+        [](void *data, wl_callback *callback, uint32_t) {
+            *static_cast<bool *>(data) = true;
+            wl_callback_destroy(callback);
+        },
+    };
+    wl_callback *callback = wl_display_sync(wrapper);
+    wl_callback_add_listener(callback, &listener, &done);
+    wl_proxy_wrapper_destroy(wrapper);
+
+    // At most half a second: a compositor that does not answer must not
+    // keep the app from closing.
+    QElapsedTimer timer;
+    timer.start();
+    bool failed = false;
+    while (!done && !failed && timer.elapsed() < 500) {
+        while (wl_display_prepare_read_queue(display, queue) != 0) {
+            if (wl_display_dispatch_queue_pending(display, queue) < 0) {
+                failed = true;
+                break;
+            }
+        }
+        if (failed || done) {
+            if (!failed)
+                wl_display_cancel_read(display);
+            break;
+        }
+        if (wl_display_flush(display) < 0 && errno != EAGAIN) {
+            wl_display_cancel_read(display);
+            break;
+        }
+        pollfd fd = { wl_display_get_fd(display), POLLIN, 0 };
+        const int left = 500 - static_cast<int>(timer.elapsed());
+        if (::poll(&fd, 1, left > 0 ? left : 0) > 0) {
+            if (wl_display_read_events(display) < 0)
+                break;
+        } else {
+            wl_display_cancel_read(display);
+        }
+        if (wl_display_dispatch_queue_pending(display, queue) < 0)
+            break;
+    }
+    if (!done) {
+        // Destroyed, it cannot fire into `done` later.
+        wl_callback_destroy(callback);
+        qCWarning(lcKeelShell) << "Lipstick did not answer the unmap of" << window;
+    }
+    wl_event_queue_destroy(queue);
+    // Lipstick has handled the commit; let its event loop deliver what that
+    // queued before the surface goes.
+    if (done)
+        QThread::msleep(50);
+#else
+    Q_UNUSED(window)
+#endif
 }
 
 void ShellClient::setLipstickProperty(QObject *object, const QString &name, const QVariant &value) const
@@ -371,6 +474,7 @@ void ShellClient::tagAppWindow(QWindow *window)
 {
     if (!m_appWindows.contains(window))
         m_appWindows.append(window);
+    connect(window, &QWindow::visibleChanged, this, &ShellClient::onWindowVisibleChanged, Qt::UniqueConnection);
     setWindowProperty(window, QStringLiteral("WINID"), windowLinkId(window));
     setWindowProperty(window, QStringLiteral("BACKGROUND_VISIBLE"), true);
     linkCover(window);

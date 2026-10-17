@@ -17,7 +17,7 @@
 Name:       shipwright-keel-mcp
 Summary:    MCP server for the Keel Actions of the apps on the device
 Version:    0.1.0
-Release:    9
+Release:    10
 License:    MIT
 URL:        https://github.com/patrickjquinn/shipwright-open
 
@@ -58,6 +58,8 @@ install -d %{buildroot}%{_datadir}/keel/actions
 %dir %{_datadir}/keel/actions
 
 %changelog
+* Sat Oct 17 2026 Shipwright - 0.1.0-10
+- Rebuilt with Keel 0.1.0-34; no change in behaviour.
 * Fri Oct 16 2026 Shipwright - 0.1.0-9
 - Lists every app's built-in app.show, which brings the app to the front and can open one of its pages.
 * Wed Oct 14 2026 Shipwright - 0.1.0-8

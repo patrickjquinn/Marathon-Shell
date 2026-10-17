@@ -152,6 +152,7 @@ private slots:
     void onAmbienceChanged(const QVariantMap &ambience);
     void onDpiChanged(int dpi);
     void onCloseRequested();
+    void onWindowVisibleChanged(bool visible);
 
 private:
     void fetchProperties();
@@ -169,6 +170,7 @@ private:
     void tagAppWindow(QWindow *window);
     void linkCover(QWindow *window);
     void installTermHandler();
+    static void unmapForLipstick(QWindow *window);
     void onTermSignal();
 
     bool m_direct = false;

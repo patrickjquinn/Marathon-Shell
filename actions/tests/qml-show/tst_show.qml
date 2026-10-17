@@ -31,7 +31,7 @@ TestCase {
         declarations.active = true
         tryCompare(call, "finished", true, 2000)
         compare(call.errorCode, "")
-        compare(declarations.item.shownPages, ["settings"])
+        compare((declarations.item as NotesActions).shownPages, ["settings"])
         verify(appWindow.visible)
         verify(!KeelActions.headless)
     }
