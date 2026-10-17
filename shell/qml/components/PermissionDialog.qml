@@ -50,9 +50,11 @@ Item {
             "calendar": "calendar",
             "storage": "archive",
             "notifications": "bell",
+            "alarms": "alarm",
             "telephony": "phone",
             "sms": "chat-circle",
             "bluetooth": "bluetooth",
+            "sensors": "gauge",
             // Phosphor doesn't have "cog"; use "gear". The empty placeholder
             // square in the System permission row was a missing glyph, not
             // styling.

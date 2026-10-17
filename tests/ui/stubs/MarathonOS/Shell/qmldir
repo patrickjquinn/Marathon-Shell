@@ -21,6 +21,7 @@ singleton AppStore 1.0 AppStore.qml
 singleton NavigationRouter 1.0 NavigationRouter.qml
 singleton SettingsManagerCpp 1.0 SettingsManagerCpp.qml
 singleton AmbienceService 1.0 AmbienceService.qml
+singleton PermissionManager 1.0 PermissionManager.qml
 GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
