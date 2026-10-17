@@ -10,6 +10,9 @@ use std::collections::BTreeMap;
 
 pub const SPEAKERPHONE_SETTING: &str = "marathon.call.speakerphone";
 const JSON: &str = "Spa:String:JSON";
+/// The two halves of a role-based policy loopback, as `WirePlumber` names
+/// them (node/find-media-role-default-volume.lua).
+const ROLE_LOOPBACKS: [&str; 2] = ["input.loopback.sink.role.", "output.loopback.sink.role."];
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Mix {
@@ -26,6 +29,13 @@ pub struct Node {
     pub device: Option<u32>,
     pub profile_device: Option<i32>,
     pub props: Option<Mix>,
+}
+
+impl Node {
+    /// A media role's loopback: plumbing, not a device or an app.
+    fn is_role_loopback(&self) -> bool {
+        ROLE_LOOPBACKS.iter().any(|p| self.name.starts_with(p))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -246,7 +256,7 @@ impl Graph {
     fn stream(&self, id: u32) -> Option<&Node> {
         self.nodes
             .get(&id)
-            .filter(|n| n.media_class == "Stream/Output/Audio")
+            .filter(|n| n.media_class == "Stream/Output/Audio" && !n.is_role_loopback())
     }
 
     /// The write that carries out `op`, if its target exists.
@@ -285,7 +295,7 @@ impl Graph {
     fn ports(&self, direction: Direction) -> Vec<Port> {
         self.nodes
             .values()
-            .filter(|n| direction.has(n))
+            .filter(|n| direction.has(n) && !n.is_role_loopback())
             .map(|n| Port {
                 name: n.name.clone(),
                 description: if n.description.is_empty() {
@@ -314,7 +324,7 @@ impl Graph {
         let streams = self
             .nodes
             .iter()
-            .filter(|(_, n)| n.media_class == "Stream/Output/Audio")
+            .filter(|(id, _)| self.stream(**id).is_some())
             .map(|(id, n)| {
                 let mix = n.props.clone().unwrap_or_default();
                 Stream {
@@ -526,6 +536,33 @@ mod tests {
         assert!(g.snapshot().speakerphone);
         g.set_setting(SPEAKERPHONE_SETTING, None);
         assert!(!g.snapshot().speakerphone);
+    }
+
+    // WirePlumber's role loopbacks are neither outputs to pick nor apps.
+    #[test]
+    fn role_loopbacks_are_not_listed() {
+        let mut g = Graph::default();
+        g.nodes.insert(40, sink("speaker", None));
+        g.nodes.insert(
+            50,
+            sink("input.loopback.sink.role.alarm", Some(mix(1.0, false))),
+        );
+        g.nodes.insert(
+            51,
+            Node {
+                name: "output.loopback.sink.role.alarm".into(),
+                media_class: "Stream/Output/Audio".into(),
+                props: Some(mix(1.0, false)),
+                ..Node::default()
+            },
+        );
+        let s = g.snapshot();
+        assert_eq!(
+            s.sinks.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(),
+            ["speaker"]
+        );
+        assert!(s.streams.is_empty());
+        assert_eq!(g.plan(&Op::StreamVolume(51, 0.5)), None);
     }
 
     #[test]
