@@ -168,11 +168,15 @@ void AudioPolicyController::startPlayback(QMediaPlayer *player, const QUrl &sour
     player->play();
 }
 
+bool AudioPolicyController::ringerAudible(const QString &profile, bool dnd) {
+    return !dnd && profile != QLatin1String("silent") && profile != QLatin1String("vibrate");
+}
+
 void AudioPolicyController::playRingtone() {
     if (!m_settings)
         return;
-    if (m_settings->dndEnabled()) {
-        qInfo() << "[AudioPolicyController] Ringtone suppressed (DND enabled)";
+    if (!ringerAudible(m_settings->audioProfile(), m_settings->dndEnabled())) {
+        qInfo() << "[AudioPolicyController] Ringtone suppressed (profile or DND)";
         return;
     }
 
@@ -189,8 +193,8 @@ void AudioPolicyController::stopRingtone() {
 void AudioPolicyController::playNotificationSound() {
     if (!m_settings)
         return;
-    if (m_settings->dndEnabled()) {
-        qInfo() << "[AudioPolicyController] Notification suppressed (DND enabled)";
+    if (!ringerAudible(m_settings->audioProfile(), m_settings->dndEnabled())) {
+        qInfo() << "[AudioPolicyController] Notification suppressed (profile or DND)";
         return;
     }
 

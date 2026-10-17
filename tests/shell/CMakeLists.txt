@@ -52,6 +52,27 @@ target_include_directories(test_shell_audiodclient PRIVATE
 )
 add_test(NAME Shell_AudiodClient COMMAND test_shell_audiodclient)
 
+# AudioPolicyController: which sounds the profile lets through
+find_package(Qt6 REQUIRED COMPONENTS Multimedia)
+add_executable(test_shell_audiopolicy
+    test_audiopolicy.cpp
+    ../../shell/src/controllers/audiopolicycontroller.cpp
+    ../../shell/src/managers/audiomanagercpp.cpp
+    ../../shell/src/managers/audiodclient.cpp
+    ../../shell/src/managers/sinkvolume.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/managers/hapticmanager.cpp
+)
+target_link_libraries(test_shell_audiopolicy Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
+target_include_directories(test_shell_audiopolicy PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell/src
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+    ${CMAKE_SOURCE_DIR}/shell/src/controllers
+)
+add_test(NAME Shell_AudioPolicy COMMAND test_shell_audiopolicy)
+set_tests_properties(Shell_AudioPolicy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # MPRIS2Controller against fake players on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
 if(DBUS_RUN_SESSION)

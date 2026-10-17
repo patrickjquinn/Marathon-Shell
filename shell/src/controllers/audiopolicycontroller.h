@@ -42,6 +42,10 @@ class AudioPolicyController : public QObject {
 
     Q_INVOKABLE void vibratePattern(const QVariantList &pattern);
 
+    // Ringtones and notifications are silent in the silent and vibrate
+    // profiles and under DND; alarms ring regardless, as on Android.
+    static bool ringerAudible(const QString &profile, bool dnd);
+
   signals:
     void audioProfileChanged();
 
