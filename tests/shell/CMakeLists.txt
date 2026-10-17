@@ -473,3 +473,30 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
     add_test(NAME Shell_SecurityContext COMMAND test_shell_securitycontext)
     set_tests_properties(Shell_SecurityContext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# The keyboard's replacements reach a text-input-v3 client as byte deletions
+pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
+set(_text_input_xml ${WAYLAND_PROTOCOLS_DIR}/unstable/text-input/text-input-unstable-v3.xml)
+if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AND EXISTS ${_text_input_xml})
+    set(_text_input_gen ${CMAKE_CURRENT_BINARY_DIR}/text-input)
+    file(MAKE_DIRECTORY ${_text_input_gen})
+    add_custom_command(
+        OUTPUT ${_text_input_gen}/text-input-unstable-v3-client.h
+               ${_text_input_gen}/text-input-unstable-v3.c
+        COMMAND ${WAYLAND_SCANNER} client-header ${_text_input_xml} ${_text_input_gen}/text-input-unstable-v3-client.h
+        COMMAND ${WAYLAND_SCANNER} private-code ${_text_input_xml} ${_text_input_gen}/text-input-unstable-v3.c
+        DEPENDS ${_text_input_xml})
+    add_executable(test_shell_textinputreplace
+        test_textinputreplace.cpp
+        ../../shell/src/services/inputcontext.cpp
+        ${_text_input_gen}/text-input-unstable-v3-client.h
+        ${_text_input_gen}/text-input-unstable-v3.c
+    )
+    target_link_libraries(test_shell_textinputreplace
+        Qt6::Test Qt6::Quick Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_textinputreplace PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src ${_text_input_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_TextInputReplace COMMAND test_shell_textinputreplace)
+    set_tests_properties(Shell_TextInputReplace PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+endif()
