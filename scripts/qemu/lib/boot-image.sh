@@ -40,9 +40,10 @@ VNC_DISPLAY_NUM="${MARATHON_QEMU_VNC_DISPLAY:-5}"  # → 127.0.0.1:5905
 GUEST_WIDTH="${MARATHON_QEMU_WIDTH:-720}"
 GUEST_HEIGHT="${MARATHON_QEMU_HEIGHT:-1440}"
 
-# Locate the freshly baked image.
-IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
-        | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)"
+# The freshly baked image, or $MARATHON_QEMU_IMAGE: an OTA test keeps
+# booting the disk it updated while newer images are built beside it.
+IMG="${MARATHON_QEMU_IMAGE:-$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
+        | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)}"
 [ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }
 echo "==> image: $IMG"
 
@@ -50,16 +51,31 @@ echo "==> image: $IMG"
 # grow for /var work. Resize is a no-op if already 20G.
 qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
 
-# Boot the extracted kernel+initrd directly instead of via UEFI/UKI — the
-# systemd-boot path can't discover root on the QEMU image (masked
-# cryptsetup + gpt-auto), so it hangs in the initrd. See lib/extract-uki.sh.
-# `|| true`: under `set -euo pipefail` an unmatched glob makes ls exit 2,
-# pipefail carries it through head, and the assignment kills the script
-# before the explicit "no UKI found" check below can report anything.
-UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1 || true)"
-[ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
-. "$SCRIPT_DIR/extract-uki.sh"
-extract_uki_kernel_initrd "$UKI" /tmp/marathon-qemu-uki || exit 1
+# A/B images (MARATHON_IMAGE_LAYOUT=ab, a /usr partition) boot the real
+# chain, UEFI -> systemd-boot -> UKI: boot counting and rollback live there,
+# and their LUKS root is found by gpt-auto. The EFI variable store sits
+# beside the image so it survives reboots. Single-root images boot the
+# extracted kernel+initrd directly -- systemd-boot can't discover their root
+# (masked cryptsetup + gpt-auto) and hangs in the initrd. See
+# lib/extract-uki.sh.
+BOOT_ARGS=()
+if sfdisk -d "$IMG" 2>/dev/null | grep -qi 'type=B0E01050-EE5F-4390-949A-9101B17104E9'; then
+    EFI_VARS="${IMG%.raw}.efivars.qcow2"
+    [ -f "$EFI_VARS" ] || cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
+    echo "==> A/B image: UEFI boot, EFI variables in $EFI_VARS"
+    BOOT_ARGS=(-drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2
+               -drive if=pflash,format=qcow2,file="$EFI_VARS")
+    DISK_DEVICE="virtio-blk-pci,drive=hd0,bootindex=1"
+else
+    # `|| true`: under `set -euo pipefail` an unmatched glob makes ls exit 2,
+    # pipefail carries it through head, and the assignment kills the script
+    # before the explicit "no UKI found" check below can report anything.
+    UKI="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.efi 2>/dev/null | head -1 || true)"
+    [ -z "$UKI" ] && { echo "no UKI (.efi) found in $OUT_BASE" >&2; exit 1; }
+    . "$SCRIPT_DIR/extract-uki.sh"
+    extract_uki_kernel_initrd "$UKI" /tmp/marathon-qemu-uki || exit 1
+    DISK_DEVICE="virtio-blk-pci,drive=hd0"
+fi
 
 # Pick the display flag set. VNC is the default because it works in
 # every environment — local desktop, SSH session, headless server.
@@ -161,6 +177,9 @@ systemd.mask=systemd-repart.service systemd.mask=cryptsetup.target \
 systemd.mask=systemd-cryptsetup@pmOS_root.service \
 module_blacklist=vmw_vmci loglevel=4 console=tty0 console=ttyAMA0,115200 \
 pmos.force-partition-resize psi=1 video=Virtual-1:${GUEST_WIDTH}x${GUEST_HEIGHT}"
+if [ -n "${UKI:-}" ]; then
+    BOOT_ARGS=(-kernel "$UKI_KERNEL" -initrd "$UKI_INITRD" -append "$DIRECT_CMDLINE")
+fi
 
 # video= pins the guest mode. The virtio-gpu xres/yres EDID hints alone leave
 # the guest on its 640x480 fallback under -display gtk (QEMU #696/#2026/#2099).
@@ -178,8 +197,8 @@ exec qemu-system-aarch64 \
     -device virtio-rng-pci,rng=rng0 -device virtio-balloon \
     -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22 \
     -drive file="$IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
-    -device virtio-blk-pci,drive=hd0 \
+    -device "$DISK_DEVICE" \
     -device "virtio-gpu-gl-pci,xres=$GUEST_WIDTH,yres=$GUEST_HEIGHT" \
     -device virtio-keyboard-pci -device virtio-tablet-pci \
     "${DISPLAY_ARGS[@]}" \
-    -kernel "$UKI_KERNEL" -initrd "$UKI_INITRD" -append "$DIRECT_CMDLINE"
+    "${BOOT_ARGS[@]}"
