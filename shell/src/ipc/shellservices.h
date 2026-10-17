@@ -718,6 +718,8 @@ class UpdatesObject : public IpcPermissionedService {
     void        Install();
     void        Cancel();
     void        Reboot();
+    void        ScheduleRestart();
+    void        SetAutoUpdate(bool on);
 
   signals:
     void StateChanged(const QVariantMap &state);

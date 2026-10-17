@@ -1387,6 +1387,9 @@ class UpdateClient : public QObject {
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
     Q_PROPERTY(qlonglong lastCheckedMs READ lastCheckedMs NOTIFY stateChanged)
+    Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY stateChanged)
+    Q_PROPERTY(bool restartScheduled READ restartScheduled NOTIFY stateChanged)
+    Q_PROPERTY(QString currentReleaseNotes READ currentReleaseNotes NOTIFY stateChanged)
 
   public:
     explicit UpdateClient(QObject *parent = nullptr);
@@ -1427,11 +1430,22 @@ class UpdateClient : public QObject {
     qlonglong lastCheckedMs() const {
         return m_state.value("lastCheckedMs").toLongLong();
     }
+    bool autoUpdate() const {
+        return m_state.value("autoUpdate", true).toBool();
+    }
+    void setAutoUpdate(bool on);
+    bool restartScheduled() const {
+        return m_state.value("restartScheduled").toBool();
+    }
+    QString currentReleaseNotes() const {
+        return m_state.value("currentReleaseNotes").toString();
+    }
 
     Q_INVOKABLE void checkNow();
     Q_INVOKABLE void install();
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void reboot();
+    Q_INVOKABLE void scheduleRestart();
     Q_INVOKABLE void refresh();
 
   signals:

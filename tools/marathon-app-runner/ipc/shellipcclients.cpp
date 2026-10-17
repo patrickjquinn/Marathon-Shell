@@ -3187,6 +3187,14 @@ void UpdateClient::reboot() {
     m_iface.call("Reboot");
 }
 
+void UpdateClient::scheduleRestart() {
+    m_iface.call("ScheduleRestart");
+}
+
+void UpdateClient::setAutoUpdate(bool on) {
+    m_iface.call("SetAutoUpdate", on);
+}
+
 // === DavClient ==============================================================
 
 DavClient::DavClient(QObject *parent)

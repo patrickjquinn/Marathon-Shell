@@ -2147,6 +2147,9 @@ QVariantMap UpdatesObject::buildState() const {
         {"rolledBackVersion", m_updates->rolledBackVersion()},
         {"lastError", m_updates->lastError()},
         {"lastCheckedMs", m_updates->lastCheckedMs()},
+        {"autoUpdate", m_updates->autoUpdate()},
+        {"restartScheduled", m_updates->restartScheduled()},
+        {"currentReleaseNotes", m_updates->currentReleaseNotes()},
     };
 }
 
@@ -2174,6 +2177,16 @@ void UpdatesObject::Cancel() {
 void UpdatesObject::Reboot() {
     if (requireSystem())
         m_updates->reboot();
+}
+
+void UpdatesObject::ScheduleRestart() {
+    if (requireSystem())
+        m_updates->scheduleRestart();
+}
+
+void UpdatesObject::SetAutoUpdate(bool on) {
+    if (requireSystem())
+        m_updates->setAutoUpdate(on);
 }
 
 // === DavObject =============================================================
