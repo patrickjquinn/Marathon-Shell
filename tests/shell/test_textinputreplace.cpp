@@ -260,6 +260,9 @@ class TestTextInputReplace : public QObject {
 
         app.kill();
         app.waitForFinished();
+        // The item's texture provider is deleted later, after the compositor
+        // and its wl_display; it must not hold a live client's buffer then.
+        QTRY_VERIFY(compositor.clients().isEmpty());
     }
 };
 
