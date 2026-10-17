@@ -275,11 +275,6 @@ install(FILES platforms/generic/marathon.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions
 )
 
-# Install systemd user service
-install(FILES systemd/marathon-shell.service
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user
-)
-
 # Bus activation of the apps' Keel Actions names (apps/keel-actions.service.in)
 install(FILES systemd/marathon-activate@.service
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user

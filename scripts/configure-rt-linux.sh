@@ -80,15 +80,6 @@ CPUSchedulingPriority=88
 EOF
 echo " Configured PipeWire (RT priority 88)"
 
-# Marathon Shell (Priority 75)
-mkdir -p /etc/systemd/user/marathon-shell.service.d
-cat > /etc/systemd/user/marathon-shell.service.d/rt-priority.conf <<EOF
-[Service]
-CPUSchedulingPolicy=fifo
-CPUSchedulingPriority=75
-EOF
-echo " Configured Marathon Shell (RT priority 75)"
-
 # 5. Configure sysctl parameters
 echo ""
 echo "[5/5] Configuring kernel parameters..."

@@ -8,9 +8,9 @@
 // PIDs. The shell does not require cgroup delegation to operate; if the
 // kernel/systemd setup doesn't give us write permission under our own
 // cgroup, every operation becomes a logged no-op and the lifecycle state
-// machine still runs (just without real freezing). On a duranium image the
-// marathon-shell.service unit ships with `Delegate=yes` so the shell can
-// subdivide its slice.
+// machine still runs (just without real freezing). On a device the session
+// script runs the shell in a user scope under marathon.slice, which the
+// shell can subdivide.
 //
 // Layout (under the shell's own cgroup):
 //   <shell-cgroup>/
