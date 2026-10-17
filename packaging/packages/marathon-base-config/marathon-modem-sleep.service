@@ -1,0 +1,15 @@
+[Unit]
+Description=Recover the modem after system suspend
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon-modem-sleep pre
+ExecStop=/usr/libexec/marathon-modem-sleep post
+RuntimeDirectory=marathon-modem-sleep
+TimeoutStopSec=60
+
+[Install]
+WantedBy=sleep.target

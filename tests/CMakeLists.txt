@@ -25,6 +25,9 @@ list(TRANSFORM _app_manifests REPLACE "/manifest.json$" "")
 add_test(NAME Lint_AppManifests COMMAND marathon-dev lint --system-app ${_app_manifests})
 add_test(NAME Lint_DevInit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-dev-init.sh $<TARGET_FILE:marathon-dev>)
 
+# The modem's suspend hook (marathon-base-config) against stub mmcli/systemctl
+add_test(NAME Script_ModemSleep COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-modem-sleep.sh ${CMAKE_SOURCE_DIR}/packaging/packages/marathon-base-config/marathon-modem-sleep)
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")

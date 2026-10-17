@@ -1,0 +1,63 @@
+#!/bin/sh
+# marathon-modem-sleep.service runs this around every system suspend:
+# "pre" before it, "post" after resume. ModemManager quiesces and resyncs
+# the modem itself (it is built with systemd_suspend_resume); this notes
+# whether a modem was there, and if it has not come back within the
+# settle time after resume, restarts ModemManager. Device overlays enable
+# the unit; eg25-manager devices (PinePhone) leave it off, since
+# eg25-manager already recovers the modem on resume.
+
+state="${RUNTIME_DIRECTORY:-/run/marathon-modem-sleep}/present"
+settle=10
+after_restart=30
+
+event() {
+	echo "event=marathon_modem_sleep $*"
+}
+
+modem_present() {
+	mmcli -L 2>/dev/null | grep -q '/Modem/'
+}
+
+# Up to $1 seconds.
+wait_for_modem() {
+	i=0
+	while [ "$i" -lt "$1" ]; do
+		modem_present && return 0
+		i=$((i + 1))
+		sleep 1
+	done
+	modem_present
+}
+
+case "$1" in
+pre)
+	if modem_present; then
+		: > "$state"
+	else
+		rm -f "$state"
+	fi
+	;;
+post)
+	if [ ! -e "$state" ]; then
+		event "state=absent-before-sleep"
+		exit 0
+	fi
+	if wait_for_modem "$settle"; then
+		event "state=healthy"
+		exit 0
+	fi
+	# --no-block: this runs inside the resume transaction.
+	systemctl restart --no-block ModemManager.service
+	if wait_for_modem "$after_restart"; then
+		event "state=restored"
+		exit 0
+	fi
+	event "state=failed reason=modem-not-enumerated"
+	exit 1
+	;;
+*)
+	echo "usage: $0 pre|post" >&2
+	exit 2
+	;;
+esac

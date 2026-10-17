@@ -76,12 +76,20 @@ source="
 	50-marathon-timedate.rules
 	50-marathon-watchdog.conf
 	marathon-sleep-log
+	marathon-modem-sleep
+	marathon-modem-sleep.service
 "
 package() {
 	install -Dm644 "$srcdir/50-marathon-watchdog.conf" \
 		"$pkgdir/etc/systemd/system.conf.d/50-marathon-watchdog.conf"
 	install -Dm755 "$srcdir/marathon-sleep-log" \
 		"$pkgdir/usr/lib/systemd/system-sleep/marathon-sleep-log"
+	# Not enabled here: overlays for modems without their own manager add
+	# it to sleep.target.wants.
+	install -Dm755 "$srcdir/marathon-modem-sleep" \
+		"$pkgdir/usr/libexec/marathon-modem-sleep"
+	install -Dm644 "$srcdir/marathon-modem-sleep.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-modem-sleep.service"
 	install -Dm644 "$srcdir/99-marathon.conf" \
 		"$pkgdir/etc/sysctl.d/99-marathon.conf"
 	install -Dm644 "$srcdir/50-marathon-zram.conf" \
@@ -291,4 +299,6 @@ e902da21253ad050e418f28c2b2a5bcfeb1e68c5d3cbafcbf10727197131723fadc0eb274a209f9c
 1e39a3388046f760a23b9722803184e84210b99c97c2a0d42b72fd2e8380e6e85b148f379d8326ee2fb24f4c454a90c606bfb0a32afd5f3fce0828c7d02f0794  50-marathon-timedate.rules
 db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe89a0c33ae3649d72ac553439cc95c4b64c77ef2df59b2445  50-marathon-watchdog.conf
 7179719bb41b61f57043bbaa1591d3a087a434f71374d80a1950aedce01c53df15bcda89a05d3abe45b03a3f967a1792067534e6548f706b9063daf098f6c73a  marathon-sleep-log
+59389161ed320b918a42ea453f384546bfc6e648fafa35681f7b08299e8a3e64589a88bb1b111ec441b6cc1384c6792d180f79972ac7707ada76f4e8fcb8a41c  marathon-modem-sleep
+d10016488f9eb217cae82aa0274f2b388f54bb9aefc47e340b3ddff7cb341912638b626800293013c86ef95f90442e802732809f798ec07fff7bc8c093377bd3  marathon-modem-sleep.service
 "
