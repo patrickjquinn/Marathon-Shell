@@ -38,6 +38,8 @@ TestCase {
 
     function init() {
         [Telephony, Sms, Contacts, Alarms, Audio, Power, Network, Display, Location].forEach(s => s.calls = []);
+        Power.permitted = true;
+        Display.permitted = true;
         app = createTemporaryObject(appComponent, testCase);
         tryVerify(() => app.pageStack.currentPage !== null && !app.pageStack.busy);
     }
@@ -171,6 +173,20 @@ TestCase {
         compare(app.failedTests, 0);
         tap(page, "screenshot");
         compare(app.failedTests, 1);
+    }
+
+    // The shell refuses Power and Display to an unprotected app; its
+    // defaults are not readings.
+    function test_systemRefused() {
+        const page = open("SystemTestsPage.qml");
+        Power.permitted = false;
+        Display.permitted = false;
+        for (const name of ["battery", "charging", "powerSave", "brightness", "autoBrightness"])
+            compare(findChild(page, name).value, "Not permitted", name);
+        Power.permitted = true;
+        Display.permitted = true;
+        compare(findChild(page, "battery").value, "81%");
+        compare(findChild(page, "brightness").value, Math.round(Display.brightness * 100) + "%");
     }
 
     function test_sensors() {

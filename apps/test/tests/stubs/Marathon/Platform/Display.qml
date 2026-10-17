@@ -8,6 +8,7 @@ QtObject {
         calls = calls.concat([args]);
     }
 
+    property bool permitted: true
     property real brightness: 0.5
     property bool autoBrightnessEnabled: false
     property bool lightSensorAvailable: true

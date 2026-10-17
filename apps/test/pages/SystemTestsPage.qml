@@ -14,9 +14,16 @@ Page {
     readonly property var display: typeof Display !== "undefined" ? Display : null
     // Shell-only; absent in the app runner.
     readonly property var modem: typeof ModemManagerCpp !== "undefined" ? ModemManagerCpp : null
+    // The shell keeps Power and Display to system apps.
+    readonly property bool powerRefused: power !== null && power.permitted === false
+    readonly property bool displayRefused: display !== null && display.permitted === false
 
     function onOff(on) {
         return on ? qsTr("On") : qsTr("Off");
+    }
+
+    function refused(isRefused, value) {
+        return isRefused ? qsTr("Not permitted") : value;
     }
 
     SilicaFlickable {
@@ -43,16 +50,17 @@ Page {
                 DetailItem {
                     objectName: "battery"
                     label: qsTr("Battery")
-                    value: (page.power ? page.power.batteryLevel : 0) + "%"
+                    value: page.refused(page.powerRefused, (page.power ? page.power.batteryLevel : 0) + "%")
                 }
                 DetailItem {
+                    objectName: "charging"
                     label: qsTr("Charging")
-                    value: page.power && page.power.isCharging ? qsTr("Yes") : qsTr("No")
+                    value: page.refused(page.powerRefused, page.power && page.power.isCharging ? qsTr("Yes") : qsTr("No"))
                 }
                 DetailItem {
                     objectName: "powerSave"
                     label: qsTr("Power save")
-                    value: page.onOff(page.power && page.power.isPowerSaveMode)
+                    value: page.refused(page.powerRefused, page.onOff(page.power && page.power.isPowerSaveMode))
                 }
             }
             Actions {
@@ -110,12 +118,12 @@ Page {
                 DetailItem {
                     objectName: "brightness"
                     label: qsTr("Brightness")
-                    value: (page.display ? Math.round(page.display.brightness * 100) : 0) + "%"
+                    value: page.refused(page.displayRefused, (page.display ? Math.round(page.display.brightness * 100) : 0) + "%")
                 }
                 DetailItem {
                     objectName: "autoBrightness"
                     label: qsTr("Auto-brightness")
-                    value: page.display && !page.display.lightSensorAvailable ? qsTr("No light sensor") : page.onOff(page.display && page.display.autoBrightnessEnabled)
+                    value: page.refused(page.displayRefused, page.display && !page.display.lightSensorAvailable ? qsTr("No light sensor") : page.onOff(page.display && page.display.autoBrightnessEnabled))
                 }
             }
             Actions {

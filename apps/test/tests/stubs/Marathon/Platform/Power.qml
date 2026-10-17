@@ -8,6 +8,7 @@ QtObject {
         calls = calls.concat([args]);
     }
 
+    property bool permitted: true
     property int batteryLevel: 81
     property bool isCharging: true
     property bool isPowerSaveMode: false
