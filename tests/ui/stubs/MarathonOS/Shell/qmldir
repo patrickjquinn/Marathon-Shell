@@ -51,3 +51,16 @@ GestureTracker 1.0 GestureTracker.qml
 WindowTextureItem 1.0 WindowTextureItem.qml
 singleton WeatherClient 1.0 WeatherClient.qml
 FilteredAppModel 1.0 FilteredAppModel.qml
+Key 1.0 ../../../../../shell/qml/keyboard/UI/Key.qml
+PredictionBar 1.0 ../../../../../shell/qml/keyboard/UI/PredictionBar.qml
+LanguageSelector 1.0 ../../../../../shell/qml/keyboard/UI/LanguageSelector.qml
+DynamicLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/DynamicLayout.qml
+QwertyLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/QwertyLayout.qml
+SymbolLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/SymbolLayout.qml
+EmailLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/EmailLayout.qml
+UrlLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/UrlLayout.qml
+NumberLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/NumberLayout.qml
+PhoneLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/PhoneLayout.qml
+EmojiLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/EmojiLayout.qml
+TerminalLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/TerminalLayout.qml
+MTabBar 1.0 ../../../../../shell/qml/ui/MTabBar.qml

@@ -4,8 +4,6 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QInputMethodQueryEvent>
-#include <QInputMethodEvent>
-#include <QKeyEvent>
 
 MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
     : QObject(parent)
@@ -73,49 +71,6 @@ QRect MarathonInputMethodEngine::inputItemRect() const {
     if (!m_inputMethod)
         return QRect();
     return m_inputMethod->inputItemRectangle().toRect();
-}
-
-// Text goes in as an input-method commit, not as key events. A synthetic
-// QKeyEvent carries no native scan code, so when the focus object is an app's
-// surface item the compositor forwarded it to the client as keycode 0 and the
-// app typed nothing. A commit reaches in-shell text fields directly and
-// reaches apps through text-input (QWaylandQuickItem forwards it).
-void MarathonInputMethodEngine::commitText(const QString &text) {
-    QObject *focus = QGuiApplication::focusObject();
-    if (!focus || text.isEmpty())
-        return;
-
-    QInputMethodEvent event;
-    event.setCommitString(text);
-    QGuiApplication::sendEvent(focus, &event);
-
-    if (!m_preeditText.isEmpty()) {
-        m_preeditText.clear();
-        emit preeditTextChanged();
-    }
-}
-
-// Backspace and Enter stay key events, but with the scan code and keysym a
-// real keyboard would send, so the compositor can forward them to apps.
-// Scan codes are evdev codes plus the XKB offset of 8.
-static void sendKey(Qt::Key key, quint32 scanCode, quint32 keysym, const QString &text) {
-    QObject *focus = QGuiApplication::focusObject();
-    if (!focus)
-        return;
-    QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, scanCode, keysym, 0, text);
-    QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, scanCode, keysym, 0, text);
-    QGuiApplication::sendEvent(focus, &press);
-    QGuiApplication::sendEvent(focus, &release);
-}
-
-void MarathonInputMethodEngine::sendBackspace() {
-    sendKey(Qt::Key_Backspace, 14 + 8, 0xff08 /* XKB_KEY_BackSpace */, QString());
-}
-
-void MarathonInputMethodEngine::sendEnter() {
-    // No text: Qt's seat sends a key with text to text-input-v3 clients as a
-    // commit of "\r", which GTK inserts instead of activating the field.
-    sendKey(Qt::Key_Return, 28 + 8, 0xff0d /* XKB_KEY_Return */, QString());
 }
 
 QString MarathonInputMethodEngine::getCurrentWord() {

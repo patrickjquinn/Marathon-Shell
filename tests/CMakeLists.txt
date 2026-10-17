@@ -38,6 +38,12 @@ if(_SILICA_QMLDIR)
         add_test(NAME ${name} COMMAND sh ${CMAKE_SOURCE_DIR}/${suite}/run.sh)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "KEEL_QML=${_SILICA_QMLDIR}")
     endforeach()
+    if(TARGET test_keyboard_qml)
+        add_test(NAME Keyboard_QML COMMAND test_keyboard_qml
+            -import ${CMAKE_SOURCE_DIR}/tests/ui/stubs -import ${CMAKE_SOURCE_DIR}/marathon-silica
+            -import ${_SILICA_QMLDIR} -input ${CMAKE_SOURCE_DIR}/tests/keyboard/qml)
+        set_tests_properties(Keyboard_QML PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1")
+    endif()
     if(TARGET marathon-shell)
         add_test(NAME Shell_Loads COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/loads.sh $<TARGET_FILE:marathon-shell> "${_SILICA_QMLDIR}:${CMAKE_SOURCE_DIR}/marathon-silica")
     endif()

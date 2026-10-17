@@ -3,6 +3,49 @@
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QInputMethod>
+#include <QInputMethodEvent>
+#include <QInputMethodQueryEvent>
+#include <QKeyEvent>
+
+namespace {
+    // Text and replacements go in as input-method events: they reach the
+    // shell's own fields directly and app surfaces through text-input, where a
+    // replacement becomes delete_surrounding_text plus commit_string.
+    void sendCommit(const QString &text, int replaceFrom = 0, int replaceLength = 0) {
+        QObject *focus = QGuiApplication::focusObject();
+        if (!focus)
+            return;
+        QInputMethodEvent event;
+        event.setCommitString(text, replaceFrom, replaceLength);
+        QGuiApplication::sendEvent(focus, &event);
+    }
+
+    // A synthetic key needs the scan code and keysym a real keyboard sends, or
+    // the compositor forwards it to apps as keycode 0. Scan codes are evdev
+    // codes plus the XKB offset of 8.
+    void sendKey(Qt::Key key, quint32 scanCode, quint32 keysym) {
+        QObject *focus = QGuiApplication::focusObject();
+        if (!focus)
+            return;
+        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, scanCode, keysym, 0);
+        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, scanCode, keysym, 0);
+        QGuiApplication::sendEvent(focus, &press);
+        QGuiApplication::sendEvent(focus, &release);
+    }
+
+    // What the field reports before its cursor, or nothing when it reports no
+    // surrounding text or has a selection: the keyboard then never deletes.
+    QString textBeforeCursor() {
+        QObject *focus = QGuiApplication::focusObject();
+        if (!focus)
+            return {};
+        QInputMethodQueryEvent query(Qt::ImTextBeforeCursor | Qt::ImCurrentSelection);
+        QGuiApplication::sendEvent(focus, &query);
+        if (!query.value(Qt::ImCurrentSelection).toString().isEmpty())
+            return {};
+        return query.value(Qt::ImTextBeforeCursor).toString();
+    }
+} // namespace
 
 InputContext::InputContext(QObject *parent)
     : QObject(parent) {
@@ -121,14 +164,21 @@ bool InputContext::hasActiveFocus() const {
 }
 
 void InputContext::insertText(const QString &text) {
+    if (text.isEmpty())
+        return;
+    sendCommit(text);
     emit textInserted(text);
 }
 
 void InputContext::handleBackspace() {
+    sendKey(Qt::Key_Backspace, 14 + 8, 0xff08 /* XKB_KEY_BackSpace */);
     emit backspacePressed();
 }
 
+// No text: Qt's seat sends a key with text to text-input-v3 clients as a
+// commit of "\r", which GTK inserts instead of activating the field.
 void InputContext::handleEnter() {
+    sendKey(Qt::Key_Return, 28 + 8, 0xff0d /* XKB_KEY_Return */);
     emit enterPressed();
 }
 
@@ -136,16 +186,40 @@ void InputContext::sendCursorKey(int key) {
     emit cursorKeyPressed(key);
 }
 
-void InputContext::replaceCurrentWord(const QString &newWord) {
-    const QString currentWord = getCurrentWord();
-    if (currentWord.isEmpty()) {
-        insertText(newWord);
-        return;
-    }
-    for (int i = 0; i < currentWord.length(); ++i) {
-        handleBackspace();
-    }
-    insertText(newWord);
+// Replaces text only when the field confirms it sits right before the cursor,
+// so the keyboard never deletes what it did not type: the user may have moved
+// the cursor or typed on a hardware keyboard since.
+bool InputContext::replaceTextBeforeCursor(const QString &before, const QString &text) {
+    if (before.isEmpty() || !textBeforeCursor().endsWith(before))
+        return false;
+    sendCommit(text, -int(before.size()), int(before.size()));
+    return true;
+}
+
+// The current word must also start at a word boundary in the field.
+bool InputContext::replaceCurrentWord(const QString &newWord) const {
+    const QString word   = getCurrentWord();
+    const QString before = textBeforeCursor();
+    if (word.isEmpty() || !before.endsWith(word))
+        return false;
+    const qsizetype start = before.size() - word.size();
+    if (start > 0 && before.at(start - 1).isLetterOrNumber())
+        return false;
+    sendCommit(newWord, -int(word.size()), int(word.size()));
+    return true;
+}
+
+// The second space of a double tap becomes ". " when it follows a word, as on
+// Android and iOS; after another space or punctuation it stays a space.
+bool InputContext::insertDoubleSpacePeriod() {
+    const QString before = textBeforeCursor();
+    if (before.size() < 2 || !before.endsWith(u' '))
+        return false;
+    const QChar last = before.at(before.size() - 2);
+    if (!last.isLetterOrNumber() && !QStringView(u")]}\"'\u201d\u2019\u00bb").contains(last))
+        return false;
+    sendCommit(QStringLiteral(". "), -1, 1);
+    return true;
 }
 
 QString InputContext::getCurrentWord() const {

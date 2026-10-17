@@ -57,18 +57,6 @@ Item {
         asynchronous: true
 
         sourceComponent: MarathonKeyboard {
-            onKeyPressed: function (text) {
-                Logger.info("VirtualKeyboard", "Key pressed: " + text);
-                InputMethodEngine.commitText(text);
-            }
-            onBackspace: function () {
-                Logger.info("VirtualKeyboard", "Backspace pressed");
-                InputMethodEngine.sendBackspace();
-            }
-            onEnter: function () {
-                Logger.info("VirtualKeyboard", "Enter pressed");
-                InputMethodEngine.sendEnter();
-            }
             onDismissRequested: {
                 HapticManager.light();
                 keyboardContainer.active = false;

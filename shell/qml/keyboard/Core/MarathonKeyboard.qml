@@ -25,16 +25,13 @@ Rectangle {
     property bool canUndoAutoCorrect: false
     property string recentContext: ""
 
-    signal keyPressed(string text)
-    signal backspace
-    signal enter
     signal layoutChanged(string layout)
     signal dismissRequested
 
     function handleKeyPress(text) {
+        keyboard.canUndoAutoCorrect = false;
         keyboard.currentWord += text;
         inputContextInstance.insertText(text);
-        keyboard.keyPressed(text);
         if (inputContextInstance.shouldShowPredictions)
             updatePredictions();
         else
@@ -55,17 +52,12 @@ Rectangle {
 
     function handleBackspace() {
         if (keyboard.canUndoAutoCorrect && keyboard.currentWord.length === 0) {
-            var correctedLen = keyboard.lastCorrectedWord.length + 1;
-            for (var i = 0; i < correctedLen; i++) {
-                inputContextInstance.handleBackspace();
-                keyboard.backspace();
-            }
-            inputContextInstance.insertText(keyboard.lastOriginalWord + " ");
-            keyboard.keyPressed(keyboard.lastOriginalWord + " ");
             keyboard.canUndoAutoCorrect = false;
+            var undone = inputContextInstance.replaceTextBeforeCursor(keyboard.lastCorrectedWord + " ", keyboard.lastOriginalWord + " ");
             keyboard.lastOriginalWord = "";
             keyboard.lastCorrectedWord = "";
-            return;
+            if (undone)
+                return;
         }
         keyboard.canUndoAutoCorrect = false;
         inputContextInstance.handleBackspace();
@@ -76,16 +68,13 @@ Rectangle {
             else
                 updatePredictions();
         }
-        keyboard.backspace();
     }
 
     function handleSpace() {
         var now = Date.now();
         var isDoubleTap = (now - keyboard.lastSpaceTime < 300) && keyboard.currentWord.length === 0;
-        if (isDoubleTap && inputContextInstance.shouldAutoCapitalize) {
-            inputContextInstance.handleBackspace();
-            inputContextInstance.insertText(". ");
-            keyboard.keyPressed(". ");
+        if (isDoubleTap && inputContextInstance.shouldAutoCapitalize && inputContextInstance.insertDoubleSpacePeriod()) {
+            keyboard.canUndoAutoCorrect = false;
             keyboard.shifted = true;
             keyboard.lastSpaceTime = 0;
             keyboard.recentContext = "";
@@ -96,8 +85,7 @@ Rectangle {
             var originalWord = keyboard.currentWord;
             if (inputContextInstance.shouldAutoCorrect) {
                 var correctedWord = AutoCorrect.correct(originalWord);
-                if (correctedWord !== originalWord) {
-                    inputContextInstance.replaceCurrentWord(correctedWord);
+                if (correctedWord !== originalWord && inputContextInstance.replaceCurrentWord(correctedWord)) {
                     Dictionary.learnWord(correctedWord);
                     keyboard.lastOriginalWord = originalWord;
                     keyboard.lastCorrectedWord = correctedWord;
@@ -128,7 +116,6 @@ Rectangle {
             keyboard.shifted = true;
 
         inputContextInstance.insertText(" ");
-        keyboard.keyPressed(" ");
         keyboard.lastSpaceTime = now;
         updatePredictions();
     }
@@ -141,8 +128,8 @@ Rectangle {
         if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
             keyboard.shifted = true;
 
+        keyboard.canUndoAutoCorrect = false;
         inputContextInstance.handleEnter();
-        keyboard.enter();
     }
 
     function handleShift() {
@@ -161,12 +148,16 @@ Rectangle {
     }
 
     function acceptPrediction(word) {
-        var charsToDelete = keyboard.currentWord.length;
-        for (var i = 0; i < charsToDelete; i++) {
-            keyboard.backspace();
+        var typed = keyboard.currentWord;
+        if (typed.length === 0) {
+            inputContextInstance.insertText(word + " ");
+        } else if (!inputContextInstance.replaceCurrentWord(word + " ")) {
+            // A field that reports no surrounding text can only be completed.
+            if (!word.startsWith(typed))
+                return;
+            inputContextInstance.insertText(word.slice(typed.length) + " ");
         }
-        inputContextInstance.insertText(word + " ");
-        keyboard.keyPressed(word + " ");
+        keyboard.canUndoAutoCorrect = false;
         Dictionary.learnWord(word);
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
