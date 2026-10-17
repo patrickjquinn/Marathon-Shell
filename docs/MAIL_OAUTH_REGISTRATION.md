@@ -123,7 +123,7 @@ MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="4f9d3e2a-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 repo. The duranium build wrapper sources it before invoking cargo:
 
 ```
-$ cd ~/duranium-build/duranium
+$ cd ~/.cache/marathon-build/duranium
 $ MARATHON_SHELL_SRC=~/Developer/Marathon-Shell \
     bash marathon-extras/build-marathon-mail-oauth-apk.sh
 oauth bake: gmail=set, microsoft=set

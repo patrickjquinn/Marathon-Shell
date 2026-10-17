@@ -357,5 +357,5 @@ sudo sync && sudo blockdev --flushbufs /dev/sdX                      # flush
 - [forums.puri.sm/t/uuu-error-during-reflashing/22500](https://forums.puri.sm/t/uuu-error-during-reflashing/22500)
 - [community.nxp.com — i.MX 8M Mini ROM SPL offset](https://community.nxp.com/t5/i-MX-Processors/i-MX8M-Mini-ROM-loader-always-expects-SPL-in-the-same-offset-on/m-p/1224178)
 - Local pmaports:
-  `~/duranium-build/duranium/pmaports/device/main/device-purism-librem5/{deviceinfo,uboot-script.cmd,flash_script.lst,APKBUILD}`
+  `~/.cache/marathon-build/duranium/pmaports/device/main/device-purism-librem5/{deviceinfo,uboot-script.cmd,flash_script.lst,APKBUILD}`
   and `.../u-boot-librem5/APKBUILD`

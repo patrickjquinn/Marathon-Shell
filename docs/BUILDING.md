@@ -27,8 +27,8 @@ Marathon's image build pulls from TWO git trees:
 ```
 $HOME/Developer/Marathon-Shell/        # github.com/patrickjquinn/Marathon-Shell (ux-overhaul)  ← this repo
   └── packaging/                       #   aports + duranium patch series (was Marathon-Image)
-$HOME/duranium-build/duranium/         # postmarketos/duranium fork with Marathon patches
-$HOME/duranium-build/mkosi-src/        # systemd/mkosi at a known-good tip
+$HOME/.cache/marathon-build/duranium/  # postmarketos/duranium fork with Marathon patches
+$HOME/.cache/marathon-build/mkosi-src/ # systemd/mkosi at a known-good tip
 ```
 
 The first is a normal git clone; packaging/ is in-tree since the
@@ -48,7 +48,7 @@ cd $HOME/Developer/Marathon-Shell
 ```
 
 This clones `postmarketos/duranium` at the pinned merge-base commit
-into `$HOME/duranium-build/duranium/` and applies the 10-patch series
+into `$HOME/.cache/marathon-build/duranium/` and applies the 10-patch series
 in order. Re-run `bootstrap.sh /some/other/path` to stage a second
 copy.
 
@@ -59,10 +59,10 @@ below.
 
 ## 3. mkosi
 
-`bootstrap.sh` (step 2) clones mkosi into `$HOME/duranium-build/mkosi-src`
+`bootstrap.sh` (step 2) clones mkosi into `$HOME/.cache/marathon-build/mkosi-src`
 at the pinned commit and stops there — mkosi runs straight from the
 checkout, no install step needed. The build scripts prepend
-`$HOME/duranium-build/mkosi-src/bin` to `PATH`.
+`$HOME/.cache/marathon-build/mkosi-src/bin` to `PATH`.
 
 The pinned mkosi commit is recorded in `bootstrap.sh`'s `MKOSI_COMMIT`
 variable. Bump after a successful build against a newer mkosi tip.
@@ -104,7 +104,7 @@ method=auto
 
 `chmod 600 $HOME/.marathon-secrets/SKYZMTGV.nmconnection.raw`. The
 build pipeline strips any leading `[sudo]` prompts from this file
-before copying it into `duranium-build/duranium/mkosi.extra/etc/NetworkManager/system-connections/`.
+before copying it into `~/.cache/marathon-build/duranium/mkosi.extra/etc/NetworkManager/system-connections/`.
 
 For SSH, the build copies `~/.ssh/id_ed25519.pub` into the image's
 `/usr/share/factory/home/user/.ssh/authorized_keys`. If you don't have
@@ -135,8 +135,8 @@ The build scripts honour this pattern.
 In dependency order:
 
 ```sh
-cd $HOME/duranium-build/duranium
-PATH=$HOME/duranium-build/mkosi-src/bin:$PATH
+cd $HOME/.cache/marathon-build/duranium
+PATH=$HOME/.cache/marathon-build/mkosi-src/bin:$PATH
 
 # 1/4 marathon-base-config — sysctl, oom, slice, systemd presets.
 ./marathon-extras/build-marathon-base-config-apk.sh
@@ -160,8 +160,8 @@ the .apk with a throwaway signing key, and drops it into
 ## 7. Build the image
 
 ```sh
-cd $HOME/duranium-build/duranium
-PATH=$HOME/duranium-build/mkosi-src/bin:$PATH \
+cd $HOME/.cache/marathon-build/duranium
+PATH=$HOME/.cache/marathon-build/mkosi-src/bin:$PATH \
   MARATHON_SHELL_SRC=$HOME/Developer/Marathon-Shell \
   ./scripts/build-image.py device-raspberry-pi5-marathon ui-marathon --release=edge
 ```
@@ -169,15 +169,15 @@ PATH=$HOME/duranium-build/mkosi-src/bin:$PATH \
 Output lands at:
 
 ```
-$HOME/duranium-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge/raspberry-pi5-marathon_marathon_edge_*.raw
+$HOME/.cache/marathon-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge/raspberry-pi5-marathon_marathon_edge_*.raw
 ```
 
 ~5 minutes on a warm host. mkosi.workspace + mkosi.cache grow ~10 GB
 between builds; clean them if disk is tight:
 
 ```sh
-rm -rf $HOME/duranium-build/duranium/mkosi.workspace
-sudo -A rm -rf $HOME/duranium-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge
+rm -rf $HOME/.cache/marathon-build/duranium/mkosi.workspace
+sudo -A rm -rf $HOME/.cache/marathon-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge
 ```
 
 ## 8. Flash to SD card
@@ -185,7 +185,7 @@ sudo -A rm -rf $HOME/duranium-build/duranium/mkosi.output/raspberry-pi5-marathon
 ```sh
 # /dev/sda is the typical USB SD-reader path. Verify via lsblk first.
 sudo -A dd \
-  if=$HOME/duranium-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge/raspberry-pi5-marathon_marathon_edge_*.raw \
+  if=$HOME/.cache/marathon-build/duranium/mkosi.output/raspberry-pi5-marathon_marathon_edge/raspberry-pi5-marathon_marathon_edge_*.raw \
   of=/dev/sda \
   bs=16M oflag=direct conv=fsync
 sudo -A sync
@@ -215,8 +215,8 @@ If you already have a working image and just need to rebuild the shell
 APK with local edits:
 
 ```sh
-cd $HOME/duranium-build/duranium
-PATH=$HOME/duranium-build/mkosi-src/bin:$PATH \
+cd $HOME/.cache/marathon-build/duranium
+PATH=$HOME/.cache/marathon-build/mkosi-src/bin:$PATH \
 MARATHON_SHELL_SRC=$HOME/Developer/Marathon-Shell \
   ./marathon-extras/build-marathon-shell-apk.sh
 ```
@@ -232,7 +232,7 @@ If the bootstrap fails because the pinned commit is too old to clean-
 apply, follow this sequence:
 
 ```sh
-cd $HOME/duranium-build/duranium
+cd $HOME/.cache/marathon-build/duranium
 # Fetch the new upstream tip.
 git fetch origin
 git rebase origin/main
@@ -241,7 +241,7 @@ git rebase origin/main
 # Regenerate the patch series and refresh the pinned commit.
 cd $HOME/Developer/Marathon-Shell
 rm packaging/pipeline-patches/00*.patch
-cd $HOME/duranium-build/duranium
+cd $HOME/.cache/marathon-build/duranium
 git format-patch -o $HOME/Developer/Marathon-Shell/packaging/pipeline-patches origin/main..HEAD
 # Update PINNED_COMMIT in packaging/pipeline-patches/bootstrap.sh to the
 # new `git merge-base origin/main HEAD`.

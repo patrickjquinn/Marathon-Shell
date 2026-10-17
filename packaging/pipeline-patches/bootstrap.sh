@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 # bootstrap.sh — clone upstream postmarketos/duranium at the pinned
 # merge-base commit and apply Marathon's local divergence as a series
-# of git-am patches. Produces a duranium-build/ tree that can build
-# the r180 HackberryPi CM5 image.
+# of git-am patches, plus a pinned mkosi checkout beside it.
 #
-# Why this layout (instead of a Marathon-owned duranium fork): the user
-# explicitly preferred patches-in-Marathon-Image to keep the upstream
-# relationship visible. Cost: when upstream drifts past the pinned
-# commit, patches may need rebasing.
+# Why this layout (instead of a Marathon-owned duranium fork): patches
+# in packaging/ keep the upstream relationship visible. Cost: when
+# upstream drifts past the pinned commit, patches may need rebasing.
 #
 # Usage:
 #   ./bootstrap.sh [DEST_DIR]
 #
-# DEST_DIR defaults to $HOME/duranium-build. Pass an alternate to
-# stage in /tmp/scratch etc.
+# DEST_DIR defaults to $MARATHON_BUILD_DIR, else ~/.cache/marathon-build,
+# the tree scripts/build-image.sh builds from.
 
 set -euo pipefail
 
@@ -29,7 +27,7 @@ MKOSI_UPSTREAM="https://github.com/systemd/mkosi.git"
 MKOSI_COMMIT="dc801b00a3c8b77c7ad0a5ea6dd684ea3c689546"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST_DIR="${1:-$HOME/duranium-build}"
+DEST_DIR="${1:-${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}}"
 DURANIUM_DIR="$DEST_DIR/duranium"
 MKOSI_DIR="$DEST_DIR/mkosi-src"
 

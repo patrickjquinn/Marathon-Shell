@@ -68,7 +68,7 @@ location (for host testing).
 
 ## The image seam (build-time selection)
 
-Device selection is package-driven (see `~/duranium-build/duranium/` and
+Device selection is package-driven (see `~/.cache/marathon-build/duranium/` and
 `packaging/`):
 
 1. `build-image.py device-<name> ui-<name>` → `PMOS_DEVICE=<name>`.
