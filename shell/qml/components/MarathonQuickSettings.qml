@@ -423,6 +423,7 @@ Item {
                     onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
                 MQSSlider {
+                    objectName: "volumeSlider"
                     width: parent.width
                     iconName: "speaker-high"
                     a11yName: "Volume"

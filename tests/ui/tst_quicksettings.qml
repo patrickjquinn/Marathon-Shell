@@ -215,6 +215,18 @@ TestCase {
         verify(seen[seen.length / 2] > 30 && seen[seen.length / 2] < 70, "continuous: " + seen);
     }
 
+    // The value shown, the value set and the OSD's percentage agree.
+    function test_sliderSetsWholeValues() {
+        fit.height = 5000;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        const slider = findChild(qs, "volumeSlider");
+        const track = findChild(slider, "sliderTrack");
+        SystemControlStore.volume = 50;
+        mouseClick(track, track.width * 0.137, track.height / 2);
+        verify(Number.isInteger(SystemControlStore.volume), "volume " + SystemControlStore.volume);
+        compare(slider.value, SystemControlStore.volume);
+    }
+
     function test_verticalSwipeOnSliderScrolls_data() {
         return [{ tag: "touch", touch: true }, { tag: "mouse", touch: false }];
     }

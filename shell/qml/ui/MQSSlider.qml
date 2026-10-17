@@ -164,7 +164,8 @@ Item {
                     // Not drag(): that is MouseArea's own grouped property.
                     function applyDragAt(x) {
                         const f = Math.max(0, Math.min(1, x / track.width));
-                        root.value = root.from + f * (root.to - root.from);
+                        // Whole values: the stores take an int, which would truncate.
+                        root.value = Math.round(root.from + f * (root.to - root.from));
                         const step = Math.round(root.value / 5) * 5;   // every 5%
                         if (step !== _lastHapticStep) {
                             _lastHapticStep = step;
