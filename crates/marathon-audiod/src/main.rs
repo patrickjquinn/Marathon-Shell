@@ -1,11 +1,12 @@
 //! Marathon's audio service: `org.marathonos.Audio` on the session bus.
 //!
 //! A `PipeWire` client for the levels and defaults the shell shows: the
-//! default sink's and source's volume and mute, the sinks and sources to
-//! choose from, per-app playback streams, and the in-call speakerphone
-//! choice. Policy (which device, which profile, call routing) is
-//! `WirePlumber`'s; this service only writes what its policy reads: device
-//! route props, the `default` metadata and `sm-settings`.
+//! media volume and mute (the Multimedia role's under `WirePlumber`'s
+//! role policy, else the default sink's), the default source's, the sinks
+//! and sources to choose from, per-app playback streams, and the in-call
+//! speakerphone choice. Policy (which device, which profile, call routing)
+//! is `WirePlumber`'s; this service only writes what its policy reads:
+//! node and device route props, the `default` metadata and `sm-settings`.
 
 mod graph;
 mod pw;

@@ -13,6 +13,10 @@ const JSON: &str = "Spa:String:JSON";
 /// The two halves of a role-based policy loopback, as `WirePlumber` names
 /// them (node/find-media-role-default-volume.lua).
 const ROLE_LOOPBACKS: [&str; 2] = ["input.loopback.sink.role.", "output.loopback.sink.role."];
+/// The Multimedia role's loopback (61-marathon-media-roles.conf).
+const MEDIA_SINK: &str = "input.loopback.sink.role.multimedia";
+/// `default` metadata: "true" while a voice call is up (call-routing.lua).
+pub const CALL_ACTIVE: &str = "marathon.call.active";
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Mix {
@@ -153,6 +157,9 @@ pub struct Graph {
     default_sink: Option<String>,
     default_source: Option<String>,
     speakerphone: bool,
+    in_call: bool,
+    /// The device level last moved into the media volume.
+    folded: Option<(Target, Mix)>,
 }
 
 fn cubic(linear: f32) -> f64 {
@@ -188,6 +195,7 @@ impl Graph {
         match key {
             "default.audio.sink" => self.default_sink = name,
             "default.audio.source" => self.default_source = name,
+            CALL_ACTIVE => self.in_call = value == Some("true"),
             _ => {}
         }
     }
@@ -195,6 +203,7 @@ impl Graph {
     pub fn clear_defaults(&mut self) {
         self.default_sink = None;
         self.default_source = None;
+        self.in_call = false;
     }
 
     /// A property of `sm-settings` changed; `None` removes it.
@@ -213,6 +222,25 @@ impl Graph {
             .iter()
             .find(|(_, n)| n.name == name && direction.has(n))
             .map(|(id, n)| (*id, n))
+    }
+
+    fn media_sink(&self) -> Option<(u32, &Node)> {
+        self.nodes
+            .iter()
+            .find(|(_, n)| n.name == MEDIA_SINK && Direction::Output.has(n))
+            .map(|(id, n)| (*id, n))
+    }
+
+    /// The node the volume and mute act on: the Multimedia role's loopback
+    /// while the role policy is on, except in a call, whose audio may not
+    /// be a `PipeWire` stream at all.
+    fn level_node(&self, direction: Direction) -> Option<(u32, &Node)> {
+        if direction == Direction::Output && !self.in_call {
+            if let Some(media) = self.media_sink() {
+                return Some(media);
+            }
+        }
+        self.default_node(direction)
     }
 
     /// Where a node's level lives, and the level now.
@@ -263,11 +291,11 @@ impl Graph {
     pub fn plan(&self, op: &Op) -> Option<Write> {
         match op {
             Op::Volume(direction, level) => {
-                let (id, node) = self.default_node(*direction)?;
+                let (id, node) = self.level_node(*direction)?;
                 self.volume_write(id, node, *level)
             }
             Op::Muted(direction, mute) => {
-                let (id, node) = self.default_node(*direction)?;
+                let (id, node) = self.level_node(*direction)?;
                 self.mute_write(id, node, *mute)
             }
             Op::Default(direction, name) => {
@@ -308,14 +336,68 @@ impl Graph {
     }
 
     fn level_of(&self, direction: Direction) -> (f64, bool, String) {
-        self.default_node(direction)
-            .map(|(id, node)| {
-                let (volume, muted) = self
-                    .mix(id, node)
-                    .map_or((0.0, false), |(_, mix)| (level(&mix), mix.mute));
-                (volume, muted, node.name.clone())
-            })
-            .unwrap_or_default()
+        let (volume, muted) = self
+            .level_node(direction)
+            .and_then(|(id, node)| self.mix(id, node))
+            .map_or((0.0, false), |(_, mix)| (level(&mix), mix.mute));
+        let name = self
+            .default_node(direction)
+            .map(|(_, node)| node.name.clone())
+            .unwrap_or_default();
+        (volume, muted, name)
+    }
+
+    /// While the role policy carries the media volume the default device
+    /// stays at full level, as Android keeps the hardware up and scales
+    /// each stream type: a level the device was given some other way (one
+    /// stored from before, wpctl, a Bluetooth speaker's buttons) moves into
+    /// the media volume, so media keeps its loudness and the other roles
+    /// keep theirs. Returns the writes that do it, once per such level.
+    pub fn fold_device_level(&mut self) -> Vec<Write> {
+        if self.in_call {
+            return Vec::new();
+        }
+        let Some((media_id, media)) = self.media_sink() else {
+            return Vec::new();
+        };
+        let Some(media_mix) = media.props.clone() else {
+            return Vec::new();
+        };
+        let Some((id, device)) = self.default_node(Direction::Output) else {
+            return Vec::new();
+        };
+        let Some((target, mix)) = self.mix(id, device) else {
+            return Vec::new();
+        };
+        // A device node's own props are not its level until its route is known.
+        if id == media_id || (device.device.is_some() && target == Target::Node(id)) {
+            return Vec::new();
+        }
+        if !mix.mute && mix.volumes.iter().all(|v| (v - 1.0).abs() < f32::EPSILON) {
+            self.folded = None;
+            return Vec::new();
+        }
+        // Moved already; the graph has yet to see the writes.
+        if self.folded.as_ref() == Some(&(target, mix.clone())) {
+            return Vec::new();
+        }
+        let writes = vec![
+            Write::Props {
+                target,
+                volumes: Some(vec![1.0; mix.volumes.len().max(1)]),
+                mute: Some(false),
+            },
+            Write::Props {
+                target: Target::Node(media_id),
+                volumes: Some(vec![
+                    linear(level(&media_mix) * level(&mix));
+                    media_mix.volumes.len().max(1)
+                ]),
+                mute: Some(media_mix.mute || mix.mute),
+            },
+        ];
+        self.folded = Some((target, mix));
+        writes
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -355,7 +437,7 @@ impl Graph {
 }
 
 #[cfg(test)]
-#[allow(clippy::panic, reason = "tests")]
+#[allow(clippy::panic, clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 
@@ -536,6 +618,156 @@ mod tests {
         assert!(g.snapshot().speakerphone);
         g.set_setting(SPEAKERPHONE_SETTING, None);
         assert!(!g.snapshot().speakerphone);
+    }
+
+    /// A Bluetooth speaker at level 0.5 on its route, the default, and the
+    /// Multimedia role's loopback at level 0.8.
+    fn with_media_role() -> (Graph, RouteId) {
+        let mut speaker = sink("bluez_output.AA", Some(mix(1.0, false)));
+        speaker.device = Some(87);
+        speaker.profile_device = Some(1);
+        let mut g = with_default(
+            vec![
+                (78, speaker),
+                (
+                    90,
+                    sink(
+                        "input.loopback.sink.role.multimedia",
+                        Some(mix(0.512, false)),
+                    ),
+                ),
+            ],
+            "bluez_output.AA",
+        );
+        let route = RouteId {
+            index: 0,
+            device: 1,
+        };
+        g.devices.insert(
+            87,
+            Device {
+                routes: BTreeMap::from([(1, (route, mix(0.125, false)))]),
+            },
+        );
+        (g, route)
+    }
+
+    fn set_route(g: &mut Graph, route: RouteId, mix: Mix) {
+        g.devices.insert(
+            87,
+            Device {
+                routes: BTreeMap::from([(1, (route, mix))]),
+            },
+        );
+    }
+
+    // With WirePlumber's role policy the media volume is the Multimedia
+    // loopback's, so the other roles do not follow it.
+    #[test]
+    fn media_volume_is_the_multimedia_role() {
+        let (g, _) = with_media_role();
+        let s = g.snapshot();
+        assert!((s.volume - 0.8).abs() < 1e-6);
+        assert_eq!(s.default_sink, "bluez_output.AA");
+        assert_eq!(
+            g.plan(&Op::Volume(Direction::Output, 0.5)),
+            Some(Write::Props {
+                target: Target::Node(90),
+                volumes: Some(vec![0.125, 0.125]),
+                mute: None,
+            })
+        );
+        assert!(matches!(
+            g.plan(&Op::Muted(Direction::Output, true)),
+            Some(Write::Props {
+                target: Target::Node(90),
+                ..
+            })
+        ));
+    }
+
+    // Call audio may not be a PipeWire stream at all: in a call the
+    // device's own level is the one to show and set.
+    #[test]
+    fn in_a_call_the_device_level_is_the_volume() {
+        let (mut g, route) = with_media_role();
+        g.set_default(CALL_ACTIVE, Some("true"));
+        assert!((g.snapshot().volume - 0.5).abs() < 1e-6);
+        assert!(matches!(
+            g.plan(&Op::Volume(Direction::Output, 0.5)),
+            Some(Write::Props {
+                target: Target::Route { device: 87, route: r },
+                ..
+            }) if r == route
+        ));
+        assert_eq!(g.fold_device_level(), vec![]);
+        g.set_default(CALL_ACTIVE, Some("false"));
+        assert!((g.snapshot().volume - 0.8).abs() < 1e-6);
+    }
+
+    // The device stays at full level and what it was turned down to moves
+    // into the media volume, so media keeps its loudness and an alarm its own.
+    #[test]
+    fn device_level_moves_into_the_media_volume() {
+        let (mut g, route) = with_media_role();
+        let target = Target::Route { device: 87, route };
+        assert_eq!(
+            g.fold_device_level(),
+            vec![
+                Write::Props {
+                    target,
+                    volumes: Some(vec![1.0, 1.0]),
+                    mute: Some(false),
+                },
+                Write::Props {
+                    target: Target::Node(90),
+                    volumes: Some(vec![0.064, 0.064]),
+                    mute: Some(false),
+                },
+            ]
+        );
+        // The graph has not caught up with those writes yet.
+        assert_eq!(g.fold_device_level(), vec![]);
+
+        set_route(&mut g, route, mix(1.0, false));
+        g.nodes.get_mut(&90).unwrap().props = Some(mix(0.064, false));
+        assert_eq!(g.fold_device_level(), vec![]);
+
+        // Turned down again, as before.
+        set_route(&mut g, route, mix(0.125, false));
+        assert_eq!(g.fold_device_level().len(), 2);
+    }
+
+    #[test]
+    fn a_muted_device_mutes_the_media_volume() {
+        let (mut g, route) = with_media_role();
+        set_route(&mut g, route, mix(1.0, true));
+        let writes = g.fold_device_level();
+        assert_eq!(
+            writes[1],
+            Write::Props {
+                target: Target::Node(90),
+                volumes: Some(vec![0.512, 0.512]),
+                mute: Some(true),
+            }
+        );
+    }
+
+    // A device node's own props are not its level until its route is known.
+    #[test]
+    fn device_level_waits_for_the_route() {
+        let (mut g, _) = with_media_role();
+        g.devices.clear();
+        g.nodes.get_mut(&78).unwrap().props = Some(mix(0.125, false));
+        assert_eq!(g.fold_device_level(), vec![]);
+    }
+
+    #[test]
+    fn without_role_loopbacks_the_device_is_left_alone() {
+        let (mut g, _) = with_media_role();
+        g.nodes.remove(&90);
+        assert_eq!(g.fold_device_level(), vec![]);
+        assert!((g.snapshot().volume - 0.5).abs() < 1e-6);
     }
 
     // WirePlumber's role loopbacks are neither outputs to pick nor apps.

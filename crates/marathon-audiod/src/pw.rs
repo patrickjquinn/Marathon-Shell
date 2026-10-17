@@ -377,6 +377,12 @@ impl State {
     }
 
     fn changed(&mut self) {
+        // Only on a whole graph: a route still being listed reads as none.
+        if self.known && self.route_enums.is_empty() {
+            for write in self.graph.fold_device_level() {
+                self.execute(&write);
+            }
+        }
         let snapshot = self.graph.snapshot();
         if self.published.as_ref() != Some(&snapshot) {
             self.published = Some(snapshot.clone());
