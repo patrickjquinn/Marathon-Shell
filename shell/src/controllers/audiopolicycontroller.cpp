@@ -2,6 +2,7 @@
 
 #include "audiomanagercpp.h"
 #include "hapticmanager.h"
+#include "mediarole.h"
 #include "settingsmanager.h"
 
 #include <QAudioOutput>
@@ -181,6 +182,7 @@ void AudioPolicyController::playRingtone() {
     }
 
     ensurePlayer(m_ringtonePlayer, m_ringtoneOutput, m_settings->ringtoneVolume(), true);
+    m_ringtoneOutput->setDevice(MediaRole::output("ringtone"));
     startPlayback(m_ringtonePlayer, toUrl(m_settings->ringtone()), true);
 }
 
@@ -200,6 +202,7 @@ void AudioPolicyController::playNotificationSound() {
 
     ensurePlayer(m_notificationPlayer, m_notificationOutput, m_settings->notificationVolume(),
                  false);
+    m_notificationOutput->setDevice(MediaRole::output("notification"));
     startPlayback(m_notificationPlayer, toUrl(m_settings->notificationSound()), false);
 }
 
@@ -208,6 +211,7 @@ void AudioPolicyController::playAlarmSound() {
         return;
 
     ensurePlayer(m_alarmPlayer, m_alarmOutput, m_settings->alarmVolume(), true);
+    m_alarmOutput->setDevice(MediaRole::output("alarm"));
     startPlayback(m_alarmPlayer, toUrl(m_settings->alarmSound()), true);
 }
 

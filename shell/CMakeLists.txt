@@ -76,6 +76,7 @@ set(SOURCES
     src/managers/audiomanagercpp.cpp
     src/managers/sinkvolume.h
     src/managers/sinkvolume.cpp
+    src/managers/mediarole.h
     src/managers/audiodclient.h
     src/managers/audiodclient.cpp
     src/managers/modemmanagercpp.h

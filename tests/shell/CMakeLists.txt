@@ -70,7 +70,9 @@ target_include_directories(test_shell_audiopolicy PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/managers
     ${CMAKE_SOURCE_DIR}/shell/src/controllers
 )
-add_test(NAME Shell_AudioPolicy COMMAND test_shell_audiopolicy)
+target_compile_definitions(test_shell_audiopolicy PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME Shell_AudioPolicy COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh
+    $<TARGET_FILE:test_shell_audiopolicy>)
 set_tests_properties(Shell_AudioPolicy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # MPRIS2Controller against fake players on a private session bus
