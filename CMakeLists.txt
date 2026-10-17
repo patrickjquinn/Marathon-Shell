@@ -302,11 +302,6 @@ install(DIRECTORY shell/resources/sounds/
     FILES_MATCHING PATTERN "*.wav" PATTERN "*.ogg" PATTERN "*.mp3" PATTERN "*.m4a"
 )
 
-# Install XDG autostart
-install(FILES xdg-autostart/marathon-notification-service.desktop
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/xdg/autostart
-)
-
 # Install udev rules
 install(FILES udev/70-marathon-shell.rules udev/90-backlight.rules
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/udev/rules.d
