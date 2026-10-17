@@ -18,6 +18,8 @@ build-*/
 # usercfg-hackberrypi.txt + the long-orphaned device-raspberry-pi5-
 # marathon usercfg.txt).
 !packages/**/*.txt
+# ota/pi/autoboot.txt ships in the Pi A/B image.
+!ota/**/*.txt
 
 # Temporary progress tracking files (vibe coding prevention)
 *BUILD_COMPLETE*.md

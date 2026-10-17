@@ -1,0 +1,166 @@
+"""The Raspberry Pi A/B initramfs hooks, run against a fake root with the
+commands they call stubbed out."""
+
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+HOOKS = Path(__file__).resolve().parents[2] / "packaging" / "ota" / "pi" / "mkinitfs"
+DATA_HOOK = HOOKS / "hooks-cleanup" / "50-marathon-ab.sh"
+GUARD_HOOK = HOOKS / "hooks" / "05-marathon-tryboot-guard.sh"
+# The initramfs runs them with busybox ash; dash is the closest host shell.
+SHELL = shutil.which("dash") or "sh"
+
+STUB = """#!/bin/sh
+echo "$(basename "$0") $*" >> "$STUB_LOG"
+case "$(basename "$0") $*" in
+"parted -s "*" print free") [ -n "$STUB_FREE" ] && printf ' 1 x\\n 30.0GB 31.0GB 1GB Free Space\\n\\n' || printf ' 6 x\\n\\n' ;;
+"mount -t ext4"*) exit "${STUB_MOUNT_RC:-0}" ;;
+e2fsck*) exit "${STUB_E2FSCK_RC:-0}" ;;
+esac
+exit 0
+"""
+
+
+@unittest.skipUnless(shutil.which("od"), "needs od")
+class HookCase(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        bin_dir = self.root / "stub-bin"
+        bin_dir.mkdir()
+        for name in ("parted", "e2fsck", "resize2fs", "mount", "modprobe", "reboot"):
+            stub = bin_dir / name
+            stub.write_text(STUB)
+            stub.chmod(0o755)
+        self.log = self.root / "calls"
+        self.log.touch()
+        (self.root / "dev").mkdir()
+        (self.root / "dev/kmsg").touch()
+        self.dev = self.root / "dev/mmcblk0p6"
+        self.dev.touch()
+        (self.root / "dev/disk/by-partlabel").mkdir(parents=True)
+        (self.root / "dev/disk/by-partlabel/marathon_data").symlink_to("../../mmcblk0p6")
+        sysroot = self.root / "sysroot"
+        (sysroot / "var/lib/app").mkdir(parents=True)
+        (sysroot / "var/lib/app/state").write_text("slot var")
+        (sysroot / "home/user").mkdir(parents=True)
+        (sysroot / "home/user/notes").write_text("slot home")
+        (sysroot / "etc").mkdir()
+        part = self.root / "sys/devices/mmc/mmcblk0/mmcblk0p6"
+        part.mkdir(parents=True)
+        (part / "partition").write_text("6\n")
+        (self.root / "sys/class/block").mkdir(parents=True)
+        (self.root / "sys/class/block/mmcblk0p6").symlink_to(part)
+        self.dt = self.root / "proc/device-tree/chosen/bootloader"
+        self.dt.mkdir(parents=True)
+        self.trial(False)
+        self.env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}",
+                        MARATHON_AB_TEST_ROOT=str(self.root), STUB_LOG=str(self.log))
+
+    def trial(self, on):
+        (self.dt / "tryboot").write_bytes(bytes([0, 0, 0, 1 if on else 0]))
+
+    def run_hook(self, hook, **env):
+        result = subprocess.run([SHELL, str(hook)], env={**self.env, **env},
+                                capture_output=True, text=True, timeout=30)
+        return result.returncode, self.log.read_text().splitlines()
+
+    @property
+    def data(self):
+        return self.root / "marathon-data"
+
+
+class DataHookTest(HookCase):
+    def test_does_nothing_without_a_data_partition(self):
+        (self.root / "dev/disk/by-partlabel/marathon_data").unlink()
+        rc, calls = self.run_hook(DATA_HOOK)
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, [])
+
+    def test_first_boot_grows_seeds_and_mounts(self):
+        rc, calls = self.run_hook(DATA_HOOK, STUB_FREE="1")
+        self.assertEqual(rc, 0, calls)
+        sysroot = self.root / "sysroot"
+        self.assertIn("parted -f -s /dev/mmcblk0 resizepart 6 100%", calls)
+        self.assertIn(f"e2fsck -f -p {self.dev}", calls)
+        self.assertIn(f"resize2fs {self.dev}", calls)
+        self.assertEqual((self.data / "lib/app/state").read_text(), "slot var")
+        self.assertEqual((self.data / "home/user/notes").read_text(), "slot home")
+        self.assertTrue((self.data / ".marathon-seeded").exists())
+        self.assertTrue((self.data / "lib/marathon-ab/etc/upper").is_dir())
+        self.assertTrue((self.data / "lib/marathon-ab/etc/work").is_dir())
+        mounts = [c for c in calls if c.startswith("mount")]
+        etc = f"{sysroot}/var/lib/marathon-ab/etc"
+        self.assertEqual(mounts, [
+            f"mount -t ext4 -o rw,noatime {self.dev} {self.data}",
+            f"mount --move {self.data} {sysroot}/var",
+            f"mount --bind {sysroot}/var/home {sysroot}/home",
+            f"mount -t overlay overlay -o lowerdir={sysroot}/etc,upperdir={etc}/upper,workdir={etc}/work "
+            f"{sysroot}/etc",
+        ])
+        self.assertIn("modprobe overlay", calls)
+
+    def test_later_boots_neither_grow_nor_reseed(self):
+        self.data.mkdir()
+        (self.data / ".marathon-seeded").touch()
+        rc, calls = self.run_hook(DATA_HOOK)
+        self.assertEqual(rc, 0, calls)
+        self.assertFalse(any("resizepart" in c or c.startswith("resize2fs") for c in calls), calls)
+        self.assertIn(f"e2fsck -p {self.dev}", calls)
+        self.assertFalse((self.data / "lib/app").exists())
+        self.assertTrue(any(c.startswith("mount -t overlay") for c in calls))
+
+    def test_a_trial_boot_that_cannot_mount_data_reboots(self):
+        self.trial(True)
+        rc, calls = self.run_hook(DATA_HOOK, STUB_MOUNT_RC="32")
+        self.assertEqual(rc, 1)
+        self.assertEqual(calls[-1], "reboot -f")
+        self.assertIn("cannot mount", (self.root / "dev/kmsg").read_text())
+
+    def test_a_committed_boot_that_cannot_mount_data_carries_on(self):
+        rc, calls = self.run_hook(DATA_HOOK, STUB_MOUNT_RC="32")
+        self.assertEqual(rc, 1)
+        self.assertNotIn("reboot -f", calls)
+
+    def test_file_system_errors_fail_a_trial_boot(self):
+        self.trial(True)
+        rc, calls = self.run_hook(DATA_HOOK, STUB_E2FSCK_RC="4")
+        self.assertEqual(rc, 1)
+        self.assertEqual(calls[-1], "reboot -f")
+        self.assertFalse(any(c.startswith("mount") for c in calls), calls)
+
+    def test_repaired_errors_are_fine(self):
+        rc, _ = self.run_hook(DATA_HOOK, STUB_E2FSCK_RC="1")
+        self.assertEqual(rc, 0)
+
+
+class GuardHookTest(HookCase):
+    def wait_for_reboot(self):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if "reboot -f" in self.log.read_text():
+                return True
+            time.sleep(0.05)
+        return False
+
+    def test_a_stuck_trial_boot_reboots(self):
+        self.trial(True)
+        rc, _ = self.run_hook(GUARD_HOOK, MARATHON_AB_GUARD_SECS="0")
+        self.assertEqual(rc, 0)
+        self.assertTrue(self.wait_for_reboot())
+        self.assertIn("stuck in the initramfs", (self.root / "dev/kmsg").read_text())
+
+    def test_a_committed_boot_is_left_alone(self):
+        rc, calls = self.run_hook(GUARD_HOOK, MARATHON_AB_GUARD_SECS="0")
+        self.assertEqual(rc, 0)
+        time.sleep(0.3)
+        self.assertEqual(self.log.read_text(), "")
+
+
+if __name__ == "__main__":
+    unittest.main()

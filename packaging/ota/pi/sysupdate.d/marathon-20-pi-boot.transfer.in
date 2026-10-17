@@ -1,0 +1,17 @@
+# Applied last, so a bootable slot only appears once its root is written.
+# marathon-tryboot.service arms the Pi firmware's tryboot for it.
+[Transfer]
+ProtectVersion=%A
+AppStream=@MARATHON_OTA_URL@/%M_%W_%w/marathon-os.metainfo.xml
+
+[Source]
+Type=url-file
+Path=@MARATHON_OTA_URL@/%M_%W_%w/
+MatchPattern=%M_%W_%w_@v.boot.@u.raw.zst
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=marathon_@v_boot
+MatchPartitionType=ebd0a0a2-b9e5-4433-87c0-68b6b72699c7
+PartitionFlags=0

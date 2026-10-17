@@ -229,7 +229,15 @@ done
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
 OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
 OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
+# Raspberry Pi A/B (mkosi.repart.ab-pi): autoboot.txt for partition 1, the
+# initramfs hooks that mount the shared data partition, and a watchdog.
+PI_AB_EXTRA="usr/share/marathon/ab usr/share/mkinitfs usr/lib/systemd/system.conf.d"
 rm -rf "$OTA_TRANSFERS" "$OTA_KEYRING"
+for d in $PI_AB_EXTRA; do rm -rf "${DURANIUM_DIR:?}/mkosi.extra/$d"; done
+OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
+case "$MARATHON_TARGET_DEVICE" in
+    raspberry-pi*) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/pi/sysupdate.d" ;;
+esac
 if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
     OTA_URL="${MARATHON_OTA_URL:-https://thrivelobal.com/marathon/updates}"
     OTA_PUBKEY="${MARATHON_OTA_PUBKEY:-$MARATHON_IMAGE_SRC/ota/marathon-ota.asc}"
@@ -239,10 +247,21 @@ if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
         exit 1
     fi
     mkdir -p "$OTA_TRANSFERS" "$(dirname "$OTA_KEYRING")"
-    for t in "$MARATHON_IMAGE_SRC"/ota/sysupdate.d/*.transfer.in; do
+    for t in "$OTA_TEMPLATES"/*.transfer.in; do
         sed "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
     done
     gpg --dearmor < "$OTA_PUBKEY" > "$OTA_KEYRING"
+    case "$MARATHON_TARGET_DEVICE" in
+        raspberry-pi*)
+            PI_SRC="$MARATHON_IMAGE_SRC/ota/pi"
+            EXTRA="$DURANIUM_DIR/mkosi.extra"
+            install -Dm644 "$PI_SRC/autoboot.txt" "$EXTRA/usr/share/marathon/ab/autoboot/autoboot.txt"
+            install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks" "$PI_SRC"/mkinitfs/hooks/*.sh
+            install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks-cleanup" "$PI_SRC"/mkinitfs/hooks-cleanup/*.sh
+            install -Dm644 -t "$EXTRA/usr/share/mkinitfs/modules" "$PI_SRC"/mkinitfs/modules/*.modules
+            install -Dm644 -t "$EXTRA/usr/lib/systemd/system.conf.d" "$PI_SRC/50-marathon-watchdog.conf"
+            ;;
+    esac
     echo "==> A/B layout: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
 fi
 
@@ -279,7 +298,7 @@ prune_splits() {
     local dir="$1" fam base kept=0 pruned=0
     # Family = filename with the hash segment removed, e.g.
     # qemu-aarch64_marathon_edge_26083101.root-arm64
-    for fam in $(ls -1 "$dir"/*.*-*.*.raw 2>/dev/null \
+    for fam in $(ls -1 "$dir"/*.*-*.*.raw "$dir"/*.boot.*.raw "$dir"/*.root.*.raw 2>/dev/null \
                  | sed -E 's|.*/||; s|\.[0-9a-f]{32}\.raw$||' | sort -u); do
         local first=1
         for f in $(ls -1t "$dir/$fam".*.raw 2>/dev/null); do
@@ -333,6 +352,9 @@ case "$MARATHON_TARGET_DEVICE" in
             # MBR it replaced initramfs-rpi with a systemd initrd, then
             # died on the verity UUID lookup.
             echo "==> pure-MBR Pi image: boot files staged by mkosi.finalize"
+        elif [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
+            # The rest is for duranium's GPT/verity UKI layout, not A/B slots.
+            echo "==> A/B GPT Pi image: boot files staged by mkosi.finalize"
         elif ! command -v mcopy >/dev/null || ! command -v sfdisk >/dev/null; then
             echo "warn: mtools/sfdisk missing; cannot promote initrd to ESP root" >&2
             echo "      install with: apt install mtools util-linux  |  dnf install mtools util-linux" >&2

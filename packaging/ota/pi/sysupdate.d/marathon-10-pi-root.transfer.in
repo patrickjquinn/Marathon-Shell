@@ -1,0 +1,14 @@
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=@MARATHON_OTA_URL@/%M_%W_%w/
+MatchPattern=%M_%W_%w_@v.root.@u.raw.zst
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=marathon_@v_root
+MatchPartitionType=root
+PartitionFlags=0

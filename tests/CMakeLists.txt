@@ -76,4 +76,5 @@ endif()
 # OTA feed publisher, and the image's sysupdate transfers run against its feed
 if(Python3_FOUND)
     add_test(NAME Ota_Publish COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/ota/test_marathon_ota.py)
+    add_test(NAME Ota_PiInitramfsHooks COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/ota/test_pi_hooks.py)
 endif()
