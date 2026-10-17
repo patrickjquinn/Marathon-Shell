@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 17 Oct 2026 11:00:00 +0100
+Subject: [PATCH] feat(qemu): A/B /usr layout for systemd-sysupdate
+
+0008 replaced duranium's erofs + dm-verity /usr with one ext4 root so the
+Pi 5 could boot without UEFI. That also removed the A/B slots
+systemd-sysupdate writes updates into, so no Marathon image can update
+itself or roll back.
+
+MARATHON_IMAGE_LAYOUT=ab brings duranium's layout back per build: the
+ESP plus a 5 GiB erofs /usr and its verity partition, labelled
+duranium_<version>_usr/_vty. postmarketos-duranium's repart.d already
+creates the second slot and the LUKS root on first boot, and mkosi puts
+usrhash= in the UKI, so each UKI mounts its own /usr. Only qemu-aarch64
+takes it for now: it boots UEFI -> systemd-boot -> UKI, where boot
+counting works. The Pi and the U-Boot phones keep the single root until
+their boot chains can try a slot and fall back. The default stays
+single, so builds that do not ask are unchanged.
+---
+ mkosi.conf                         | 2 +-
+ mkosi.repart.ab/00-esp.conf        | 8 ++++++++
+ mkosi.repart.ab/10-usr-verity.conf | 8 ++++++++
+ mkosi.repart.ab/11-usr.conf        | 11 +++++++++++
+ scripts/mkosi-configure.py         | 23 +++++++++++++++++++++++
+ 5 files changed, 51 insertions(+), 1 deletions(-)
+
+diff --git a/mkosi.conf b/mkosi.conf
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -11,7 +11,7 @@
+ [Config]
+ # Pass these PMOS_* variables so they are available in sub-images (e.g. initrd)
+ # Pass the CI var so scripts can detect if they are running in gitlab CI
+-PassEnvironment=PMOS_DEVICE PMOS_VARIANT CI
++PassEnvironment=PMOS_DEVICE PMOS_VARIANT CI MARATHON_IMAGE_LAYOUT
+ Dependencies=
+ 	base
+ 	dev-tools-confext
+diff --git a/mkosi.repart.ab/00-esp.conf b/mkosi.repart.ab/00-esp.conf
+new file mode 100644
+--- /dev/null
++++ b/mkosi.repart.ab/00-esp.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=esp
++Label=pmOS_boot
++Format=vfat
++CopyFiles=/efi:/
++CopyFiles=/boot:/
++SizeMinBytes=1G
++SizeMaxBytes=1G
+diff --git a/mkosi.repart.ab/10-usr-verity.conf b/mkosi.repart.ab/10-usr-verity.conf
+new file mode 100644
+--- /dev/null
++++ b/mkosi.repart.ab/10-usr-verity.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=usr-verity
++Label=duranium_%A_vty
++Verity=hash
++VerityMatchKey=usr
++SplitName=%t.%U
++SizeMinBytes=400M
++SizeMaxBytes=400M
+diff --git a/mkosi.repart.ab/11-usr.conf b/mkosi.repart.ab/11-usr.conf
+new file mode 100644
+--- /dev/null
++++ b/mkosi.repart.ab/11-usr.conf
+@@ -0,0 +1,11 @@
++[Partition]
++Type=usr
++Label=duranium_%A_usr
++Format=erofs
++CopyFiles=/usr:/
++Verity=data
++VerityMatchKey=usr
++SizeMinBytes=5G
++SizeMaxBytes=5G
++Compression=lz4
++SplitName=%t.%U
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -5,6 +5,10 @@
+ import os
+ import subprocess
+ import sys
++
++# Devices that boot UEFI -> systemd-boot -> UKI, so systemd-boot's boot
++# counting can roll an A/B image back.
++AB_DEVICES = ("qemu-aarch64",)
+ 
+ 
+ def main() -> int:
+@@ -89,6 +93,25 @@
+         # Exact match: pine64-pinephonepro boots differently.
+         if device == "pine64-pinephone":
+             config["Bootloader"] = "uki"
++        # MARATHON_IMAGE_LAYOUT=ab: duranium's erofs+verity /usr in two
++        # slots for systemd-sysupdate (DESIGN.md), instead of one ext4 root.
++        # The root, the second /usr slot and its verity partition are
++        # created by systemd-repart from postmarketos-duranium's repart.d
++        # on first boot.
++        layout = os.environ.get("MARATHON_IMAGE_LAYOUT") or "single"
++        if layout == "ab":
++            if device not in AB_DEVICES:
++                print(f"Error: {device} has no A/B boot path yet ({', '.join(AB_DEVICES)} do)",
++                      file=sys.stderr)
++                return 1
++            repart = config.get("RepartDirectories") or []
++            if len(repart) != 1:
++                print(f"Error: expected one repart directory, got {repart}", file=sys.stderr)
++                return 1
++            config["RepartDirectories"] = [os.path.join(os.path.dirname(repart[0]), "mkosi.repart.ab")]
++        elif layout != "single":
++            print(f"Error: MARATHON_IMAGE_LAYOUT={layout}; expected single or ab", file=sys.stderr)
++            return 1
+     elif image == "base":
+         # base gets device+UI packages resolved from pmaports
+         existing = config.get("Packages", [])
+-- 
+2.55.0
+

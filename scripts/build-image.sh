@@ -40,6 +40,12 @@
 #   MKOSI_SRC               mkosi checkout (default: bootstrap.sh's own)
 #   MARATHON_IMAGE_SRC      packaging tree (default: in-tree packaging/)
 #   FORCE_REBUILD           "1" → drop cached apks before rebuild
+#   MARATHON_IMAGE_LAYOUT   "single" (default) or "ab": A/B /usr slots with
+#                           signed OTA updates and rollback (docs/OTA.md)
+#   MARATHON_OTA_URL        update feed root for A/B images
+#                           (default https://thrivelobal.com/marathon/updates)
+#   MARATHON_OTA_PUBKEY     armored public signing key for A/B images
+#                           (default packaging/ota/marathon-ota.asc)
 
 set -euo pipefail
 
@@ -70,14 +76,18 @@ export MARATHON_TARGET_DEVICE="$DEVICE"
 #                   Exits with verify-mail.sh's return code.
 #   --boot-only     SKIP the build/bake stages; boot the already-baked
 #                   image. Use for fast iteration after a build.
+#   --bump          give the image a new IMAGE_VERSION (mkosi bump). An
+#                   OTA update has to be newer than what devices run.
 BOOT=0
 BOOT_ONLY=0
 VERIFY=0
+BUMP=0
 for a in "$@"; do
     case "$a" in
         --boot)       BOOT=1 ;;
         --verify)     BOOT=1; VERIFY=1 ;;
         --boot-only)  BOOT_ONLY=1; BOOT=1 ;;
+        --bump)       BUMP=1 ;;
         -h|--help)
             sed -n '2,/^set -euo pipefail/p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
@@ -213,7 +223,34 @@ while read -r file url sha512; do
         || { echo "$MKOSI_PKG_DIR/$file does not match its pin in devices/" >&2; exit 1; }
 done
 
-echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE"
+# A/B images update over the air (docs/OTA.md): sysupdate transfers for the
+# feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
+# image through mkosi.extra. Single-root images get neither.
+export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
+OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
+OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
+rm -rf "$OTA_TRANSFERS" "$OTA_KEYRING"
+if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
+    OTA_URL="${MARATHON_OTA_URL:-https://thrivelobal.com/marathon/updates}"
+    OTA_PUBKEY="${MARATHON_OTA_PUBKEY:-$MARATHON_IMAGE_SRC/ota/marathon-ota.asc}"
+    if [ ! -s "$OTA_PUBKEY" ]; then
+        echo "error: A/B image needs the update signing key's public half at $OTA_PUBKEY" >&2
+        echo "       create one: scripts/ota/marathon-ota keygen --gnupghome ~/.marathon-secrets/ota/gnupg --export $OTA_PUBKEY" >&2
+        exit 1
+    fi
+    mkdir -p "$OTA_TRANSFERS" "$(dirname "$OTA_KEYRING")"
+    for t in "$MARATHON_IMAGE_SRC"/ota/sysupdate.d/*.transfer.in; do
+        sed "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
+    done
+    gpg --dearmor < "$OTA_PUBKEY" > "$OTA_KEYRING"
+    echo "==> A/B layout: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
+fi
+
+if [ "$BUMP" -eq 1 ]; then
+    (cd "$DURANIUM_DIR" && PATH="$(dirname "$MKOSI_BIN"):$PATH" "$MKOSI_BIN" bump)
+fi
+
+echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE (layout $MARATHON_IMAGE_LAYOUT, version $(cat "$DURANIUM_DIR/mkosi.version" 2>/dev/null || echo new))"
 cd "$DURANIUM_DIR"
 PATH="$(dirname "$MKOSI_BIN"):$PATH" \
     python3 scripts/build-image.py "device-$MARATHON_TARGET_DEVICE" ui-marathon

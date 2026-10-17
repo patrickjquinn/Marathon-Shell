@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 17 Oct 2026 11:05:00 +0100
+Subject: [PATCH] fix(ota): trust only Marathon's sysupdate feed
+
+postmarketos-duranium ships sysupdate transfers for
+duranium.postmarketos.org and finalize trusted pmOS's signing key for
+them. Neither fits a Marathon image: the feed carries pmOS's own images,
+the single-root layout has no partitions for them, and upstream marks
+the key insecure. A sysupdate run would at best fail and at worst offer
+an image that is not Marathon.
+
+finalize now drops every transfer and feature not named marathon-* and
+no longer imports the pmOS key. Marathon's transfers and the keyring
+that verifies them are generated per build into mkosi.extra by
+scripts/build-image.sh, only for A/B images, so they are ignored here
+like the other per-build mkosi.extra files.
+---
+ .gitignore     | 2 ++
+ mkosi.finalize | 12 +++++++-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -12,3 +12,5 @@
+ pmaports/
+ mkosi.extra/etc/NetworkManager/system-connections/
+ mkosi.extra/usr/share/factory/home/user/.ssh/
++mkosi.extra/usr/lib/sysupdate.d/
++mkosi.extra/usr/lib/systemd/import-pubring.pgp
+diff --git a/mkosi.finalize b/mkosi.finalize
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -33,11 +33,13 @@
+ # Ensure sysexts are only merged when they match the running OS version.
+ echo "SYSEXT_LEVEL=$IMAGE_VERSION" >> "$BUILDROOT/usr/lib/os-release"
+ 
+-# Add pmOS pub key for sysupdate manifest verify to systemd keyring
+-# FIXME: this key is not secure!
+-gpg --no-default-keyring \
+-   --keyring "$BUILDROOT"/usr/lib/systemd/import-pubring.pgp \
+-   --import pmos-sysupdate-public-key.asc
++# Marathon updates only from its own feed: drop postmarketos-duranium's
++# transfers (pmOS images, pmOS key). build-image.sh puts marathon-*.transfer
++# and the keyring that verifies them in mkosi.extra, for A/B images.
++if [ -d "$BUILDROOT/usr/lib/sysupdate.d" ]; then
++    find "$BUILDROOT/usr/lib/sysupdate.d" -maxdepth 1 \( -name '*.transfer' -o -name '*.feature' \) \
++        ! -name 'marathon-*' -delete
++fi
+ 
+ # Generate sysusers.d and tmpfiles.d config for Alpine system users
+ mkdir -p "$BUILDROOT/usr/lib/sysusers.d" "$BUILDROOT/usr/lib/tmpfiles.d"
+-- 
+2.55.0
+

@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 33 patches. **There is no 0011**: it vendored a loose
+There are 35 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -47,5 +47,7 @@ There are 33 patches. **There is no 0011**: it vendored a loose
 | 0032 | fix(pi): boot partition laid out as Raspberry Pi OS does | FAT32, MBR type 0x0c, correct hidden sectors; HackberryPi mounts root. |
 | 0033 | fix(pi): grow the root partition to fill the card | `pmos.force-partition-resize` on the Pi cmdline. |
 | 0034 | fix(factory): drop the HackberryPi's 110 % interface size | `FORCE_DPI` in the device profile gives the right scale. |
+| 0035 | feat(qemu): A/B /usr layout for systemd-sysupdate | `MARATHON_IMAGE_LAYOUT=ab` restores duranium's erofs + verity `/usr` slots on QEMU, for OTA updates with rollback (docs/OTA.md). |
+| 0036 | fix(ota): trust only Marathon's sysupdate feed | Drops postmarketos-duranium's transfers and pmOS's signing key; Marathon's come from build-image.sh. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

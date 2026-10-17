@@ -8,7 +8,8 @@ history.
 | Path | What |
 |---|---|
 | `packages/` | Alpine aports (below) |
-| `pipeline-patches/` | 33-patch series against upstream postmarketOS duranium, plus `bootstrap.sh` to stage a patched tree. Index: [`pipeline-patches/README.md`](pipeline-patches/README.md) |
+| `pipeline-patches/` | 35-patch series against upstream postmarketOS duranium, plus `bootstrap.sh` to stage a patched tree. Index: [`pipeline-patches/README.md`](pipeline-patches/README.md) |
+| `ota/` | OTA update feed config for A/B images: sysupdate transfer templates and the update signing key's public half (see [`docs/OTA.md`](../docs/OTA.md)) |
 | `duranium-overlay-extras/` | Non-patch files the duranium tree needs (the snapshot repo public key, a repack helper) |
 | `devices/` | Kernel-config fragments read by `packages/linux-marathon/APKBUILD` (OnePlus 6 / SDM845, generic) |
 | `scripts/` | `setup-librem5-recovery.sh` (Librem 5 uuu recovery rig), and the older pmbootstrap CM5 path (`build-cm5-pmbootstrap.sh`, `push-cm5.sh`), superseded by `scripts/build-hackberry-cm5-image.sh` |
