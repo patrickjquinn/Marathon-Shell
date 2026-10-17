@@ -137,6 +137,11 @@ Item {
     }
 
     // A volume key while a call rings silences it, as on every phone.
+    // Deferred: the overlay's own handlers end up here while they still run.
+    function unloadCallOverlay() {
+        Qt.callLater(() => incomingCallOverlayLoader.active = false);
+    }
+
     function silenceRinging() {
         if (!incomingCallOverlay || !incomingCallOverlay.isRinging)
             return false;
@@ -2625,7 +2630,7 @@ Item {
 
         function onInCallChanged() {
             if (!shell.incomingCallOverlay.inCall && !shell.incomingCallOverlay.isRinging)
-                incomingCallOverlayLoader.active = false;
+                shell.unloadCallOverlay();
         }
 
         function onUnlockRequested() {
@@ -2652,7 +2657,7 @@ Item {
                 if (shell.incomingCallOverlay.inCall)
                     return;
             }
-            incomingCallOverlayLoader.active = false;
+            shell.unloadCallOverlay();
         }
 
         function onUnlockRequested() {

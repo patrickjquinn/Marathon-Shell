@@ -154,29 +154,33 @@ Item {
             visible: callOverlay.isRinging
 
             CallAction {
+                objectName: "declineCall"
                 iconName: "phone-disconnect"
                 label: qsTr("Decline")
                 onActivated: {
                     Logger.info("IncomingCallOverlay", "Call declined");
                     HapticManager.medium();
-                    TelephonyService.hangup();
                     callOverlay.declined();
                     callOverlay.hide();
+                    // Last: the call state change can unload this overlay.
+                    TelephonyService.hangup();
                 }
             }
 
             CallAction {
+                objectName: "answerCall"
                 iconName: "phone"
                 label: qsTr("Answer")
                 emphasised: true
                 onActivated: {
                     Logger.info("IncomingCallOverlay", "Call answered");
                     HapticManager.heavy();
-                    TelephonyService.answer();
                     callOverlay.answeredHere = true;
                     callOverlay.answered();
                     callOverlay.hide();
                     UIStore.openApp("phone", "Phone", "");
+                    // Last: the call state change can unload this overlay.
+                    TelephonyService.answer();
                 }
             }
         }
