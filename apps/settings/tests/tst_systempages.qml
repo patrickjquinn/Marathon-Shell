@@ -317,9 +317,10 @@ TestCase {
         Updates.state = "error";
         Updates.lastError = "Could not resolve host";
         compare(status.text, "Couldn't install Marathon OS 26101801");
-        compare(child(s.page, "hintLabel").text, "Could not resolve host");
+        compare(child(s.page, "hintLabel").text, "The download didn't finish. Pull down to try again.");
         Updates.availableVersion = "";
         compare(status.text, "Couldn't check for updates");
+        compare(child(s.page, "hintLabel").text, "Couldn't reach the update server. Check your connection, then pull down to try again.");
         Updates.state = "unsupported";
         compare(status.text, "This device can't install updates yet");
         verify(child(s.page, "hintLabel").visible);

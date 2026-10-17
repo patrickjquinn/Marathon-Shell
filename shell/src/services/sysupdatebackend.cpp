@@ -20,7 +20,7 @@ namespace {
     constexpr auto kManagerIface = QLatin1StringView("org.freedesktop.sysupdate1.Manager");
     constexpr auto kTargetIface  = QLatin1StringView("org.freedesktop.sysupdate1.Target");
     constexpr auto kJobIface     = QLatin1StringView("org.freedesktop.sysupdate1.Job");
-    // CheckNew and Update fetch SHA256SUMS over the network before replying.
+    // CheckNew and Install fetch SHA256SUMS over the network before replying.
     constexpr int kNetworkCallTimeoutMs = 120 * 1000;
 
     void call(QObject *context, const QString &path, QLatin1StringView iface, const QString &method,
@@ -125,7 +125,7 @@ void SysupdateBackend::fetchReleaseInfo(const QString &version) {
 
 void SysupdateBackend::install() {
     call(
-        this, m_target, kTargetIface, QStringLiteral("Update"),
+        this, m_target, kTargetIface, QStringLiteral("Install"),
         {QString(), QVariant::fromValue(qulonglong(0))},
         [this](const QDBusMessage &reply) {
             const QVariantList args = reply.arguments();

@@ -48,7 +48,7 @@ Page {
         case "rolledBack":
             return qsTr("Your phone went back to %1. A fixed update will be offered when it's published.").arg(Updates.osVersion);
         case "error":
-            return Updates.lastError !== "" ? Updates.lastError : qsTr("Pull down to try again.");
+            return Updates.availableVersion !== "" ? qsTr("The download didn't finish. Pull down to try again.") : qsTr("Couldn't reach the update server. Check your connection, then pull down to try again.");
         default:
             return "";
         }

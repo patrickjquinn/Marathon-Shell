@@ -61,7 +61,7 @@ Sources: duranium `DESIGN.md` (in the generated tree), [sysupdate.d(5)](https://
  ──────
  Settings ─ UpdateClient ─(session bus)─► shell UpdateService ── gate: NM Metered, UPower ≥30 %/charging
                                             └ SysupdateBackend ─(system bus)─► systemd-sysupdated
-                                                 CheckNew / GetAppStream / Update / Job.Progress
+                                                 CheckNew / GetAppStream / Install / Job.Progress
  systemd-sysupdate: verify SHA256SUMS.gpg with /usr/lib/systemd/import-pubring.pgp,
    write the free /usr + verity slot (label duranium_<v>_usr/_vty), then EFI/Linux/<id>_<v>+3-0.efi
  reboot → systemd-boot boots the newest entry with tries left, renaming it +2-1, +1-2, +0-3
