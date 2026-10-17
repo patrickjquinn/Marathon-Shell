@@ -44,12 +44,8 @@ DisplayPolicyController::DisplayPolicyController(DisplayManagerCpp *displayManag
             emit autoBrightnessEnabledChanged();
         });
 
-        connect(m_displayManager, &DisplayManagerCpp::screenStateChanged, this, [this](bool on) {
-            if (m_screenOn == on)
-                return;
-            m_screenOn = on;
-            emit screenOnChanged();
-        });
+        connect(m_displayManager, &DisplayManagerCpp::screenOnChanged, this,
+                &DisplayPolicyController::screenOnChanged);
     }
 }
 
@@ -103,29 +99,25 @@ void DisplayPolicyController::setAutoBrightnessEnabled(bool enabled) {
     emit autoBrightnessEnabledChanged();
 }
 
+bool DisplayPolicyController::screenOn() const {
+    return !m_displayManager || m_displayManager->screenOn();
+}
+
 void DisplayPolicyController::turnScreenOn() {
     if (m_displayManager)
         m_displayManager->setScreenState(true);
-    if (!m_screenOn) {
-        m_screenOn = true;
-        emit screenOnChanged();
-    }
 }
 
 void DisplayPolicyController::turnScreenOff(const QString &reason) {
     if (m_displayManager)
         m_displayManager->setScreenState(false, reason);
-    if (m_screenOn) {
-        m_screenOn = false;
-        emit screenOnChanged();
-    }
 }
 
 void DisplayPolicyController::forceScreenOn() {
+    const bool wasOn = screenOn();
     if (m_displayManager)
         m_displayManager->setScreenState(true);
-    m_screenOn = true;
-    // Unconditional emit — the suspend-resume edge needs QML hooks to
-    // run even when m_screenOn was already stale TRUE going into sleep.
-    emit screenOnChanged();
+    // The resume edge is a wake even when the screen never read off.
+    if (wasOn)
+        emit screenOnChanged();
 }

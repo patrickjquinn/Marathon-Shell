@@ -29,10 +29,14 @@ class DisplayManagerCpp : public QObject {
                    NOTIFY nightLightTemperatureChanged)
     Q_PROPERTY(QString nightLightSchedule READ nightLightSchedule WRITE setNightLightSchedule NOTIFY
                    nightLightScheduleChanged)
+    // The one record of whether the screen is on. Every on/off path ends in
+    // setScreenState, and everything that gates on the screen reads this.
+    Q_PROPERTY(bool screenOn READ screenOn NOTIFY screenOnChanged)
 
   public:
-    explicit DisplayManagerCpp(PowerManagerCpp *powerManager, RotationManager *rotationManager,
-                               QObject *parent = nullptr);
+    explicit DisplayManagerCpp(
+        PowerManagerCpp *powerManager, RotationManager *rotationManager, QObject *parent = nullptr,
+        const QString &backlightDir = QStringLiteral("/sys/class/backlight"));
 
     void setSensorManager(SensorManagerCpp *sensorManager);
 
@@ -53,7 +57,7 @@ class DisplayManagerCpp : public QObject {
     }
     bool rotationAvailable() const;
     bool lightSensorAvailable() const;
-    int screenTimeout() const {
+    int  screenTimeout() const {
         return m_screenTimeout;
     }
     QString screenTimeoutString() const;
@@ -66,6 +70,9 @@ class DisplayManagerCpp : public QObject {
     }
     QString nightLightSchedule() const {
         return m_nightLightSchedule;
+    }
+    bool screenOn() const {
+        return m_screenOn;
     }
 
     void setBrightness(double brightness);
@@ -92,6 +99,10 @@ class DisplayManagerCpp : public QObject {
     void nightLightEnabledChanged();
     void nightLightTemperatureChanged();
     void nightLightScheduleChanged();
+    // Off->on and on->off only.
+    void screenOnChanged(bool on);
+    // Every setScreenState, so the compositor re-asserts the panel power
+    // even when the state is unchanged.
     void screenStateChanged(bool on);
 
   private:
@@ -144,8 +155,10 @@ class DisplayManagerCpp : public QObject {
     int               m_wakeVerifyTries = 0;
 
     bool              m_proximityBlanked = false;
+    bool              m_screenOn         = true;
 
     bool              m_available;
+    QString           m_backlightDir;
     QString           m_backlightDevice;
     int               m_maxBrightness;
     bool              m_autoBrightnessEnabled;
@@ -159,10 +172,13 @@ class DisplayManagerCpp : public QObject {
     RotationManager  *m_rotationManager;
     SensorManagerCpp *m_sensorManager = nullptr;
 
-    bool              detectBacklightDevice();
-    void              loadSettings();
-    void              saveSettings();
-    void              setupBrightnessMonitoring();
+    QString           backlightFile(const char *name) const {
+        return m_backlightDir + u'/' + m_backlightDevice + u'/' + QLatin1String(name);
+    }
+    bool detectBacklightDevice();
+    void loadSettings();
+    void saveSettings();
+    void setupBrightnessMonitoring();
 
   private slots:
     void onExternalBrightnessChanged();

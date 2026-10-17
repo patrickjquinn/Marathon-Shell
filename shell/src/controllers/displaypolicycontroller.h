@@ -21,30 +21,25 @@ class DisplayPolicyController : public QObject {
     explicit DisplayPolicyController(DisplayManagerCpp *displayManager,
                                      SettingsManager *settingsManager, QObject *parent = nullptr);
 
-    int     screenTimeoutMs() const;
-    void    setScreenTimeoutMs(int ms);
+    int              screenTimeoutMs() const;
+    void             setScreenTimeoutMs(int ms);
 
-    QString screenTimeoutString() const;
+    QString          screenTimeoutString() const;
 
-    bool    autoBrightnessEnabled() const;
-    void    setAutoBrightnessEnabled(bool enabled);
+    bool             autoBrightnessEnabled() const;
+    void             setAutoBrightnessEnabled(bool enabled);
 
-    bool    screenOn() const {
-        return m_screenOn;
-    }
+    bool             screenOn() const;
 
     Q_INVOKABLE void turnScreenOn();
     Q_INVOKABLE void turnScreenOff(const QString &reason = QStringLiteral("other"));
 
     // Force-unblank path for the resume-from-suspend edge. External
-    // suspends (logind IdleAction, lid switch, RTC alarm, anything not
-    // going through PowerPolicyController::sleep) never observe a
-    // screen-off transition in the shell — so m_screenOn stays stale
-    // TRUE across the sleep, and turnScreenOn() short-circuits its
-    // screenOnChanged emit. forceScreenOn() unconditionally re-issues
-    // setScreenState(true) (which re-writes bl_power AND brightness)
-    // and ALWAYS emits screenOnChanged so QML hooks (dimState.restore,
-    // idleScreenTimer.restart) fire on the wake edge.
+    // suspends (logind IdleAction, lid switch, RTC alarm) never turn the
+    // screen off in the shell, so the screen still reads on across the
+    // sleep. forceScreenOn() re-issues setScreenState(true) (which re-writes
+    // bl_power AND brightness) and always emits screenOnChanged so QML hooks
+    // (dimState.restore, idleScreenTimer.restart) fire on the wake edge.
     Q_INVOKABLE void forceScreenOn();
 
   signals:
@@ -55,5 +50,4 @@ class DisplayPolicyController : public QObject {
   private:
     DisplayManagerCpp *m_displayManager  = nullptr;
     SettingsManager   *m_settingsManager = nullptr;
-    bool               m_screenOn        = true;
 };

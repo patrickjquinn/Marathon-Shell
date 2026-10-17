@@ -60,18 +60,15 @@ class PowerPolicyController : public QObject {
     Q_INVOKABLE QString wake(const QString &reason);
     Q_INVOKABLE bool    sleep(const QString &reason = QStringLiteral("other"));
 
-    bool                dozing() const {
-        return m_dozing;
-    }
+    // Doze is the screen being off: whatever turns the screen off (power
+    // key, idle timer, Display1.SetScreenState) enters it, and whatever
+    // turns it on leaves it.
+    bool dozing() const;
 
-    // Marathon-Doze entry / exit. enterDoze() bundles the "screen off,
-    // kernel running, apps frozen, wifi PSM on" policy that replaces
-    // S3 for the daily power-key / idle-timer flow. exitDoze() is the
-    // mirror — DRM resume, foreground unfreeze, wifi PSM off, full
-    // brightness back. Both are idempotent and safe to call from any
-    // state. Wake from doze is sub-100 ms (no kernel resume penalty)
-    // and network/modem associations stay live the whole time so push
-    // notifications arrive while "asleep".
+    // Marathon-Doze entry / exit: screen off, kernel running, apps frozen,
+    // wifi PSM on; and the mirror. Both are idempotent. Wake from doze is
+    // sub-100 ms (no kernel resume penalty) and network/modem associations
+    // stay live the whole time so push notifications arrive while "asleep".
     Q_INVOKABLE bool enterDoze(const QString &reason = QStringLiteral("other"));
     Q_INVOKABLE bool exitDoze();
 
@@ -99,13 +96,13 @@ class PowerPolicyController : public QObject {
 
   private:
     void                 emitCanSleepMaybeChanged();
+    void                 onScreenOnChanged(bool on);
     void                 handleBatteryPolicy();
 
     PowerManagerCpp     *m_powerManager   = nullptr;
     DisplayManagerCpp   *m_displayManager = nullptr;
     AppLifecycleManager *m_lifecycle      = nullptr;
 
-    bool                 m_dozing                = false;
     int                  m_savedFreezeDebounceMs = -1;
 
     bool                 m_hasActiveCalls = false;

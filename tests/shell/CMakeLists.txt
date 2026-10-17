@@ -550,3 +550,43 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
     set_tests_properties(Shell_TextInputReplace PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
+
+# One screen state: Display1, the power key and Doze agree on it, and touch
+# works again after a blank and wake
+find_package(Qt6 REQUIRED COMPONENTS Quick Sensors)
+add_executable(test_shell_screenstate
+    test_screenstate.cpp
+    ../../shell/src/managers/displaymanagercpp.cpp
+    ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/rotationmanager.cpp
+    ../../shell/src/managers/sensormanagercpp.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/managers/hapticmanager.cpp
+    ../../shell/src/controllers/displaypolicycontroller.cpp
+    ../../shell/src/controllers/powerpolicycontroller.cpp
+    ../../shell/src/services/powerbatteryhandlercpp.cpp
+    ../../shell/src/services/waketouchfilter.cpp
+    ../../shell/src/services/applifecyclemanager.cpp
+    ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/services/cgroupmanager.cpp
+    ../../shell/src/services/processstopper.cpp
+    ../../shell/src/models/taskmodel.cpp
+    ../../shell/src/models/appmodel.cpp
+    ../../shell/src/managers/screenmetrics.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_shell_screenstate Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
+    Qt6::Quick Qt6::Sensors)
+target_include_directories(test_shell_screenstate PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell
+    ${CMAKE_SOURCE_DIR}/shell/src
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+    ${CMAKE_SOURCE_DIR}/shell/src/controllers
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+)
+add_test(NAME Shell_ScreenState COMMAND test_shell_screenstate)
+set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")

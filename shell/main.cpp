@@ -776,7 +776,7 @@ int main(int argc, char *argv[]) {
     displayManager->setSensorManager(sensorManager);
     auto *wakeTouchFilter = new WakeTouchFilter(&app);
     app.installEventFilter(wakeTouchFilter);
-    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, wakeTouchFilter,
+    QObject::connect(displayManager, &DisplayManagerCpp::screenOnChanged, wakeTouchFilter,
                      &WakeTouchFilter::setScreenOn);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     // The device name is what other Bluetooth devices see.

@@ -50,9 +50,11 @@ static inline double brightnessHwToUser(double hw) {
 }
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
-                                     RotationManager *rotationManager, QObject *parent)
+                                     RotationManager *rotationManager, QObject *parent,
+                                     const QString &backlightDir)
     : QObject(parent)
     , m_available(false)
+    , m_backlightDir(backlightDir)
     , m_maxBrightness(100)
     , m_autoBrightnessEnabled(false)
     , m_rotationLocked(false)
@@ -65,7 +67,7 @@ DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
     , m_rotationManager(rotationManager) {
     qDebug() << "[DisplayManagerCpp] Initializing";
 
-    if (Platform::hasBacklightControl()) {
+    if (QFile::exists(m_backlightDir)) {
         m_available = detectBacklightDevice();
         if (m_available) {
             qInfo() << "[DisplayManagerCpp] Backlight control available:" << m_backlightDevice;
@@ -83,7 +85,7 @@ DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
 }
 
 bool DisplayManagerCpp::detectBacklightDevice() {
-    QDir backlightDir("/sys/class/backlight");
+    QDir backlightDir(m_backlightDir);
     if (!backlightDir.exists()) {
         return false;
     }
@@ -101,10 +103,9 @@ bool DisplayManagerCpp::detectBacklightDevice() {
         m_backlightDevice = devices.first();
     }
 
-    QString maxBrightnessPath =
-        QString("/sys/class/backlight/%1/max_brightness").arg(m_backlightDevice);
+    QString maxBrightnessPath = backlightFile("max_brightness");
 
-    QFile maxFile(maxBrightnessPath);
+    QFile   maxFile(maxBrightnessPath);
     if (maxFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString value   = maxFile.readAll().trimmed();
         m_maxBrightness = value.toInt();
@@ -127,7 +128,7 @@ double DisplayManagerCpp::brightness() const {
     // frame.
     if (!m_available)
         return m_brightness;
-    QFile file(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+    QFile file(backlightFile("brightness"));
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         const int v = file.readAll().trimmed().toInt();
         file.close();
@@ -141,10 +142,8 @@ void DisplayManagerCpp::forceBacklightOn() {
     if (m_backlightDevice.isEmpty())
         return;
 
-    const QString blPath =
-        QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice);
-    const QString brPath =
-        QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    const QString blPath = backlightFile("bl_power");
+    const QString brPath = backlightFile("brightness");
 
     // Target duty = user brightness remapped through the visible floor
     // (never below ~28% real). Waking to a lit panel is non-negotiable.
@@ -185,7 +184,7 @@ double DisplayManagerCpp::getBrightness() {
         return 0.5;
     }
 
-    QString brightnessPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    QString brightnessPath = backlightFile("brightness");
 
     QFile   file(brightnessPath);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -227,11 +226,11 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     const double hwBrightness    = brightnessUserToHw(brightness);
     int          brightnessValue = static_cast<int>(hwBrightness * m_maxBrightness);
 
-    QString brightnessPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    QString      brightnessPath = backlightFile("brightness");
 
-    QDBusMessage    message = QDBusMessage::createMethodCall("org.gnome.SettingsDaemon.Power",
-                                                             "/org/gnome/SettingsDaemon/Power",
-                                                             "org.freedesktop.DBus.Properties", "Set");
+    QDBusMessage message = QDBusMessage::createMethodCall("org.gnome.SettingsDaemon.Power",
+                                                          "/org/gnome/SettingsDaemon/Power",
+                                                          "org.freedesktop.DBus.Properties", "Set");
 
     QList<QVariant> args;
     args << "org.gnome.SettingsDaemon.Power.Screen";
@@ -509,7 +508,7 @@ void DisplayManagerCpp::rampStep() {
 
     const int    hwVal =
         qBound(1, static_cast<int>(brightnessUserToHw(curUser) * m_maxBrightness), m_maxBrightness);
-    QFile f(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+    QFile f(backlightFile("brightness"));
     if (f.open(QIODevice::WriteOnly)) {
         f.write(QByteArray::number(hwVal) + "\n");
         f.close();
@@ -536,7 +535,7 @@ void DisplayManagerCpp::setCallProximityBlank(bool blank) {
     if (blank)
         qWarning() << "[DisplayManagerCpp] screen off by proximity during a call";
 
-    QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+    QFile blPower(backlightFile("bl_power"));
     if (blPower.open(QIODevice::WriteOnly)) {
         blPower.write(blank ? "4\n" : "0\n");
         blPower.close();
@@ -546,7 +545,7 @@ void DisplayManagerCpp::setCallProximityBlank(bool blank) {
         const int target =
             qBound(1, static_cast<int>(brightnessUserToHw(m_brightness) * m_maxBrightness),
                    m_maxBrightness);
-        QFile br(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+        QFile br(backlightFile("brightness"));
         if (br.open(QIODevice::WriteOnly)) {
             br.write(QByteArray::number(target) + "\n");
             br.close();
@@ -713,7 +712,7 @@ void DisplayManagerCpp::setScreenState(bool on, const QString &reason) {
     // is still gated (deep-idle Doze, CRTC ACTIVE=0) is silently dropped,
     // so the LED stays at 0% duty even though sysfs reads back healthy.
     if (!on && !m_backlightDevice.isEmpty()) {
-        QFile blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+        QFile blPower(backlightFile("bl_power"));
         if (blPower.open(QIODevice::WriteOnly)) {
             blPower.write("4\n"); // FB_BLANK_POWERDOWN
             blPower.close();
@@ -730,6 +729,10 @@ void DisplayManagerCpp::setScreenState(bool on, const QString &reason) {
         }
     }
 
+    if (m_screenOn != on) {
+        m_screenOn = on;
+        emit screenOnChanged(on);
+    }
     emit screenStateChanged(on);
 
     // Wake: the CRTC is now powered on (ACTIVE=1 ran synchronously above).
@@ -777,7 +780,7 @@ void DisplayManagerCpp::verifyWakeLit() {
     // Anything else (4 == FB_BLANK_POWERDOWN, latched) means the wake write
     // did not take -- re-assert the backlight until it holds or we give up.
     QByteArray state;
-    QFile      blPower(QStringLiteral("/sys/class/backlight/%1/bl_power").arg(m_backlightDevice));
+    QFile      blPower(backlightFile("bl_power"));
     if (blPower.open(QIODevice::ReadOnly)) {
         state = blPower.readAll().trimmed();
         blPower.close();
@@ -799,9 +802,8 @@ void DisplayManagerCpp::verifyWakeLit() {
 void DisplayManagerCpp::setupBrightnessMonitoring() {
 
     if (!m_backlightDevice.isEmpty()) {
-        QString actualPath =
-            QString("/sys/class/backlight/%1/actual_brightness").arg(m_backlightDevice);
-        QString reqPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+        QString             actualPath = backlightFile("actual_brightness");
+        QString             reqPath    = backlightFile("brightness");
 
         QFileSystemWatcher *watcher = new QFileSystemWatcher(this);
         watcher->addPath(actualPath);
@@ -830,10 +832,9 @@ void DisplayManagerCpp::onExternalBrightnessChanged() {
     if (m_backlightDevice.isEmpty())
         return;
 
-    QString actualPath =
-        QString("/sys/class/backlight/%1/actual_brightness").arg(m_backlightDevice);
-    QFile actualFile(actualPath);
-    int   actualVal = -1;
+    QString actualPath = backlightFile("actual_brightness");
+    QFile   actualFile(actualPath);
+    int     actualVal = -1;
 
     if (actualFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&actualFile);
@@ -841,7 +842,7 @@ void DisplayManagerCpp::onExternalBrightnessChanged() {
         actualFile.close();
     }
 
-    QString reqPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    QString reqPath = backlightFile("brightness");
     QFile   reqFile(reqPath);
     int     reqVal = -1;
 

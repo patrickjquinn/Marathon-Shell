@@ -27,6 +27,10 @@ PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
                 &PowerPolicyController::handleBatteryPolicy);
     }
 
+    if (m_displayManager)
+        connect(m_displayManager, &DisplayManagerCpp::screenOnChanged, this,
+                &PowerPolicyController::onScreenOnChanged);
+
     m_lastCanSleep = canSleep();
 
     handleBatteryPolicy();
@@ -200,87 +204,60 @@ bool PowerPolicyController::sleep(const QString &reason) {
     return enterDoze(reason);
 }
 
+bool PowerPolicyController::dozing() const {
+    return m_displayManager && !m_displayManager->screenOn();
+}
+
 bool PowerPolicyController::enterDoze(const QString &reason) {
-    if (m_dozing) {
-        return true;
-    }
-
-    qInfo() << "[PowerPolicyController] Entering Doze";
-    emit systemSleeping();
-
-    // 1. Display + backlight off. Goes through DisplayManagerCpp's
-    //    bl_power=4 path (re-writes brightness on the eventual unblank
-    //    via the r293 fix). Does NOT trigger DPMS / KMS suspend — the
-    //    Qt eglfs_kms backend's setPowerState path is known broken on
-    //    i.MX 8M Quad + mxsfb-dsi. Backlight-off + compositor frame
-    //    pause is enough to drop visible draw to ~0.
-    if (m_displayManager)
+    if (m_displayManager && m_displayManager->screenOn())
         m_displayManager->setScreenState(false, QStringLiteral("%1 (doze)").arg(reason));
-
-    // 2. Freeze background apps immediately (skip the per-app debounce).
-    //    AppLifecycleManager.setIdleFreezeDebounceMs(0) makes every
-    //    background app eligible for cgroup.freeze on next tick.
-    //    Foreground app stays thawed — pressing power again must wake
-    //    it instantly without re-launch.
-    if (m_lifecycle) {
-        m_savedFreezeDebounceMs = m_lifecycle->idleFreezeDebounceMs();
-        m_lifecycle->setIdleFreezeDebounceMs(0);
-    }
-
-    // 3. Wifi PSM on. Chip-level low-power-idle (~0.82 mA on most
-    //    cards) while the association stays alive, so push sockets
-    //    don't get torn down. Shell out to `iw` — the QtBluetooth /
-    //    NetworkManager APIs don't expose it. Best-effort: failures
-    //    are logged and ignored (we'd rather have Doze without PSM
-    //    than no Doze at all).
-    // Absolute path because the shell's user-scope PATH may not include
-    // /usr/sbin. The marathon-iw-setcap.service oneshot grants
-    // cap_net_admin on /usr/sbin/iw at boot so this call works as
-    // uid 1000 (the alternative — pkexec / nmcli reapply — needs
-    // auth_admin which doesn't pass for the active session).
-    if (DeviceProfile::instance().wifiPowerSave())
-        QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
-                                {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
-                                 QStringLiteral("power_save"), QStringLiteral("on")});
-
-    m_dozing = true;
-    emit dozingChanged();
-    emit dozeEntered();
     return true;
 }
 
 bool PowerPolicyController::exitDoze() {
-    if (!m_dozing) {
-        return true;
+    if (dozing())
+        m_displayManager->setScreenState(true);
+    return true;
+}
+
+void PowerPolicyController::onScreenOnChanged(bool on) {
+    if (!on) {
+        qInfo() << "[PowerPolicyController] Entering Doze";
+        emit systemSleeping();
+
+        // Freeze background apps at once (skip the per-app debounce). The
+        // foreground app stays thawed so the next wake is instant.
+        if (m_lifecycle) {
+            m_savedFreezeDebounceMs = m_lifecycle->idleFreezeDebounceMs();
+            m_lifecycle->setIdleFreezeDebounceMs(0);
+        }
+
+        // Wifi PSM: chip-level low-power idle while the association stays up,
+        // so push sockets survive. Absolute path: the session PATH may lack
+        // /usr/sbin; marathon-iw-setcap.service grants iw cap_net_admin.
+        if (DeviceProfile::instance().wifiPowerSave())
+            QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
+                                    {QStringLiteral("dev"), QStringLiteral("wlan0"),
+                                     QStringLiteral("set"), QStringLiteral("power_save"),
+                                     QStringLiteral("on")});
+
+        emit dozingChanged();
+        emit dozeEntered();
+        return;
     }
 
     qInfo() << "[PowerPolicyController] Exiting Doze";
-
-    // 1. Restore freeze debounce + thaw foreground (background apps
-    //    stay frozen until the user actually brings them up — saves
-    //    power vs an unconditional thaw). The lifecycle manager's
-    //    bringToForeground() path handles thaw transparently.
     if (m_lifecycle && m_savedFreezeDebounceMs >= 0) {
         m_lifecycle->setIdleFreezeDebounceMs(m_savedFreezeDebounceMs);
         m_savedFreezeDebounceMs = -1;
     }
+    if (DeviceProfile::instance().wifiPowerSave())
+        QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
+                                {QStringLiteral("dev"), QStringLiteral("wlan0"),
+                                 QStringLiteral("set"), QStringLiteral("power_save"),
+                                 QStringLiteral("off")});
 
-    // 2. Wifi PSM off — slight latency win for foreground interaction.
-    //    Optional; could leave on for ~ 5% additional standby but
-    //    snappier first packets matter more on resume.
-    QProcess::startDetached(QStringLiteral("/usr/sbin/iw"),
-                            {QStringLiteral("dev"), QStringLiteral("wlan0"), QStringLiteral("set"),
-                             QStringLiteral("power_save"), QStringLiteral("off")});
-
-    // 3. Backlight + brightness restore. setScreenState(true) re-writes
-    //    bl_power=0 AND brightness (r293) so the i.MX 8M PWM glitch
-    //    doesn't leave us at 0% duty.
-    if (m_displayManager)
-        m_displayManager->setScreenState(true);
-
-    m_dozing = false;
     emit dozingChanged();
     emit dozeExited();
     emit systemWaking(QStringLiteral("doze-exit"));
-    return true;
 }
