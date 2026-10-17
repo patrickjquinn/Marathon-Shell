@@ -124,6 +124,8 @@ TestCase {
         verify(network.enabled);
         verify(network.checked);
         verify(!location.checked);
+        compare(network.text, "Label network");
+        compare(network.description, "Description network");
     }
 
     function test_permissionSwitchGrantsAndRevokes() {

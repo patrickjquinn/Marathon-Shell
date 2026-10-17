@@ -114,6 +114,15 @@ class TestIpcClientNormalize : public QObject {
         daemon.waitForFinished();
     }
 
+    void permissionWordsComeFromTheVocabulary() {
+        PermissionClient  client;
+        const QVariantMap phone = client.describe("phone");
+        QCOMPARE(phone.value("label").toString(), QStringLiteral("Phone"));
+        QCOMPARE(phone.value("description").toString(), client.describe("telephony")["description"]);
+        QVERIFY(!client.describe("secret-service").value("description").toString().isEmpty());
+        QCOMPARE(client.describe("root").value("label").toString(), QStringLiteral("root"));
+    }
+
     void contactFieldsReachQml() {
         ContactsClient client;
         QCOMPARE(client.count(), 1);

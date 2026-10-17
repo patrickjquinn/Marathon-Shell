@@ -268,26 +268,6 @@ const handlers = [
     { section: qsTr("Utilities"), id: "files", title: qsTr("File manager") }
 ];
 
-const permissions = {
-    network: { title: qsTr("Network"), description: qsTr("Internet access") },
-    location: { title: qsTr("Location"), description: qsTr("Where the device is") },
-    camera: { title: qsTr("Camera"), description: qsTr("Photos and video") },
-    microphone: { title: qsTr("Microphone"), description: qsTr("Recording audio") },
-    contacts: { title: qsTr("Contacts"), description: qsTr("Read and change contacts") },
-    calendar: { title: qsTr("Calendar"), description: qsTr("Read and change events") },
-    storage: { title: qsTr("Storage"), description: qsTr("Files on the device") },
-    notifications: { title: qsTr("Notifications"), description: qsTr("Show notifications") },
-    alarms: { title: qsTr("Alarms"), description: qsTr("Alarms and timers") },
-    telephony: { title: qsTr("Phone"), description: qsTr("Make and answer calls") },
-    phone: { title: qsTr("Phone"), description: qsTr("Make and answer calls") },
-    "secret-service": { title: qsTr("Passwords"), description: qsTr("Saved account passwords") },
-    sms: { title: qsTr("Messages"), description: qsTr("Send and read SMS") },
-    bluetooth: { title: qsTr("Bluetooth"), description: qsTr("Bluetooth devices") },
-    system: { title: qsTr("System"), description: qsTr("Device settings") },
-    sensors: { title: qsTr("Sensors"), description: qsTr("Motion and light sensors") },
-    terminal: { title: qsTr("Terminal"), description: qsTr("Full access to the system") }
-};
-
 // Seconds after the screen turns off during which a swipe unlocks without the PIN.
 function lockDelayOptions() {
     return [
@@ -297,10 +277,6 @@ function lockDelayOptions() {
         { seconds: 60, label: qsTr("1 minute") },
         { seconds: 300, label: qsTr("5 minutes") }
     ];
-}
-
-function permissionInfo(id) {
-    return permissions[id] || { title: id, description: "" };
 }
 
 // ModemManager mode mask (2G = 2, 3G = 4, 4G = 8, 5G = 16) -> "4G, 3G and 2G".

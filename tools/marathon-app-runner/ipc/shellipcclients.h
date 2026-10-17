@@ -19,6 +19,8 @@ class PermissionClient : public QObject {
     Q_INVOKABLE void requestPermission(const QString &appId, const QString &permission);
     Q_INVOKABLE bool setPermission(const QString &appId, const QString &permission, bool granted,
                                    bool remember = true);
+    // {label, description} from the permission vocabulary.
+    Q_INVOKABLE QVariantMap describe(const QString &permission) const;
 
   signals:
     void permissionGranted(const QString &appId, const QString &permission);

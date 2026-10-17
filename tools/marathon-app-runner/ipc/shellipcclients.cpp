@@ -1,5 +1,6 @@
 #include "shellipcclients.h"
 #include "dbusnormalize.h"
+#include "marathonmanifest.h"
 #include "managers/soundname.h"
 
 #include <ctime>
@@ -92,6 +93,15 @@ bool PermissionClient::setPermission(const QString &appId, const QString &permis
         return false;
     }
     return true;
+}
+
+QVariantMap PermissionClient::describe(const QString &permission) const {
+    const QString name = MarathonManifest::canonicalPermission(permission);
+    for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+        if (p.name == name)
+            return {{"label", p.label}, {"description", p.description}};
+    }
+    return {{"label", permission}, {"description", QString()}};
 }
 
 ContactsClient::ContactsClient(QObject *parent)

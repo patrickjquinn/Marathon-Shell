@@ -4,7 +4,6 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonApp.Settings
-import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -64,8 +63,8 @@ Page {
                     }
 
                     objectName: "permission-" + modelData
-                    text: Logic.permissionInfo(modelData).title
-                    description: Logic.permissionInfo(modelData).description
+                    text: Permissions.describe(modelData).label
+                    description: Permissions.describe(modelData).description
                     automaticCheck: false
                     enabled: !page.app.isProtected
                     Component.onCompleted: refresh()
