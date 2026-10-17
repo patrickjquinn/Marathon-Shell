@@ -16,7 +16,6 @@
 #include <QTimer>
 #include <QQuickItem>
 #include <QFile>
-#include <QLibraryInfo>
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QColor>
@@ -782,8 +781,11 @@ int main(int argc, char *argv[]) {
         pooledView = std::make_unique<QQuickView>();
         addSharedImportPaths(pooledView->engine());
         {
-            const bool silica = QFile::exists(QLibraryInfo::path(QLibraryInfo::QmlImportsPath) +
-                                              QStringLiteral("/Sailfish/Silica/qmldir"));
+            const QStringList importPaths = pooledView->engine()->importPathList();
+            const bool        silica =
+                std::any_of(importPaths.cbegin(), importPaths.cend(), [](const QString &p) {
+                    return QFile::exists(p + QStringLiteral("/Sailfish/Silica/qmldir"));
+                });
             QByteArray warm = "import QtQuick\n"
                               "import QtQuick.Controls\n"
                               "import QtQuick.Layouts\n"
