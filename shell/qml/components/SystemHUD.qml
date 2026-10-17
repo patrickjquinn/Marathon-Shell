@@ -22,6 +22,9 @@ Item {
     }
 
     function show() {
+        // The shade's own sliders are the feedback while it is open.
+        if (UIStore.quickSettingsOpen)
+            return;
         hudVisible = true;
         hud.opacity = 1;
         autoHideTimer.restart();
