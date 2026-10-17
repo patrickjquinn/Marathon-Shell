@@ -2,32 +2,42 @@ pragma Singleton
 import QtQml
 
 QtObject {
+    property string state: "available"
     property string currentVersion: "r375"
-    property string latestVersion: "r380"
-    property string releaseUrl: "https://example.org/r380"
-    property bool updateAvailable: true
-    property bool checking: false
+    property string osVersion: "26101701"
+    property string availableVersion: "26101801"
+    property real downloadSize: 1500000000
+    property string releaseNotes: "Faster boot"
+    property int progress: 0
+    property string blockedReason: ""
+    property string rolledBackVersion: ""
+    readonly property bool updateAvailable: state === "available"
     property string lastError: ""
     property real lastCheckedMs: 1760000000000
-    property string channel: "stable"
     property var calls: []
 
     function reset() {
-        updateAvailable = true;
-        checking = false;
+        state = "available";
+        availableVersion = "26101801";
+        downloadSize = 1500000000;
+        releaseNotes = "Faster boot";
+        progress = 0;
+        blockedReason = "";
+        rolledBackVersion = "";
         lastError = "";
-        latestVersion = "r380";
         lastCheckedMs = 1760000000000;
-        channel = "stable";
         calls = [];
     }
     function checkNow() {
         calls = calls.concat([["check"]]);
     }
-    function openInBrowser() {
-        calls = calls.concat([["open"]]);
+    function install() {
+        calls = calls.concat([["install"]]);
     }
-    function setChannel(c) {
-        channel = c;
+    function cancel() {
+        calls = calls.concat([["cancel"]]);
+    }
+    function reboot() {
+        calls = calls.concat([["reboot"]]);
     }
 }

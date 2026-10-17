@@ -7,23 +7,51 @@ import Marathon.Platform 1.0
 Page {
     id: page
 
-    readonly property var channels: [
-        { value: "stable", title: qsTr("Stable"), description: qsTr("Tagged releases only") },
-        { value: "edge", title: qsTr("Edge"), description: qsTr("Includes pre-releases") }
-    ]
+    readonly property string updateState: Updates.state
+    readonly property bool busy: updateState === "checking" || updateState === "downloading"
 
     function statusText() {
-        if (Updates.checking)
+        switch (updateState) {
+        case "unsupported":
+            return qsTr("This device can't install updates yet");
+        case "checking":
             return qsTr("Checking for updates…");
-        if (Updates.updateAvailable)
-            return qsTr("Update %1 is available").arg(Updates.latestVersion);
-        if (Updates.lastError !== "")
-            return qsTr("Couldn't check for updates");
-        if (!Updates.lastCheckedMs)
+        case "upToDate":
+            return qsTr("Up to date");
+        case "available":
+            return qsTr("Marathon OS %1 is available").arg(Updates.availableVersion);
+        case "downloading":
+            return qsTr("Downloading Marathon OS %1…").arg(Updates.availableVersion);
+        case "readyToReboot":
+            return qsTr("Marathon OS %1 is ready to install").arg(Updates.availableVersion);
+        case "rolledBack":
+            return qsTr("Marathon OS %1 didn't start").arg(Updates.rolledBackVersion);
+        case "error":
+            return Updates.availableVersion !== "" ? qsTr("Couldn't install Marathon OS %1").arg(Updates.availableVersion) : qsTr("Couldn't check for updates");
+        default:
             return qsTr("Not checked yet");
-        if (Updates.latestVersion === "")
-            return qsTr("No releases found on this channel");
-        return qsTr("Up to date");
+        }
+    }
+
+    function hintText() {
+        switch (updateState) {
+        case "unsupported":
+            return qsTr("Its storage isn't laid out for over-the-air updates. Flash a newer image to update it.");
+        case "available":
+            if (Updates.blockedReason === "metered")
+                return qsTr("Connect to Wi-Fi to download this update.");
+            if (Updates.blockedReason === "battery")
+                return qsTr("Charge to at least 30%, or plug in, to download this update.");
+            return "";
+        case "readyToReboot":
+            return qsTr("Restart to finish. If it doesn't start properly, your phone goes back to the version it has now.");
+        case "rolledBack":
+            return qsTr("Your phone went back to %1. A fixed update will be offered when it's published.").arg(Updates.osVersion);
+        case "error":
+            return Updates.lastError !== "" ? Updates.lastError : qsTr("Pull down to try again.");
+        default:
+            return "";
+        }
     }
 
     SilicaFlickable {
@@ -31,12 +59,13 @@ Page {
         contentHeight: column.height + Theme.paddingLarge
 
         PullDownMenu {
-            busy: Updates.checking
+            busy: page.busy
+            visible: page.updateState !== "unsupported"
 
             MenuItem {
                 objectName: "checkItem"
-                text: Updates.checking ? qsTr("Checking…") : qsTr("Check now")
-                enabled: !Updates.checking
+                text: page.updateState === "checking" ? qsTr("Checking…") : qsTr("Check now")
+                enabled: !page.busy && page.updateState !== "readyToReboot"
                 onClicked: Updates.checkNow()
             }
         }
@@ -60,43 +89,76 @@ Page {
                 color: Theme.highlightColor
             }
             Label {
-                objectName: "howToUpdate"
+                objectName: "sizeLabel"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                bottomPadding: Theme.paddingLarge
-                visible: Updates.updateAvailable && !Updates.checking
-                text: qsTr("Updates aren't installed on the device yet. To update, open the release page, download the image for your device and flash it.")
-                wrapMode: Text.Wrap
+                bottomPadding: Theme.paddingMedium
+                visible: page.updateState === "available" && Updates.downloadSize >= 0
+                text: visible ? qsTr("Download size: %1").arg(Qt.locale().formattedDataSize(Updates.downloadSize)) : ""
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-            }
-            Button {
-                objectName: "openReleaseButton"
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: Updates.updateAvailable && !Updates.checking && Updates.releaseUrl !== ""
-                text: qsTr("Open release page")
-                onClicked: Updates.openInBrowser()
             }
             Label {
-                objectName: "errorHint"
+                objectName: "notesLabel"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 bottomPadding: Theme.paddingLarge
-                visible: Updates.lastError !== "" && !Updates.checking && !Updates.updateAvailable
-                text: qsTr("Check that you're connected to the internet, then pull down to try again.")
+                visible: page.updateState === "available" && Updates.releaseNotes !== ""
+                text: Updates.releaseNotes
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.highlightColor
+            }
+            Label {
+                objectName: "hintLabel"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingLarge
+                visible: text !== ""
+                text: page.hintText()
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
+            }
+            ProgressBar {
+                objectName: "downloadProgress"
+                width: parent.width
+                visible: page.updateState === "downloading"
+                minimumValue: 0
+                maximumValue: 100
+                value: Updates.progress
+                label: qsTr("%1%").arg(Updates.progress)
+            }
+            Button {
+                objectName: "installButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.updateState === "available"
+                text: qsTr("Download and install")
+                onClicked: Updates.install()
+            }
+            Button {
+                objectName: "cancelButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.updateState === "downloading"
+                text: qsTr("Cancel")
+                onClicked: Updates.cancel()
+            }
+            Button {
+                objectName: "rebootButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.updateState === "readyToReboot"
+                text: qsTr("Restart now")
+                onClicked: Updates.reboot()
+            }
+            DetailItem {
+                objectName: "osVersion"
+                label: qsTr("Marathon OS")
+                value: Updates.osVersion || "—"
             }
             DetailItem {
                 objectName: "currentVersion"
-                label: qsTr("Installed")
+                label: qsTr("Shell")
                 value: Updates.currentVersion || "—"
-            }
-            DetailItem {
-                objectName: "latestVersion"
-                label: qsTr("Latest")
-                value: Updates.latestVersion || "—"
             }
             DetailItem {
                 objectName: "lastChecked"
@@ -104,35 +166,15 @@ Page {
                 label: qsTr("Last checked")
                 value: visible ? new Date(Updates.lastCheckedMs).toLocaleString(Qt.locale(), Locale.ShortFormat) : ""
             }
-            ComboBox {
-                objectName: "channelCombo"
-                width: parent.width
-                label: qsTr("Channel")
-                description: currentIndex >= 0 ? page.channels[currentIndex].description : ""
-                Binding on currentIndex {
-                    value: page.channels.findIndex(c => c.value === Updates.channel)
-                }
-                menu: ContextMenu {
-                    Repeater {
-                        model: page.channels
-
-                        MenuItem {
-                            required property var modelData
-
-                            text: modelData.title
-                            onClicked: Updates.setChannel(modelData.value)
-                        }
-                    }
-                }
-            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 topPadding: Theme.paddingLarge
+                visible: page.updateState !== "unsupported"
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Updates come from the GitHub Releases feed, checked every 6 hours. Pull down to check now.")
+                text: qsTr("Updates are signed and checked every 6 hours. They download only on Wi-Fi, with the battery at 30% or more or on charge.")
             }
         }
 

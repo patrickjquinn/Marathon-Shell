@@ -240,43 +240,89 @@ TestCase {
         tryVerify(() => child(s.page, "account-a1").syncOff);
     }
 
-    function test_updates() {
+    function test_updateAvailable() {
         const s = open("updates");
-        compare(child(s.page, "statusLabel").text, "Update r380 is available");
+        compare(child(s.page, "statusLabel").text, "Marathon OS 26101801 is available");
+        verify(child(s.page, "sizeLabel").visible);
+        verify(child(s.page, "sizeLabel").text.startsWith("Download size: "));
+        compare(child(s.page, "notesLabel").text, "Faster boot");
+        verify(!child(s.page, "hintLabel").visible);
+        compare(child(s.page, "osVersion").value, "26101701");
         compare(child(s.page, "currentVersion").value, "r375");
-        verify(child(s.page, "howToUpdate").visible);
+        verify(!child(s.page, "downloadProgress").visible);
         child(s.page, "checkItem").clicked();
-        child(s.page, "openReleaseButton").clicked(null);
-        compare(Updates.calls, [["check"], ["open"]]);
-        const channel = child(s.page, "channelCombo");
-        compare(channel.currentIndex, 0);
-        Updates.setChannel("edge");
-        compare(channel.currentIndex, 1);
-        Updates.updateAvailable = false;
-        compare(child(s.page, "statusLabel").text, "Up to date");
-        verify(!child(s.page, "howToUpdate").visible);
-        verify(!child(s.page, "openReleaseButton").visible);
-        verify(!child(s.page, "errorHint").visible);
-        Updates.lastError = "Host api.github.com not found";
-        compare(child(s.page, "statusLabel").text, "Couldn't check for updates");
-        verify(child(s.page, "errorHint").visible);
+        child(s.page, "installButton").clicked(null);
+        compare(Updates.calls, [["check"], ["install"]]);
+        Updates.downloadSize = -1;
+        verify(!child(s.page, "sizeLabel").visible);
     }
 
-    function test_updatesNeverCheckedOrNoRelease() {
-        Updates.updateAvailable = false;
-        Updates.latestVersion = "";
+    function test_updateBlocked() {
+        const s = open("updates");
+        const hint = child(s.page, "hintLabel");
+        Updates.blockedReason = "metered";
+        compare(hint.text, "Connect to Wi-Fi to download this update.");
+        verify(hint.visible);
+        Updates.blockedReason = "battery";
+        compare(hint.text, "Charge to at least 30%, or plug in, to download this update.");
+        verify(child(s.page, "installButton").visible);
+    }
+
+    function test_updateDownloadingThenReady() {
+        Updates.state = "downloading";
+        Updates.progress = 42;
+        const s = open("updates");
+        compare(child(s.page, "statusLabel").text, "Downloading Marathon OS 26101801…");
+        const bar = child(s.page, "downloadProgress");
+        verify(bar.visible);
+        compare(bar.value, 42);
+        verify(!child(s.page, "installButton").visible);
+        verify(!child(s.page, "checkItem").enabled);
+        child(s.page, "cancelButton").clicked(null);
+        compare(Updates.calls, [["cancel"]]);
+
+        Updates.state = "readyToReboot";
+        compare(child(s.page, "statusLabel").text, "Marathon OS 26101801 is ready to install");
+        verify(!bar.visible);
+        verify(child(s.page, "hintLabel").text.startsWith("Restart to finish."));
+        child(s.page, "rebootButton").clicked(null);
+        compare(Updates.calls, [["cancel"], ["reboot"]]);
+    }
+
+    function test_updateRolledBack() {
+        Updates.state = "rolledBack";
+        Updates.rolledBackVersion = "26101801";
+        const s = open("updates");
+        compare(child(s.page, "statusLabel").text, "Marathon OS 26101801 didn't start");
+        compare(child(s.page, "hintLabel").text, "Your phone went back to 26101701. A fixed update will be offered when it's published.");
+        verify(!child(s.page, "installButton").visible);
+        verify(!child(s.page, "rebootButton").visible);
+        verify(child(s.page, "checkItem").enabled);
+    }
+
+    function test_updateStates() {
+        Updates.state = "idle";
         Updates.lastCheckedMs = 0;
         const s = open("updates");
         const status = child(s.page, "statusLabel");
         compare(status.text, "Not checked yet");
         verify(!child(s.page, "lastChecked").visible);
-        Updates.checking = true;
+        Updates.state = "checking";
         compare(status.text, "Checking for updates…");
-        Updates.checking = false;
+        Updates.state = "upToDate";
         Updates.lastCheckedMs = 1760000000000;
-        compare(status.text, "No releases found on this channel");
+        compare(status.text, "Up to date");
         verify(child(s.page, "lastChecked").visible);
         verify(child(s.page, "lastChecked").value !== "");
+        Updates.state = "error";
+        Updates.lastError = "Could not resolve host";
+        compare(status.text, "Couldn't install Marathon OS 26101801");
+        compare(child(s.page, "hintLabel").text, "Could not resolve host");
+        Updates.availableVersion = "";
+        compare(status.text, "Couldn't check for updates");
+        Updates.state = "unsupported";
+        compare(status.text, "This device can't install updates yet");
+        verify(child(s.page, "hintLabel").visible);
     }
 
     function test_aboutAndRename() {
