@@ -80,10 +80,18 @@ pub fn parse_place(v: &Value) -> Option<Place> {
     })
 }
 
+/// Results that read the same (a city and its municipality) keep the first.
 pub fn parse_search(v: &Value) -> Vec<Place> {
-    v.as_array()
-        .map(|results| results.iter().filter_map(parse_place).collect())
-        .unwrap_or_default()
+    let mut places: Vec<Place> = Vec::new();
+    for place in v.as_array().into_iter().flatten().filter_map(parse_place) {
+        if !places
+            .iter()
+            .any(|p| p.name == place.name && p.region == place.region)
+        {
+            places.push(place);
+        }
+    }
+    places
 }
 
 /// `en_IE.UTF-8` → `en-IE`, so names come back in the user's language.
@@ -240,6 +248,17 @@ mod tests {
             json!({"name": "Tampere", "region": "Pirkanmaa, Suomi / Finland",
                    "latitude": 61.4978, "longitude": 23.7616})
         );
+    }
+
+    #[test]
+    fn keeps_one_of_places_that_read_the_same() {
+        let city = json!({"lat": "59.91", "lon": "10.74", "name": "Oslo",
+            "address": {"country": "Norway", "country_code": "no"}});
+        let municipality = json!({"lat": "59.95", "lon": "10.75", "name": "Oslo",
+            "address": {"country": "Norway", "country_code": "no"}});
+        let places = parse_search(&json!([city, municipality]));
+        assert_eq!(places.len(), 1);
+        assert!((places[0].latitude - 59.91).abs() < 1e-9);
     }
 
     #[test]
