@@ -318,11 +318,12 @@ ApplicationWindow {
         qmldirFile.close();
     }
 
-    QString iconSVG = R"(<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http: 
-    <rect width="512" height="512" fill="#4CAF50" rx="100"/>
-    <text x="256" y="320" font-family="Arial" font-size="200" fill="white" text-anchor="middle">A</text>
-</svg>)";
+    QString iconSVG = R"svg(<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0e3b36"/>
+  <path d="M152 344 L256 168 L360 344 Z" fill="none" stroke="#5dffdc" stroke-width="28" stroke-linejoin="round"/>
+</svg>
+)svg";
 
     QFile   iconFile(slug + "/assets/icon.svg");
     if (iconFile.open(QIODevice::WriteOnly)) {
