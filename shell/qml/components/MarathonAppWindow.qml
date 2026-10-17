@@ -109,6 +109,9 @@ Rectangle {
             appWindow.surfaceId = sid;
             appWindow.appContainer["appInstance"].waylandSurface = surface;
             appWindow.appContainer["appInstance"].surfaceId = sid;
+            // Backing out minimized it and may have frozen it.
+            _unminimize(appWindow.appContainer["appInstance"]);
+            AppLifecycleManager.bringToForeground(id);
             appWindow.visible = true;
             appWindow.focusApp();
             if (appWindow.opacity < 1)
