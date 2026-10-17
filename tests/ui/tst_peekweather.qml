@@ -31,4 +31,31 @@ TestCase {
         verify(peek.isFullyOpen);
         verify(!peek.closeHubOverlay());
     }
+
+    function test_tapsReachTheHubUnderTheCloseGesture() {
+        WeatherClient.forecast = WeatherClient.sample();
+        peek.openPeek();
+        tryVerify(() => peek.isFullyOpen && peek.peekProgress >= 1);
+        const caret = findChild(peek, "weatherCaret");
+        tryVerify(() => caret.visible && caret.width > 0);
+        // A new forecast grows the list's header; a tap while it moves only stops it.
+        const list = findChild(peek, "hubList");
+        tryVerify(() => !list.moving && !list.flicking);
+        wait(MMotion.moderate + 50);
+        const card = findChild(peek, "weatherSummary").parent.parent;
+        const was = card.expanded;
+        mouseClick(caret);
+        tryVerify(() => card.expanded !== was);
+    }
+
+    function test_draggingLeftClosesThePeek() {
+        peek.openPeek();
+        tryVerify(() => peek.isFullyOpen && peek.peekProgress >= 1);
+        const x = peek.width - 40, y = peek.height / 2;
+        mousePress(peek, x, y);
+        for (let i = 1; i <= 20; ++i)
+            mouseMove(peek, x - i * peek.width * 0.03, y, 10);
+        mouseRelease(peek, x - peek.width * 0.6, y);
+        tryVerify(() => !peek.isFullyOpen && peek.peekProgress === 0);
+    }
 }

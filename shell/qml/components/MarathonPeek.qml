@@ -240,37 +240,23 @@ Item {
             }
         }
 
-        MouseArea {
-            id: closeGestureArea
+        // Dragging left from the right side closes the peek. A handler on
+        // this parent, not an overlay, so taps and scrolls reach the Hub.
+        DragHandler {
+            id: closeDrag
 
-            property real startX: 0
-            property bool isDragging: false
+            readonly property bool fromRight: centroid.pressPosition.x > parent.width * 0.7
 
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: parent.width * 0.3
+            target: null
             enabled: peekComponent.isFullyOpen
-            z: 100
-            onPressed: mouse => {
-                startX = mouse.x;
-                isDragging = false;
-            }
-            onPositionChanged: mouse => {
-                if (!isDragging) {
-                    if (mouse.x - startX < -15) {
-                        isDragging = true;
-                        startX = mouse.x;
-                        peekComponent.startPeekGesture(mouse.x);
-                    }
-                } else {
-                    peekComponent.updatePeekGesture(mouse.x - startX);
-                }
-            }
-            onReleased: mouse => {
-                if (!isDragging)
+            yAxis.enabled: false
+            onActiveChanged: {
+                if (!fromRight)
                     return;
-                isDragging = false;
+                if (active) {
+                    peekComponent.startPeekGesture(centroid.position.x);
+                    return;
+                }
                 peekComponent.isPeeking = false;
                 // Closing runs the other way along the tracker's range.
                 peekDrag.release();
@@ -279,12 +265,9 @@ Item {
                 else
                     peekDrag.settleTo(peekDrag.to);
             }
-            onCanceled: {
-                if (isDragging) {
-                    isDragging = false;
-                    peekComponent.isPeeking = false;
-                    peekDrag.settleTo(peekDrag.to);
-                }
+            onTranslationChanged: {
+                if (active && fromRight)
+                    peekComponent.updatePeekGesture(Math.min(0, activeTranslation.x));
             }
         }
     }
