@@ -58,6 +58,11 @@ Item {
         closed();
     }
 
+    // True when the Hub closed something of its own.
+    function closeHubOverlay() {
+        return hubPanel.closeOverlay();
+    }
+
     anchors.fill: parent
     clip: true
     Keys.onPressed: event => {

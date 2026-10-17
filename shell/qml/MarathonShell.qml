@@ -52,7 +52,8 @@ Item {
             UIStore.closeClipboardManager();
             overlayClosed = true;
         } else if (peekFlow.peekProgress > 0) {
-            peekFlow.closePeek();
+            if (!peekFlow.closeHubOverlay())
+                peekFlow.closePeek();
             overlayClosed = true;
         } else if (UIStore.quickSettingsOpen) {
             UIStore.closeQuickSettings();
