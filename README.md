@@ -202,9 +202,9 @@ The shell binary is `build/shell/marathon-shell-bin`.
 
 `./scripts/setup-system.sh` (sudo) installs runtime packages, the PAM file,
 the backlight udev rule, an rtprio limit, a `marathon-shell.service` and
-group memberships. Its step 4 also runs `setcap cap_sys_nice` on the shell
-binary, which conflicts with the warning below; the rtprio limit alone is
-enough for real-time scheduling. `./scripts/install-pam-config.sh`
+group memberships. The rtprio limit is what grants real-time scheduling;
+the script does not `setcap` the shell (see the warning below).
+`./scripts/install-pam-config.sh`
 installs only the PAM file (`/etc/pam.d/marathon-shell`: pam_unix; the
 shell does fingerprint and lockout itself); without it the lock screen
 cannot authenticate.

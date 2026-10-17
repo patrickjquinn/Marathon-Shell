@@ -127,29 +127,11 @@ else
     fi
 fi
 
-# ---- 4. RT scheduling -- CAP_SYS_NICE on the shell binary ------------------
+# ---- 4. RT scheduling -- rtprio limit ---------------------------------------
+# No setcap on the shell binary: file capabilities make it AT_SECURE, which
+# drops DBUS_SESSION_BUS_ADDRESS and takes the shell off the session bus.
 
-log_step "4/9 Real-time scheduling capability"
-SHELL_BIN_CANDIDATES=(
-    "$PROJECT_ROOT/build/shell/marathon-shell-bin"
-    "/usr/bin/marathon-shell-bin"
-    "/usr/local/bin/marathon-shell-bin"
-)
-SHELL_BIN=""
-for c in "${SHELL_BIN_CANDIDATES[@]}"; do
-    if [ -f "$c" ]; then SHELL_BIN="$c"; break; fi
-done
-if [ -z "$SHELL_BIN" ]; then
-    log_skip "marathon-shell-bin not found in expected paths -- build first"
-else
-    if getcap "$SHELL_BIN" 2>/dev/null | grep -q "cap_sys_nice"; then
-        log_ok "CAP_SYS_NICE already granted on $SHELL_BIN"
-    else
-        run_or_check "setcap cap_sys_nice+ep '$SHELL_BIN'"
-        log_ok "CAP_SYS_NICE granted on $SHELL_BIN"
-    fi
-fi
-
+log_step "4/9 Real-time scheduling limit"
 LIMITS_DST="/etc/security/limits.d/99-marathon.conf"
 if [ ! -f "$LIMITS_DST" ]; then
     run_or_check "cat > '$LIMITS_DST' <<'EOF'
