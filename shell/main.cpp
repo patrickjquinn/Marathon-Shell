@@ -62,6 +62,7 @@
 #include "src/managers/powerkeylistener.h"
 #include "src/services/wakeonkeyfilter.h"
 #include "src/services/pilotclient.h"
+#include "src/services/weatherclient.h"
 #include "src/services/inputboost.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
@@ -1041,6 +1042,9 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<PilotClient>(
         "MarathonOS.Shell", 1, 0, "PilotClient",
         new PilotClient(QDBusConnection::sessionBus(), &app));
+    qmlRegisterSingletonInstance<WeatherClient>(
+        "MarathonOS.Shell", 1, 0, "WeatherClient",
+        new WeatherClient(QDBusConnection::sessionBus(), &app));
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
