@@ -40,6 +40,17 @@ target_include_directories(test_core_apppackager PRIVATE
 )
 add_test(NAME Core_AppPackager COMMAND test_core_apppackager)
 
+# Manifest lint and permission vocabulary through the C++ API
+add_executable(test_core_manifest
+    test_manifest.cpp
+    ../../marathon-core/src/marathonmanifest.cpp
+)
+target_link_libraries(test_core_manifest Qt6::Test Qt6::Core marathon_core_native)
+target_include_directories(test_core_manifest PRIVATE
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+)
+add_test(NAME Core_Manifest COMMAND test_core_manifest)
+
 # PermissionManager tests (grant/deny/revoke logic)
 add_executable(test_core_permissionmanager
     test_permissionmanager.cpp

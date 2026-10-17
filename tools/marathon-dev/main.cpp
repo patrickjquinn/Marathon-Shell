@@ -13,6 +13,7 @@
 #include "marathonappinstaller.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
+#include "marathonmanifest.h"
 
 void printSuccess(const QString &message) {
     QTextStream out(stdout);
@@ -145,6 +146,33 @@ int verifyCommand(const QStringList &args) {
             return 1;
         default: printError(verifier.lastError()); return 1;
     }
+}
+
+int lintCommand(const QStringList &args) {
+    QStringList paths     = args.mid(2);
+    const bool  systemApp = paths.removeAll(QStringLiteral("--system-app")) > 0;
+    if (paths.isEmpty()) {
+        printError("Usage: marathon-dev lint [--system-app] <app-dir|package>...");
+        return 1;
+    }
+
+    QTextStream out(stdout);
+    int         errors = 0;
+    for (const QString &path : std::as_const(paths)) {
+        const QList<MarathonManifest::Finding> findings = MarathonManifest::lint(path, systemApp);
+        for (const MarathonManifest::Finding &f : findings) {
+            errors += f.error ? 1 : 0;
+            out << path << ": " << (f.error ? "error" : "warning") << '[' << f.rule << "] "
+                << (f.path.isEmpty() ? QStringLiteral("/") : f.path) << ": " << f.message
+                << Qt::endl;
+        }
+    }
+    if (errors > 0) {
+        printError(QString("%1 error(s)").arg(errors));
+        return 1;
+    }
+    printSuccess(QString("%1 app(s) pass").arg(paths.size()));
+    return 0;
 }
 
 int installCommand(const QStringList &args) {
@@ -322,6 +350,8 @@ void printHelp() {
     out << "  verify <package>             Check a package's signature\n";
     out << "  install <package|app-dir> [--approve-permissions]\n";
     out << "                               Install an app locally\n";
+    out << "  lint [--system-app] <app-dir|package>...\n";
+    out << "                               Check apps against the manifest contract\n";
     out << "\n";
     out << "Examples:\n";
     out << "  marathon-dev init my-awesome-app\n";
@@ -329,6 +359,7 @@ void printHelp() {
     out << "  marathon-dev sign my-app.marathon ~/.minisign/minisign.key\n";
     out << "  marathon-dev verify my-app.marathon\n";
     out << "  marathon-dev install my-app.marathon\n";
+    out << "  marathon-dev lint ./my-app\n";
     out << Qt::endl;
 }
 
@@ -356,6 +387,8 @@ int main(int argc, char *argv[]) {
         return verifyCommand(args);
     } else if (command == "install") {
         return installCommand(args);
+    } else if (command == "lint") {
+        return lintCommand(args);
     } else if (command == "help" || command == "--help" || command == "-h") {
         printHelp();
         return 0;

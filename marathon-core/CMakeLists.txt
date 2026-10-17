@@ -20,6 +20,8 @@ set(SOURCES
     src/marathonappregistry.h
     src/marathonappscanner.cpp
     src/marathonappscanner.h
+    src/marathonmanifest.cpp
+    src/marathonmanifest.h
 )
 
 add_library(MarathonCore SHARED ${SOURCES})
@@ -38,7 +40,7 @@ target_link_options(MarathonCore PRIVATE "LINKER:--exclude-libs,libmarathon_core
 set_target_properties(MarathonCore PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER "src/marathonapppackager.h;src/marathonappverifier.h;src/marathonappinstaller.h;src/marathonappregistry.h;src/marathonappscanner.h"
+    PUBLIC_HEADER "src/marathonapppackager.h;src/marathonappverifier.h;src/marathonappinstaller.h;src/marathonappregistry.h;src/marathonappscanner.h;src/marathonmanifest.h"
 )
 
 install(TARGETS MarathonCore

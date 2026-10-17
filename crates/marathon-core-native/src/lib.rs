@@ -33,6 +33,20 @@ mod ffi {
         sensitive: bool,
     }
 
+    struct LintFinding {
+        error: bool,
+        rule: String,
+        path: String,
+        message: String,
+    }
+
+    struct PermissionInfo {
+        name: String,
+        description: String,
+        sensitive: bool,
+        restricted: bool,
+    }
+
     extern "Rust" {
         /// Empty on success, else why the archive couldn't be written.
         fn create_package_archive(source_dir: &str, archive: &str) -> String;
@@ -46,6 +60,13 @@ mod ffi {
 
         /// The install screen's words for one manifest permission.
         fn describe_permission(id: &str) -> PermissionDisclosure;
+
+        /// Lints an app directory or `.marathon` package
+        /// (docs/APP_MANIFEST_SCHEMA.md).
+        fn lint_app(path: &str, system_app: bool) -> Vec<LintFinding>;
+
+        /// schemas/marathon-permissions-v1.json.
+        fn permission_vocabulary() -> Vec<PermissionInfo>;
     }
 }
 
@@ -107,4 +128,34 @@ fn describe_permission(id: &str) -> ffi::PermissionDisclosure {
             sensitive: d.sensitive,
         },
     )
+}
+
+fn lint_app(path: &str, system_app: bool) -> Vec<ffi::LintFinding> {
+    let path = Path::new(path);
+    let findings = if path.is_dir() {
+        manifest::lint_dir(path, system_app)
+    } else {
+        manifest::lint_package(path, system_app)
+    };
+    findings
+        .into_iter()
+        .map(|f| ffi::LintFinding {
+            error: f.error,
+            rule: f.rule.to_owned(),
+            path: f.path,
+            message: f.message,
+        })
+        .collect()
+}
+
+fn permission_vocabulary() -> Vec<ffi::PermissionInfo> {
+    manifest::permissions()
+        .iter()
+        .map(|(name, p)| ffi::PermissionInfo {
+            name: name.clone(),
+            description: p.description.clone(),
+            sensitive: p.sensitive,
+            restricted: p.restricted,
+        })
+        .collect()
 }
