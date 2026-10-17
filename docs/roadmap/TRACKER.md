@@ -24,10 +24,12 @@ Finding numbers refer to the review's Findings table.
 | R16 | Input + presentation context separate from width; MSAA defaults reconciled | 12 | 2 | todo | |
 | R17 | Background agents (systemd timers, RTC wake) + modem quiesce/resume around suspend | 9 | 2 | active | |
 | R18 | Live Activities: typed app state → Frames, NowBar, lock screen with redaction | 9 | 2 | todo | |
-| R19 | Hygiene: Word Fling/predictive spacing dead settings, root pam.d/udev/systemd reconcile, legacy components/ui | 19, new | 2 | active | |
+| R19 | Hygiene: Word Fling/predictive spacing dead settings, root pam.d/udev/systemd reconcile, legacy components/ui | 19, new | 2 | review | merged (to c2f00e11); PIN unlock + backlight to verify on device (PAM/udev moved) |
 | R20 | i18n (qsTr + Qt translations) and Accessible annotations | 11 | 3 | todo | |
 | R21 | App fixture mode + screenshot conformance on QEMU | 1 | 3 | todo | |
 | R22 | Process kit: changelog fragments, test-reachability check | 1 | 3 | done | git-cliff release notes + PR subject check; Lint_TestReachability (8e0fefb8..d39a59ab) |
 | R23 | VoLTE evaluation (imsd, separate GPL-3 process) | 14 | 3 | done | docs/research/VOLTE.md: modem-side IMS; Phase 0 check script needs a modem device |
 | R24 | Lint clean: clang-tidy/clazy/clang-format, qmllint shell + apps, lint infra for Marathon.Platform | – | 3 | todo | partial lint-infra patch saved |
+| R26 | Keyboard edits reach apps: autocorrect replace, backspace, double-space period; tests on the real keyboard QML | new | 2 | active | found by R19 |
+| R27 | Audit possibly dead settings (dateFormat, statusBarClockPosition, showFrequentApps, appSortOrder, …) | new | 3 | todo | found by R19 |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
