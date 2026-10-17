@@ -159,8 +159,7 @@ isolation.
 - No device-specific env in global `marathon-base-config` — GPU driver env, CPU
   governor, and I/O scheduler tuning belong in the device overlay (or are
   derived from `DeviceProfile`).
-- `packaging/{devices,configs}` are a **dead** pmbootstrap-era path not used by
-  the mkosi build; do not add to them (their `configs/udev.rules.d/` copies have
-  already diverged from the packaged ones). The `scripts/build-rootless*.sh`
-  half of that path was removed in the monorepo merge; `devices/` is retained
+- `packaging/devices` is a **dead** pmbootstrap-era path not used by
+  the mkosi build; do not add to it. The `scripts/build-rootless*.sh` and
+  `packaging/configs/` halves of that path are gone; `devices/` is retained
   only because `packages/linux-marathon/APKBUILD` still reads it.

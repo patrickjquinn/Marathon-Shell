@@ -11,7 +11,6 @@ history.
 | `pipeline-patches/` | 33-patch series against upstream postmarketOS duranium, plus `bootstrap.sh` to stage a patched tree. Index: [`pipeline-patches/README.md`](pipeline-patches/README.md) |
 | `duranium-overlay-extras/` | Non-patch files the duranium tree needs (the snapshot repo public key, a repack helper) |
 | `devices/` | Kernel-config fragments read by `packages/linux-marathon/APKBUILD` (OnePlus 6 / SDM845, generic) |
-| `configs/` | Older system config drop-ins (sysctl, udev, limits, systemd). Not referenced by the image build; the live copies are in `marathon-base-config` and `marathon-shell` |
 | `scripts/` | `setup-librem5-recovery.sh` (Librem 5 uuu recovery rig), and the older pmbootstrap CM5 path (`build-cm5-pmbootstrap.sh`, `push-cm5.sh`), superseded by `scripts/build-hackberry-cm5-image.sh` |
 | `tools/` | `simg2img.py`, an Android sparse-to-raw converter |
 

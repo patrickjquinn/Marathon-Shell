@@ -212,7 +212,7 @@ sysctl net.ipv4.tcp_congestion_control  # Should be: bbr
 
 ### Update marathon-base-config
 
-1. Edit configs in `configs/` directory
+1. Edit the drop-ins in `packaging/packages/marathon-base-config/`
 2. Bump `pkgver` or `pkgrel` in APKBUILD
 3. Rebuild and reinstall:
    ```bash
@@ -305,7 +305,7 @@ packaging/
 │   ├── marathon-base-config/
 │   │   ├── APKBUILD
 │   │   ├── marathon-base-config.post-install
-│   │   └── [symlinks to configs/]
+│   │   └── [sysctl, udev, limits, systemd drop-ins]
 │   ├── marathon-shell/
 │   │   ├── APKBUILD
 │   │   ├── marathon-compositor
@@ -313,11 +313,6 @@ packaging/
 │   └── linux-marathon/
 │       ├── APKBUILD
 │       └── config-marathon-base.aarch64
-├── configs/
-│   ├── sysctl.d/
-│   ├── udev.rules.d/
-│   ├── systemd/
-│   └── security/
 └── scripts/
     ├── build-and-flash.sh
     └── validate-system.sh
@@ -348,10 +343,10 @@ packaging/
 For config changes (no rebuild needed):
 ```bash
 # Edit config locally
-vim configs/sysctl.d/99-marathon.conf
+vim packaging/packages/marathon-base-config/99-marathon.conf
 
 # Copy to device
-scp configs/sysctl.d/99-marathon.conf user@device:/tmp/
+scp packaging/packages/marathon-base-config/99-marathon.conf user@device:/tmp/
 ssh user@device "sudo cp /tmp/99-marathon.conf /etc/sysctl.d/ && sudo sysctl --system"
 ```
 
