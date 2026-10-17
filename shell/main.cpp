@@ -933,16 +933,21 @@ int main(int argc, char *argv[]) {
     // so this is a no-op when we weren't dozing.
     //
     // A wake-up armed for background work lands in Doze instead: the
-    // tasks run with the screen off, as they would have in Doze.
-    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
-                     [displayPolicyController, powerPolicyController](bool backgroundWake) {
-                         if (backgroundWake) {
-                             powerPolicyController->enterDoze(QStringLiteral("background-wake"));
-                             return;
-                         }
-                         displayPolicyController->forceScreenOn();
-                         powerPolicyController->exitDoze();
-                     });
+    // tasks run with the screen off, as they would have in Doze. An alarm
+    // ringing by then (checkAlarms runs first) keeps the screen on.
+    QObject::connect(
+        powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
+        [displayPolicyController, powerPolicyController, alarmManager](bool backgroundWake) {
+            if (backgroundWake && !alarmManager->hasActiveAlarm()) {
+                powerPolicyController->enterDoze(QStringLiteral("background-wake"));
+                return;
+            }
+            displayPolicyController->forceScreenOn();
+            powerPolicyController->exitDoze();
+        });
+    QObject::connect(
+        alarmManager, &AlarmManagerCpp::alarmTriggered, powerPolicyController,
+        [powerPolicyController]() { powerPolicyController->wake(QStringLiteral("alarm")); });
 
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
     // the power button. PowerKeyListener reads /dev/input/event* directly,
