@@ -1063,6 +1063,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "geometry-rs"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "794fbaf8ce24464265e001a7a1dc819e401a303127c0cb714538e21ebe077c77"
+dependencies = [
+ "rtree_rs",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1321,6 +1330,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tz-rs",
+ "tzf-rs",
  "ureq",
  "zbus",
 ]
@@ -1695,6 +1705,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pqueue"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2145d14f09d5fc7fe7134b556146599c2929af5b1f1e3a0ecc9d582a9b85e4d"
+
+[[package]]
 name = "primeorder"
 version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1858,6 +1874,15 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rtree_rs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7787960e978c1c675fd6b8eb7d56b9c7162aec55c41d368add6f3ff39251b96e"
+dependencies = [
+ "pqueue",
 ]
 
 [[package]]
@@ -2335,6 +2360,22 @@ name = "tz-rs"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fc6c929ffa10fb34f4a3c7e9a73620a83ef2e85e47f9ec3381b8289e6762f42"
+
+[[package]]
+name = "tzf-dist"
+version = "0.0.2026-e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcbf869a5795bbc7b56c3430df4e153e1bb80d5f0dce43ae3965f4f8c0ad8b77"
+
+[[package]]
+name = "tzf-rs"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "623710aadc88c0c366a398c06714a896d177245c1978c65c8d0aa27682f3f4c0"
+dependencies = [
+ "geometry-rs",
+ "tzf-dist",
+]
 
 [[package]]
 name = "uds_windows"

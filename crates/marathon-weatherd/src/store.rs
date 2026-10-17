@@ -16,9 +16,6 @@ pub struct Location {
     pub region: String,
     pub latitude: f64,
     pub longitude: f64,
-    /// IANA zone for a pinned location; `None` means the system zone.
-    #[serde(default)]
-    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -135,7 +132,6 @@ mod tests {
             region: "Ireland".into(),
             latitude: 53.3498,
             longitude: -6.2603,
-            timezone: Some("Europe/Dublin".into()),
         };
         store
             .save_settings(&Settings {

@@ -17,7 +17,6 @@ pub struct Place {
     pub region: String,
     pub latitude: f64,
     pub longitude: f64,
-    pub country_code: Option<String>,
 }
 
 impl Place {
@@ -76,7 +75,6 @@ pub fn parse_place(v: &Value) -> Option<Place> {
         name,
         latitude: coord(v, "lat")?,
         longitude: coord(v, "lon")?,
-        country_code: field("country_code").map(str::to_ascii_lowercase),
     })
 }
 
@@ -189,21 +187,6 @@ impl Nominatim {
             .cloned()
     }
 
-    /// The country of a point the user picked from a search result.
-    pub fn searched_country(&self, latitude: f64, longitude: f64) -> Option<String> {
-        let searches = self
-            .searches
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        searches
-            .values()
-            .flatten()
-            .find(|p| {
-                (p.latitude - latitude).abs() < 1e-4 && (p.longitude - longitude).abs() < 1e-4
-            })
-            .and_then(|p| p.country_code.clone())
-    }
-
     pub fn reverse(&self, latitude: f64, longitude: f64) -> Result<Place, String> {
         let (lat, lon) = (format!("{latitude:.4}"), format!("{longitude:.4}"));
         let v = self.get(
@@ -240,7 +223,6 @@ mod tests {
                 region: "Pirkanmaa, Suomi / Finland".into(),
                 latitude: 61.497_798_8,
                 longitude: 23.761_633_5,
-                country_code: Some("fi".into()),
             }]
         );
         assert_eq!(
@@ -266,7 +248,6 @@ mod tests {
         let place = parse_place(&fixture("nominatim-reverse-dublin.json")).unwrap();
         assert_eq!(place.name, "Dublin");
         assert_eq!(place.region, "County Dublin, Éire / Ireland");
-        assert_eq!(place.country_code.as_deref(), Some("ie"));
     }
 
     #[test]

@@ -2,7 +2,8 @@
 //!
 //! Forecasts from MET Norway (CC BY 4.0), place names from OpenStreetMap
 //! Nominatim, the device's position from `GeoClue2`. D-Bus calls queue
-//! commands for the main thread, which does all fetching; the last forecast
+//! commands for the main thread, which takes every queued command before it
+//! fetches, so a burst of calls costs one refresh; the last forecast
 //! is served from disk at start, and an hourly tick (on the monotonic clock,
 //! so it never wakes a suspended device) moves "now" along and refetches
 //! once MET's `Expires` has passed.
@@ -18,7 +19,7 @@ mod zones;
 use std::process::ExitCode;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 use zbus::{fdo, interface};
@@ -26,10 +27,13 @@ use zbus::{fdo, interface};
 use http::{Failure, Fetched};
 use nominatim::Nominatim;
 use store::{CacheMeta, Location, Settings, Store};
+use zones::Zones;
 
 const BUS_NAME: &str = "org.marathonos.Weather";
 const PATH: &str = "/org/marathonos/Weather";
 const GEOCLUE_TIMEOUT: Duration = Duration::from_secs(20);
+/// After a failed fix, how long refreshes go without asking `GeoClue` again.
+const GEOCLUE_RETRY: Duration = Duration::from_mins(10);
 
 #[allow(clippy::print_stderr, reason = "journald collects stderr")]
 fn log(message: &str) {
@@ -101,16 +105,11 @@ impl Weather {
                 "latitude/longitude out of range".into(),
             ));
         }
-        let timezone = self
-            .nominatim
-            .searched_country(latitude, longitude)
-            .and_then(|country| zones::zone_for(&country, latitude, longitude));
         self.send(Command::SetLocation(Location {
             name,
             region,
             latitude,
             longitude,
-            timezone,
         }))
     }
 
@@ -132,9 +131,11 @@ struct Daemon {
     store: Store,
     agent: ureq::Agent,
     nominatim: Arc<Nominatim>,
+    zones: Zones,
     published: Arc<Mutex<Published>>,
     settings: Settings,
     last_fix: Option<Location>,
+    geoclue_failed: Option<Instant>,
     met: Option<(Value, CacheMeta)>,
     last_failed: bool,
 }
@@ -168,7 +169,7 @@ impl Daemon {
         let Some((body, _)) = self.cached_for(&loc) else {
             return String::new();
         };
-        let tz = zones::load(loc.timezone.as_deref());
+        let tz = self.zones.at(loc.latitude, loc.longitude);
         met::forecast(body, &loc, automatic, &tz, now())
             .map(|f| f.to_string())
             .unwrap_or_default()
@@ -177,8 +178,12 @@ impl Daemon {
     fn update_fix(&mut self) {
         let (latitude, longitude) = match geoclue::locate(GEOCLUE_TIMEOUT) {
             Ok(fix) => fix,
-            Err(e) => return log(&format!("no GeoClue fix ({e}); keeping the last one")),
+            Err(e) => {
+                self.geoclue_failed = Some(Instant::now());
+                return log(&format!("no GeoClue fix ({e}); keeping the last one"));
+            }
         };
+        self.geoclue_failed = None;
         let named = self.last_fix.as_ref().filter(|fix| {
             !fix.name.is_empty()
                 && (fix.latitude - latitude).abs() < 0.01
@@ -199,7 +204,6 @@ impl Daemon {
             region,
             latitude,
             longitude,
-            timezone: None,
         };
         if let Err(e) = self.store.save_last_fix(&fix) {
             log(&format!("saving the location: {e}"));
@@ -261,12 +265,22 @@ impl Daemon {
         relocate
     }
 
+    /// Applies a command and everything queued behind it; true when any asks to relocate.
+    fn apply_queued(&mut self, first: Command, queued: impl Iterator<Item = Command>) -> bool {
+        queued.fold(self.apply(first), |relocate, next| {
+            self.apply(next) || relocate
+        })
+    }
+
     fn refresh(&mut self, conn: &zbus::blocking::Connection, relocate: bool) {
         let automatic = self.settings.manual.is_none();
         let expired = self
             .location()
             .is_none_or(|(loc, _)| self.needs_fetch(&loc));
-        if automatic && (relocate || expired) {
+        let retry = self
+            .geoclue_failed
+            .is_none_or(|at| at.elapsed() >= GEOCLUE_RETRY);
+        if automatic && (relocate || (expired && retry)) {
             // Without a place yet, the choice stays on offer while GeoClue tries.
             let state = if self.location().is_some() {
                 "updating"
@@ -342,11 +356,13 @@ fn main() -> ExitCode {
         store,
         agent,
         nominatim: Arc::clone(&nominatim),
+        zones: Zones::new(),
         published: Arc::new(Mutex::new(Published {
             forecast: String::new(),
             state: "idle".into(),
         })),
         last_failed: false,
+        geoclue_failed: None,
     };
     lock(&daemon.published).forecast = daemon.render();
 
@@ -372,9 +388,61 @@ fn main() -> ExitCode {
     loop {
         daemon.refresh(&conn, relocate);
         relocate = match queue.recv_timeout(until_next_hour()) {
-            Ok(command) => daemon.apply(command),
+            Ok(command) => daemon.apply_queued(command, queue.try_iter()),
             Err(RecvTimeoutError::Timeout) => false,
             Err(RecvTimeoutError::Disconnected) => return ExitCode::FAILURE,
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn daemon(dir: &std::path::Path) -> Daemon {
+        let agent = http::agent();
+        Daemon {
+            store: Store::at(dir),
+            nominatim: Arc::new(Nominatim::new(agent.clone())),
+            agent,
+            zones: Zones::new(),
+            published: Arc::new(Mutex::new(Published {
+                forecast: String::new(),
+                state: String::new(),
+            })),
+            settings: Settings::default(),
+            last_fix: None,
+            geoclue_failed: None,
+            met: None,
+            last_failed: false,
+        }
+    }
+
+    fn dublin() -> Location {
+        Location {
+            name: "Dublin".into(),
+            region: "Ireland".into(),
+            latitude: 53.35,
+            longitude: -6.26,
+        }
+    }
+
+    #[test]
+    fn a_burst_of_commands_is_taken_at_once() {
+        let dir = std::env::temp_dir().join(format!("weatherd-queue-{}", std::process::id()));
+        let mut d = daemon(&dir);
+
+        let queued = [
+            Command::Refresh,
+            Command::SetLocation(dublin()),
+            Command::Refresh,
+        ];
+        assert!(!d.apply_queued(Command::Refresh, queued.into_iter()));
+        assert_eq!(d.settings.manual, Some(dublin()));
+
+        let queued = [Command::Refresh];
+        assert!(d.apply_queued(Command::SetAutomatic, queued.into_iter()));
+        assert_eq!(d.settings.manual, None);
+        std::fs::remove_dir_all(dir).ok();
     }
 }

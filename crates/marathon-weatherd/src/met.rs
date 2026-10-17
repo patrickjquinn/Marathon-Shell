@@ -377,7 +377,6 @@ mod tests {
             region: "Pirkanmaa, Finland".into(),
             latitude: 61.4981,
             longitude: 23.7608,
-            timezone: None,
         }
     }
 
