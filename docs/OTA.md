@@ -99,6 +99,10 @@ is already published or older than the newest one. Payloads land first, and
 files are missing. With `--upload` it rsyncs the payloads, then the manifest,
 then deletes pruned files.
 
+`--notes FILE` becomes the release's AppStream description: blank lines
+separate paragraphs, and lines starting `- ` or `* ` are list items, which
+Settings shows as bullets.
+
 Keys:
 
 ```sh
