@@ -416,11 +416,11 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         const QStringList parts = QProcess::splitCommand(actualCommand);
         if (parts.size() >= 2 && parts.at(0) == "flatpak" && parts.at(1) == "run") {
             QStringList newParts;
+            // Flatpak takes WAYLAND_DISPLAY from the environment below and
+            // connects the app through a security-context socket of its own.
             newParts << "flatpak"
                      << "run"
-                     << "--socket=wayland"
-                     << QStringLiteral("--filesystem=xdg-run/%1").arg(socketName())
-                     << QStringLiteral("--env=WAYLAND_DISPLAY=%1").arg(socketName());
+                     << "--socket=wayland";
             newParts << parts.mid(2);
             execPartsOverride = newParts;
             actualCommand     = newParts.join(' ');
