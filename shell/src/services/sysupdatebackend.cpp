@@ -123,10 +123,16 @@ void SysupdateBackend::fetchReleaseInfo(const QString &version) {
         });
 }
 
+// Acquire downloads the newest version into the free slots; Install then
+// makes it the one booted next.
 void SysupdateBackend::install() {
+    m_acquired = false;
+    startJob(QStringLiteral("Acquire"), QString());
+}
+
+void SysupdateBackend::startJob(const QString &method, const QString &version) {
     call(
-        this, m_target, kTargetIface, QStringLiteral("Install"),
-        {QString(), QVariant::fromValue(qulonglong(0))},
+        this, m_target, kTargetIface, method, {version, QVariant::fromValue(qulonglong(0))},
         [this](const QDBusMessage &reply) {
             const QVariantList args = reply.arguments();
             m_installingVersion     = args.value(0).toString();
@@ -163,7 +169,12 @@ void SysupdateBackend::onJobRemoved(qulonglong id, const QDBusObjectPath &path, 
         SLOT(onJobPropertiesChanged(QString, QVariantMap, QStringList)));
     m_jobPath.clear();
     m_jobId = 0;
-    if (status == 0)
+    if (status == 0 && !m_acquired) {
+        m_acquired = true;
+        // An empty version stays under polkit's update action; a named
+        // one is update-to-version, which asks for a password.
+        startJob(QStringLiteral("Install"), QString());
+    } else if (status == 0)
         emit installed(m_installingVersion);
     else
         emit failed(status > 0 ?

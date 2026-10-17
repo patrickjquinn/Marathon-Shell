@@ -31,6 +31,9 @@ class SysupdateBackend : public UpdateBackend {
     static Release          parseAppStream(const QByteArray &xml, const QString &version);
     static UpdateConditions systemConditions();
 
+  private:
+    void startJob(const QString &method, const QString &version);
+
   private slots:
     void onJobRemoved(qulonglong id, const QDBusObjectPath &path, int status);
     void onJobPropertiesChanged(const QString &interface, const QVariantMap &changed,
@@ -42,6 +45,7 @@ class SysupdateBackend : public UpdateBackend {
     QString                m_jobPath;
     qulonglong             m_jobId = 0;
     QString                m_installingVersion;
+    bool                   m_acquired = false;
 };
 
 #endif
