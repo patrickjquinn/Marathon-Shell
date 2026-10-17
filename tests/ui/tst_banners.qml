@@ -94,6 +94,35 @@ TestCase {
         compare(NotificationService.clicked, [7]);
     }
 
+    function bannerIcon() {
+        return findChild(notificationToast, "bannerIcon");
+    }
+
+    readonly property string redPixels: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC"
+
+    // app_icon / image hints by glyph, theme name or picture; then the
+    // freedesktop category; then the bell.
+    function test_bannerShowsTheNotificationsIcon() {
+        const show = (icon, category) => {
+            const n = message([]);
+            n.icon = icon;
+            n.category = category;
+            if (notificationToast.currentToast)
+                notificationToast.dismissToast();
+            notificationToast.showToast(n);
+            tryVerify(() => notificationToast.currentToast === n);
+        };
+        show("message-circle", "message");
+        compare(bannerIcon().glyph, "message-circle");
+        show(redPixels, "");
+        tryVerify(() => bannerIcon().hasImage);
+        show("", "email.arrived");
+        compare(bannerIcon().glyph, "mail");
+        show("", "");
+        compare(bannerIcon().glyph, "bell");
+        verify(!bannerIcon().hasImage);
+    }
+
     function test_swipeUpDismissesWithoutOpening() {
         notificationToast.showToast(message([]));
         wait(50);

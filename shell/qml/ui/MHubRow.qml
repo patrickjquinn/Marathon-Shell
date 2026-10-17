@@ -11,6 +11,8 @@ Item {
     property bool unread: false
     property string avatarText: ""
     property string avatarIcon: ""
+    // The notification's own picture, shown in place of the monogram.
+    property string image: ""
     property string name: ""
     property string time: ""
     property string account: ""
@@ -106,14 +108,22 @@ Item {
                 color: Silica.Theme.highlightColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeSmall
-                visible: row.avatarText.length > 0
+                visible: row.avatarText.length > 0 && !picture.hasImage
             }
             GlyphIcon {
                 anchors.centerIn: parent
                 name: row.avatarIcon
                 size: Silica.Theme.iconSizeExtraSmall
                 color: Silica.Theme.highlightColor
-                visible: row.avatarText.length === 0 && row.avatarIcon.length > 0
+                visible: row.avatarText.length === 0 && row.avatarIcon.length > 0 && !picture.hasImage
+            }
+            NotificationIcon {
+                id: picture
+                objectName: "hubRowImage"
+                anchors.centerIn: parent
+                source: row.image
+                size: Silica.Theme.iconSizeSmall
+                visible: hasImage
             }
         }
 

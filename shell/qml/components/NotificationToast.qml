@@ -88,9 +88,11 @@ Item {
                 anchors.topMargin: toastContainer.showInlineReply ? Silica.Theme.paddingMedium : 0
                 spacing: Silica.Theme.paddingMedium
 
-                GlyphIcon {
+                NotificationIcon {
                     id: iconTile
-                    name: (toastContainer.currentToast && toastContainer.currentToast.icon) ? toastContainer.currentToast.icon : "bell"
+                    objectName: "bannerIcon"
+                    source: (toastContainer.currentToast && toastContainer.currentToast.icon) || ""
+                    category: (toastContainer.currentToast && toastContainer.currentToast.category) || ""
                     size: Silica.Theme.iconSizeSmallPlus
                     color: Silica.Theme.highlightColor
                     anchors.verticalCenter: parent.verticalCenter

@@ -39,9 +39,11 @@ TestCase {
         hub.isInPeekMode = false;
     }
 
-    function addNotification(id, appId) {
-        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: "", timestamp: Date.now(), isRead: false });
+    function addNotification(id, appId, icon) {
+        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false });
     }
+
+    readonly property string redPixels: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC"
 
     function row(i) {
         const list = findChild(hub, "hubList");
@@ -108,6 +110,16 @@ TestCase {
         wait(50);
         compare(NotificationService.dismissed, []);
         compare(NotificationService.clicked, []);
+    }
+
+    // A picture the sender sent (image-data, image-path) replaces the
+    // monogram; an icon name keeps it.
+    function test_rowShowsTheNotificationsPicture() {
+        addNotification(1, "messages", redPixels);
+        addNotification(2, "messages", "bell");
+        tryVerify(() => row(1));
+        tryVerify(() => findChild(row(0), "hubRowImage").hasImage);
+        verify(!findChild(row(1), "hubRowImage").hasImage);
     }
 
     function test_clearAll() {

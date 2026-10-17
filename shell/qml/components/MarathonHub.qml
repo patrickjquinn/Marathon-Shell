@@ -220,6 +220,7 @@ Rectangle {
             unread: !isRead
             avatarText: hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : ""
+            image: icon
             name: title
             time: hub.relativeTime(timestamp)
             account: hub.accountFor(appId)

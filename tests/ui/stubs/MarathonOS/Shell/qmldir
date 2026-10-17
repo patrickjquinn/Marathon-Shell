@@ -23,6 +23,7 @@ singleton AmbienceService 1.0 AmbienceService.qml
 GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
+NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 singleton Router 1.0 Router.qml
 singleton AlarmManagerCpp 1.0 AlarmManagerCpp.qml
 singleton CellBroadcastManagerCpp 1.0 CellBroadcastManagerCpp.qml

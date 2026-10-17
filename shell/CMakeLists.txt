@@ -339,6 +339,7 @@ set(QML_FILES
     qml/ui/MRipple.qml
     qml/ui/MTabBar.qml
     qml/ui/MTopHairline.qml
+    qml/ui/NotificationIcon.qml
     qml/ui/PhosphorGlyphs.js
     qml/core/Agenda.js
     qml/core/BatteryWarning.js
