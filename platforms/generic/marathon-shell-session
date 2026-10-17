@@ -41,8 +41,8 @@ export QML_IMPORT_PATH=$HOME/.local/share:/usr/lib/qml:$QML_IMPORT_PATH
 export QML2_IMPORT_PATH=$HOME/.local/share:/usr/lib/qml:$QML2_IMPORT_PATH
 
 # Enable QML disk cache for ARM performance (caches compiled QML at runtime)
-export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
-mkdir -p "$QT_QML_DISK_CACHE_PATH"
+export QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QML_DISK_CACHE_PATH"
 
 # Display scaling for OnePlus 6 (1080x2280, ~402 DPI)
 export QT_SCALE_FACTOR=1

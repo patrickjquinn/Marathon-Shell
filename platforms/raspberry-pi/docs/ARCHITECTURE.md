@@ -354,7 +354,7 @@ Marathon Shell implements custom gesture detection:
 
 ### 1. QML Disk Cache
 ```bash
-export QT_QML_DISK_CACHE_PATH="~/.cache/marathon-qml"
+export QML_DISK_CACHE_PATH="~/.cache/marathon-qml"
 export QML_FORCE_DISK_CACHE=1
 ```
 - Caches compiled QML bytecode

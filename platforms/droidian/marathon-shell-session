@@ -38,8 +38,8 @@ export QML_IMPORT_PATH=/usr/lib/aarch64-linux-gnu/qt6/qml:/usr/lib/qt6/qml:$QML_
 export QML2_IMPORT_PATH=/usr/lib/aarch64-linux-gnu/qt6/qml:/usr/lib/qt6/qml:$QML2_IMPORT_PATH
 
 # QML disk cache for ARM performance
-export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
-mkdir -p "$QT_QML_DISK_CACHE_PATH"
+export QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QML_DISK_CACHE_PATH"
 
 # ===== Display Scaling (Device-Specific) =====
 # Zinwa Q25: 720x720 square display, ~300 DPI

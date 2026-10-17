@@ -1045,7 +1045,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         const QString appCache  = QStringLiteral("%1/marathon-apps/%2").arg(xdgCacheHome, appId);
         const QString appConfig = QStringLiteral("%1/marathon-apps/%2").arg(xdgConfigHome, appId);
         QDir().mkpath(appData);
-        QDir().mkpath(appCache + QStringLiteral("/qml"));
+        QDir().mkpath(appCache);
         QDir().mkpath(appConfig);
 
         QStringList bwrapArgs;
@@ -1183,12 +1183,10 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // per-app data/cache paths only.
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
-                  << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
+                  // The app's own cache, like Flatpak's; the rest of ~/.cache is tmpfs.
+                  << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << appCache
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME")
                   << xdgConfigHome
-                  // The session's cache path is not mounted in the sandbox.
-                  << QStringLiteral("--setenv") << QStringLiteral("QT_QML_DISK_CACHE_PATH")
-                  << appCache + QStringLiteral("/qml")
                   // app-runner verifies DBus callers against this PID on Back/Forward.
                   << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SHELL_PID")
                   << QString::number(QCoreApplication::applicationPid());
@@ -1394,7 +1392,7 @@ QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) con
     const QString cacheDir  = xdgCacheHome + QStringLiteral("/marathon-apps");
     const QString configDir = xdgConfigHome + QStringLiteral("/marathon-apps");
     const QString renderNode = DeviceProfile::instance().renderNode();
-    QDir().mkpath(cacheDir + QStringLiteral("/.qml-spare"));
+    QDir().mkpath(cacheDir + QStringLiteral("/.spare"));
 
     QStringList   args;
     args << QStringLiteral("--unsetenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
@@ -1443,11 +1441,10 @@ QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) con
 
     args << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
          << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
-         << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
-         << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME") << xdgConfigHome
          // Spares only ever become Marathon's own apps, so they share one cache.
-         << QStringLiteral("--setenv") << QStringLiteral("QT_QML_DISK_CACHE_PATH")
-         << cacheDir + QStringLiteral("/.qml-spare")
+         << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME")
+         << cacheDir + QStringLiteral("/.spare")
+         << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME") << xdgConfigHome
          << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SHELL_PID")
          << QString::number(QCoreApplication::applicationPid()) << QStringLiteral("--setenv")
          << QStringLiteral("MARATHON_SANDBOXED") << QStringLiteral("1")

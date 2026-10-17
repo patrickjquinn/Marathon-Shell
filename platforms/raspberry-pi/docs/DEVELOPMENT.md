@@ -218,7 +218,7 @@ LightDM looks in the appropriate directory based on the session type. Marathon S
 1. Use disk cache: `export QML_FORCE_DISK_CACHE=1`
 2. Don't disable optimizer: `export QML_DISABLE_OPTIMIZER=0`
 3. Use hardware acceleration: `-platform eglfs` not `linuxfb`
-4. Cache compiled QML: Set `QT_QML_DISK_CACHE_PATH`
+4. Cache compiled QML: Set `QML_DISK_CACHE_PATH`
 
 ## Debugging Techniques Used
 

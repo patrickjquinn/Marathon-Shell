@@ -324,13 +324,13 @@ export QSG_RENDER_LOOP=threaded
 # the OLD layout. We saw this break the URL-keyboard rows 3+4 across
 # r129→r132. Stamp the cache with the binary's mtime and nuke it on
 # mismatch — costs one cold-start frame, fixes silent visual regressions.
-export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
-mkdir -p "$QT_QML_DISK_CACHE_PATH"
+export QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QML_DISK_CACHE_PATH"
 SHELL_BIN_MTIME=$(stat -c %Y /usr/bin/marathon-shell-bin 2>/dev/null || echo 0)
-STAMP_FILE="$QT_QML_DISK_CACHE_PATH/.shell-bin-mtime"
+STAMP_FILE="$QML_DISK_CACHE_PATH/.shell-bin-mtime"
 PREV_STAMP=$(cat "$STAMP_FILE" 2>/dev/null || echo 0)
 if [ "$SHELL_BIN_MTIME" != "$PREV_STAMP" ]; then
-    find "$QT_QML_DISK_CACHE_PATH" -mindepth 1 -delete 2>/dev/null || true
+    find "$QML_DISK_CACHE_PATH" -mindepth 1 -delete 2>/dev/null || true
     echo "$SHELL_BIN_MTIME" > "$STAMP_FILE"
 fi
 
@@ -616,7 +616,7 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --setenv=QT_ENABLE_HIGHDPI_SCALING \
         --setenv=QT_LOGGING_RULES \
         --setenv=QT_MEDIA_BACKEND \
-        --setenv=QT_QML_DISK_CACHE_PATH \
+        --setenv=QML_DISK_CACHE_PATH \
         --setenv=QML_IMPORT_PATH \
         --setenv=QML2_IMPORT_PATH \
         --setenv=MESA_LOADER_DRIVER_OVERRIDE \

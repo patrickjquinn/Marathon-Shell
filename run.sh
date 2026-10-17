@@ -125,8 +125,8 @@ else
 fi
 
 if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
-    export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
-    mkdir -p "$QT_QML_DISK_CACHE_PATH"
+    export QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+    mkdir -p "$QML_DISK_CACHE_PATH"
     unset QT_LOGGING_RULES
     echo "Debug mode: Full logging enabled (no filtering)"
     echo ""
