@@ -46,7 +46,8 @@ See [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for detailed wo
 
 2. Make your changes in source files
 
-3. Test your changes:
+3. Test your changes: run the test suite (see [Testing](#testing)) and try
+   the change in the shell:
    ```bash
    ./run.sh
    ```
@@ -56,10 +57,11 @@ See [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for detailed wo
    ./scripts/validate-qml.sh
    ```
 
-5. Commit your changes:
+5. Commit your changes, one logical change per commit (see
+   [Commit Messages](#commit-messages)):
    ```bash
    git add <files>
-   git commit -m "Description of changes"
+   git commit -m "fix(hub): a tap opens the app the notification came from"
    ```
 
 6. Push to your fork and create a pull request
@@ -135,30 +137,44 @@ MPage {
 
 ## Commit Messages
 
-Write clear, descriptive commit messages:
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/),
+and the release notes are generated from their subjects, so there is no
+changelog file to edit: the subject is the changelog entry.
 
-**Good:**
 ```
-Add WiFi password dialog to settings
+type(scope): what changes, as the user would notice it
 
-- Implement MPasswordDialog component
-- Add password validation
-- Connect to NetworkManager D-Bus API
-- Add error handling for connection failures
-```
-
-**Bad:**
-```
-Fixed stuff
-WIP
-Updates
+Why the change was needed and anything a reviewer should know.
+Fixes #123
 ```
 
-Format:
-- First line: Brief summary (50 characters or less)
-- Blank line
-- Detailed description with bullet points if needed
-- Reference issue numbers if applicable: `Fixes #123`
+| Type | Release notes |
+|---|---|
+| `feat` | Features |
+| `fix` | Fixes |
+| `perf` | Performance |
+| `revert` (or git revert's default subject) | Reverted |
+| `build`, `chore`, `ci`, `docs`, `refactor`, `style`, `test` | left out |
+| any type with `!`, e.g. `feat(store)!:`, or a `BREAKING CHANGE:` footer | Breaking changes |
+
+- The scope is the area touched: `hub`, `settings`, `compositor`,
+  `packaging`, an app name. `git log --oneline` shows the ones in use.
+- Write the subject as a sentence about behaviour, lower case, no full
+  stop: `fix(hub): a tap opens the app the notification came from`.
+- One logical change per commit, and the body says why
+  ([docs/CODING_RULES.md](docs/CODING_RULES.md) section G). No
+  generated-by or co-author trailers for tools.
+
+CI fails a pull request with a commit whose subject is not of this form.
+To check your branch and preview the notes it adds, install
+[git-cliff](https://git-cliff.org) (the `git-cliff` package on Alpine and
+Arch, `cargo install git-cliff`, or a release binary) and run:
+
+```bash
+git cliff origin/main..HEAD
+```
+
+The rules live in [cliff.toml](cliff.toml).
 
 ## Pull Request Guidelines
 
@@ -173,12 +189,19 @@ Format:
 
 ### Pull Request Description
 
-Include:
-- What changes were made
-- Why the changes were necessary
-- How to test the changes
-- Screenshots for UI changes
-- Any breaking changes or migration notes
+GitHub fills the description from
+[.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md).
+Fill in every section:
+- **What changed and why**: the change and the problem it solves; link issues
+- **Commands run**: each build and test command and its result
+- **Test evidence**: the tests added or changed and what they prove, or how
+  you verified what no test covers
+- **UI changes**: devices, DPI, touch input, light and dark mode, and
+  before and after screenshots; delete the section if there is no UI change
+
+CI builds and runs the test suite on every pull request
+(`.github/workflows/ci.yml`; reproduce it with
+`scripts/ci/build-and-test.sh`) and checks the commit subjects.
 
 ### Review Process
 
@@ -205,12 +228,40 @@ Include:
 
 Fix any warnings or errors reported by qmllint.
 
-### Unit Tests
+### Automated Tests
 
-If applicable, add unit tests for new C++ code:
+Every test runs through CTest:
+
+```bash
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DKEEL_QML=/path/to/keel/build/qml
+cmake --build build
+QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+```
+
+The Keel Silica QML suites are registered only when `KEEL_QML` (or an
+installed keel-silica) provides `Sailfish/Silica`.
+
+A test only counts once CTest runs it. Register it where its kind lives:
+
+| Test | Where | Registration |
+|---|---|---|
+| C++ (QtTest) | `tests/core/`, `tests/shell/`, `tests/keyboard/cpp/` | `add_executable` and `add_test` in that directory's `CMakeLists.txt` |
+| Shell QML | `tests/ui/tst_*.qml` | none: `Qml_tests_ui` runs the directory |
+| App QML | `apps/<app>/tests/tst_*.qml` | none for a new file; a new app needs a `tests/run.sh` and its `apps/<app>/tests` added to the suite list in `tests/CMakeLists.txt` |
+| Marathon.Silica QML | `marathon-silica/tests/tst_*.qml` | none: `Qml_marathon-silica_tests` runs the directory |
+| Rust | `#[test]` in a crate of the `crates/` workspace | none: `Rust_Crates` runs `cargo test --workspace` |
+| Lint scripts | `tests/lint/` | `add_test` in `tests/CMakeLists.txt` |
+
+QtQuickTest runs only `TestCase` functions whose names start with `test_`.
+`Lint_TestReachability` (`tests/lint/check-test-reachability.py`) fails
+when a test exists that no registration reaches, or a registration names
+a path that is gone; run it on its own with
+`python3 tests/lint/check-test-reachability.py`.
+
+A C++ test looks like this:
 
 ```cpp
-// tests/test_myfeature.cpp
+// tests/core/test_myfeature.cpp
 # include <QtTest>
 
 class TestMyFeature : public QObject {
@@ -227,6 +278,17 @@ void TestMyFeature::testBasicFunctionality() {
 
 QTEST_MAIN(TestMyFeature)
 # include "test_myfeature.moc"
+```
+
+and is registered in `tests/core/CMakeLists.txt`:
+
+```cmake
+add_executable(test_core_myfeature
+    test_myfeature.cpp
+    ../../shell/src/services/myfeature.cpp
+)
+target_link_libraries(test_core_myfeature Qt6::Test Qt6::Core)
+add_test(NAME Core_MyFeature COMMAND test_core_myfeature)
 ```
 
 ## Documentation
