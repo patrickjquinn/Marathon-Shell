@@ -36,12 +36,23 @@ function reselect ()
   end
 end
 
+-- marathon-audiod reads this: call audio need not be a PipeWire stream,
+-- so in a call the device's own level is the volume.
+function publishCall ()
+  local metadata = cutils.get_default_metadata_object ()
+  if metadata then
+    metadata:set (0, "marathon.call.active", "Spa:String:JSON", tostring (in_call))
+  end
+end
+
 mm = Plugin.find ("modem-manager")
 mm:connect ("voice-call-start", function ()
   in_call = true
+  publishCall ()
 end)
 mm:connect ("voice-call-stop", function ()
   in_call = false
+  publishCall ()
 end)
 
 Settings.subscribe ("marathon.call.speakerphone", function ()
