@@ -83,14 +83,14 @@ ctest -R Keyboard_QML
 - Zero/negative max results
 - Concurrent requests, empty language
 
-### Keyboard: QML (78 tests)
-- Core keyboard (key press, shift, caps lock, punctuation)
-- Space handling (insert, double-tap period, shift after space)
-- Enter handling (clear word, learn, shift, caps lock)
-- Input context (text/email/url/number/phone/terminal modes)
-- Predictions (accept, clear, learn, punctuation, long words)
-- Undo auto-correct (revert, state management)
-- Domain suggestions (email/url modes, dot suggestions)
+### Keyboard: QML
+The real `MarathonKeyboard.qml` and `InputContext` typing into a `TextInput`;
+needs Keel's Silica (`KEEL_QML`).
+- Typing, backspace, enter, a tapped key, shift and caps lock
+- Autocorrect replacing the word, and never touching text it did not type
+- Undoing a correction, double-space full stop
+- Accepting a prediction with its trailing space
+- Input mode from the field's hints
 
 ## Requirements
 
