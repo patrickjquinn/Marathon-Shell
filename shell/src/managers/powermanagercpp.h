@@ -42,7 +42,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(
         int estimatedBatteryTime READ estimatedBatteryTime NOTIFY estimatedBatteryTimeChanged)
     Q_PROPERTY(QString powerProfile READ powerProfile NOTIFY powerProfileChanged)
-    Q_PROPERTY(bool powerProfilesSupported READ powerProfilesSupported CONSTANT)
+    // From power-profiles-daemon's D-Bus API (tuned-ppd on our images).
+    Q_PROPERTY(bool powerProfilesSupported READ powerProfilesSupported NOTIFY powerProfileChanged)
     Q_PROPERTY(int idleTimeout READ idleTimeout WRITE setIdleTimeout NOTIFY idleTimeoutChanged)
     Q_PROPERTY(bool autoSuspendEnabled READ autoSuspendEnabled WRITE setAutoSuspendEnabled NOTIFY
                    autoSuspendEnabledChanged)
@@ -143,11 +144,14 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     void updateAggregateState();
     void onPrepareForSleep(bool beforeSleep);
     void checkIdleState();
+    void onPowerProfilesChanged(const QString &interface, const QVariantMap &changed,
+                                const QStringList &invalidated);
 
   private:
     void                    setupDBusConnections();
-    void                    applyCPUGovernor(PowerProfile profile) const;
-    void                    checkCPUGovernorSupport();
+    void                    setupPowerProfiles();
+    void                    readActiveProfile();
+    void                    applyActiveProfile(const QString &profile);
     void                    checkWakelockSupport();
     void                    cleanupWakelocks();
     void                    setupDisplayDevice();
@@ -171,7 +175,6 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     bool                    m_hasUPower;
     bool                    m_hasLogind;
 
-    PowerProfile            m_currentProfile;
     QString                 m_powerProfileString;
     bool                    m_powerProfilesSupported;
     int                     m_idleTimeout;

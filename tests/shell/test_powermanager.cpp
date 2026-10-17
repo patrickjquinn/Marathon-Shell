@@ -49,6 +49,37 @@ namespace {
         }
     };
 
+    // power-profiles-daemon's API, as tuned-ppd serves it.
+    class FakePowerProfiles : public QObject {
+        Q_OBJECT
+        Q_CLASSINFO("D-Bus Interface", "org.freedesktop.UPower.PowerProfiles")
+        Q_PROPERTY(QString ActiveProfile READ activeProfile WRITE setActiveProfile)
+
+      public:
+        QString activeProfile() const {
+            const QMutexLocker lock(&mutex);
+            return active;
+        }
+
+        void setActiveProfile(const QString &profile) {
+            {
+                const QMutexLocker lock(&mutex);
+                active = profile;
+            }
+            QDBusMessage changed =
+                QDBusMessage::createSignal(QStringLiteral("/org/freedesktop/UPower/PowerProfiles"),
+                                           QStringLiteral("org.freedesktop.DBus.Properties"),
+                                           QStringLiteral("PropertiesChanged"));
+            changed.setArguments({QStringLiteral("org.freedesktop.UPower.PowerProfiles"),
+                                  QVariantMap{{QStringLiteral("ActiveProfile"), profile}},
+                                  QStringList()});
+            QDBusConnection(QStringLiteral("services")).send(changed);
+        }
+
+        mutable QMutex mutex;
+        QString        active = QStringLiteral("balanced");
+    };
+
     bool held(int readFd) {
         pollfd p{readFd, POLLIN, 0};
         return ::poll(&p, 1, 0) == 0;
@@ -59,10 +90,11 @@ namespace {
 class TestPowerManager : public QObject {
     Q_OBJECT
 
-    QThread                     m_serviceThread;
-    std::unique_ptr<FakeLogind> m_logind;
+    QThread                            m_serviceThread;
+    std::unique_ptr<FakeLogind>        m_logind;
+    std::unique_ptr<FakePowerProfiles> m_profiles;
 
-    bool                        holds(const QString &why) {
+    bool                               holds(const QString &why) {
         // The fake lives on its own thread; give it the bus round trip.
         QTest::qWait(20);
         const QMutexLocker lock(&m_logind->mutex);
@@ -82,6 +114,16 @@ class TestPowerManager : public QObject {
         QVERIFY(services.registerObject(QStringLiteral("/org/freedesktop/login1"), m_logind.get(),
                                         QDBusConnection::ExportAllSlots));
         QVERIFY(services.registerService(QStringLiteral("org.freedesktop.login1")));
+
+        m_profiles = std::make_unique<FakePowerProfiles>();
+        m_profiles->moveToThread(&m_serviceThread);
+        QVERIFY(services.registerObject(QStringLiteral("/org/freedesktop/UPower/PowerProfiles"),
+                                        m_profiles.get(), QDBusConnection::ExportAllProperties));
+        QVERIFY(services.registerService(QStringLiteral("org.freedesktop.UPower.PowerProfiles")));
+    }
+
+    void init() {
+        m_profiles->setActiveProfile(QStringLiteral("balanced"));
     }
 
     void cleanupTestCase() {
@@ -119,6 +161,37 @@ class TestPowerManager : public QObject {
         policy.wake(QStringLiteral("notification"));
         QCOMPARE(power.wakeLockCount(), 0);
         QVERIFY(policy.canSleep());
+    }
+
+    void startsFromTheActiveProfile() {
+        m_profiles->setActiveProfile(QStringLiteral("performance"));
+        PowerManagerCpp power;
+        QTRY_VERIFY(power.powerProfilesSupported());
+        QCOMPARE(power.powerProfile(), QStringLiteral("performance"));
+        QVERIFY(!power.isPowerSaveMode());
+    }
+
+    void powerSaveSwitchesToThePowerSaverProfileAndBack() {
+        PowerManagerCpp power;
+        QTRY_VERIFY(power.powerProfilesSupported());
+        power.setPowerSaveMode(true);
+        QTRY_COMPARE(m_profiles->activeProfile(), QStringLiteral("power-saver"));
+        QVERIFY(power.isPowerSaveMode());
+        power.setPowerSaveMode(false);
+        QTRY_COMPARE(m_profiles->activeProfile(), QStringLiteral("balanced"));
+        QTRY_COMPARE(power.powerProfile(), QStringLiteral("balanced"));
+        QVERIFY(!power.isPowerSaveMode());
+    }
+
+    void aProfileSetElsewhereIsReported() {
+        PowerManagerCpp power;
+        QTRY_VERIFY(power.powerProfilesSupported());
+        QSignalSpy saver(&power, &PowerManagerCpp::isPowerSaveModeChanged);
+        // powerprofilesctl set power-saver
+        m_profiles->setActiveProfile(QStringLiteral("power-saver"));
+        QTRY_VERIFY(power.isPowerSaveMode());
+        QCOMPARE(power.powerProfile(), QStringLiteral("power-saver"));
+        QCOMPARE(saver.count(), 1);
     }
 };
 

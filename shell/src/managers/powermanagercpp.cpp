@@ -9,7 +9,18 @@
 #include <QDBusPendingCallWatcher>
 #include <QDateTime>
 #include <QFile>
-#include <QProcess>
+#include <QDBusServiceWatcher>
+
+namespace {
+
+    QString powerProfilesService() {
+        return QStringLiteral("org.freedesktop.UPower.PowerProfiles");
+    }
+    QString powerProfilesPath() {
+        return QStringLiteral("/org/freedesktop/UPower/PowerProfiles");
+    }
+
+} // namespace
 
 PowerManagerCpp *PowerManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new PowerManagerCpp(engine);
@@ -37,7 +48,6 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_estimatedBatteryTime(-1)
     , m_hasUPower(false)
     , m_hasLogind(false)
-    , m_currentProfile(Balanced)
     , m_powerProfileString("balanced")
     , m_powerProfilesSupported(false)
     , m_idleTimeout(300)
@@ -88,7 +98,7 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
                  << m_logindInterface->lastError().message();
     }
 
-    checkCPUGovernorSupport();
+    setupPowerProfiles();
 
     checkWakelockSupport();
 
@@ -337,8 +347,8 @@ void PowerManagerCpp::setPowerSaveMode(bool enabled) {
     m_isPowerSaveMode = enabled;
 
     // Saver used to be a cosmetic bool. Give it real, SAFE effects:
-    //  1) drop the CPU to the powersave governor (via the existing profile
-    //     path — reverts cleanly to the boot governor on exit / reboot), and
+    //  1) switch to the power-saver power profile (the profile daemon owns
+    //     the CPU governor; exit restores the profile from before), and
     //  2) shorten the idle timeout so the display Dozes sooner.
     // Deliberately does NOT enable auto-suspend (S3): on this hardware S3 has
     // an unresolved unwakeable-screen bug, so Saver must never push the device
@@ -362,24 +372,85 @@ void PowerManagerCpp::setPowerSaveMode(bool enabled) {
 }
 
 void PowerManagerCpp::setPowerProfile(const QString &profile) {
-    qInfo() << "[PowerManagerCpp] Setting power profile to:" << profile;
+    QString name = QStringLiteral("balanced");
+    if (profile == QLatin1String("performance"))
+        name = QStringLiteral("performance");
+    else if (profile == QLatin1String("power-saver") || profile == QLatin1String("powersave"))
+        name = QStringLiteral("power-saver");
 
-    PowerProfile newProfile;
-    if (profile == "performance") {
-        newProfile           = Performance;
-        m_powerProfileString = "performance";
-    } else if (profile == "power-saver" || profile == "powersave") {
-        newProfile           = PowerSaver;
-        m_powerProfileString = "power-saver";
-    } else {
-        newProfile           = Balanced;
-        m_powerProfileString = "balanced";
+    if (!m_powerProfilesSupported) {
+        qWarning() << "[PowerManagerCpp] No power profile service; cannot set" << name;
+        return;
     }
+    qInfo() << "[PowerManagerCpp] Setting power profile to:" << name;
 
-    if (m_currentProfile != newProfile) {
-        m_currentProfile = newProfile;
-        applyCPUGovernor(newProfile);
+    QDBusMessage set = QDBusMessage::createMethodCall(
+        powerProfilesService(), powerProfilesPath(),
+        QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("Set"));
+    set.setArguments({powerProfilesService(), QStringLiteral("ActiveProfile"),
+                      QVariant::fromValue(QDBusVariant(name))});
+    // A profile switch runs the daemon's tuning; never wait for it here.
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(set), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, name](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                const QDBusPendingReply<> reply = *w;
+                if (reply.isError()) {
+                    qWarning() << "[PowerManagerCpp] Power profile" << name
+                               << "refused:" << reply.error().message();
+                    return;
+                }
+                applyActiveProfile(name);
+            });
+}
+
+void PowerManagerCpp::setupPowerProfiles() {
+    QDBusConnection bus = QDBusConnection::systemBus();
+    bus.connect(powerProfilesService(), powerProfilesPath(),
+                QStringLiteral("org.freedesktop.DBus.Properties"),
+                QStringLiteral("PropertiesChanged"), this,
+                SLOT(onPowerProfilesChanged(QString, QVariantMap, QStringList)));
+    auto *watcher = new QDBusServiceWatcher(powerProfilesService(), bus,
+                                            QDBusServiceWatcher::WatchForRegistration, this);
+    connect(watcher, &QDBusServiceWatcher::serviceRegistered, this,
+            &PowerManagerCpp::readActiveProfile);
+    readActiveProfile();
+}
+
+void PowerManagerCpp::readActiveProfile() {
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        powerProfilesService(), powerProfilesPath(),
+        QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("Get"));
+    get.setArguments({powerProfilesService(), QStringLiteral("ActiveProfile")});
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<QDBusVariant> reply = *w;
+        if (reply.isError()) {
+            qInfo() << "[PowerManagerCpp] No power profile service:" << reply.error().message();
+            return;
+        }
+        applyActiveProfile(reply.value().variant().toString());
+    });
+}
+
+void PowerManagerCpp::onPowerProfilesChanged(const QString &, const QVariantMap &changed,
+                                             const QStringList &) {
+    const auto it = changed.constFind(QStringLiteral("ActiveProfile"));
+    if (it != changed.constEnd())
+        applyActiveProfile(it->toString());
+}
+
+void PowerManagerCpp::applyActiveProfile(const QString &profile) {
+    if (!m_powerProfilesSupported || m_powerProfileString != profile) {
+        m_powerProfilesSupported = true;
+        m_powerProfileString     = profile;
         emit powerProfileChanged();
+    }
+    const bool saver = profile == QLatin1String("power-saver");
+    if (m_isPowerSaveMode != saver) {
+        m_isPowerSaveMode = saver;
+        emit isPowerSaveModeChanged();
     }
 }
 
@@ -421,58 +492,6 @@ void PowerManagerCpp::checkIdleState() {
             qInfo() << "[PowerManagerCpp] Auto-suspend triggered after" << m_idleTimeout
                     << "seconds";
         }
-    }
-}
-
-void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) const {
-    if (!m_powerProfilesSupported) {
-        qDebug() << "[PowerManagerCpp] CPU governor control not supported";
-        return;
-    }
-
-    QString governor;
-    switch (profile) {
-        case Performance: governor = "performance"; break;
-        case PowerSaver: governor = "powersave"; break;
-        case Balanced:
-        // ondemand, not schedutil: on the imx8mq's coupled A53 cluster,
-        // schedutil's RT-boost pins the whole cluster to 1.5 GHz whenever any
-        // SCHED_FIFO task wakes, and the L5 fires ~1000 threaded-IRQ wakeups/s
-        // (PMIC, RTC, fuel gauge, touch, SDIO, GPU). Measured residency at
-        // 1.5 GHz was 58.8% under schedutil vs 11.7% under ondemand at the same
-        // load -- ~500-800 mW wasted continuously. This mirrors the image's
-        // marathon-cpu-governor.service / 60-marathon-cpufreq.rules decision so
-        // the Balanced profile stops clobbering the boot-time governor.
-        default: governor = "ondemand"; break;
-    }
-
-    QProcess process;
-    process.start("sh",
-                  {"-c",
-                   QString("echo %1 | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor")
-                       .arg(governor)});
-    process.waitForFinished(1000);
-
-    if (process.exitCode() == 0) {
-        qInfo() << "[PowerManagerCpp] CPU governor set to:" << governor;
-    } else {
-        qWarning() << "[PowerManagerCpp] Failed to set CPU governor:" << process.errorString();
-        qWarning() << "[PowerManagerCpp] Error output:" << process.readAllStandardError();
-    }
-}
-
-void PowerManagerCpp::checkCPUGovernorSupport() {
-
-    QFile scalingAvailable("/sys/devices/system/cpu/cpufreq/policy0/scaling_available_governors");
-    if (scalingAvailable.exists() && scalingAvailable.open(QIODevice::ReadOnly)) {
-        QString governors = QString::fromLatin1(scalingAvailable.readAll()).trimmed();
-        scalingAvailable.close();
-
-        m_powerProfilesSupported = !governors.isEmpty();
-        qInfo() << "[PowerManagerCpp] Available CPU governors:" << governors;
-    } else {
-        m_powerProfilesSupported = false;
-        qDebug() << "[PowerManagerCpp] CPU frequency scaling not available";
     }
 }
 
