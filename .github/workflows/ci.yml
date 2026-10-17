@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Configures with -DBUILD_TESTING=ON, builds, runs ctest under
+# QT_QPA_PLATFORM=offscreen (Rust_Crates runs `cargo test` for crates/), then
+# cargo clippy -D warnings for crates/ and tools/marathon-mail-oauth (which has
+# no tests of its own). All of it is scripts/ci/build-and-test.sh
+# inside alpine:edge on an arm64 runner: the same base and arch the
+# marathon-shell apk is built on (release.yml), with Qt 6.11.
+#
+# Not covered, because keel-silica-dev and qmf-dev come from Marathon's own
+# aports rather than Alpine:
+#   * Keel Silica QML suites, registered only when tests/CMakeLists.txt finds
+#     Sailfish/Silica/qmldir (KEEL_QML): Qml_marathon-silica_tests,
+#     Qml_tests_ui, Qml_apps_<app>_tests for every app, and Shell_Loads.
+#     Lint_IconMap still runs, without Keel's own icon names.
+#   * The QMF Mail backend in marathon-services.
+# Alpine has no busctl, so Shell_KeelActivation is not registered either.
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Build and test in alpine:edge
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" docker.io/library/alpine:edge \
+            /src/scripts/ci/build-and-test.sh
