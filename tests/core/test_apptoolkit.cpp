@@ -12,7 +12,7 @@ class TestAppToolkit : public QObject {
     QTemporaryDir home;
 
     void writeApp(const QString &id, const QString &toolkit) {
-        const QString dir = home.path() + "/.local/share/marathon-apps/" + id;
+        const QString dir = home.path() + "/system-apps/" + id;
         QDir().mkpath(dir);
         QJsonObject m{{"id", id},
                       {"name", id},
@@ -32,6 +32,7 @@ class TestAppToolkit : public QObject {
   private slots:
     void initTestCase() {
         qputenv("HOME", home.path().toUtf8());
+        qputenv("MARATHON_APPS_DIR", (home.path() + "/system-apps").toUtf8());
     }
 
     void defaultsToKeel() {

@@ -37,6 +37,11 @@ class MarathonAppVerifier : public QObject {
     }
 
     static QStringList trustedKeyDirs();
+    // The keys Marathon's own apps are signed with: only a package one of
+    // them signed may be a protected system app. MARATHON_SYSTEM_KEYS_DIR
+    // overrides the directory.
+    static QString systemKeyDir();
+    static bool    isSystemSigner(const QString &keyId);
     // MARATHON_ALLOW_UNSIGNED=1: the developer override for unsigned
     // packages and directory installs. Signatures that are present are
     // still checked.

@@ -95,7 +95,7 @@ Required: `manifestVersion`, `id`, `name`, `version`, `entryPoint`, `icon`,
 | `permissions` | array | Names from the permission vocabulary. |
 | `permissionReasons` | object | Permission name → why the app needs it, shown to the user (10–300 characters). Required for every sensitive permission. |
 | `minShellVersion` | string | Oldest shell the app runs on. |
-| `protected` | boolean | A system app: cannot be uninstalled and holds its permissions without a prompt. Marathon's own apps only. |
+| `protected` | boolean | A system app: cannot be uninstalled and holds its permissions without a prompt. Honoured only for an app the OS installed or signed with a system key ([CODE_SIGNING_GUIDE.md](CODE_SIGNING_GUIDE.md#trusted-keys)); ignored for any other. |
 | `toolkit` | `keel` \| `marathonui` | How the runner hosts the app. Default `keel`. |
 | `categories` | array | `Communication`, `Productivity`, `Entertainment`, `Utility`, `System`. |
 | `handlesUriSchemes` | array | URI schemes the app opens (`tel`, `mailto`, ...). |

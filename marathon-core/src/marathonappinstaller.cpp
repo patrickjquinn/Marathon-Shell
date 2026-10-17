@@ -1,5 +1,6 @@
 #include "marathonappinstaller.h"
 #include "marathonapppackager.h"
+#include "marathonapppaths.h"
 #include "marathonappverifier.h"
 #include <QDir>
 #include <QFile>
@@ -7,7 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QStandardPaths>
+#include <QSaveFile>
 #include <QTemporaryDir>
 #include <QDebug>
 #include "marathon-core-native/src/lib.rs.h"
@@ -33,13 +34,8 @@ MarathonAppInstaller::MarathonAppInstaller(MarathonAppRegistry *registry,
     });
 }
 
-QString MarathonAppInstaller::getTargetInstallPath() {
-    QString homeDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-    return homeDir + "/.local/share/marathon-apps";
-}
-
 QString MarathonAppInstaller::getInstallDirectory() {
-    return getTargetInstallPath();
+    return MarathonAppPaths::userInstalls();
 }
 
 bool MarathonAppInstaller::validateManifest(const QString &manifestPath) {
@@ -114,7 +110,7 @@ bool MarathonAppInstaller::planInstall(const QJsonObject &manifest, const QStrin
         return false;
     }
 
-    QFile       current(getTargetInstallPath() + "/" + appId + "/manifest.json");
+    QFile       current(MarathonAppPaths::receiptPath(appId));
     const bool  isUpdate = current.open(QIODevice::ReadOnly);
     QStringList added;
     if (isUpdate) {
@@ -197,6 +193,61 @@ bool MarathonAppInstaller::removeDirectory(const QString &path) {
     return success;
 }
 
+// The receipt is what the user approved: the permissions the plan disclosed
+// and, for an update, consented to. The scanner trusts it, not the manifest.
+static bool writeReceipt(const QJsonObject &manifest, const QString &signer) {
+    const QString     appId = manifest.value("id").toString();
+    const QJsonObject receipt{{"id", appId},
+                              {"version", manifest.value("version").toString()},
+                              {"signer", signer},
+                              {"permissions", QJsonArray::fromStringList(permissionsOf(manifest))}};
+    QSaveFile         file(MarathonAppPaths::receiptPath(appId));
+    return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(receipt).toJson()) > 0 &&
+        file.commit();
+}
+
+bool MarathonAppInstaller::place(const QJsonObject &manifest, const QString &source,
+                                 const QString &signer, bool move) {
+    const QString appId = manifest.value("id").toString();
+    if (QFile::exists(MarathonAppPaths::systemApps() + "/" + appId + "/manifest.json")) {
+        emit installFailed(appId, "A system app has this id");
+        return false;
+    }
+
+    const QString base = MarathonAppPaths::userInstalls();
+    const QString dest = MarathonAppPaths::installDir(appId);
+    QDir().mkpath(base);
+    if (!QFileInfo(dest).absoluteFilePath().startsWith(QFileInfo(base).absoluteFilePath() + "/")) {
+        qWarning() << "[MarathonAppInstaller] SECURITY: Path escape attempt detected:" << dest;
+        emit installFailed(appId, "Security violation: installation path escape");
+        return false;
+    }
+    if (!removeDirectory(dest)) {
+        emit installFailed(appId, "Failed to remove existing installation");
+        return false;
+    }
+    QDir().mkpath(dest);
+
+    const QString files = MarathonAppPaths::filesDir(appId);
+    if (!(move && QDir().rename(source, files)) && !copyDirectory(source, files)) {
+        removeDirectory(dest);
+        emit installFailed(appId, "Failed to copy app files");
+        return false;
+    }
+    if (!writeReceipt(manifest, signer)) {
+        removeDirectory(dest);
+        emit installFailed(appId, "Failed to record the installation");
+        return false;
+    }
+
+    emit installProgress(appId, 90);
+    m_registry->unregisterApp(appId);
+    m_scanner->scanApplications();
+    emit installProgress(appId, 100);
+    emit installComplete(appId);
+    return true;
+}
+
 bool MarathonAppInstaller::installFromDirectory(const QString     &sourcePath,
                                                 const QStringList &approvedPermissions) {
     qDebug() << "[MarathonAppInstaller] Installing from directory:" << sourcePath;
@@ -259,46 +310,9 @@ bool MarathonAppInstaller::installFromDirectory(const QString     &sourcePath,
         return false;
 
     emit installStarted(appId);
-
-    if (m_registry->hasApp(appId)) {
-        qDebug() << "[MarathonAppInstaller] App already installed, updating:" << appId;
-    }
-
-    QString   installBase = getTargetInstallPath();
-    QString   destPath    = installBase + "/" + appId;
-
-    QFileInfo destInfo(destPath);
-    QString   canonicalDest = destInfo.absoluteFilePath();
-    QFileInfo baseInfo(installBase);
-    QString   canonicalBase = baseInfo.canonicalFilePath();
-
-    if (!canonicalBase.isEmpty() && !canonicalDest.startsWith(canonicalBase + "/")) {
-        qWarning() << "[MarathonAppInstaller] SECURITY: Path escape attempt detected:"
-                   << "dest=" << canonicalDest << "base=" << canonicalBase;
-        emit installFailed(appId, "Security violation: installation path escape");
-        return false;
-    }
-
-    if (QDir(destPath).exists()) {
-        if (!removeDirectory(destPath)) {
-            emit installFailed(appId, "Failed to remove existing installation");
-            return false;
-        }
-    }
-
     emit installProgress(appId, 50);
-
-    if (!copyDirectory(sourcePath, destPath)) {
-        emit installFailed(appId, "Failed to copy app files");
+    if (!place(doc.object(), sourcePath, QString(), false))
         return false;
-    }
-
-    emit installProgress(appId, 90);
-
-    m_scanner->scanApplications();
-
-    emit installProgress(appId, 100);
-    emit installComplete(appId);
 
     qDebug() << "[MarathonAppInstaller] Successfully installed:" << appName << "(" << appId << ")";
     return true;
@@ -400,88 +414,38 @@ bool MarathonAppInstaller::installFromPackage(const QString     &packagePath,
     qDebug() << "[MarathonAppInstaller] Installing app:" << appName << "(" << appId << ")";
     emit installStarted(appId);
     emit installProgress(appId, 60);
-
-    if (m_registry->hasApp(appId)) {
-        qDebug() << "[MarathonAppInstaller] App already installed, updating:" << appId;
-    }
-
-    QString   installBase = getTargetInstallPath();
-    QString   destPath    = installBase + "/" + appId;
-
-    QFileInfo destInfo(destPath);
-    QString   canonicalDest = destInfo.absoluteFilePath();
-    QFileInfo baseInfo(installBase);
-    QString   canonicalBase = baseInfo.canonicalFilePath();
-
-    if (!canonicalBase.isEmpty() && !canonicalDest.startsWith(canonicalBase + "/")) {
-        qWarning() << "[MarathonAppInstaller] SECURITY: Path escape attempt in package:"
-                   << "dest=" << canonicalDest << "base=" << canonicalBase;
-        emit installFailed(appId, "Security violation: installation path escape");
+    if (!place(doc.object(), tempExtractPath, m_verifier->signerKeyId(), true))
         return false;
-    }
-
-    if (QDir(destPath).exists()) {
-        if (!removeDirectory(destPath)) {
-            emit installFailed(appId, "Failed to remove existing installation");
-            return false;
-        }
-    }
-
-    emit installProgress(appId, 75);
-
-    if (!QDir().rename(tempExtractPath, destPath)) {
-
-        if (!copyDirectory(tempExtractPath, destPath)) {
-            emit installFailed(appId, "Failed to copy app files to installation directory");
-            return false;
-        }
-    }
-
-    emit installProgress(appId, 90);
-
-    m_scanner->scanApplications();
-
-    emit installProgress(appId, 100);
-    emit installComplete(appId);
 
     qDebug() << "[MarathonAppInstaller] Successfully installed:" << appName << "(" << appId << ")";
     return true;
 }
 
 bool MarathonAppInstaller::canUninstall(const QString &appId) {
-    return m_registry->hasApp(appId) && !m_registry->isProtected(appId);
+    const MarathonAppRegistry::AppInfo *info = m_registry->getAppInfo(appId);
+    return info && !info->isProtected && info->absolutePath == MarathonAppPaths::filesDir(appId);
 }
 
 bool MarathonAppInstaller::uninstallApp(const QString &appId) {
     qDebug() << "[MarathonAppInstaller] Uninstalling app:" << appId;
 
-    if (m_registry->isProtected(appId)) {
-        QString error = "Cannot uninstall protected system app";
+    if (!m_registry->hasApp(appId)) {
+        emit uninstallFailed(appId, "App not found");
+        return false;
+    }
+    if (!canUninstall(appId)) {
+        const QString error = "Cannot uninstall a protected or system app";
         qWarning() << "[MarathonAppInstaller]" << error << ":" << appId;
         emit uninstallFailed(appId, error);
         return false;
     }
 
-    if (!m_registry->hasApp(appId)) {
-        emit uninstallFailed(appId, "App not found");
-        return false;
-    }
-
-    QVariantMap appInfo = m_registry->getApp(appId);
-    QString     appPath = appInfo.value("absolutePath").toString();
-
-    if (appPath.isEmpty()) {
-        emit uninstallFailed(appId, "App path not found");
-        return false;
-    }
-
-    if (!removeDirectory(appPath)) {
+    if (!removeDirectory(MarathonAppPaths::installDir(appId))) {
         emit uninstallFailed(appId, "Failed to remove app files");
         return false;
     }
 
-    m_scanner->scanApplications();
-
+    m_registry->unregisterApp(appId);
     emit uninstallComplete(appId);
 
     qDebug() << "[MarathonAppInstaller] Successfully uninstalled:" << appId;

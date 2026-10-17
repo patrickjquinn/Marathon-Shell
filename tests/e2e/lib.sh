@@ -32,7 +32,7 @@ E2E_LAST_SHOT=
 
 e2e_log() { printf '[e2e] %s\n' "$*" >&2; }
 
-# Fresh profile: wipes HOME/runtime and links the apps in.
+# Fresh profile: wipes HOME and the runtime dir.
 e2e_reset_profile() {
     E2E_HOME=$E2E_OUT/home
     # Unix socket paths are capped at 108 bytes, so the runtime dir stays short.
@@ -40,9 +40,6 @@ e2e_reset_profile() {
     E2E_RT=$(mktemp -d /tmp/me2e-XXXXXX)
     rm -rf "$E2E_HOME"
     mkdir -p "$E2E_HOME/.config" "$E2E_HOME/.local/share" "$E2E_HOME/.cache"
-    if [ -n "$E2E_APPS_DIR" ]; then
-        ln -s "$E2E_APPS_DIR" "$E2E_HOME/.local/share/marathon-apps"
-    fi
 }
 
 e2e_start_x() {
@@ -124,7 +121,8 @@ e2e_snapshot_bins() {
 e2e_start_shell() {
     E2E_SHELL_LOG=$E2E_OUT/shell-$E2E_SESSION.log
     _e2e_stubs
-    _e2e_env MARATHON_FORCE_DPI=160 MARATHON_DISABLE_SANDBOX=1 MARATHON_TEST_TRUSTED=1 \
+    _e2e_env MARATHON_APPS_DIR="${E2E_APPS_DIR:-$E2E_OUT/no-apps}" \
+        MARATHON_FORCE_DPI=160 MARATHON_DISABLE_SANDBOX=1 MARATHON_TEST_TRUSTED=1 \
         MARATHON_WL_SOCKET_NAME=marathon-e2e-0 MARATHON_SCREENSHOT_PATH="$E2E_OUT/sigusr1.png" \
         MARATHON_RUNNER_POOL=0 MARATHON_DEBUG=1 MARATHON_FORCE_VKB=1 QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 \
         KEEL_THEME_ICON_DIRS="$E2E_BUILD/marathon-icon-theme/themes/z1.0/icons-monochrome" \

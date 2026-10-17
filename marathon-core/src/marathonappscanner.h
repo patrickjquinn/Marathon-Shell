@@ -32,7 +32,9 @@ class MarathonAppScanner : public QObject {
     void scanError(const QString &error);
 
   private:
-    QStringList                  getSearchPaths();
+    MarathonAppRegistry::AppInfo systemApp(const QString &appId);
+    MarathonAppRegistry::AppInfo userApp(const QString &appId);
+    bool                         registerFound(const MarathonAppRegistry::AppInfo &info);
     MarathonAppRegistry::AppInfo parseManifest(const QString &manifestPath,
                                                const QString &appDirPath);
     bool                         validateManifest(const MarathonAppRegistry::AppInfo &info);

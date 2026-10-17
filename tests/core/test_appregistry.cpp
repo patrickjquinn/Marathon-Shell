@@ -99,6 +99,23 @@ class TestAppRegistry : public QObject {
         QCOMPARE(registry.getApp("com.inv")["permissions"].toStringList(), QStringList({"camera"}));
     }
 
+    // === CONTRACT: an uninstalled or updated app can leave the registry ===
+
+    void unregisterRemovesTheApp() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(makeApp("com.a", "A"));
+        registry.registerAppInfo(makeApp("com.b", "B"));
+        QSignalSpy gone(&registry, &MarathonAppRegistry::appUnregistered);
+        registry.unregisterApp("com.a");
+        registry.unregisterApp("com.ghost");
+        QCOMPARE(gone.count(), 1);
+        QVERIFY(!registry.hasApp("com.a"));
+        QCOMPARE(registry.rowCount(), 1);
+        QCOMPARE(registry.getAppInfo("com.b")->name, QString("B"));
+        registry.registerAppInfo(makeApp("com.a", "A2"));
+        QCOMPARE(registry.getAppInfo("com.a")->name, QString("A2"));
+    }
+
     // === CONTRACT: getApp must return ALL fields, not a subset ===
 
     void getAppReturnsCompleteData() {
@@ -117,7 +134,8 @@ class TestAppRegistry : public QObject {
         registry.registerAppInfo(app);
 
         QVariantMap result = registry.getApp("com.full");
-        QCOMPARE(result.count(), 17);
+        QCOMPARE(result.count(), 18);
+        QCOMPARE(result["isSystem"].toBool(), false);
         QCOMPARE(result["toolkit"].toString(), QString("marathonui"));
         QCOMPARE(result["id"].toString(), QString("com.full"));
         QCOMPARE(result["permissions"].toStringList(), QStringList({"camera", "location"}));

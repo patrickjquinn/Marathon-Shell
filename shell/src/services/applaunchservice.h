@@ -136,6 +136,16 @@ class AppLaunchService : public QObject {
     QStringList spareSandboxArgs(const QString &waylandSocket) const;
     QString     openSandboxSocket(const QString &appId, const QString &instanceId) const;
     void        closeSandboxSocket(const QString &instanceId) const;
+
+  public:
+    // An app the user installed (not one of Marathon's own).
+    static bool        isUserInstalled(const QString &appId);
+    // bwrap arguments that show an app its installed code, read-only and
+    // apart from its writable data; a system app that lists other apps
+    // sees every install.
+    static QStringList installBinds(const QString &appId, const QStringList &permissions);
+
+  private:
     QProcess   *m_spareProcess   = nullptr;
     qint64      m_sparePid       = -1;
     bool        m_spareAdoptable = false;

@@ -8,10 +8,36 @@
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
     : QObject(parent) {}
 
+static std::vector<rust::String> rustStrings(const QStringList &list) {
+    std::vector<rust::String> out;
+    for (const QString &s : list) {
+        const QByteArray utf8 = s.toUtf8();
+        out.emplace_back(utf8.constData(), utf8.size());
+    }
+    return out;
+}
+
 QStringList MarathonAppVerifier::trustedKeyDirs() {
-    return {QStringLiteral("/usr/share/marathon/trusted-keys"),
+    return {QStringLiteral("/usr/share/marathon/trusted-keys"), systemKeyDir(),
             QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
                 QStringLiteral("/marathon/trusted-keys")};
+}
+
+QString MarathonAppVerifier::systemKeyDir() {
+    return qEnvironmentVariable("MARATHON_SYSTEM_KEYS_DIR",
+                                QStringLiteral("/usr/share/marathon/system-keys"));
+}
+
+bool MarathonAppVerifier::isSystemSigner(const QString &keyId) {
+    if (keyId.isEmpty())
+        return false;
+    const QByteArray                id      = keyId.toUtf8();
+    const std::vector<rust::String> keys    = rustStrings({systemKeyDir()});
+    const std::vector<rust::String> revoked = rustStrings(trustedKeyDirs());
+    return marathon::native::key_is_trusted(
+        rust::Str(id.constData(), id.size()),
+        rust::Slice<const rust::String>(keys.data(), keys.size()),
+        rust::Slice<const rust::String>(revoked.data(), revoked.size()));
 }
 
 bool MarathonAppVerifier::unsignedAllowed() {
@@ -23,12 +49,8 @@ MarathonAppVerifier::verifyPackage(const QString &packagePath) {
     emit verificationStarted();
     m_lastError.clear();
 
-    const QByteArray          archive = packagePath.toUtf8();
-    std::vector<rust::String> dirs;
-    for (const QString &dir : trustedKeyDirs()) {
-        const QByteArray utf8 = dir.toUtf8();
-        dirs.emplace_back(utf8.constData(), utf8.size());
-    }
+    const QByteArray                       archive = packagePath.toUtf8();
+    const std::vector<rust::String>        dirs    = rustStrings(trustedKeyDirs());
     const marathon::native::PackageVerdict verdict = marathon::native::verify_package_signature(
         rust::Str(archive.constData(), archive.size()),
         rust::Slice<const rust::String>(dirs.data(), dirs.size()));

@@ -76,6 +76,7 @@ QVariantMap MarathonAppRegistry::getApp(const QString &appId) const {
         result["entryPoint"]             = app->entryPoint;
         result["version"]                = app->version;
         result["isProtected"]            = app->isProtected;
+        result["isSystem"]               = app->isSystem;
         result["permissions"]            = app->permissions;
         result["searchKeywords"]         = app->searchKeywords;
         result["deepLinks"]              = app->deepLinksJson;
@@ -123,6 +124,18 @@ void MarathonAppRegistry::registerAppInfo(const AppInfo &info) {
 
     qDebug() << "[MarathonAppRegistry] Registered app:" << info.id << "| Name:" << info.name
              << "| Type:" << static_cast<int>(info.type) << "| Protected:" << info.isProtected;
+}
+
+void MarathonAppRegistry::unregisterApp(const QString &appId) {
+    const qsizetype row = m_apps.indexOf(m_appIndex.value(appId, nullptr));
+    if (row < 0)
+        return;
+    beginRemoveRows(QModelIndex(), static_cast<int>(row), static_cast<int>(row));
+    delete m_apps.takeAt(row);
+    m_appIndex.remove(appId);
+    endRemoveRows();
+    emit appUnregistered(appId);
+    emit countChanged();
 }
 
 bool MarathonAppRegistry::isProtected(const QString &appId) const {

@@ -58,6 +58,8 @@ mod ffi {
         fn verify_package_signature(archive: &str, trusted_key_dirs: &[String]) -> PackageVerdict;
         /// Writes `<archive>.minisig`. Empty on success, else why not.
         fn sign_package(archive: &str, secret_key: &str) -> String;
+        /// Whether a key in `key_dirs` has this id and no directory revokes it.
+        fn key_is_trusted(key_id: &str, key_dirs: &[String], revocation_dirs: &[String]) -> bool;
 
         /// The install screen's words for one manifest permission.
         fn describe_permission(id: &str) -> PermissionDisclosure;
@@ -114,6 +116,12 @@ fn sign_package(archive: &str, secret_key: &str) -> String {
     signature::sign(Path::new(archive), Path::new(secret_key))
         .err()
         .unwrap_or_default()
+}
+
+fn key_is_trusted(key_id: &str, key_dirs: &[String], revocation_dirs: &[String]) -> bool {
+    let key_dirs: Vec<&Path> = key_dirs.iter().map(Path::new).collect();
+    let revocation_dirs: Vec<&Path> = revocation_dirs.iter().map(Path::new).collect();
+    signature::is_trusted_key(key_id, &key_dirs, &revocation_dirs)
 }
 
 fn describe_permission(id: &str) -> ffi::PermissionDisclosure {

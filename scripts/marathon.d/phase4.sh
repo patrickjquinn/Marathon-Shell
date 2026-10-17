@@ -171,7 +171,7 @@ cmd_app_watch() {
 
 # ── app registry ───────────────────────────────────────────────────
 cmd_app_registry() {
-    marathon::ssh 'REG=/home/user/.local/share/marathon-apps
+    marathon::ssh 'REG=/home/user/.local/share/marathon/apps
 if [ ! -d "$REG" ]; then
     echo "  no apps installed at $REG"
     exit 0
@@ -180,10 +180,10 @@ printf "  %-16s %-10s %-8s %s\n" NAME VERSION SIGNED PATH
 for app in "$REG"/*/; do
     [ -d "$app" ] || continue
     id=$(basename "$app")
-    manifest="$app/manifest.json"
-    if [ -f "$manifest" ]; then
-        ver=$(python3 -c "import json; print(json.load(open('\''$manifest'\''))[\"version\"])" 2>/dev/null || echo "?")
-        signed=$([ -f "$app/.signature" ] && echo "yes" || echo "no")
+    receipt="$app/receipt.json"
+    if [ -f "$receipt" ]; then
+        ver=$(python3 -c "import json; print(json.load(open('\''$receipt'\''))[\"version\"])" 2>/dev/null || echo "?")
+        signed=$(python3 -c "import json; print(json.load(open('\''$receipt'\'')).get(\"signer\") or \"no\")" 2>/dev/null || echo "?")
         printf "  %-16s %-10s %-8s %s\n" "$id" "$ver" "$signed" "$app"
     fi
 done
@@ -200,7 +200,7 @@ done | head -20'
 cmd_app_permissions() {
     local app="${1:-}"
     [ -z "$app" ] && { marathon::error "usage: marathon app permissions <appId>"; return 2; }
-    marathon::ssh "for path in /home/user/.local/share/marathon-apps/$app/manifest.json \
+    marathon::ssh "for path in /home/user/.local/share/marathon/apps/$app/files/manifest.json \
                      /usr/share/marathon-apps/$app/manifest.json; do
     if [ -f \"\$path\" ]; then
         echo \"  manifest: \$path\"

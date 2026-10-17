@@ -1,4 +1,5 @@
 #include "applaunchservice.h"
+#include "marathonapppaths.h"
 
 #include "appmodel.h"
 #include "processtree.h"
@@ -976,11 +977,15 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MARATHON_PERM_SECRET_SERVICE", "1");
     }
 
+    const bool userInstalled = isUserInstalled(appId);
+
     // Warm pool: hand a pre-initialised runner this app instead of paying
     // exec + dynamic linking + Qt init on the critical path (~1s of the
     // ~2s tap-to-frame measured 2026-07-02). WebEngine and storage apps keep
-    // the cold path — their env and sandbox shape are per-app.
-    if (!usesWebEngine && !permissions.contains("storage") && m_spareAdoptable && m_spareProcess &&
+    // the cold path — their env and sandbox shape are per-app. The spare can
+    // write every app's data directory, so it only takes Marathon's own apps.
+    if (!userInstalled && !usesWebEngine && !permissions.contains("storage") && m_spareAdoptable &&
+        m_spareProcess &&
         m_spareProcess->state() == QProcess::Running) {
         PendingLaunch pooled;
         pooled.appId   = appId;
@@ -1006,6 +1011,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     // Policy summary (per app):
     //   - read-only bind  : /usr, /etc, /lib, /lib64 (binaries + Qt + system config)
     //   - read-only bind  : ~/.config/marathon-apps/<appId> (per-app config seed)
+    //   - read-only bind  : XDG_DATA_HOME/marathon/apps/<appId> (a user install)
     //   - read-write bind : XDG_DATA_HOME/marathon-apps/<appId>            (data)
     //   - read-write bind : XDG_CACHE_HOME/marathon-apps/<appId>           (cache)
     //   - pass through    : XDG_RUNTIME_DIR (Wayland + user D-Bus sockets)
@@ -1150,6 +1156,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << xdgConfigHome + QStringLiteral("/dconf")
                   << xdgConfigHome + QStringLiteral("/dconf");
         bwrapArgs << waylandSocketArgs(waylandSocket, xdgRuntimeDir);
+
+        bwrapArgs << installBinds(appId, permissions);
 
         if (permissions.contains("storage")) {
             for (const auto loc :
@@ -1340,6 +1348,23 @@ void AppLaunchService::closeSandboxSocket(const QString &instanceId) const {
                                   Q_ARG(QString, instanceId));
 }
 
+bool AppLaunchService::isUserInstalled(const QString &appId) {
+    return !QFile::exists(MarathonAppPaths::systemApps() + "/" + appId + "/manifest.json") &&
+        QFile::exists(MarathonAppPaths::receiptPath(appId));
+}
+
+QStringList AppLaunchService::installBinds(const QString &appId, const QStringList &permissions) {
+    if (isUserInstalled(appId)) {
+        const QString install = MarathonAppPaths::installDir(appId);
+        return {QStringLiteral("--ro-bind"), install, install};
+    }
+    if (permissions.contains(QStringLiteral("system"))) {
+        const QString installs = MarathonAppPaths::userInstalls();
+        return {QStringLiteral("--ro-bind-try"), installs, installs};
+    }
+    return {};
+}
+
 QString AppLaunchService::runnerExecutablePath() const {
     const QDir shellBinDir(QCoreApplication::applicationDirPath());
     QString    candidate = shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
@@ -1404,7 +1429,8 @@ QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) con
          << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
          << configDir << configDir << QStringLiteral("--bind") << dataDir << dataDir
          << QStringLiteral("--bind") << cacheDir << cacheDir << QStringLiteral("--bind")
-         << xdgRuntimeDir << xdgRuntimeDir
+         << xdgRuntimeDir << xdgRuntimeDir << QStringLiteral("--ro-bind-try")
+         << MarathonAppPaths::userInstalls() << MarathonAppPaths::userInstalls()
          // Nemo.Configuration reads dconf's database file; writes go to the
          // dconf service over D-Bus.
          << QStringLiteral("--ro-bind-try") << xdgConfigHome + QStringLiteral("/dconf")

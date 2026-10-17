@@ -7,6 +7,7 @@
 #include <QStandardPaths>
 #include "marathonappinstaller.h"
 #include "marathonapppackager.h"
+#include "marathonapppaths.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "marathonappverifier.h"
@@ -44,7 +45,7 @@ class TestInstallerSecurity : public QObject {
 
     // A .marathon package of a minimal app, signed with `key` unless null.
     QString makePackage(const QString &name, const QString &id, const TestKeys::Pair *key = nullptr,
-                        const QStringList &permissions = {}) {
+                        const QStringList &permissions = {}, const QJsonObject &extra = {}) {
         QTemporaryDir src;
         QJsonObject   m;
         m["id"]          = id;
@@ -53,6 +54,8 @@ class TestInstallerSecurity : public QObject {
         m["entryPoint"]  = "Main.qml";
         m["icon"]        = "icon.svg";
         m["permissions"] = QJsonArray::fromStringList(permissions);
+        for (auto it = extra.begin(); it != extra.end(); ++it)
+            m[it.key()] = it.value();
         writeFile(src.path() + "/manifest.json", QJsonDocument(m).toJson());
         writeFile(src.path() + "/Main.qml", "Item{}");
         QString             path = m_home.path() + "/" + name + ".marathon";
@@ -69,17 +72,127 @@ class TestInstallerSecurity : public QObject {
     }
 
     QString installDir(const QString &id) {
-        return QDir::homePath() + "/.local/share/marathon-apps/" + id;
+        return MarathonAppPaths::filesDir(id);
+    }
+
+    QJsonObject receipt(const QString &id) {
+        QFile f(MarathonAppPaths::receiptPath(id));
+        return f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object()
+                                           : QJsonObject();
+    }
+
+    // What a fresh shell sees after a reboot.
+    MarathonAppRegistry::AppInfo rescanned(const QString &id, MarathonAppRegistry &registry) {
+        MarathonAppScanner scanner(&registry);
+        scanner.scanApplications();
+        MarathonAppRegistry::AppInfo *info = registry.getAppInfo(id);
+        return info ? *info : MarathonAppRegistry::AppInfo();
     }
 
   private slots:
     void initTestCase() {
         QVERIFY(m_home.isValid());
         qputenv("HOME", m_home.path().toUtf8());
+        qunsetenv("XDG_DATA_HOME");
+        qunsetenv("XDG_CONFIG_HOME");
+        qunsetenv("XDG_CACHE_HOME");
+        qputenv("MARATHON_APPS_DIR", (m_home.path() + "/system-apps").toUtf8());
+        qputenv("MARATHON_SYSTEM_KEYS_DIR", (m_home.path() + "/system-keys").toUtf8());
         QStandardPaths::setTestModeEnabled(true);
         const QString keys = MarathonAppVerifier::trustedKeyDirs().last();
         QVERIFY(QDir().mkpath(keys));
         QVERIFY(writeFile(keys + "/alice.pub", TestKeys::alice.pub));
+        QVERIFY(writeFile(MarathonAppVerifier::systemKeyDir() + "/bob.pub", TestKeys::bob.pub));
+    }
+
+    // === SECURITY CONTRACT: the installed app cannot change what it was granted ===
+
+    void install_keepsCodeOutOfTheAppsDataDirectory() {
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        const QString        id = "com.layout.app";
+        QVERIFY(installer.installFromPackage(
+            makePackage("layout", id, &TestKeys::alice, {"network", "camera"})));
+
+        QVERIFY(QFile::exists(MarathonAppPaths::filesDir(id) + "/manifest.json"));
+        QVERIFY(!QFile::exists(MarathonAppPaths::dataDir(id) + "/manifest.json"));
+        QVERIFY(!MarathonAppPaths::installDir(id).startsWith(MarathonAppPaths::dataDir(id)));
+        QCOMPARE(receipt(id).value("signer").toString(), QString(TestKeys::alice.id));
+        QCOMPARE(receipt(id).value("permissions").toVariant().toStringList(),
+                 QStringList({"network", "camera"}));
+        QCOMPARE(registry.getAppInfo(id)->absolutePath, MarathonAppPaths::filesDir(id));
+    }
+
+    // The sandboxed app can write its data directory. Writing a manifest
+    // there, or (with no sandbox) over its installed one, gains nothing.
+    void install_editedManifestGainsNothing() {
+        {
+            MarathonAppRegistry  registry;
+            MarathonAppScanner   scanner(&registry);
+            MarathonAppInstaller installer(&registry, &scanner);
+            QVERIFY(installer.installFromPackage(
+                makePackage("crafted", "com.crafted.app", &TestKeys::alice, {"network"})));
+        }
+        const QJsonObject escalated{{"id", "com.crafted.app"},
+                                    {"name", "Crafted"},
+                                    {"entryPoint", "Main.qml"},
+                                    {"protected", true},
+                                    {"permissions", QJsonArray({"network", "system", "contacts"})}};
+        const QByteArray  json = QJsonDocument(escalated).toJson();
+        QVERIFY(writeFile(MarathonAppPaths::dataDir("com.crafted.app") + "/manifest.json", json));
+        QVERIFY(writeFile(MarathonAppPaths::filesDir("com.crafted.app") + "/manifest.json", json));
+
+        MarathonAppRegistry                registry;
+        const MarathonAppRegistry::AppInfo info = rescanned("com.crafted.app", registry);
+        QCOMPARE(info.permissions, QStringList({"network"}));
+        QVERIFY(!info.isProtected);
+        QVERIFY(!info.isSystem);
+    }
+
+    void install_protectedNeedsTheSystemKey() {
+        const QJsonObject claim{{"protected", true}};
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QVERIFY(installer.installFromPackage(
+            makePackage("devsigned", "com.devsigned.app", &TestKeys::alice, {"system"}, claim)));
+        QVERIFY(installer.installFromPackage(
+            makePackage("ossigned", "com.ossigned.app", &TestKeys::bob, {"system"}, claim)));
+        QVERIFY(!registry.getAppInfo("com.devsigned.app")->isProtected);
+        QVERIFY(registry.getAppInfo("com.ossigned.app")->isSystem);
+        QVERIFY(registry.getAppInfo("com.ossigned.app")->isProtected);
+    }
+
+    void install_systemPathAppsAreSystem() {
+        const QString dir = MarathonAppPaths::systemApps() + "/sysapp";
+        QJsonObject   m{{"id", "sysapp"},
+                        {"name", "Sys"},
+                        {"entryPoint", "Main.qml"},
+                        {"protected", true},
+                        {"permissions", QJsonArray({"system"})}};
+        QVERIFY(writeFile(dir + "/manifest.json", QJsonDocument(m).toJson()));
+        MarathonAppRegistry                registry;
+        const MarathonAppRegistry::AppInfo info = rescanned("sysapp", registry);
+        QVERIFY(info.isSystem);
+        QVERIFY(info.isProtected);
+        QCOMPARE(info.permissions, QStringList({"system"}));
+
+        // A user install cannot take a system app's id.
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QVERIFY(!installer.installFromPackage(makePackage("shadow", "sysapp", &TestKeys::alice)));
+        QCOMPARE(failSpy.count(), 1);
+        QVERIFY(!QDir(MarathonAppPaths::installDir("sysapp")).exists());
+        QVERIFY(QDir(dir).removeRecursively());
+    }
+
+    void install_needsAReceipt() {
+        QVERIFY(writeFile(MarathonAppPaths::filesDir("com.copied.app") + "/manifest.json",
+                          manifest("com.copied.app")));
+        MarathonAppRegistry registry;
+        QVERIFY(rescanned("com.copied.app", registry).id.isEmpty());
     }
 
     // Most cases below install from a directory, which is unsigned, so they
@@ -217,6 +330,7 @@ class TestInstallerSecurity : public QObject {
         QVERIFY(installed.open(QIODevice::ReadOnly));
         QVERIFY(installed.readAll().contains("camera"));
         installed.close();
+        QCOMPARE(registry.getAppInfo(id)->permissions, QStringList({"network", "camera", "contacts"}));
 
         // Dropping permissions needs no consent.
         QVERIFY(
@@ -395,14 +509,20 @@ class TestInstallerSecurity : public QObject {
         userApp.name         = "User";
         userApp.icon         = "i";
         userApp.type         = MarathonAppRegistry::Marathon;
-        userApp.absolutePath = "/b";
+        userApp.absolutePath = MarathonAppPaths::filesDir("com.user");
         userApp.entryPoint   = "M.qml";
         userApp.version      = "1";
         userApp.isProtected  = false;
         registry.registerAppInfo(userApp);
 
+        MarathonAppRegistry::AppInfo bundled = userApp;
+        bundled.id                           = "bundled";
+        bundled.absolutePath                 = MarathonAppPaths::systemApps() + "/bundled";
+        registry.registerAppInfo(bundled);
+
         QVERIFY(!installer.canUninstall("com.sys"));
         QVERIFY(installer.canUninstall("com.user"));
+        QVERIFY(!installer.canUninstall("bundled"));
     }
 
     // === CONTRACT: canUninstall returns false for nonexistent apps ===

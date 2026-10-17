@@ -98,8 +98,9 @@ add_executable(test_core_appscanner
     test_appscanner.cpp
     ../../marathon-core/src/marathonappscanner.cpp
     ../../marathon-core/src/marathonappregistry.cpp
+    ../../marathon-core/src/marathonappverifier.cpp
 )
-target_link_libraries(test_core_appscanner Qt6::Test Qt6::Core)
+target_link_libraries(test_core_appscanner Qt6::Test Qt6::Core marathon_core_native)
 target_include_directories(test_core_appscanner PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
@@ -142,8 +143,9 @@ add_executable(test_core_apptoolkit
     test_apptoolkit.cpp
     ../../marathon-core/src/marathonappscanner.cpp
     ../../marathon-core/src/marathonappregistry.cpp
+    ../../marathon-core/src/marathonappverifier.cpp
 )
-target_link_libraries(test_core_apptoolkit Qt6::Test Qt6::Core)
+target_link_libraries(test_core_apptoolkit Qt6::Test Qt6::Core marathon_core_native)
 target_include_directories(test_core_apptoolkit PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )

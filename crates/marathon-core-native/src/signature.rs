@@ -105,6 +105,21 @@ impl TrustStore {
     }
 }
 
+/// Whether `id` names a key in `key_dirs` that no directory in `key_dirs` or
+/// `revocation_dirs` revokes. A directory that does not load trusts nothing.
+pub fn is_trusted_key(id: &str, key_dirs: &[&Path], revocation_dirs: &[&Path]) -> bool {
+    let (Ok(keys), Ok(revocations)) = (
+        TrustStore::load(key_dirs),
+        TrustStore::load(revocation_dirs),
+    ) else {
+        return false;
+    };
+    let id = id.to_ascii_uppercase();
+    keys.key_ids().any(|k| k == id)
+        && !keys.revoked.contains(&id)
+        && !revocations.revoked.contains(&id)
+}
+
 /// Checks `<archive>.minisig` over the bytes of `archive`. Only prehashed
 /// signatures (minisign's default; `minisign -S -l` makes the legacy kind) are accepted.
 pub fn verify(archive: &Path, store: &TrustStore) -> Verdict {
@@ -276,6 +291,23 @@ mod tests {
         )
         .unwrap();
         assert_eq!(f.verify(), Verdict::RevokedKey(bob));
+    }
+
+    #[test]
+    fn a_key_is_trusted_only_from_its_own_directories() {
+        let f = Fixture::new();
+        let (system, user) = (f.path("system"), f.path("user"));
+        let os = f.key("os", Some("system"));
+        let dev = f.key("dev", Some("user"));
+        assert!(is_trusted_key(&os, &[&system], &[&user]));
+        assert!(is_trusted_key(&os.to_ascii_lowercase(), &[&system], &[]));
+        assert!(!is_trusted_key(&dev, &[&system], &[&user]));
+        assert!(!is_trusted_key("", &[&system], &[&user]));
+        fs::write(user.join(REVOKED_FILE), format!("{os}\n")).unwrap();
+        assert!(!is_trusted_key(&os, &[&system], &[&user]));
+        fs::write(user.join(REVOKED_FILE), "").unwrap();
+        fs::write(system.join("broken.pub"), "garbage").unwrap();
+        assert!(!is_trusted_key(&os, &[&system], &[&user]));
     }
 
     #[test]

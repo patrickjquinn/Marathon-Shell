@@ -44,7 +44,12 @@ class MarathonAppRegistry : public QAbstractListModel {
         QString     absolutePath;
         QString     entryPoint;
         QString     version;
+        // Protected: a system app holding its permissions without asking.
         bool        isProtected = false;
+        // Installed by the OS, or signed with a system key.
+        bool isSystem = false;
+        // The installed manifest's, for a system app; what the user approved
+        // at install, for any other.
         QStringList permissions;
         QStringList searchKeywords;
         QString     deepLinksJson;
@@ -92,6 +97,8 @@ class MarathonAppRegistry : public QAbstractListModel {
     Q_INVOKABLE QStringList getBackgroundCapabilities(const QString &appId) const;
 
     void                    registerAppInfo(const AppInfo &info);
+    // Invalidates the app's AppInfo pointer.
+    void                    unregisterApp(const QString &appId);
     AppInfo                *getAppInfo(const QString &appId);
 
   signals:

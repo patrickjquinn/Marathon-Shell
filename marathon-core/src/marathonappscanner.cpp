@@ -1,14 +1,15 @@
 #include "marathonappscanner.h"
+#include "marathonapppaths.h"
+#include "marathonappverifier.h"
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QStandardPaths>
 #include <QDebug>
+#include <utility> // std::as_const
 #ifdef HAVE_QT_CONCURRENT
 #include <QtConcurrent>
-#include <utility>   // std::as_const
 #endif
 
 MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *parent)
@@ -32,16 +33,43 @@ MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *p
 #endif
 }
 
-QStringList MarathonAppScanner::getSearchPaths() {
-    QStringList paths;
+MarathonAppRegistry::AppInfo MarathonAppScanner::systemApp(const QString &appId) {
+    const QString                dir  = MarathonAppPaths::systemApps() + QLatin1Char('/') + appId;
+    MarathonAppRegistry::AppInfo info = parseManifest(getManifestPath(dir), dir);
+    info.isSystem                     = true;
+    return info;
+}
 
-    paths << "/usr/share/marathon-apps";
+// A user install counts only with the installer's receipt, whose
+// permissions are the ones the user approved; the manifest beside the
+// code is not trusted for them.
+MarathonAppRegistry::AppInfo MarathonAppScanner::userApp(const QString &appId) {
+    QFile             file(MarathonAppPaths::receiptPath(appId));
+    const QJsonObject receipt = file.open(QIODevice::ReadOnly) ?
+        QJsonDocument::fromJson(file.readAll()).object() :
+        QJsonObject();
+    if (receipt.value("id").toString() != appId) {
+        qWarning() << "[MarathonAppScanner] No install receipt for" << appId;
+        return {};
+    }
+    const QString                dir  = MarathonAppPaths::filesDir(appId);
+    MarathonAppRegistry::AppInfo info = parseManifest(getManifestPath(dir), dir);
+    if (info.id != appId)
+        return {};
+    info.permissions.clear();
+    for (const auto &value : receipt.value("permissions").toArray())
+        info.permissions.append(value.toString());
+    info.isSystem    = MarathonAppVerifier::isSystemSigner(receipt.value("signer").toString());
+    info.isProtected = info.isProtected && info.isSystem;
+    return info;
+}
 
-    QString homeDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-    paths << homeDir + "/.local/share/marathon-apps";
-
-    qDebug() << "[MarathonAppScanner] Search paths:" << paths;
-    return paths;
+bool MarathonAppScanner::registerFound(const MarathonAppRegistry::AppInfo &info) {
+    if (!validateManifest(info) || m_registry->hasApp(info.id))
+        return false;
+    m_registry->registerAppInfo(info);
+    emit appDiscovered(info.id);
+    return true;
 }
 
 void MarathonAppScanner::scanApplications() {
@@ -55,23 +83,13 @@ bool MarathonAppScanner::scanSingleApp(const QString &appId) {
     if (appId.isEmpty() || !m_registry)
         return false;
 
-    const auto searchPaths = getSearchPaths();
-    for (const QString &searchPath : searchPaths) {
-        const QString appDir       = searchPath + QStringLiteral("/") + appId;
-        const QString manifestPath = getManifestPath(appDir);
-        if (manifestPath.isEmpty())
-            continue;
-
-        MarathonAppRegistry::AppInfo info = parseManifest(manifestPath, appDir);
-        if (!validateManifest(info))
-            continue;
-        if (info.id != appId)
-            continue;
-
-        m_registry->registerAppInfo(info);
-        return true;
-    }
-    return false;
+    const bool system =
+        QFile::exists(getManifestPath(MarathonAppPaths::systemApps() + QLatin1Char('/') + appId));
+    const MarathonAppRegistry::AppInfo info = system ? systemApp(appId) : userApp(appId);
+    if (!validateManifest(info) || info.id != appId)
+        return false;
+    m_registry->registerAppInfo(info);
+    return true;
 }
 
 void MarathonAppScanner::scanApplicationsAsync() {
@@ -96,49 +114,21 @@ void MarathonAppScanner::scanApplicationsAsync() {
 }
 
 int MarathonAppScanner::performScan() {
-    qDebug() << "[MarathonAppScanner] Performing app scan...";
-
     int         discoveredCount = 0;
-    QStringList searchPaths     = getSearchPaths();
 
-    for (const QString &searchPath : std::as_const(searchPaths)) {
-        QDir dir(searchPath);
-
-        if (!dir.exists()) {
-            qDebug() << "[MarathonAppScanner] Directory does not exist:" << searchPath;
-            continue;
-        }
-
-        qDebug() << "[MarathonAppScanner] Scanning directory:" << searchPath;
-
-        QStringList appDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        appDirs.sort();
-
-        for (const QString &appDir : std::as_const(appDirs)) {
-            QString appPath      = dir.absoluteFilePath(appDir);
-            QString manifestPath = appPath + "/manifest.json";
-
-            if (!QFile::exists(manifestPath)) {
-                qDebug() << "[MarathonAppScanner] No manifest found in:" << appDir;
-                continue;
-            }
-
-            qDebug() << "[MarathonAppScanner] Found manifest:" << manifestPath;
-
-            MarathonAppRegistry::AppInfo appInfo = parseManifest(manifestPath, appPath);
-
-            if (validateManifest(appInfo)) {
-
-                if (!m_registry->hasApp(appInfo.id)) {
-                    m_registry->registerAppInfo(appInfo);
-                    emit appDiscovered(appInfo.id);
-                    discoveredCount++;
-                } else {
-                    qDebug() << "[MarathonAppScanner] App already registered:" << appInfo.id;
-                }
-            }
-        }
+    QStringList system =
+        QDir(MarathonAppPaths::systemApps()).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    system.sort();
+    for (const QString &appId : std::as_const(system)) {
+        if (QFile::exists(getManifestPath(MarathonAppPaths::systemApps() + '/' + appId)))
+            discoveredCount += registerFound(systemApp(appId)) ? 1 : 0;
     }
+
+    QStringList installed =
+        QDir(MarathonAppPaths::userInstalls()).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    installed.sort();
+    for (const QString &appId : std::as_const(installed))
+        discoveredCount += registerFound(userApp(appId)) ? 1 : 0;
 
     qDebug() << "[MarathonAppScanner] Scan complete. Discovered:" << discoveredCount << "apps";
     return discoveredCount;

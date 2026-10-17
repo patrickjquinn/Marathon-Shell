@@ -42,8 +42,9 @@ class MarathonAppInstaller : public QObject {
     void uninstallFailed(const QString &appId, const QString &error);
 
   private:
-    QString              getTargetInstallPath();
     bool                 validateManifest(const QString &manifestPath);
+    bool place(const QJsonObject &manifest, const QString &source, const QString &signer,
+               bool move);
     bool                 planInstall(const QJsonObject &manifest, const QString &signer,
                                      const QStringList &approved);
     bool                 copyDirectory(const QString &source, const QString &destination);

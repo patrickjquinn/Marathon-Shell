@@ -1072,7 +1072,7 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("MARATHON_APP_ROUTE_PARAMS", launchRouteParams);
 
     // App's install root on disk — e.g. /usr/share/marathon-apps/maps/
-    // or ~/.local/share/marathon-apps/maps/. Maps uses this to build a
+    // or ~/.local/share/marathon/apps/<id>/files/. Maps uses this to build a
     // file:// URL for its tile_providers manifest because QtLocation's
     // OSM plugin reads providersrepository.address via QNAM and qrc://
     // URLs sometimes don't survive that round trip.

@@ -25,6 +25,7 @@ kill_shell() {
 launch() {
     kill_shell
     MARATHON_DISABLE_SANDBOX=1 \
+    MARATHON_APPS_DIR="${MARATHON_APPS_DIR:-$HOME/.local/share/marathon-apps}" \
     QT_QPA_PLATFORM=xcb \
     QT_AUTO_SCREEN_SCALE_FACTOR=0 \
     QT_ENABLE_HIGHDPI_SCALING=0 \

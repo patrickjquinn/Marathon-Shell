@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "applaunchservice.h"
+#include "marathonapppaths.h"
 #include "applifecyclemanager.h"
 #include "taskmodel.h"
 
@@ -92,6 +93,39 @@ class TestBackgroundLaunch : public QObject {
         QVERIFY(launcher->startAppInBackground(app("pilot")));
         QVERIFY(comp->spawned.isEmpty());
         QVERIFY(!launcher->isBackgroundLaunch("pilot"));
+    }
+
+    // A user-installed app sees its code read-only, never through the
+    // writable data directory; a system app that lists apps sees them all.
+    void installedCodeIsBoundReadOnly() {
+        QTemporaryDir   home;
+        const QByteArray oldHome = qgetenv("HOME");
+        qputenv("HOME", home.path().toUtf8());
+        qunsetenv("XDG_DATA_HOME");
+        qputenv("MARATHON_APPS_DIR", (home.path() + "/system").toUtf8());
+        QVERIFY(QDir().mkpath(MarathonAppPaths::installDir("com.example.app")));
+        QFile receipt(MarathonAppPaths::receiptPath("com.example.app"));
+        QVERIFY(receipt.open(QIODevice::WriteOnly));
+        receipt.close();
+        QVERIFY(QDir().mkpath(home.path() + "/system/settings"));
+        QFile manifest(home.path() + "/system/settings/manifest.json");
+        QVERIFY(manifest.open(QIODevice::WriteOnly));
+        manifest.close();
+
+        const QString install = MarathonAppPaths::installDir("com.example.app");
+        QVERIFY(AppLaunchService::isUserInstalled("com.example.app"));
+        QCOMPARE(AppLaunchService::installBinds("com.example.app", {"system"}),
+                 QStringList({"--ro-bind", install, install}));
+        QVERIFY(!install.startsWith(MarathonAppPaths::dataDir("com.example.app")));
+
+        const QString all = MarathonAppPaths::userInstalls();
+        QVERIFY(!AppLaunchService::isUserInstalled("settings"));
+        QCOMPARE(AppLaunchService::installBinds("settings", {"system"}),
+                 QStringList({"--ro-bind-try", all, all}));
+        QVERIFY(AppLaunchService::installBinds("calculator", {}).isEmpty());
+
+        qputenv("HOME", oldHome);
+        qunsetenv("MARATHON_APPS_DIR");
     }
 };
 

@@ -87,7 +87,7 @@
       "$ref": "#/$defs/semver"
     },
     "protected": {
-      "description": "A system app: cannot be uninstalled and holds its permissions without a prompt. Only for Marathon's own apps.",
+      "description": "A system app: cannot be uninstalled and holds its permissions without a prompt. Honoured only for an app the OS installed or signed with a system key; ignored for any other.",
       "type": "boolean",
       "default": false
     },

@@ -52,6 +52,7 @@ launch_shell() {
   # to exist — only true on installed systems). Validation runs unsandboxed.
   MARATHON_FORCE_DPI=160 \
   MARATHON_DISABLE_SANDBOX=1 \
+  MARATHON_APPS_DIR="${MARATHON_APPS_DIR:-$HOME/.local/share/marathon-apps}" \
   MARATHON_SHELL_QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml" \
   QT_QPA_PLATFORM=xcb \
   QT_AUTO_SCREEN_SCALE_FACTOR=0 \

@@ -76,8 +76,17 @@ Marathon trusts the minisign public keys (`*.pub`) in:
 
 | Directory | Who puts keys there |
 |---|---|
-| `/usr/share/marathon/trusted-keys/` | The OS packages: Marathon's own release keys |
+| `/usr/share/marathon/trusted-keys/` | The OS packages: keys whose packages may be installed |
+| `/usr/share/marathon/system-keys/` | The OS packages: the keys Marathon's own apps are signed with |
 | `~/.config/marathon/trusted-keys/` | The user: a developer trusting their own key |
+
+A package signed with a system key is a system app: it may be `protected`
+(installed with its permissions granted and never uninstalled) and may hold
+restricted permissions. Any other package is a third-party app however its
+manifest describes itself, as only platform-signed apps get Android's
+signature permissions. The key id is kept in the install's receipt, and the
+key is looked up again at every scan, so removing or revoking it demotes the
+app.
 
 To trust your own key on a development device:
 
