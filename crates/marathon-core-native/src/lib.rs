@@ -1,6 +1,7 @@
 //! Rust half of libMarathonCore, called from marathon-core/src through cxx.
 
 pub mod archive;
+pub mod manifest;
 pub mod permissions;
 pub mod signature;
 

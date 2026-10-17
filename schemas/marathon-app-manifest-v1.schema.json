@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.marathonos.org/schemas/marathon-app-manifest-v1.schema.json",
+  "title": "Marathon app manifest, version 1",
+  "description": "manifest.json at the root of a Marathon app. `marathon-dev lint` checks it against this schema, then the rules in docs/APP_MANIFEST_SCHEMA.md that a schema cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "version",
+    "entryPoint",
+    "icon",
+    "author",
+    "testedOn",
+    "dataLifecycle"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "manifestVersion": {
+      "description": "The manifest format this file follows.",
+      "const": 1
+    },
+    "id": {
+      "description": "The app id: the install directory, the Wayland app_id, the permission store key and the org.marathonos.<id> D-Bus name. Reverse-DNS for third-party apps; a single word is reserved for Marathon's own apps.",
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)*$"
+    },
+    "name": {
+      "description": "Display name in the app grid and search.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "version": {
+      "description": "The app's semantic version.",
+      "$ref": "#/$defs/semver"
+    },
+    "entryPoint": {
+      "description": "The main QML file, relative to the manifest.",
+      "allOf": [
+        { "$ref": "#/$defs/relativePath" },
+        { "pattern": "\\.qml$" }
+      ]
+    },
+    "icon": {
+      "description": "The app icon, relative to the manifest.",
+      "allOf": [
+        { "$ref": "#/$defs/relativePath" },
+        { "pattern": "\\.(svg|png)$" }
+      ]
+    },
+    "author": {
+      "description": "Developer or organisation.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "description": {
+      "description": "One or two sentences about the app.",
+      "type": "string",
+      "maxLength": 500
+    },
+    "permissions": {
+      "description": "Capabilities the app needs. Names and wording: schemas/marathon-permissions-v1.json.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/permission" }
+    },
+    "permissionReasons": {
+      "description": "Why the app needs each sensitive permission, in words shown to the user.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/permission" },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      }
+    },
+    "minShellVersion": {
+      "description": "Oldest Marathon shell the app runs on.",
+      "$ref": "#/$defs/semver"
+    },
+    "protected": {
+      "description": "A system app: cannot be uninstalled and holds its permissions without a prompt. Only for Marathon's own apps.",
+      "type": "boolean",
+      "default": false
+    },
+    "toolkit": {
+      "description": "The QML toolkit the runner hosts the app with.",
+      "enum": ["keel", "marathonui"],
+      "default": "keel"
+    },
+    "categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["Communication", "Productivity", "Entertainment", "Utility", "System"]
+      }
+    },
+    "handlesUriSchemes": {
+      "description": "URI schemes the app opens.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*$",
+        "maxLength": 32
+      }
+    },
+    "defaultFor": {
+      "description": "Default-app roles the app can fill.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["browser", "dialer", "messaging", "email", "camera", "gallery", "music", "video", "files"]
+      }
+    },
+    "searchKeywords": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/keyword" }
+    },
+    "deepLinks": {
+      "description": "Pages search can open, by route.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9-]*$",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "description"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "keywords": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 20,
+            "items": { "$ref": "#/$defs/keyword" }
+          }
+        }
+      }
+    },
+    "backgroundCapabilities": {
+      "description": "Categories the app may hold AppLifecycle1.BeginBackgroundTask for.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "active-call",
+          "active-navigation",
+          "audio-playback",
+          "countdown-timer",
+          "download",
+          "location-tracking",
+          "periodic-sync",
+          "recording"
+        ]
+      }
+    },
+    "requiresQtModules": {
+      "description": "Qt modules the runner loads before the app starts.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["webengine"] }
+    },
+    "chromiumFlags": {
+      "description": "Space-separated Chromium switches for a WebEngine app, over the device default.",
+      "type": "string",
+      "maxLength": 1024,
+      "pattern": "^--[a-z0-9-]+(=[^\\s]+)?( --[a-z0-9-]+(=[^\\s]+)?)*$"
+    },
+    "testedOn": {
+      "description": "The window widths and input modes the app's tests run it at.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["widths", "inputModes"],
+      "properties": {
+        "widths": {
+          "description": "Window widths in pixels, each laid out by a test under tests/.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 240, "maximum": 3840 }
+        },
+        "inputModes": {
+          "description": "touch, and keyboard when a test under tests/ sends key events.",
+          "type": "array",
+          "uniqueItems": true,
+          "contains": { "const": "touch" },
+          "items": { "enum": ["touch", "keyboard", "pointer"] }
+        }
+      }
+    },
+    "dataLifecycle": {
+      "description": "What happens to the app's data when it is uninstalled.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appData", "cache"],
+      "properties": {
+        "appData": {
+          "description": "$XDG_DATA_HOME and $XDG_CONFIG_HOME /marathon-apps/<id>.",
+          "enum": ["remove", "keep"]
+        },
+        "cache": {
+          "description": "$XDG_CACHE_HOME/marathon-apps/<id>: always removed.",
+          "const": "remove"
+        },
+        "secrets": {
+          "description": "The app's Secret Service items. Declared exactly when the app requests secret-service.",
+          "enum": ["remove", "keep"]
+        },
+        "userFiles": {
+          "description": "Files the app writes to Pictures, Music, Videos, Documents, Downloads or DCIM: never deleted with the app. Only with the storage permission.",
+          "const": "preserve"
+        }
+      }
+    }
+  },
+  "dependentSchemas": {
+    "chromiumFlags": {
+      "required": ["requiresQtModules"],
+      "properties": {
+        "requiresQtModules": { "contains": { "const": "webengine" } }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["permissions"],
+        "properties": { "permissions": { "contains": { "const": "secret-service" } } }
+      },
+      "then": { "properties": { "dataLifecycle": { "required": ["secrets"] } } },
+      "else": { "properties": { "dataLifecycle": { "not": { "required": ["secrets"] } } } }
+    },
+    {
+      "if": {
+        "not": {
+          "required": ["permissions"],
+          "properties": { "permissions": { "contains": { "const": "storage" } } }
+        }
+      },
+      "then": { "properties": { "dataLifecycle": { "not": { "required": ["userFiles"] } } } }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "relativePath": {
+      "description": "A path inside the app directory: no leading slash, no . or .. segments.",
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^([A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+    },
+    "keyword": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "permission": {
+      "enum": [
+        "network",
+        "location",
+        "camera",
+        "microphone",
+        "contacts",
+        "calendar",
+        "storage",
+        "notifications",
+        "alarms",
+        "telephony",
+        "sms",
+        "bluetooth",
+        "secret-service",
+        "system",
+        "terminal"
+      ]
+    }
+  }
+}

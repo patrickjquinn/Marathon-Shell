@@ -1,0 +1,81 @@
+{
+  "$comment": "The app permission vocabulary: the names a manifest may request, the wording shown to the user, and the lint policy. sensitive: the manifest must give a reason in permissionReasons. restricted: only Marathon's own apps may request it.",
+  "version": 1,
+  "permissions": {
+    "network": {
+      "description": "Access the internet and make network connections",
+      "sensitive": false,
+      "restricted": false
+    },
+    "location": {
+      "description": "Access your device's location",
+      "sensitive": true,
+      "restricted": false
+    },
+    "camera": {
+      "description": "Access the camera to take photos and videos",
+      "sensitive": true,
+      "restricted": false
+    },
+    "microphone": {
+      "description": "Record audio using the microphone",
+      "sensitive": true,
+      "restricted": false
+    },
+    "contacts": {
+      "description": "Read and write your contacts",
+      "sensitive": true,
+      "restricted": false
+    },
+    "calendar": {
+      "description": "Read and write calendar events",
+      "sensitive": true,
+      "restricted": false
+    },
+    "storage": {
+      "description": "Read and write files on your device",
+      "sensitive": true,
+      "restricted": false
+    },
+    "notifications": {
+      "description": "Show notifications",
+      "sensitive": false,
+      "restricted": false
+    },
+    "alarms": {
+      "description": "Set alarms and timers",
+      "sensitive": false,
+      "restricted": false
+    },
+    "telephony": {
+      "description": "Make and receive phone calls",
+      "sensitive": true,
+      "restricted": false
+    },
+    "sms": {
+      "description": "Send and receive SMS messages",
+      "sensitive": true,
+      "restricted": false
+    },
+    "bluetooth": {
+      "description": "Connect to Bluetooth devices",
+      "sensitive": true,
+      "restricted": false
+    },
+    "secret-service": {
+      "description": "Store passwords and sign-in tokens in your keyring",
+      "sensitive": true,
+      "restricted": false
+    },
+    "system": {
+      "description": "Access system-level features (restricted to system apps)",
+      "sensitive": true,
+      "restricted": true
+    },
+    "terminal": {
+      "description": "Run shell commands with full system access (DANGEROUS)",
+      "sensitive": true,
+      "restricted": true
+    }
+  }
+}
