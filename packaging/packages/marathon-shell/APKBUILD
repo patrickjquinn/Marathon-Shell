@@ -25,7 +25,6 @@ depends="
 	qt6-qt5compat
 	hunspell
 	hunspell-en-us
-	libpulse
 	wayland
 	wayland-protocols
 	mesa
@@ -38,8 +37,7 @@ depends="
 	vulkan-loader
 	pipewire
 	pipewire-pulse
-	wireplumber
-	pulseaudio-utils
+	wireplumber>=0.5.11
 	networkmanager
 	upower
 	modemmanager
@@ -89,8 +87,8 @@ makedepends="
 	qt6-qtpositioning-dev
 	qt6-qtspeech-dev
 	hunspell-dev
-	pulseaudio-dev
 	pipewire-dev
+	clang-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
