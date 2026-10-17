@@ -40,7 +40,10 @@ depends="
 	ttf-dejavu
         greetd
 	callaudiod
+	gpg
 "
+# gpg: systemd-pull runs it to check an OTA feed's SHA256SUMS.gpg against
+# /usr/lib/systemd/import-pubring.pgp; without it every update is refused.
 # callaudiod handles modem-to-codec voice routing on phones.
 # Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
 # Alpine doesn't ship it. Without this dep no voice audio reaches
