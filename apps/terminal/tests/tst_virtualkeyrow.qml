@@ -55,6 +55,21 @@ TestCase {
         compare(keySpy.signalArguments[0][1], "\\");
     }
 
+    // "\" and "`" read as characters, not as specks above "|" and "~".
+    function test_alternateMatchesTheKeyCharacter() {
+        const row = makeRow();
+        for (const name of ["|", "~"]) {
+            const k = key(row, name);
+            const main = findChild(k, "keyLabel");
+            const alt = findChild(k, "altLabel");
+            verify(alt.visible, name);
+            compare(alt.font.pixelSize, main.font.pixelSize, name);
+            fuzzyCompare(alt.mapToItem(k, 0, alt.baselineOffset).y, main.mapToItem(k, 0, main.baselineOffset).y, 0.5);
+            verify(alt.mapToItem(k, 0, 0).x >= main.mapToItem(k, main.width, 0).x, name);
+        }
+        verify(!findChild(key(row, "Esc"), "altLabel").visible);
+    }
+
     function test_ctrlArmsForOneKey() {
         const row = makeRow();
         mouseClick(key(row, "Ctrl"));

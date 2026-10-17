@@ -100,16 +100,34 @@ Row {
                     root.trigger(modelData.key, modelData.text);
             }
 
-            Label {
-                id: keyLabel
+            // The hold alternate sits beside the key's own character, as large
+            // and on the same baseline, dimmed.
+            Row {
+                id: legend
 
                 visible: !!keyItem.modelData.label
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: lockMark.visible ? -lockMark.height / 2 : 0
-                text: keyItem.modelData.label || ""
-                font.pixelSize: Theme.fontSizeSmall
-                color: keyItem.highlighted || keyItem.modState !== VirtualKeyRow.Idle ? Theme.highlightColor : Theme.primaryColor
-                font.underline: keyItem.modState === VirtualKeyRow.Armed
+                spacing: Theme.paddingSmall
+
+                Label {
+                    id: keyLabel
+
+                    objectName: "keyLabel"
+                    text: keyItem.modelData.label || ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: keyItem.highlighted || keyItem.modState !== VirtualKeyRow.Idle ? Theme.highlightColor : Theme.primaryColor
+                    font.underline: keyItem.modState === VirtualKeyRow.Armed
+                }
+
+                Label {
+                    objectName: "altLabel"
+                    visible: !!keyItem.modelData.alt
+                    anchors.baseline: keyLabel.baseline
+                    text: keyItem.modelData.alt || ""
+                    font.pixelSize: keyLabel.font.pixelSize
+                    color: keyItem.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                }
             }
 
             Icon {
@@ -117,25 +135,12 @@ Row {
 
                 objectName: "lockMark"
                 visible: keyItem.modState === VirtualKeyRow.Locked
-                anchors.top: keyLabel.bottom
+                anchors.top: legend.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 sourceSize.width: Theme.iconSizeExtraSmall
                 sourceSize.height: Theme.iconSizeExtraSmall
                 source: "image://theme/icon-s-lock"
                 highlighted: true
-            }
-
-            Label {
-                visible: !!keyItem.modelData.alt
-                anchors {
-                    top: parent.top
-                    right: parent.right
-                    topMargin: Theme.paddingSmall / 2
-                    rightMargin: Theme.paddingSmall
-                }
-                text: keyItem.modelData.alt || ""
-                font.pixelSize: Theme.fontSizeTiny
-                color: keyItem.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
             }
 
             Icon {
