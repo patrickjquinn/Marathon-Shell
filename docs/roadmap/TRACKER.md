@@ -32,14 +32,14 @@ Finding numbers refer to the review's Findings table.
 | R24 | Lint clean: clang-tidy/clazy/clang-format, qmllint shell + apps, lint infra for Marathon.Platform | – | 3 | todo | partial lint-infra patch saved |
 | R26 | Keyboard edits reach apps: autocorrect replace, backspace, double-space period; tests on the real keyboard QML | new | 2 | done | found by R19; verified r457, r461 |
 | R27 | Audit possibly dead settings (dateFormat, statusBarClockPosition, showFrequentApps, appSortOrder, …) | new | 3 | todo | found by R19 |
-| R28 | Permission integrity: app cannot rewrite its own manifest to gain grants; one permission vocabulary; no silent denials | new | 2 | review | found by R13 + OEM run; merged (ec5d7e45..01b8c7eb); device test in r463 |
+| R28 | Permission integrity: app cannot rewrite its own manifest to gain grants; one permission vocabulary; no silent denials | new | 2 | review | merged (ec5d7e45..01b8c7eb); verified r463: stored system grant ignored, prompt asks undecided permissions, Terminal protected; crafted-manifest sideload + uninstall lifecycle not yet run on device |
 | R29 | Gestures: short pull from the pill opens QS; Peek edge strip skips the back indicator | user | – | review | 1cbed1b4, e93992e8; device test in r456 |
 | R30 | OEM test-app findings (calls, permissions, lock-after-decline, …) | OEM run | – | active | docs/testing/OEM_TEST_HACKBERRYPI_2026-10-17.md; R31–R36 fixing; lock/decline/SMS/alarm verified r459 |
 | R31 | Notification actions, custom icons, banner queue | OEM F8,F10,F11 | – | done | verified on device r460 |
 | R32 | Lock after decline/SMS/alarm; declined ≠ missed | OEM F5,F6,F27,F28 | – | done | verified on device r459 |
 | R33 | Keyboard: autocorrect keeps case; no capital after every space on device | OEM F14,F15 | – | done | verified on device r461 |
-| R34 | Alarms wake the device (root-armed RTC timer); WakeManager | OEM | – | review | merged (dd8f6441); device test in r462 |
-| R35 | Display/power: one screen-state owner (frozen-touch bug), power-profiles-daemon, auto-brightness, backlight steps | OEM F18–F21 | – | review | merged (681ef7b2..e40aafc9); F18 needs an image with tuned-ppd; rest device test in r463 |
+| R34 | Alarms wake the device (root-armed RTC timer); WakeManager | OEM | – | done | verified r463: wake timer armed per alarm, a ringing alarm lit a blanked screen at 14:31:01; idle hold covered by host test (device timeout is Never) |
+| R35 | Display/power: one screen-state owner (frozen-touch bug), power-profiles-daemon, auto-brightness, backlight steps | OEM F18–F21 | – | review | verified r463: F19, F20, F21; F18 needs an image with tuned-ppd |
 | R36 | marathon-audiod volume/mute on Bluetooth sinks; profile state | OEM F25,F26 | – | done | verified on device r461 |
-| R37 | OEM minor findings: one-off alarm count, torch availability, Location.active, QS slider rounding + OSD, call-state wording, hardware cursor spam | OEM F9,F23,F24,F29,F31–F33 | – | review | merged (778d138d..a5e20ed6); device test in r463 |
+| R37 | OEM minor findings: one-off alarm count, torch availability, Location.active, QS slider rounding + OSD, call-state wording, hardware cursor spam | OEM F9,F23,F24,F29,F31–F33 | – | done | verified r463 |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
