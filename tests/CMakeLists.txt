@@ -41,4 +41,7 @@ add_test(NAME Lint_IconMap COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-icon-
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME Sailfish_Install COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/sailfish-install/test_install.py)
+    # Every test source is registered here, and every registered path exists
+    add_test(NAME Lint_TestReachability COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/lint/check-test-reachability.py ${CMAKE_SOURCE_DIR})
+    add_test(NAME Lint_TestReachabilityCheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/lint/test_check_test_reachability.py)
 endif()
