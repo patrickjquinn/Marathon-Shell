@@ -65,3 +65,6 @@ panel_depth = 6
 # written for.
 force_dpi = 254
 brightness_floor = 0.1
+# 16 GB: a warm spare runner for apps with the media folders and one
+# for apps without, ~150-220 MB RSS each.
+runner_pool = 2
