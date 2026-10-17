@@ -39,6 +39,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # git-cliff reads the history back to the previous v* tag.
+          fetch-depth: 0
 
       - name: Install podman
         run: |
@@ -70,6 +73,45 @@ jobs:
           name: marathon-shell-apk
           path: artifacts/*.apk
 
+      - name: Release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        # The credential warning lives HERE, in the job that creates the
+        # release, not in the image job that finishes last, and it goes
+        # above the changelog so the changelog does not bury it. The
+        # changelog is git-cliff over the commit subjects since the
+        # previous v* tag (cliff.toml). ci.yml holds pull requests to the
+        # commit convention; here a stray subject is dropped from the
+        # notes rather than holding up the release.
+        env:
+          GIT_CLIFF__GIT__REQUIRE_CONVENTIONAL: "false"
+          GIT_CLIFF__GIT__FAIL_ON_UNMATCHED_COMMIT: "false"
+        run: |
+          cat > release-notes.md <<'EOF'
+          ### QEMU developer simulator image
+
+          `marathon-qemu-aarch64-devsim-*.raw.zst` is the **developer
+          simulator**, not a device image. It ships with a known root
+          password (`marathon`) so it can be driven over SSH. Do not
+          flash it to hardware or expose it to a network you do not
+          control.
+
+          ```
+          zstd -d marathon-qemu-aarch64-devsim-*.raw.zst
+          scripts/qemu/automation/run_scenarios.py   # or boot it yourself
+          ```
+
+          EOF
+          docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -w /src \
+            -e GITHUB_REF_NAME -e GIT_CLIFF__GIT__REQUIRE_CONVENTIONAL \
+            -e GIT_CLIFF__GIT__FAIL_ON_UNMATCHED_COMMIT \
+            docker.io/library/alpine:edge sh -c '
+              set -eu
+              apk add --no-cache -q git git-cliff
+              git config --global --add safe.directory /src
+              prev=$(git describe --tags --abbrev=0 --match "v[0-9]*" "$GITHUB_REF_NAME^")
+              git cliff --tag "$GITHUB_REF_NAME" "$prev..$GITHUB_REF_NAME"' >> release-notes.md
+          cat release-notes.md
+
       - name: Publish to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -77,25 +119,7 @@ jobs:
           files: artifacts/*.apk
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          # The credential warning lives HERE, in the job that creates the
-          # release, not in the image job that finishes last. GitHub appends
-          # generated notes *after* body, so this lands above the changelog.
-          # Putting it in the image job instead buries a security notice
-          # under ~45 lines of PR list.
-          generate_release_notes: true
-          body: |
-            ### QEMU developer simulator image
-
-            `marathon-qemu-aarch64-devsim-*.raw.zst` is the **developer
-            simulator**, not a device image. It ships with a known root
-            password (`marathon`) so it can be driven over SSH. Do not
-            flash it to hardware or expose it to a network you do not
-            control.
-
-            ```
-            zstd -d marathon-qemu-aarch64-devsim-*.raw.zst
-            scripts/qemu/automation/run_scenarios.py   # or boot it yourself
-            ```
+          body_path: release-notes.md
 
   # The image bake is a SEPARATE job. Measured: the apk job takes about
   # 8 minutes on a 4-vCPU arm runner and produces the full ~81 MB

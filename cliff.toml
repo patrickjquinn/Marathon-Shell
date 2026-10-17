@@ -1,0 +1,37 @@
+# Release notes from Conventional Commit subjects (https://git-cliff.org).
+#   git cliff --unreleased       notes for everything since the last v* tag
+#   git cliff A..B               what CI checks on a pull request
+
+[changelog]
+body = """
+{% if version %}## {{ version }} ({{ timestamp | date(format="%Y-%m-%d") }}){% else %}## Unreleased{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}\
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+require_conventional = true
+filter_unconventional = true
+fail_on_unmatched_commit = true
+tag_pattern = "^v[0-9]"
+commit_preprocessors = [
+    { pattern = '^Revert "(.+)"', replace = "revert: $1" },
+]
+commit_parsers = [
+    { message = "^Merge ", skip = true },
+    { message = '^[a-z]+(\([^)]*\))?!:', group = "<!-- 0 -->Breaking changes" },
+    { footer = "^BREAKING[ -]CHANGE", group = "<!-- 0 -->Breaking changes" },
+    { message = "^feat[(:]", group = "<!-- 1 -->Features" },
+    { message = "^fix[(:]", group = "<!-- 2 -->Fixes" },
+    { message = "^perf[(:]", group = "<!-- 3 -->Performance" },
+    { message = "^revert[(:]", group = "<!-- 4 -->Reverted" },
+    { message = "^(build|chore|ci|docs|refactor|style|test)[(:]", skip = true },
+    # Predates the commit check: "scripts:" is not a type.
+    { sha = "bee025e649e2c268bbb01164ec4b46aa608c4469", skip = true },
+]
