@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MarathonOS VERSION 1.0.0 LANGUAGES C CXX)
 
+option(BUILD_TESTING "Build the test suites under tests/ and crates/" OFF)
 enable_testing()
 
 
