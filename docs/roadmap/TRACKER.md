@@ -16,7 +16,7 @@ Finding numbers refer to the review's Findings table.
 | R08 | Hub notification tap opens the app | new | 1 | review | + tap-time resolution 10fa7a98; re-verify in r456 |
 | R09 | Audio on PipeWire/WirePlumber (no PulseAudio API, no wpctl/pactl subprocesses) | 13 | 1 | review | playback + BT volume verified r461; call routing needs a modem device |
 | R10 | App signing: whole-package Ed25519/minisign, required by default, verified before parsing; generated permission disclosures; hold permission-widening updates | 2 | 1 | review | minisign whole-package signing, disclosures, held widening updates; device test in r456 |
-| R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | active | systemd-sysupdate A/B behind MARATHON_IMAGE_LAYOUT=ab; QEMU validation pending (needs ~30 GB, signing key, feed host) |
+| R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | review | systemd-sysupdate A/B behind MARATHON_IMAGE_LAYOUT=ab; QEMU validation pending (needs ~30 GB, signing key, feed host) |
 | R12 | Sandbox: security-context-v1 for sandboxed clients, marathon-sandbox defaults, WebEngine sandbox, no setcap in setup | 7, 8, 9 | 1 | review | security-context socket verified r457 |
 | R13 | App manifest JSON schema + `marathon-dev lint` | 2 | 2 | review | schemas/marathon-app-manifest-v1 + marathon-dev lint; all apps pass |
 | R14 | Device manifests (devices/<vendor>/<codename>) generating device-profile.conf; PinePhone build wrapper + flash script | 15 | 2 | review | devices/*/device.toml + socs/; generated device-profile.conf; PinePhone build/flash scripts |
@@ -43,6 +43,6 @@ Finding numbers refer to the review's Findings table.
 | R36 | marathon-audiod volume/mute on Bluetooth sinks; profile state | OEM F25,F26 | – | done | verified on device r461 |
 | R37 | OEM minor findings: one-off alarm count, torch availability, Location.active, QS slider rounding + OSD, call-state wording, hardware cursor spam | OEM F9,F23,F24,F29,F31–F33 | – | done | verified r463 |
 | R38 | Alarm/ringtone audible at their own volume (WirePlumber media roles); refused values say so; terminal hold keys; prompt icons/footer | OEM F34–F37 | – | review | merged (a96c35c0..5ac42e47); device test on the A/B image |
-| R39 | OTA experience like iOS/Android: update notifications, automatic overnight install, "Finishing update…" splash, "Updated to" notice | user | – | review | merged (e5daa1d4..1c971ddf); device test on the A/B image |
-| R40 | A/B OTA on the Raspberry Pi 5 / HackberryPi CM5: GPT slots, tryboot, marathon-health commit | user | – | active | merged (86acb78c..1d885464); v1 flash + v2 update + bad v3 rollback on the HackberryPi |
+| R39 | OTA experience like iOS/Android: update notifications, automatic overnight install, "Finishing update…" splash, "Updated to" notice | user | – | done | verified on device: background download, restart notification, "Updated to", rollback notice |
+| R40 | A/B OTA on the Raspberry Pi 5 / HackberryPi CM5: GPT slots, tryboot, marathon-health commit | user | – | done | validated on the HackberryPi 2026-10-17: flash, update + commit, bad update falls back (docs/OTA.md) |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
