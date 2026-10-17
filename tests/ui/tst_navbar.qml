@@ -58,6 +58,17 @@ TestCase {
         verify(UIStore.quickSettingsOpen);
     }
 
+    // From the pill a finger runs off the panel after a few pixels.
+    function test_shortPullFromThePillOpensQuickSettings() {
+        drag(nav.width / 2, nav.height / 2, 0, 8);
+        verify(UIStore.quickSettingsOpen);
+    }
+
+    function test_twitchOnThePillDoesNotOpenQuickSettings() {
+        drag(nav.width / 2, nav.height / 2, 0, 2);
+        verify(!UIStore.quickSettingsOpen);
+    }
+
     function test_pullDownAtTheEdgeOpensQuickSettings() {
         drag(nav.width - 10, 10, 0, 40);
         verify(UIStore.quickSettingsOpen);

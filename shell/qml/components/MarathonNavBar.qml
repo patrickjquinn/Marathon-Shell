@@ -208,6 +208,9 @@ Rectangle {
         property bool pullingQuickSettings: false
         // This touch is dragging the open shade closed.
         property bool draggingQuickSettings: false
+        // About a millimetre: the bar sits at the screen edge, so a pull
+        // down from the pill runs off the panel after a few pixels.
+        readonly property real pullSlop: Math.max(3, Math.round(2 * Constants.scaleFactor))
 
         anchors.fill: parent
         anchors.topMargin: 0
@@ -276,7 +279,8 @@ Rectangle {
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
             // Lock the axis once; a thumb arcs upward during a back swipe.
-            if (!isVerticalGesture && !isHorizontalGesture && Math.max(Math.abs(diffX), Math.abs(diffY)) > 10) {
+            const pullingDown = -diffY > pullSlop && Math.abs(diffY) >= Math.abs(diffX);
+            if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > 10)) {
                 if (Math.abs(diffY) > Math.abs(diffX)) {
                     isVerticalGesture = true;
                     pillX.settleTo(0);
@@ -367,7 +371,7 @@ Rectangle {
                 pullingQuickSettings = false;
                 UIStore.quickSettingsDragging = false;
                 // Any locked pull opens, unless the finger came back up.
-                if (-projectedUp > 10)
+                if (-projectedUp > pullSlop)
                     UIStore.openQuickSettings();
                 else
                     UIStore.closeQuickSettings();
