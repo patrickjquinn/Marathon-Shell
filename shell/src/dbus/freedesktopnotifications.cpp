@@ -272,7 +272,7 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
         if (pid.isValid())
             senderApp = NotificationTarget::appForPid(pid.value());
     }
-    const QString installed = NotificationTarget::resolve(
+    QString installed = NotificationTarget::resolve(
         {hints.value(QStringLiteral("desktop-entry")).toString(), senderApp, provided}, m_registry);
     if (!installed.isEmpty())
         return installed;
