@@ -56,28 +56,49 @@ void UpdateService::onProbed(bool supported, const QString &installedVersion) {
 
     QSettings s;
     s.beginGroup(QStringLiteral("updates"));
-    const bool autoCheck = s.value(QStringLiteral("autoCheck"), true).toBool();
+    const bool    autoCheck = s.value(QStringLiteral("autoCheck"), true).toBool();
+    const QString ours      = s.value(QStringLiteral("installedVersion")).toString();
+    // Before lastSeenVersion was kept, only an install of ours says this
+    // version is new.
+    const QString seen    = s.value(QStringLiteral("lastSeenVersion")).toString();
+    const bool    updated = seen.isEmpty() ? ours == m_osVersion : seen != m_osVersion;
+    s.setValue(QStringLiteral("lastSeenVersion"), m_osVersion);
     // An image installed in an earlier boot that is not the one running
     // failed its health check: systemd-boot fell back to this one.
     if (!installedVersion.isEmpty() && installedVersion != m_osVersion) {
-        const bool ours =
-            s.value(QStringLiteral("installedVersion")).toString() == installedVersion;
-        if (ours && s.value(QStringLiteral("installedBootId")).toString() != m_bootId) {
+        if (ours == installedVersion &&
+            s.value(QStringLiteral("installedBootId")).toString() != m_bootId) {
             m_rolledBackVersion = installedVersion;
             setState(State::RolledBack);
+            announce(Notice::RolledBack, installedVersion);
         } else {
             m_availableVersion = installedVersion;
             setState(State::ReadyToReboot);
+            announce(Notice::Restart, installedVersion);
             return;
         }
     } else {
         setState(State::Idle);
+        if (updated) {
+            announce(Notice::Updated, m_osVersion);
+            m_backend->fetchReleaseInfo(m_osVersion);
+        }
     }
 
     if (autoCheck) {
         QTimer::singleShot(kFirstCheckDelayMs, this, &UpdateService::checkNow);
         m_autoCheckTimer->start();
     }
+}
+
+void UpdateService::announce(Notice kind, const QString &version) {
+    QSettings     s;
+    const QString key = QStringLiteral("updates/notice/") +
+        QString::fromLatin1(QMetaEnum::fromType<Notice>().valueToKey(int(kind)));
+    if (s.value(key).toString() == version)
+        return;
+    s.setValue(key, version);
+    emit notice(kind, version);
 }
 
 void UpdateService::markChecked() {
@@ -104,6 +125,8 @@ void UpdateService::onChecked(const QString &version) {
     if (m_state != State::Checking)
         return;
     markChecked();
+    if (m_currentReleaseNotes.isEmpty())
+        m_backend->fetchReleaseInfo(m_osVersion);
     if (version.isEmpty()) {
         m_availableVersion.clear();
         setState(m_rolledBackVersion.isEmpty() ? State::UpToDate : State::RolledBack);
@@ -116,10 +139,15 @@ void UpdateService::onChecked(const QString &version) {
     }
     setState(State::Available);
     m_backend->fetchReleaseInfo(version);
+    announce(Notice::Available, version);
 }
 
 void UpdateService::onReleaseInfo(const QString &version, qint64 downloadSize,
                                   const QString &notes) {
+    if (version == m_osVersion && !notes.isEmpty()) {
+        m_currentReleaseNotes = notes;
+        emit stateChanged();
+    }
     if (version != m_availableVersion)
         return;
     m_downloadSize = downloadSize;
@@ -178,6 +206,7 @@ void UpdateService::onInstalled(const QString &version) {
     m_progress         = 100;
     m_autoCheckTimer->stop();
     setState(State::ReadyToReboot);
+    announce(Notice::Restart, version);
 }
 
 void UpdateService::onFailed(const QString &error) {

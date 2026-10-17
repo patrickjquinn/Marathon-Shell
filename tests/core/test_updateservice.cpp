@@ -276,6 +276,127 @@ class TestUpdateService : public QObject {
         QCOMPARE(s->stateName(), QStringLiteral("idle"));
     }
 
+    void anUpdateIsAnnouncedOncePerVersion() {
+        UpdateService *s = make();
+        QSignalSpy     notices(s, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101701"));
+        s->checkNow();
+        emit backend->checked(QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+        QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                 UpdateService::Notice::Available);
+        QCOMPARE(notices.first().at(1).toString(), QStringLiteral("26101801"));
+        s->checkNow();
+        emit backend->checked(QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+
+        UpdateService *again = make();
+        QSignalSpy     later(again, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101701"));
+        again->checkNow();
+        emit backend->checked(QStringLiteral("26101801"));
+        QCOMPARE(later.count(), 0);
+        again->checkNow();
+        emit backend->checked(QStringLiteral("26101901"));
+        QCOMPARE(later.count(), 1);
+        QCOMPARE(later.first().at(1).toString(), QStringLiteral("26101901"));
+    }
+
+    void aFinishedInstallIsAnnouncedOncePerVersion() {
+        UpdateService *s = available();
+        QSignalSpy     notices(s, &UpdateService::notice);
+        s->install();
+        emit backend->installed(QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+        QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                 UpdateService::Notice::Restart);
+        QCOMPARE(notices.first().at(1).toString(), QStringLiteral("26101801"));
+
+        UpdateService *again = make();
+        QSignalSpy     later(again, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101801"));
+        QCOMPARE(again->stateName(), QStringLiteral("readyToReboot"));
+        QCOMPARE(later.count(), 0);
+    }
+
+    void anUpdateInstalledElsewhereIsAnnounced() {
+        UpdateService *s = make();
+        QSignalSpy     notices(s, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+        QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                 UpdateService::Notice::Restart);
+    }
+
+    void aRollbackIsAnnouncedOnce() {
+        rememberInstall(QStringLiteral("26101801"), QStringLiteral("boot-a"));
+        QSettings().setValue(QStringLiteral("updates/lastSeenVersion"), QStringLiteral("26101701"));
+        for (int boot = 0; boot < 2; ++boot) {
+            UpdateService *s = make(QStringLiteral("26101701"), QStringLiteral("boot-b"));
+            QSignalSpy     notices(s, &UpdateService::notice);
+            emit           backend->probed(true, QStringLiteral("26101801"));
+            QCOMPARE(s->stateName(), QStringLiteral("rolledBack"));
+            QCOMPARE(notices.count(), boot == 0 ? 1 : 0);
+            if (boot == 0) {
+                QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                         UpdateService::Notice::RolledBack);
+                QCOMPARE(notices.first().at(1).toString(), QStringLiteral("26101801"));
+            }
+        }
+    }
+
+    void aBootIntoANewVersionIsAnnouncedOnce() {
+        QSettings().setValue(QStringLiteral("updates/lastSeenVersion"), QStringLiteral("26101701"));
+        UpdateService *s = make(QStringLiteral("26101801"));
+        QSignalSpy     notices(s, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+        QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                 UpdateService::Notice::Updated);
+        QCOMPARE(notices.first().at(1).toString(), QStringLiteral("26101801"));
+        QCOMPARE(backend->calls.last(), QStringLiteral("info:26101801"));
+        emit backend->releaseInfo(QStringLiteral("26101801"), 7, QStringLiteral("Faster boot"));
+        QCOMPARE(s->currentReleaseNotes(), QStringLiteral("Faster boot"));
+
+        UpdateService *again = make(QStringLiteral("26101801"));
+        QSignalSpy     later(again, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101801"));
+        QCOMPARE(later.count(), 0);
+    }
+
+    void theFirstBootIsNoUpdate() {
+        UpdateService *s = make();
+        QSignalSpy     notices(s, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101701"));
+        QCOMPARE(notices.count(), 0);
+        QCOMPARE(QSettings().value("updates/lastSeenVersion").toString(),
+                 QStringLiteral("26101701"));
+    }
+
+    void anInstallFromBeforeLastSeenWasKeptIsAnUpdate() {
+        rememberInstall(QStringLiteral("26101801"), QStringLiteral("boot-a"));
+        UpdateService *s = make(QStringLiteral("26101801"));
+        QSignalSpy     notices(s, &UpdateService::notice);
+        emit           backend->probed(true, QStringLiteral("26101801"));
+        QCOMPARE(notices.count(), 1);
+        QCOMPARE(notices.first().at(0).value<UpdateService::Notice>(),
+                 UpdateService::Notice::Updated);
+    }
+
+    void aCheckFetchesTheRunningVersionsNotesUntilItHasThem() {
+        UpdateService *s = make();
+        emit           backend->probed(true, QStringLiteral("26101701"));
+        s->checkNow();
+        emit backend->checked(QString());
+        QVERIFY(backend->calls.contains(QStringLiteral("info:26101701")));
+        emit backend->releaseInfo(QStringLiteral("26101701"), 5, QStringLiteral("Wi-Fi fixes"));
+        QCOMPARE(s->currentReleaseNotes(), QStringLiteral("Wi-Fi fixes"));
+        backend->calls.clear();
+        s->checkNow();
+        emit backend->checked(QString());
+        QCOMPARE(backend->calls, QStringList{"checkNew"});
+    }
+
     void imageVersionFromOsRelease_data() {
         QTest::addColumn<QByteArray>("content");
         QTest::addColumn<QString>("version");

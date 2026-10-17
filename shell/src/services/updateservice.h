@@ -49,9 +49,10 @@ struct UpdateConditions {
 // Over-the-air updates of the OS image for Settings. Checks the signed
 // feed, gates downloads on an unmetered network and a charged battery, and
 // reports a rollback when the booted image is older than one it installed.
+// notice() fires once per version for each kind of news.
 //
 // Settings keys (group "updates"): autoCheck, installedVersion,
-// installedBootId, lastChecked.
+// installedBootId, lastChecked, lastSeenVersion, notice/<kind>.
 class UpdateService : public QObject {
     Q_OBJECT
 
@@ -61,6 +62,7 @@ class UpdateService : public QObject {
     Q_PROPERTY(QString availableVersion READ availableVersion NOTIFY stateChanged)
     Q_PROPERTY(qint64 downloadSize READ downloadSize NOTIFY stateChanged)
     Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
+    Q_PROPERTY(QString currentReleaseNotes READ currentReleaseNotes NOTIFY stateChanged)
     Q_PROPERTY(int progress READ progress NOTIFY stateChanged)
     Q_PROPERTY(QString blockedReason READ blockedReason NOTIFY stateChanged)
     Q_PROPERTY(QString rolledBackVersion READ rolledBackVersion NOTIFY stateChanged)
@@ -81,6 +83,17 @@ class UpdateService : public QObject {
         Error,
     };
     Q_ENUM(State)
+
+    // Available: version can be downloaded. Restart: version is installed
+    // and waits for a restart. RolledBack: version failed to start.
+    // Updated: this boot is the first into version.
+    enum class Notice : quint8 {
+        Available,
+        Restart,
+        RolledBack,
+        Updated,
+    };
+    Q_ENUM(Notice)
 
     UpdateService(UpdateBackend *backend, std::function<UpdateConditions()> conditions,
                   const QString &osVersion, const QString &bootId, QObject *parent = nullptr);
@@ -103,6 +116,9 @@ class UpdateService : public QObject {
     }
     QString releaseNotes() const {
         return m_releaseNotes;
+    }
+    QString currentReleaseNotes() const {
+        return m_currentReleaseNotes;
     }
     int progress() const {
         return m_progress;
@@ -133,10 +149,12 @@ class UpdateService : public QObject {
   signals:
     void stateChanged();
     void rebootRequested();
+    void notice(UpdateService::Notice kind, const QString &version);
 
   private:
     void           setState(State state);
     void           markChecked();
+    void           announce(Notice kind, const QString &version);
     void           onProbed(bool supported, const QString &installedVersion);
     void           onChecked(const QString &version);
     void           onReleaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
@@ -155,6 +173,7 @@ class UpdateService : public QObject {
     QString                           m_availableVersion;
     qint64                            m_downloadSize = -1;
     QString                           m_releaseNotes;
+    QString                           m_currentReleaseNotes;
     int                               m_progress = 0;
     QString                           m_blockedReason;
     QString                           m_rolledBackVersion;
