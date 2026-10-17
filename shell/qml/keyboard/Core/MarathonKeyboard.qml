@@ -27,6 +27,9 @@ Rectangle {
     // The space after an accepted prediction, which punctuation moves past.
     property bool autoSpaced: false
     readonly property string weakSpacePunctuation: ".,!?;:"
+    // The last character the keyboard typed, or "" when it does not know what the cursor follows.
+    // It decides capitals over the field's report, which can lag behind fast typing.
+    property string lastTyped: ""
 
     signal layoutChanged(string layout)
     signal dismissRequested
@@ -39,6 +42,7 @@ Rectangle {
             keyboard.currentWord += text;
             inputContextInstance.insertText(text);
         }
+        keyboard.lastTyped = text.slice(-1);
         if (inputContextInstance.shouldShowPredictions)
             updatePredictions();
         else
@@ -59,6 +63,7 @@ Rectangle {
 
     function handleBackspace() {
         keyboard.autoSpaced = false;
+        keyboard.lastTyped = "";
         if (keyboard.canUndoAutoCorrect && keyboard.currentWord.length === 0) {
             keyboard.canUndoAutoCorrect = false;
             var undone = inputContextInstance.replaceTextBeforeCursor(keyboard.lastCorrectedWord + " ", keyboard.lastOriginalWord + " ");
@@ -87,6 +92,7 @@ Rectangle {
             keyboard.shifted = true;
             keyboard.lastSpaceTime = 0;
             keyboard.recentContext = "";
+            keyboard.lastTyped = ".";
             return;
         }
         var wordToAdd = "";
@@ -122,7 +128,7 @@ Rectangle {
             keyboard.recentContext = contextWords.join(" ");
         }
         inputContextInstance.insertText(" ");
-        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart())
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && atSentenceStart())
             keyboard.shifted = true;
         keyboard.lastSpaceTime = now;
         updatePredictions();
@@ -138,6 +144,7 @@ Rectangle {
 
         keyboard.canUndoAutoCorrect = false;
         keyboard.autoSpaced = false;
+        keyboard.lastTyped = "";
         inputContextInstance.handleEnter();
     }
 
@@ -168,11 +175,18 @@ Rectangle {
         }
         keyboard.canUndoAutoCorrect = false;
         keyboard.autoSpaced = true;
+        keyboard.lastTyped = word.slice(-1);
         Dictionary.learnWord(word);
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
-        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart())
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && atSentenceStart())
             keyboard.shifted = true;
+    }
+
+    function atSentenceStart() {
+        if (keyboard.lastTyped !== "")
+            return keyboard.sentenceEndingPunctuation.indexOf(keyboard.lastTyped) !== -1;
+        return inputContextInstance.atSentenceStart();
     }
 
     function updatePredictions() {
@@ -224,6 +238,7 @@ Rectangle {
         if (hints === keyboard.fieldHints)
             return;
         keyboard.fieldHints = hints;
+        keyboard.lastTyped = "";
         inputContextInstance.detectInputMode();
         if (!keyboard.capsLock && keyboard.currentWord === "")
             keyboard.shifted = inputContextInstance.shouldAutoCapitalize;
@@ -241,6 +256,7 @@ Rectangle {
         keyboard.lastCorrectedWord = "";
         keyboard.lastSpaceTime = 0;
         keyboard.autoSpaced = false;
+        keyboard.lastTyped = "";
     }
 
     function clear() {
@@ -267,6 +283,7 @@ Rectangle {
             keyboard.lastCorrectedWord = "";
             keyboard.lastSpaceTime = 0;
             keyboard.autoSpaced = false;
+            keyboard.lastTyped = "";
         }
     }
     onCurrentLayoutChanged: {

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtTest
+import KeyboardTest
 import "../../../shell/qml/keyboard/Core"
 
 // The shell's keyboard typing into a real text field: everything it does has
@@ -128,6 +129,21 @@ TestCase {
         verify(!keyboard.shifted);
     }
 
+    // The app answers three edits late: "Friday. " when it has "Friday. So ".
+    function test_laggingFieldDoesNotCapitaliseAfterAWord() {
+        lagging.reset("Friday.");
+        lagging.forceActiveFocus();
+        tryVerify(() => lagging.activeFocus);
+        keyboard.active = false;
+        keyboard.active = true;
+        lagging.lag = 3;
+        tap(" so ");
+        compare(lagging.text, "Friday. So ");
+        verify(!keyboard.shifted);
+        tap("ok. ");
+        verify(keyboard.shifted);
+    }
+
     function test_predictionMidSentenceDoesNotShift() {
         type("say hel");
         keyboard.acceptPrediction("hello");
@@ -251,6 +267,7 @@ TestCase {
         pauseSpace();
         type(" ");
         compare(field.text, "hello  ");
+        verify(!keyboard.shifted);
     }
 
     function test_doubleSpaceOffWithoutAutoCapitals() {
@@ -323,6 +340,14 @@ TestCase {
 
             width: parent.width
             height: 40
+        }
+
+        LaggingField {
+            id: lagging
+
+            y: 40
+            width: parent.width
+            height: 20
         }
 
         MarathonKeyboard {
