@@ -6,13 +6,15 @@
 # Same pipeline as OnePlus 6 / Librem 5: thin wrapper into the shared
 # duranium/mkosi orchestrator at scripts/build-image.sh. Picks up the
 # upstream pmaports `device-raspberry-pi5` (BCM2712, raspberrypi-
-# bootloader, linux-rpi) plus packaging/'s
-# `device-raspberry-pi5-hackberry-marathon` overlay aport, which ships
-# the hackberrypi.dtbo + usercfg.txt + the marathon runtime stack
-# (marathon-shell + marathon-plymouth-theme + greetd + …).
+# bootloader, linux-rpi), packaging/'s `device-raspberry-pi5-marathon`
+# base (usercfg.txt + the marathon runtime stack: marathon-shell,
+# marathon-plymouth-theme, greetd, …) and the
+# `device-hackberrypi-cm5-marathon` enclosure overlay on top of it
+# (hackberrypi.dtbo, usercfg-hackberrypi.txt, device profile).
 #
-# Output: a fat16-boot + ext4 .raw GPT image ready to `dd` to microSD
-# via scripts/flash/flash-hackberry-cm5.sh.
+# Output: an MBR .raw image (FAT32 boot + ext4 root, laid out as
+# Raspberry Pi OS does) ready to `dd` to microSD via
+# scripts/flash/flash-hackberry-cm5.sh.
 #
 # First-run time: similar to the QEMU build (~15-20 min) since the
 # heavy artifacts (Qt6, WebEngine, marathon-shell) are pre-built apks
