@@ -21,7 +21,7 @@ class GeoClueAgent : public QObject {
 
     static const QString &agentId();
 
-    uint maxAccuracyLevel() const;
+    uint                  maxAccuracyLevel() const;
 
   public slots:
     bool AuthorizeApp(const QString &desktopId, uint requestedAccuracy, uint &allowedAccuracy);
@@ -30,7 +30,7 @@ class GeoClueAgent : public QObject {
     void registered();
 
   private:
-    void addAgent();
+    void            addAgent();
 
     QDBusConnection m_bus;
     Authorizer      m_authorize;

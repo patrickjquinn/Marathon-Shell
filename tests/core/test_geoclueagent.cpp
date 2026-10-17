@@ -23,9 +23,9 @@ class FakeManager : public QObject {
 class TestGeoClueAgent : public QObject {
     Q_OBJECT
 
-    QTemporaryDir dir;
-    QProcess      daemon;
-    QString       address;
+    QTemporaryDir   dir;
+    QProcess        daemon;
+    QString         address;
 
     QDBusConnection startGeoClue(const QString &name, FakeManager &manager) {
         QDBusConnection conn = QDBusConnection::connectToBus(address, name);
@@ -43,7 +43,7 @@ class TestGeoClueAgent : public QObject {
             "org.freedesktop.GeoClue2.Agent", "AuthorizeApp");
         msg << desktopId << 4u;
         QDBusPendingCall call = caller.asyncCall(msg);
-        QDeadlineTimer deadline(5000);
+        QDeadlineTimer   deadline(5000);
         while (!call.isFinished() && !deadline.hasExpired())
             QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
         return call.reply().arguments();

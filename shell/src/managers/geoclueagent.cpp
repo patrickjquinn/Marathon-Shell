@@ -8,7 +8,7 @@
 
 namespace {
 
-    const QString kService = QStringLiteral("org.freedesktop.GeoClue2");
+    const QString  kService       = QStringLiteral("org.freedesktop.GeoClue2");
     constexpr uint kAccuracyExact = 8;
 
 } // namespace
@@ -28,8 +28,8 @@ GeoClueAgent::GeoClueAgent(const QDBusConnection &bus, Authorizer authorize, QOb
         qWarning() << "[GeoClueAgent] Cannot export the agent:" << m_bus.lastError().message();
         return;
     }
-    auto *watcher = new QDBusServiceWatcher(kService, m_bus,
-                                            QDBusServiceWatcher::WatchForRegistration, this);
+    auto *watcher =
+        new QDBusServiceWatcher(kService, m_bus, QDBusServiceWatcher::WatchForRegistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, &GeoClueAgent::addAgent);
     // Registering now would start GeoClue just to idle; it starts with its first client.
     if (m_bus.interface() && m_bus.interface()->isServiceRegistered(kService))
