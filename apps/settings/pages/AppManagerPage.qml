@@ -68,7 +68,7 @@ Page {
             objectName: "app-" + model.id
             contentHeight: Theme.itemSizeMedium
             Accessible.name: model.name + (model.isProtected ? ", " + qsTr("system app") : "")
-            menu: item.model.isProtected ? null : uninstallMenu
+            menu: AppInstaller.canUninstall(item.model.id) ? uninstallMenu : null
             onClicked: page.showApp(item.model.id)
 
             Component {

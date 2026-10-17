@@ -78,6 +78,14 @@ TestCase {
         compare(s.page.removing.notes, "Notes");
     }
 
+    // Built into the OS image but not protected, like Test Suite.
+    function test_builtInAppsOfferNoUninstall() {
+        Apps.append({ id: "testapp", name: "Test Suite", icon: "", version: "1.0.0", isProtected: false });
+        const s = open("appmanager");
+        verify(child(s.page, "app-testapp").menu === null);
+        verify(child(s.page, "app-weather").menu !== null);
+    }
+
     function test_uninstallWithRemorse() {
         const s = open("appmanager");
         const menu = child(s.page, "app-weather").openMenu();
