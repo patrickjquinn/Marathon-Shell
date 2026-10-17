@@ -74,6 +74,7 @@ class Notification : public QObject {
     void setHints(const QVariantMap &hints) {
         m_category    = hints.value("category").toString();
         m_actionIcons = hints.value("action-icons").toBool();
+        m_urgency     = hints.value("urgency", 1).toInt();
     }
 
     QVariantMap toMap() const {
@@ -87,7 +88,8 @@ class Notification : public QObject {
                 {"actions", m_actions},
                 {"replyPlaceholder", m_replyPlaceholder},
                 {"category", m_category},
-                {"actionIcons", m_actionIcons}};
+                {"actionIcons", m_actionIcons},
+                {"urgency", m_urgency}};
     }
 
     void setIsRead(bool read) {
@@ -112,6 +114,7 @@ class Notification : public QObject {
     QString      m_replyPlaceholder;
     QString      m_category;
     bool         m_actionIcons = false;
+    int          m_urgency     = 1;
 };
 
 class NotificationModel : public QAbstractListModel {

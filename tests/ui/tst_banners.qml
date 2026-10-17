@@ -125,6 +125,40 @@ TestCase {
         verify(!bannerIcon().hasImage);
     }
 
+    function titled(id, title, urgency) {
+        return {
+            "id": id,
+            "appId": "test",
+            "title": title,
+            "body": "",
+            "urgency": urgency,
+            "actions": []
+        };
+    }
+
+    // Hides the banner on screen and returns the title of the next one.
+    function nextBanner() {
+        const before = notificationToast.currentToast;
+        notificationToast.dismissToast();
+        tryVerify(() => notificationToast.currentToast !== before);
+        return notificationToast.currentToast ? notificationToast.currentToast.title : null;
+    }
+
+    // As the OEM test app posts them: simple, icon, critical, actions.
+    function test_everyBannerShowsCriticalFirst() {
+        notificationToast.showToast(titled(1, "Simple", 1));
+        notificationToast.showToast(titled(2, "Icon", 1));
+        notificationToast.showToast(titled(3, "Important", 2));
+        notificationToast.showToast(titled(4, "Interactive", 1));
+        notificationToast.showToast(titled(5, "Also important", 2));
+        compare(notificationToast.currentToast.title, "Simple");
+        compare(nextBanner(), "Important");
+        compare(nextBanner(), "Also important");
+        compare(nextBanner(), "Icon");
+        compare(nextBanner(), "Interactive");
+        compare(nextBanner(), null);
+    }
+
     // The banner's button, once its row is laid out.
     function bannerButton(key) {
         const row = findChild(notificationToast, "bannerActions");

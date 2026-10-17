@@ -219,7 +219,7 @@ class TestFreedesktopNotify : public QObject {
         NotificationModel        model;
         FreedesktopNotifications fdn(&db, &model, nullptr);
 
-        const uint               id = fdn.Notify("chat", 0, "", "Ada", "", {"default", "Open"}, {}, -1);
+        const uint id = fdn.Notify("chat", 0, "", "Ada", "", {"default", "Open"}, {}, -1);
         fdn.activate(id, "default");
 
         QVERIFY(model.getNotification(int(id)));
@@ -237,6 +237,21 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(model.data(row, NotificationModel::ActionsRole).toList().size(), 1);
         QVERIFY(model.data(row, NotificationModel::ActionIconsRole).toBool());
         QVERIFY(model.roleNames().value(NotificationModel::ActionsRole) == "actions");
+    }
+
+    // The banner queue lets a critical one go first.
+    void urgencyReachesTheBanner() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+
+        const uint               normal = fdn.Notify("chat", 0, "", "Ada", "", {}, {}, -1);
+        const uint               critical =
+            fdn.Notify("chat", 0, "", "Ada", "", {}, {{"urgency", QVariant::fromValue(uchar(2))}}, -1);
+
+        QCOMPARE(model.getNotification(int(normal))->toMap().value("urgency").toInt(), 1);
+        QCOMPARE(model.getNotification(int(critical))->toMap().value("urgency").toInt(), 2);
     }
 
     // The banner falls back to the category's icon, also after a restart.

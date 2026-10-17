@@ -15,11 +15,16 @@ Item {
     property bool shown: false
     property real dragOffset: 0
 
+    // In arrival order; a critical one goes ahead of all but earlier
+    // critical ones.
     function showToast(notification) {
-        toastQueue.push(notification);
+        const critical = n => n.urgency >= 2;
+        const at = critical(notification) ? toastQueue.findIndex(n => !critical(n)) : -1;
+        toastQueue.splice(at < 0 ? toastQueue.length : at, 0, notification);
         if (!currentToast)
             showNextToast();
     }
+
 
     function showNextToast() {
         if (toastQueue.length === 0) {
