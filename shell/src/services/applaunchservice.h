@@ -110,6 +110,7 @@ class AppLaunchService : public QObject {
         QString icon;
         QString type;
         QString command;
+        QString sandboxInstance;
         qint64  pid = -1;
     };
 
@@ -132,7 +133,9 @@ class AppLaunchService : public QObject {
     void        spawnSpareRunner();
     bool        adoptSpareRunner(const PendingLaunch &p);
     QString     runnerExecutablePath() const;
-    QStringList spareSandboxArgs() const;
+    QStringList spareSandboxArgs(const QString &waylandSocket) const;
+    QString     openSandboxSocket(const QString &appId, const QString &instanceId) const;
+    void        closeSandboxSocket(const QString &instanceId) const;
     QProcess   *m_spareProcess   = nullptr;
     qint64      m_sparePid       = -1;
     bool        m_spareAdoptable = false;

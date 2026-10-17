@@ -360,6 +360,26 @@ bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *g
         self->m_nativeClientScale->allowsGlobal(client, global);
 }
 
+QString WaylandCompositor::openSandboxSocket(const QString &appId, const QString &instanceId) {
+    const QString dir =
+        qEnvironmentVariable("XDG_RUNTIME_DIR") + QStringLiteral("/marathon-sandbox");
+    if (!QDir().mkpath(dir))
+        return {};
+    QString path = dir + QLatin1Char('/') + instanceId;
+    if (!m_securityContextManager->listen(
+            path, {QStringLiteral("org.marathonos.AppRunner"), appId, instanceId}))
+        return {};
+    return path;
+}
+
+void WaylandCompositor::closeSandboxSocket(const QString &instanceId) {
+    m_securityContextManager->closeListener(instanceId);
+}
+
+void WaylandCompositor::assignSandboxApp(const QString &instanceId, const QString &appId) {
+    m_securityContextManager->assignAppId(instanceId, appId);
+}
+
 QQmlListProperty<QObject> WaylandCompositor::surfaces() {
     return QQmlListProperty<QObject>(this, &m_surfaces);
 }

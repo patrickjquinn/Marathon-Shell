@@ -30,6 +30,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QUuid>
 
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
@@ -93,6 +94,20 @@ QString quoteForSplitCommand(const QString &arg) {
 QString envValue(const char *name, const QString &fallback) {
     const QString v = qEnvironmentVariable(name);
     return v.isEmpty() ? fallback : v;
+}
+
+// Mounts the app's own security-context socket where WAYLAND_DISPLAY points,
+// over the shell's unrestricted one, and hides every sandbox's socket so an
+// app cannot connect as another. Must follow the XDG_RUNTIME_DIR bind.
+QStringList waylandSocketArgs(const QString &socket, const QString &runtimeDir) {
+    const QString display =
+        qEnvironmentVariable("MARATHON_WL_SOCKET_NAME", QStringLiteral("marathon-wayland-0"));
+    return {QStringLiteral("--ro-bind"), socket, runtimeDir + QLatin1Char('/') + display,
+            QStringLiteral("--tmpfs"), QFileInfo(socket).path()};
+}
+
+QString newSandboxInstance() {
+    return QUuid::createUuid().toString(QUuid::WithoutBraces);
 }
 
 QString joinForSplitCommand(const QStringList &args) {
@@ -1006,7 +1021,17 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     //   - --die-with-parent so a hung sandbox can't outlive the shell
     const QString bwrapPath = QStandardPaths::findExecutable("bwrap");
     QString       cmd;
+    QString       sandboxInstance;
     if (!bwrapPath.isEmpty() && !qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX")) {
+        sandboxInstance             = newSandboxInstance();
+        const QString waylandSocket = openSandboxSocket(appId, sandboxInstance);
+        if (waylandSocket.isEmpty()) {
+            qWarning() << "[AppLaunchService] No sandbox Wayland socket for" << appId
+                       << "- not launching";
+            m_launchingApps.remove(appId);
+            emit appLaunchFailed(appId, name, "No sandbox Wayland socket");
+            return false;
+        }
         const QString xdgRuntimeDir = envValue("XDG_RUNTIME_DIR", QStringLiteral("/run/user/1000"));
         const QString homeDir       = envValue("HOME", QStringLiteral("/home/user"));
         const QString xdgDataHome =
@@ -1145,6 +1170,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << xdgRuntimeDir << xdgRuntimeDir << QStringLiteral("--ro-bind-try")
                   << xdgConfigHome + QStringLiteral("/dconf")
                   << xdgConfigHome + QStringLiteral("/dconf");
+        bwrapArgs << waylandSocketArgs(waylandSocket, xdgRuntimeDir);
 
         if (permissions.contains("storage")) {
             for (const auto loc :
@@ -1300,8 +1326,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     p.appId   = appId;
     p.name    = name;
     p.icon    = icon;
-    p.type    = type.isEmpty() ? QStringLiteral("marathon") : type;
-    p.command = cmd;
+    p.type            = type.isEmpty() ? QStringLiteral("marathon") : type;
+    p.command         = cmd;
+    p.sandboxInstance = sandboxInstance;
     m_pendingByCommand.insert(cmd, p);
 
     const bool ok = QMetaObject::invokeMethod(comp, "launchApp", Qt::DirectConnection,
@@ -1321,6 +1348,21 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     return true;
 }
 
+QString AppLaunchService::openSandboxSocket(const QString &appId, const QString &instanceId) const {
+    QString socket;
+    if (m_compositor)
+        QMetaObject::invokeMethod(m_compositor.data(), "openSandboxSocket", Qt::DirectConnection,
+                                  Q_RETURN_ARG(QString, socket), Q_ARG(QString, appId),
+                                  Q_ARG(QString, instanceId));
+    return socket;
+}
+
+void AppLaunchService::closeSandboxSocket(const QString &instanceId) const {
+    if (m_compositor && !instanceId.isEmpty())
+        QMetaObject::invokeMethod(m_compositor.data(), "closeSandboxSocket", Qt::DirectConnection,
+                                  Q_ARG(QString, instanceId));
+}
+
 QString AppLaunchService::runnerExecutablePath() const {
     const QDir shellBinDir(QCoreApplication::applicationDirPath());
     QString    candidate = shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
@@ -1334,7 +1376,7 @@ QString AppLaunchService::runnerExecutablePath() const {
 // are replaced by their parents (the app id is unknown at spawn) and the
 // network namespace is shared — both a deliberate loosening, scoped to
 // pool-adopted first-party apps. WebEngine apps never adopt.
-QStringList AppLaunchService::spareSandboxArgs() const {
+QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) const {
     const QString xdgRuntimeDir = envValue("XDG_RUNTIME_DIR", QStringLiteral("/run/user/1000"));
     const QString homeDir       = envValue("HOME", QStringLiteral("/home/user"));
     const QString xdgDataHome =
@@ -1390,6 +1432,7 @@ QStringList AppLaunchService::spareSandboxArgs() const {
          // dconf service over D-Bus.
          << QStringLiteral("--ro-bind-try") << xdgConfigHome + QStringLiteral("/dconf")
          << xdgConfigHome + QStringLiteral("/dconf");
+    args << waylandSocketArgs(waylandSocket, xdgRuntimeDir);
 
     args << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
          << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
@@ -1478,7 +1521,14 @@ void AppLaunchService::spawnSpareRunner() {
     QDir().mkpath(qEnvironmentVariable("XDG_CACHE_HOME", QStringLiteral("%1/.cache").arg(homeDir)) +
                   QStringLiteral("/marathon-apps"));
 
+    // The spare's app is unknown until adoption; assignSandboxApp names it.
+    const QString instance      = newSandboxInstance();
+    const QString waylandSocket = openSandboxSocket(QString(), instance);
+    if (waylandSocket.isEmpty())
+        return;
+
     auto *proc = new QProcess(this);
+    proc->setProperty("marathonSandboxInstance", instance);
     proc->setProcessChannelMode(QProcess::SeparateChannels);
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     // Shell-only startup shortcuts; see WaylandCompositor::launchApp.
@@ -1530,6 +1580,7 @@ void AppLaunchService::spawnSpareRunner() {
                     m_spareProcess   = nullptr;
                     m_sparePid       = -1;
                     m_spareAdoptable = false;
+                    closeSandboxSocket(proc->property("marathonSandboxInstance").toString());
                     // A healthy death does not count against the budget, but it
                     // does not zero it either. Resetting would (a) let an
                     // intermittent broken spawn -- fail, fail, one long-lived
@@ -1553,7 +1604,7 @@ void AppLaunchService::spawnSpareRunner() {
                 proc->deleteLater();
             });
 
-    QStringList args = spareSandboxArgs();
+    QStringList args = spareSandboxArgs(waylandSocket);
     args << runnerExecutablePath() << QStringLiteral("--pool");
     m_spareProcess = proc;
     proc->start(bwrapPath, args);
@@ -1577,8 +1628,11 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
     // Register before waking the spare: pidRegistered places the pid in its
     // cgroup and applies the foreground uclamp boost, so the adopt work runs
     // at interactive CPU frequency instead of ramping up from idle.
-    PendingLaunch tracked = p;
-    tracked.pid           = m_sparePid;
+    PendingLaunch tracked   = p;
+    tracked.pid             = m_sparePid;
+    tracked.sandboxInstance = m_spareProcess->property("marathonSandboxInstance").toString();
+    QMetaObject::invokeMethod(m_compositor.data(), "assignSandboxApp", Qt::DirectConnection,
+                              Q_ARG(QString, tracked.sandboxInstance), Q_ARG(QString, p.appId));
     m_activeByPid.insert(m_sparePid, tracked);
     registerPidForAppId(m_sparePid, p.appId);
 
@@ -1687,14 +1741,13 @@ void AppLaunchService::onCompositorAppLaunched(const QString &command, qint64 pi
 }
 
 void AppLaunchService::onCompositorAppClosed(qint64 pid) {
-    auto it = m_activeByPid.find(pid);
-    if (it == m_activeByPid.end()) {
+    if (!m_activeByPid.contains(pid)) {
         qInfo() << "[AppLaunchService] appClosed PID" << pid << "(untracked)";
         return;
     }
-    const PendingLaunch p = it.value();
-    m_activeByPid.erase(it);
+    const PendingLaunch p = m_activeByPid.take(pid);
     m_backgroundLaunches.remove(p.appId);
+    closeSandboxSocket(p.sandboxInstance);
     m_pidToAppId.remove(pid);
     if (m_appIdToPid.value(p.appId) == pid) {
         m_appIdToPid.remove(p.appId);

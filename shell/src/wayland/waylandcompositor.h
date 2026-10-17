@@ -99,6 +99,12 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     sendNativeForward(int surfaceId, bool keelHosted);
     Q_INVOKABLE bool     checkIdleInhibitors();
 
+    // A sandbox the shell starts connects on a socket of its own, whose
+    // clients carry the app's security context. Returns the path, or empty.
+    Q_INVOKABLE QString openSandboxSocket(const QString &appId, const QString &instanceId);
+    Q_INVOKABLE void    closeSandboxSocket(const QString &instanceId);
+    Q_INVOKABLE void    assignSandboxApp(const QString &instanceId, const QString &appId);
+
     // Emits xdg_toplevel.configure with state_suspended (9) added to or
     // removed from the toplevel's state list. The xdg-shell v6 suspend
     // state lets cooperating clients (Qt, Chromium) pause their render
