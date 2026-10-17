@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include "../../shell/src/marathonpermissionmanager.h"
+#include "marathonmanifest.h"
 
 class TestPermissionManager : public QObject {
     Q_OBJECT
@@ -214,6 +215,22 @@ class TestPermissionManager : public QObject {
         for (const QString &p : expected) {
             QVERIFY2(available.contains(p), qPrintable("Missing permission: " + p));
         }
+    }
+
+    // === CONTRACT: The manager speaks schemas/marathon-permissions-v1.json ===
+
+    void permissionsComeFromTheVocabulary() {
+        MarathonPermissionManager mgr;
+        QStringList               names;
+        for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+            names << p.name;
+            QCOMPARE(mgr.getPermissionDescription(p.name), p.description);
+        }
+        QStringList available = mgr.getAvailablePermissions();
+        names.sort();
+        available.sort();
+        QCOMPARE(available, names);
+        QVERIFY(available.contains("secret-service"));
     }
 
     // === CONTRACT: Every available permission must have a description ===

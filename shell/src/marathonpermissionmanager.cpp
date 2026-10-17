@@ -1,4 +1,5 @@
 #include "marathonpermissionmanager.h"
+#include "marathonmanifest.h"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include "portalmanager.h"
@@ -20,21 +21,8 @@ MarathonPermissionManager *MarathonPermissionManager::create(QQmlEngine *engine,
 MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
     , m_promptActive(false) {
-    m_permissionDescriptions = {
-        {"network", "Access the internet and make network connections"},
-        {"location", "Access your device's location"},
-        {"camera", "Access the camera to take photos and videos"},
-        {"microphone", "Record audio using the microphone"},
-        {"contacts", "Read and write your contacts"},
-        {"calendar", "Read and write calendar events"},
-        {"storage", "Read and write files on your device"},
-        {"notifications", "Show notifications"},
-        {"alarms", "Set alarms and timers"},
-        {"telephony", "Make and receive phone calls"},
-        {"sms", "Send and receive SMS messages"},
-        {"bluetooth", "Connect to Bluetooth devices"},
-        {"system", "Access system-level features (restricted to system apps)"},
-        {"terminal", "Run shell commands with full system access (DANGEROUS)"}};
+    for (const MarathonManifest::Permission &p : MarathonManifest::permissions())
+        m_permissionDescriptions.insert(p.name, p.description);
 
     loadPermissions();
 
