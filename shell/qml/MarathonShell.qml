@@ -1104,6 +1104,8 @@ Item {
                 anchors.bottom: parent.bottom
                 height: bottomBar.height
                 z: Constants.zIndexBottomSection
+                // The Hub's weather sheet covers the page, this bar included.
+                visible: !pageView.hubOverlayOpen
 
                 MarathonBottomBar {
                     id: bottomBar
