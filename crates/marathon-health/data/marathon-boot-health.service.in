@@ -1,0 +1,17 @@
+[Unit]
+Description=Hold boot assessment until Marathon Shell draws its first frame
+Documentation=man:systemd-bless-boot.service(8)
+Before=boot-complete.target
+# Only a boot systemd-boot is counting can be rolled back. marathon-health
+# reboots on failure itself, and only when that can reach a better entry.
+ConditionPathExists=/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=MARATHON_HEALTH_TIMEOUT_SECS=300
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-health --timeout ${MARATHON_HEALTH_TIMEOUT_SECS}
+TimeoutStartSec=infinity
+
+[Install]
+RequiredBy=boot-complete.target

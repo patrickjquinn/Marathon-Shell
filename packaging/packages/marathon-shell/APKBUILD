@@ -333,6 +333,12 @@ package() {
 			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
 	done
 
+	# Boot assessment: systemd-bless-boot waits on boot-complete.target,
+	# which now waits for the shell's first frame (cmake installs the unit).
+	mkdir -p "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires"
+	ln -sf ../marathon-boot-health.service \
+		"$pkgdir/usr/lib/systemd/system/boot-complete.target.requires/marathon-boot-health.service"
+
 	# rtprio limit so app render threads can elevate to SCHED_RR without
 	# requiring per-binary setcap. Also factory-symlinked into /etc.
 	install -Dm644 "$srcdir/99-marathon-rtprio.conf" \

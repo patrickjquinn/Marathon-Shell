@@ -78,6 +78,23 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-weatherd.service"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Weather.service"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
 
+# Boot health check: holds boot-complete.target until the shell's first frame.
+set(MARATHON_HEALTH_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-health")
+add_custom_target(marathon_health_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-health
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_HEALTH_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-health (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_HEALTH_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-health/data/marathon-boot-health.service.in
+    marathon-boot-health.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-boot-health.service"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}
