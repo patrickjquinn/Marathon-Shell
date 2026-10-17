@@ -6,16 +6,16 @@ Every function in apps/test driven on the device with screenshots and the journa
 |---|---|---|---|
 | F1 | Calls | Answer: overlay unloaded mid-handler (invalid context, hide not a function); Phone never opened | verified fixed r459 |
 | F2 | Calls | Decline: same invalid-context error | verified fixed r459 |
-| F3 | Calls | callaudiod exits on devices with no earpiece; shell's SelectMode/EnableSpeaker calls wait for D-Bus timeout | → R09 audio agent |
+| F3 | Calls | callaudiod exits on devices with no earpiece; shell's SelectMode/EnableSpeaker calls wait for D-Bus timeout | fixed — callaudiod dropped (R09); call audio routes through WirePlumber; needs a modem device to test |
 | F4 | Permissions | Launch prompt lists 5 of 8 manifest permissions (no contacts/location/notifications); contacts later denied silently without a prompt | open |
 | F5 | Calls | Declining a call while unlocked brings up the lock screen | verified fixed r459 (7f2b266b) |
 | F6 | Calls | A declined call raises a "Missed Call" notification | verified fixed r459 — no Missed Call for a decline |
 | F7 | Permissions | "system" requested by test app is denied (restricted to system apps) — expected, but the prompt still lists it | check |
-| F8 | Notifications | "With icon" shows the default bell, not the app's custom icon | open |
+| F8 | Notifications | "With icon" shows the default bell, not the app's custom icon | verified fixed r460 (R31) |
 | F9 | Compositor | journal spam: "Failed to move cursor on screen UNKNOWN1: -14" (hardware cursor ioctl) | open |
-| F10 | Notifications | A notification arriving while a banner is on screen is sometimes never bannered (Important/Interactive dropped when sent back-to-back) | open |
-| F11 | Notifications | Actions (reply/dismiss/snooze) never shown — not in the banner, not in the Hub; app passes plain string ids | open |
-| F12 | Notifications | Clear all: Nemo.Notifications Notification.close() sends no CloseNotification on the bus (Keel nemo-compat, read-only here, or runner id handling) | open — report |
+| F10 | Notifications | A notification arriving while a banner is on screen is sometimes never bannered (Important/Interactive dropped when sent back-to-back) | verified fixed r460 (R31) — queued, critical first |
+| F11 | Notifications | Actions (reply/dismiss/snooze) never shown — not in the banner, not in the Hub; app passes plain string ids | verified fixed r460 (R31) — ActionInvoked then NotificationClosed reason 2 |
+| F12 | Notifications | Clear all: Nemo.Notifications Notification.close() sends no CloseNotification on the bus (Keel nemo-compat, read-only here, or runner id handling) | verified fixed r460 (R31) — CloseNotification answered reason 3 |
 | F14 | Keyboard | Autocorrect drops the typed capital: "Teh" + space → "the" (should be "The"), Notes on device | verified fixed r461 — OSK in Notes: "teh" → "The", "hello" stays lowercase |
 | F15 | Keyboard | On device (Notes, text-input v2) every word after a space is capitalised ("Teh Hello Ello Tero"); host tests pass — likely the surrounding-text update arriving after the keyboard decides | verified fixed r461 — quick double space ". " + shift, slow double space leaves shift off, caps lock "THE" |
 | F16 | OTA | systemd-sysupdate/sysupdated log "Failed to resolve $BOOT" / "Failed to enumerate components" at every shell start on a non-A/B image; Settings should show unsupported quietly | check |
