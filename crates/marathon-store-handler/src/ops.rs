@@ -421,6 +421,9 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let output = "\u{1b}[?25horg.x.Y\n";
         let listing = stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list"));
-        assert_eq!(updates(&listing)["updates"], json!([{ "app_id": "org.x.Y" }]));
+        assert_eq!(
+            updates(&listing)["updates"],
+            json!([{ "app_id": "org.x.Y" }])
+        );
     }
 }
