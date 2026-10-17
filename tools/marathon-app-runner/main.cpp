@@ -1371,7 +1371,7 @@ int main(int argc, char *argv[]) {
     QTimer::singleShot(
         0, &view,
         [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appAbsPath,
-         &lifecycleObj]() {
+         &lifecycleObj, &startupTimer, logStartup]() {
             QQmlComponent *component = nullptr;
 
             if (QFileInfo::exists(entryAbs)) {
@@ -1403,7 +1403,8 @@ int main(int argc, char *argv[]) {
                     QUrl(QStringLiteral("marathon-app:///%1/Wrapper.qml").arg(appId)));
             }
 
-            auto createAndAttach = [component, &view, ctx, appId, &lifecycleObj]() {
+            auto createAndAttach = [component, &view, ctx, appId, &lifecycleObj, &startupTimer,
+                                    logStartup]() {
                 if (!component) {
                     QCoreApplication::exit(4);
                     return;
@@ -1424,6 +1425,8 @@ int main(int argc, char *argv[]) {
                     return;
                 }
 
+                if (logStartup)
+                    logStartupPhase(appId, "component-ready", startupTimer.elapsed());
                 QObject *rootObj = component->create(ctx);
                 if (!rootObj) {
                     qCritical() << "[marathon-app-runner] Failed to create app instance for"
@@ -1457,6 +1460,8 @@ int main(int argc, char *argv[]) {
 
                 lifecycleObj.setRoot(rootObj);
 
+                if (logStartup)
+                    logStartupPhase(appId, "created", startupTimer.elapsed());
                 // Map only once the app's content exists: an earlier show() hands
                 // the shell empty frames, which it reveals as a black window.
                 view.show();
