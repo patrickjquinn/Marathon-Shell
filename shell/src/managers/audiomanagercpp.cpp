@@ -115,6 +115,14 @@ void AudioManagerCpp::refreshStreams() {
     m_audiod->refresh();
 }
 
+void AudioManagerCpp::setInputMuted(bool muted) {
+    m_audiod->setInputMuted(muted);
+}
+
+void AudioManagerCpp::setSpeakerphone(bool on) {
+    m_audiod->setSpeakerphone(on);
+}
+
 void AudioManagerCpp::updateStreams() {
     QList<AudioStream> streams;
     for (const AudiodStream &s : m_audiod->streams())

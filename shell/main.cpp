@@ -811,9 +811,7 @@ int main(int argc, char *argv[]) {
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
-    auto *audioRoutingManager = new AudioRoutingManager(&app);
-    QObject::connect(audioRoutingManager, &AudioRoutingManager::playbackStreamsChanged,
-                     audioManager, &AudioManagerCpp::refreshStreams);
+    auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
     auto *securityManager = new SecurityManager(&app);
     qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
                                                   securityManager);

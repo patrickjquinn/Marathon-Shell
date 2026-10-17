@@ -86,6 +86,10 @@ class AudioManagerCpp : public QObject {
     Q_INVOKABLE void setStreamMuted(int streamId, bool muted);
     Q_INVOKABLE void refreshStreams();
 
+    // Call audio, for AudioRoutingManager.
+    void setInputMuted(bool muted);
+    void setSpeakerphone(bool on);
+
   signals:
     void availableChanged();
     void volumeChanged();

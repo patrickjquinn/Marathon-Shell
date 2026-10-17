@@ -6,6 +6,8 @@
 #include <QTemporaryDir>
 
 #include "audiodclient.h"
+#include "audiomanagercpp.h"
+#include "audioroutingmanager.h"
 #include "sinkvolume.h"
 
 class FakeAudio : public QObject {
@@ -187,6 +189,34 @@ class TestAudiodClient : public QObject {
         service.unregisterService(AudiodClient::serviceName());
         QTRY_VERIFY(!client.available());
         QVERIFY(volume.sink().isEmpty());
+    }
+
+    // Speakerphone and call mute go to the service (WirePlumber's call
+    // policy reads the first); a call's end leaves the next on the earpiece
+    // with the microphone open. Last: it claims the process's session bus.
+    void callControlsReachTheService() {
+        Bus bus;
+        QVERIFY(startBus(bus));
+        FakeAudio       fake;
+        QDBusConnection service = QDBusConnection::connectToBus(bus.address, "e2");
+        QVERIFY(serve(service, fake));
+        qputenv("DBUS_SESSION_BUS_ADDRESS", bus.address.toUtf8());
+        AudioManagerCpp     audio;
+        AudioRoutingManager routing(&audio);
+        QTRY_VERIFY(audio.available());
+
+        routing.startCallAudio();
+        routing.setSpeakerphone(true);
+        routing.setMuted(true);
+        routing.stopCallAudio();
+        QTRY_COMPARE(fake.calls.size(), 4);
+        QCOMPARE(fake.calls[0].toList(), (QVariantList{"SetSpeakerphone", true}));
+        QCOMPARE(fake.calls[1].toList(), (QVariantList{"SetInputMuted", true}));
+        QCOMPARE(fake.calls[2].toList(), (QVariantList{"SetInputMuted", false}));
+        QCOMPARE(fake.calls[3].toList(), (QVariantList{"SetSpeakerphone", false}));
+        QVERIFY(!routing.isInCall());
+        QVERIFY(!routing.isSpeakerphoneEnabled());
+        QVERIFY(!routing.isMuted());
     }
 };
 
