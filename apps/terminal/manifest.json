@@ -5,7 +5,7 @@
   "entryPoint": "TerminalApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["system", "storage", "terminal"],
+  "permissions": ["storage", "terminal"],
   "minShellVersion": "1.0.0",
   "protected": false,
   "categories": ["System"],
