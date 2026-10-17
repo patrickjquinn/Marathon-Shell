@@ -3,6 +3,7 @@
 #include "marathonappregistry.h"
 #include "navigationroutercpp.h"
 #include "notificationservicecpp.h"
+#include "notificationtarget.h"
 #include "telephonyservice.h"
 
 #include <QDebug>
@@ -91,9 +92,11 @@ void NotificationHandlerCpp::navigateToNotificationTarget(const QVariantMap &not
         return;
     }
 
-    if (!m_registry || !m_registry->hasApp(appId)) {
+    // Rows stored before the server resolved apps still carry app_name.
+    const QString installed = NotificationTarget::resolve({appId}, m_registry);
+    if (installed.isEmpty()) {
         qWarning() << "[NotificationHandler] No installed app for notification from" << appId;
         return;
     }
-    m_router->navigateToDeepLink(appId, "", {});
+    m_router->navigateToDeepLink(installed, "", {});
 }
