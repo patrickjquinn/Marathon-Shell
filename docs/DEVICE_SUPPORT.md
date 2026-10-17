@@ -1,297 +1,105 @@
 # Marathon OS Device Support
 
-Marathon OS is designed to run on any ARM64 device with mainline Linux support. This document explains how to adapt it for different devices.
-
-## Architecture
-
-Marathon OS separates **device-agnostic** components from **device-specific** ones:
-
-### Device-Agnostic (Universal)
-- `marathon-base-config` - System tuning (works on all ARM64)
-- `marathon-shell` - Compositor (works on any Wayland)
-- Base kernel config - PREEMPT_RT, performance, security options
-
-### Device-Specific
-- Kernel device trees
-- Device-specific kernel options (GPU, modem, display drivers)
-- Bootloader requirements
-- Partition layout
-
-## Current Device Support
-
-| Device | SoC | Status | Maintainer |
-|--------|-----|--------|------------|
-| OnePlus 6 (enchilada) | SDM845 | Reference | @patrickjquinn |
-| Generic ARM64 | Any | Experimental | - |
-
-## Adding a New Device
-
-### 1. Create Device Directory
-
-```bash
-mkdir -p devices/<device-codename>
-```
-
-### 2. Create Device Configuration
-
-`devices/<device-codename>/device.conf`:
-
-```bash
-# Device metadata
-DEVICE_VENDOR="oneplus"
-DEVICE_CODENAME="enchilada"
-DEVICE_NAME="OnePlus 6"
-DEVICE_SOC="sdm845"
-DEVICE_ARCH="aarch64"
-
-# Kernel
-KERNEL_CMDLINE="console=ttyMSM0,115200n8 mem_sleep_default=deep"
-KERNEL_DTB="qcom/sdm845-oneplus-enchilada.dtb"
-
-# Bootloader
-BOOTLOADER_TYPE="android"  # or "u-boot", "grub"
-FLASH_METHOD="fastboot"    # or "dd", "jumpdrive"
-
-# Partitions (Android devices)
-BOOT_PARTITION="boot"
-SYSTEM_PARTITION="userdata"
-```
-
-### 3. Create Kernel Config Fragment
-
-`devices/<device-codename>/kernel-config.fragment`:
-
-```
-# Device-specific kernel options
-CONFIG_ARCH_QCOM=y
-CONFIG_QCOM_SMD_RPM=y
-CONFIG_QCOM_SMEM=y
-
-# GPU (Adreno)
-CONFIG_DRM_MSM=y
-CONFIG_DRM_MSM_GPU=y
-
-# Display
-CONFIG_DRM_MSM_DSI=y
-CONFIG_DRM_MSM_DSI_PLL=y
-
-# Modem
-CONFIG_MHI_BUS=y
-CONFIG_QRTR=y
-
-# Audio
-CONFIG_SND_SOC_QCOM=y
-CONFIG_SND_SOC_WCD9335=y
-```
-
-### 4. Build for Your Device
-
-```bash
-./scripts/build-and-flash.sh --device <device-codename>
-```
-
-## Device Profiles
-
-### Generic ARM64
-
-For SBCs or devices with U-Boot:
-
-```bash
-# devices/generic/device.conf
-DEVICE_VENDOR="generic"
-DEVICE_CODENAME="arm64"
-DEVICE_NAME="Generic ARM64"
-DEVICE_ARCH="aarch64"
-BOOTLOADER_TYPE="u-boot"
-FLASH_METHOD="dd"
-```
-
-Good for:
-- Raspberry Pi 4/5 (with U-Boot)
-- Pine64 devices
-- Generic ARM64 VMs
-- Development boards
-
-### SDM845 Devices (OnePlus 6, Poco F1, etc.)
-
-Common Snapdragon 845 config works for:
-- OnePlus 6/6T (enchilada/fajita)
-- Xiaomi Poco F1 (beryllium)
-- Shift6mq
-
-### SDM855 Devices
-
-Newer Snapdragon 855/855+ devices:
-- OnePlus 7/7 Pro
-- Xiaomi Mi 9
-- Similar kernel requirements, better GPU
-
-## Kernel Packaging Strategy
-
-### Option 1: Per-Device Kernels (Current)
-
-```
-packages/
-├── linux-marathon/
-├── linux-marathon-beryllium/
-└── linux-marathon-fajita/
-```
-
-**Pros:** Device-optimized, minimal bloat
-**Cons:** Duplication, maintenance overhead
-
-### Option 2: Unified Kernel with Configs
-
-```
-packages/
-└── linux-marathon/
-    ├── APKBUILD
-    ├── config-base.aarch64         # Universal Marathon config
-    ├── config-sdm845.fragment      # SDM845 family
-    ├── config-sdm855.fragment      # SDM855 family
-    └── config-generic.fragment     # Generic ARM64
-```
-
-**Pros:** Shared maintenance, easier updates
-**Cons:** Larger kernel, longer build time
-
-### Option 3: Modular (Recommended)
-
-```
-packages/
-├── linux-marathon-base/           # Base kernel + Marathon optimizations
-│   └── config-marathon.aarch64    # PREEMPT_RT, perf, security
-└── devices/<device>/
-    └── linux-marathon-<device>/   # Device-specific overlay
-        └── config-<device>.fragment
-```
-
-## Porting Checklist
-
-- [ ] Device has mainline Linux support (check wiki.postmarketos.org)
-- [ ] Kernel 6.17+ works on device
-- [ ] Wayland-capable GPU drivers available (mesa, freedreno, panfrost, etc.)
-- [ ] Device tree exists in mainline kernel
-- [ ] Bootloader is unlockable
-- [ ] fastboot/U-Boot/GRUB available
-- [ ] Display, touch, USB working in mainline
-- [ ] Optional: Modem, WiFi, Bluetooth, cameras
-
-## Minimal Requirements
-
-For Marathon OS to be usable:
-
-**Must Have:**
-- ARM64 CPU (ARMv8+)
-- 2GB+ RAM (3GB+ recommended)
-- OpenGL ES 2.0+ GPU (for Qt/Wayland)
-- Touch input or keyboard/mouse
-- Display output
-
-**Should Have:**
-- WiFi or Ethernet
-- 16GB+ storage
-- Suspend/resume support
-- Runtime PM for battery devices
-
-**Nice to Have:**
-- Modem (for phone calls)
-- GPS
-- Cameras
-- Sensors (accel, gyro, proximity)
-
-## Example: Porting to Raspberry Pi 4
-
-1. **Create device profile:**
-```bash
-# devices/rpi4/device.conf
-DEVICE_VENDOR="raspberrypi"
-DEVICE_CODENAME="rpi4"
-DEVICE_NAME="Raspberry Pi 4"
-DEVICE_ARCH="aarch64"
-BOOTLOADER_TYPE="u-boot"
-FLASH_METHOD="dd"
-KERNEL_DTB="broadcom/bcm2711-rpi-4-b.dtb"
-```
-
-2. **Kernel config fragment:**
-```
-# devices/rpi4/kernel-config.fragment
-CONFIG_ARCH_BCM2835=y
-CONFIG_DRM_V3D=y
-CONFIG_DRM_VC4=y
-CONFIG_BCM2835_THERMAL=y
-```
-
-3. **Build:**
-```bash
-./scripts/build-and-flash.sh --device rpi4
-dd if=out/marathon-rpi4.img of=/dev/sdX bs=4M
-```
-
-## SoC Family Support Matrix
-
-| SoC Family | Example Devices | Mainline Support | Recommended |
-|------------|----------------|------------------|-------------|
-| Snapdragon 845 | OnePlus 6, Poco F1 |  Excellent |  Yes |
-| Snapdragon 855/+ | OnePlus 7 Pro |  Good |  Yes |
-| Snapdragon 865 | OnePlus 8 |  Partial |  WIP |
-| Exynos 9820+ | Some Samsungs |  Limited |  Not yet |
-| MediaTek Dimensity | Various |  Varies |  Case by case |
-| Rockchip RK33xx | Pine64, SBCs |  Excellent |  Yes |
-| Broadcom BCM2711 | Raspberry Pi 4 |  Good |  Yes |
-| Allwinner H6/A64 | Pine64 phones |  Good |  Yes |
-
-## Device-Specific Notes
-
-### Android Devices (Qualcomm/MediaTek)
-
-- Bootloader unlock required
-- Use fastboot for flashing
-- May need vendor firmware blobs
-- Check postmarketOS wiki for device status
-
-### Single-Board Computers
-
-- Usually easier to port
-- Better mainline support
-- May need custom U-Boot
-- Can use SD card for easy testing
-
-### Tablets
-
-- Same as phones, often easier (less modem complexity)
-- Check touchscreen drivers
-
-## Testing Strategy
-
-1. **Boot test:** Does kernel boot to shell?
-2. **Display:** Does framebuffer/DRM work?
-3. **Input:** Touch/keyboard responsive?
-4. **GPU:** Can run glmark2-wayland?
-5. **Network:** WiFi or Ethernet working?
-6. **Performance:** RT priorities effective?
-7. **Power:** Suspend/resume working?
-
-## Contributing Device Support
-
-To add a device to Marathon OS:
-
-1. Fork repo, create branch: `device/<codename>`
-2. Add `devices/<codename>/` with config
-3. Test boot, display, input, GPU
-4. Document hardware status in `devices/<codename>/README.md`
-5. Submit PR with validation screenshots/logs
-
-## Resources
-
-- **postmarketOS Wiki:** https://wiki.postmarketos.org/wiki/Devices
-- **Mainline kernel status:** https://linux-sunxi.org/Linux_mainlining_effort
-- **Device trees:** https://github.com/torvalds/linux/tree/master/arch/arm64/boot/dts
-- **Mesa driver support:** https://docs.mesa3d.org/drivers.html
-
----
-
-**Goal:** Make Marathon OS run on any ARM64 device with decent mainline support!
-
-
+Which devices Marathon builds for, what each one needs, and where to start a
+new port. The mechanics of overlays and `DeviceProfile` are in
+[`DEVICE_OVERLAYS.md`](DEVICE_OVERLAYS.md); the boot chains are in
+[`IMAGE_BUILD_ARCHITECTURE.md`](IMAGE_BUILD_ARCHITECTURE.md).
+
+## Model
+
+The shell, the app runners and `marathon-base-config` are the same on every
+device. Everything device-specific is in one overlay aport,
+`packaging/packages/device-<vendor>-<model>-marathon`, which depends on the
+upstream pmaports `device-*` package and Marathon's runtime stack, and ships:
+
+- `/etc/marathon/device-profile.conf` — traits the shell reads through
+  `DeviceProfile` (GPU stack, GLES level, MSAA, DPI, brightness floor, CPU
+  governor, call audio, ...);
+- greetd and logind configuration, udev rules, firmware dependencies;
+- a kernel or U-Boot fork as a dependency when upstream's is not good enough;
+- for U-Boot devices, `marathon-boot.cmd`, compiled into `boot.scr` at build
+  time.
+
+`scripts/build-image.sh <target>` builds the overlay for that target (and any
+`*-marathon` fork it depends on) and bakes the image.
+
+## Devices
+
+| Device | Target | Overlay | SoC / GPU | Kernel | Status |
+|---|---|---|---|---|---|
+| Purism Librem 5 | `purism-librem5` | `device-purism-librem5-marathon` | i.MX8MQ / Vivante GC7000L, etnaviv GLES2 (optional Vivante blobs) | `linux-purism-librem5-marathon` 6.6 | Primary phone |
+| PINE64 PinePhone | `pine64-pinephone` | `device-pine64-pinephone-marathon` | Allwinner A64 / Mali-400, lima GLES2 | `linux-postmarketos-allwinner-marathon` 6.18, `u-boot-pinephone-marathon` | Boots to OOBE and the shell |
+| HackberryPi CM5 | `raspberry-pi5` + CM5 layer | `device-hackberrypi-cm5-marathon` on `device-raspberry-pi5-marathon` | BCM2712 / VideoCore VII, v3d | `linux-rpi` 6.12.85 (pinned) | Active |
+| Raspberry Pi 5 / CM5 | `raspberry-pi5` | `device-raspberry-pi5-marathon` | BCM2712 / v3d | `linux-rpi` 6.12.85 (pinned) | Base for the CM5 layer; HDMI |
+| QEMU aarch64 | `qemu-aarch64` | none (base image only) | virtio-gpu-gl (virgl) | upstream | Developer simulator |
+| OnePlus 6 | `oneplus-enchilada` | `device-oneplus-enchilada-marathon` | SDM845 / Adreno 630 | `linux-marathon` (SDM845) | Dormant: kept, not maintained or tested |
+
+### Librem 5
+
+- Boot: U-Boot `phone-boot.img` at byte 33 KiB, `boot.scr` on an ext4 boot
+  partition at sector 4096. Flash with `scripts/flash/flash-librem5.sh`
+  (`sd` or `emmc` via uuu).
+- `GPU_MSAA=0`: etnaviv cannot do FBO MSAA at a usable frame rate.
+- The overlay carries the speaker-over-HDMI WirePlumber rule, the modem
+  wakeup and Wi-Fi rfkill rules, Wi-Fi recovery, the cellular connection
+  profile and GPU stack selection (`marathon-gpu-select`).
+- Recovery: `packaging/scripts/setup-librem5-recovery.sh`;
+  [`LIBREM5_RECOVERY.md`](LIBREM5_RECOVERY.md).
+
+### PinePhone
+
+- Boot: pure MBR, U-Boot SPL at 8 KiB, `boot.scr` loading the board DTB from
+  `allwinner/` on the ext4 boot partition. Write the `.raw` to a microSD card.
+- Kernel and U-Boot forks carry the A64 watchdog and lockup detection and a
+  TF-A PSCI fix; call audio goes through `pinephone-callaudiod-marathon`.
+
+### HackberryPi CM5 and Raspberry Pi 5
+
+- Boot: Pi EEPROM reads a FAT32 boot partition (MBR type 0x0c) with
+  `config.txt`, `cmdline.txt`, `kernel_2712.img` and `initramfs_2712`. The
+  root partition grows to fill the card on first boot.
+- The HackberryPi layer adds the HyperPixel 4 Square 720x720 panel and touch
+  (device tree overlay), the physical keyboard, the fuel gauge, the
+  speaker service and `usercfg-hackberrypi.txt`. Its profile sets
+  `FORCE_DPI=254` and `PANEL_DEPTH=6` (dithered 6-bit panel), keeps the
+  screen on (`SCREEN_TIMEOUT_MS=0`) and wakes on a key press.
+- Build with `scripts/build-hackberry-cm5-image.sh`; flash with
+  `scripts/flash/flash-hackberry-cm5.sh`. A bare Pi 5 / CM5 board is
+  `scripts/build-image.sh raspberry-pi5`.
+
+### QEMU
+
+`scripts/build-qemu-image.sh --boot` boots the image with GL, as a GTK window
+or on VNC `127.0.0.1:5905`; SSH on port 2233. The default panel is 720x1440
+(`MARATHON_QEMU_WIDTH` / `MARATHON_QEMU_HEIGHT`).
+
+### OnePlus 6
+
+`scripts/build-oneplus6-image.sh` and `scripts/flash/flash-oneplus6.sh`
+(fastboot) still exist, and `packaging/devices/` holds its kernel-config
+fragment, but the overlay has not changed since the 2026-09 merge and recent
+images are untested.
+
+## Adding a device
+
+Follow the checklist in
+[`DEVICE_OVERLAYS.md`](DEVICE_OVERLAYS.md#checklist-adding-a-new-device).
+In short:
+
+1. The device must boot postmarketOS with a mainline-style kernel, DRM/KMS
+   display, a Mesa GLES 2.0+ driver and working touch or keyboard.
+2. Add `packaging/packages/device-<vendor>-<model>-marathon` with its
+   `device-profile.conf`. Prefer runtime probing; never add device names to
+   shell code.
+3. If the boot ROM needs something mkosi's default layout cannot give it,
+   add a numbered pipeline patch (see the Librem 5, PinePhone and Pi patches
+   in [`../packaging/pipeline-patches/README.md`](../packaging/pipeline-patches/README.md)).
+4. Build with `scripts/build-image.sh <target>`; add a
+   `scripts/build-<device>-image.sh` wrapper once it works.
+
+## Minimum hardware
+
+- ARM64 CPU, 2 GB RAM or more
+- GPU with an OpenGL ES 2.0 Mesa driver
+- Touch screen or keyboard and pointer
+- Wi-Fi or Ethernet for app installs
