@@ -1,11 +1,7 @@
 //! `arm-wake`: run as root before every suspend (sleep.target). Proxies the
-//! users' `marathon-wake-*` timers to one system timer with `WakeSystem=`,
-//! since a user manager cannot hold a wake alarm: systemd fails such a
-//! timer with EOPNOTSUPP there.
-//!
-//! The system timer keeps the alarm in the kernel's alarmtimer, which shares
-//! the RTC with `/sys/class/rtc/rtc0/wakealarm` (the alarm clock's), so
-//! neither overwrites the other.
+//! users' `marathon-wake-*` timers, background tasks' and the alarm clock's,
+//! to one system timer with `WakeSystem=`, since a user manager cannot hold
+//! a wake alarm: systemd fails such a timer with EOPNOTSUPP there.
 
 use std::fs;
 use std::path::Path;
@@ -15,6 +11,8 @@ use serde::Deserialize;
 
 pub const UNIT: &str = "marathon-wake";
 pub const TIMER_PATTERN: &str = "marathon-wake-*";
+/// The shell's alarm clock (`WakeTimers` key `alarm`).
+const ALARM_PREFIX: &str = "marathon-wake-alarm-";
 /// Never resume sooner than this after suspending.
 const MIN_AHEAD_SECS: u64 = 30;
 
@@ -26,6 +24,14 @@ struct User {
 #[derive(Deserialize)]
 struct Timer {
     next: Option<u64>,
+    unit: String,
+}
+
+/// A timer's next elapse, in seconds since the epoch.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Elapse {
+    pub unit: String,
+    pub at: u64,
 }
 
 /// `loginctl --json=short list-users`.
@@ -35,27 +41,32 @@ pub fn parse_users(json: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// `systemctl list-timers -o json`: the next elapse of each, in seconds.
-/// An inactive timer has no next elapse (null or 0).
-pub fn parse_next_elapses(json: &str) -> Vec<u64> {
+/// `systemctl list-timers -o json`: the next elapse of each. An inactive
+/// timer has no next elapse (null or 0).
+pub fn parse_next_elapses(json: &str) -> Vec<Elapse> {
     serde_json::from_str::<Vec<Timer>>(json)
         .map(|timers| {
             timers
                 .into_iter()
-                .filter_map(|t| t.next.filter(|usec| *usec > 0).map(|usec| usec / 1_000_000))
+                .filter_map(|t| {
+                    let usec = t.next.filter(|usec| *usec > 0)?;
+                    Some(Elapse {
+                        unit: t.unit,
+                        at: usec / 1_000_000,
+                    })
+                })
                 .collect()
         })
         .unwrap_or_default()
 }
 
 /// When to resume, in seconds since the epoch, or `None` to sleep through.
-pub fn next_wake(elapses: &[u64], now: u64, battery_low: bool) -> Option<u64> {
-    if battery_low {
-        return None;
-    }
+/// A low battery sleeps through background work, never through an alarm.
+pub fn next_wake(elapses: &[Elapse], now: u64, battery_low: bool) -> Option<u64> {
     elapses
         .iter()
-        .copied()
+        .filter(|e| !battery_low || e.unit.starts_with(ALARM_PREFIX))
+        .map(|e| e.at)
         .min()
         .map(|next| next.max(now + MIN_AHEAD_SECS))
 }
@@ -96,7 +107,7 @@ fn output(program: &str, args: &[&str]) -> String {
     }
 }
 
-fn elapses() -> Vec<u64> {
+fn elapses() -> Vec<Elapse> {
     parse_users(&output("loginctl", &["--json=short", "list-users"]))
         .iter()
         .flat_map(|user| {
@@ -173,6 +184,20 @@ mod tests {
         assert!(parse_users("").is_empty());
     }
 
+    fn task(at: u64) -> Elapse {
+        Elapse {
+            unit: "marathon-wake-email.sync.timer".to_owned(),
+            at,
+        }
+    }
+
+    fn alarm(at: u64) -> Elapse {
+        Elapse {
+            unit: format!("marathon-wake-alarm-{at}.timer"),
+            at,
+        }
+    }
+
     #[test]
     fn timers_without_a_next_elapse_are_left_out() {
         assert_eq!(
@@ -182,7 +207,7 @@ mod tests {
                     {"next":null,"unit":"marathon-wake-a.b.timer"},
                     {"next":0,"unit":"marathon-wake-c.d.timer"}]"#
             ),
-            [1_792_236_376]
+            [task(1_792_236_376)]
         );
         assert!(parse_next_elapses("[]").is_empty());
         assert!(parse_next_elapses("garbage").is_empty());
@@ -190,18 +215,37 @@ mod tests {
 
     #[test]
     fn the_earliest_task_wakes_the_device() {
-        assert_eq!(next_wake(&[5000, 4000, 9000], 1000, false), Some(4000));
+        assert_eq!(
+            next_wake(&[task(5000), task(4000), task(9000)], 1000, false),
+            Some(4000)
+        );
         assert_eq!(next_wake(&[], 1000, false), None);
     }
 
     #[test]
-    fn a_task_already_due_wakes_shortly_after_suspend() {
-        assert_eq!(next_wake(&[900, 4000], 1000, false), Some(1030));
+    fn an_alarm_before_a_task_wakes_the_device() {
+        assert_eq!(
+            next_wake(&[task(5000), alarm(4000)], 1000, false),
+            Some(4000)
+        );
+        assert_eq!(
+            next_wake(&[task(4000), alarm(5000)], 1000, false),
+            Some(4000)
+        );
     }
 
     #[test]
-    fn a_low_battery_sleeps_through() {
-        assert_eq!(next_wake(&[4000], 1000, true), None);
+    fn a_task_already_due_wakes_shortly_after_suspend() {
+        assert_eq!(next_wake(&[task(900), task(4000)], 1000, false), Some(1030));
+    }
+
+    #[test]
+    fn a_low_battery_sleeps_through_tasks_but_not_alarms() {
+        assert_eq!(next_wake(&[task(4000)], 1000, true), None);
+        assert_eq!(
+            next_wake(&[task(4000), alarm(5000)], 1000, true),
+            Some(5000)
+        );
     }
 
     #[test]
