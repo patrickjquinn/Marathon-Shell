@@ -14,10 +14,10 @@ Finding numbers refer to the review's Findings table.
 | R06 | Debug-app auto-launch opt-in; inverted log guard; dead WAYLAND_DISPLAY | 16, 17, 18 | – | done | dfd3fcc7, 94919ea9 |
 | R07 | Stale comments | 20 | – | done | 10f3c7e3 |
 | R08 | Hub notification tap opens the app | new | 1 | review | + tap-time resolution 10fa7a98; re-verify in r456 |
-| R09 | Audio on PipeWire/WirePlumber (no PulseAudio API, no wpctl/pactl subprocesses) | 13 | 1 | active | |
+| R09 | Audio on PipeWire/WirePlumber (no PulseAudio API, no wpctl/pactl subprocesses) | 13 | 1 | review | playback + BT volume verified r461; call routing needs a modem device |
 | R10 | App signing: whole-package Ed25519/minisign, required by default, verified before parsing; generated permission disclosures; hold permission-widening updates | 2 | 1 | review | minisign whole-package signing, disclosures, held widening updates; device test in r456 |
 | R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | review | systemd-sysupdate A/B behind MARATHON_IMAGE_LAYOUT=ab; QEMU validation pending (needs ~30 GB, signing key, feed host) |
-| R12 | Sandbox: security-context-v1 for sandboxed clients, marathon-sandbox defaults, WebEngine sandbox, no setcap in setup | 7, 8, 9 | 1 | active | |
+| R12 | Sandbox: security-context-v1 for sandboxed clients, marathon-sandbox defaults, WebEngine sandbox, no setcap in setup | 7, 8, 9 | 1 | review | security-context socket verified r457 |
 | R13 | App manifest JSON schema + `marathon-dev lint` | 2 | 2 | review | schemas/marathon-app-manifest-v1 + marathon-dev lint; all apps pass |
 | R14 | Device manifests (devices/<vendor>/<codename>) generating device-profile.conf; PinePhone build wrapper + flash script | 15 | 2 | review | devices/*/device.toml + socs/; generated device-profile.conf; PinePhone build/flash scripts |
 | R15 | Design tokens from one source; lint hex/durations; reduceBlur | 10 | 2 | todo | |
@@ -30,15 +30,15 @@ Finding numbers refer to the review's Findings table.
 | R22 | Process kit: changelog fragments, test-reachability check | 1 | 3 | done | git-cliff release notes + PR subject check; Lint_TestReachability (8e0fefb8..d39a59ab) |
 | R23 | VoLTE evaluation (imsd, separate GPL-3 process) | 14 | 3 | done | docs/research/VOLTE.md: modem-side IMS; Phase 0 check script needs a modem device |
 | R24 | Lint clean: clang-tidy/clazy/clang-format, qmllint shell + apps, lint infra for Marathon.Platform | – | 3 | todo | partial lint-infra patch saved |
-| R26 | Keyboard edits reach apps: autocorrect replace, backspace, double-space period; tests on the real keyboard QML | new | 2 | active | found by R19 |
+| R26 | Keyboard edits reach apps: autocorrect replace, backspace, double-space period; tests on the real keyboard QML | new | 2 | done | found by R19; verified r457, r461 |
 | R27 | Audit possibly dead settings (dateFormat, statusBarClockPosition, showFrequentApps, appSortOrder, …) | new | 3 | todo | found by R19 |
 | R28 | Permission integrity: app cannot rewrite its own manifest to gain grants; one permission vocabulary; no silent denials | new | 2 | active | found by R13 + OEM run |
 | R29 | Gestures: short pull from the pill opens QS; Peek edge strip skips the back indicator | user | – | review | 1cbed1b4, e93992e8; device test in r456 |
 | R30 | OEM test-app findings (calls, permissions, lock-after-decline, …) | OEM run | – | active | docs/testing/OEM_TEST_HACKBERRYPI_2026-10-17.md; R31–R36 fixing; lock/decline/SMS/alarm verified r459 |
-| R31 | Notification actions, custom icons, banner queue | OEM F8,F10,F11 | – | active | |
+| R31 | Notification actions, custom icons, banner queue | OEM F8,F10,F11 | – | done | verified on device r460 |
 | R32 | Lock after decline/SMS/alarm; declined ≠ missed | OEM F5,F6,F27,F28 | – | done | verified on device r459 |
-| R33 | Keyboard: autocorrect keeps case; no capital after every space on device | OEM F14,F15 | – | active | |
-| R34 | Alarms wake the device (root-armed RTC timer); WakeManager | OEM | – | active | |
+| R33 | Keyboard: autocorrect keeps case; no capital after every space on device | OEM F14,F15 | – | done | verified on device r461 |
+| R34 | Alarms wake the device (root-armed RTC timer); WakeManager | OEM | – | review | merged (dd8f6441); device test in r462 |
 | R35 | Display/power: one screen-state owner (frozen-touch bug), power-profiles-daemon, auto-brightness, backlight steps | OEM F18–F21 | – | active | |
-| R36 | marathon-audiod volume/mute on Bluetooth sinks; profile state | OEM F25,F26 | – | active | |
+| R36 | marathon-audiod volume/mute on Bluetooth sinks; profile state | OEM F25,F26 | – | done | verified on device r461 |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
