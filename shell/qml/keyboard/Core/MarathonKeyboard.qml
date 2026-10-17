@@ -112,10 +112,9 @@ Rectangle {
 
             keyboard.recentContext = contextWords.join(" ");
         }
-        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
-            keyboard.shifted = true;
-
         inputContextInstance.insertText(" ");
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart())
+            keyboard.shifted = true;
         keyboard.lastSpaceTime = now;
         updatePredictions();
     }
@@ -161,7 +160,7 @@ Rectangle {
         Dictionary.learnWord(word);
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
-        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart())
             keyboard.shifted = true;
     }
 

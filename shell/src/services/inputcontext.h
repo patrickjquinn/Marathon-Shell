@@ -56,6 +56,7 @@ class InputContext : public QObject {
     Q_INVOKABLE bool    replaceTextBeforeCursor(const QString &before, const QString &text);
     Q_INVOKABLE bool    replaceCurrentWord(const QString &newWord) const;
     Q_INVOKABLE bool    insertDoubleSpacePeriod();
+    Q_INVOKABLE bool    atSentenceStart() const;
     Q_INVOKABLE QString getCurrentWord() const;
     Q_INVOKABLE void    detectInputMode();
 

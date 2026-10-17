@@ -222,6 +222,21 @@ bool InputContext::insertDoubleSpacePeriod() {
     return true;
 }
 
+// An empty field or text ending a sentence; false when the field reports no
+// text, so the keyboard keeps the shift its own punctuation set.
+bool InputContext::atSentenceStart() const {
+    QObject *focus = QGuiApplication::focusObject();
+    if (!focus)
+        return false;
+    QInputMethodQueryEvent query(Qt::ImTextBeforeCursor);
+    QGuiApplication::sendEvent(focus, &query);
+    const QVariant value = query.value(Qt::ImTextBeforeCursor);
+    if (!value.isValid())
+        return false;
+    const QString before = value.toString().trimmed();
+    return before.isEmpty() || QStringView(u".!?").contains(before.back());
+}
+
 QString InputContext::getCurrentWord() const {
     if (!m_keyboard) {
         return {};

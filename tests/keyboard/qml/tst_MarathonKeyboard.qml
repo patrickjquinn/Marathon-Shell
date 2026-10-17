@@ -95,6 +95,19 @@ TestCase {
         compare(keyboard.currentWord, "");
     }
 
+    function test_spaceShiftsOnlyAtSentenceStart() {
+        type("hello ");
+        verify(!keyboard.shifted);
+        type("there. ");
+        verify(keyboard.shifted);
+    }
+
+    function test_predictionMidSentenceDoesNotShift() {
+        type("say hel");
+        keyboard.acceptPrediction("hello");
+        verify(!keyboard.shifted);
+    }
+
     function test_fieldHintsPickTheMode() {
         field.inputMethodHints = Qt.ImhEmailCharactersOnly;
         keyboard.inputContext.detectInputMode();
