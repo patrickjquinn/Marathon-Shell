@@ -84,6 +84,7 @@
 #include "src/services/marathonappstoreservice.h"
 #include "src/services/updateservice.h"
 #include "src/services/sysupdatebackend.h"
+#include "src/services/updatenotifier.h"
 #include "contactsmanager.h"
 #include "telephonyservice.h"
 #include "callhistorymanager.h"
@@ -1240,6 +1241,8 @@ int main(int argc, char *argv[]) {
                           [] { return QDateTime::currentDateTime(); }, &app);
     QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
                      &PowerManagerCpp::restart);
+    if (freedesktopNotif)
+        new UpdateNotifier(updateService, freedesktopNotif, navigationRouter, &app);
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,

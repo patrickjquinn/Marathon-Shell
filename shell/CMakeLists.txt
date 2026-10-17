@@ -112,6 +112,8 @@ set(SOURCES
     src/services/marathonappstoreservice.cpp
     src/services/updateservice.h
     src/services/updateservice.cpp
+    src/services/updatenotifier.h
+    src/services/updatenotifier.cpp
     src/services/sysupdatebackend.h
     src/services/sysupdatebackend.cpp
     src/services/motiondaemon.h
