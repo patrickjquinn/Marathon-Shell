@@ -344,6 +344,27 @@ class TestPermissionManager : public QObject {
                  MarathonPermissionManager::NotRequested);
     }
 
+    // === CONTRACT: a decision closes only the prompt it answers ===
+
+    void otherAppsDecisionsLeaveThePromptOpen() {
+        MarathonPermissionManager mgr;
+        mgr.requestPermissions("com.asking", {"camera", "contacts"});
+        QTRY_VERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentPermissions(), QStringList({"camera", "contacts"}));
+
+        mgr.setPermission("com.other", "camera", true);
+        QVERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentAppId(), QString("com.asking"));
+
+        mgr.setPermission("com.asking", "camera", false);
+        QVERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentPermissions(), QStringList({"contacts"}));
+
+        mgr.setPermission("com.asking", "contacts", true);
+        QVERIFY(!mgr.promptActive());
+        QVERIFY(mgr.hasPermission("com.asking", "contacts"));
+    }
+
     void cleanupTestCase() {
         cleanPermissions();
         QStandardPaths::setTestModeEnabled(false);

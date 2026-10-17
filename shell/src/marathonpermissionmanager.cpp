@@ -320,14 +320,18 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
         savePermissions();
     }
 
-    // Close prompt
-    m_promptActive = false;
-    m_currentAppId.clear();
-    m_currentPermissions.clear();
-    m_currentPermission.clear();
-
-    emit promptActiveChanged();
-    emit currentRequestChanged();
+    // Answers only what they decide: a grant for another app (Settings, a
+    // portal) must not close this prompt and lose its requests.
+    if (m_promptActive && appId == m_currentAppId) {
+        for (const QString &perm : permissions)
+            m_currentPermissions.removeAll(canonical(perm));
+        if (m_currentPermissions.isEmpty()) {
+            closePrompt();
+        } else {
+            m_currentPermission = m_currentPermissions.first();
+            emit currentRequestChanged();
+        }
+    }
 
     for (const QString &perm : permissions) {
         if (hasPermission(appId, perm)) {
@@ -350,6 +354,10 @@ void MarathonPermissionManager::dismissAll() {
 
     m_pendingRequests.clear();
     m_batchTimer->stop();
+    closePrompt();
+}
+
+void MarathonPermissionManager::closePrompt() {
     m_promptActive = false;
     m_currentAppId.clear();
     m_currentPermissions.clear();
@@ -368,12 +376,7 @@ void MarathonPermissionManager::dismissForApp(const QString &appId) {
     const bool clearedActive = m_promptActive && m_currentAppId == appId;
     if (clearedActive) {
         qDebug() << "[MarathonPermissionManager] App exited — dropping active prompt for" << appId;
-        m_promptActive = false;
-        m_currentAppId.clear();
-        m_currentPermissions.clear();
-        m_currentPermission.clear();
-        emit promptActiveChanged();
-        emit currentRequestChanged();
+        closePrompt();
         checkQueue();
     } else if (droppedFromQueue > 0) {
         qDebug() << "[MarathonPermissionManager] App exited — dropped" << droppedFromQueue

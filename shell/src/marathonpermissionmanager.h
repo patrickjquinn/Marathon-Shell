@@ -103,6 +103,7 @@ class MarathonPermissionManager : public QObject {
     void    savePermissions();
     QString getPermissionsFilePath();
     void    checkQueue();
+    void           closePrompt();
     static QString canonical(const QString &permission);
     static bool    declares(const MarathonAppRegistry::AppInfo &app, const QString &permission);
     const MarathonAppRegistry::AppInfo *appInfo(const QString &appId) const;
