@@ -428,6 +428,10 @@ bool MarathonAppInstaller::canUninstall(const QString &appId) {
     return info && !info->isProtected && info->absolutePath == MarathonAppPaths::filesDir(appId);
 }
 
+// dataLifecycle (docs/APP_MANIFEST_SCHEMA.md): the cache always goes; app
+// data unless the app says "keep"; files in the user's media folders never.
+// Secret Service items are not removed: apps reach the keyring directly and
+// its items carry no app id.
 bool MarathonAppInstaller::uninstallApp(const QString &appId) {
     qDebug() << "[MarathonAppInstaller] Uninstalling app:" << appId;
 
@@ -442,15 +446,29 @@ bool MarathonAppInstaller::uninstallApp(const QString &appId) {
         return false;
     }
 
+    QFile             manifestFile(MarathonAppPaths::filesDir(appId) + "/manifest.json");
+    const QJsonObject lifecycle = manifestFile.open(QIODevice::ReadOnly) ?
+        QJsonDocument::fromJson(manifestFile.readAll()).object().value("dataLifecycle").toObject() :
+        QJsonObject();
+
     if (!removeDirectory(MarathonAppPaths::installDir(appId))) {
         emit uninstallFailed(appId, "Failed to remove app files");
         return false;
     }
+    removeDirectory(MarathonAppPaths::cacheDir(appId));
+    const bool keepData = lifecycle.value("appData").toString() == QLatin1String("keep");
+    if (!keepData) {
+        removeDirectory(MarathonAppPaths::dataDir(appId));
+        removeDirectory(MarathonAppPaths::configDir(appId));
+    }
 
     m_registry->unregisterApp(appId);
+    if (!keepData)
+        emit appDataRemoved(appId);
     emit uninstallComplete(appId);
 
-    qDebug() << "[MarathonAppInstaller] Successfully uninstalled:" << appId;
+    qDebug() << "[MarathonAppInstaller] Successfully uninstalled:" << appId
+             << (keepData ? "(app data kept)" : "");
     return true;
 }
 

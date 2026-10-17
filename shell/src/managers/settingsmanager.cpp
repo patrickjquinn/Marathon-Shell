@@ -1145,3 +1145,10 @@ void SettingsManager::set(const QString &key, const QVariant &value) {
 void SettingsManager::sync() {
     m_settings.sync();
 }
+
+void SettingsManager::removeAppKeys(const QString &appId) {
+    // QSettings::remove("") would clear every setting.
+    if (appId.isEmpty())
+        return;
+    m_settings.remove(appId);
+}

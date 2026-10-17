@@ -40,6 +40,9 @@ class MarathonAppInstaller : public QObject {
     void installComplete(const QString &appId);
     void installFailed(const QString &appId, const QString &error);
     void uninstallComplete(const QString &appId);
+    // The app's data directories went with it (dataLifecycle.appData is not
+    // "keep"); the shell drops what it keeps for the app elsewhere.
+    void appDataRemoved(const QString &appId);
     void uninstallFailed(const QString &appId, const QString &error);
 
   private:

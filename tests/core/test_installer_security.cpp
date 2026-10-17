@@ -233,6 +233,60 @@ class TestInstallerSecurity : public QObject {
         QVERIFY(QDir(MarathonAppPaths::dataDir("devapp")).removeRecursively());
     }
 
+    // === CONTRACT: uninstalling follows the manifest's dataLifecycle ===
+
+    void uninstall_followsDataLifecycle_data() {
+        QTest::addColumn<QString>("appData");
+        QTest::newRow("remove") << "remove";
+        QTest::newRow("keep") << "keep";
+        QTest::newRow("undeclared") << "";
+    }
+
+    void uninstall_followsDataLifecycle() {
+        QFETCH(QString, appData);
+        const QString id = "com.lifecycle." + (appData.isEmpty() ? QString("none") : appData);
+        QJsonObject   extra;
+        if (!appData.isEmpty())
+            extra["dataLifecycle"] =
+                QJsonObject{{"appData", appData}, {"cache", "remove"}, {"userFiles", "preserve"}};
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QVERIFY(installer.installFromPackage(
+            makePackage("lifecycle-" + appData, id, &TestKeys::alice, {"storage"}, extra)));
+        QVERIFY(writeFile(MarathonAppPaths::dataDir(id) + "/notes.db", "data"));
+        QVERIFY(writeFile(MarathonAppPaths::configDir(id) + "/app.conf", "conf"));
+        QVERIFY(writeFile(MarathonAppPaths::cacheDir(id) + "/tile.png", "cache"));
+        const QString userFile = QDir::homePath() + "/Documents/" + id + ".txt";
+        QVERIFY(writeFile(userFile, "the user's"));
+
+        QSignalSpy removed(&installer, &MarathonAppInstaller::appDataRemoved);
+        QSignalSpy done(&installer, &MarathonAppInstaller::uninstallComplete);
+        QVERIFY(installer.uninstallApp(id));
+        QCOMPARE(done.count(), 1);
+        QVERIFY(!registry.hasApp(id));
+        QVERIFY(!QDir(MarathonAppPaths::installDir(id)).exists());
+        QVERIFY(!QDir(MarathonAppPaths::cacheDir(id)).exists());
+        QVERIFY(QFile::exists(userFile));
+        const bool kept = appData == "keep";
+        QCOMPARE(QFile::exists(MarathonAppPaths::dataDir(id) + "/notes.db"), kept);
+        QCOMPARE(QFile::exists(MarathonAppPaths::configDir(id) + "/app.conf"), kept);
+        QCOMPARE(removed.count(), kept ? 0 : 1);
+    }
+
+    void uninstall_refusesSystemApps() {
+        QVERIFY(writeFile(MarathonAppPaths::systemApps() + "/bundled/manifest.json",
+                          manifest("bundled")));
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        scanner.scanApplications();
+        QVERIFY(registry.hasApp("bundled"));
+        QVERIFY(!installer.uninstallApp("bundled"));
+        QVERIFY(QFile::exists(MarathonAppPaths::systemApps() + "/bundled/manifest.json"));
+        QVERIFY(QDir(MarathonAppPaths::systemApps() + "/bundled").removeRecursively());
+    }
+
     void install_needsAReceipt() {
         QVERIFY(writeFile(MarathonAppPaths::filesDir("com.copied.app") + "/manifest.json",
                           manifest("com.copied.app")));

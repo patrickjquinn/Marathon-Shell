@@ -40,6 +40,18 @@ class TestSettingsStore : public QObject {
         QCOMPARE(events.size(), 1);
         QCOMPARE(events.first().toMap().value("title").toString(), QString("Lunch"));
     }
+
+    void uninstalledAppsKeysGo() {
+        SettingsManager m;
+        m.set("com.gone/token", "x");
+        m.set("com.gone/sub/key", 1);
+        m.set("com.kept/token", "y");
+        m.removeAppKeys("com.gone");
+        m.removeAppKeys("");
+        QVERIFY(!m.get("com.gone/token").isValid());
+        QVERIFY(!m.get("com.gone/sub/key").isValid());
+        QCOMPARE(m.get("com.kept/token").toString(), QString("y"));
+    }
 };
 
 QTEST_MAIN(TestSettingsStore)

@@ -16,6 +16,7 @@
 #include <QDBusMetaType>
 #include <QElapsedTimer>
 #include <QFileSystemWatcher>
+#include <QProcess>
 #include <QSet>
 #include <QTimer>
 #include <QSurfaceFormat>
@@ -1160,6 +1161,16 @@ int main(int argc, char *argv[]) {
     // Before the first scan, which no longer looks in the old location.
     for (const QString &appId : appInstaller->migrateLegacyInstalls())
         permissionManager->forgetApp(appId);
+
+    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, permissionManager,
+                     &MarathonPermissionManager::forgetApp);
+    QObject::connect(appInstaller, &MarathonAppInstaller::appDataRemoved, settingsManager,
+                     [settingsManager](const QString &appId) {
+                         settingsManager->removeAppKeys(appId);
+                         QProcess::startDetached(QStringLiteral("dconf"),
+                                                 {QStringLiteral("reset"), QStringLiteral("-f"),
+                                                  QStringLiteral("/apps/%1/").arg(appId)});
+                     });
 
     // The shell, weatherd and the portal (which asks the user itself) locate
     // freely; anything else needs the location permission.

@@ -327,6 +327,8 @@ class SettingsManager : public QObject {
     Q_INVOKABLE QVariant    get(const QString &key, const QVariant &defaultValue = QVariant());
     Q_INVOKABLE void        set(const QString &key, const QVariant &value);
     Q_INVOKABLE void        sync();
+    // The app's own "<appId>/..." keys, when it is uninstalled.
+    void removeAppKeys(const QString &appId);
 
   signals:
 

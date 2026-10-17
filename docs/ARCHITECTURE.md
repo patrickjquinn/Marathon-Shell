@@ -251,28 +251,42 @@ Services expose properties and methods to QML via `Q_PROPERTY` and `Q_INVOKABLE`
 
 ### Marathon App System
 
-Marathon apps are QML modules installed to `~/.local/share/marathon-apps/`:
+Marathon apps are QML modules. Marathon's own apps are installed by the OS
+to `/usr/share/marathon-apps/<id>/` (`MARATHON_APPS_DIR` points a
+development shell elsewhere); apps the user installs go to
+`~/.local/share/marathon/apps/<id>/`. Neither is the app's data directory,
+`~/.local/share/marathon-apps/<id>/`, which is the only one of them the
+sandbox binds writable, so an app cannot change its own code, manifest or
+permissions (Flatpak keeps `/app` and `~/.var/app/<id>` apart the same
+way).
 
 **App Structure:**
 
 ```
-~/.local/share/marathon-apps/myapp/
-├── manifest.json           # Metadata
-├── MyApp.qml              # Entry point
-├── qmldir                 # QML module definition
-├── components/            # Reusable components
-├── pages/                 # App screens
-├── assets/                # Icons, images
-└── libmyapp.so           # Optional C++ plugin
+~/.local/share/marathon/apps/com.example.myapp/
+├── receipt.json           # What the installer recorded: version, signer, approved permissions
+└── files/                 # The package as installed
+    ├── manifest.json      # Metadata
+    ├── MyApp.qml          # Entry point
+    ├── qmldir             # QML module definition
+    ├── components/        # Reusable components
+    ├── pages/             # App screens
+    ├── assets/            # Icons, images
+    └── libmyapp.so        # Optional C++ plugin
 ```
 
 **Launch + Isolation Model (current):**
 
-1. `MarathonAppScanner` scans `~/.local/share/marathon-apps/`
+1. `MarathonAppScanner` scans the system apps, then the user installs. A user
+   install counts only with its receipt, and its permissions are the
+   receipt's, never re-read from the manifest
 2. Parses `manifest.json` for each app
-3. `MarathonAppRegistry` stores app metadata
+3. `MarathonAppRegistry` stores app metadata. An app is a system app when it
+   is under the system directory or its package was signed with a key in
+   `/usr/share/marathon/system-keys/`; only a system app can be `protected`
 4. User launches app from App Grid / task switcher
-5. Shell launches `marathon-app-runner --app-id <id>` as an *out-of-process Wayland client*
+5. Shell launches `marathon-app-runner --app-id <id>` as an *out-of-process Wayland client*,
+   in a bubblewrap sandbox that binds the install read-only and the data directory writable
 6. App renders to the shell’s Wayland compositor and appears as a surface in the UI
 7. App calls system functionality via **DBus IPC** (`org.marathonos.Shell.*`) gated by permissions
 
@@ -301,8 +315,16 @@ myapp.marathon.minisig     # minisign signature over the whole archive (required
 3. `MarathonAppVerifier` checks the signature over that copy against the trusted keys, before anything reads the archive
 4. `MarathonAppPackager` extracts the same copy to a temp directory
 5. `MarathonAppInstaller` validates the manifest, describes every permission (refusing unknown ones) and holds an update that adds permissions until the user approves them
-6. Files moved to `~/.local/share/marathon-apps/`
+6. Files moved to `~/.local/share/marathon/apps/<id>/files/` and the receipt written beside them
 7. App appears in App Grid on next scan
+
+Installs from before this layout, which lived in the data directory, are
+copied out at shell start (`MarathonAppInstaller::migrateLegacyInstalls`).
+
+**Uninstalling** honours the manifest's `dataLifecycle`: the install and
+the cache always go; the data and config directories, the app's dconf keys
+and its `<id>/` shell settings go unless `appData` is `keep`; files in the
+media folders are never touched.
 
 ### Permission System
 

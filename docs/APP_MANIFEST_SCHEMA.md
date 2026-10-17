@@ -145,8 +145,12 @@ What uninstalling the app does to its data, after Luma's `[lifecycle]` table.
 | `secrets` | `remove` \| `keep` | the app's Secret Service items; declared exactly when the app requests `secret-service` |
 | `userFiles` | `preserve` | files the app wrote to the media folders, which are never deleted with the app; only with `storage` |
 
-The uninstaller does not act on this declaration yet; it removes the app's
-install directory only.
+Uninstalling acts on it: the install and the cache always go; the data and
+config directories, the dconf keys and the shell settings keys go unless
+`appData` is `keep` (an app that declares nothing loses its data, as on
+Android); media folder files stay. `secrets` is not acted on yet: apps
+reach the Secret Service directly and its items carry no app id, so the
+uninstaller cannot tell an app's passwords from anyone else's.
 
 ## Deep links
 
