@@ -1,5 +1,5 @@
 #!/bin/sh
-# marathon-dev — small remote helper for driving the shell over SSH.
+# marathon-remote — small remote helper for driving the shell over SSH.
 #
 # Subcommands:
 #   wake                turn the panel on (no auth required)
@@ -43,7 +43,7 @@ cmd_sleep() {
 cmd_unlock() {
     pin="${1:-}"
     if [ -z "$pin" ]; then
-        echo "marathon-dev unlock: missing PIN" >&2
+        echo "marathon-remote unlock: missing PIN" >&2
         exit 2
     fi
     call_bus call org.marathonos.Shell /org/marathonos/Shell/Security \
@@ -53,7 +53,7 @@ cmd_unlock() {
 cmd_launch() {
     appId="${1:-}"
     if [ -z "$appId" ]; then
-        echo "marathon-dev launch: missing app id" >&2
+        echo "marathon-remote launch: missing app id" >&2
         exit 2
     fi
     call_bus call org.marathonos.Shell /org/marathonos/Shell/Navigation \
@@ -88,7 +88,7 @@ cmd_close() {
     # a specific app id can no longer be singled out; closing one closes
     # all. Say so rather than pretending it worked.
     if [ -n "${1:-}" ]; then
-        echo "marathon-dev: warm-pool runners carry no app id; closing all apps" >&2
+        echo "marathon-remote: warm-pool runners carry no app id; closing all apps" >&2
     fi
     for p in $(ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}'); do
         kill -TERM "$p" 2>/dev/null || true
@@ -102,7 +102,7 @@ cmd_screenshot() {
     path="${1:-/tmp/marathon-shot.png}"
     pid="$(pidof marathon-shell-bin)"
     if [ -z "$pid" ]; then
-        echo "marathon-dev screenshot: marathon-shell-bin not running" >&2
+        echo "marathon-remote screenshot: marathon-shell-bin not running" >&2
         exit 1
     fi
     shell_path="$(tr '\0' '\n' </proc/"$pid"/environ 2>/dev/null \
@@ -128,7 +128,7 @@ cmd_screenshot() {
         sleep 0.4
     done
     if [ ! -s "$shell_path" ]; then
-        echo "marathon-dev screenshot: $shell_path empty or missing" >&2
+        echo "marathon-remote screenshot: $shell_path empty or missing" >&2
         exit 1
     fi
     if [ "$shell_path" != "$path" ]; then
@@ -146,19 +146,19 @@ case "${1:-}" in
     screenshot)  shift; cmd_screenshot "$@" ;;
     ""|--help|-h)
         cat <<EOF
-marathon-dev — remote shell driver
+marathon-remote — remote shell driver
 
 usage:
-  marathon-dev wake               # turn panel on
-  marathon-dev sleep              # turn panel off
-  marathon-dev unlock <pin>       # auth PIN + unlock session
-  marathon-dev launch <app-id>    # navigate the shell to an app
-  marathon-dev close              # SIGTERM every running app
-  marathon-dev screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
+  marathon-remote wake               # turn panel on
+  marathon-remote sleep              # turn panel off
+  marathon-remote unlock <pin>       # auth PIN + unlock session
+  marathon-remote launch <app-id>    # navigate the shell to an app
+  marathon-remote close              # SIGTERM every running app
+  marathon-remote screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
 
 All commands require the shell to be running. Most reach the shell via
 its session-bus interface (org.marathonos.Shell.* at /org/marathonos/Shell).
 EOF
         ;;
-    *) echo "marathon-dev: unknown subcommand: $1" >&2; exit 2 ;;
+    *) echo "marathon-remote: unknown subcommand: $1" >&2; exit 2 ;;
 esac

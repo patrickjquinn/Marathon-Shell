@@ -265,7 +265,7 @@ install(PROGRAMS platforms/generic/marathon-shell-session
 )
 
 # Remote-driver helper (wake / unlock / screenshot over SSH).
-install(PROGRAMS tools/dev/marathon-dev
+install(PROGRAMS tools/dev/marathon-remote
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 

@@ -90,7 +90,7 @@ def wake_display(drv: QemuDriver):
     SettingsManager.screenTimeout == 0 is "Never", and it gates off both
     the screen-off timer and the lock timer, so set that for the run.
     """
-    drv.ssh("marathon-dev wake 2>/dev/null || true")
+    drv.ssh("marathon-remote wake 2>/dev/null || true")
     for prop in ("screenTimeout", "autoLockTimeout"):
         drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
                 "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
@@ -99,7 +99,7 @@ def wake_display(drv: QemuDriver):
     # If the session already locked, clear it -- screenTimeout=0 only
     # prevents the NEXT lock, it does not dismiss a lock already up, and
     # the lock screen composites above the app so every tap lands on it.
-    drv.ssh(f"marathon-dev unlock {DEV_PIN} 2>/dev/null || true")
+    drv.ssh(f"marathon-remote unlock {DEV_PIN} 2>/dev/null || true")
     time.sleep(1.5)
 
 
@@ -112,10 +112,10 @@ def reset_runners(drv: QemuDriver):
     previous iteration left it on, quietly invalidating recipes that
     assume a first page.
 
-    marathon-dev close is the shell's own supported path; fall back to
+    marathon-remote close is the shell's own supported path; fall back to
     signalling the runners directly on images that predate it.
     """
-    rc, _, _ = drv.ssh("marathon-dev close 2>/dev/null")
+    rc, _, _ = drv.ssh("marathon-remote close 2>/dev/null")
     if rc != 0:
         for pid in runner_pids(drv):
             drv.ssh(f"kill -TERM {pid} 2>/dev/null || true")
