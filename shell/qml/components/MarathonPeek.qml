@@ -233,41 +233,42 @@ Item {
                 Logger.info("Hub", "Initialized in peek panel, width: " + hubPanelContainer.width);
             }
 
+            // Dragging left from its right side, above the nav bar, closes
+            // the peek. The mask keeps the handler off everything else, and
+            // as the Hub's own handler it lets taps and scrolls reach the Hub.
+            containmentMask: QtObject {
+                function contains(point: point): bool {
+                    return point.x > hubPanel.width * 0.7 && point.y < hubPanel.height - Constants.navBarHeight;
+                }
+            }
+
+            DragHandler {
+                target: null
+                enabled: peekComponent.isFullyOpen
+                yAxis.enabled: false
+                onActiveChanged: {
+                    if (active) {
+                        peekComponent.startPeekGesture(centroid.position.x);
+                        return;
+                    }
+                    peekComponent.isPeeking = false;
+                    // Closing runs the other way along the tracker's range.
+                    peekDrag.release();
+                    if (peekDrag.decide(peekDrag.to - peekDrag.value, -peekDrag.velocity))
+                        peekComponent.closePeek();
+                    else
+                        peekDrag.settleTo(peekDrag.to);
+                }
+                onTranslationChanged: {
+                    if (active)
+                        peekComponent.updatePeekGesture(Math.min(0, activeTranslation.x));
+                }
+            }
+
             Behavior on opacity {
                 NumberAnimation {
                     duration: 150
                 }
-            }
-        }
-
-        // Dragging left from the right side closes the peek. A handler on
-        // this parent, not an overlay, so taps and scrolls reach the Hub.
-        DragHandler {
-            id: closeDrag
-
-            readonly property bool fromRight: centroid.pressPosition.x > parent.width * 0.7
-
-            target: null
-            enabled: peekComponent.isFullyOpen
-            yAxis.enabled: false
-            onActiveChanged: {
-                if (!fromRight)
-                    return;
-                if (active) {
-                    peekComponent.startPeekGesture(centroid.position.x);
-                    return;
-                }
-                peekComponent.isPeeking = false;
-                // Closing runs the other way along the tracker's range.
-                peekDrag.release();
-                if (peekDrag.decide(peekDrag.to - peekDrag.value, -peekDrag.velocity))
-                    peekComponent.closePeek();
-                else
-                    peekDrag.settleTo(peekDrag.to);
-            }
-            onTranslationChanged: {
-                if (active && fromRight)
-                    peekComponent.updatePeekGesture(Math.min(0, activeTranslation.x));
             }
         }
     }
