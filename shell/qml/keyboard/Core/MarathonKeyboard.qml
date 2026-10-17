@@ -24,14 +24,21 @@ Rectangle {
     property string lastOriginalWord: ""
     property bool canUndoAutoCorrect: false
     property string recentContext: ""
+    // The space after an accepted prediction, which punctuation moves past.
+    property bool autoSpaced: false
+    readonly property string weakSpacePunctuation: ".,!?;:"
 
     signal layoutChanged(string layout)
     signal dismissRequested
 
     function handleKeyPress(text) {
+        var movedSpace = keyboard.autoSpaced && keyboard.weakSpacePunctuation.indexOf(text) !== -1 && inputContextInstance.replaceTextBeforeCursor(" ", text + " ");
+        keyboard.autoSpaced = false;
         keyboard.canUndoAutoCorrect = false;
-        keyboard.currentWord += text;
-        inputContextInstance.insertText(text);
+        if (!movedSpace) {
+            keyboard.currentWord += text;
+            inputContextInstance.insertText(text);
+        }
         if (inputContextInstance.shouldShowPredictions)
             updatePredictions();
         else
@@ -51,6 +58,7 @@ Rectangle {
     }
 
     function handleBackspace() {
+        keyboard.autoSpaced = false;
         if (keyboard.canUndoAutoCorrect && keyboard.currentWord.length === 0) {
             keyboard.canUndoAutoCorrect = false;
             var undone = inputContextInstance.replaceTextBeforeCursor(keyboard.lastCorrectedWord + " ", keyboard.lastOriginalWord + " ");
@@ -73,6 +81,7 @@ Rectangle {
     function handleSpace() {
         var now = Date.now();
         var isDoubleTap = (now - keyboard.lastSpaceTime < 300) && keyboard.currentWord.length === 0;
+        keyboard.autoSpaced = false;
         if (isDoubleTap && inputContextInstance.shouldAutoCapitalize && inputContextInstance.insertDoubleSpacePeriod()) {
             keyboard.canUndoAutoCorrect = false;
             keyboard.shifted = true;
@@ -128,6 +137,7 @@ Rectangle {
             keyboard.shifted = true;
 
         keyboard.canUndoAutoCorrect = false;
+        keyboard.autoSpaced = false;
         inputContextInstance.handleEnter();
     }
 
@@ -157,6 +167,7 @@ Rectangle {
             inputContextInstance.insertText(word.slice(typed.length) + " ");
         }
         keyboard.canUndoAutoCorrect = false;
+        keyboard.autoSpaced = true;
         Dictionary.learnWord(word);
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
@@ -225,6 +236,7 @@ Rectangle {
         keyboard.lastOriginalWord = "";
         keyboard.lastCorrectedWord = "";
         keyboard.lastSpaceTime = 0;
+        keyboard.autoSpaced = false;
     }
 
     function clear() {
@@ -250,6 +262,7 @@ Rectangle {
             keyboard.lastOriginalWord = "";
             keyboard.lastCorrectedWord = "";
             keyboard.lastSpaceTime = 0;
+            keyboard.autoSpaced = false;
         }
     }
     onCurrentLayoutChanged: {

@@ -223,6 +223,24 @@ TestCase {
         compare(keyboard.currentWord, "");
     }
 
+    function test_punctuationTakesThePredictionsSpace() {
+        type("hel");
+        keyboard.acceptPrediction("hello");
+        type(",");
+        compare(field.text, "hello, ");
+        type("wor");
+        keyboard.acceptPrediction("world");
+        type(".");
+        compare(field.text, "hello, world. ");
+    }
+
+    function test_letterKeepsThePredictionsSpace() {
+        type("hel");
+        keyboard.acceptPrediction("hello");
+        type("w,");
+        compare(field.text, "hello w,");
+    }
+
     function test_predictionAfterSpaceIsInserted() {
         type("hi ");
         keyboard.acceptPrediction("there");
