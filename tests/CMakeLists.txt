@@ -49,3 +49,8 @@ if(Python3_FOUND)
     add_test(NAME Devices_Check COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/devices/devices.py check)
     add_test(NAME Devices_Tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/devices/test_devices.py)
 endif()
+
+# OTA feed publisher, and the image's sysupdate transfers run against its feed
+if(Python3_FOUND)
+    add_test(NAME Ota_Publish COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/ota/test_marathon_ota.py)
+endif()

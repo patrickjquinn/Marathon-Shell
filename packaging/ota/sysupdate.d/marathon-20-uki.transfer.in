@@ -1,0 +1,21 @@
+# Applied last, so a new boot entry only appears once its /usr is in place.
+[Transfer]
+ProtectVersion=%A
+AppStream=@MARATHON_OTA_URL@/%M_%W_%w/marathon-os.metainfo.xml
+
+[Source]
+Type=url-file
+Path=@MARATHON_OTA_URL@/%M_%W_%w/
+MatchPattern=%M_%W_%w_@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=%M_%W_%w_@v+@l-@d.efi \
+             %M_%W_%w_@v+@l.efi \
+             %M_%W_%w_@v.efi
+Mode=0600
+TriesLeft=3
+TriesDone=0
+InstancesMax=2

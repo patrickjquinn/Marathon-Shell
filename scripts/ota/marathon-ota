@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""Publish signed Marathon OS images for systemd-sysupdate.
+
+  marathon-ota keygen  --gnupghome DIR --export KEY.asc
+  marathon-ota publish --image-dir mkosi.output/<image-id> --version V --feed DIR
+                       [--gnupghome DIR] [--key ID] [--notes FILE] [--keep N]
+                       [--upload RSYNC-DEST]
+
+The feed is laid out as the image's sysupdate.d transfers expect: one
+directory per image id holding the zstd-compressed /usr and verity partition
+images and the UKI of each kept version, a SHA256SUMS manifest, its detached
+signature SHA256SUMS.gpg, and an AppStream catalog with each release's
+download size and notes. See docs/OTA.md.
+"""
+
+import argparse
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from xml.sax.saxutils import escape, quoteattr
+
+CATALOG = "marathon-os.metainfo.xml"
+MANIFEST = "SHA256SUMS"
+SIGNATURE = "SHA256SUMS.gpg"
+KEY_UID = "Marathon OS updates <updates@thrivelobal.com>"
+
+
+def fail(message):
+    print(f"marathon-ota: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def gpg(gnupghome, *args, **kwargs):
+    cmd = ["gpg", "--batch", "--quiet"]
+    if gnupghome:
+        cmd += ["--homedir", str(gnupghome)]
+    return subprocess.run(cmd + list(args), check=True, **kwargs)
+
+
+def find_artifacts(image_dir, image_id, version):
+    """The UKI and the /usr and verity partition images mkosi split out."""
+    stem = f"{image_id}_{version}"
+    uki = image_dir / f"{stem}.efi"
+    if not uki.is_file():
+        fail(f"no UKI {uki}")
+    parts = {}
+    pattern = re.compile(re.escape(stem) + r"\.(usr-[a-z0-9_]+?)(-verity)?\.([0-9a-f]{32})\.raw$")
+    for f in image_dir.iterdir():
+        m = pattern.match(f.name)
+        if m:
+            parts["verity" if m.group(2) else "usr"] = f
+    for kind in ("usr", "verity"):
+        if kind not in parts:
+            fail(f"no {kind} partition image for {stem} in {image_dir} "
+                 "(was the image built with MARATHON_IMAGE_LAYOUT=ab?)")
+    return [uki, parts["usr"], parts["verity"]]
+
+
+def versions_in(feed_dir, image_id):
+    found = set()
+    pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.efi$")
+    for f in feed_dir.iterdir():
+        m = pattern.match(f.name)
+        if m:
+            found.add(m.group(1))
+    return found
+
+
+def version_key(version):
+    return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", version)]
+
+
+def files_of(feed_dir, image_id, version):
+    prefix = f"{image_id}_{version}."
+    return sorted(f for f in feed_dir.iterdir() if f.name.startswith(prefix))
+
+
+def stage(artifacts, feed_dir):
+    for src in artifacts:
+        if src.suffix == ".efi":
+            dest = feed_dir / src.name
+            tmp = dest.with_name(dest.name + ".part")
+            shutil.copyfile(src, tmp)
+        else:
+            dest = feed_dir / (src.name + ".zst")
+            tmp = dest.with_name(dest.name + ".part")
+            subprocess.run(["zstd", "-q", "-f", "-T0", "-9", str(src), "-o", str(tmp)], check=True)
+        os.replace(tmp, dest)
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def write_catalog(feed_dir, image_id, versions):
+    releases = []
+    for v in sorted(versions, key=version_key, reverse=True):
+        payload = [f for f in files_of(feed_dir, image_id, v) if not f.name.endswith(".notes")]
+        size = sum(f.stat().st_size for f in payload)
+        notes_file = feed_dir / f"{image_id}_{v}.notes"
+        lines = notes_file.read_text().splitlines() if notes_file.exists() else []
+        paragraphs = "".join(f"<p>{escape(line.strip())}</p>" for line in lines if line.strip())
+        description = f"\n        <description>{paragraphs}</description>" if paragraphs else ""
+        releases.append(
+            f"      <release version={quoteattr(v)}>{description}\n"
+            f"        <artifacts>\n"
+            f"          <artifact type=\"binary\"><size type=\"download\">{size}</size></artifact>\n"
+            f"        </artifacts>\n"
+            f"      </release>\n")
+    catalog = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        f"<components version=\"0.16\" origin={quoteattr(image_id)}>\n"
+        "  <component merge=\"append\">\n"
+        "    <id>org.marathonos.MarathonOS</id>\n"
+        "    <releases>\n"
+        f"{''.join(releases)}"
+        "    </releases>\n"
+        "    <bundle type=\"systemd\" class=\"sysupdate\"/>\n"
+        "  </component>\n"
+        "</components>\n")
+    (feed_dir / CATALOG).write_text(catalog)
+
+
+def write_manifest(feed_dir):
+    names = sorted(f.name for f in feed_dir.iterdir()
+                   if f.is_file() and f.name not in (MANIFEST, SIGNATURE) and not f.name.endswith(".part"))
+    tmp = feed_dir / (MANIFEST + ".part")
+    tmp.write_text("".join(f"{sha256(feed_dir / n)}  {n}\n" for n in names))
+    return tmp
+
+
+def publish(args):
+    image_dir = Path(args.image_dir).resolve()
+    image_id = image_dir.name
+    feed_dir = Path(args.feed).resolve() / image_id
+    feed_dir.mkdir(parents=True, exist_ok=True)
+
+    artifacts = find_artifacts(image_dir, image_id, args.version)
+    published = versions_in(feed_dir, image_id)
+    if args.version in published:
+        fail(f"{image_id} {args.version} is already in the feed")
+    newest = max(published, key=version_key, default=None)
+    if newest and version_key(args.version) < version_key(newest):
+        fail(f"{args.version} is older than {newest}; sysupdate would never offer it")
+
+    stage(artifacts, feed_dir)
+    if args.notes:
+        shutil.copyfile(args.notes, feed_dir / f"{image_id}_{args.version}.notes")
+
+    kept = sorted(published | {args.version}, key=version_key, reverse=True)[:args.keep]
+    for old in published - set(kept):
+        for f in files_of(feed_dir, image_id, old):
+            f.unlink()
+
+    write_catalog(feed_dir, image_id, kept)
+    manifest = write_manifest(feed_dir)
+    signature = feed_dir / (SIGNATURE + ".part")
+    sign = ["--yes", "--detach-sign", "--output", str(signature)]
+    if args.key:
+        sign += ["--local-user", args.key]
+    gpg(args.gnupghome, *sign, str(manifest))
+    gpg(args.gnupghome, "--verify", str(signature), str(manifest), stderr=subprocess.DEVNULL)
+    # Payload first, manifest last: a client never sees a version whose
+    # files are not all in place.
+    os.replace(manifest, feed_dir / MANIFEST)
+    os.replace(signature, feed_dir / SIGNATURE)
+    print(f"published {image_id} {args.version} to {feed_dir} (keeping {', '.join(kept)})")
+
+    if args.upload:
+        dest = args.upload.rstrip("/") + f"/{image_id}/"
+        src = str(feed_dir) + "/"
+        subprocess.run(["rsync", "-a", f"--exclude={MANIFEST}", f"--exclude={SIGNATURE}",
+                        f"--exclude={CATALOG}", src, dest], check=True)
+        subprocess.run(["rsync", "-a", "--delete-after", src, dest], check=True)
+        print(f"uploaded to {dest}")
+
+
+def keygen(args):
+    home = Path(args.gnupghome)
+    home.mkdir(parents=True, exist_ok=True)
+    home.chmod(0o700)
+    gpg(home, "--passphrase", "", "--pinentry-mode", "loopback",
+        "--quick-generate-key", args.uid, "ed25519", "sign", "never")
+    with open(args.export, "wb") as out:
+        gpg(home, "--armor", "--export", args.uid, stdout=out)
+    print(f"key in {home}; public key exported to {args.export}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("publish", help="add an image version to a signed feed")
+    p.add_argument("--image-dir", required=True, help="mkosi.output/<image-id>")
+    p.add_argument("--version", required=True, help="IMAGE_VERSION to publish")
+    p.add_argument("--feed", required=True, help="local feed root (one directory per image id)")
+    p.add_argument("--gnupghome", help="GnuPG home holding the signing key")
+    p.add_argument("--key", help="signing key id (default: the home's default key)")
+    p.add_argument("--notes", help="release notes, one paragraph per line")
+    p.add_argument("--keep", type=int, default=2, help="versions to keep in the feed (default 2)")
+    p.add_argument("--upload", help="rsync destination of the feed root, e.g. user@thrivelobal.com:updates")
+    p.set_defaults(run=publish)
+
+    k = sub.add_parser("keygen", help="create an Ed25519 signing key and export its public half")
+    k.add_argument("--gnupghome", required=True)
+    k.add_argument("--export", required=True, help="where to write the armored public key")
+    k.add_argument("--uid", default=KEY_UID)
+    k.set_defaults(run=keygen)
+
+    args = parser.parse_args()
+    if getattr(args, "keep", 1) < 1:
+        fail("--keep must be at least 1")
+    for tool in ("gpg", "zstd") + (("rsync",) if getattr(args, "upload", None) else ()):
+        if not shutil.which(tool):
+            fail(f"{tool} is not installed")
+    args.run(args)
+
+
+if __name__ == "__main__":
+    main()
