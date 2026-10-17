@@ -3,189 +3,205 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
-#include <QDesktopServices>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QScopeGuard>
+#include <QFile>
+#include <QMetaEnum>
 #include <QSettings>
-#include <QUrl>
 
 namespace {
-// Function-local statics: compiled once on first use, with no pre-main
-// initialiser that could throw uncatchably (which a namespace-scope
-// QRegularExpression has).
-    const QRegularExpression &versionSep() {
-        static const QRegularExpression re{QStringLiteral("[.\\-]")};
-        return re;
-    }
-    constexpr int kAutoCheckIntervalMs = 6 * 60 * 60 * 1000; // 6 hours
-    // Literal type: a namespace-scope QString dynamically initialises before
-    // main() and can throw uncatchably.
-    constexpr auto kDefaultRepo        = QLatin1StringView("patrickjquinn/Marathon-Shell");
+    constexpr int    kFirstCheckDelayMs   = 30 * 1000;
+    constexpr int    kAutoCheckIntervalMs = 6 * 60 * 60 * 1000;
+    constexpr double kMinBatteryPercent   = 30.0;
 } // namespace
 
-UpdateService::UpdateService(QObject *parent)
+UpdateService::UpdateService(UpdateBackend *backend, std::function<UpdateConditions()> conditions,
+                             const QString &osVersion, const QString &bootId, QObject *parent)
     : QObject(parent)
+    , m_backend(backend)
+    , m_conditions(std::move(conditions))
+    , m_autoCheckTimer(new QTimer(this))
     , m_currentVersion(QCoreApplication::applicationVersion())
-    , m_net(new QNetworkAccessManager(this))
-    , m_autoCheckTimer(new QTimer(this)) {
-    if (m_currentVersion.isEmpty())
-        m_currentVersion = QStringLiteral("0.0.0");
-
-    QSettings s;
-    s.beginGroup("updates");
-    const bool autoCheck = s.value("autoCheck", true).toBool();
-    s.endGroup();
+    , m_osVersion(osVersion)
+    , m_bootId(bootId) {
+    m_backend->setParent(this);
+    connect(m_backend, &UpdateBackend::probed, this, &UpdateService::onProbed);
+    connect(m_backend, &UpdateBackend::checked, this, &UpdateService::onChecked);
+    connect(m_backend, &UpdateBackend::releaseInfo, this, &UpdateService::onReleaseInfo);
+    connect(m_backend, &UpdateBackend::progress, this, &UpdateService::onProgress);
+    connect(m_backend, &UpdateBackend::installed, this, &UpdateService::onInstalled);
+    connect(m_backend, &UpdateBackend::failed, this, &UpdateService::onFailed);
 
     m_autoCheckTimer->setInterval(kAutoCheckIntervalMs);
     connect(m_autoCheckTimer, &QTimer::timeout, this, &UpdateService::checkNow);
+
+    m_backend->probe();
+}
+
+QString UpdateService::stateName() const {
+    QString name = QString::fromLatin1(QMetaEnum::fromType<State>().valueToKey(int(m_state)));
+    name[0]      = name[0].toLower();
+    return name;
+}
+
+void UpdateService::setState(State state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void UpdateService::onProbed(bool supported, const QString &installedVersion) {
+    if (!supported || m_osVersion.isEmpty()) {
+        setState(State::Unsupported);
+        return;
+    }
+
+    QSettings s;
+    s.beginGroup(QStringLiteral("updates"));
+    const bool autoCheck = s.value(QStringLiteral("autoCheck"), true).toBool();
+    // An image installed in an earlier boot that is not the one running
+    // failed its health check: systemd-boot fell back to this one.
+    if (!installedVersion.isEmpty() && installedVersion != m_osVersion) {
+        const bool ours =
+            s.value(QStringLiteral("installedVersion")).toString() == installedVersion;
+        if (ours && s.value(QStringLiteral("installedBootId")).toString() != m_bootId) {
+            m_rolledBackVersion = installedVersion;
+            setState(State::RolledBack);
+        } else {
+            m_availableVersion = installedVersion;
+            setState(State::ReadyToReboot);
+            return;
+        }
+    } else {
+        setState(State::Idle);
+    }
+
     if (autoCheck) {
-        // Stagger first check 30s after startup so we don't compete with the
-        // boot path for bandwidth.
-        QTimer::singleShot(30 * 1000, this, &UpdateService::checkNow);
+        QTimer::singleShot(kFirstCheckDelayMs, this, &UpdateService::checkNow);
         m_autoCheckTimer->start();
     }
 }
 
-bool UpdateService::updateAvailable() const {
-    if (m_latestVersion.isEmpty())
-        return false;
-    return compareVersion(m_latestVersion, m_currentVersion) > 0;
+void UpdateService::checkNow() {
+    switch (m_state) {
+        case State::Idle:
+        case State::UpToDate:
+        case State::Available:
+        case State::RolledBack:
+        case State::Error: break;
+        default: return;
+    }
+    m_lastError.clear();
+    m_blockedReason.clear();
+    setState(State::Checking);
+    m_backend->checkNew();
 }
 
-bool UpdateService::isStableChannel() const {
-    QSettings s;
-    s.beginGroup("updates");
-    const QString c = s.value("channel", "stable").toString();
-    s.endGroup();
-    return c == "stable";
+void UpdateService::onChecked(const QString &version) {
+    if (m_state != State::Checking)
+        return;
+    m_lastCheckedMs = QDateTime::currentMSecsSinceEpoch();
+    if (version.isEmpty()) {
+        m_availableVersion.clear();
+        setState(m_rolledBackVersion.isEmpty() ? State::UpToDate : State::RolledBack);
+        return;
+    }
+    if (version != m_availableVersion) {
+        m_availableVersion = version;
+        m_downloadSize     = -1;
+        m_releaseNotes.clear();
+    }
+    setState(State::Available);
+    m_backend->fetchReleaseInfo(version);
 }
 
-void UpdateService::setChannel(const QString &channel) {
-    if (channel != "stable" && channel != "edge")
+void UpdateService::onReleaseInfo(const QString &version, qint64 downloadSize,
+                                  const QString &notes) {
+    if (version != m_availableVersion)
+        return;
+    m_downloadSize = downloadSize;
+    m_releaseNotes = notes;
+    emit stateChanged();
+}
+
+QString UpdateService::blockReason(const UpdateConditions &c) {
+    if (c.metered == 1 || c.metered == 3)
+        return QStringLiteral("metered");
+    const bool charging = c.batteryState == 1 || c.batteryState == 4 || c.batteryState == 5;
+    if (c.batteryPresent && !charging && c.batteryPercent < kMinBatteryPercent)
+        return QStringLiteral("battery");
+    return {};
+}
+
+void UpdateService::install() {
+    if (m_state != State::Available)
+        return;
+    m_blockedReason = blockReason(m_conditions());
+    if (!m_blockedReason.isEmpty()) {
+        emit stateChanged();
+        return;
+    }
+    m_lastError.clear();
+    m_progress = 0;
+    setState(State::Downloading);
+    m_backend->install();
+}
+
+void UpdateService::cancel() {
+    if (m_state != State::Downloading)
+        return;
+    m_backend->cancel();
+    m_progress = 0;
+    setState(State::Available);
+}
+
+void UpdateService::onProgress(int percent) {
+    if (m_state != State::Downloading || percent == m_progress)
+        return;
+    m_progress = percent;
+    emit stateChanged();
+}
+
+void UpdateService::onInstalled(const QString &version) {
+    if (m_state != State::Downloading)
         return;
     QSettings s;
-    s.beginGroup("updates");
-    s.setValue("channel", channel);
+    s.beginGroup(QStringLiteral("updates"));
+    s.setValue(QStringLiteral("installedVersion"), version);
+    s.setValue(QStringLiteral("installedBootId"), m_bootId);
     s.endGroup();
     s.sync();
-    checkNow();
+    m_availableVersion = version;
+    m_progress         = 100;
+    m_autoCheckTimer->stop();
+    setState(State::ReadyToReboot);
 }
 
-void UpdateService::checkNow() {
-    if (m_checking)
+void UpdateService::onFailed(const QString &error) {
+    if (m_state != State::Checking && m_state != State::Downloading)
         return;
-
-    QSettings s;
-    s.beginGroup("updates");
-    const QString repo = s.value("feedRepo", kDefaultRepo).toString();
-    s.endGroup();
-
-    const QUrl      url(QString("https://api.github.com/repos/%1/releases").arg(repo));
-    QNetworkRequest req(url);
-    req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QString("MarathonShell/%1 (linux)").arg(m_currentVersion));
-    req.setRawHeader("Accept", "application/vnd.github+json");
-
-    m_checking = true;
-    emit checkingChanged();
-    m_lastError.clear();
-    emit lastErrorChanged();
-
-    m_reply = m_net->get(req);
-    connect(m_reply, &QNetworkReply::finished, this, &UpdateService::onReleasesReply);
+    qWarning() << "[UpdateService]" << stateName() << "failed:" << error;
+    if (m_state == State::Checking)
+        m_lastCheckedMs = QDateTime::currentMSecsSinceEpoch();
+    m_lastError = error;
+    setState(State::Error);
 }
 
-void UpdateService::onReleasesReply() {
-    if (!m_reply)
-        return;
-    QNetworkReply *reply = m_reply;
-    m_reply              = nullptr;
-    m_checking           = false;
-    m_lastCheckedMs      = QDateTime::currentMSecsSinceEpoch();
-    // After the result is set, so one state push carries both.
-    const auto done = qScopeGuard([this]() { emit checkingChanged(); });
-
-    if (reply->error() != QNetworkReply::NoError) {
-        m_lastError = reply->errorString();
-        emit lastErrorChanged();
-        qWarning() << "[UpdateService] check failed:" << m_lastError;
-        reply->deleteLater();
-        return;
-    }
-
-    const QByteArray body = reply->readAll();
-    reply->deleteLater();
-    QJsonParseError perr;
-    QJsonDocument   doc = QJsonDocument::fromJson(body, &perr);
-    if (perr.error != QJsonParseError::NoError || !doc.isArray()) {
-        m_lastError = "Invalid JSON from GitHub Releases";
-        emit lastErrorChanged();
-        return;
-    }
-
-    const QJsonArray arr             = doc.array();
-    const bool       allowPrerelease = !isStableChannel();
-    for (const auto &v : arr) {
-        const QJsonObject o          = v.toObject();
-        const bool        prerelease = o.value("prerelease").toBool();
-        if (prerelease && !allowPrerelease)
-            continue;
-        if (o.value("draft").toBool())
-            continue;
-        QString tag = o.value("tag_name").toString();
-        // Normalise a leading 'v'.
-        if (tag.startsWith('v') || tag.startsWith('V'))
-            tag = tag.mid(1);
-        if (tag.isEmpty())
-            continue;
-
-        m_latestVersion = tag;
-        m_releaseUrl    = o.value("html_url").toString();
-        m_releaseNotes  = o.value("body").toString();
-        emit latestVersionChanged();
-        return;
-    }
-
-    // No suitable release found.
-    if (!m_latestVersion.isEmpty()) {
-        m_latestVersion.clear();
-        m_releaseUrl.clear();
-        m_releaseNotes.clear();
-        emit latestVersionChanged();
-    }
+void UpdateService::reboot() {
+    if (m_state == State::ReadyToReboot)
+        emit rebootRequested();
 }
 
-void UpdateService::openInBrowser() {
-    if (!m_releaseUrl.isEmpty())
-        QDesktopServices::openUrl(QUrl(m_releaseUrl));
-}
-
-int UpdateService::compareVersion(const QString &a, const QString &b) {
-    const QStringList ap = a.split(versionSep(), Qt::SkipEmptyParts);
-    const QStringList bp = b.split(versionSep(), Qt::SkipEmptyParts);
-    const int         n  = qMax(ap.size(), bp.size());
-    for (int i = 0; i < n; ++i) {
-        // "v1" (tags) and "r409" (package builds) compare as numbers.
-        static const QRegularExpression prefix{QStringLiteral("^[vr](?=\\d)")};
-        const QString as  = QString(i < ap.size() ? ap.at(i) : QStringLiteral("0")).remove(prefix);
-        const QString bs  = QString(i < bp.size() ? bp.at(i) : QStringLiteral("0")).remove(prefix);
-        bool          aok = false, bok = false;
-        const int     ai = as.toInt(&aok);
-        const int     bi = bs.toInt(&bok);
-        if (aok && bok) {
-            if (ai != bi)
-                return ai - bi;
+QString UpdateService::imageVersion(const QString &osReleasePath) {
+    QFile f(osReleasePath);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+        return {};
+    while (!f.atEnd()) {
+        const QString line = QString::fromUtf8(f.readLine()).trimmed();
+        if (!line.startsWith(QLatin1String("IMAGE_VERSION=")))
             continue;
-        }
-        // Mixed numeric/string segments: compare as strings.
-        const int sc = QString::compare(as, bs);
-        if (sc != 0)
-            return sc;
+        QString value = line.mid(int(sizeof("IMAGE_VERSION=")) - 1);
+        if (value.size() >= 2 && (value.startsWith('"') || value.startsWith('\'')) &&
+            value.endsWith(value.front()))
+            value = value.mid(1, value.size() - 2);
+        return value;
     }
-    return 0;
+    return {};
 }

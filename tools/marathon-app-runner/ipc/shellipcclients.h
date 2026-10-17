@@ -1363,50 +1363,63 @@ class AlarmClient : public QObject {
 
 class UpdateClient : public QObject {
     Q_OBJECT
+    Q_PROPERTY(QString state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString currentVersion READ currentVersion NOTIFY stateChanged)
-    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY stateChanged)
-    Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY stateChanged)
+    Q_PROPERTY(QString osVersion READ osVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString availableVersion READ availableVersion NOTIFY stateChanged)
+    Q_PROPERTY(qlonglong downloadSize READ downloadSize NOTIFY stateChanged)
     Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
+    Q_PROPERTY(int progress READ progress NOTIFY stateChanged)
+    Q_PROPERTY(QString blockedReason READ blockedReason NOTIFY stateChanged)
+    Q_PROPERTY(QString rolledBackVersion READ rolledBackVersion NOTIFY stateChanged)
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY stateChanged)
-    Q_PROPERTY(bool checking READ checking NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
-    Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
     Q_PROPERTY(qlonglong lastCheckedMs READ lastCheckedMs NOTIFY stateChanged)
 
   public:
     explicit UpdateClient(QObject *parent = nullptr);
 
+    QString state() const {
+        return m_state.value("state").toString();
+    }
     QString currentVersion() const {
         return m_state.value("currentVersion").toString();
     }
-    QString latestVersion() const {
-        return m_state.value("latestVersion").toString();
+    QString osVersion() const {
+        return m_state.value("osVersion").toString();
     }
-    QString releaseUrl() const {
-        return m_state.value("releaseUrl").toString();
+    QString availableVersion() const {
+        return m_state.value("availableVersion").toString();
+    }
+    qlonglong downloadSize() const {
+        return m_state.value("downloadSize", -1).toLongLong();
     }
     QString releaseNotes() const {
         return m_state.value("releaseNotes").toString();
     }
-    bool updateAvailable() const {
-        return m_state.value("updateAvailable").toBool();
+    int progress() const {
+        return m_state.value("progress").toInt();
     }
-    bool checking() const {
-        return m_state.value("checking").toBool();
+    QString blockedReason() const {
+        return m_state.value("blockedReason").toString();
+    }
+    QString rolledBackVersion() const {
+        return m_state.value("rolledBackVersion").toString();
+    }
+    bool updateAvailable() const {
+        return state() == QLatin1String("available");
     }
     QString lastError() const {
         return m_state.value("lastError").toString();
-    }
-    QString channel() const {
-        return m_state.value("channel").toString();
     }
     qlonglong lastCheckedMs() const {
         return m_state.value("lastCheckedMs").toLongLong();
     }
 
     Q_INVOKABLE void checkNow();
-    Q_INVOKABLE void openInBrowser();
-    Q_INVOKABLE void setChannel(const QString &channel);
+    Q_INVOKABLE void install();
+    Q_INVOKABLE void cancel();
+    Q_INVOKABLE void reboot();
     Q_INVOKABLE void refresh();
 
   signals:

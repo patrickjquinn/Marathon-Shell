@@ -3131,12 +3131,16 @@ void UpdateClient::checkNow() {
     m_iface.call("CheckNow");
 }
 
-void UpdateClient::openInBrowser() {
-    m_iface.call("OpenInBrowser");
+void UpdateClient::install() {
+    m_iface.call("Install");
 }
 
-void UpdateClient::setChannel(const QString &channel) {
-    m_iface.call("SetChannel", channel);
+void UpdateClient::cancel() {
+    m_iface.call("Cancel");
+}
+
+void UpdateClient::reboot() {
+    m_iface.call("Reboot");
 }
 
 // === DavClient ==============================================================

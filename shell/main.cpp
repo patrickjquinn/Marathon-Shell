@@ -82,6 +82,7 @@
 #include "src/marathonpermissionmanager.h"
 #include "src/services/marathonappstoreservice.h"
 #include "src/services/updateservice.h"
+#include "src/services/sysupdatebackend.h"
 #include "contactsmanager.h"
 #include "telephonyservice.h"
 #include "callhistorymanager.h"
@@ -1192,7 +1193,18 @@ int main(int argc, char *argv[]) {
     auto *smsService         = new SMSService(&app);
     auto *mmsManager         = new MmsManager(&app);
     smsService->setMmsManager(mmsManager);
-    auto *updateService    = new UpdateService(&app);
+    QFile         bootIdFile(QStringLiteral("/proc/sys/kernel/random/boot_id"));
+    const QString bootId    = bootIdFile.open(QIODevice::ReadOnly) ?
+        QString::fromLatin1(bootIdFile.readAll()).trimmed() :
+        QString();
+    const QString osRelease = QFile::exists(QStringLiteral("/etc/os-release")) ?
+        QStringLiteral("/etc/os-release") :
+        QStringLiteral("/usr/lib/os-release");
+    auto         *updateService =
+        new UpdateService(new SysupdateBackend, &SysupdateBackend::systemConditions,
+                          UpdateService::imageVersion(osRelease), bootId, &app);
+    QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
+                     &PowerManagerCpp::restart);
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,

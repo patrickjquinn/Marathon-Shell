@@ -2085,29 +2085,23 @@ UpdatesObject::UpdatesObject(UpdateService *updates, MarathonPermissionManager *
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_updates(updates) {
-    if (m_updates) {
-        connect(m_updates, &UpdateService::latestVersionChanged, this,
-                [this]() { emit StateChanged(buildState()); });
-        connect(m_updates, &UpdateService::checkingChanged, this,
-                [this]() { emit StateChanged(buildState()); });
-        connect(m_updates, &UpdateService::lastErrorChanged, this,
-                [this]() { emit StateChanged(buildState()); });
-    }
+    connect(m_updates, &UpdateService::stateChanged, this,
+            [this]() { emit StateChanged(buildState()); });
 }
 
 QVariantMap UpdatesObject::buildState() const {
-    if (!m_updates)
-        return {};
     return {
+        {"state", m_updates->stateName()},
         {"currentVersion", m_updates->currentVersion()},
-        {"latestVersion", m_updates->latestVersion()},
-        {"releaseUrl", m_updates->releaseUrl()},
+        {"osVersion", m_updates->osVersion()},
+        {"availableVersion", m_updates->availableVersion()},
+        {"downloadSize", m_updates->downloadSize()},
         {"releaseNotes", m_updates->releaseNotes()},
-        {"updateAvailable", m_updates->updateAvailable()},
-        {"checking", m_updates->checking()},
+        {"progress", m_updates->progress()},
+        {"blockedReason", m_updates->blockedReason()},
+        {"rolledBackVersion", m_updates->rolledBackVersion()},
         {"lastError", m_updates->lastError()},
         {"lastCheckedMs", m_updates->lastCheckedMs()},
-        {"channel", m_updates->isStableChannel() ? "stable" : "edge"},
     };
 }
 
@@ -2118,24 +2112,23 @@ QVariantMap UpdatesObject::GetState() {
 }
 
 void UpdatesObject::CheckNow() {
-    if (!requireSystem())
-        return;
-    if (m_updates)
+    if (requireSystem())
         m_updates->checkNow();
 }
 
-void UpdatesObject::OpenInBrowser() {
-    if (!requireSystem())
-        return;
-    if (m_updates)
-        m_updates->openInBrowser();
+void UpdatesObject::Install() {
+    if (requireSystem())
+        m_updates->install();
 }
 
-void UpdatesObject::SetChannel(const QString &channel) {
-    if (!requireSystem())
-        return;
-    if (m_updates)
-        m_updates->setChannel(channel);
+void UpdatesObject::Cancel() {
+    if (requireSystem())
+        m_updates->cancel();
+}
+
+void UpdatesObject::Reboot() {
+    if (requireSystem())
+        m_updates->reboot();
 }
 
 // === DavObject =============================================================

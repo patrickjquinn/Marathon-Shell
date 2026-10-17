@@ -110,6 +110,8 @@ set(SOURCES
     src/services/marathonappstoreservice.cpp
     src/services/updateservice.h
     src/services/updateservice.cpp
+    src/services/sysupdatebackend.h
+    src/services/sysupdatebackend.cpp
     src/services/motiondaemon.h
     src/services/motiondaemon.cpp
     src/services/inputboost.h

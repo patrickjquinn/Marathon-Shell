@@ -92,14 +92,15 @@ target_include_directories(test_core_appscanner PRIVATE
 )
 add_test(NAME Core_AppScanner COMMAND test_core_appscanner)
 
-# UpdateService version ordering
-add_executable(test_core_updateversion
-    test_updateversion.cpp
+# UpdateService state machine and download gating; sysupdated's AppStream parse
+add_executable(test_core_updateservice
+    test_updateservice.cpp
     ../../shell/src/services/updateservice.cpp
+    ../../shell/src/services/sysupdatebackend.cpp
 )
-target_link_libraries(test_core_updateversion Qt6::Test Qt6::Gui Qt6::Network)
-target_include_directories(test_core_updateversion PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Core_UpdateVersion COMMAND test_core_updateversion)
+target_link_libraries(test_core_updateservice Qt6::Test Qt6::Core Qt6::DBus Qt6::Network)
+target_include_directories(test_core_updateservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Core_UpdateService COMMAND test_core_updateservice)
 
 # DesktopFileParser tests (exec cleaning, .desktop parsing, icon resolution)
 add_executable(test_core_desktopfileparser

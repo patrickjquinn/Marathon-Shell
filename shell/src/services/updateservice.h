@@ -3,53 +3,115 @@
 
 #include <QObject>
 #include <QString>
-#include <QPointer>
 #include <QTimer>
 
-class QNetworkAccessManager;
-class QNetworkReply;
+#include <functional>
 
-// Polls the GitHub Releases API for newer Marathon Shell builds and surfaces
-// the result to QML so the Settings UI can show a "Tap to update" banner.
+// The OS image's update mechanism, as UpdateService sees it. The device
+// implementation is SysupdateBackend (systemd-sysupdated); tests use a fake.
+class UpdateBackend : public QObject {
+    Q_OBJECT
+
+  public:
+    using QObject::QObject;
+
+    // probed(): whether the host has an update target, and the newest
+    // version installed on disk (which differs from the booted one while an
+    // update waits for a reboot, or after a rollback).
+    virtual void probe() = 0;
+    // checked(): the newer version on the server, or "".
+    virtual void checkNew() = 0;
+    // releaseInfo(): download size (-1 unknown) and notes for a version.
+    virtual void fetchReleaseInfo(const QString &version) = 0;
+    // progress() while downloading, then installed() or failed().
+    virtual void install() = 0;
+    virtual void cancel()  = 0;
+
+  signals:
+    void probed(bool supported, const QString &installedVersion);
+    void checked(const QString &version);
+    void releaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
+    void progress(int percent);
+    void installed(const QString &version);
+    void failed(const QString &error);
+};
+
+// What the system says about downloading right now.
+struct UpdateConditions {
+    // NetworkManager's NMMetered: 1 yes, 3 guess-yes.
+    uint   metered        = 0;
+    bool   batteryPresent = false;
+    double batteryPercent = 0;
+    // UPower device state: 1 charging, 4 fully charged, 5 pending charge.
+    uint batteryState = 0;
+};
+
+// Over-the-air updates of the OS image for Settings. Checks the signed
+// feed, gates downloads on an unmetered network and a charged battery, and
+// reports a rollback when the booted image is older than one it installed.
 //
-// We deliberately don't host any custom server: GitHub Releases is the apk
-// repo, and the device's `apk` (postmarketOS) handles the actual install.
-// All this class does is the version compare + the user-facing tile.
-//
-// Settings keys consumed (via SettingsManager):
-//   "updates/feedRepo"   -- owner/repo, default "patrickjquinn/Marathon-Shell"
-//   "updates/channel"    -- "stable" (release) or "edge" (pre-release allowed)
-//   "updates/autoCheck"  -- bool, default true
+// Settings keys (group "updates"): autoCheck, installedVersion,
+// installedBootId.
 class UpdateService : public QObject {
     Q_OBJECT
 
+    Q_PROPERTY(QString state READ stateName NOTIFY stateChanged)
     Q_PROPERTY(QString currentVersion READ currentVersion CONSTANT)
-    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
-    Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY latestVersionChanged)
-    Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY latestVersionChanged)
-    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
-    Q_PROPERTY(bool checking READ checking NOTIFY checkingChanged)
-    Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
-    Q_PROPERTY(qint64 lastCheckedMs READ lastCheckedMs NOTIFY checkingChanged)
+    Q_PROPERTY(QString osVersion READ osVersion CONSTANT)
+    Q_PROPERTY(QString availableVersion READ availableVersion NOTIFY stateChanged)
+    Q_PROPERTY(qint64 downloadSize READ downloadSize NOTIFY stateChanged)
+    Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
+    Q_PROPERTY(int progress READ progress NOTIFY stateChanged)
+    Q_PROPERTY(QString blockedReason READ blockedReason NOTIFY stateChanged)
+    Q_PROPERTY(QString rolledBackVersion READ rolledBackVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(qint64 lastCheckedMs READ lastCheckedMs NOTIFY stateChanged)
 
   public:
-    explicit UpdateService(QObject *parent = nullptr);
+    enum class State : quint8 {
+        Probing,
+        Unsupported,
+        Idle,
+        Checking,
+        UpToDate,
+        Available,
+        Downloading,
+        ReadyToReboot,
+        RolledBack,
+        Error,
+    };
+    Q_ENUM(State)
 
+    UpdateService(UpdateBackend *backend, std::function<UpdateConditions()> conditions,
+                  const QString &osVersion, const QString &bootId, QObject *parent = nullptr);
+
+    State state() const {
+        return m_state;
+    }
+    QString stateName() const;
     QString currentVersion() const {
         return m_currentVersion;
     }
-    QString latestVersion() const {
-        return m_latestVersion;
+    QString osVersion() const {
+        return m_osVersion;
     }
-    QString releaseUrl() const {
-        return m_releaseUrl;
+    QString availableVersion() const {
+        return m_availableVersion;
+    }
+    qint64 downloadSize() const {
+        return m_downloadSize;
     }
     QString releaseNotes() const {
         return m_releaseNotes;
     }
-    bool updateAvailable() const;
-    bool checking() const {
-        return m_checking;
+    int progress() const {
+        return m_progress;
+    }
+    QString blockedReason() const {
+        return m_blockedReason;
+    }
+    QString rolledBackVersion() const {
+        return m_rolledBackVersion;
     }
     QString lastError() const {
         return m_lastError;
@@ -59,35 +121,44 @@ class UpdateService : public QObject {
     }
 
     Q_INVOKABLE void checkNow();
-    Q_INVOKABLE void openInBrowser();
-    Q_INVOKABLE bool isStableChannel() const;
-    Q_INVOKABLE void setChannel(const QString &channel);
+    Q_INVOKABLE void install();
+    Q_INVOKABLE void cancel();
+    Q_INVOKABLE void reboot();
+
+    // "metered", "battery" or "" when a download may start.
+    static QString blockReason(const UpdateConditions &c);
+    // IMAGE_VERSION from an os-release file.
+    static QString imageVersion(const QString &osReleasePath);
 
   signals:
-    void latestVersionChanged();
-    void checkingChanged();
-    void lastErrorChanged();
-
-  private slots:
-    void onReleasesReply();
-
-  public:
-    // > 0 when a is newer. Tags may carry a leading v, package builds -rN.
-    static int              compareVersion(const QString &a, const QString &b);
+    void stateChanged();
+    void rebootRequested();
 
   private:
+    void           setState(State state);
+    void           onProbed(bool supported, const QString &installedVersion);
+    void           onChecked(const QString &version);
+    void           onReleaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
+    void           onProgress(int percent);
+    void           onInstalled(const QString &version);
+    void           onFailed(const QString &error);
 
-    QString                 m_currentVersion;
-    QString                 m_latestVersion;
-    QString                 m_releaseUrl;
-    QString                 m_releaseNotes;
-    QString                 m_lastError;
-    bool                    m_checking      = false;
-    qint64                  m_lastCheckedMs = 0;
+    UpdateBackend *m_backend;
+    std::function<UpdateConditions()> m_conditions;
+    QTimer                           *m_autoCheckTimer;
 
-    QNetworkAccessManager  *m_net;
-    QPointer<QNetworkReply> m_reply;
-    QTimer                 *m_autoCheckTimer;
+    State                             m_state = State::Probing;
+    QString                           m_currentVersion;
+    QString                           m_osVersion;
+    QString                           m_bootId;
+    QString                           m_availableVersion;
+    qint64                            m_downloadSize = -1;
+    QString                           m_releaseNotes;
+    int                               m_progress = 0;
+    QString                           m_blockedReason;
+    QString                           m_rolledBackVersion;
+    QString                           m_lastError;
+    qint64                            m_lastCheckedMs = 0;
 };
 
 #endif

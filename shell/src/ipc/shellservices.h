@@ -686,8 +686,7 @@ class UpdateService;
 class DavSyncEngine;
 
 // Surfaces UpdateService over D-Bus so the Settings app (running in the
-// app-runner process) can show a "Software updates" tile that reflects the
-// shell's polling state.
+// app-runner process) can check for, install and reboot into OS updates.
 class UpdatesObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
@@ -699,8 +698,9 @@ class UpdatesObject : public IpcPermissionedService {
   public slots:
     QVariantMap GetState();
     void        CheckNow();
-    void        OpenInBrowser();
-    void        SetChannel(const QString &channel);
+    void        Install();
+    void        Cancel();
+    void        Reboot();
 
   signals:
     void StateChanged(const QVariantMap &state);
