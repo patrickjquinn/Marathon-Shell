@@ -13,7 +13,7 @@ Finding numbers refer to the review's Findings table.
 | R05 | DAV secrets in the Secret Service | 4 | – | done | 6c944f37 |
 | R06 | Debug-app auto-launch opt-in; inverted log guard; dead WAYLAND_DISPLAY | 16, 17, 18 | – | done | dfd3fcc7, 94919ea9 |
 | R07 | Stale comments | 20 | – | done | 10f3c7e3 |
-| R08 | Hub notification tap opens the app | new | 1 | review | 646141ad; device test in r455 |
+| R08 | Hub notification tap opens the app | new | 1 | review | 646141ad, 10fa7a98; display-name tap verified on device (r455) |
 | R09 | Audio on PipeWire/WirePlumber (no PulseAudio API, no wpctl/pactl subprocesses) | 13 | 1 | active | |
 | R10 | App signing: whole-package Ed25519/minisign, required by default, verified before parsing; generated permission disclosures; hold permission-widening updates | 2 | 1 | active | reef-licence prior art |
 | R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | active | systemd-sysupdate + boot assessment |
@@ -27,7 +27,7 @@ Finding numbers refer to the review's Findings table.
 | R19 | Hygiene: Word Fling/predictive spacing dead settings, root pam.d/udev/systemd reconcile, legacy components/ui | 19, new | 2 | active | |
 | R20 | i18n (qsTr + Qt translations) and Accessible annotations | 11 | 3 | todo | |
 | R21 | App fixture mode + screenshot conformance on QEMU | 1 | 3 | todo | |
-| R22 | Process kit: changelog fragments, test-reachability check | 1 | 3 | active | |
-| R23 | VoLTE evaluation (imsd, separate GPL-3 process) | 14 | 3 | active | needs a modem device |
+| R22 | Process kit: changelog fragments, test-reachability check | 1 | 3 | done | git-cliff release notes + PR subject check; Lint_TestReachability (8e0fefb8..d39a59ab) |
+| R23 | VoLTE evaluation (imsd, separate GPL-3 process) | 14 | 3 | done | docs/research/VOLTE.md: modem-side IMS; Phase 0 check script needs a modem device |
 | R24 | Lint clean: clang-tidy/clazy/clang-format, qmllint shell + apps, lint infra for Marathon.Platform | – | 3 | todo | partial lint-infra patch saved |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
