@@ -12,6 +12,7 @@ Exit: 0 ok, 1 invalid, 2 could not run.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -222,6 +223,15 @@ class Checker:
         if ships != ("profile" in device):
             self.error(at, f"{package} {'ships' if ships else 'does not ship'} device-profile.conf but the manifest "
                            f"{'has no' if ships else 'has a'} [profile]")
+        if (self.root / PACKAGES / package / "device-profile.conf").exists():
+            self.error(f"{PACKAGES}/{package}/device-profile.conf",
+                       "is generated from the manifests at build time; delete the checked-in copy")
+        if ships:
+            digest = hashlib.sha512(tree.render_profile(where).encode()).hexdigest()
+            if apkbuild.sha512.get("device-profile.conf") != digest:
+                self.error(f"{PACKAGES}/{package}/APKBUILD",
+                           f"device-profile.conf sha512 is stale; the manifests now generate {digest} "
+                           "(update it and bump pkgrel)")
 
     def check_scale_dpi(self, at: str, device: dict, profile: dict) -> None:
         want = device["display"].get("scale_dpi")

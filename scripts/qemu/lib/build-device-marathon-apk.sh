@@ -30,9 +30,19 @@ TARGET="device-${DEVICE}-marathon-${PKGVER}-r${PKGREL}.apk"
 
 echo "+-- building $TARGET --+"
 
+# device-profile.conf is generated from the device's manifest
+# (devices/<vendor>/<codename>/device.toml), not checked in.
+GENERATED="$(mktemp -d)"
+trap 'rm -rf "$GENERATED"' EXIT
+if grep -q '^[[:space:]]*device-profile.conf$' "$APORT/APKBUILD"; then
+    python3 "${MARATHON_SHELL_SRC:-$(cd "$SCRIPT_DIR/../../.." && pwd)}/tools/devices/devices.py" \
+        profile "device-${DEVICE}-marathon" > "$GENERATED/device-profile.conf"
+fi
+
 podman run --rm -i \
     -e DEVICE="$DEVICE" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
+    -v "$GENERATED:/generated:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
     alpine:edge sh -s <<'CSCRIPT'
 set -euo pipefail
@@ -50,6 +60,7 @@ printf 'PACKAGER_PRIVKEY=%s\nREPODEST=/root/packages\n' "$KEY_PRIV" > /etc/abuil
 
 mkdir -p /work/aports
 rsync -a --checksum --no-times /aports-src/ /work/aports/
+cp -a /generated/. "/work/aports/device-${DEVICE}-marathon/"
 
 cd "/work/aports/device-${DEVICE}-marathon"
 abuild -F checksum >/dev/null

@@ -80,6 +80,7 @@ package() {
 	install -Dm644 "$srcdir/marathon-cm5-fuelgauge.conf" \
 		"$pkgdir/usr/lib/modules-load.d/marathon-cm5-fuelgauge.conf"
 
+	# Generated from devices/hackberrypi/cm5/device.toml.
 	install -Dm644 "$srcdir/device-profile.conf" \
 		"$pkgdir/etc/marathon/device-profile.conf"
 }
@@ -91,7 +92,7 @@ a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576
 89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
 442ba19c4a34433cbcedbe95dd44df295f4644480dc3cd41fea61ff695f3773c5fe7c692bf584ecd82a92fbb056debed61c92641355dc0a6fb146e342f4c2fa5  hackberrypi.modules
-045b4b9d6a9520caf2aa50ba3d21eb1cc4d95bcbcf68093d8d83e21a369e2ca804c317eeade020051e76da4eb1a85b03c6e0c8a21d20dc965c5f6885b8260ba5  device-profile.conf
+ec7077c79dfcd7043023343c3c98219c82d1dbd478540e84d5b3a0a54bd08eb73416abed01660cf0d405653e06322ace42392c3b475bc42230d5f1a703554cce  device-profile.conf
 132e51e1f66ee58c22c43b4b06556ab1850ea494692a9929d4167ff0f554fc510d863f2d68c0ecde2050e0cbd42a4c174ad93e038e91d1b39dcadd5b5986b5c2  marathon-hackberry-speaker
 b51b79433444f8b1e95a5237bc007d87856548a4510515520b87fbd0e51d98e2fca94e5655073b791360457d25ae5660e29d682bd52ad6e8ff986543a4d64c66  marathon-hackberry-speaker.service
 "

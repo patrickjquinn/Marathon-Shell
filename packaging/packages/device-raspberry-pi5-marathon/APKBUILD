@@ -82,6 +82,7 @@ package() {
 	install -Dm644 "$srcdir/usercfg.txt" \
 		"$pkgdir/boot/usercfg.txt"
 
+	# Generated from devices/raspberry/pi5/device.toml.
 	install -Dm644 "$srcdir/device-profile.conf" \
 		"$pkgdir/etc/marathon/device-profile.conf"
 	install -Dm644 "$srcdir/50-marathon-wifi-powersave.conf" \
@@ -92,6 +93,6 @@ sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
 e4e8c1f5a28f4ff1b9f1bc7ab30065bee5799a3d301ddbe4c8a9af8e7c957e01854d747dd89954a00f342f28f3e7b06e6bd756de12f9d58b7f09bb0c0edec8aa  usercfg.txt
-1bf5321c5a18704e7b8f48793ab4e4fe6afcb6f3105ab1967bb472c6fcf837a31af7266f17716e833995f90e8a6875d9412de3202ead742c72b66a671f7ff3b5  device-profile.conf
+94c2a97edea4c7dda646414b026365bac42090ccc3ae0273b2a6c118a9238e8dcc57983d5e2ce88b4e3a0fcebc879f1d077b4848c7f6b6bee1eda5772c9f3124  device-profile.conf
 ed6303769a89cabae7efebbb518233a73eb00ee9575b4bc4f4a9b8b1e1557c9f887fef8ad2daec440ea624f22ea65fd70da7f85eee68b7c764c71f027567c83b  50-marathon-wifi-powersave.conf
 "

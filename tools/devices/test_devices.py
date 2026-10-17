@@ -83,6 +83,18 @@ class Check(unittest.TestCase):
                   "MARATHON_FORCE_DPI=270", "MARATHON_FORCE_DPI=260", count=-1)
         self.assertError("display.scale_dpi 270")
 
+    def test_profile_change_without_apkbuild_change(self):
+        self.edit("devices/purism/librem5/device.toml", "brightness_floor = 0.28", "brightness_floor = 0.3")
+        self.assertError("device-profile.conf sha512 is stale")
+
+    def test_checked_in_profile_is_refused(self):
+        (self.root / "packaging/packages/device-raspberry-pi5-marathon/device-profile.conf").write_text("GPU_MSAA=4\n")
+        self.assertError("delete the checked-in copy")
+
+    def test_profile_the_overlay_does_not_ship(self):
+        self.edit("devices/oneplus/enchilada/device.toml", "[runtime]", "[profile]\ncpu_governor = \"ondemand\"\n\n[runtime]")
+        self.assertError("does not ship device-profile.conf but the manifest has a [profile]")
+
     def test_kernel_version_drift(self):
         self.edit("devices/purism/librem5/device.toml", 'version = "6.6.139"', 'version = "6.6.1"')
         self.assertError("kernel version 6.6.1 but its APKBUILD has pkgver 6.6.139")
@@ -100,15 +112,6 @@ class Check(unittest.TestCase):
 class Profile(unittest.TestCase):
     def setUp(self):
         self.tree = devices.Tree(ROOT)
-
-    def test_matches_the_checked_in_confs(self):
-        shipped = [d["package"] for d in self.tree.devices.values() if "profile" in d]
-        self.assertEqual(len(shipped), 4)
-        for package in shipped:
-            with self.subTest(package=package):
-                conf = (ROOT / devices.PACKAGES / package / "device-profile.conf").read_text()
-                generated = self.tree.render_profile(self.tree.by_package(package))
-                self.assertEqual(devices.parse_conf(generated), devices.parse_conf(conf))
 
     def test_device_keys_override_the_soc(self):
         device = {**self.tree.devices["purism/librem5"]}

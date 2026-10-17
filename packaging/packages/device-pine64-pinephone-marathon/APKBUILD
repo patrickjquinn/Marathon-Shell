@@ -47,6 +47,7 @@ package() {
 	install -Dm644 "$srcdir/logind.conf" \
 		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
 
+	# Generated from devices/pine64/pinephone/device.toml.
 	install -Dm644 "$srcdir/device-profile.conf" \
 		"$pkgdir/etc/marathon/device-profile.conf"
 
@@ -59,6 +60,6 @@ package() {
 sha512sums="
 cb4ae7fb9259b803c1adb79e378397649ca2cd35c0b1e6c33d0f30fa20ae45a018e5209840eed57dfc6d3fb21a07a503b5a5776c358ee5347b80bf9a3e36677a  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-b81113aa5036c4c1751ba1124d2974ad0422dbf8edd53a96ba514b1b3a61a8c61b355fe1948321ef4d687089fb8925e963dd66e00c32cb054719590cb793896d  device-profile.conf
+14ac8d731728fe58d4e373033965e4a6555493d934eeb8850d59f15f96113310bb066becf9306f68de2a0e35757eb25a86b2619039cf8194ea171e8c073c79be  device-profile.conf
 e52c281fb3e043502fa0d6ced696dd78b95a74ccce1947d8d90d9bf6ad93d34f17113bb7dfabca8549b3b4504b10ec81cc0bb38b03fc3d4800ee8f9431839935  marathon-boot.cmd
 "

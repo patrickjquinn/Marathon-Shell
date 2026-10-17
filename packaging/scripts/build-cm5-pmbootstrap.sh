@@ -45,6 +45,8 @@ which pmbootstrap >/dev/null || { echo "ERROR: pmbootstrap not in PATH" >&2; exi
 echo "+ vendoring Marathon packages into $PMAPORTS"
 mkdir -p "$PMAPORTS/main" "$PMAPORTS/device/community"
 cp -r "$MARATHON_PKGS/device-raspberry-pi5-marathon" "$PMAPORTS/device/community/"
+python3 "$(dirname "${BASH_SOURCE[0]}")/../../tools/devices/devices.py" profile device-raspberry-pi5-marathon \
+    > "$PMAPORTS/device/community/device-raspberry-pi5-marathon/device-profile.conf"
 for p in marathon-base-config marathon-shell marathon-plymouth-theme marathon-boot-logo postmarketos-ui-marathon marathon-mail-oauth qmf; do
     cp -r "$MARATHON_PKGS/$p" "$PMAPORTS/main/"
 done
