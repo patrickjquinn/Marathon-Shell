@@ -19,6 +19,11 @@ namespace {
     const char *kCardDav = "urn:ietf:params:xml:ns:carddav";
     const char *kCalDav  = "urn:ietf:params:xml:ns:caldav";
 
+    // Accounts removed while the keyring was unavailable; their items still need deleting.
+    const char   *kPendingSecretRemovals = "dav/pendingSecretRemovals";
+    constexpr int kSecretRetryFirstMs    = 1000;
+    constexpr int kSecretRetryMaxMs      = 5 * 60 * 1000;
+
     // Parse a multistatus PROPFIND/REPORT body.
     struct DavResponse {
         QString href;
@@ -324,12 +329,22 @@ DavAccount DavAccount::fromVariant(const QVariantMap &m) {
 }
 
 DavSyncEngine::DavSyncEngine(ContactsManager *contacts, DavCalendarStore *calendarStore,
-                             QObject *parent)
+                             QObject *parent, DavSecretStore *secrets)
     : QObject(parent)
     , m_contacts(contacts)
     , m_calendarStore(calendarStore)
     , m_net(new QNetworkAccessManager(this))
-    , m_syncTimer(new QTimer(this)) {
+    , m_syncTimer(new QTimer(this))
+    , m_secrets(secrets ? secrets : new SecretServiceStore())
+    , m_secretRetry(new QTimer(this))
+    , m_secretRetryMs(kSecretRetryFirstMs) {
+    m_secrets->setParent(this);
+    m_secretRetry->setSingleShot(true);
+    connect(m_secretRetry, &QTimer::timeout, this, [this] {
+        const QStringList ids = m_secretOps.keys();
+        for (const QString &id : ids)
+            runSecretOp(id);
+    });
     loadAccounts();
     connect(m_syncTimer, &QTimer::timeout, this, &DavSyncEngine::syncNow);
     if (m_syncIntervalMs > 0)
@@ -347,7 +362,7 @@ void DavSyncEngine::loadAccounts() {
         a.displayName         = s.value("displayName").toString();
         a.baseUrl             = s.value("baseUrl").toString();
         a.username            = s.value("username").toString();
-        a.secret              = s.value("secret").toString(); // TODO: libsecret
+        a.secret              = s.value("secret").toString();
         a.authKind            = s.value("authKind", "basic").toString();
         a.homeUrlContacts     = s.value("homeUrlContacts").toString();
         a.homeUrlCalendar     = s.value("homeUrlCalendar").toString();
@@ -355,10 +370,82 @@ void DavSyncEngine::loadAccounts() {
         a.collectionsCalendar = s.value("collectionsCalendar").toStringList();
         a.enabled             = s.value("enabled", true).toBool();
         s.endGroup();
+        // A plaintext secret predates the keyring; it moves there on the first confirmed store.
+        m_secretOps.insert(id, a.secret.isEmpty() ? SecretOp::Load : SecretOp::Store);
         m_accounts.insert(id, a);
     }
     s.endGroup();
-    emit accountsChanged();
+    const QStringList removals = s.value(kPendingSecretRemovals).toStringList();
+    for (const QString &id : removals)
+        if (!m_accounts.contains(id))
+            m_secretOps.insert(id, SecretOp::Remove);
+    emit              accountsChanged();
+
+    const QStringList pending = m_secretOps.keys();
+    for (const QString &id : pending)
+        runSecretOp(id);
+}
+
+bool DavSyncEngine::awaitingSecret(const QString &id) const {
+    const auto it = m_secretOps.constFind(id);
+    return it != m_secretOps.constEnd() && *it == SecretOp::Load;
+}
+
+void DavSyncEngine::runSecretOp(const QString &id) {
+    if (m_secretInFlight.contains(id) || !m_secretOps.contains(id))
+        return;
+    const SecretOp op = m_secretOps.value(id);
+    m_secretInFlight.insert(id);
+    auto done = [this, id, op](DavSecretStore::Result result, const QString &secret) {
+        finishSecretOp(id, op, result, secret);
+    };
+    switch (op) {
+        case SecretOp::Store: {
+            const DavAccount a = m_accounts.value(id);
+            m_secrets->store(id, "Marathon DAV · " + (a.displayName.isEmpty() ? id : a.displayName),
+                             a.secret, done);
+            break;
+        }
+        case SecretOp::Load: m_secrets->load(id, done); break;
+        case SecretOp::Remove: m_secrets->remove(id, done); break;
+    }
+}
+
+void DavSyncEngine::finishSecretOp(const QString &id, SecretOp op, DavSecretStore::Result result,
+                                   const QString &secret) {
+    m_secretInFlight.remove(id);
+    if (result == DavSecretStore::Result::Unavailable) {
+        if (!m_secretRetry->isActive()) {
+            m_secretRetry->start(m_secretRetryMs);
+            m_secretRetryMs = qMin(m_secretRetryMs * 2, kSecretRetryMaxMs);
+        }
+        return;
+    }
+    if (m_secretOps.value(id) != op) {
+        runSecretOp(id);
+        return;
+    }
+    m_secretOps.remove(id);
+    m_secretRetryMs = kSecretRetryFirstMs;
+    QSettings s;
+    switch (op) {
+        case SecretOp::Store: s.remove("dav/accounts/" + id + "/secret"); break;
+        case SecretOp::Load:
+            if (result == DavSecretStore::Result::Ok)
+                m_accounts[id].secret = secret;
+            else
+                qWarning() << "DavSyncEngine: no keyring secret for account" << id;
+            break;
+        case SecretOp::Remove: {
+            QStringList removals = s.value(kPendingSecretRemovals).toStringList();
+            removals.removeAll(id);
+            if (removals.isEmpty())
+                s.remove(kPendingSecretRemovals);
+            else
+                s.setValue(kPendingSecretRemovals, removals);
+            break;
+        }
+    }
 }
 
 void DavSyncEngine::persistAccount(const DavAccount &a) {
@@ -367,7 +454,6 @@ void DavSyncEngine::persistAccount(const DavAccount &a) {
     s.setValue("displayName", a.displayName);
     s.setValue("baseUrl", a.baseUrl);
     s.setValue("username", a.username);
-    s.setValue("secret", a.secret);
     s.setValue("authKind", a.authKind);
     s.setValue("homeUrlContacts", a.homeUrlContacts);
     s.setValue("homeUrlCalendar", a.homeUrlCalendar);
@@ -383,6 +469,9 @@ void DavSyncEngine::erasePersistedAccount(const QString &id) {
     s.beginGroup("dav/accounts");
     s.remove(id);
     s.endGroup();
+    QStringList removals = s.value(kPendingSecretRemovals).toStringList();
+    if (!removals.contains(id))
+        s.setValue(kPendingSecretRemovals, removals << id);
     s.sync();
 }
 
@@ -410,6 +499,8 @@ QString DavSyncEngine::addAccount(const QString &displayName, const QString &bas
     a.authKind    = authKind;
     m_accounts.insert(a.id, a);
     persistAccount(a);
+    m_secretOps.insert(a.id, SecretOp::Store);
+    runSecretOp(a.id);
     emit accountsChanged();
     discover(a.id);
     return a.id;
@@ -420,6 +511,8 @@ bool DavSyncEngine::removeAccount(const QString &id) {
         return false;
     m_accounts.remove(id);
     erasePersistedAccount(id);
+    m_secretOps.insert(id, SecretOp::Remove);
+    runSecretOp(id);
     emit accountsChanged();
     return true;
 }
@@ -473,7 +566,7 @@ void DavSyncEngine::discover(const QString &accountId) {
     if (!m_accounts.contains(accountId))
         return;
     DavAccount a = m_accounts.value(accountId);
-    if (!a.enabled)
+    if (!a.enabled || awaitingSecret(accountId))
         return;
     runDiscoveryStep1(a);
 }
@@ -599,7 +692,7 @@ void DavSyncEngine::syncNow() {
     m_syncing = true;
     emit syncingChanged();
     for (const DavAccount &a : m_accounts) {
-        if (!a.enabled)
+        if (!a.enabled || awaitingSecret(a.id))
             continue;
         for (const QString &c : a.collectionsContacts)
             syncCollection(a, c, false);

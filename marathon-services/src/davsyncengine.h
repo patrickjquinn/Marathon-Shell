@@ -6,10 +6,13 @@
 #include <QStringList>
 #include <QHash>
 #include <QPointer>
+#include <QSet>
 #include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QNetworkRequest>
+
+#include "davsecretstore.h"
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -22,7 +25,7 @@ struct DavAccount {
     QString           displayName; // user-facing
     QString           baseUrl;     // discovered or user-entered
     QString           username;
-    QString           secret;              // password / app-password / bearer token
+    QString           secret;              // in memory only; persisted by DavSecretStore
     QString           authKind;            // "basic" | "bearer"
     QString           homeUrlContacts;     // resolved CardDAV home
     QString           homeUrlCalendar;     // resolved CalDAV home
@@ -55,7 +58,7 @@ class DavSyncEngine : public QObject {
 
   public:
     explicit DavSyncEngine(ContactsManager *contacts, DavCalendarStore *calendarStore = nullptr,
-                           QObject *parent = nullptr);
+                           QObject *parent = nullptr, DavSecretStore *secrets = nullptr);
 
     int accountCount() const {
         return m_accounts.size();
@@ -97,10 +100,20 @@ class DavSyncEngine : public QObject {
                       int contactsRemoved);
 
   private:
+    enum class SecretOp {
+        Store,
+        Load,
+        Remove
+    };
+
     void           loadAccounts();
     void           saveAccounts() const;
     void           persistAccount(const DavAccount &a);
     void           erasePersistedAccount(const QString &id);
+    void           runSecretOp(const QString &id);
+    void           finishSecretOp(const QString &id, SecretOp op, DavSecretStore::Result result,
+                                  const QString &secret);
+    bool           awaitingSecret(const QString &id) const;
 
     QNetworkReply *propfind(const QString &url, int depth, const QString &xmlBody,
                             const DavAccount &acct);
@@ -122,6 +135,11 @@ class DavSyncEngine : public QObject {
     QHash<QString, DavAccount>         m_accounts;
     QHash<QString, DavCollectionState> m_collectionState;
     QTimer                            *m_syncTimer;
+    DavSecretStore                    *m_secrets;
+    QHash<QString, SecretOp>           m_secretOps;
+    QSet<QString>                      m_secretInFlight;
+    QTimer                            *m_secretRetry;
+    int                                m_secretRetryMs;
 
     bool                               m_syncing = false;
     QString                            m_lastError;

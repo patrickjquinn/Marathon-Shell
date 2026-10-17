@@ -38,6 +38,8 @@ qt6_add_library(MarathonServices SHARED
     src/smsservice.cpp
     src/mmsmanager.h
     src/mmsmanager.cpp
+    src/davsecretstore.h
+    src/davsecretstore.cpp
     src/davsyncengine.h
     src/davsyncengine.cpp
     src/davcalendarstore.h
@@ -51,8 +53,8 @@ qt6_add_library(MarathonServices SHARED
 target_link_libraries(MarathonServices
     PUBLIC
         Qt6::Core
-    PRIVATE
         Qt6::DBus
+    PRIVATE
         Qt6::Sql
         Qt6::Gui
         Qt6::Multimedia

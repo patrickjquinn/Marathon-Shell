@@ -343,6 +343,11 @@ if(TARGET MarathonServices)
     target_link_libraries(test_core_smsservice Qt6::Test Qt6::Core Qt6::DBus Qt6::Sql MarathonServices)
     target_include_directories(test_core_smsservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
     add_test(NAME Core_SmsService COMMAND test_core_smsservice)
+
+    # DAV account secrets: keyring migration, retry and removal
+    add_executable(test_core_davsecrets test_davsecrets.cpp)
+    target_link_libraries(test_core_davsecrets Qt6::Test Qt6::Core Qt6::DBus Qt6::Network MarathonServices)
+    add_test(NAME Core_DavSecrets COMMAND test_core_davsecrets)
 endif()
 
 # Sound names format locally, shared by the shell and the app runner
