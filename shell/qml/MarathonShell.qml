@@ -2051,11 +2051,14 @@ Item {
         }
 
         Connections {
-            function onVolumeChanged() {
-                if (systemHUD.initialized)
-                    systemHUD.showVolume(SystemControlStore.volume / 100);
+            function onLevelChanged() {
+                systemHUD.showVolume(AudioManagerCpp.volume);
             }
 
+            target: AudioManagerCpp
+        }
+
+        Connections {
             // Manual-only: fires on setBrightnessFromUser, not on ambient
             // auto-brightness or idle-dim (those use the silent setter).
             function onUserBrightnessChanged(value) {

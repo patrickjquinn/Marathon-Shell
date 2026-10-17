@@ -44,6 +44,9 @@ class SinkVolume : public QObject {
   signals:
     void volumeChanged();
     void mutedChanged();
+    // The server changed the level of a sink already reported: not the first
+    // report of a sink, not one of our writes.
+    void levelChanged();
 
   private:
     void         onDefaultSinkChanged(const QString &sink);
@@ -57,6 +60,7 @@ class SinkVolume : public QObject {
     bool         m_muted         = false;
     bool         m_volumePending = false;
     bool         m_mutePending   = false;
+    bool         m_reported      = false;
     int          m_volumeWrites  = 0;
     int          m_muteWrites    = 0;
 };

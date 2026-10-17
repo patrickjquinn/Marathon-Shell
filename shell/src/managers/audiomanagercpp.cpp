@@ -77,6 +77,7 @@ AudioManagerCpp::AudioManagerCpp(QObject *parent)
     , m_sinkVolume(new SinkVolume(m_audiod, this)) {
     connect(m_sinkVolume, &SinkVolume::volumeChanged, this, &AudioManagerCpp::volumeChanged);
     connect(m_sinkVolume, &SinkVolume::mutedChanged, this, &AudioManagerCpp::mutedChanged);
+    connect(m_sinkVolume, &SinkVolume::levelChanged, this, &AudioManagerCpp::levelChanged);
     connect(m_audiod, &AudiodClient::streamsChanged, this, &AudioManagerCpp::updateStreams);
     connect(m_audiod, &AudiodClient::availableChanged, this, [this] {
         m_available = m_audiod->available();

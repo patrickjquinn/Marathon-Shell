@@ -44,6 +44,29 @@ class TestSinkVolume : public QObject {
         QCOMPARE(spy.count(), 1);
     }
 
+    // The volume OSD announces a level change, not the shell learning a level.
+    void onlyAChangeOnTheSameSinkIsAnnounced() {
+        FakeSinkBackend b;
+        SinkVolume      v(&b);
+        QSignalSpy      spy(&v, &SinkVolume::levelChanged);
+        emit b.defaultSinkChanged("auto_null");
+        emit b.sinkChanged("auto_null", 0.0, false);
+        QCOMPARE(spy.count(), 0);
+
+        emit b.sinkChanged("auto_null", 0.3, false);
+        emit b.sinkChanged("auto_null", 0.3, true);
+        QCOMPARE(spy.count(), 2);
+
+        emit b.defaultSinkChanged("bluez_output.AA_BB.1");
+        emit b.sinkChanged("bluez_output.AA_BB.1", 0.7, false);
+        QCOMPARE(spy.count(), 2);
+
+        v.setVolume(0.4);
+        b.finishWrites();
+        emit b.sinkChanged("bluez_output.AA_BB.1", 0.4, false);
+        QCOMPARE(spy.count(), 2);
+    }
+
     void ignoresOtherSinks() {
         FakeSinkBackend b;
         SinkVolume      v(&b);

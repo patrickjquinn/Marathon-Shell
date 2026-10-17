@@ -38,6 +38,8 @@ void SinkVolume::setMuted(bool muted) {
 
 // Set before a default sink exists (at boot): applied to the first one.
 void SinkVolume::onDefaultSinkChanged(const QString &sink) {
+    if (sink != m_sink)
+        m_reported = false;
     m_sink = sink;
     writeVolume();
     writeMuted();
@@ -47,15 +49,21 @@ void SinkVolume::onDefaultSinkChanged(const QString &sink) {
 void SinkVolume::onSinkChanged(const QString &sink, double volume, bool muted) {
     if (sink != m_sink)
         return;
-    volume = qBound(0.0, volume, 1.0);
+    volume       = qBound(0.0, volume, 1.0);
+    bool changed = false;
     if (m_volumeWrites == 0 && !qFuzzyCompare(volume, m_volume)) {
         m_volume = volume;
+        changed  = true;
         emit volumeChanged();
     }
     if (m_muteWrites == 0 && muted != m_muted) {
         m_muted = muted;
+        changed = true;
         emit mutedChanged();
     }
+    if (changed && m_reported)
+        emit levelChanged();
+    m_reported = true;
 }
 
 void SinkVolume::writeVolume() {

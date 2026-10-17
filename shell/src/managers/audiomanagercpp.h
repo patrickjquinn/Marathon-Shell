@@ -94,6 +94,7 @@ class AudioManagerCpp : public QObject {
     void availableChanged();
     void volumeChanged();
     void mutedChanged();
+    void levelChanged();
     void streamsChanged();
     void isPlayingChanged();
 
