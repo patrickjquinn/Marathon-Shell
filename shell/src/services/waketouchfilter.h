@@ -7,10 +7,11 @@
 /*
  * WakeTouchFilter
  *
- * Application-wide event filter (after lipstick's TouchScreen): for 100 ms
- * after the display wakes every touch is dropped, and from the screen going
- * off until a fresh touch begins, so a finger already down at wake, or the
- * tap that woke the screen, reaches nothing.
+ * Application-wide event filter (after lipstick's TouchScreen): a touch or
+ * press that begins while the screen is off, or within 100 ms of it waking,
+ * is dropped to its release, so a finger already down at wake, or the tap
+ * that woke the screen, reaches nothing. Each sequence is kept or dropped
+ * whole: a scene that saw a press always sees its release.
  */
 class WakeTouchFilter : public QObject {
     Q_OBJECT
@@ -26,8 +27,11 @@ class WakeTouchFilter : public QObject {
     bool eventFilter(QObject *watched, QEvent *event) override;
 
   private:
+    bool          blocksPress() const;
+
     QElapsedTimer m_sinceWake;
-    bool          m_waitForBegin = false;
+    bool          m_screenOn = true;
+    bool          m_dropping = false;
 };
 
 #endif

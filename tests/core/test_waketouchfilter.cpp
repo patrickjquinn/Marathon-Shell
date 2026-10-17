@@ -2,8 +2,13 @@
 
 #include <QGuiApplication>
 #include <QPointingDevice>
+#include <QQmlComponent>
+#include <QQmlEngine>
+#include <QQuickWindow>
 #include <QTest>
 #include <QWindow>
+
+#include <memory>
 
 namespace {
 
@@ -94,6 +99,48 @@ class TestWakeTouchFilter : public QObject {
         press();
         release();
         QCOMPARE(m_window->seen, (QList<QEvent::Type>{QEvent::TouchBegin, QEvent::TouchEnd}));
+    }
+
+    void aTouchUnderWayWhenTheScreenGoesOffEnds() {
+        press();
+        m_filter->setScreenOn(false);
+        move();
+        release();
+        QCOMPARE(m_window->seen,
+                 (QList<QEvent::Type>{QEvent::TouchBegin, QEvent::TouchUpdate, QEvent::TouchEnd}));
+    }
+
+    void aTouchUnderWayAcrossAWakeEnds() {
+        press();
+        m_filter->setScreenOn(true);
+        release();
+        QCOMPARE(m_window->seen, (QList<QEvent::Type>{QEvent::TouchBegin, QEvent::TouchEnd}));
+    }
+
+    void aSceneStillTakesTapsAfterAWakeMidTouch() {
+        QQmlEngine    engine;
+        QQmlComponent component(&engine);
+        component.setData("import QtQuick\n"
+                          "Window { width: 100; height: 100; visible: true\n"
+                          "  property int taps: 0\n"
+                          "  MouseArea { anchors.fill: parent; onClicked: taps++ } }",
+                          QUrl());
+        std::unique_ptr<QObject> created(component.create());
+        auto                    *scene = qobject_cast<QQuickWindow *>(created.get());
+        QVERIFY2(scene, qPrintable(component.errorString()));
+        QVERIFY(QTest::qWaitForWindowExposed(scene));
+
+        QTest::touchEvent(scene, m_device).press(0, QPoint(10, 10));
+        m_filter->setScreenOn(false);
+        QTest::touchEvent(scene, m_device).release(0, QPoint(10, 10));
+        m_filter->setScreenOn(true);
+        QTest::qWait(WakeTouchFilter::BlockMs + 20);
+        const int before = scene->property("taps").toInt();
+        for (int i = 0; i < 2; ++i) {
+            QTest::touchEvent(scene, m_device).press(0, QPoint(10, 10));
+            QTest::touchEvent(scene, m_device).release(0, QPoint(10, 10));
+        }
+        QCOMPARE(scene->property("taps").toInt(), before + 2);
     }
 };
 

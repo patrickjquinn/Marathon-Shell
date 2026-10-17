@@ -449,7 +449,7 @@ add_executable(test_core_waketouchfilter
     ../../shell/src/services/waketouchfilter.cpp
 )
 set_target_properties(test_core_waketouchfilter PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_waketouchfilter Qt6::Test Qt6::Gui)
+target_link_libraries(test_core_waketouchfilter Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick)
 target_include_directories(test_core_waketouchfilter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_WakeTouchFilter COMMAND test_core_waketouchfilter)
 set_tests_properties(Core_WakeTouchFilter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
