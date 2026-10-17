@@ -13,16 +13,16 @@ Finding numbers refer to the review's Findings table.
 | R05 | DAV secrets in the Secret Service | 4 | – | done | 6c944f37 |
 | R06 | Debug-app auto-launch opt-in; inverted log guard; dead WAYLAND_DISPLAY | 16, 17, 18 | – | done | dfd3fcc7, 94919ea9 |
 | R07 | Stale comments | 20 | – | done | 10f3c7e3 |
-| R08 | Hub notification tap opens the app | new | 1 | review | 646141ad, 10fa7a98; display-name tap verified on device (r455) |
+| R08 | Hub notification tap opens the app | new | 1 | review | + tap-time resolution 10fa7a98; re-verify in r456 |
 | R09 | Audio on PipeWire/WirePlumber (no PulseAudio API, no wpctl/pactl subprocesses) | 13 | 1 | active | |
-| R10 | App signing: whole-package Ed25519/minisign, required by default, verified before parsing; generated permission disclosures; hold permission-widening updates | 2 | 1 | active | reef-licence prior art |
-| R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | active | systemd-sysupdate + boot assessment |
+| R10 | App signing: whole-package Ed25519/minisign, required by default, verified before parsing; generated permission disclosures; hold permission-widening updates | 2 | 1 | review | minisign whole-package signing, disclosures, held widening updates; device test in r456 |
+| R11 | Signed OTA: A/B or snapshot update, health check, automatic rollback, metered/battery gating | 3 | 1 | review | systemd-sysupdate A/B behind MARATHON_IMAGE_LAYOUT=ab; QEMU validation pending (needs ~30 GB, signing key, feed host) |
 | R12 | Sandbox: security-context-v1 for sandboxed clients, marathon-sandbox defaults, WebEngine sandbox, no setcap in setup | 7, 8, 9 | 1 | active | |
-| R13 | App manifest JSON schema + `marathon-dev lint` | 2 | 2 | active | Keel Actions schema prior art |
-| R14 | Device manifests (devices/<vendor>/<codename>) generating device-profile.conf; PinePhone build wrapper + flash script | 15 | 2 | active | |
+| R13 | App manifest JSON schema + `marathon-dev lint` | 2 | 2 | review | schemas/marathon-app-manifest-v1 + marathon-dev lint; all apps pass |
+| R14 | Device manifests (devices/<vendor>/<codename>) generating device-profile.conf; PinePhone build wrapper + flash script | 15 | 2 | review | devices/*/device.toml + socs/; generated device-profile.conf; PinePhone build/flash scripts |
 | R15 | Design tokens from one source; lint hex/durations; reduceBlur | 10 | 2 | todo | |
 | R16 | Input + presentation context separate from width; MSAA defaults reconciled | 12 | 2 | todo | |
-| R17 | Background agents (systemd timers, RTC wake) + modem quiesce/resume around suspend | 9 | 2 | active | |
+| R17 | Background agents (systemd timers, RTC wake) + modem quiesce/resume around suspend | 9 | 2 | review | marathon-background generator + RTC wake arming; modem-sleep hook; device test in r456 |
 | R18 | Live Activities: typed app state → Frames, NowBar, lock screen with redaction | 9 | 2 | todo | |
 | R19 | Hygiene: Word Fling/predictive spacing dead settings, root pam.d/udev/systemd reconcile, legacy components/ui | 19, new | 2 | review | merged (to c2f00e11); PIN unlock + backlight to verify on device (PAM/udev moved) |
 | R20 | i18n (qsTr + Qt translations) and Accessible annotations | 11 | 3 | todo | |
@@ -32,4 +32,7 @@ Finding numbers refer to the review's Findings table.
 | R24 | Lint clean: clang-tidy/clazy/clang-format, qmllint shell + apps, lint infra for Marathon.Platform | – | 3 | todo | partial lint-infra patch saved |
 | R26 | Keyboard edits reach apps: autocorrect replace, backspace, double-space period; tests on the real keyboard QML | new | 2 | active | found by R19 |
 | R27 | Audit possibly dead settings (dateFormat, statusBarClockPosition, showFrequentApps, appSortOrder, …) | new | 3 | todo | found by R19 |
+| R28 | Permission integrity: app cannot rewrite its own manifest to gain grants; one permission vocabulary; no silent denials | new | 2 | active | found by R13 + OEM run |
+| R29 | Gestures: short pull from the pill opens QS; Peek edge strip skips the back indicator | user | – | review | 1cbed1b4, e93992e8; device test in r456 |
+| R30 | OEM test-app findings (calls, permissions, lock-after-decline, …) | OEM run | – | active | scratchpad oem-findings; call fix 1c021236 |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
