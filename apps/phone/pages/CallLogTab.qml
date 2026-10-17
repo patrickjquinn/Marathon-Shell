@@ -54,6 +54,7 @@ TabItem {
             readonly property string number: modelData.number || ""
             readonly property string name: modelData.contactName || root.phone.contactName(number)
             readonly property bool missed: modelData.type === "missed"
+            readonly property bool declined: modelData.type === "rejected"
             readonly property int count: modelData.ids.length
             readonly property real when: Phone.timestampMs(modelData.timestamp)
 
@@ -66,7 +67,7 @@ TabItem {
 
             objectName: "callLogItem"
             contentHeight: Theme.itemSizeMedium
-            Accessible.name: (missed ? qsTr("Missed call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number) + (count > 1 ? ", " + qsTr("%n calls", "", count) : "")
+            Accessible.name: (missed ? qsTr("Missed call from %1") : declined ? qsTr("Declined call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number) + (count > 1 ? ", " + qsTr("%n calls", "", count) : "")
             menu: ContextMenu {
                 MenuItem {
                     objectName: "editMenuItem"
@@ -125,9 +126,10 @@ TabItem {
                     }
                 }
                 Label {
+                    objectName: "detailLabel"
                     width: parent.width
                     visible: text.length > 0
-                    text: [item.name ? Phone.format(item.number) : "", item.modelData.duration > 0 ? Phone.duration(item.modelData.duration) : ""].filter(s => s.length > 0).join(" · ")
+                    text: [item.name ? Phone.format(item.number) : "", item.declined ? qsTr("Declined") : "", item.modelData.duration > 0 ? Phone.duration(item.modelData.duration) : ""].filter(s => s.length > 0).join(" · ")
                     font.pixelSize: Theme.fontSizeExtraSmall
                     truncationMode: TruncationMode.Fade
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

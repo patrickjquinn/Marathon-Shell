@@ -75,6 +75,18 @@ TestCase {
         compare(findChild(app.pageStack.currentPage, "tabBar").model[1].count, 1);
     }
 
+    function test_declinedCallIsShownAsDeclinedNotMissed() {
+        CallHistory.history = [{ id: 9, number: "+15551234567", type: "rejected", timestamp: 1700000200, duration: 0 }];
+        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        compare(app.missedCount, 0);
+        app.pageStack.currentPage.tabs.moveTo(1);
+        let list = null;
+        tryVerify(() => (list = findChild(app.pageStack.currentPage, "callLog")) !== null && list.count === 1);
+        const item = itemAt(list, 0);
+        compare(findChild(item, "detailLabel").text, "Declined");
+        compare(item.Accessible.name, "Declined call from +15551234567");
+    }
+
     function test_tapCalls() {
         const t = openLog();
         itemAt(t.list, 0).clicked(null);
