@@ -71,8 +71,6 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardAutoCorrection(true)
     , m_keyboardAutoCapitalize(true)
     , m_keyboardPredictiveText(true)
-    , m_keyboardWordFling(true)
-    , m_keyboardPredictiveSpacing(false)
     , m_keyboardHapticStrength("medium")
     , m_keyboardLanguage("en_US")
     , m_unifiedPushFallbackEnabled(false) {
@@ -355,13 +353,11 @@ void SettingsManager::load() {
     m_quickSettingsTileOrder =
         m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
 
-    m_keyboardAutoCorrection    = m_settings.value("keyboard/autoCorrection", true).toBool();
-    m_keyboardAutoCapitalize    = m_settings.value("keyboard/autoCapitalize", true).toBool();
-    m_keyboardPredictiveText    = m_settings.value("keyboard/predictiveText", true).toBool();
-    m_keyboardWordFling         = m_settings.value("keyboard/wordFling", true).toBool();
-    m_keyboardPredictiveSpacing = m_settings.value("keyboard/predictiveSpacing", false).toBool();
-    m_keyboardHapticStrength    = m_settings.value("keyboard/hapticStrength", "medium").toString();
-    m_keyboardLanguage          = m_settings.value("keyboard/language", "en_US").toString();
+    m_keyboardAutoCorrection = m_settings.value("keyboard/autoCorrection", true).toBool();
+    m_keyboardAutoCapitalize = m_settings.value("keyboard/autoCapitalize", true).toBool();
+    m_keyboardPredictiveText = m_settings.value("keyboard/predictiveText", true).toBool();
+    m_keyboardHapticStrength = m_settings.value("keyboard/hapticStrength", "medium").toString();
+    m_keyboardLanguage       = m_settings.value("keyboard/language", "en_US").toString();
 
     m_unifiedPushFallbackEnabled =
         m_settings.value("notifications/unifiedPushFallback", false).toBool();
@@ -444,8 +440,6 @@ void SettingsManager::save() {
     m_settings.setValue("keyboard/autoCorrection", m_keyboardAutoCorrection);
     m_settings.setValue("keyboard/autoCapitalize", m_keyboardAutoCapitalize);
     m_settings.setValue("keyboard/predictiveText", m_keyboardPredictiveText);
-    m_settings.setValue("keyboard/wordFling", m_keyboardWordFling);
-    m_settings.setValue("keyboard/predictiveSpacing", m_keyboardPredictiveSpacing);
     m_settings.setValue("keyboard/hapticStrength", m_keyboardHapticStrength);
     m_settings.setValue("keyboard/language", m_keyboardLanguage);
 
@@ -874,24 +868,6 @@ void SettingsManager::setKeyboardPredictiveText(bool enabled) {
     save();
     emit keyboardPredictiveTextChanged();
     qDebug() << "[SettingsManager] Keyboard predictive text:" << enabled;
-}
-
-void SettingsManager::setKeyboardWordFling(bool enabled) {
-    if (m_keyboardWordFling == enabled)
-        return;
-    m_keyboardWordFling = enabled;
-    save();
-    emit keyboardWordFlingChanged();
-    qDebug() << "[SettingsManager] Keyboard Word Fling:" << enabled;
-}
-
-void SettingsManager::setKeyboardPredictiveSpacing(bool enabled) {
-    if (m_keyboardPredictiveSpacing == enabled)
-        return;
-    m_keyboardPredictiveSpacing = enabled;
-    save();
-    emit keyboardPredictiveSpacingChanged();
-    qDebug() << "[SettingsManager] Keyboard predictive spacing:" << enabled;
 }
 
 void SettingsManager::setKeyboardHapticStrength(const QString &strength) {

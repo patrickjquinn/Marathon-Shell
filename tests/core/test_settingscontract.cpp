@@ -178,6 +178,19 @@ class TestSettingsContract : public QObject {
                  qPrintable(QStringLiteral("%1 no longer reads it").arg(c.file)));
     }
 
+    // A keyboard setting the shell never reads is a dead control.
+    void keyboardSettingsAreRead() {
+        for (const QMetaObject *meta :
+             {&SettingsManager::staticMetaObject, &SettingsClient::staticMetaObject}) {
+            for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
+                const QString name = QString::fromLatin1(meta->property(i).name());
+                if (name.startsWith(QLatin1String("keyboard")))
+                    QVERIFY2(kConsumers.contains(name),
+                             qPrintable(name + QStringLiteral(": no shell consumer")));
+            }
+        }
+    }
+
     // Writes to other clients: each must be listed with where the shell acts on it.
     void otherClientWrites() {
         const QString qml = settingsAppQml();

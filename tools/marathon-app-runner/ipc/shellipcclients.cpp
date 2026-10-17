@@ -803,8 +803,6 @@ void SettingsClient::refresh() {
         emit quickSettingsTileOrderChanged();
         emit keyboardAutoCorrectionChanged();
         emit keyboardPredictiveTextChanged();
-        emit keyboardWordFlingChanged();
-        emit keyboardPredictiveSpacingChanged();
         emit keyboardHapticStrengthChanged();
         emit keyboardLanguageChanged();
         emit keyboardAutoCapitalizeChanged();
@@ -884,8 +882,6 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         {"quickSettingsTileOrder", &SettingsClient::quickSettingsTileOrderChanged},
         {"keyboardAutoCorrection", &SettingsClient::keyboardAutoCorrectionChanged},
         {"keyboardPredictiveText", &SettingsClient::keyboardPredictiveTextChanged},
-        {"keyboardWordFling", &SettingsClient::keyboardWordFlingChanged},
-        {"keyboardPredictiveSpacing", &SettingsClient::keyboardPredictiveSpacingChanged},
         {"keyboardHapticStrength", &SettingsClient::keyboardHapticStrengthChanged},
         {"keyboardLanguage", &SettingsClient::keyboardLanguageChanged},
         {"keyboardAutoCapitalize", &SettingsClient::keyboardAutoCapitalizeChanged},
@@ -1023,12 +1019,6 @@ bool SettingsClient::keyboardAutoCorrection() const {
 }
 bool SettingsClient::keyboardPredictiveText() const {
     return prop("keyboardPredictiveText", true).toBool();
-}
-bool SettingsClient::keyboardWordFling() const {
-    return prop("keyboardWordFling", true).toBool();
-}
-bool SettingsClient::keyboardPredictiveSpacing() const {
-    return prop("keyboardPredictiveSpacing", false).toBool();
 }
 QString SettingsClient::keyboardHapticStrength() const {
     return prop("keyboardHapticStrength", "medium").toString();
@@ -1176,12 +1166,6 @@ void SettingsClient::setKeyboardAutoCorrection(bool v) {
 }
 void SettingsClient::setKeyboardPredictiveText(bool v) {
     setProp("keyboardPredictiveText", v);
-}
-void SettingsClient::setKeyboardWordFling(bool v) {
-    setProp("keyboardWordFling", v);
-}
-void SettingsClient::setKeyboardPredictiveSpacing(bool v) {
-    setProp("keyboardPredictiveSpacing", v);
 }
 void SettingsClient::setKeyboardHapticStrength(const QString &v) {
     setProp("keyboardHapticStrength", v);

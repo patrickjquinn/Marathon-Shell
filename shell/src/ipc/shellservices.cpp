@@ -362,8 +362,6 @@ QVariantMap SettingsObject::GetState() {
         {"quickSettingsTileOrder", m_settings->quickSettingsTileOrder()},
         {"keyboardAutoCorrection", m_settings->keyboardAutoCorrection()},
         {"keyboardPredictiveText", m_settings->keyboardPredictiveText()},
-        {"keyboardWordFling", m_settings->keyboardWordFling()},
-        {"keyboardPredictiveSpacing", m_settings->keyboardPredictiveSpacing()},
         {"keyboardHapticStrength", m_settings->keyboardHapticStrength()},
         {"keyboardLanguage", m_settings->keyboardLanguage()},
         {"keyboardAutoCapitalize", m_settings->keyboardAutoCapitalize()},
@@ -465,10 +463,6 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setKeyboardAutoCorrection(v.toBool());
     else if (name == "keyboardPredictiveText")
         m_settings->setKeyboardPredictiveText(v.toBool());
-    else if (name == "keyboardWordFling")
-        m_settings->setKeyboardWordFling(v.toBool());
-    else if (name == "keyboardPredictiveSpacing")
-        m_settings->setKeyboardPredictiveSpacing(v.toBool());
     else if (name == "keyboardHapticStrength")
         m_settings->setKeyboardHapticStrength(v.toString());
     else if (name == "keyboardLanguage")

@@ -103,10 +103,6 @@ class SettingsManager : public QObject {
                    setKeyboardAutoCapitalize NOTIFY keyboardAutoCapitalizeChanged)
     Q_PROPERTY(bool keyboardPredictiveText READ keyboardPredictiveText WRITE
                    setKeyboardPredictiveText NOTIFY keyboardPredictiveTextChanged)
-    Q_PROPERTY(bool keyboardWordFling READ keyboardWordFling WRITE setKeyboardWordFling NOTIFY
-                   keyboardWordFlingChanged)
-    Q_PROPERTY(bool keyboardPredictiveSpacing READ keyboardPredictiveSpacing WRITE
-                   setKeyboardPredictiveSpacing NOTIFY keyboardPredictiveSpacingChanged)
     Q_PROPERTY(QString keyboardHapticStrength READ keyboardHapticStrength WRITE
                    setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
     Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
@@ -251,12 +247,6 @@ class SettingsManager : public QObject {
     bool keyboardPredictiveText() const {
         return m_keyboardPredictiveText;
     }
-    bool keyboardWordFling() const {
-        return m_keyboardWordFling;
-    }
-    bool keyboardPredictiveSpacing() const {
-        return m_keyboardPredictiveSpacing;
-    }
     QString keyboardHapticStrength() const {
         return m_keyboardHapticStrength;
     }
@@ -320,8 +310,6 @@ class SettingsManager : public QObject {
     void                    setKeyboardAutoCorrection(bool enabled);
     void                    setKeyboardAutoCapitalize(bool enabled);
     void                    setKeyboardPredictiveText(bool enabled);
-    void                    setKeyboardWordFling(bool enabled);
-    void                    setKeyboardPredictiveSpacing(bool enabled);
     void                    setKeyboardHapticStrength(const QString &strength);
     void                    setKeyboardLanguage(const QString &language);
 
@@ -394,8 +382,6 @@ class SettingsManager : public QObject {
     void keyboardAutoCorrectionChanged();
     void keyboardAutoCapitalizeChanged();
     void keyboardPredictiveTextChanged();
-    void keyboardWordFlingChanged();
-    void keyboardPredictiveSpacingChanged();
     void keyboardHapticStrengthChanged();
     void keyboardLanguageChanged();
 
@@ -464,8 +450,6 @@ class SettingsManager : public QObject {
     bool                m_keyboardAutoCorrection;
     bool                m_keyboardAutoCapitalize;
     bool                m_keyboardPredictiveText;
-    bool                m_keyboardWordFling;
-    bool                m_keyboardPredictiveSpacing;
     QString             m_keyboardHapticStrength;
     QString             m_keyboardLanguage;
 

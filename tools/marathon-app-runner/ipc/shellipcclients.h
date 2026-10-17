@@ -340,10 +340,6 @@ class SettingsClient : public QObject {
                    setKeyboardAutoCorrection NOTIFY keyboardAutoCorrectionChanged)
     Q_PROPERTY(bool keyboardPredictiveText READ keyboardPredictiveText WRITE
                    setKeyboardPredictiveText NOTIFY keyboardPredictiveTextChanged)
-    Q_PROPERTY(bool keyboardWordFling READ keyboardWordFling WRITE setKeyboardWordFling NOTIFY
-                   keyboardWordFlingChanged)
-    Q_PROPERTY(bool keyboardPredictiveSpacing READ keyboardPredictiveSpacing WRITE
-                   setKeyboardPredictiveSpacing NOTIFY keyboardPredictiveSpacingChanged)
     Q_PROPERTY(QString keyboardHapticStrength READ keyboardHapticStrength WRITE
                    setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
     Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
@@ -402,8 +398,6 @@ class SettingsClient : public QObject {
 
     bool                    keyboardAutoCorrection() const;
     bool                    keyboardPredictiveText() const;
-    bool                    keyboardWordFling() const;
-    bool                    keyboardPredictiveSpacing() const;
     QString                 keyboardHapticStrength() const;
     QString                 keyboardLanguage() const;
     bool                    keyboardAutoCapitalize() const;
@@ -457,8 +451,6 @@ class SettingsClient : public QObject {
 
     void                    setKeyboardAutoCorrection(bool v);
     void                    setKeyboardPredictiveText(bool v);
-    void                    setKeyboardWordFling(bool v);
-    void                    setKeyboardPredictiveSpacing(bool v);
     void                    setKeyboardHapticStrength(const QString &v);
     void                    setKeyboardLanguage(const QString &v);
     void                    setKeyboardAutoCapitalize(bool v);
@@ -524,8 +516,6 @@ class SettingsClient : public QObject {
 
     void keyboardAutoCorrectionChanged();
     void keyboardPredictiveTextChanged();
-    void keyboardWordFlingChanged();
-    void keyboardPredictiveSpacingChanged();
     void keyboardHapticStrengthChanged();
     void keyboardLanguageChanged();
     void keyboardAutoCapitalizeChanged();
