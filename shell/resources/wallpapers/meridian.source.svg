@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#030407"/>
+      <stop offset="0.6" stop-color="#05080c"/>
+      <stop offset="1" stop-color="#03090a"/>
+    </linearGradient>
+    <radialGradient id="sky" cx="0.77" cy="0.62" r="0.8">
+      <stop offset="0" stop-color="#2d3a9c" stop-opacity="0.34"/>
+      <stop offset="0.45" stop-color="#1b2266" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#1b2266" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="haze" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5df5d2" stop-opacity="0.16"/>
+      <stop offset="0.35" stop-color="#1de9b6" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#1de9b6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloom" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ecfffa" stop-opacity="1"/>
+      <stop offset="0.18" stop-color="#7ff7dc" stop-opacity="0.65"/>
+      <stop offset="0.5" stop-color="#1de9b6" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#1de9b6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- track sheet: dark and wide near the viewer, bright where it meets the light -->
+    <linearGradient id="sheet" gradientUnits="userSpaceOnUse" x1="-40" y1="820" x2="300" y2="520">
+      <stop offset="0" stop-color="#0a2c5a" stop-opacity="0.30"/>
+      <stop offset="0.35" stop-color="#0b5a6e" stop-opacity="0.45"/>
+      <stop offset="0.65" stop-color="#11a994" stop-opacity="0.62"/>
+      <stop offset="0.86" stop-color="#5ff2d1" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#f2fffb" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="sheetShade" gradientUnits="userSpaceOnUse" x1="100" y1="600" x2="170" y2="790">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.25" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#01040a" stop-opacity="0.42"/>
+    </linearGradient>
+    <linearGradient id="far" gradientUnits="userSpaceOnUse" x1="-40" y1="980" x2="300" y2="528">
+      <stop offset="0" stop-color="#1b257a" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#2f3fc0" stop-opacity="0.32"/>
+      <stop offset="0.85" stop-color="#4d7fe0" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#b9f6ff" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="crest" gradientUnits="userSpaceOnUse" x1="-40" y1="610" x2="300" y2="520">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#d9fff6" stop-opacity="0.35"/>
+      <stop offset="0.9" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.7"/>
+    </linearGradient>
+    <linearGradient id="lanes" gradientUnits="userSpaceOnUse" x1="-40" y1="820" x2="300" y2="520">
+      <stop offset="0" stop-color="#c8fff2" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#c8fff2" stop-opacity="0.22"/>
+      <stop offset="0.9" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.1"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.55" cy="0.55" r="0.8">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+
+    <filter id="depth" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <filter id="soften" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="crestGlow" x="-20%" y="-60%" width="140%" height="220%">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="11" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.08"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+
+  <rect width="390" height="844" fill="url(#ground)"/>
+  <rect width="390" height="844" fill="url(#sky)"/>
+
+  <!-- haze lifting off the light -->
+  <ellipse cx="300" cy="520" rx="380" ry="300" fill="url(#haze)"/>
+
+  <!-- a second, farther sheet, out of focus -->
+  <path d="M -40 900 C 120 820, 230 640, 300 528 L 304 532 C 250 660, 140 900, -40 1030 Z"
+        fill="url(#far)" filter="url(#depth)"/>
+
+  <!-- the track: lanes converge on the light -->
+  <g filter="url(#soften)">
+    <path d="M -40 610 C 80 590, 200 545, 300 520 L 306 524 C 220 600, 110 760, -40 880 Z" fill="url(#sheet)"/>
+    <path d="M -40 610 C 80 590, 200 545, 300 520 L 306 524 C 220 600, 110 760, -40 880 Z" fill="url(#sheetShade)"/>
+  </g>
+  <g fill="none" stroke="url(#lanes)" stroke-width="0.45">
+    <path d="M -40 677 C 87 632, 205 559, 301.5 521"/>
+    <path d="M -40 745 C 95 675, 210 572, 303 522"/>
+    <path d="M -40 812 C 102 717, 215 586, 304.5 523"/>
+  </g>
+
+  <!-- the light at the end of the track -->
+  <ellipse cx="302" cy="518" rx="120" ry="46" fill="url(#bloom)" filter="url(#glow)" opacity="0.8"/>
+  <ellipse cx="303" cy="521" rx="24" ry="6" fill="url(#bloom)" filter="url(#crestGlow)" opacity="0.95"/>
+
+  <!-- crest: the lit outer edge -->
+  <path d="M -40 610 C 80 590, 200 545, 300 520" fill="none" stroke="url(#crest)" stroke-width="2.6" opacity="0.45" filter="url(#crestGlow)"/>
+  <path d="M -40 610 C 80 590, 200 545, 300 520" fill="none" stroke="url(#crest)" stroke-width="0.8"/>
+
+  <rect width="390" height="844" fill="url(#vignette)"/>
+  <rect width="390" height="844" filter="url(#grain)"/>
+</svg>

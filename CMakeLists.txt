@@ -293,6 +293,7 @@ install(DIRECTORY shell/resources/wallpapers/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/wallpapers
     FILES_MATCHING PATTERN "*.jpg" PATTERN "*.png" PATTERN "*.jpeg" PATTERN "*.webp"
                    PATTERN "*.svg"
+                   PATTERN "*.source.svg" EXCLUDE
 )
 
 # Sounds

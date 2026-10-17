@@ -22,6 +22,7 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
         };
     };
     m_wallpapers = {
+        wp("Meridian", "meridian.jpg", true),
         wp("Mývatn Aurora", "aurora-myvatn.jpg", true),
         wp("Slate Aurora", "slate-aurora.svg", true),
         wp("Long Run", "long-run.svg", true),

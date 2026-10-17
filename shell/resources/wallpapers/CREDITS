@@ -6,3 +6,7 @@ aurora-myvatn.jpg
   the same licence.
 
 The other wallpapers in this directory are Marathon OS originals.
+meridian.jpg is rendered from meridian.source.svg, which needs a renderer
+with SVG filters (blur, grain):
+  rsvg-convert -w 1440 -h 3116 meridian.source.svg -o meridian.png
+  magick meridian.png -strip -sampling-factor 4:4:4 -quality 90 meridian.jpg

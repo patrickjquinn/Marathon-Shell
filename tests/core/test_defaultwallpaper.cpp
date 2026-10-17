@@ -24,10 +24,10 @@ class TestDefaultWallpaper : public QObject {
         qputenv("XDG_CONFIG_HOME", m_dir.path().toUtf8());
     }
 
-    void freshInstallGetsAurora() {
+    void freshInstallGetsMeridian() {
         reset();
         SettingsManager m;
-        QVERIFY2(m.wallpaperPath().endsWith("wallpapers/aurora-myvatn.jpg"), qPrintable(m.wallpaperPath()));
+        QVERIFY2(m.wallpaperPath().endsWith("wallpapers/meridian.jpg"), qPrintable(m.wallpaperPath()));
     }
 
     void chosenWallpaperIsKept() {
@@ -40,7 +40,12 @@ class TestDefaultWallpaper : public QObject {
         reset();
         SettingsManager m;
         WallpaperStore  store(&m);
-        QCOMPARE(store.wallpapers().first().toMap().value("name").toString(), QString::fromUtf8("Mývatn Aurora"));
+        QString name;
+        for (const QVariant &w : store.wallpapers()) {
+            if (w.toMap().value("path").toString().endsWith("aurora-myvatn.jpg"))
+                name = w.toMap().value("name").toString();
+        }
+        QCOMPARE(name, QString::fromUtf8("Mývatn Aurora"));
     }
 };
 
