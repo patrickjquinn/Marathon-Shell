@@ -5,10 +5,12 @@ counter that tries a new image a few times, and a health check that only
 marks a boot good once the shell has drawn a frame. A bad image rolls back by
 itself.
 
-Today this works on one target, the QEMU dev-sim, built with
-`MARATHON_IMAGE_LAYOUT=ab`. Every other device keeps its single-root image and
-Settings says it can't install updates. [Per-device status](#per-device-status)
-lists what each one still needs.
+Two targets build this way with `MARATHON_IMAGE_LAYOUT=ab`: the QEMU dev-sim,
+and the Raspberry Pi 5 / HackberryPi CM5, which has no boot counter and uses
+the Pi firmware's one-shot tryboot instead ([Raspberry Pi](#raspberry-pi-5--hackberrypi-cm5)).
+Every other device keeps its single-root image and Settings says it can't
+install updates. [Per-device status](#per-device-status) lists what each one
+still needs.
 
 ## Choice: systemd-sysupdate
 
@@ -70,8 +72,8 @@ Sources: duranium `DESIGN.md` (in the generated tree), [sysupdate.d(5)](https://
 
 ### Image layout (`MARATHON_IMAGE_LAYOUT=ab`)
 
-Pipeline patch 0035 restores duranium's partitions for devices in
-`AB_DEVICES` (`scripts/mkosi-configure.py`, qemu-aarch64 only for now):
+Pipeline patch 0035 restores duranium's partitions on qemu-aarch64 (the Pi's
+layout is [below](#layout-mkosirepartab-pi-pipeline-patches-0037-and-0038)):
 
 | Partition | Created by | Size |
 |---|---|---|
@@ -189,6 +191,80 @@ somewhere: either the entry still has tries left, or another entry in
 left stays up, so a device with nothing to fall back to never reboot-loops.
 Blessed entries are not counted, so it never runs on them.
 
+## Raspberry Pi 5 / HackberryPi CM5
+
+The Pi 5 has no UEFI: its firmware loads `config.txt`, `kernel_2712.img`,
+`initramfs_2712` and `cmdline.txt` from a FAT partition, and the postmarketOS
+mkinitfs initramfs mounts an ext4 root. A/B follows the Raspberry Pi
+[`autoboot.txt`](https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt)
+design: whole boot and root partitions per slot, chosen by `autoboot.txt`.
+systemd-sysupdate only writes partitions on a GPT disk ("Disk … has no GPT
+disk label, not suitable"), so the A/B image is GPT; the Pi 5 bootloader
+reads GPT ([rpi-eeprom release notes](https://github.com/raspberrypi/rpi-eeprom/blob/master/firmware-2712/release-notes.md)).
+[Bootlin's RAUC backend for the Pi 5](https://bootlin.com/?p=19769) and
+[Ubuntu's piboot](https://ubuntu.com/hardware/docs/boards/explanations/piboot-ab/)
+do the same swap.
+
+### Layout (`mkosi.repart.ab-pi`, pipeline patches 0037 and 0038)
+
+| # | GPT label | Type | Size | Holds |
+|---|---|---|---|---|
+| 1 | `marathon_autoboot` | ESP | 256 MiB | `autoboot.txt` only |
+| 2 | `marathon_<v>_boot` | basic data | 512 MiB | the slot's whole boot partition: `config.txt`, `usercfg*.txt`, kernel, initramfs, `cmdline.txt`, DTBs, overlays |
+| 3 | `_empty`, then the other boot slot | basic data | 512 MiB | |
+| 4 | `marathon_<v>_root` | root (arm64) | 6 GiB | the slot's full ext4 root, `/etc` included |
+| 5 | `_empty`, then the other root slot | root (arm64) | 6 GiB | |
+| 6 | `marathon_data` | var | 1 GiB, grown to the end of the card on first boot | `/var`, `/home` (as `/var/home`), the `/etc` overlay's upper layer |
+
+The second slot pair is created empty in the image. `autoboot.txt` starts as
+
+```
+[all]
+tryboot_a_b=1
+boot_partition=2
+[tryboot]
+boot_partition=3
+```
+
+Each boot slot's `cmdline.txt` names its own root and boot partition by GPT
+label, `pmos_root=/dev/disk/by-partlabel/marathon_<v>_root` and
+`pmos_boot=…_boot`, so boot slot `<v>` finds root slot `<v>` wherever
+sysupdate put it. It adds `panic=10` and drops `pmos.force-partition-resize`.
+
+The mkinitfs hook `hooks-cleanup/50-marathon-ab.sh` runs after the slot's root
+is mounted. On first boot it grows `marathon_data` to the end of the card and
+seeds it from the slot's `/var` and `/home`. Every boot it mounts it on
+`/var`, binds `/var/home` on `/home`, and mounts `/etc` as an overlay whose
+upper layer is `/var/lib/marathon-ab/etc/upper`, so `/etc` changes made
+before and after PID 1 starts persist across slots. Anything else written to
+`/` stays in its slot. The sources are in `packaging/ota/pi/`;
+`build-image.sh` installs them, and the transfers in
+`packaging/ota/pi/sysupdate.d/`, for Pi A/B builds.
+
+### Update, trial and commit
+
+1. sysupdate writes the root slot, then the boot slot, into the pair that
+   does not hold the running version (`ProtectVersion=%A`).
+2. At shutdown, `marathon-tryboot.service` runs `marathon-health --mode arm`:
+   if a newer version has both slots written, it points `[tryboot]` at its
+   boot partition, records the partition's start in its FAT32 hidden
+   sectors, and writes `0 tryboot` to `/run/systemd/reboot-param`. Settings'
+   "Restart now" (a logind reboot) then becomes `reboot '0 tryboot'`.
+3. A version installed before a power-off or power loss is tried at the next
+   boot: the same unit's `--mode boot` arms it and reboots before greetd.
+   Each version gets two trial boots, counted once per boot, in
+   `/var/lib/marathon-health/tryboot`.
+4. On the trial boot `marathon-tryboot-health.service` waits for the shell's
+   first frame, then swaps the two partitions in `autoboot.txt`, rewritten in
+   place at the same length. Without a frame within
+   `MARATHON_HEALTH_TIMEOUT_SECS` it reboots.
+5. The firmware clears the tryboot flag before it starts the kernel, so any
+   reboot or reset during a trial, including `panic=10`, the initramfs guard
+   hook (180 s) and the 15 s systemd watchdog, boots the committed slot.
+
+Settings shows a version that failed its trials as rolled back, from the same
+`GetVersion` logic as on QEMU.
+
 ## Per-device status
 
 | Device | Boot chain | Rollback today | Needed |
@@ -196,10 +272,11 @@ Blessed entries are not counted, so it never runs on them.
 | QEMU dev-sim (qemu-aarch64) | UEFI (AAVMF) → systemd-boot → UKI | yes, with `MARATHON_IMAGE_LAYOUT=ab` | validation on an image build (below); then make `ab` the QEMU default |
 | Librem 5 | U-Boot `boot.scr` → kernel + initramfs from ext4 partition 1 | no | either U-Boot's EFI loader → systemd-boot (duranium's plan; FAT write and EFI variables at runtime to verify), or U-Boot `bootcount`/`bootlimit`/`altbootcmd` choosing the slot, with marathon-health clearing `bootcount`/`upgrade_available` via `fw_setenv` |
 | PinePhone | U-Boot (our `u-boot-pinephone-marathon` fork) `boot.scr` | no | same as the Librem 5; we already build its U-Boot, so `CONFIG_BOOTCOUNT_LIMIT` is in reach |
-| Raspberry Pi 5 / HackberryPi CM5 | Pi firmware → `kernel_2712.img` + initramfs + `cmdline.txt`, MBR | no | two boot partitions selected by `autoboot.txt` (`tryboot_a_b=1`), a hook after sysupdate that runs `reboot '0 tryboot'`, and marathon-health rewriting `autoboot.txt` once the try boots. The firmware does not count tries: one failed try falls back. |
+| Raspberry Pi 5 / HackberryPi CM5 | Pi firmware → `autoboot.txt` (`tryboot_a_b=1`) → the slot's FAT boot partition → mkinitfs → ext4 root slot by GPT label | yes, with `MARATHON_IMAGE_LAYOUT=ab` (GPT) | [validation on the HackberryPi](#hackberrypi-validation). One failed trial falls back; each version gets two |
 | OnePlus 6 | Android boot.img → U-Boot → EFI | untested | the EFI path should work as on QEMU; needs a device |
 
-`AB_DEVICES` and the device branches in `mkosi-configure.py` are the per-device
+`AB_DEVICES` in `mkosi-configure.py` (`qemu-aarch64`, `raspberry-pi5`), with
+each device's repart directory, and its device branches are the per-device
 hooks. A device joins once its boot chain can try a slot and fall back.
 
 ## QEMU validation
@@ -272,6 +349,50 @@ are written. Each published version is about 2 GB.
    shows the `<N+2>` entry with 0 tries left.
 9. Clean up: `rm -rf ~/ota-test`, and delete the extra builds from `$D/mkosi.output`.
 
+## HackberryPi validation
+
+Not run yet. The host serves the feed at 192.168.68.78; the device is
+`root@192.168.68.79`. Reading the tryboot flag and booted partition:
+`printf '%d\n' 0x$(od -An -tx1 -v /proc/device-tree/chosen/bootloader/tryboot | tr -d ' \n')`
+(likewise `partition`).
+
+1. **Before.** On the device: `du -sh /boot; du -sxh /; df -h /` (the slots
+   are 512 MiB and 6 GiB). Power it off and back up the
+   card with the USB reader: `sudo dd if=/dev/sdX of=~/hackberry-backups/pre-ab.img bs=4M`.
+2. **Trees.** As in [QEMU validation](#qemu-validation) step 1, apply
+   0035–0038 to the existing duranium tree (stash its local `mkosi.conf`
+   edit around `git am`), and drop the cached `marathon-shell` apk.
+3. **Image N.** `MARATHON_IMAGE_LAYOUT=ab MARATHON_OTA_URL=http://192.168.68.78:8080 scripts/build-hackberry-cm5-image.sh --bump`,
+   then `scripts/flash/flash-hackberry-cm5.sh /dev/sdX`. This first boot is
+   also the test that this card boots GPT. Check `lsblk -o NAME,PARTLABEL,PARTTYPE,SIZE`
+   (six partitions, `marathon_data` grown), tryboot 0 and partition 2,
+   `findmnt /var /home /etc /boot`, `systemd-sysupdate list`, and Settings →
+   Software updates showing N. Add a Wi-Fi network, change the time zone,
+   put a file in `~`, note `/etc/machine-id`, reboot twice: all unchanged.
+4. **Image N+1.** Build again with `--bump`, then
+   ```sh
+   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/raspberry-pi5_marathon_edge \
+       --version <N+1> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
+   python3 -m http.server 8080 --bind 192.168.68.78 --directory ~/ota-test/feed
+   ```
+   (open 8080/tcp on the host while testing). Settings → Check now → install
+   → Restart now. Expect one reboot to tryboot 1, partition 3, `IMAGE_VERSION`
+   N+1, `journalctl -u marathon-tryboot-health` saying partition 3 was
+   committed, and `autoboot.txt` (mount partition 1 read-only) with
+   `boot_partition=3` under `[all]` and `2` under `[tryboot]`. A plain reboot
+   stays on N+1 with tryboot 0, and step 3's changes are still there.
+   Variant: install, power off, power on: one extra reboot into the trial.
+5. **Bad image N+2.** Build with the one-off drop-ins from QEMU step 8, using
+   `marathon-tryboot-health.service.d` for the 60 s timeout, publish, install,
+   restart. Expect a trial on partition 2 with no shell, "no shell frame
+   within 60s", a reboot to N+1 on partition 3, a second trial, then N+1
+   staying up; Settings shows N+2 didn't start; `[all]` is still 3.
+6. Clean up: `rm -rf ~/ota-test`, close the port.
+
+If the card does not boot at step 3, re-flash the backup. A torn
+`autoboot.txt` (power lost during a commit) is fixed by mounting partition 1
+on the host and rewriting it.
+
 ## Known gaps
 
 - Full-image downloads only (about 2 GB per update); no delta or casync.
@@ -285,3 +406,12 @@ are written. Each published version is about 2 GB.
   needs a watchdog or a manual reset to spend the try.
 - `duranium-set-channel` (from postmarketos-duranium) only rewrites pmOS's
   URLs, so it does nothing on Marathon images.
+- Raspberry Pi: a kernel that hangs without panicking before PID 1 starts its
+  watchdog sits until the device is power-cycled, which then boots the
+  committed slot. The bootloader watchdog (EEPROM 2025-06-20 and later) and
+  `PARTITION_WALK=1` (on by default from 2025-08-13) would harden this; the
+  HackberryPi's EEPROM is 2025-06-13.
+- Raspberry Pi: `IMAGE_ID` is `raspberry-pi5` for vanilla Pi 5 and HackberryPi
+  builds alike, so both would share one feed directory. Publish HackberryPi
+  builds only.
+- Raspberry Pi: going from the single-root image to A/B needs a re-flash.
