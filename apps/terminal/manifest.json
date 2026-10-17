@@ -12,7 +12,7 @@
     "terminal": "Runs a shell with your user's access to the system"
   },
   "minShellVersion": "1.0.0",
-  "protected": false,
+  "protected": true,
   "categories": ["System"],
   "handlesUriSchemes": [],
   "defaultFor": [],
