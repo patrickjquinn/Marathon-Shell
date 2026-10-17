@@ -36,8 +36,8 @@ Page {
             }
             DetailItem {
                 objectName: "alarmCount"
-                label: qsTr("Current alarms")
-                value: page.alarms ? page.alarms.alarms.length : 0
+                label: qsTr("Enabled alarms")
+                value: page.alarms ? page.alarms.alarms.filter(a => a.enabled).length : 0
             }
             Actions {
                 TestItem {

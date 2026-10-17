@@ -104,12 +104,14 @@ TestCase {
     }
 
     function test_alarms() {
+        Alarms.alarms = [{ id: "rang", time: "07:00", label: "Rang", enabled: false }];
         const page = open("AlarmTestsPage.qml");
+        compare(findChild(page, "alarmCount").value, "0");
         tap(page, "triggerAlarm");
         tap(page, "createAlarm");
         compare(calls(Alarms, "triggerAlarmNow"), [["Test Alarm"]]);
         compare(calls(Alarms, "createAlarm")[0][1], "Test Alarm (+1 min)");
-        tryCompare(findChild(page, "alarmCount"), "value", String(Alarms.alarms.length));
+        tryCompare(findChild(page, "alarmCount"), "value", "1");
         compare(app.passedTests, 1);
         compare(app.triggeredTests, 1);
         ["wakeAlarm", "wakeCall", "wakeNotification", "scheduleWake"].forEach(n => tap(page, n));
