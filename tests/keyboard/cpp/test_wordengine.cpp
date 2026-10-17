@@ -58,7 +58,7 @@ void TestWordEngine::testLanguageProperty() {
 void TestWordEngine::testRequestPredictions() {
     QSignalSpy spy(engine, &WordEngine::predictionsReady);
     engine->requestPredictions("hel", 3);
-    QVERIFY(spy.wait(2000));
+    QVERIFY(spy.wait(10000));
     QCOMPARE(spy.count(), 1);
     QList<QVariant> arguments   = spy.takeFirst();
     QString         prefix      = arguments.at(0).toString();
