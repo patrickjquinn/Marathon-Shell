@@ -997,6 +997,8 @@ AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
     QObject::connect(m_audio, &AudioManagerCpp::volumeChanged, this, push);
     QObject::connect(m_audio, &AudioManagerCpp::mutedChanged, this, push);
     QObject::connect(m_audio, &AudioManagerCpp::streamsChanged, this, push);
+    if (m_policy)
+        QObject::connect(m_policy, &AudioPolicyController::audioProfileChanged, this, push);
 }
 
 QVariantMap AudioObject::buildState() const {
@@ -1007,6 +1009,7 @@ QVariantMap AudioObject::buildState() const {
         {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
         {"streams", audioStreamsToVariantList(m_audio)},
         {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
+        {"audioProfile", m_policy ? m_policy->audioProfile() : QString()},
     };
 }
 

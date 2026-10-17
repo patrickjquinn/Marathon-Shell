@@ -28,6 +28,7 @@ class AudioPolicyController : public QObject {
     Q_INVOKABLE bool isDoNotDisturb() const;
     Q_INVOKABLE void setVibrationEnabled(bool enabled);
     Q_INVOKABLE void setAudioProfile(const QString &profile);
+    QString          audioProfile() const;
 
     Q_INVOKABLE void playRingtone();
     Q_INVOKABLE void stopRingtone();
@@ -40,6 +41,9 @@ class AudioPolicyController : public QObject {
     Q_INVOKABLE void previewSound(const QString &soundPath);
 
     Q_INVOKABLE void vibratePattern(const QVariantList &pattern);
+
+  signals:
+    void audioProfileChanged();
 
   private:
     void applyProfileSideEffects(const QString &profile);

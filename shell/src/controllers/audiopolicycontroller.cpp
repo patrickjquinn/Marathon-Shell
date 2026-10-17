@@ -49,6 +49,8 @@ AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
     wirePlayerVolumes();
 
     if (m_settings) {
+        connect(m_settings, &SettingsManager::audioProfileChanged, this,
+                &AudioPolicyController::audioProfileChanged);
         const QString profile           = m_settings->audioProfile();
         const QString desktop           = qEnvironmentVariable("XDG_CURRENT_DESKTOP");
         const QString session           = qEnvironmentVariable("XDG_SESSION_DESKTOP");
@@ -83,6 +85,10 @@ void AudioPolicyController::setDoNotDisturb(bool enabled) {
     if (!m_settings)
         return;
     m_settings->setDndEnabled(enabled);
+}
+
+QString AudioPolicyController::audioProfile() const {
+    return m_settings ? m_settings->audioProfile() : QString();
 }
 
 bool AudioPolicyController::isDoNotDisturb() const {

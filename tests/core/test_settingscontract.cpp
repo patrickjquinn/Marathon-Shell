@@ -209,6 +209,25 @@ class TestSettingsContract : public QObject {
         }
     }
 
+    // Each value an app's Audio client reads must be in the shell's Audio
+    // snapshot, and the profile pushed again when it changes.
+    void audioStateCarriesWhatAppsRead() {
+        const QSet<QString> keys =
+            matches(read("tools/marathon-app-runner/ipc/shellipcclients.cpp"),
+                    R"re(AudioClient::\w+\(\) const \{\s*return v\("(\w+)"\))re");
+        QVERIFY(keys.contains(QStringLiteral("audioProfile")));
+        const QString   service = read("shell/src/ipc/shellservices.cpp");
+        const qsizetype begin   = service.indexOf(QLatin1String("AudioObject::AudioObject("));
+        const qsizetype end = service.indexOf(QLatin1String("QVariantMap AudioObject::GetState"));
+        QVERIFY(begin >= 0 && end > begin);
+        const QString audio = service.mid(begin, end - begin);
+        for (const QString &key : keys)
+            QVERIFY2(audio.contains(QStringLiteral("{\"%1\",").arg(key)),
+                     qPrintable(key + QStringLiteral(": not in the Audio GetState snapshot")));
+        QVERIFY(audio.contains(
+            QLatin1String("&AudioPolicyController::audioProfileChanged, this, push")));
+    }
+
     void platformMembersExist_data() {
         QTest::addColumn<QString>("name");
         for (auto it = kPlatformClients.cbegin(); it != kPlatformClients.cend(); ++it)
