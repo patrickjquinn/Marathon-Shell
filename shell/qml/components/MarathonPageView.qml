@@ -31,6 +31,13 @@ Item {
         return hub !== null && hub.closeOverlay();
     }
 
+    function _dismissHubOverlay() {
+        const loader = pageView.itemAtIndex(0) as Loader;
+        const hub = loader ? loader.item as MarathonHub : null;
+        if (hub !== null)
+            hub.dismissOverlay();
+    }
+
     function incrementCurrentIndex() {
         pageView.incrementCurrentIndex();
     }
@@ -183,6 +190,9 @@ Item {
             Logger.debug("PageView", "Page changed to index: " + currentIndex + ", page: " + currentPage);
             pageViewContainer.hubVisible(currentIndex === 0);
             pageViewContainer.framesVisible(currentIndex === 1);
+            // The pages stay visible off screen, so the Hub can't see that it was left.
+            if (currentIndex !== 0)
+                pageViewContainer._dismissHubOverlay();
             if (currentIndex < 2)
                 pageViewContainer.searchPullProgress = 0;
             else

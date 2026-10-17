@@ -20,6 +20,10 @@ Rectangle {
         return weatherSheet.back();
     }
 
+    function dismissOverlay() {
+        weatherSheet.open = false;
+    }
+
     function refreshAgenda() {
         let events = SettingsManagerCpp.get("calendar/events", []);
         if (typeof events === "string") {
@@ -37,7 +41,7 @@ Rectangle {
             refreshAgenda();
             WeatherClient.refresh();
         } else {
-            weatherSheet.open = false;
+            dismissOverlay();
         }
     }
     Component.onCompleted: {
