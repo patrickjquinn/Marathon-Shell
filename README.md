@@ -214,10 +214,10 @@ installs only the PAM file (`/etc/pam.d/marathon-shell`: pam_unix; the
 shell does fingerprint and lockout itself); without it the lock screen
 cannot authenticate.
 
-For kernel wakelocks and RTC wake alarms on a host, make
-`/sys/power/wake_lock`, `/sys/power/wake_unlock` and
-`/sys/class/rtc/rtc0/wakealarm` writable with a udev rule; `run.sh` offers
-to do it for the current boot. Without wakelocks the shell falls back to
+For kernel wakelocks on a host, make `/sys/power/wake_lock` and
+`/sys/power/wake_unlock` writable with a udev rule; `run.sh` offers to do it
+for the current boot. Alarms wake a suspended device through systemd timers
+(`docs/BACKGROUND_WORK.md`), not by writing the RTC. Without wakelocks the shell falls back to
 systemd-logind inhibitors. Do not `setcap` the shell binary: file
 capabilities make the process AT_SECURE and break its session-bus D-Bus.
 

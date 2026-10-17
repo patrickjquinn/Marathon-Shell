@@ -52,7 +52,6 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Checking power management permissions..."
 
     NEED_WAKELOCK_SETUP=false
-    NEED_RTC_SETUP=false
 
     if [ -e "/sys/power/wake_lock" ]; then
         if [ ! -w "/sys/power/wake_lock" ]; then
@@ -66,27 +65,11 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         echo "  Will use systemd-logind inhibitors as fallback"
     fi
 
-    if [ -e "/sys/class/rtc/rtc0/wakealarm" ]; then
-        if [ ! -w "/sys/class/rtc/rtc0/wakealarm" ]; then
-            NEED_RTC_SETUP=true
-            echo "  RTC wake alarm found but not writable"
-        else
-            echo "  RTC wake alarm: accessible"
-        fi
-    else
-        echo "  RTC wake alarm interface not available"
-    fi
-
-    if [ "$NEED_WAKELOCK_SETUP" = true ] || [ "$NEED_RTC_SETUP" = true ]; then
+    if [ "$NEED_WAKELOCK_SETUP" = true ]; then
         echo ""
         echo "  Power management features need permissions setup."
         echo "  This will enable:"
-        if [ "$NEED_WAKELOCK_SETUP" = true ]; then
-            echo "    - Kernel wakelocks (prevent opportunistic suspend)"
-        fi
-        if [ "$NEED_RTC_SETUP" = true ]; then
-            echo "    - RTC wake alarms (wake from suspend)"
-        fi
+        echo "    - Kernel wakelocks (prevent opportunistic suspend)"
         echo ""
 
         if [ -n "$CI" ] || [ "$AUTO_SETUP_PERMISSIONS" = "1" ]; then
@@ -99,15 +82,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if [[ $SETUP_PERMS =~ ^[Yy]$ ]]; then
             echo "  Setting up permissions (requires sudo)..."
 
-            if [ "$NEED_WAKELOCK_SETUP" = true ] && [ -e "/sys/power/wake_lock" ]; then
+            if [ -e "/sys/power/wake_lock" ]; then
                 sudo chmod 666 /sys/power/wake_lock /sys/power/wake_unlock 2>/dev/null || true
                 echo "  Wakelock permissions set"
-            fi
-
-            if [ "$NEED_RTC_SETUP" = true ] && [ -e "/sys/class/rtc/rtc0/wakealarm" ]; then
-                sudo chmod 664 /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
-                sudo chgrp "$USER" /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
-                echo "  RTC alarm permissions set"
             fi
 
             echo ""
