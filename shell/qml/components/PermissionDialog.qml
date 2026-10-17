@@ -35,10 +35,7 @@ Item {
     property var allPermissions: (PermissionManager && PermissionManager.currentPermissions) ? PermissionManager.currentPermissions : []
 
     function permissionTitle(p) {
-        if (!p)
-            return "";
-
-        return p.charAt(0).toUpperCase() + p.slice(1);
+        return p ? PermissionManager.getPermissionLabel(p) : "";
     }
 
     function permissionIconName(p) {

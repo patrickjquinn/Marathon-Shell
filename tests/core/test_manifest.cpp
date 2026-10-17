@@ -41,11 +41,18 @@ class TestManifest : public QObject {
     void vocabularyCarriesWording() {
         bool sawSystem = false;
         for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+            QVERIFY(!p.label.isEmpty());
             QVERIFY(!p.description.isEmpty());
             if (p.name == QLatin1String("system"))
                 sawSystem = p.restricted && p.sensitive;
         }
         QVERIFY(sawSystem);
+    }
+
+    void aliasesMeanTheirPermission() {
+        QCOMPARE(MarathonManifest::canonicalPermission("phone"), QStringLiteral("telephony"));
+        QCOMPARE(MarathonManifest::canonicalPermission("contacts"), QStringLiteral("contacts"));
+        QVERIFY(MarathonManifest::canonicalPermission("root").isEmpty());
     }
 };
 

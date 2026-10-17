@@ -224,6 +224,7 @@ class TestPermissionManager : public QObject {
         QStringList               names;
         for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
             names << p.name;
+            QCOMPARE(mgr.getPermissionLabel(p.name), p.label);
             QCOMPARE(mgr.getPermissionDescription(p.name), p.description);
         }
         QStringList available = mgr.getAvailablePermissions();
@@ -231,6 +232,7 @@ class TestPermissionManager : public QObject {
         available.sort();
         QCOMPARE(available, names);
         QVERIFY(available.contains("secret-service"));
+        QCOMPARE(mgr.getPermissionLabel("phone"), mgr.getPermissionLabel("telephony"));
     }
 
     // === CONTRACT: Every available permission must have a description ===

@@ -11,145 +11,116 @@ Marathon uses a runtime permission system to protect user privacy and security.
 
 ## Available Permissions
 
-The names and the wording users see are defined in
-[`schemas/marathon-permissions-v1.json`](../schemas/marathon-permissions-v1.json),
-which also marks each permission sensitive (the manifest must give a reason
-in `permissionReasons`) or restricted (Marathon's own apps only). See
+Every name, and the words the install screen, the permission prompt and
+Settings show, come from
+[`schemas/marathon-permissions-v1.json`](../schemas/marathon-permissions-v1.json).
+The file also marks each permission sensitive (the manifest must give a
+reason in `permissionReasons`) or restricted (only Marathon's own apps may
+declare it, and only its protected apps hold it). `phone` is an alias of
+`telephony`; manifests use `telephony`. See
 [APP_MANIFEST_SCHEMA.md](APP_MANIFEST_SCHEMA.md).
 
-### network
-**Access the internet and make network connections**
+The sections below follow the vocabulary file; a unit test in
+`crates/marathon-core-native/src/permissions.rs` fails when they drift.
 
-Use for:
-- HTTP/HTTPS requests
-- WebSocket connections
-- API calls
-- Downloading content
+### `network`
 
-Example:
-```qml
-// Check permission
-if (PermissionManager.hasPermission("myapp", "network")) {
-    fetchDataFromAPI()
-}
-```
+**Internet**: Connect to the internet and devices on your network.
 
-### location
-**Access device GPS and location services**
+The sandbox shares the host network namespace (without it the app has no
+network at all), and `Network1`/`Modem1` reads are allowed.
 
-Use for:
-- Maps and navigation
-- Location-based services
-- Geotagging
-- Weather based on location
+### `location`
 
-Provides:
-- Latitude/longitude
-- Accuracy
-- Altitude
-- Speed
+**Location**: See where the device is.
 
-### camera
-**Access device camera to capture photos and videos**
+GeoClue answers the app's location requests.
 
-Use for:
-- Taking photos
-- Recording videos
-- QR code scanning
-- AR applications
+### `camera`
 
-### microphone
-**Record audio using the device microphone**
+**Camera**: Take photos and record video.
 
-Use for:
-- Voice recording
-- Voice notes
-- Voice calls
-- Audio analysis
+### `microphone`
 
-### contacts
-**Read and write device contacts**
+**Microphone**: Record audio.
 
-Use for:
-- Contact picker
-- Messaging apps
-- Social features
-- Contact backup
+Disclosure only: audio capture is not gated yet.
 
-Operations:
-- Read all contacts
-- Search contacts
-- Add new contacts
-- Update existing contacts
-- Delete contacts
+### `contacts`
 
-### calendar
-**Read and write calendar events**
+**Contacts**: Read and change your contacts.
 
-Use for:
-- Event management
-- Scheduling
-- Reminders
-- Meeting coordination
+`Contacts1`.
 
-### storage
-**Read and write files on device storage**
+### `calendar`
 
-Use for:
-- File management
-- Document editing
-- Media libraries
-- Data export/import
+**Calendar**: Read and change your calendar events.
 
-Scope:
-- Documents folder
-- Downloads folder
-- Pictures folder
-- App-specific storage
+The Calendar app's events through `Settings1`.
 
-### notifications
-**Show notifications to the user**
+### `storage`
 
-Use for:
-- Alerts
-- Reminders
-- Status updates
-- Background updates
+**Your files**: Read and change your photos, music, videos, documents and downloads.
 
-### telephony
-**Make and receive phone calls**
+The sandbox binds Pictures, Music, Videos, Documents, Downloads and DCIM
+read-write; `MediaLibrary1`; the app's own `<id>/` keys in shell settings.
 
-Use for:
-- Dialer apps
-- VoIP applications
-- Call management
+### `notifications`
 
-### sms
-**Send and receive text messages**
+**Notifications**: Show notifications.
 
-Use for:
-- Messaging apps
-- SMS verification
-- Two-factor authentication
+Disclosure only: notifications are not gated yet.
 
-### bluetooth
-**Connect to Bluetooth devices**
+### `alarms`
 
-Use for:
-- Wireless headphones
-- Fitness trackers
-- IoT devices
-- File transfer
+**Alarms**: Set alarms and timers.
 
-### system
-**Access system-level features (restricted)**
+Disclosure only: `Alarms1` is not gated yet.
 
-Only for:
-- System applications
-- Launcher apps
-- Settings apps
+### `telephony`
 
-`marathon-dev lint` rejects it in a third-party manifest.
+**Phone**: Make and answer calls and see your call history.
+
+`Telephony1`, `CallHistory1` and `Sms1`.
+
+### `sms`
+
+**Messages**: Send and read SMS messages.
+
+`Sms1`.
+
+### `bluetooth`
+
+**Bluetooth**: Connect to Bluetooth devices.
+
+`Bluetooth1` reads.
+
+### `sensors`
+
+**Sensors**: Read the motion and light sensors.
+
+Disclosure only: `Sensors1` is not gated yet.
+
+### `secret-service`
+
+**Passwords**: Save and read passwords in your keyring.
+
+The runner sets `MARATHON_PERM_SECRET_SERVICE=1`, which the mail sign-in
+helper requires.
+
+### `system`
+
+**System settings**: Change Wi-Fi, Bluetooth, display, sound, security and other device settings.
+
+Restricted. Writes through `Settings1`, `Security1`, `Bluetooth1`,
+`Display1`, `Power1`, `Audio1`, `Network1`, `Modem1`, `Updates1`, `Dav1` and
+`AppStore1`. `marathon-dev lint` rejects it in a third-party manifest.
+
+### `terminal`
+
+**Terminal**: Run commands with full access to the system.
+
+Restricted. Disclosure only: it names what the Terminal app can do.
 
 ## Implementation Guide
 

@@ -17,6 +17,13 @@ QList<MarathonManifest::Finding> MarathonManifest::lint(const QString &path, boo
 QList<MarathonManifest::Permission> MarathonManifest::permissions() {
     QList<Permission> permissions;
     for (const marathon::native::PermissionInfo &p : marathon::native::permission_vocabulary())
-        permissions.append({fromRust(p.name), fromRust(p.description), p.sensitive, p.restricted});
+        permissions.append({fromRust(p.name), fromRust(p.label), fromRust(p.description),
+                            p.sensitive, p.restricted});
     return permissions;
+}
+
+QString MarathonManifest::canonicalPermission(const QString &name) {
+    const QByteArray utf8 = name.toUtf8();
+    return fromRust(
+        marathon::native::canonical_permission(rust::Str(utf8.constData(), utf8.size())));
 }

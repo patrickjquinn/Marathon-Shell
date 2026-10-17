@@ -20,6 +20,7 @@ namespace MarathonManifest {
 
     struct Permission {
         QString name;
+        QString label;
         QString description;
         bool    sensitive  = false;
         bool    restricted = false;
@@ -27,5 +28,8 @@ namespace MarathonManifest {
 
     // schemas/marathon-permissions-v1.json.
     QList<Permission> permissions();
+
+    // The permission a name or alias ("phone") means; empty if none.
+    QString canonicalPermission(const QString &name);
 
 } // namespace MarathonManifest

@@ -1,55 +1,20 @@
 //! App manifest lint (`docs/APP_MANIFEST_SCHEMA.md`): the v1 JSON Schema, then
-//! the rules a schema cannot express, and the permission vocabulary the
-//! shell and the installer share.
+//! the rules a schema cannot express.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
 
 use regex::Regex;
-use serde::Deserialize;
 use serde_json::Value;
 use walkdir::WalkDir;
 
+use crate::permissions::permissions;
+
 pub const SCHEMA: &str = include_str!("../../../schemas/marathon-app-manifest-v1.schema.json");
-pub const PERMISSIONS: &str = include_str!("../../../schemas/marathon-permissions-v1.json");
-
 const MARATHON_DBUS_PREFIX: &str = "org.marathonos";
-
-#[derive(Debug, Deserialize)]
-pub struct Permission {
-    /// Shown to the user when the app asks for it.
-    pub description: String,
-    /// The manifest must say why it asks (`permissionReasons`).
-    pub sensitive: bool,
-    /// Only Marathon's own apps may ask.
-    pub restricted: bool,
-}
-
-#[derive(Deserialize)]
-struct Vocabulary {
-    permissions: BTreeMap<String, Permission>,
-}
-
-/// The permission vocabulary, by name.
-///
-/// # Panics
-///
-/// Never: the vocabulary is compiled in and a unit test parses it.
-pub fn permissions() -> &'static BTreeMap<String, Permission> {
-    static VOCABULARY: OnceLock<BTreeMap<String, Permission>> = OnceLock::new();
-    VOCABULARY.get_or_init(|| {
-        #[allow(
-            clippy::expect_used,
-            reason = "compiled-in data, parsed by a unit test"
-        )]
-        serde_json::from_str::<Vocabulary>(PERMISSIONS)
-            .expect("schemas/marathon-permissions-v1.json parses")
-            .permissions
-    })
-}
 
 fn validator() -> &'static jsonschema::Validator {
     static VALIDATOR: OnceLock<jsonschema::Validator> = OnceLock::new();

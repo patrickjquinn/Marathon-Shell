@@ -1,5 +1,4 @@
 #include "marathonpermissionmanager.h"
-#include "marathonmanifest.h"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include "portalmanager.h"
@@ -22,7 +21,7 @@ MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
     , m_promptActive(false) {
     for (const MarathonManifest::Permission &p : MarathonManifest::permissions())
-        m_permissionDescriptions.insert(p.name, p.description);
+        m_vocabulary.insert(p.name, p);
 
     loadPermissions();
 
@@ -404,9 +403,15 @@ MarathonPermissionManager::getPermissionStatus(const QString &appId, const QStri
 }
 
 QStringList MarathonPermissionManager::getAvailablePermissions() {
-    return m_permissionDescriptions.keys();
+    return m_vocabulary.keys();
+}
+
+QString MarathonPermissionManager::getPermissionLabel(const QString &permission) {
+    const auto it = m_vocabulary.constFind(MarathonManifest::canonicalPermission(permission));
+    return it == m_vocabulary.constEnd() ? permission : it->label;
 }
 
 QString MarathonPermissionManager::getPermissionDescription(const QString &permission) {
-    return m_permissionDescriptions.value(permission, "Unknown permission");
+    const auto it = m_vocabulary.constFind(MarathonManifest::canonicalPermission(permission));
+    return it == m_vocabulary.constEnd() ? QStringLiteral("Unknown permission") : it->description;
 }

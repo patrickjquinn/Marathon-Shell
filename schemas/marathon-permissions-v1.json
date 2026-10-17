@@ -1,81 +1,105 @@
 {
-  "$comment": "The app permission vocabulary: the names a manifest may request, the wording shown to the user, and the lint policy. sensitive: the manifest must give a reason in permissionReasons. restricted: only Marathon's own apps may request it.",
+  "$comment": "The app permission vocabulary: every name a manifest may request or a permission gate accepts, the words the install screen, the permission prompt and Settings show, and the lint policy. sensitive: the manifest must give a reason in permissionReasons. restricted: only Marathon's own apps may request it, and only its protected system apps hold it; any other app is refused it. aliases: older names that mean a permission listed here; manifests must use the permission's own name.",
   "version": 1,
   "permissions": {
     "network": {
-      "description": "Access the internet and make network connections",
+      "label": "Internet",
+      "description": "Connect to the internet and devices on your network",
       "sensitive": false,
       "restricted": false
     },
     "location": {
-      "description": "Access your device's location",
+      "label": "Location",
+      "description": "See where the device is",
       "sensitive": true,
       "restricted": false
     },
     "camera": {
-      "description": "Access the camera to take photos and videos",
+      "label": "Camera",
+      "description": "Take photos and record video",
       "sensitive": true,
       "restricted": false
     },
     "microphone": {
-      "description": "Record audio using the microphone",
+      "label": "Microphone",
+      "description": "Record audio",
       "sensitive": true,
       "restricted": false
     },
     "contacts": {
-      "description": "Read and write your contacts",
+      "label": "Contacts",
+      "description": "Read and change your contacts",
       "sensitive": true,
       "restricted": false
     },
     "calendar": {
-      "description": "Read and write calendar events",
+      "label": "Calendar",
+      "description": "Read and change your calendar events",
       "sensitive": true,
       "restricted": false
     },
     "storage": {
-      "description": "Read and write files on your device",
+      "label": "Your files",
+      "description": "Read and change your photos, music, videos, documents and downloads",
       "sensitive": true,
       "restricted": false
     },
     "notifications": {
+      "label": "Notifications",
       "description": "Show notifications",
       "sensitive": false,
       "restricted": false
     },
     "alarms": {
+      "label": "Alarms",
       "description": "Set alarms and timers",
       "sensitive": false,
       "restricted": false
     },
     "telephony": {
-      "description": "Make and receive phone calls",
+      "label": "Phone",
+      "description": "Make and answer calls and see your call history",
       "sensitive": true,
       "restricted": false
     },
     "sms": {
-      "description": "Send and receive SMS messages",
+      "label": "Messages",
+      "description": "Send and read SMS messages",
       "sensitive": true,
       "restricted": false
     },
     "bluetooth": {
+      "label": "Bluetooth",
       "description": "Connect to Bluetooth devices",
       "sensitive": true,
       "restricted": false
     },
+    "sensors": {
+      "label": "Sensors",
+      "description": "Read the motion and light sensors",
+      "sensitive": false,
+      "restricted": false
+    },
     "secret-service": {
-      "description": "Store passwords and sign-in tokens in your keyring",
+      "label": "Passwords",
+      "description": "Save and read passwords in your keyring",
       "sensitive": true,
       "restricted": false
     },
     "system": {
-      "description": "Access system-level features (restricted to system apps)",
+      "label": "System settings",
+      "description": "Change Wi-Fi, Bluetooth, display, sound, security and other device settings",
       "sensitive": true,
       "restricted": true
     },
     "terminal": {
-      "description": "Run shell commands with full system access (DANGEROUS)",
+      "label": "Terminal",
+      "description": "Run commands with full access to the system",
       "sensitive": true,
       "restricted": true
     }
+  },
+  "aliases": {
+    "phone": "telephony"
   }
 }

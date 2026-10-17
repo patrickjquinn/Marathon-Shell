@@ -3,6 +3,7 @@
 class QQmlEngine;
 class QJSEngine;
 
+#include "marathonmanifest.h"
 #include <QHash>
 #include <QMap>
 #include <QObject>
@@ -63,6 +64,7 @@ class MarathonPermissionManager : public QObject {
 
     Q_INVOKABLE QStringList      getAvailablePermissions();
 
+    Q_INVOKABLE QString          getPermissionLabel(const QString &permission);
     Q_INVOKABLE QString          getPermissionDescription(const QString &permission);
 
     bool                         promptActive() const {
@@ -111,7 +113,7 @@ class MarathonPermissionManager : public QObject {
     QString                               m_currentPermission;
     QStringList                           m_currentPermissions;
 
-    QMap<QString, QString>                m_permissionDescriptions;
+    QMap<QString, MarathonManifest::Permission> m_vocabulary;
 
     class PortalManager                  *m_portalManager;
     class QTimer                         *m_batchTimer;

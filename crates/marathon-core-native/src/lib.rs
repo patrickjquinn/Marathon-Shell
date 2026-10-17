@@ -42,6 +42,7 @@ mod ffi {
 
     struct PermissionInfo {
         name: String,
+        label: String,
         description: String,
         sensitive: bool,
         restricted: bool,
@@ -60,6 +61,8 @@ mod ffi {
 
         /// The install screen's words for one manifest permission.
         fn describe_permission(id: &str) -> PermissionDisclosure;
+        /// The permission a name or alias means; empty if none.
+        fn canonical_permission(name: &str) -> String;
 
         /// Lints an app directory or `.marathon` package
         /// (docs/APP_MANIFEST_SCHEMA.md).
@@ -121,13 +124,17 @@ fn describe_permission(id: &str) -> ffi::PermissionDisclosure {
             detail: String::new(),
             sensitive: false,
         },
-        |d| ffi::PermissionDisclosure {
+        |p| ffi::PermissionDisclosure {
             known: true,
-            label: d.label.to_string(),
-            detail: d.detail.to_string(),
-            sensitive: d.sensitive,
+            label: p.label.clone(),
+            detail: p.description.clone(),
+            sensitive: p.sensitive,
         },
     )
+}
+
+fn canonical_permission(name: &str) -> String {
+    permissions::canonical(name).unwrap_or_default().to_owned()
 }
 
 fn lint_app(path: &str, system_app: bool) -> Vec<ffi::LintFinding> {
@@ -149,10 +156,11 @@ fn lint_app(path: &str, system_app: bool) -> Vec<ffi::LintFinding> {
 }
 
 fn permission_vocabulary() -> Vec<ffi::PermissionInfo> {
-    manifest::permissions()
+    permissions::permissions()
         .iter()
         .map(|(name, p)| ffi::PermissionInfo {
             name: name.clone(),
+            label: p.label.clone(),
             description: p.description.clone(),
             sensitive: p.sensitive,
             restricted: p.restricted,
