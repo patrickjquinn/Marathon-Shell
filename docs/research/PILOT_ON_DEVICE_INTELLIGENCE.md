@@ -368,3 +368,176 @@ Report per model: pp512, tg128 (best thread count), pp at 1,500/3,000, cold and 
 - Jev's retention and region are unknown.
 - The Alpine `piper-tts` licence line (MIT archive vs GPL piper1) needs confirming before packaging.
 - The local scorer's accuracy on Pilot's own question set is unmeasured. Phase 2's exit criterion exists for that reason.
+
+## 9. Results on the HackberryPi CM5 (2026-10-16)
+
+§7 run on the HackberryPi from 2026-10-16 23:00 to 2026-10-17 03:20 (IST). Every number in this section is **M**, measured in this run, unless tagged otherwise. The Python drivers for B3–B7 are in `scripts/bench/`; B3's prompt file is not, because the prompt and tool specs are Shipwright's (proprietary).
+
+### Setup
+
+| Item | Value |
+|---|---|
+| Board | Raspberry Pi Compute Module 5 Lite Rev 1.0 (device tree), **16 GB** RAM, not the 8 GB §4 assumed. 4× Cortex-A76, cpufreq 1.5–2.4 GHz, `schedutil`. CPU flags include `asimddp` and `fphp`; no i8mm, no SVE. 4 KiB pages |
+| OS | Nura edge, image 26101301, kernel 6.12.85-0-rpi, musl. No `apk` and no package repos, so §7's Alpine packages could not be used |
+| Cooling | Passive, in the HackberryPi case. sysfs lists no cooling device (no fan). Screen on, `marathon-shell` running, UI left alone |
+| Power | On a charger throughout (battery 15% → 85%), so no energy figure. The under-voltage flag never set |
+| llama.cpp | **v0.7.0** (620d222, 2026-10-15). Built in an Alpine edge aarch64 container, gcc 15.2, Release, `GGML_NATIVE=OFF`, `GGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16`, OpenMP, static ggml/llama, KleidiAI off (as Alpine's build). Native musl binaries; `libgomp`, `libstdc++`, `libgcc_s` from the container shipped beside them on `LD_LIBRARY_PATH` |
+| whisper.cpp | **v1.9.5** (d1be6fd), same container and flags |
+| sherpa-onnx | **v1.13.8** prebuilt `linux-aarch64-shared-cpu` (onnxruntime 1.28.2), glibc. Run through a shipped Fedora glibc 2.43 loader: `glibc/ld-linux-aarch64.so.1 --library-path glibc:lib bin/...` |
+| Piper | rhasspy/piper **2023.11.14-2** `piper_linux_aarch64` (the archived MIT line, onnxruntime 1.14.1), same glibc loader. Not Alpine's `piper-tts` 1.7.0 |
+| Models | Every file §7 lists exists under that name; SHA-256 matched the Hugging Face LFS oid for all eight GGUF/ggml files and the Piper voice. The GitHub release archives (sherpa-onnx, Moonshine, Piper) publish no checksums and were not verified. Moonshine: sherpa-onnx `moonshine-{tiny,base}-en-quantized-2026-02-27` (Moonshine v2 encoder + merged decoder, int8, MIT). sherpa-onnx publishes no Moonshine "small"; base was used |
+| Pilot inputs | Shipwright HEAD 43810f3a: `pipeline.rs::system_prompt` + `capabilities_line`, `system_tools.rs` specs, `jev.rs::ScoreJev::prompt`, pilot.md §5.1 intents |
+| Measured with | Temperature: `thermal_zone0` at 1 Hz. Throttling: no `vcgencmd`; cpufreq never shows it (it reported 2.4 GHz at 88 °C), so the firmware's `get_throttled` was read through the `/dev/vcio` mailbox (tag 0x30046), from the Qwen3-4B B2 run onwards. Peak RSS: busybox `time -v`, or `VmHWM` for `llama-server` |
+
+### Thermals
+
+The case cannot hold 4 threads at full speed. A sustained run reaches 80 °C in 2–3 minutes and sits at 85–88 °C; idle after the first hour never fell below 48 °C within the 5-minute cool-down cap, so later runs started at 56–63 °C.
+
+| Run | Length | Peak | Time ≥ 80 °C |
+|---|---|---|---|
+| B1 Qwen2.5-0.5B | 96 s | 66.1 °C | 0 s |
+| B1 Qwen3.5-0.8B | 216 s | 77.7 °C | 0 s |
+| B1 Granite 4.0 1B | 328 s | 85.9 °C | 97 s |
+| B1 Qwen3.5-2B | 447 s | 87.0 °C | 215 s |
+| B1 Qwen3-4B-2507 | 923 s | 88.1 °C | 576 s |
+| B2 Qwen3-4B-2507 | 803 s | 88.1 °C | 759 s |
+
+`get_throttled` read 0xe0006 / 0xe0008 at 83–88 °C: ARM frequency capped, throttled, and the soft temperature limit active, now and since boot. No under-voltage bit. So the 3- and 4-thread B1 rows of the three larger models (run last in each sweep), all their B2 rows and both B3 runs are **throttled** numbers. B1's 1- and 2-thread rows ran cooler.
+
+### B1: raw speed (`llama-bench -p 512 -n 128 -t 1,2,3,4 -r 3`)
+
+| Model (Q4_0) | File | pp512 t/s at 1 / 2 / 3 / 4 threads | tg128 t/s at 1 / 2 / 3 / 4 threads | Peak RSS |
+|---|---|---|---|---|
+| Qwen2.5-0.5B | 403 MiB | 94.5 / 179.6 / 245.8 / **313.5** | 32.7 / **35.6** / 33.3 / 31.5 | 0.78 GiB |
+| Qwen3.5-0.8B | 473 MiB | 44.9 / 76.2 / 95.6 / **111.6** | 13.4 / **16.4** / 16.3 / 14.8 | 1.07 GiB |
+| Granite 4.0 1B | 926 MiB | 24.6 / 47.5 / 66.2 / **72.1** | 9.8 / **12.2** / 11.7 / 10.4 | 1.92 GiB |
+| Qwen3.5-2B | 1.12 GiB | 21.4 / 39.5 / 48.3 / **50.6** | 6.3 / **8.5** / 7.5 / 6.7 | 2.39 GiB |
+| Qwen3-4B-Instruct-2507 | 2.21 GiB | 9.3 / 17.1 / 19.3 / **22.2** | 4.0 / **4.4** / 4.0 / 3.8 | 4.54 GiB |
+
+- The 0.5B row reproduces W12 (289.9 pp / 27.3 tg at 4 threads, 33.8 tg at 2) a little faster. `llama-bench` labels the file "qwen2 1B, 630.17 M params" because it counts the embeddings, which explains §8's W12 label inconsistency. Granite 4.0 1B is likewise labelled "2B, 1.63 B".
+- Generation is fastest at **2 threads** for every model, so it is bandwidth-bound; 4 threads lose 5–15%.
+- **Qwen3.5's hybrid layers are slow on this CPU.** Qwen3.5-0.8B is 2.8× slower at prompts and 2.2× slower at generation than Qwen2.5-0.5B, far more than the size ratio. Qwen3.5-2B runs at about Granite 1B speed.
+- Peak RSS is about **2× the file size**. Likely cause: the mmapped GGUF pages stay resident beside the repacked Q4_0 copy (E; `--no-mmap` should avoid it, not tested).
+- Against §3.2's estimates: ~4B was put at ~25–30 pp / ~4–5 tg, measured 22.2 (throttled) / 4.4; that holds. The ~1.5B estimate (~80 / ~12–14) is close to Granite 1B's 72 / 12.
+
+### B2: long prompts (`-p 1500,3000 -n 0 -t 4 -r 2`)
+
+| Model | pp1500 t/s | pp3000 t/s | Time to read 1,500 / 3,000 tokens | Peak RSS |
+|---|---|---|---|---|
+| Qwen2.5-0.5B | 248.3 | 190.9 | 6.0 s / 15.7 s | 0.78 GiB |
+| Qwen3.5-0.8B | 107.4 | 98.4 | 14.0 s / 30.5 s | 1.11 GiB |
+| Granite 4.0 1B | 66.7 | 39.7 | 22.5 s / 75.6 s (throttled) | 2.12 GiB |
+| Qwen3.5-2B | 61.4 | 47.1 | 24.4 s / 63.7 s (throttled) | 2.43 GiB |
+| Qwen3-4B-2507 | 20.1 | 15.2 | 74.6 s / 197 s (throttled) | 4.90 GiB |
+
+§3.2's 1,500-token estimates hold or are pessimistic: 0.5B ~5 s → 6.0 s; 2B ~39 s → 24.4 s. Qwen3.5's linear-attention layers lose less speed with depth (0.8B keeps 92% from 1,500 to 3,000 tokens; the dense 0.5B keeps 77%). Reading a Pilot-sized prompt uncached takes 22 s to over 3 minutes on every model above 1B.
+
+### B3: Pilot's prompt, prefix cache, tool calls
+
+`llama-server -t 4 -c 8192 --jinja --slot-save-path` (4 slots, unified KV). System message: `system_prompt` + `capabilities_line` verbatim with the clock frozen, English, no hints. Tools: six `system_tools.rs` specs in pilotd's OpenAI shape (`timer_set`, `alarm_set`, `reminder_create`, `media_control`, `device_toggle`, `device_status`). User message: a context line plus the utterance (≈40–55 tokens). Sampling as pilotd's non-thinking path: temperature 0.7, top_p 0.8, presence_penalty 1.5, `tool_choice: auto`, `enable_thinking: false`, `max_tokens: 100`. The 50 scripted turns each expect one of the six tools; 38 of them have an unambiguous argument value to check. "Valid" means a call to the expected tool whose arguments pass its JSON schema.
+
+| | Qwen3.5-2B | Qwen3-4B-2507 |
+|---|---|---|
+| Server start to healthy | 3.9 s | 5.1 s |
+| Cold turn: prompt tokens, prompt_ms | 1,983, **32.1 s** | 1,839, **78.9 s** |
+| Warm, new turn: new tokens, prompt_ms | 54, **1.26 s** | 24, **5.8 s** |
+| Slot file; save / restore | 106 MB; 75 / 64 ms | 279 MB; 233 / 131 ms |
+| Restart + restore, new turn | 56 tokens, 1.28 s | 26 tokens, 6.4 s |
+| 50 turns: new tokens (median), prompt_ms p50 / p95 | 41; 1.27 / 1.49 s | 11; 3.25 / 4.75 s |
+| Generation, median | 5.7 t/s | 1.9 t/s (throttled; 4.4 cool in B1) |
+| Wall per turn p50 / p95 | 7.8 / 18.6 s | 24.0 / 35.9 s |
+| **Valid expected call** | **38/50 (76%)** | **15/50 (30%)** |
+| Exactly one call, valid and expected | 34/50 | 14/50 |
+| No call at all | 3 | 35 |
+| Invalid extra calls | 23 | 0 |
+| Right argument values | 26/38 | 12/38 |
+| Greedy (temperature 0, no presence penalty): valid / right values | 38/50 / 27/38 | 22/50 / 18/38 |
+| Peak RSS (`VmHWM`) | 2.65 GiB | 5.61 GiB |
+
+- **The prefix cache works, including for the hybrid Qwen3.5.** `llama-server` keeps context checkpoints for it and restored three from the slot file, but resumes from the last checkpoint, so each Qwen3.5 turn re-reads ≈41 tokens against ≈11 for dense Qwen3. This settles §3.2's uncertainty.
+- Even a 11–24-token warm prompt takes 3–6 s on the 4B: small batches run near generation speed.
+- **Pilot's real prompt would never hit the cache.** Line 2 of `system_prompt` is "Today is …, local time HH:MM", so the prefix changes every minute. B3 froze the clock; 0007 has to move the time after the tool block.
+- Qwen3.5-2B's errors: every `reminder_create` call came back as `{}`. With the schema's `oneOf` removed, all 8 reminder turns produced arguments (8/8 against the flattened schema, 5/8 against the real one, 2/8 with the right values: "in 20 minutes" became 120 s, "in 45 minutes" 45 s). So the `{}` is llama.cpp's schema-to-grammar handling of `oneOf`, not the model; a local backend needs flattened schemas with the check kept in pilotd. It also tends to repeat calls until `max_tokens` (23 invalid extras), and misses one-word media turns ("play", "pause").
+- Qwen3-4B-2507's error is the one the prompt forbids: it answers "Alarm set for 07:00." with no call (35/50). With the flattened reminder schema it still called the tool 1/8 times.
+- First attempt used `max_tokens: 200` and was discarded: Qwen3.5-2B filled it with repeated empty calls (≈30 s a turn).
+
+### B4: one Jev question as a restricted softmax
+
+ScoreJev's prompt ("You answer with a single label. State: … Question: … Options: A. alarm … M. cancel" + "Answer:"), `/completion` with `n_predict: 1`, `n_probs: 64`, temperature 0; label mass summed over tokens that strip to A–M. "Pilot order" is ScoreJev's, state first; "reordered" puts the question and options first and the state last, so they form a cacheable prefix. 39 synthetic utterances (3 per intent), then a fresh 39 for the warm rows.
+
+| | Qwen2.5-0.5B | Qwen3.5-0.8B |
+|---|---|---|
+| Uncached question (≈120 tokens), p50 / p95 | 368 / 394 ms | 888 / 925 ms |
+| Warm, Pilot order, new utterance | 331 ms (104 new tokens: only the preamble is shared) | 879 ms (121 new tokens) |
+| Warm, reordered, new utterance | **117 ms** (31 new tokens) | 879 ms (121 new tokens: no reuse) |
+| Label mass in top 64, median (min), Pilot order | 0.97 (0.88) | 0.71 (0.38) |
+| Label mass, reordered | 0.97 (0.82) | 0.05 (0.01) |
+| Zero-shot top-1, Pilot order, first / second set of 39 | **18% / 21%** | **44% / 49%** |
+| Server peak RSS | 0.80 GiB | 2.76 GiB |
+
+Speed is inside §3.3's estimate (≈0.2–0.5 s a question at 0.5B). In ScoreJev's order the utterance comes second, so almost nothing is reused; the reordered prompt cuts a 0.5B question to 0.12 s. Qwen3.5 reuses nothing either way: its checkpoints do not land inside a 120-token prompt. Zero-shot accuracy is unusable at this size, which §3.1 (W11) predicted. Qwen3.5-0.8B puts little probability on the labels at all once the state comes last. A first cached pass hit the exact prompts the uncached pass had just stored (1 new token each, 33–93 ms), which is why the warm rows were re-run on new utterances.
+
+### B5: embedding classifier
+
+`llama-server --embedding --pooling mean -t 4` with `all-MiniLM-L6-v2-Q8_0.gguf` (25 MB). 507 utterances over the 13 intents, generated from 6 templates per intent with slot fillers and filler prefixes (`scripts/bench/pilot_intents.py`). Logistic regression (384 → 13, plain numpy) trained on the host.
+
+| Metric | Value |
+|---|---|
+| Server start to healthy | 0.21 s |
+| Per sentence, client wall, one request each: p50 / p95 / max | **5.8 / 6.9 / 30.4 ms** (the max is the first request) |
+| Peak RSS | 57 MiB |
+| Top-1, random 70/30 split (n = 156) | 98.1% |
+| Top-1, one template per intent held out (n = 80) | **96.3%** |
+| Held-out answers with p ≥ 0.85, and their accuracy | 85%, 100% (unregularised head); 3% with L2 = 1e-3 |
+
+The labels are **synthetic, not Jev's**: Jev is waitlist-only, so "agreement with Jev" could not be measured. Template text is cleaner than real speech, so read 96% as an upper bound. The confidence share depends on how the head is trained, so pilotd's 0.85 threshold has to be recalibrated against each head (`pilotd --calibrate`), not reused.
+
+### B6: speech to text
+
+Utterance: Piper lessac reading "Set a timer for ten minutes, and remind me to call the dentist tomorrow at nine." (4.3 s, 22.05 kHz; both tools resample), plus whisper.cpp's `samples/jfk.wav` (11.0 s). 4 threads, 3 runs each; ranges shown.
+
+| Engine | 4.3 s utterance | RTF | 11 s JFK | RTF | Peak RSS | Text |
+|---|---|---|---|---|---|---|
+| whisper tiny.en | 1,103–1,127 ms | 0.26 | 1,211–1,212 ms | 0.11 | 175 MiB | Both exact |
+| whisper base.en | 2,314–2,354 ms | 0.54 | 2,633–2,712 ms | 0.24 | 283 MiB | "**at** a timer…" on the utterance; JFK exact |
+| Moonshine v2 tiny (sherpa-onnx offline) | **188–207 ms** decode; 0.87 s process incl. load | 0.04 | **empty text** | — | 142 MiB | Utterance exact |
+| Moonshine v2 base | 362–382 ms decode; 1.5 s process | 0.08 | **empty text** | — | 357–372 MiB | Utterance exact |
+
+- whisper times are `whisper_print_timings` totals, model load (≈90/130 ms) included. Its encoder always processes a 30 s window (≈0.65 s tiny, 1.48 s base), so a short command costs about as much as a long one.
+- Moonshine's end-of-speech → final text is the offline decode after the clip ends: **≈0.2 s tiny, ≈0.37 s base**, close to W21's 237 / 527 ms. W21's "Whisper Tiny 5.9 s" is not reproduced: 1.1 s here.
+- sherpa-onnx 1.13.8 runs Moonshine v2 only as an offline recogniser, so this is not a streaming measurement. On the 11 s clip both sizes returned empty text (re-encoding the WAV did not help); the first 5.5 s decoded correctly. Use it behind VAD segmentation (sherpa-onnx's `vad-with-offline-asr` path), which commands need anyway.
+
+### B7: text to speech
+
+Piper `en_US-lessac-medium`, a fresh process per sentence (as a `pilot-tts` subprocess would be), `--output_raw` to a pipe, 5 runs each.
+
+| Sentence | Voice load | First byte | Total | Audio (Piper's log) | RTF, synthesis | RTF, wall |
+|---|---|---|---|---|---|---|
+| "Timer set for ten minutes." | 0.37–0.39 s | 618–637 ms | 646–667 ms | 1.51–1.65 s | 0.14 | 0.36–0.39 (vs bytes received) |
+| 90-character calendar answer | 0.37–0.39 s | 1,069–1,110 ms | 1.10–1.14 s | 4.73–4.96 s | 0.14 | 0.22 |
+
+Peak RSS 134 MiB. Piper writes a sentence's audio in one go, so first byte ≈ voice load + the whole first sentence. A resident process would start a short reply in ≈0.22 s (E: synthesis time alone). Synthesis RTF matches W23's 0.12–0.14.
+
+**Voice licence.** The voice's MODEL_CARD names the Blizzard 2013 Lessac dataset. Its licence is a research licence: use "for Research Purposes only", which "excludes … any commercial purpose", non-transferable, no sub-licensing. That probably rules lessac out of a shipped image; legal should confirm and pick a voice whose dataset licence allows redistribution.
+
+### Deviations from §7
+
+- No `apk` on the device: binaries were built (llama.cpp, whisper.cpp) or taken from upstream releases (sherpa-onnx, Piper) instead of Alpine packages, so the versions differ from W20's.
+- No `vcgencmd`. Temperature came from sysfs; throttle flags from the firmware mailbox, and only from the Qwen3-4B B2 run onwards. "Near idle" between runs was not reachable; each cool-down waited for < 48 °C or 5 minutes.
+- Power not measured: the device charged throughout and no meter was attached.
+- B3: (c) restored the slot and then sent a *new* turn, not a repeat of (b). Added a greedy re-run and a flattened-reminder-schema re-run. `max_tokens` 100 (the 200 run was discarded, above).
+- B4: "cold" is `cache_prompt: false`; warm rows re-run on unseen utterances; added the reordered prompt. Accuracy is against synthetic labels.
+- B5: no Jev agreement (no access); synthetic template set, labels by construction.
+- B6: 4.3 s utterance instead of 5 s; Moonshine base instead of "small"; offline, not streaming.
+- B7: Piper's own release, not Alpine's; nothing was played.
+- Not done: the Librem 5 and PinePhone repeats of B5/B6.
+
+### What this changes
+
+- **Local decide by embedding (§4 "Yes, ~20–35 ms"): confirmed and cheaper.** 6 ms a sentence, 57 MiB, 96% top-1 on held-out phrasings of the 13 intents. Phase 2 stands. It is still synthetic data; the exit criterion against Jev cannot be run while Jev is unavailable, so it has to become a criterion against labelled real utterances from `--calibrate`.
+- **Local decide by LLM scorer (§4 "Yes, 0.5–1.7B"): should change to "fast enough, not accurate".** 0.33–0.37 s a question uncached, but 18–23% / 44–49% zero-shot top-1 over two sets of 39. Drop 0004 from the hot path; the embedding head is the local scorer. If 0004 stays as an option, ScoreJev's prompt needs the state moved after the options to cache at all.
+- **Local generation and tools (§4 "Possible" on the CM5): should change to "not yet".** Qwen3.5-2B meets Phase 4's TTFT (1.27 s p50 after the cached prefix, ≤ 1.5 s) but reaches 76% valid calls and 26–27/38 right values, against Phase 4's ≥ 90%; Qwen3-4B-2507 reaches 30% (44% greedy) and takes 20–24 s a turn once the case throttles. An uncached turn costs 32 s (2B) or 79 s (4B), so a local backend must restore its slot file at start-up (save/restore costs ≤ 0.25 s) and 0007 is a precondition, not an optimisation. Phase 4 stays optional and should not start before a better small tool model or a fine-tune; any local backend needs flattened tool schemas.
+- **STT: Moonshine confirmed for the A76 devices.** Tiny decodes a 4.3 s command in 0.2 s, which leaves almost all of S §13's 1.1 s end-of-speech → action budget; whisper tiny.en at 1.1 s uses the whole budget by itself. Needs VAD segmentation.
+- **TTS: Piper confirmed on speed (RTF 0.14); keep it resident** to save the 0.37 s voice load per reply. The default voice choice changes: lessac's dataset licence is research-only.
+- **RAM.** This unit has 16 GB. Peak RSS: embedding 57 MiB, Moonshine tiny 142 MiB, Piper 134 MiB, Qwen3.5-2B server 2.65 GiB, Qwen3-4B server 5.61 GiB. §5's "≥ 6 GB" floor for the optional LLM fits a 2B; a 4B on an 8 GB unit next to the shell is tight.
+- **Thermals** are now a constraint for any sustained local generation on this case: 85–88 °C and firmware throttling within minutes. The embedding, STT and TTS runs peaked at 64–73 °C.
