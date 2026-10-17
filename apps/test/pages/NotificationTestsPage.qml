@@ -61,7 +61,7 @@ Page {
                 TestItem {
                     objectName: "withIcon"
                     text: qsTr("With icon")
-                    onClicked: page.app.run("Notification with icon", () => page.post("test", "Marathon Test", "Notification with custom icon", { icon: "bell", category: "test" }))
+                    onClicked: page.app.run("Notification with icon", () => page.post("test", "Marathon Test", "Notification with custom icon", { icon: "star", category: "test" }))
                 }
                 TestItem {
                     objectName: "highPriority"
