@@ -538,6 +538,16 @@ mod tests {
     }
 
     #[test]
+    fn parses_the_autoboot_txt_the_image_ships() {
+        let shipped = include_str!("../../../packaging/ota/pi/autoboot.txt");
+        assert_eq!(
+            Autoboot::parse(shipped),
+            Some(Autoboot { all: 2, tryboot: 3 })
+        );
+        assert_eq!(shipped, INITIAL);
+    }
+
+    #[test]
     fn autoboot_tolerates_spacing_and_comments() {
         let text =
             "# A/B\n[all]\n tryboot_a_b = 1\nboot_partition = 3\n\n[tryboot]\nboot_partition=2\n";
