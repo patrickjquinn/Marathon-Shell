@@ -88,6 +88,10 @@ if [ -z "${QT_QPA_PLATFORM:-}" ]; then
     # On the CM5 + HyperPixel panel this generates ~100 warnings/sec
     # during any touch interaction. Documented by the Qt eglfs backend.
     export QT_QPA_EGLFS_HIDECURSOR=1
+    # HIDECURSOR still moves the hardware cursor on every touch ("Failed to
+    # move cursor on screen UNKNOWN1: -14"); only the KMS config's hwcursor
+    # stops it. A device's own config (the Librem 5's) wins.
+    export QT_QPA_EGLFS_KMS_CONFIG="${QT_QPA_EGLFS_KMS_CONFIG:-/usr/share/marathon-shell/eglfs-kms.json}"
 fi
 
 # QEMU virtio-gpu reports a fake desktop-monitor physical size in EDID, so Qt

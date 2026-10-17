@@ -121,6 +121,7 @@ source="
 	marathon-mm-tune.service
 	99-marathon-rtprio.conf
 	marathon-shell-tmpfiles.conf
+	eglfs-kms.json
 	"
 builddir="$srcdir/Marathon-Shell-main"
 # cargo fetch reaches crates.io for crates/ (libMarathonCore's Rust half).
@@ -256,6 +257,8 @@ package() {
 	# /usr/local -- make sure /usr/bin/marathon-shell-session is OUR pmOS one).
 	install -Dm755 "$srcdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
+	install -Dm644 "$srcdir/eglfs-kms.json" \
+		"$pkgdir/usr/share/marathon-shell/eglfs-kms.json"
 
 	# Do NOT setcap marathon-shell-bin. File caps mark the process
 	# non-dumpable (kernel sets AT_SECURE=1), which puts libdbus into
