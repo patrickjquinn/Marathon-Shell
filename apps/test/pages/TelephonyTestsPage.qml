@@ -77,7 +77,7 @@ Page {
                 text: qsTr("Call state")
             }
             HintLabel {
-                text: qsTr("Test different call states and transitions")
+                text: qsTr("Sets the call state as the modem reports it. Active shows the call page in Phone and the call strip on the lock screen. Ringing out is an outgoing call ringing; the incoming-call screen comes from Incoming call above.")
             }
             Actions {
                 TestItem {
@@ -87,7 +87,7 @@ Page {
                 }
                 TestItem {
                     objectName: "stateRinging"
-                    text: qsTr("Ringing")
+                    text: qsTr("Ringing out")
                     onClicked: page.app.run("Call state: ringing", () => page.telephony.simulateCallStateChange("ringing"))
                 }
                 TestItem {
