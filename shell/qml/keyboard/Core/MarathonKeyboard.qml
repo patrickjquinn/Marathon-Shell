@@ -50,7 +50,7 @@ Rectangle {
             }
             return;
         }
-        if (text === ",")
+        if (text === "," || (inputContextInstance.inputMode === "text" && !inputContextInstance.isWordText(text)))
             keyboard.currentWord = "";
 
         if (keyboard.shifted && !keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)

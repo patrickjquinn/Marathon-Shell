@@ -129,6 +129,13 @@ TestCase {
         compare(field.text, "the ");
     }
 
+    function test_punctuationStartsANewWord() {
+        type("(teh ");
+        compare(field.text, "(the ");
+        type("dont-teh:teh ");
+        compare(field.text, "(the dont-teh:the ");
+    }
+
     function test_autocorrectKeepsEarlierText() {
         field.text = "I said";
         field.cursorPosition = field.text.length;

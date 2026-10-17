@@ -1,5 +1,7 @@
 #include "inputcontext.h"
 
+#include <algorithm>
+
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QInputMethod>
@@ -235,6 +237,13 @@ bool InputContext::atSentenceStart() const {
         return false;
     const QString before = value.toString().trimmed();
     return before.isEmpty() || QStringView(u".!?").contains(before.back());
+}
+
+// Letters, digits, apostrophes and hyphens; anything else ends the word.
+bool InputContext::isWordText(const QString &text) const {
+    return std::all_of(text.cbegin(), text.cend(), [](QChar c) {
+        return c.isLetterOrNumber() || c == u'\'' || c == u'\u2019' || c == u'-';
+    });
 }
 
 QString InputContext::getCurrentWord() const {
