@@ -783,7 +783,7 @@ Item {
                 idleScreenTimer.rearm();
                 return;
             }
-            if (typeof TelephonyService !== 'undefined' && TelephonyService.hasActiveCall) {
+            if (PowerPolicyControllerCpp.hasActiveCalls) {
                 Logger.info("Shell", "Active call — postponing blank");
                 idleScreenTimer.rearm();
                 return;

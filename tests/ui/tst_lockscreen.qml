@@ -90,6 +90,17 @@ TestCase {
         SettingsManagerCpp.screenTimeout = 0;
     }
 
+    function test_aCallHoldsOffTheIdleBlank() {
+        SettingsManagerCpp.screenTimeout = 100;
+        PowerPolicyControllerCpp.hasActiveCalls = true;
+        lockScreen.resetIdleTimer();
+        wait(300);
+        verify(DisplayPolicyControllerCpp.screenOn, "a ringing call keeps the screen on");
+        PowerPolicyControllerCpp.hasActiveCalls = false;
+        tryVerify(() => !DisplayPolicyControllerCpp.screenOn, 1000);
+        SettingsManagerCpp.screenTimeout = 0;
+    }
+
     function test_tapStillReachesWhatIsBelow() {
         pad.enabled = true;
         pad.z = -1;

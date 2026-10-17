@@ -2,6 +2,7 @@ pragma Singleton
 import QtQml
 QtObject {
     property int appGridColumns: 0
+    property int screenTimeout: 0
     property string timeZone: "Europe/Dublin"
     property bool automaticTimeZone: true
     property int screenTimeout: 0

@@ -156,6 +156,11 @@ Item {
                 idleTimer.rearm();
                 return;
             }
+            if (PowerPolicyControllerCpp.hasActiveCalls) {
+                Logger.info("LockScreen", "Call ringing or active - postponing screen blank");
+                idleTimer.rearm();
+                return;
+            }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
             DisplayPolicyControllerCpp.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
         }
