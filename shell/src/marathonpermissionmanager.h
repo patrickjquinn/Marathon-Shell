@@ -56,6 +56,10 @@ class MarathonPermissionManager : public QObject {
     void requestDeclaredPermissions(const QString &appId);
     // The prompt's answer for every permission it asks about.
     Q_INVOKABLE void respond(bool granted);
+    // For a caller refused all of `permissions`: asks the user for the first
+    // the app declared but was never asked about, as iOS does on first use.
+    // Returns it, or empty when there is nothing to ask.
+    QString          askIfUndecided(const QString &appId, const QStringList &permissions);
 
     Q_INVOKABLE void setPermission(const QString &appId, const QString &permission, bool granted,
                                    bool remember = true);

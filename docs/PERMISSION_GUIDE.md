@@ -1,13 +1,29 @@
 # Marathon Permission System Guide
 
-Marathon uses a runtime permission system to protect user privacy and security.
+Marathon asks the user before an app reaches anything personal or the
+system, in the shape of Android's runtime permissions.
 
 ## Overview
 
-- **Runtime Permissions**: Users grant/deny at runtime, not install time
-- **Granular Control**: Individual permissions per app
-- **Revocable**: Users can revoke permissions anytime
-- **Transparent**: Clear explanation of what each permission does
+- **Declared, then disclosed**: an app lists its permissions in
+  `manifest.json`. The installer shows every one before installing and
+  records them in the install's receipt; an update that adds permissions
+  waits for the user's consent. An app holds only permissions in its
+  receipt (for Marathon's own apps, in their read-only manifest): one it
+  never declared is denied without asking, and editing its manifest after
+  installation changes nothing.
+- **Asked once, at first launch**: the shell asks for every declared
+  permission the user has not decided yet, in one prompt.
+- **Restricted ones are refused openly**: `system` and `terminal` are held
+  only by protected system apps. Any other app that declares one sees it
+  listed as not allowed in that prompt.
+- **Asked again on use**: if the prompt was dismissed, the first call that
+  needs an undecided permission asks the user and fails with
+  `AccessDenied: Permission requested: <name>`; retry after
+  `PermissionGranted`.
+- **Protected system apps** hold the permissions they declare without a
+  prompt.
+- **Revocable**: Settings → Apps → the app → Permissions.
 
 ## Available Permissions
 
@@ -34,7 +50,7 @@ network at all), and `Network1`/`Modem1` reads are allowed.
 
 **Location**: See where the device is.
 
-GeoClue answers the app's location requests.
+GeoClue answers the app's location requests, and `Location1` is open to it.
 
 ### `camera`
 
@@ -75,7 +91,7 @@ Disclosure only: notifications are not gated yet.
 
 **Alarms**: Set alarms and timers.
 
-Disclosure only: `Alarms1` is not gated yet.
+`Alarm1`.
 
 ### `telephony`
 
@@ -99,7 +115,7 @@ Disclosure only: `Alarms1` is not gated yet.
 
 **Sensors**: Read the motion and light sensors.
 
-Disclosure only: `Sensors1` is not gated yet.
+`Sensor1`.
 
 ### `secret-service`
 

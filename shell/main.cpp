@@ -1180,8 +1180,11 @@ int main(int argc, char *argv[]) {
             static const QStringList kSystem = {QStringLiteral("org.marathon.Shell"),
                                                 QStringLiteral("marathon-weather"),
                                                 QStringLiteral("xdg-desktop-portal")};
-            return kSystem.contains(desktopId) ||
-                permissionManager->hasPermission(desktopId, QStringLiteral("location"));
+            if (kSystem.contains(desktopId) ||
+                permissionManager->hasPermission(desktopId, QStringLiteral("location")))
+                return true;
+            permissionManager->askIfUndecided(desktopId, {QStringLiteral("location")});
+            return false;
         },
         &app);
 

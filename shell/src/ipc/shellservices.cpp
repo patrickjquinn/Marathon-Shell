@@ -204,6 +204,15 @@ bool IpcPermissionedService::requirePermission(const QString     &rateLimitKey,
         return false;
     }
     if (!hasAnyPermission(m_permissions, caller, permissions)) {
+        // An app that declared the permission but was never asked is asked
+        // now; this call still fails, and the app retries on PermissionGranted.
+        if (const QString asked = m_permissions->askIfUndecided(caller, permissions);
+            !asked.isEmpty()) {
+            SecurityLogger::logPermissionRequested(caller, asked);
+            sendErrorReply(QDBusError::AccessDenied,
+                           QStringLiteral("Permission requested: %1").arg(asked));
+            return false;
+        }
         const QString primary = permissions.isEmpty() ? QString() : permissions.first();
         SecurityLogger::logPermissionDenied(caller, primary);
         sendErrorReply(QDBusError::AccessDenied,

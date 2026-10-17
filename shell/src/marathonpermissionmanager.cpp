@@ -181,6 +181,21 @@ void MarathonPermissionManager::requestDeclaredPermissions(const QString &appId)
         requestPermissions(appId, app->permissions);
 }
 
+QString MarathonPermissionManager::askIfUndecided(const QString     &appId,
+                                                  const QStringList &permissions) {
+    const MarathonAppRegistry::AppInfo *app = appInfo(appId);
+    if (!app)
+        return {};
+    for (const QString &requested : permissions) {
+        const QString permission = canonical(requested);
+        if (getPermissionStatus(appId, permission) == NotRequested) {
+            requestPermission(appId, permission);
+            return permission;
+        }
+    }
+    return {};
+}
+
 void MarathonPermissionManager::requestPermission(const QString &appId, const QString &requested) {
     const QString permission = canonical(requested);
     qDebug() << "[MarathonPermissionManager] Permission requested:" << appId << permission;

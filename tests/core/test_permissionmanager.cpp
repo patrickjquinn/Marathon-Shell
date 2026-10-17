@@ -430,6 +430,30 @@ class TestPermissionManager : public QObject {
         QVERIFY(!mgr.promptActive());
     }
 
+    // === CONTRACT: using an undecided permission asks instead of failing
+    // silently ===
+
+    void accessToAnUndecidedPermissionAsks() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("test", {"system", "contacts", "telephony"}, true));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+
+        QCOMPARE(mgr.askIfUndecided("test", {"telephony", "phone"}), QString("telephony"));
+        QTRY_VERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentPermissions(), QStringList({"telephony"}));
+        mgr.respond(false);
+
+        QVERIFY(mgr.askIfUndecided("test", {"telephony"}).isEmpty());
+        QVERIFY(mgr.askIfUndecided("test", {"system"}).isEmpty());
+        QVERIFY(mgr.askIfUndecided("test", {"camera"}).isEmpty());
+        QVERIFY(mgr.askIfUndecided("com.unknown", {"contacts"}).isEmpty());
+        QCOMPARE(mgr.askIfUndecided("test", {"contacts"}), QString("contacts"));
+        QTRY_VERIFY(mgr.promptActive());
+        mgr.respond(true);
+        QVERIFY(mgr.hasPermission("test", "contacts"));
+    }
+
     void cleanupTestCase() {
         cleanPermissions();
         QStandardPaths::setTestModeEnabled(false);

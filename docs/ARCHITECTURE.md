@@ -339,17 +339,23 @@ Apps declare permissions in `manifest.json`:
 **Permission Enforcement:**
 
 ```
-App requests resource
+App launches
     ↓
-Permission Portal D-Bus call
+PermissionManager asks once for every declared, undecided permission
+(restricted ones listed as refused unless the app is protected)
     ↓
-PermissionManager checks manifest.json
+App calls an org.marathonos.Shell.* method
     ↓
-If granted: allow access
-If denied: return error
+The service checks the caller's permission with PermissionManager, which
+only counts permissions the app declared (manifest for system apps,
+install receipt for others)
+    ↓
+Granted: allow. Denied: AccessDenied. Never decided: ask, and AccessDenied
+"Permission requested" for this call
 ```
 
-Users can review/revoke permissions in Settings app.
+Users can review/revoke permissions in Settings app. See
+[PERMISSION_GUIDE.md](PERMISSION_GUIDE.md).
 
 ## Data Flow Examples
 
