@@ -34,6 +34,18 @@ target_link_libraries(test_shell_sinkvolume Qt6::Test Qt6::Core)
 target_include_directories(test_shell_sinkvolume PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
 add_test(NAME Shell_SinkVolume COMMAND test_shell_sinkvolume)
 
+# The shell's client of marathon-audiod, against a fake service on a
+# private bus
+find_package(Qt6 REQUIRED COMPONENTS DBus)
+add_executable(test_shell_audiodclient
+    test_audiodclient.cpp
+    ../../shell/src/managers/audiodclient.cpp
+    ../../shell/src/managers/sinkvolume.cpp
+)
+target_link_libraries(test_shell_audiodclient Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_shell_audiodclient PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+add_test(NAME Shell_AudiodClient COMMAND test_shell_audiodclient)
+
 # MPRIS2Controller against fake players on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
 if(DBUS_RUN_SESSION)

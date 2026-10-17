@@ -3,10 +3,10 @@
 
 #include <QObject>
 #include <QAbstractListModel>
-#include <functional>
 
 #include <qqml.h>
 
+class AudiodClient;
 class SinkVolume;
 
 struct AudioStream {
@@ -59,7 +59,7 @@ class AudioManagerCpp : public QObject {
     Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY mutedChanged)
     Q_PROPERTY(AudioStreamModel *streams READ streams CONSTANT)
-    Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported CONSTANT)
+    Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported NOTIFY availableChanged)
     Q_PROPERTY(bool isPlaying READ isPlaying NOTIFY isPlayingChanged)
 
   public:
@@ -74,7 +74,7 @@ class AudioManagerCpp : public QObject {
         return m_streamModel;
     }
     bool perAppVolumeSupported() const {
-        return m_available && m_isPipeWire;
+        return m_available;
     }
     bool isPlaying() const {
         return m_isPlaying;
@@ -94,20 +94,13 @@ class AudioManagerCpp : public QObject {
     void isPlayingChanged();
 
   private:
-    void        parseWpctlStatus(const QString &output);
-    void        runWpctl(const QStringList &args, const std::function<void(bool ok)> &done = {});
-    void        updatePlaybackState();
+    void              updateStreams();
 
     bool              m_available;
-    bool              m_isPipeWire;
     bool              m_isPlaying;
     AudioStreamModel *m_streamModel;
+    AudiodClient     *m_audiod;
     SinkVolume       *m_sinkVolume;
-
-    // wpctl runs asynchronously. One status query is in flight at a time;
-    // requests that arrive meanwhile are folded into a single follow-up.
-    bool              m_statusRunning = false;
-    bool              m_statusPending = false;
 };
 
 #endif
