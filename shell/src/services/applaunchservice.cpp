@@ -1551,8 +1551,12 @@ void AppLaunchService::noteLaunchShape(SpareShape shape) {
 }
 
 void AppLaunchService::refillSpares() {
-    if (QDateTime::currentMSecsSinceEpoch() < m_spareRetryAfterMs)
+    // A coarse timer can fire up to 5% early; wait out the rest.
+    const qint64 waitMs = m_spareRetryAfterMs - QDateTime::currentMSecsSinceEpoch();
+    if (waitMs > 0) {
+        QTimer::singleShot(waitMs, this, &AppLaunchService::refillSpares);
         return;
+    }
     const QList<SpareShape> wanted = wantedSpareShapes();
     for (qsizetype i = 0; i < wanted.size(); ++i) {
         if (m_spares[wanted[i]].process)
