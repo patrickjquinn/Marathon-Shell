@@ -188,8 +188,8 @@ QString joinForSplitCommand(const QStringList &args) {
     // passthrough decoder is what mobile GL drivers (including
     // etnaviv) are tested against. It's also what ChromeOS uses.
     //
-    // `--no-sandbox` because chromium's namespace sandbox tries to
-    // CLONE_NEW{USER,PID,IPC} inside our bwrap and EPERMs.
+    // Chromium's own sandbox stays on: its namespace layer nests inside our
+    // bwrap and its renderers run under seccomp-bpf (docs/SECURITY_MODEL.md).
     // `--disable-dev-shm-usage` because /dev/shm in the bwrap tmpfs is
     // small and chromium SIGTRAPs when it runs out.
     // `--in-process-gpu` keeps GPU init in the runner's address space
@@ -252,7 +252,6 @@ QString joinForSplitCommand(const QStringList &args) {
         "--use-gl=disabled "
         "--disable-gpu "
         "--ignore-gpu-blocklist "
-        "--no-sandbox "
         "--disable-dev-shm-usage "
         // WebGL kept enabled: the comment at the top of this block
         // promised "WebGL1 stays enabled (works on GLES2)" but the
@@ -272,7 +271,6 @@ QString joinForSplitCommand(const QStringList &args) {
     // Stacks whose GL Chromium can drive: no GL override, so QtWebEngine
     // picks its own implementation and WebGL runs on the GPU.
     constexpr const char *kGpuChromiumFlags = "--ignore-gpu-blocklist "
-                                              "--no-sandbox "
                                               "--disable-dev-shm-usage "
                                               "--num-raster-threads=2 "
                                               "--enable-viewport "
@@ -829,13 +827,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     QString     manifestChromiumFlags;
     // resolveAppObject populates only id/name/icon/type/exec/permissions
     // from the App model -- the model never exposed requiresQtModules, so
-    // every map that reaches this path has an empty requiresQt. The
-    // !usesWebEngine branch below then adds --unshare-user-try to bwrap
-    // unconditionally, which the kernel rejects when Chromium tries to
-    // nest its own CLONE_NEWUSER, killing every WebEngine app with
-    // SIGTRAP deep in libQt6WebEngineCore.so. Until the App model is
-    // extended, fall back to a manifest read for the appId so the
-    // sandbox shape matches what Chromium can survive.
+    // every map that reaches this path has an empty requiresQt. Until the
+    // App model is extended, fall back to a manifest read for the appId.
     //
     // Same lookup also pulls the optional `chromiumFlags` string (one
     // line, space-separated --foo=bar tokens). Apps with WebGL-only
@@ -941,7 +934,6 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         if (!glesOverride.isEmpty())
             env.insert("MESA_GLES_VERSION_OVERRIDE", QString::fromLatin1(glesOverride));
         env.insert("QTWEBENGINE_CHROMIUM_FLAGS", effectiveChromiumFlags);
-        env.insert("QTWEBENGINE_DISABLE_SANDBOX", "1");
         // Do NOT force MESA_LOADER_DRIVER_OVERRIDE / GALLIUM_DRIVER /
         // GBM_BACKEND to "etnaviv". On this render node the Mesa loader
         // front-end is kmsro (etnaviv is render-only behind it); pinning
@@ -1069,27 +1061,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // makes QRhiGles2 fail to create a context -> no surface -> launch
         // timeout. Mesa auto-selects kmsro->etnaviv correctly on its own.
 
-        // Chromium's zygote sandbox does its own CLONE_NEW{PID,USER,IPC,UTS,
-        // NET,CGROUP} on every renderer + GPU + utility process. Nesting
-        // those over bwrap-pre-unshared namespaces returns EPERM, Chromium
-        // CHECKs in its sandbox setup, and the WebEngine app aborts with
-        // SIGTRAP deep in libQt6WebEngineCore (the same backtrace every
-        // time -- thread N → sandbox::policy::SandboxLinux::PreSpawnTarget
-        // → CHECK). The right shape for WebEngine apps is: bwrap provides
-        // ONLY the filesystem / device cage (--ro-bind /usr, --tmpfs /tmp,
-        // --bind /run/user/1000, etc) and Chromium runs its own full
-        // namespace sandbox inside that. Non-WebEngine apps still get the
-        // belt-and-braces extra isolation layer.
-        if (!usesWebEngine) {
-            bwrapArgs << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
-                      << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
-                      << QStringLiteral("--unshare-user-try");
-            // Network namespace: only granted to apps with "network"
-            // permission. WebEngine apps need network and can't have a net
-            // unshare under bwrap anyway (Chromium re-unshares).
-            if (!permissions.contains("network"))
-                bwrapArgs << QStringLiteral("--unshare-net");
-        }
+        // WebEngine apps too: Chromium's namespace sandbox nests inside these.
+        bwrapArgs << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
+                  << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
+                  << QStringLiteral("--unshare-user-try");
+        if (!permissions.contains("network"))
+            bwrapArgs << QStringLiteral("--unshare-net");
 
         bwrapArgs << QStringLiteral("--ro-bind") << QStringLiteral("/usr") << QStringLiteral("/usr")
                   << QStringLiteral("--ro-bind") << QStringLiteral("/etc") << QStringLiteral("/etc")
@@ -1262,8 +1239,6 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         if (usesWebEngine) {
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_OPENGL")
                       << envValue("QT_OPENGL", QStringLiteral("es2"));
-            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")
-                      << QStringLiteral("1");
             // Deliberately do NOT --setenv MESA_LOADER_DRIVER_OVERRIDE /
             // GBM_BACKEND / GALLIUM_DRIVER to etnaviv here. Forcing the
             // loader to etnaviv makes eglInitialize fail the DRI2 screen

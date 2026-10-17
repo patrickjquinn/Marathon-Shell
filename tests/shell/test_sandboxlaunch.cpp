@@ -143,6 +143,21 @@ class TestSandboxLaunch : public QObject {
         QVERIFY(argv.contains(QStringLiteral("--unshare-net")));
         QVERIFY(argv.contains(QStringLiteral("--unshare-pid")));
     }
+
+    // Chromium's sandbox nests inside bwrap, so WebEngine apps keep both.
+    void webEngineAppsKeepBothSandboxes() {
+        const QStringList argv =
+            launch(app("browser", {QStringLiteral("network")}, {QStringLiteral("webengine")}));
+        QVERIFY(!argv.isEmpty());
+        QVERIFY(argv.contains(QStringLiteral("--unshare-pid")));
+        QVERIFY(argv.contains(QStringLiteral("--unshare-user-try")));
+        QVERIFY(argv.contains(QStringLiteral("--unshare-ipc")));
+        QVERIFY(!argv.contains(QStringLiteral("--unshare-net")));
+        const QString flags = setenv(argv, QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS"));
+        QVERIFY(!flags.isEmpty());
+        QVERIFY(!flags.contains(QStringLiteral("--no-sandbox")));
+        QVERIFY(setenv(argv, QStringLiteral("QTWEBENGINE_DISABLE_SANDBOX")).isNull());
+    }
 };
 
 QTEST_MAIN(TestSandboxLaunch)
