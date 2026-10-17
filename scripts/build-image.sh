@@ -9,9 +9,10 @@
 #
 #   1. Check host tools (podman, qemu, mkosi, EFI firmware) and print
 #      install hints per package manager when missing.
-#   2. Resolve in-tree packaging/, clone postmarketos-duranium, and a
-#      pinned mkosi tag under ~/.cache/marathon-build/. Override the
-#      location with MARATHON_BUILD_DIR=/path.
+#   2. Resolve in-tree packaging/ and run its pipeline-patches/
+#      bootstrap.sh, which clones duranium and mkosi at the commits it
+#      pins and applies the patch series, under ~/.cache/marathon-build/.
+#      Override the location with MARATHON_BUILD_DIR=/path.
 #   3. Build local apks in dependency order, skipping any already
 #      cached in mkosi.packages/ (drop the .apk or set
 #      FORCE_REBUILD=1 to invalidate):
@@ -35,10 +36,8 @@
 #                           (when present).
 #
 # Env overrides:
-#   DURANIUM_GIT            upstream repo for postmarketos-duranium
-#   DURANIUM_REF            branch / tag (default main)
-#   MKOSI_REF               pinned mkosi tag (default v25.3)
 #   MARATHON_BUILD_DIR      build-cache root (default ~/.cache/marathon-build)
+#   MKOSI_SRC               mkosi checkout (default: bootstrap.sh's own)
 #   MARATHON_IMAGE_SRC      packaging tree (default: in-tree packaging/)
 #   FORCE_REBUILD           "1" → drop cached apks before rebuild
 
@@ -165,10 +164,11 @@ build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 APORT=wpewebkit \
 build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
-# Pacific isn't in the public shipwright-open export: build a local checkout.
+# A local Shipwright checkout, when there is one, builds in place of the
+# shipwright-open commit the APKBUILD pins.
 PACIFIC_SRC="${PACIFIC_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pacific" ] && echo "$HOME/Developer/Shipwright")}" \
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
-# Pilot neither: one script builds the daemon and the app.
+# Pilot the same way; one script builds the daemon and the app.
 PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
 build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilotd/APKBUILD"
 PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
