@@ -24,8 +24,11 @@ The primary branch is **`main`**.
 
 ## 2. Hardware targets
 
-Device overlays live in `packaging/packages/device-*-marathon`; each ships
-`/etc/marathon/device-profile.conf` (see `docs/DEVICE_OVERLAYS.md`).
+Each device is described by `devices/<vendor>/<codename>/device.toml` (SoC
+facts in `socs/<soc>.toml`, checked by `tools/devices/devices.py check`). Its
+overlay in `packaging/packages/device-*-marathon` ships the
+`/etc/marathon/device-profile.conf` generated from it (see
+`docs/DEVICE_OVERLAYS.md`).
 
 | Device              | Build target (`build-image.sh <target>`) | SoC / GPU                         | Display          | Status |
 |---------------------|------------------------------------------|-----------------------------------|------------------|--------|
@@ -91,7 +94,7 @@ scripts/build-librem5-image.sh          # purism-librem5
 scripts/build-hackberry-cm5-image.sh    # raspberry-pi5 + HackberryPi overlay
 scripts/build-qemu-image.sh [--boot]    # qemu-aarch64
 scripts/build-oneplus6-image.sh         # oneplus-enchilada
-scripts/build-image.sh pine64-pinephone # no wrapper yet
+scripts/build-pinephone-image.sh        # pine64-pinephone
 scripts/build-image.sh raspberry-pi5    # Pi 5 without the enclosure
 ```
 
@@ -136,7 +139,9 @@ a device image — the wrappers stage the apks and overlays it needs.
 - **Pi 5 / HackberryPi CM5** — `scripts/flash/flash-hackberry-cm5.sh /dev/sdX`
   picks the newest `raspberry-pi5_marathon_edge_*.raw` and `dd`s it. The root
   partition grows to fill the card on first boot.
-- **PinePhone** — `dd` the `.raw` to a microSD card.
+- **PinePhone** — `scripts/flash/flash-pinephone.sh /dev/sdX` writes the
+  newest `pine64-pinephone_marathon_edge_*.raw` to a microSD, or to the eMMC
+  JumpDrive exposes; it refuses an image without the MBR + 8 KiB SPL layout.
 - **OnePlus 6** — `scripts/flash/flash-oneplus6.sh` (fastboot). Unverified on
   recent images.
 - **QEMU** — `scripts/build-qemu-image.sh --boot`, or `--boot-only` to boot
@@ -290,7 +295,7 @@ module; when in doubt, ship the apk.
 |------|------|
 | `/usr/bin/marathon-shell-bin` | Shell binary. |
 | `/usr/bin/marathon-shell-session` | Session script greetd runs. |
-| `/etc/marathon/device-profile.conf` | Device traits read by `DeviceProfile`. |
+| `/etc/marathon/device-profile.conf` | Device traits read by `DeviceProfile`, generated from `devices/`. |
 | `/usr/share/marathon-apps/<app>/` | App files. |
 | `/home/user/.cache/marathon-qml/` | QML disk cache. |
 | `/home/user/.marathon/crash.log` | Shell log file. |

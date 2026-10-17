@@ -86,8 +86,9 @@ The main groups:
 ## Device-specific runtime configuration
 
 The image's device knowledge comes from the overlay aport, not from the
-pipeline: `/etc/marathon/device-profile.conf`, greetd and logind config,
-udev rules, firmware and kernel dependencies. See
+pipeline: `/etc/marathon/device-profile.conf` (generated from the device's
+`devices/<vendor>/<codename>/device.toml`), greetd and logind config, udev
+rules, firmware and kernel dependencies. See
 [`DEVICE_OVERLAYS.md`](DEVICE_OVERLAYS.md).
 
 ## Status

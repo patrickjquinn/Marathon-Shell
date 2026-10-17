@@ -5,22 +5,81 @@ pipeline, and the exact checklist for adding a new one.
 
 ## The principle
 
-**Device-specific hardware knowledge lives in per-device overlays, never in
-the core.** The shell binary, the app runners, and `marathon-base-config` are
-device-agnostic. Anything that differs between a Librem 5, a Pi 5, a QEMU VM,
-or the next device is declared in that device's overlay and consumed through
-one of three seams:
+**Device-specific hardware knowledge lives in per-device manifests and
+overlays, never in the core.** The shell binary, the app runners, and
+`marathon-base-config` are device-agnostic. Anything that differs between a
+Librem 5, a Pi 5, a QEMU VM, or the next device is described in that device's
+manifest (`devices/<vendor>/<codename>/device.toml`, see below), shipped by
+its overlay, and consumed through one of three seams:
 
 1. **Runtime probing** (preferred where possible) — the shell discovers power
    keys, haptics, backlight, sensors, rfkill, modem, and the cpufreq policy by
    enumerating `/proc`, `/sys`, and D-Bus. No device names in code.
 2. **`/etc/marathon/device-profile.conf`** (`DeviceProfile`, see below) — the
-   declarative source of truth for traits the shell *cannot* reliably probe
-   before it needs them (GPU driver stack, GLES level, framebuffer alpha, HW
-   MSAA, panel brightness floor, CPU governor policy, render node).
-3. **The device overlay aport** `packages/device-<vendor>-<model>-marathon` —
-   ships the device's udev rules, DT overlays, boot config, firmware
-   (`depends=`), service drop-ins, kernel fork, and its `device-profile.conf`.
+   traits the shell *cannot* reliably probe before it needs them (GPU driver
+   stack, GLES level, framebuffer alpha, HW MSAA, panel brightness floor, CPU
+   governor policy, render node). Generated from the manifest's `[profile]`
+   when the overlay is built; never edited by hand.
+3. **The device overlay aport** `packaging/packages/device-<vendor>-<codename>-marathon`
+   — ships the device's udev rules, DT overlays, boot config, firmware
+   (`depends=`), service drop-ins, kernel fork, and the generated
+   `device-profile.conf`.
+
+## Device manifests (the source of truth)
+
+```
+devices/device.schema.json            JSON Schema for device.toml
+devices/<vendor>/<codename>/device.toml
+socs/soc.schema.json                  JSON Schema for <soc>.toml
+socs/<soc>.toml                       facts shared by every board on a SoC
+tools/devices/devices.py              checker and generator
+```
+
+`<vendor>-<codename>` is the device's `id`: the postmarketOS device name the
+pipeline keys on and `DEVICE_ID` in its profile. The overlay is
+`device-<id>-marathon`. A manifest records the device's status (`primary`,
+`working`, `bring-up`, `dormant`), build target, wrapper and flash scripts,
+mkosi bootloader, boot method and loader offset, kernel (and any binary apks
+pinned by SHA-512), display (resolution, DPI, panel depth, quirks), input,
+modem/GPS/sensors, firmware packages, the runner pool, and the `[profile]`
+keys its `device-profile.conf` ships. Comments in the TOML carry the reasons.
+
+A SoC file lists the GPU, each GPU stack a board may run (driver, the highest
+ES version the shell may ask for, whether MSAA is usable) and `[profile]`
+defaults its boards inherit; a device's own profile keys win. Keys in neither
+are left out of the conf and keep the shell's built-in default.
+
+```
+python3 tools/devices/devices.py check                         # validate (Devices_Check ctest)
+python3 tools/devices/devices.py profile device-<id>-marathon  # print the generated conf
+python3 tools/devices/devices.py pins <target>                 # binary pins for a build target
+```
+
+`scripts/qemu/lib/build-device-marathon-apk.sh` writes the generated
+`device-profile.conf` into the aport before `abuild` runs. The APKBUILD lists
+it in `source=` and keeps its sha512; the checker fails when that sum is stale,
+which is the reminder to bump the overlay's `pkgrel` (`build-image.sh` reuses a
+cached apk whose pkgver-pkgrel matches). `scripts/build-image.sh` downloads the
+target's `kernel.pins` and refuses any that fail their SHA-512.
+
+Besides the schemas, `devices.py check` enforces:
+
+- path, `id` and package name agree, and every `device-*-marathon` aport has a
+  manifest;
+- the wrapper builds the manifest's target, and the wrapper and flash scripts
+  exist;
+- kernel and firmware versions match in-tree APKBUILDs;
+- `profile.gpu_stack` is one of the SoC's stacks, `gles_level` is within the
+  stack's ceiling, and `gpu_msaa` is 0 on a stack without usable MSAA (the
+  etnaviv trap: `layer.samples: 4` renders at ~2 fps on the GC7000Lite);
+- a panel under 8 bits per channel sets `panel_depth`, so the shell dithers;
+- `display.scale_dpi` is what `profile.force_dpi` or the overlay's greetd
+  `MARATHON_FORCE_DPI` sets;
+- the schema's profile keys are exactly the keys `DeviceProfile` and
+  `marathon-shell-session` read, so a new shell key needs a schema entry.
+
+The layout follows Luma's `devices/<vendor>/<codename>` + `socs/` +
+`tools/check-devices.py` ([SimplyLuma/luma](https://github.com/SimplyLuma/luma)).
 
 If you find yourself writing `if (device == "...")` in C++/QML, stop — the
 answer is a runtime probe or a `DeviceProfile` field.
@@ -46,7 +105,7 @@ location (for host testing).
 | Conf key | Env override | Default | Meaning |
 |---|---|---|---|
 | `DEVICE_ID` | `MARATHON_DEVICE_ID` | `generic` | Log/telemetry id |
-| `GPU_STACK` | `MARATHON_GPU_STACK` | `mesa-etnaviv` | `mesa-etnaviv` \| `vivante-blob` \| `mesa-v3d` \| `mesa-virgl` \| `llvmpipe` |
+| `GPU_STACK` | `MARATHON_GPU_STACK` | `mesa-etnaviv` | `mesa-etnaviv` \| `vivante-blob` \| `mesa-lima` \| `mesa-v3d` \| `mesa-virgl` \| `mesa-freedreno` \| `llvmpipe` |
 | `GLES_LEVEL` | `MARATHON_GLES_VERSION` | `2.0` | ES context version for the default surface |
 | `SURFACE_ALPHA` | `MARATHON_SURFACE_ALPHA` | `0` | 1 if the CRTC framebuffer has an alpha channel (ARGB); 0 for XRGB (i.MX8 LCDIF) |
 | `GPU_MSAA` | `MARATHON_LAYER_SAMPLES` | `0` | Max HW FBO sample count (0 = none) |
@@ -66,6 +125,11 @@ location (for host testing).
 | `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |
 | `FORCE_DPI` | `MARATHON_FORCE_DPI` | unset | Read by marathon-shell-session; pins the shell's DPI and so its scale factor (= DPI/160) |
 
+A manifest's `[profile]` writes each key in lower case with TOML types
+(`gpu_msaa = 4`, `doze_dpms = false`); `DEVICE_ID` is the manifest's `id`.
+Adding a key to the shell means adding it to `devices/device.schema.json`
+too, or `Devices_Check` fails.
+
 ## The image seam (build-time selection)
 
 Device selection is package-driven (see `~/.cache/marathon-build/duranium/` and
@@ -83,7 +147,8 @@ Device selection is package-driven (see `~/.cache/marathon-build/duranium/` and
    firmware composer for Pi).
 
 The GPU driver stack is one dimension of the overlay: a device declares
-`GPU_STACK` in its `device-profile.conf` and pulls the matching driver bits
+`profile.gpu_stack` in its manifest (one of its SoC's `gpu.stacks`) and pulls
+the matching driver bits
 (Mesa packages by default; for `vivante-blob`, an extra `*-vivante-blobs` aport
 + the galcore kernel module via the device kernel fork's `depends=`).
 
@@ -121,34 +186,43 @@ model at all (it exposes `/dev/galcore`), so `RENDER_NODE` is inert under
 `vivante-blob`.
 
 Bring-up is staged: bake/flash with `GPU_STACK=mesa-etnaviv` first (proves the
-`=m` + selector restructure is behaviour-neutral), then flip
-`GPU_STACK=vivante-blob` once galcore + the blob userspace are validated in
-isolation.
+`=m` + selector restructure is behaviour-neutral), then set
+`gpu_stack = "vivante-blob"` (and its `gles_level`) in
+`devices/purism/librem5/device.toml` once galcore + the blob userspace are
+validated in isolation.
 
 ## Checklist: adding a new device
 
-1. **Create the overlay aport** `packaging/packages/device-<vendor>-<model>-marathon/`:
+1. **Write the manifest** `devices/<vendor>/<codename>/device.toml` (copy the
+   closest device; `<vendor>-<codename>` is the pmOS device name), and
+   `socs/<soc>.toml` if the SoC is new. Put the device's traits in `[profile]`
+   (table above), only where they differ from the SoC's and the shell's
+   defaults, with the reason in a comment. Start at `status = "bring-up"`.
+2. **Create the overlay aport** `packaging/packages/device-<vendor>-<codename>-marathon/`:
    - `APKBUILD` (copy an existing one; set `pkgname`, `depends=` for firmware +
-     any GPU-blob subpackage + kernel fork).
-   - `device-profile.conf` — declare the device's traits (table above). Start
-     from the base-config default and change only what differs.
+     any GPU-blob subpackage + kernel fork). If the manifest has a
+     `[profile]`, list `device-profile.conf` in `source=`, install it to
+     `/etc/marathon/device-profile.conf`, and put the sha512 that
+     `devices.py check` reports in `sha512sums=`. Don't check the file in.
    - udev rules, DT overlay(s), boot config, service drop-ins as needed.
    - A greetd drop-in if Qt needs device-specific env (KMS device pinning,
      `QT_QPA_EGLFS_INTEGRATION`, GPU library path).
-2. **Kernel**: reuse a mainline kernel if the SoC is upstream; else add a
+3. **Kernel**: reuse a mainline kernel if the SoC is upstream; else add a
    `linux-<vendor>-<model>-marathon` fork (precedent: the L5 fork with the
    RS9116 out-of-tree patch).
-3. **Partition/boot**: add a `mkosi.repart.<device>/` if the layout differs,
+4. **Partition/boot**: add a `mkosi.repart.<device>/` if the layout differs,
    and a `mkosi.finalize` branch + `build-image.py` disk-surgery branch if the
    device needs raw-kernel boot composition.
-4. **Register selection**: ensure `mkosi-configure.py` recognises the device
+5. **Register selection**: ensure `mkosi-configure.py` recognises the device
    (bootloader type, kernel pin) and that its overlay `.apk` lands in
    `mkosi.packages/`.
-5. **Build + boot test**: `build-image.py device-<name> ui-shell`, then boot
-   (QEMU first if the SoC is emulated; otherwise flash to hardware). Confirm the
-   shell reaches the lock screen and the `[DeviceProfile]` log line reports the
-   expected traits.
-6. **Verify no core leak**: `grep -rni "<soc>\|<vendor>" shell/ apps/` should
+6. **Build + boot test**: add `scripts/build-<device>-image.sh` (and a flash
+   script under `scripts/flash/`) and name them in the manifest's `[build]`.
+   Build, then boot (QEMU first if the SoC is emulated; otherwise flash to
+   hardware). Confirm the shell reaches the lock screen and the
+   `[DeviceProfile]` log line reports the expected traits, then move the
+   manifest's `status` on.
+7. **Verify no core leak**: `grep -rni "<soc>\|<vendor>" shell/ apps/` should
    return only comments — any live branch is a bug; move it to a probe or a
    `DeviceProfile` field.
 
@@ -161,5 +235,6 @@ isolation.
   derived from `DeviceProfile`).
 - `packaging/devices` is a **dead** pmbootstrap-era path not used by
   the mkosi build; do not add to it. The `scripts/build-rootless*.sh` and
-  `packaging/configs/` halves of that path are gone; `devices/` is retained
-  only because `packages/linux-marathon/APKBUILD` still reads it.
+  `packaging/configs/` halves of that path are gone; `packaging/devices/` is
+  retained only because `packages/linux-marathon/APKBUILD` still reads it. It is
+  unrelated to the top-level `devices/` manifests.
