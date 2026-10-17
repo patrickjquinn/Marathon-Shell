@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "messages",
   "name": "Messages",
   "version": "1.0.0",
@@ -6,12 +7,18 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["sms", "telephony", "contacts", "notifications"],
+  "permissionReasons": {
+    "sms": "Sends and receives your text messages",
+    "telephony": "Checks that the device has a modem before sending",
+    "contacts": "Shows contact names in conversations and saves new contacts"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Communication"],
   "handlesUriSchemes": ["sms", "mms"],
   "defaultFor": ["messaging"],
   "searchKeywords": ["messages", "sms", "text", "chat", "messaging"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove" }
 }
-

@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "store",
   "name": "App Store",
   "version": "1.0.0",
@@ -9,10 +10,14 @@
     "network",
     "system"
   ],
+  "permissionReasons": {
+    "system": "Installs, updates and removes apps"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "searchKeywords": ["apps", "install", "download", "software", "store"],
   "categories": ["System"],
-  "backgroundCapabilities": ["download"]
+  "backgroundCapabilities": ["download"],
+  "testedOn": { "widths": [540, 720], "inputModes": ["touch"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove" }
 }
-

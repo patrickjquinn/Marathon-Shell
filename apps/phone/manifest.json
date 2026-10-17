@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "phone",
   "name": "Phone",
   "version": "1.0.0",
@@ -6,6 +7,10 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["telephony", "contacts"],
+  "permissionReasons": {
+    "telephony": "Makes and answers calls",
+    "contacts": "Shows and edits your contacts"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Communication"],
@@ -13,6 +18,7 @@
   "defaultFor": ["dialer"],
   "searchKeywords": ["phone", "dialer", "calls", "contacts", "voicemail"],
   "deepLinks": {},
-  "backgroundCapabilities": ["active-call"]
+  "backgroundCapabilities": ["active-call"],
+  "testedOn": { "widths": [720], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove" }
 }
-

@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "terminal",
   "name": "Terminal",
   "version": "1.0.0",
@@ -6,6 +7,10 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage", "terminal"],
+  "permissionReasons": {
+    "storage": "Lets the commands you run read and write your files",
+    "terminal": "Runs a shell with your user's access to the system"
+  },
   "minShellVersion": "1.0.0",
   "protected": false,
   "categories": ["System"],
@@ -18,6 +23,7 @@
       "description": "Open a new terminal tab",
       "keywords": ["new", "tab", "session"]
     }
-  }
+  },
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

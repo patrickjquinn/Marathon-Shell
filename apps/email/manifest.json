@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "email",
   "name": "Mail",
   "version": "1.0.0",
@@ -6,6 +7,10 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["network", "storage", "secret-service"],
+  "permissionReasons": {
+    "storage": "Saves attachments to Downloads",
+    "secret-service": "Keeps your account passwords and sign-in tokens in the keyring"
+  },
   "minShellVersion": "1.0.0",
   "protected": false,
   "categories": ["Productivity"],
@@ -23,5 +28,7 @@
   ],
   "deepLinks": {},
   "backgroundCapabilities": ["download", "periodic-sync"],
-  "requiresQtModules": []
+  "requiresQtModules": [],
+  "testedOn": { "widths": [540], "inputModes": ["touch"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "secrets": "remove", "userFiles": "preserve" }
 }

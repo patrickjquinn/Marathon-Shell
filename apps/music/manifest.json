@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "music",
   "name": "Music",
   "version": "1.0.0",
@@ -6,6 +7,9 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],
+  "permissionReasons": {
+    "storage": "Plays the music in your Music folder"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Entertainment"],
@@ -13,6 +17,7 @@
   "defaultFor": ["music"],
   "searchKeywords": ["music", "audio", "songs", "player", "playlist"],
   "deepLinks": {},
-  "backgroundCapabilities": ["audio-playback"]
+  "backgroundCapabilities": ["audio-playback"],
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

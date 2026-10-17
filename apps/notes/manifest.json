@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "notes",
   "name": "Notes",
   "version": "1.0.0",
@@ -6,6 +7,9 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],
+  "permissionReasons": {
+    "storage": "Imports the notes the previous Notes app saved"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Productivity"],
@@ -19,6 +23,7 @@
     "editor",
     "document"
   ],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

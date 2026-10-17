@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "calculator",
   "name": "Calculator",
   "version": "1.0.0",
@@ -18,6 +19,7 @@
     "numbers",
     "arithmetic"
   ],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540, 720], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove" }
 }
-

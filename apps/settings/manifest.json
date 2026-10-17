@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "settings",
   "name": "Settings",
   "version": "1.0.0",
@@ -6,6 +7,10 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["system", "network", "storage"],
+  "permissionReasons": {
+    "system": "Changes device settings such as Wi-Fi, display, sound and default apps",
+    "storage": "Shows how much storage is used"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["System"],
@@ -69,6 +74,7 @@
       "description": "Install and manage applications",
       "keywords": ["apps", "install", "uninstall", "packages"]
     }
-  }
+  },
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

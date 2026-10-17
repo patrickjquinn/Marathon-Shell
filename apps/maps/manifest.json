@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "maps",
   "name": "Maps",
   "version": "1.0.0",
@@ -6,6 +7,9 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["location", "network"],
+  "permissionReasons": {
+    "location": "Shows where you are and guides you turn by turn"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Productivity"],
@@ -14,6 +18,7 @@
   "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
   "deepLinks": {},
   "backgroundCapabilities": ["active-navigation", "location-tracking"],
-  "requiresQtModules": ["webengine"]
+  "requiresQtModules": ["webengine"],
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove" }
 }
-

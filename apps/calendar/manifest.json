@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "calendar",
   "name": "Calendar",
   "version": "1.0.0",
@@ -6,11 +7,16 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["notifications", "storage"],
+  "permissionReasons": {
+    "storage": "Saves your events and reminders"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Productivity"],
   "handlesUriSchemes": [],
   "defaultFor": [],
   "searchKeywords": ["calendar", "events", "schedule", "appointments", "reminders"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }

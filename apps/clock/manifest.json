@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "clock",
   "name": "Clock",
   "version": "1.0.0",
@@ -6,6 +7,9 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["notifications", "storage", "alarms"],
+  "permissionReasons": {
+    "storage": "Saves your world clocks, timers and stopwatch"
+  },
   "backgroundCapabilities": ["countdown-timer"],
   "minShellVersion": "1.0.0",
   "protected": true,
@@ -20,6 +24,7 @@
     "time",
     "world clock"
   ],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

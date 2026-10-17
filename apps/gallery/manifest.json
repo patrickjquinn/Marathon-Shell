@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "gallery",
   "name": "Gallery",
   "version": "1.0.0",
@@ -6,12 +7,16 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["storage"],
+  "permissionReasons": {
+    "storage": "Shows and deletes the photos and videos in Pictures, Videos and DCIM"
+  },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Entertainment"],
   "handlesUriSchemes": [],
   "defaultFor": ["gallery"],
   "searchKeywords": ["gallery", "photos", "images", "pictures", "media"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "testedOn": { "widths": [540, 720], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
-

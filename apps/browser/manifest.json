@@ -1,4 +1,5 @@
 {
+  "manifestVersion": 1,
   "id": "browser",
   "name": "Browser",
   "version": "1.0.0",
@@ -6,6 +7,9 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "permissions": ["network", "storage"],
+  "permissionReasons": {
+    "storage": "Imports the bookmarks, history and tabs the previous Browser saved"
+  },
   "minShellVersion": "1.0.0",
   "protected": false,
   "categories": ["Productivity"],
@@ -22,5 +26,7 @@
     "online"
   ],
   "deepLinks": {},
-  "requiresQtModules": ["webengine"]
+  "requiresQtModules": ["webengine"],
+  "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
