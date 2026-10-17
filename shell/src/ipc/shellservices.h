@@ -610,64 +610,69 @@ class HapticObject : public QObject, protected QDBusContext {
     AppLaunchService *m_launchService = nullptr;
 };
 
-class SensorObject : public QObject, protected QDBusContext {
+class SensorObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sensor1")
 
   public:
-    SensorObject(SensorManagerCpp *sensors, AppLaunchService *launchService,
-                 QObject *parent = nullptr);
+    SensorObject(SensorManagerCpp *sensors, MarathonPermissionManager *permissions,
+                 AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
-    bool IsAvailable() const;
-    bool ProximityNear() const;
-    int  AmbientLight() const;
+    bool IsAvailable();
+    bool ProximityNear();
+    int  AmbientLight();
 
   signals:
     void ProximityChanged(bool near);
     void AmbientLightChanged(int lux);
 
   private:
-    SensorManagerCpp *m_sensors       = nullptr;
-    AppLaunchService *m_launchService = nullptr;
+    bool requireSensors() {
+        return requirePermission("Sensor", {"sensors", "system"});
+    }
+    SensorManagerCpp *m_sensors = nullptr;
 };
 
-class LocationObject : public QObject, protected QDBusContext {
+class LocationObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Location1")
 
   public:
-    LocationObject(LocationManager *location, AppLaunchService *launchService,
-                   QObject *parent = nullptr);
+    LocationObject(LocationManager *location, MarathonPermissionManager *permissions,
+                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
-    bool        IsAvailable() const;
-    bool        IsActive() const;
+    bool        IsAvailable();
+    bool        IsActive();
     void        Start();
     void        Stop();
-    QVariantMap GetLocation() const;
+    QVariantMap GetLocation();
 
   signals:
     void LocationChanged(const QVariantMap &location);
     void activeChanged(bool active);
 
   private:
-    LocationManager  *m_location      = nullptr;
-    AppLaunchService *m_launchService = nullptr;
+    bool requireLocation() {
+        return requirePermission("Location", {"location"});
+    }
+    QVariantMap      location() const;
+    LocationManager *m_location = nullptr;
 };
 
-class AlarmObject : public QObject, protected QDBusContext {
+class AlarmObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Alarm1")
 
   public:
-    AlarmObject(AlarmManagerCpp *alarms, AppLaunchService *launchService,
-                QObject *parent = nullptr);
+    AlarmObject(AlarmManagerCpp *alarms, MarathonPermissionManager *permissions,
+                AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
 
-    QVariantList GetAlarms() const;
-    QVariantList GetActiveAlarms() const;
+    QVariantList GetAlarms();
+    QVariantList GetActiveAlarms();
 
     QString      CreateAlarm(const QString &time, const QString &label, const QList<int> &repeat,
                              const QVariantMap &options);
@@ -688,8 +693,10 @@ class AlarmObject : public QObject, protected QDBusContext {
     void AlarmSnoozed(const QString &id, int minutes);
 
   private:
-    AlarmManagerCpp  *m_alarms        = nullptr;
-    AppLaunchService *m_launchService = nullptr;
+    bool requireAlarms() {
+        return requirePermission("Alarm", {"alarms", "system"});
+    }
+    AlarmManagerCpp *m_alarms = nullptr;
 };
 
 class UpdateService;

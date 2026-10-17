@@ -67,6 +67,12 @@ target_include_directories(test_core_permissionmanager PRIVATE
 )
 add_test(NAME Core_PermissionManager COMMAND test_core_permissionmanager)
 
+# Every device and personal-data D-Bus method checks a permission
+add_executable(test_core_ipcgates test_ipcgates.cpp)
+target_link_libraries(test_core_ipcgates Qt6::Test Qt6::Core)
+target_compile_definitions(test_core_ipcgates PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME Core_IpcGates COMMAND test_core_ipcgates)
+
 # Permissions1 authorisation: self-only, except Settings
 add_executable(test_core_permissionauth test_permissionauth.cpp)
 target_link_libraries(test_core_permissionauth Qt6::Test Qt6::Core)

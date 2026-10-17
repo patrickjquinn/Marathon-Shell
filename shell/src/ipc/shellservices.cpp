@@ -1992,11 +1992,10 @@ void HapticObject::Stop() {
         m_haptic->cancelVibration();
 }
 
-SensorObject::SensorObject(SensorManagerCpp *sensors, AppLaunchService *launchService,
-                           QObject *parent)
-    : QObject(parent)
-    , m_sensors(sensors)
-    , m_launchService(launchService) {
+SensorObject::SensorObject(SensorManagerCpp *sensors, MarathonPermissionManager *permissions,
+                           AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_sensors(sensors) {
     Q_ASSERT(m_sensors);
     QObject::connect(m_sensors, &SensorManagerCpp::proximityNearChanged, this,
                      [this]() { emit ProximityChanged(m_sensors->proximityNear()); });
@@ -2004,66 +2003,62 @@ SensorObject::SensorObject(SensorManagerCpp *sensors, AppLaunchService *launchSe
                      [this]() { emit AmbientLightChanged(m_sensors->ambientLight()); });
 }
 
-bool SensorObject::IsAvailable() const {
-    return m_sensors ? m_sensors->available() : false;
+bool SensorObject::IsAvailable() {
+    return requireSensors() && m_sensors->available();
 }
 
-bool SensorObject::ProximityNear() const {
-    return m_sensors ? m_sensors->proximityNear() : false;
+bool SensorObject::ProximityNear() {
+    return requireSensors() && m_sensors->proximityNear();
 }
 
-int SensorObject::AmbientLight() const {
-    return m_sensors ? m_sensors->ambientLight() : 0;
+int SensorObject::AmbientLight() {
+    return requireSensors() ? m_sensors->ambientLight() : 0;
 }
 
-LocationObject::LocationObject(LocationManager *location, AppLaunchService *launchService,
-                               QObject *parent)
-    : QObject(parent)
-    , m_location(location)
-    , m_launchService(launchService) {
+LocationObject::LocationObject(LocationManager *location, MarathonPermissionManager *permissions,
+                               AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_location(location) {
     Q_ASSERT(m_location);
     QObject::connect(m_location, &LocationManager::locationChanged, this,
-                     [this]() { emit LocationChanged(GetLocation()); });
+                     [this]() { emit LocationChanged(this->location()); });
     QObject::connect(m_location, &LocationManager::activeChanged, this,
                      [this]() { emit activeChanged(m_location->active()); });
 }
 
-bool LocationObject::IsAvailable() const {
-    return m_location ? m_location->available() : false;
+bool LocationObject::IsAvailable() {
+    return requireLocation() && m_location->available();
 }
 
-bool LocationObject::IsActive() const {
-    return m_location ? m_location->active() : false;
+bool LocationObject::IsActive() {
+    return requireLocation() && m_location->active();
 }
 
 void LocationObject::Start() {
-    if (m_location)
+    if (requireLocation())
         m_location->start();
 }
 
 void LocationObject::Stop() {
-    if (m_location)
+    if (requireLocation())
         m_location->stop();
 }
 
-QVariantMap LocationObject::GetLocation() const {
-    QVariantMap loc;
-    if (m_location) {
-        loc["latitude"]  = m_location->latitude();
-        loc["longitude"] = m_location->longitude();
-        loc["accuracy"]  = m_location->accuracy();
-        loc["altitude"]  = m_location->altitude();
-        loc["speed"]     = m_location->speed();
-        loc["heading"]   = m_location->heading();
-        loc["timestamp"] = m_location->timestamp();
-    }
-    return loc;
+QVariantMap LocationObject::location() const {
+    return {{"latitude", m_location->latitude()},   {"longitude", m_location->longitude()},
+            {"accuracy", m_location->accuracy()},   {"altitude", m_location->altitude()},
+            {"speed", m_location->speed()},         {"heading", m_location->heading()},
+            {"timestamp", m_location->timestamp()}};
 }
 
-AlarmObject::AlarmObject(AlarmManagerCpp *alarms, AppLaunchService *launchService, QObject *parent)
-    : QObject(parent)
-    , m_alarms(alarms)
-    , m_launchService(launchService) {
+QVariantMap LocationObject::GetLocation() {
+    return requireLocation() ? location() : QVariantMap();
+}
+
+AlarmObject::AlarmObject(AlarmManagerCpp *alarms, MarathonPermissionManager *permissions,
+                         AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_alarms(alarms) {
     Q_ASSERT(m_alarms);
     connect(m_alarms, &AlarmManagerCpp::alarmsChanged, this, &AlarmObject::AlarmsChanged);
     connect(m_alarms, &AlarmManagerCpp::activeAlarmsChanged, this,
@@ -2073,50 +2068,50 @@ AlarmObject::AlarmObject(AlarmManagerCpp *alarms, AppLaunchService *launchServic
     connect(m_alarms, &AlarmManagerCpp::alarmSnoozed, this, &AlarmObject::AlarmSnoozed);
 }
 
-QVariantList AlarmObject::GetAlarms() const {
-    return m_alarms ? m_alarms->alarms() : QVariantList();
+QVariantList AlarmObject::GetAlarms() {
+    return requireAlarms() ? m_alarms->alarms() : QVariantList();
 }
 
-QVariantList AlarmObject::GetActiveAlarms() const {
-    return m_alarms ? m_alarms->activeAlarms() : QVariantList();
+QVariantList AlarmObject::GetActiveAlarms() {
+    return requireAlarms() ? m_alarms->activeAlarms() : QVariantList();
 }
 
 QString AlarmObject::CreateAlarm(const QString &time, const QString &label,
                                  const QList<int> &repeat, const QVariantMap &options) {
-    return m_alarms ? m_alarms->createAlarm(time, label, repeat, options) : QString();
+    return requireAlarms() ? m_alarms->createAlarm(time, label, repeat, options) : QString();
 }
 
 bool AlarmObject::UpdateAlarm(const QString &id, const QVariantMap &updates) {
-    return m_alarms ? m_alarms->updateAlarm(id, normalizeMapDeep(updates)) : false;
+    return requireAlarms() && m_alarms->updateAlarm(id, normalizeMapDeep(updates));
 }
 
 bool AlarmObject::DeleteAlarm(const QString &id) {
-    return m_alarms ? m_alarms->deleteAlarm(id) : false;
+    return requireAlarms() && m_alarms->deleteAlarm(id);
 }
 
 bool AlarmObject::EnableAlarm(const QString &id) {
-    return m_alarms ? m_alarms->enableAlarm(id) : false;
+    return requireAlarms() && m_alarms->enableAlarm(id);
 }
 
 bool AlarmObject::DisableAlarm(const QString &id) {
-    return m_alarms ? m_alarms->disableAlarm(id) : false;
+    return requireAlarms() && m_alarms->disableAlarm(id);
 }
 
 bool AlarmObject::SnoozeAlarm(const QString &id) {
-    return m_alarms ? m_alarms->snoozeAlarm(id) : false;
+    return requireAlarms() && m_alarms->snoozeAlarm(id);
 }
 
 bool AlarmObject::DismissAlarm(const QString &id) {
-    return m_alarms ? m_alarms->dismissAlarm(id) : false;
+    return requireAlarms() && m_alarms->dismissAlarm(id);
 }
 
 void AlarmObject::StopAll() {
-    if (m_alarms)
+    if (requireAlarms())
         m_alarms->stopAll();
 }
 
 void AlarmObject::TriggerAlarmNow(const QString &label) {
-    if (m_alarms)
+    if (requireAlarms())
         m_alarms->triggerAlarmNow(label);
 }
 

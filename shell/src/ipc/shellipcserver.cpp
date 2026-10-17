@@ -110,9 +110,9 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *networkObj = new NetworkObject(m_networkManager, m_permissions, m_appLaunchService, this);
     auto *navObj     = new NavigationObject(m_appLaunchService, this);
     auto *hapticObj  = new HapticObject(m_hapticManager, m_appLaunchService, this);
-    auto *sensorObj  = new SensorObject(m_sensorManager, m_appLaunchService, this);
-    auto *locObj     = new LocationObject(m_locationManager, m_appLaunchService, this);
-    auto *alarmObj   = new AlarmObject(m_alarmManager, m_appLaunchService, this);
+    auto *sensorObj  = new SensorObject(m_sensorManager, m_permissions, m_appLaunchService, this);
+    auto *locObj   = new LocationObject(m_locationManager, m_permissions, m_appLaunchService, this);
+    auto *alarmObj = new AlarmObject(m_alarmManager, m_permissions, m_appLaunchService, this);
     auto *updatesObj = new UpdatesObject(m_updateService, m_permissions, m_appLaunchService, this);
     auto *davObj     = new DavObject(m_davSyncEngine, m_permissions, m_appLaunchService, this);
     auto *appStoreObj =
