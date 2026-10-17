@@ -358,7 +358,7 @@ export QT_WAYLAND_HARDWARE_INTEGRATION="linux-dmabuf-v1"
 # of dmabuf and the app surface never maps.
 export QT_WAYLAND_CLIENT_BUFFER_INTEGRATION="wayland-egl"
 
-export WAYLAND_DISPLAY=wayland-0
+export WAYLAND_DISPLAY="${MARATHON_WL_SOCKET_NAME:-marathon-wayland-0}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
