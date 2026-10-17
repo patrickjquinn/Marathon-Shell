@@ -29,6 +29,16 @@ TestCase {
         }
     }
 
+    // Keys as the layout sends them: shifted letters come capitalised.
+    function tap(text) {
+        for (const ch of text) {
+            if (ch === " ")
+                keyboard.handleSpace();
+            else
+                keyboard.handleKeyPress(keyboard.shifted || keyboard.capsLock ? ch.toUpperCase() : ch);
+        }
+    }
+
     // Spaces typed now count as separate taps, not a double tap.
     function pauseSpace() {
         keyboard.lastSpaceTime = 0;
@@ -143,6 +153,18 @@ TestCase {
         compare(field.text, "(the ");
         type("dont-teh:teh ");
         compare(field.text, "(the dont-teh:the ");
+    }
+
+    function test_autocorrectKeepsCapitals() {
+        field.text = "Friday.";
+        field.cursorPosition = field.text.length;
+        tap(" teh ");
+        compare(field.text, "Friday. The ");
+        keyboard.handleShift();
+        keyboard.handleShift();
+        verify(keyboard.capsLock);
+        tap("teh ");
+        compare(field.text, "Friday. The THE ");
     }
 
     function test_autocorrectKeepsEarlierText() {

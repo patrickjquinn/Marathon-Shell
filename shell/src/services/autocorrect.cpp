@@ -5,6 +5,17 @@
 
 #include "dictionary.h"
 
+namespace {
+    // A correction keeps the capitals of the word typed: Teh -> The, TEH -> THE.
+    QString withCaseOf(const QString &typed, const QString &correction) {
+        if (typed.size() > 1 && typed == typed.toUpper() && typed != typed.toLower())
+            return correction.toUpper();
+        if (typed.front().isUpper() && !correction.isEmpty())
+            return correction.front().toUpper() + correction.mid(1);
+        return correction;
+    }
+} // namespace
+
 AutoCorrect::AutoCorrect(Dictionary *dictionary, QObject *parent)
     : QObject(parent)
     , m_dictionary(dictionary)
@@ -63,7 +74,7 @@ QString AutoCorrect::correct(const QString &word) {
     const QString lowerWord = word.toLower();
     const auto    typoIt    = m_commonTypos.constFind(lowerWord);
     if (typoIt != m_commonTypos.constEnd()) {
-        return typoIt.value();
+        return withCaseOf(word, typoIt.value());
     }
 
     if (!m_dictionary || m_dictionary->hasWord(lowerWord)) {
@@ -78,7 +89,7 @@ QString AutoCorrect::correct(const QString &word) {
     const QString &bestMatch = suggestions.first();
     const int      distance  = levenshteinDistance(lowerWord, bestMatch.toLower());
     if (distance <= 2) {
-        return bestMatch;
+        return withCaseOf(word, bestMatch);
     }
     return word;
 }
