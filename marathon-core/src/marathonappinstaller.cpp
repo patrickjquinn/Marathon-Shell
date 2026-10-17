@@ -4,11 +4,14 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QDebug>
+#include "marathon-core-native/src/lib.rs.h"
+#include <algorithm>
 #include <syslog.h>
 #include <utility>   // std::as_const
 
@@ -72,6 +75,80 @@ bool MarathonAppInstaller::validateManifest(const QString &manifestPath) {
     return true;
 }
 
+static QStringList permissionsOf(const QJsonObject &manifest) {
+    const QJsonArray array = manifest.value("permissions").toArray();
+    QStringList      permissions;
+    for (const auto &value : array)
+        permissions.append(value.toString());
+    permissions.removeDuplicates();
+    return permissions;
+}
+
+bool MarathonAppInstaller::planInstall(const QJsonObject &manifest, const QString &signer,
+                                       const QStringList &approved) {
+    const QString     appId       = manifest.value("id").toString();
+    const QStringList permissions = permissionsOf(manifest);
+
+    QVariantList      disclosures;
+    QStringList       undisclosed;
+    for (const QString &id : permissions) {
+        const QByteArray                             utf8 = id.toUtf8();
+        const marathon::native::PermissionDisclosure d =
+            marathon::native::describe_permission(rust::Str(utf8.constData(), utf8.size()));
+        if (!d.known) {
+            undisclosed.append(id);
+            continue;
+        }
+        disclosures.append(
+            QVariantMap{{"id", id},
+                        {"label", QString::fromUtf8(d.label.data(), d.label.size())},
+                        {"detail", QString::fromUtf8(d.detail.data(), d.detail.size())},
+                        {"sensitive", d.sensitive}});
+    }
+    if (!undisclosed.isEmpty()) {
+        const QString list = undisclosed.join(", ");
+        qWarning() << "[MarathonAppInstaller] SECURITY: Undisclosed permissions:" << appId << list;
+        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Undisclosed permissions refused: app=%s perms=%s",
+               appId.toUtf8().constData(), list.toUtf8().constData());
+        emit installFailed(appId, "Permissions with no description: " + list);
+        return false;
+    }
+
+    QFile       current(getTargetInstallPath() + "/" + appId + "/manifest.json");
+    const bool  isUpdate = current.open(QIODevice::ReadOnly);
+    QStringList added;
+    if (isUpdate) {
+        const QStringList installed =
+            permissionsOf(QJsonDocument::fromJson(current.readAll()).object());
+        for (const QString &id : permissions) {
+            if (!installed.contains(id))
+                added.append(id);
+        }
+    }
+
+    const QVariantMap plan{{"id", appId},
+                           {"name", manifest.value("name").toString()},
+                           {"version", manifest.value("version").toString()},
+                           {"signer", signer},
+                           {"update", isUpdate},
+                           {"permissions", disclosures},
+                           {"added", added}};
+    emit              installPlanned(appId, plan);
+
+    const bool consented = std::all_of(added.cbegin(), added.cend(),
+                                       [&](const QString &id) { return approved.contains(id); });
+    if (!consented) {
+        const QString list = added.join(", ");
+        qWarning() << "[MarathonAppInstaller] Update needs consent for new permissions:" << appId
+                   << list;
+        syslog(LOG_AUTH | LOG_NOTICE, "[SECURITY] Update held for consent: app=%s new perms=%s",
+               appId.toUtf8().constData(), list.toUtf8().constData());
+        emit installHeld(appId, plan);
+        return false;
+    }
+    return true;
+}
+
 bool MarathonAppInstaller::copyDirectory(const QString &source, const QString &destination) {
     QDir sourceDir(source);
     if (!sourceDir.exists()) {
@@ -120,7 +197,8 @@ bool MarathonAppInstaller::removeDirectory(const QString &path) {
     return success;
 }
 
-bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
+bool MarathonAppInstaller::installFromDirectory(const QString     &sourcePath,
+                                                const QStringList &approvedPermissions) {
     qDebug() << "[MarathonAppInstaller] Installing from directory:" << sourcePath;
 
     const QByteArray sourceUtf8 = sourcePath.toUtf8();
@@ -177,6 +255,9 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
         }
     }
 
+    if (!planInstall(doc.object(), QString(), approvedPermissions))
+        return false;
+
     emit installStarted(appId);
 
     if (m_registry->hasApp(appId)) {
@@ -223,7 +304,8 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
     return true;
 }
 
-bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
+bool MarathonAppInstaller::installFromPackage(const QString     &packagePath,
+                                              const QStringList &approvedPermissions) {
     qDebug() << "[MarathonAppInstaller] Installing from package:" << packagePath;
 
     if (!QFile::exists(packagePath)) {
@@ -311,6 +393,9 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
             return false;
         }
     }
+
+    if (!planInstall(doc.object(), m_verifier->signerKeyId(), approvedPermissions))
+        return false;
 
     qDebug() << "[MarathonAppInstaller] Installing app:" << appName << "(" << appId << ")";
     emit installStarted(appId);

@@ -125,12 +125,17 @@ int verifyCommand(const QStringList &args) {
 
 int installCommand(const QStringList &args) {
     if (args.size() < 3) {
-        printError("Usage: marathon-dev install <package-file|app-directory>");
+        printError("Usage: marathon-dev install <package-file|app-directory> "
+                   "[--approve-permissions]");
         return 1;
     }
 
     const QString &path = args.at(2);
     QFileInfo      pathInfo(path);
+    if (!pathInfo.isDir() && !path.endsWith(".marathon")) {
+        printError("Unknown file type. Expected directory or .marathon package");
+        return 1;
+    }
 
     printInfo("Installing: " + path);
 
@@ -139,18 +144,37 @@ int installCommand(const QStringList &args) {
     MarathonAppInstaller installer(&registry, &scanner);
     QObject::connect(&installer, &MarathonAppInstaller::installFailed,
                      [](const QString &, const QString &error) { printError(error); });
+    QObject::connect(&installer, &MarathonAppInstaller::installPlanned,
+                     [](const QString &, const QVariantMap &plan) {
+                         const QVariantList permissions = plan.value("permissions").toList();
+                         printInfo(permissions.isEmpty() ? "Permissions: none" : "Permissions:");
+                         for (const QVariant &permission : permissions) {
+                             const QVariantMap d = permission.toMap();
+                             printInfo(QString("  %1 %2: %3")
+                                           .arg(d.value("sensitive").toBool() ? "!" : " ",
+                                                d.value("label").toString(),
+                                                d.value("detail").toString()));
+                         }
+                     });
+    QStringList held;
+    QObject::connect(&installer, &MarathonAppInstaller::installHeld,
+                     [&held](const QString &, const QVariantMap &plan) {
+                         held = plan.value("added").toStringList();
+                     });
 
-    bool success = false;
-
-    if (pathInfo.isDir()) {
-
-        success = installer.installFromDirectory(path);
-    } else if (path.endsWith(".marathon")) {
-
-        success = installer.installFromPackage(path);
-    } else {
-        printError("Unknown file type. Expected directory or .marathon package");
-        return 1;
+    const auto install = [&](const QStringList &approved) {
+        return pathInfo.isDir() ? installer.installFromDirectory(path, approved) :
+                                  installer.installFromPackage(path, approved);
+    };
+    bool success = install({});
+    if (!success && !held.isEmpty()) {
+        printError("This update asks for new permissions: " + held.join(", "));
+        if (!args.contains("--approve-permissions")) {
+            printInfo("Re-run with --approve-permissions to allow them");
+            return 1;
+        }
+        printInfo("Allowed by --approve-permissions");
+        success = install(held);
     }
 
     if (success) {
@@ -272,7 +296,8 @@ void printHelp() {
     out << "  package <app-dir> [output]   Package an app into .marathon file\n";
     out << "  sign <package> [secret-key]  Sign a package with a minisign key\n";
     out << "  verify <package>             Check a package's signature\n";
-    out << "  install <package|app-dir>    Install an app locally\n";
+    out << "  install <package|app-dir> [--approve-permissions]\n";
+    out << "                               Install an app locally\n";
     out << "\n";
     out << "Examples:\n";
     out << "  marathon-dev init my-awesome-app\n";

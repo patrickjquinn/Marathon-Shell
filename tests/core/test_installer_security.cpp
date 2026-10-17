@@ -1,6 +1,7 @@
 #include <QTest>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -42,15 +43,16 @@ class TestInstallerSecurity : public QObject {
     }
 
     // A .marathon package of a minimal app, signed with `key` unless null.
-    QString makePackage(const QString &name, const QString &id,
-                        const TestKeys::Pair *key = nullptr) {
+    QString makePackage(const QString &name, const QString &id, const TestKeys::Pair *key = nullptr,
+                        const QStringList &permissions = {}) {
         QTemporaryDir src;
         QJsonObject   m;
-        m["id"]         = id;
-        m["name"]       = "Test";
-        m["version"]    = "1.0.0";
-        m["entryPoint"] = "Main.qml";
-        m["icon"]       = "icon.svg";
+        m["id"]          = id;
+        m["name"]        = "Test";
+        m["version"]     = "1.0.0";
+        m["entryPoint"]  = "Main.qml";
+        m["icon"]        = "icon.svg";
+        m["permissions"] = QJsonArray::fromStringList(permissions);
         writeFile(src.path() + "/manifest.json", QJsonDocument(m).toJson());
         writeFile(src.path() + "/Main.qml", "Item{}");
         QString             path = m_home.path() + "/" + name + ".marathon";
@@ -148,6 +150,78 @@ class TestInstallerSecurity : public QObject {
         MarathonAppInstaller installer(&registry, &scanner);
         QVERIFY(!installer.installFromPackage(pkg));
         QVERIFY(!QDir(installDir("com.mallory.app")).exists());
+    }
+
+    // === SECURITY CONTRACT: every permission is disclosed, widening needs consent ===
+
+    void installFromPackage_undisclosedPermissionRefused() {
+        const QString pkg = makePackage("undisclosed", "com.undisclosed.app", &TestKeys::alice,
+                                        {"network", "root-shell"});
+        QVERIFY(!pkg.isEmpty());
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QVERIFY(!installer.installFromPackage(pkg));
+        QCOMPARE(failSpy.count(), 1);
+        QVERIFY(failSpy.first().at(1).toString().contains("root-shell"));
+        QVERIFY(!QDir(installDir("com.undisclosed.app")).exists());
+    }
+
+    void installFromPackage_plansDisclosuresFromTheManifest() {
+        const QString pkg = makePackage("disclosed", "com.disclosed.app", &TestKeys::alice,
+                                        {"camera", "network", "camera"});
+        QVERIFY(!pkg.isEmpty());
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        QSignalSpy           planSpy(&installer, &MarathonAppInstaller::installPlanned);
+        QVERIFY(installer.installFromPackage(pkg));
+        QCOMPARE(planSpy.count(), 1);
+        const QVariantMap  plan        = planSpy.first().at(1).toMap();
+        const QVariantList disclosures = plan.value("permissions").toList();
+        QCOMPARE(plan.value("signer").toString(), QString(TestKeys::alice.id));
+        QCOMPARE(plan.value("update").toBool(), false);
+        QCOMPARE(disclosures.size(), 2);
+        QCOMPARE(disclosures.at(0).toMap().value("id").toString(), QString("camera"));
+        QCOMPARE(disclosures.at(0).toMap().value("label").toString(), QString("Camera"));
+        QVERIFY(disclosures.at(0).toMap().value("sensitive").toBool());
+        QVERIFY(!disclosures.at(1).toMap().value("detail").toString().isEmpty());
+    }
+
+    void installFromPackage_wideningUpdateHeldForConsent() {
+        MarathonAppRegistry  registry;
+        MarathonAppScanner   scanner(&registry);
+        MarathonAppInstaller installer(&registry, &scanner);
+        const QString        id = "com.widening.app";
+        QVERIFY(installer.installFromPackage(
+            makePackage("widen1", id, &TestKeys::alice, {"network", "storage"})));
+
+        const QString wider =
+            makePackage("widen2", id, &TestKeys::alice, {"network", "camera", "contacts"});
+        QSignalSpy heldSpy(&installer, &MarathonAppInstaller::installHeld);
+        QSignalSpy failSpy(&installer, &MarathonAppInstaller::installFailed);
+        QVERIFY(!installer.installFromPackage(wider));
+        QCOMPARE(heldSpy.count(), 1);
+        QCOMPARE(failSpy.count(), 0);
+        QCOMPARE(heldSpy.first().at(1).toMap().value("added").toStringList(),
+                 QStringList({"camera", "contacts"}));
+        QFile installed(installDir(id) + "/manifest.json");
+        QVERIFY(installed.open(QIODevice::ReadOnly));
+        QVERIFY(!installed.readAll().contains("camera"));
+        installed.close();
+
+        QVERIFY(!installer.installFromPackage(wider, {"camera"}));
+        QCOMPARE(heldSpy.count(), 2);
+        QVERIFY(installer.installFromPackage(wider, {"camera", "contacts"}));
+        QVERIFY(installed.open(QIODevice::ReadOnly));
+        QVERIFY(installed.readAll().contains("camera"));
+        installed.close();
+
+        // Dropping permissions needs no consent.
+        QVERIFY(
+            installer.installFromPackage(makePackage("widen3", id, &TestKeys::alice, {"network"})));
+        QCOMPARE(heldSpy.count(), 2);
     }
 
     void installFromDir_refusedWithoutOverride() {
