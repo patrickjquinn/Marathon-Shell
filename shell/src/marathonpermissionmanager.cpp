@@ -1,4 +1,5 @@
 #include "marathonpermissionmanager.h"
+#include "marathonappregistry.h"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include "portalmanager.h"
@@ -10,6 +11,7 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QTimer>
+#include <algorithm>
 #include <utility>   // std::as_const
 
 MarathonPermissionManager *MarathonPermissionManager::create(QQmlEngine *engine, QJSEngine *) {
@@ -93,7 +95,7 @@ void MarathonPermissionManager::loadPermissions() {
 
         const auto permissionKeys = appPerms.keys();
         for (const QString &permission : permissionKeys) {
-            permissions[permission] = appPerms.value(permission).toBool();
+            permissions[canonical(permission)] = appPerms.value(permission).toBool();
         }
 
         m_permissions[appId] = permissions;
@@ -131,32 +133,40 @@ void MarathonPermissionManager::savePermissions() {
     qDebug() << "[MarathonPermissionManager] Saved permissions";
 }
 
-bool MarathonPermissionManager::hasPermission(const QString &appId, const QString &permission) {
-    if (m_permissions.contains(appId)) {
-        const QMap<QString, bool> &appPerms = m_permissions[appId];
-        if (appPerms.contains(permission))
-            return appPerms[permission];
-    }
-    return protectedManifestPermissions(appId).contains(permission);
+void MarathonPermissionManager::setAppRegistry(MarathonAppRegistry *registry) {
+    m_registry = registry;
 }
 
-QSet<QString> MarathonPermissionManager::protectedManifestPermissions(const QString &appId) const {
-    auto it = m_protectedManifestCache.find(appId);
-    if (it != m_protectedManifestCache.end())
-        return it.value();
+QString MarathonPermissionManager::canonical(const QString &permission) {
+    const QString name = MarathonManifest::canonicalPermission(permission);
+    return name.isEmpty() ? permission : name;
+}
 
-    QSet<QString> perms;
-    QFile         mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
-    if (mf.open(QIODevice::ReadOnly)) {
-        const QJsonObject root = QJsonDocument::fromJson(mf.readAll()).object();
-        if (root.value(QStringLiteral("protected")).toBool()) {
-            const QJsonArray arr = root.value(QStringLiteral("permissions")).toArray();
-            for (const auto &v : arr)
-                perms.insert(v.toString());
-        }
-    }
-    m_protectedManifestCache.insert(appId, perms);
-    return perms;
+const MarathonAppRegistry::AppInfo *MarathonPermissionManager::appInfo(const QString &appId) const {
+    return m_registry ? m_registry->getAppInfo(appId) : nullptr;
+}
+
+bool MarathonPermissionManager::declares(const MarathonAppRegistry::AppInfo &app,
+                                         const QString                      &permission) {
+    return std::any_of(app.permissions.cbegin(), app.permissions.cend(),
+                       [&](const QString &p) { return canonical(p) == permission; });
+}
+
+// Restricted permissions are held only by protected system apps.
+bool MarathonPermissionManager::isRefused(const MarathonAppRegistry::AppInfo *app,
+                                          const QString                      &permission) const {
+    const auto it = m_vocabulary.constFind(permission);
+    return it != m_vocabulary.constEnd() && it->restricted && !(app && app->isProtected);
+}
+
+bool MarathonPermissionManager::hasPermission(const QString &appId, const QString &permission) {
+    return getPermissionStatus(appId, permission) == Granted;
+}
+
+void MarathonPermissionManager::forgetApp(const QString &appId) {
+    dismissForApp(appId);
+    if (m_permissions.remove(appId) > 0)
+        savePermissions();
 }
 
 void MarathonPermissionManager::requestPermissions(const QString     &appId,
@@ -166,8 +176,17 @@ void MarathonPermissionManager::requestPermissions(const QString     &appId,
     }
 }
 
-void MarathonPermissionManager::requestPermission(const QString &appId, const QString &permission) {
+void MarathonPermissionManager::requestPermission(const QString &appId, const QString &requested) {
+    const QString permission = canonical(requested);
     qDebug() << "[MarathonPermissionManager] Permission requested:" << appId << permission;
+
+    const MarathonAppRegistry::AppInfo *app = appInfo(appId);
+    if (app && !declares(*app, permission)) {
+        qWarning() << "[MarathonPermissionManager] SECURITY: undeclared permission requested:"
+                   << appId << permission;
+        emit permissionDenied(appId, permission);
+        return;
+    }
 
     PermissionStatus status = getPermissionStatus(appId, permission);
 
@@ -294,7 +313,7 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
     }
 
     for (const QString &perm : permissions) {
-        m_permissions[appId][perm] = granted;
+        m_permissions[appId][canonical(perm)] = granted;
     }
 
     if (remember) {
@@ -310,12 +329,11 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
     emit promptActiveChanged();
     emit currentRequestChanged();
 
-    // Emit results for each permission
     for (const QString &perm : permissions) {
-        if (granted) {
-            emit permissionGranted(appId, perm);
+        if (hasPermission(appId, perm)) {
+            emit permissionGranted(appId, canonical(perm));
         } else {
-            emit permissionDenied(appId, perm);
+            emit permissionDenied(appId, canonical(perm));
         }
     }
 
@@ -363,7 +381,8 @@ void MarathonPermissionManager::dismissForApp(const QString &appId) {
     }
 }
 
-void MarathonPermissionManager::revokePermission(const QString &appId, const QString &permission) {
+void MarathonPermissionManager::revokePermission(const QString &appId, const QString &requested) {
+    const QString permission = canonical(requested);
     qDebug() << "[MarathonPermissionManager] Revoking permission:" << appId << permission;
 
     if (m_permissions.contains(appId)) {
@@ -374,30 +393,27 @@ void MarathonPermissionManager::revokePermission(const QString &appId, const QSt
 }
 
 QStringList MarathonPermissionManager::getAppPermissions(const QString &appId) {
-    if (!m_permissions.contains(appId)) {
-        return QStringList();
+    QStringList granted;
+    for (const QString &permission : m_vocabulary.keys()) {
+        if (hasPermission(appId, permission))
+            granted.append(permission);
     }
-
-    QStringList                permissions;
-    const QMap<QString, bool> &appPerms = m_permissions[appId];
-
-    for (auto it = appPerms.constBegin(); it != appPerms.constEnd(); ++it) {
-        if (it.value()) {
-            permissions.append(it.key());
-        }
-    }
-
-    return permissions;
+    return granted;
 }
 
+// An app holds only what it declared: in its read-only manifest for a
+// system app, in the install receipt for any other. Apps the registry does
+// not know (portal and GeoClue callers) only have what was stored.
 MarathonPermissionManager::PermissionStatus
-MarathonPermissionManager::getPermissionStatus(const QString &appId, const QString &permission) {
-    if (m_permissions.contains(appId)) {
-        const QMap<QString, bool> &appPerms = m_permissions[appId];
-        if (appPerms.contains(permission))
-            return appPerms[permission] ? Granted : Denied;
-    }
-    if (protectedManifestPermissions(appId).contains(permission))
+MarathonPermissionManager::getPermissionStatus(const QString &appId, const QString &requested) {
+    const QString                       permission = canonical(requested);
+    const MarathonAppRegistry::AppInfo *app        = appInfo(appId);
+    if ((app && !declares(*app, permission)) || isRefused(app, permission))
+        return Denied;
+    const auto stored = m_permissions.value(appId);
+    if (stored.contains(permission))
+        return stored.value(permission) ? Granted : Denied;
+    if (app && app->isProtected)
         return Granted;
     return NotRequested;
 }

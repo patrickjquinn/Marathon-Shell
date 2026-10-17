@@ -1152,6 +1152,7 @@ int main(int argc, char *argv[]) {
     }
 
     auto *permissionManager = new MarathonPermissionManager(&app);
+    permissionManager->setAppRegistry(appRegistry);
     qmlRegisterSingletonInstance<MarathonPermissionManager>("MarathonOS.Shell", 1, 0,
                                                             "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
@@ -1390,7 +1391,7 @@ int main(int argc, char *argv[]) {
     }
 
     QTimer::singleShot(
-        0, &app, [&app, settingsManager, appModel, appRegistry, appScanner, permissionManager]() {
+        0, &app, [&app, settingsManager, appModel, appRegistry, appScanner]() {
             const QStringList searchPaths = {
                 "/usr/share/applications", "/usr/local/share/applications",
                 QDir::homePath() + "/.local/share/applications",
@@ -1419,26 +1420,9 @@ int main(int argc, char *argv[]) {
         appModel->addApps(nativeApps);
 #endif
 
-            auto grantProtected = [permissionManager, appRegistry](const QString &appId) {
-                if (!permissionManager || !appRegistry)
-                    return;
-                auto *info = appRegistry->getAppInfo(appId);
-                if (!info || !info->isProtected)
-                    return;
-                for (const QString &perm : std::as_const(info->permissions)) {
-                    if (!perm.isEmpty())
-                        permissionManager->setPermission(appId, perm, true, true);
-                }
-            };
-
-            QObject::connect(appScanner, &MarathonAppScanner::appDiscovered, &app, grantProtected);
-            QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
-                             [appModel, appRegistry, grantProtected](int) {
-                                 const auto allAppIds = appRegistry->getAllAppIds();
-                                 for (const QString &id : allAppIds)
-                                     grantProtected(id);
-                                 appModel->loadFromRegistry(appRegistry);
-                             });
+            QObject::connect(
+                appScanner, &MarathonAppScanner::scanComplete, &app,
+                [appModel, appRegistry](int) { appModel->loadFromRegistry(appRegistry); });
 
 #ifdef HAVE_QT_CONCURRENT
             appScanner->scanApplicationsAsync();

@@ -3,11 +3,11 @@
 class QQmlEngine;
 class QJSEngine;
 
+#include "marathonappregistry.h"
 #include "marathonmanifest.h"
-#include <QHash>
+#include <QPointer>
 #include <QMap>
 #include <QObject>
-#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -40,6 +40,10 @@ class MarathonPermissionManager : public QObject {
 
     explicit MarathonPermissionManager(QObject *parent = nullptr);
 
+    // Where the manager learns what each app declared and whether it is a
+    // protected system app. Without one only stored decisions count.
+    void             setAppRegistry(MarathonAppRegistry *registry);
+
     Q_INVOKABLE bool hasPermission(const QString &appId, const QString &permission);
 
     Q_INVOKABLE void requestPermission(const QString &appId, const QString &permission);
@@ -58,6 +62,8 @@ class MarathonPermissionManager : public QObject {
     Q_INVOKABLE QStringList      getAppPermissions(const QString &appId);
 
     Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);
+    // Drops every decision for the app, as when it is uninstalled.
+    void        forgetApp(const QString &appId);
 
     Q_INVOKABLE MarathonPermissionManager::PermissionStatus getPermissionStatus(const QString &appId,
                                                      const QString &permission);
@@ -97,16 +103,13 @@ class MarathonPermissionManager : public QObject {
     void    savePermissions();
     QString getPermissionsFilePath();
     void    checkQueue();
-    // Protected built-in apps (manifest "protected": true) get the permissions
-    // they declare in their manifest pre-granted on first lookup. Without this
-    // the system Messages/Phone/Camera nag the user with a permission popup the
-    // very first time they're opened — for capabilities those apps cannot
-    // possibly function without. Cached per appId after the first manifest
-    // read; revocation still flows through m_permissions and wins.
-    QSet<QString>                         protectedManifestPermissions(const QString &appId) const;
+    static QString canonical(const QString &permission);
+    static bool    declares(const MarathonAppRegistry::AppInfo &app, const QString &permission);
+    const MarathonAppRegistry::AppInfo *appInfo(const QString &appId) const;
+    bool isRefused(const MarathonAppRegistry::AppInfo *app, const QString &permission) const;
 
+    QPointer<MarathonAppRegistry>               m_registry;
     QMap<QString, QMap<QString, bool>>    m_permissions;
-    mutable QHash<QString, QSet<QString>> m_protectedManifestCache;
 
     bool                                  m_promptActive;
     QString                               m_currentAppId;

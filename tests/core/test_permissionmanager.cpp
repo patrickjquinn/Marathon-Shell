@@ -259,6 +259,91 @@ class TestPermissionManager : public QObject {
         QCOMPARE(mgr.getPermissionStatus("com.flip", "camera"), MarathonPermissionManager::Denied);
     }
 
+    // === CONTRACT: an app holds only what it declared, and restricted
+    // permissions only as a protected system app ===
+
+    static MarathonAppRegistry::AppInfo app(const QString &id, const QStringList &permissions,
+                                            bool system = false, bool isProtected = false) {
+        MarathonAppRegistry::AppInfo info;
+        info.id          = id;
+        info.name        = id;
+        info.entryPoint  = "Main.qml";
+        info.permissions = permissions;
+        info.isSystem    = system;
+        info.isProtected = isProtected;
+        return info;
+    }
+
+    void undeclaredPermissionsAreDenied() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("com.crafted", {"network"}));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        QSignalSpy denied(&mgr, &MarathonPermissionManager::permissionDenied);
+
+        mgr.setPermission("com.crafted", "contacts", true);
+        QVERIFY(!mgr.hasPermission("com.crafted", "contacts"));
+        QCOMPARE(mgr.getPermissionStatus("com.crafted", "contacts"),
+                 MarathonPermissionManager::Denied);
+        denied.clear();
+        mgr.requestPermission("com.crafted", "contacts");
+        QCOMPARE(denied.count(), 1);
+        QTest::qWait(200);
+        QVERIFY(!mgr.promptActive());
+
+        QCOMPARE(mgr.getPermissionStatus("com.crafted", "network"),
+                 MarathonPermissionManager::NotRequested);
+        QVERIFY(mgr.getAppPermissions("com.crafted").isEmpty());
+    }
+
+    void restrictedPermissionsNeedAProtectedApp() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("test", {"system", "contacts"}, true));
+        registry.registerAppInfo(app("com.fake", {"system"}));
+        registry.registerAppInfo(app("settings", {"system", "network"}, true, true));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+
+        mgr.setPermission("test", "system", true);
+        QVERIFY(!mgr.hasPermission("test", "system"));
+        QVERIFY(!mgr.hasPermission("com.fake", "system"));
+        QCOMPARE(mgr.getPermissionStatus("test", "contacts"),
+                 MarathonPermissionManager::NotRequested);
+
+        QVERIFY(mgr.hasPermission("settings", "system"));
+        QVERIFY(mgr.hasPermission("settings", "network"));
+        QVERIFY(!mgr.hasPermission("settings", "contacts"));
+        QCOMPARE(mgr.getAppPermissions("settings"), QStringList({"network", "system"}));
+        mgr.setPermission("settings", "network", false);
+        QVERIFY(!mgr.hasPermission("settings", "network"));
+    }
+
+    void thePhoneAliasIsTelephony() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("com.dialer", {"phone"}));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        mgr.setPermission("com.dialer", "phone", true);
+        QVERIFY(mgr.hasPermission("com.dialer", "telephony"));
+        QVERIFY(mgr.hasPermission("com.dialer", "phone"));
+        mgr.revokePermission("com.dialer", "telephony");
+        QCOMPARE(mgr.getPermissionStatus("com.dialer", "phone"),
+                 MarathonPermissionManager::NotRequested);
+    }
+
+    void forgettingAnAppDropsItsDecisions() {
+        {
+            MarathonPermissionManager mgr;
+            mgr.setPermission("com.gone", "camera", true);
+            mgr.forgetApp("com.gone");
+            QCOMPARE(mgr.getPermissionStatus("com.gone", "camera"),
+                     MarathonPermissionManager::NotRequested);
+        }
+        MarathonPermissionManager mgr;
+        QCOMPARE(mgr.getPermissionStatus("com.gone", "camera"),
+                 MarathonPermissionManager::NotRequested);
+    }
+
     void cleanupTestCase() {
         cleanPermissions();
         QStandardPaths::setTestModeEnabled(false);

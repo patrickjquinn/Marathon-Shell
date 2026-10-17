@@ -313,11 +313,8 @@ Item {
         onTriggered: {
             if (demoPermissionApp.length > 0 && demoPermissionId.length > 0 && typeof PermissionManager !== "undefined" && PermissionManager) {
                 SessionStore.unlock();
-                // Protected built-in apps get the requested permission auto-granted
-                // during the initial app scan (see main.cpp grantProtected). If we
-                // request it again here, the manager short-circuits as
-                // "already granted" and never opens the dialog. Revoke first so
-                // the harness actually queues a fresh prompt.
+                // Revoke first so a stored answer doesn't short-circuit the
+                // prompt. Protected apps never prompt: pass an unprotected one.
                 if (PermissionManager.revokePermission)
                     PermissionManager.revokePermission(demoPermissionApp, demoPermissionId);
                 PermissionManager.requestPermission(demoPermissionApp, demoPermissionId);
