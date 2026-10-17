@@ -1,11 +1,15 @@
 #include <QGuiApplication>
+#include <QProcess>
+#include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QWaylandQuickCompositor>
 #include <QWaylandQuickItem>
 #include <QWaylandQuickOutput>
 #include <QWaylandSurface>
+#include <QWaylandTextInputManager>
 #include <QWaylandTextInputManagerV3>
+#include <QWaylandXdgShell>
 #include <QtTest>
 
 #include <atomic>
@@ -194,7 +198,92 @@ class TestTextInputReplace : public QObject {
         });
         QCOMPARE(events, QStringList());
     }
+
+    // A Qt app, as the app runner is, on Qt's default text-input v2: the
+    // corrected word replaces the typed one in its TextInput.
+    void qtClientFieldIsCorrected() {
+        QTemporaryDir runtime;
+        qputenv("XDG_RUNTIME_DIR", runtime.path().toLocal8Bit());
+        const QByteArray        socket = "marathon-test-qt-client";
+
+        QWaylandQuickCompositor compositor;
+        compositor.setSocketName(socket);
+        new QWaylandTextInputManager(&compositor);
+        auto *xdgShell = new QWaylandXdgShell(&compositor);
+        compositor.create();
+        QQuickWindow        window;
+        QWaylandQuickOutput output(&compositor, &window);
+        window.resize(200, 200);
+        window.show();
+        window.requestActivate();
+
+        QWaylandQuickItem item(window.contentItem());
+        item.setSize(QSizeF(200, 100));
+        connect(xdgShell, &QWaylandXdgShell::toplevelCreated, &item,
+                [&item](QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *surface) {
+                    item.setSurface(surface->surface());
+                    toplevel->sendMaximized(QSize(200, 100));
+                    item.takeFocus();
+                });
+
+        QProcess            app;
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert("WAYLAND_DISPLAY", QString::fromLatin1(socket));
+        env.insert("QT_QPA_PLATFORM", "wayland");
+        env.insert("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
+        env.insert("QT_IM_MODULE", "wayland");
+        env.insert("QT_QUICK_BACKEND", "software");
+        env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1");
+        env.insert("QT_FORCE_STDERR_LOGGING", "1");
+        app.setProcessEnvironment(env);
+        app.setProcessChannelMode(QProcess::MergedChannels);
+        QString printed;
+        connect(&app, &QProcess::readyRead, this,
+                [&app, &printed]() { printed += QString::fromUtf8(app.readAll()); });
+        app.start(QCoreApplication::applicationFilePath(), {QStringLiteral("--app")});
+
+        const auto surrounding = []() {
+            return QInputMethod::queryFocusObject(Qt::ImSurroundingText, {}).toString();
+        };
+        QTRY_COMPARE(QGuiApplication::focusObject(), &item);
+        QTRY_VERIFY2(printed.contains(QLatin1String("FOCUSED")), qPrintable(printed));
+
+        InputContext context;
+        context.insertText(QStringLiteral("I said teh"));
+        QTRY_VERIFY2(printed.contains(QLatin1String("TEXT[I said teh]")), qPrintable(printed));
+        QTRY_COMPARE(surrounding(), QStringLiteral("I said teh"));
+        QVERIFY(context.replaceTextBeforeCursor(QStringLiteral("teh"), QStringLiteral("the ")));
+        QTRY_VERIFY2(printed.contains(QLatin1String("TEXT[I said the ]")), qPrintable(printed));
+        QTRY_COMPARE(surrounding(), QStringLiteral("I said the "));
+        QVERIFY(context.insertDoubleSpacePeriod());
+        QTRY_VERIFY2(printed.contains(QLatin1String("TEXT[I said the. ]")), qPrintable(printed));
+
+        app.kill();
+        app.waitForFinished();
+    }
 };
 
-QTEST_MAIN(TestTextInputReplace)
+// --app: a Qt Wayland client with one focused TextInput that prints its text.
+int main(int argc, char **argv) {
+    if (argc == 2 && std::strcmp(argv[1], "--app") == 0) {
+        QGuiApplication       app(argc, argv);
+        QQmlApplicationEngine engine;
+        engine.loadData(R"(
+            import QtQuick
+            Window {
+                width: 200; height: 100; visible: true
+                TextInput {
+                    anchors.fill: parent
+                    focus: true
+                    onActiveFocusChanged: if (activeFocus) console.info("FOCUSED")
+                    onTextChanged: console.info("TEXT[" + text + "]")
+                }
+            }
+        )");
+        return QGuiApplication::exec();
+    }
+    QGuiApplication      app(argc, argv);
+    TestTextInputReplace test;
+    return QTest::qExec(&test, argc, argv);
+}
 #include "test_textinputreplace.moc"
