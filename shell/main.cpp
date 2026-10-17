@@ -1245,7 +1245,7 @@ int main(int argc, char *argv[]) {
                                          navigationRouter, telephonyService, appRegistry, &app);
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
-        powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,
+        displayPolicyController, displayManager, audioPolicyController, hapticManager,
         telephonyService, smsService, sensorManager, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,

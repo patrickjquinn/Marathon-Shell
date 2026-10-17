@@ -8,7 +8,6 @@
 class ContactsManager;
 class NotificationServiceCpp;
 class PowerPolicyController;
-class PowerManagerCpp;
 class DisplayPolicyController;
 class DisplayManagerCpp;
 class AudioPolicyController;
@@ -30,10 +29,9 @@ class TelephonyIntegrationCpp : public QObject {
   public:
     explicit TelephonyIntegrationCpp(
         ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-        PowerPolicyController *powerPolicy, PowerManagerCpp *powerManager,
-        DisplayPolicyController *displayPolicy, DisplayManagerCpp *displayManager,
-        AudioPolicyController *audioPolicy, HapticManager *haptics,
-        TelephonyService *telephonyService, SMSService *smsService,
+        PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
+        DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy,
+        HapticManager *haptics, TelephonyService *telephonyService, SMSService *smsService,
         SensorManagerCpp *sensorManager = nullptr, QObject *parent = nullptr);
 
     QString lastCallState() const {
@@ -84,7 +82,6 @@ class TelephonyIntegrationCpp : public QObject {
     ContactsManager         *m_contactsManager     = nullptr;
     NotificationServiceCpp  *m_notificationService = nullptr;
     PowerPolicyController   *m_powerPolicy         = nullptr;
-    PowerManagerCpp         *m_powerManager        = nullptr;
     DisplayPolicyController *m_displayPolicy       = nullptr;
     DisplayManagerCpp       *m_displayManager      = nullptr;
     AudioPolicyController   *m_audioPolicy         = nullptr;

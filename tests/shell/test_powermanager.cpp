@@ -9,6 +9,7 @@
 #include <poll.h>
 #include <unistd.h>
 
+#include "controllers/powerpolicycontroller.h"
 #include "managers/powermanagercpp.h"
 
 namespace {
@@ -109,6 +110,15 @@ class TestPowerManager : public QObject {
         QVERIFY(!holds(QStringLiteral("Wakelock: a")));
         QVERIFY(holds(QStringLiteral("Wakelock: b")));
         QCOMPARE(power.activeWakelocks(), QStringList{QStringLiteral("b")});
+    }
+
+    void aWakeForACallOrMessageTakesNoWakelock() {
+        PowerManagerCpp       power;
+        PowerPolicyController policy(&power, nullptr);
+        policy.wake(QStringLiteral("call"));
+        policy.wake(QStringLiteral("notification"));
+        QCOMPARE(power.wakeLockCount(), 0);
+        QVERIFY(policy.canSleep());
     }
 };
 

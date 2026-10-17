@@ -1,7 +1,6 @@
 #include "telephonyintegrationcpp.h"
 
 #include "notificationservicecpp.h"
-#include "powermanagercpp.h"
 #include "displaymanagercpp.h"
 #include "displaypolicycontroller.h"
 #include "powerpolicycontroller.h"
@@ -16,15 +15,14 @@
 
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-    PowerPolicyController *powerPolicy, PowerManagerCpp *powerManager,
-    DisplayPolicyController *displayPolicy, DisplayManagerCpp *displayManager,
-    AudioPolicyController *audioPolicy, HapticManager *haptics, TelephonyService *telephonyService,
-    SMSService *smsService, SensorManagerCpp *sensorManager, QObject *parent)
+    PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
+    DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy, HapticManager *haptics,
+    TelephonyService *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
+    QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
     , m_powerPolicy(powerPolicy)
-    , m_powerManager(powerManager)
     , m_displayPolicy(displayPolicy)
     , m_displayManager(displayManager)
     , m_audioPolicy(audioPolicy)
@@ -83,8 +81,6 @@ void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
 
     if (m_powerPolicy)
         m_powerPolicy->wake("call");
-    else if (m_powerManager)
-        m_powerManager->acquireWakelock("call");
 
     if (m_displayPolicy)
         m_displayPolicy->turnScreenOn();
@@ -145,8 +141,6 @@ void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const
                                                     qint64) {
     if (m_powerPolicy)
         m_powerPolicy->wake("notification");
-    else if (m_powerManager)
-        m_powerManager->acquireWakelock("notification");
 
     const QString contactName = resolveContactName(sender);
     if (m_notificationService) {

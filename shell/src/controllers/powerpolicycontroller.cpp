@@ -190,10 +190,6 @@ QString PowerPolicyController::wake(const QString &reason) {
         m_displayManager->setScreenState(true);
 
     emit systemWaking(reason);
-
-    if (m_powerManager)
-        m_powerManager->acquireWakelock(reason);
-
     return reason;
 }
 

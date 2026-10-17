@@ -594,11 +594,29 @@ set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
 # PowerManagerCpp against a fake logind: wakelocks and the lifelong inhibitor
 add_executable(test_shell_powermanager
     test_powermanager.cpp
+    ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/rotationmanager.cpp
+    ../../shell/src/managers/sensormanagercpp.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/controllers/powerpolicycontroller.cpp
+    ../../shell/src/services/applifecyclemanager.cpp
+    ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/services/cgroupmanager.cpp
+    ../../shell/src/services/processstopper.cpp
+    ../../shell/src/models/taskmodel.cpp
+    ../../shell/src/models/appmodel.cpp
+    ../../shell/src/managers/screenmetrics.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
 )
-target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
+    Qt6::Sensors)
 target_include_directories(test_shell_powermanager PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
 add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
